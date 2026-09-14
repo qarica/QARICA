@@ -1,0 +1,1 @@
+import {DomainRecordPage} from "@/components/domain-record-page";export default async function Page({params}:{params:Promise<{id:string}>}){const {id}=await params;return <DomainRecordPage id={id} moduleTitle="Đánh giá ngoài" listHref="/external-assessments" permissions={["criteria.view","criteria.review","criteria.manage"]}/>}
