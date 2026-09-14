@@ -1,0 +1,1 @@
+import {DomainRecordPage} from "@/components/domain-record-page";export default async function Page({params}:{params:Promise<{id:string}>}){const {id}=await params;return <DomainRecordPage id={id} moduleTitle="Quản lý rủi ro" listHref="/risks" permissions={["risk.view","risk.manage"]}/>}
