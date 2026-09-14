@@ -24,13 +24,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (callerError || !caller?.organization_id || !caller.is_active) return NextResponse.json({ error: callerError?.message || "Tài khoản không hợp lệ hoặc chưa gắn bệnh viện." }, { status: 403 });
   if (programError || !program) return NextResponse.json({ error: programError?.message || "Không tìm thấy kế hoạch." }, { status: 404 });
+  const currentProgram = program;
 
-  const { data: record, error: recordError } = await admin.from("records").select("id,organization_id,lifecycle_status,title").eq("id", program.record_id).maybeSingle();
+  const { data: record, error: recordError } = await admin.from("records").select("id,organization_id,lifecycle_status,title").eq("id", currentProgram.record_id).maybeSingle();
   if (recordError || !record || record.organization_id !== caller.organization_id || record.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "Kế hoạch không thuộc phạm vi bệnh viện hiện tại hoặc đã ngưng hoạt động." }, { status: 403 });
 
   async function updateStatus(from: string, to: string, extra: Record<string, unknown> = {}) {
-    if (program.workflow_status !== from) return NextResponse.json({ error: "Trạng thái hiện tại không phù hợp với thao tác này. Vui lòng tải lại trang." }, { status: 409 });
-    const { error } = await admin.from("work_programs").update({ workflow_status: to, ...extra }).eq("id", program.id).eq("workflow_status", from);
+    if (currentProgram.workflow_status !== from) return NextResponse.json({ error: "Trạng thái hiện tại không phù hợp với thao tác này. Vui lòng tải lại trang." }, { status: 409 });
+    const { error } = await admin.from("work_programs").update({ workflow_status: to, ...extra }).eq("id", currentProgram.id).eq("workflow_status", from);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true, workflow_status: to });
   }
