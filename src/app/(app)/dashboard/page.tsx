@@ -5,7 +5,6 @@ import { TqmSmartCommandCenter } from "@/components/tqm-smart-command-center";
 import { TqmProcessMap } from "@/components/tqm-process-map";
 import { TqmScorecard } from "@/components/tqm-scorecard";
 import { TqmInterventionLoop } from "@/components/tqm-intervention-loop";
-import { TqmPriorityBoard } from "@/components/tqm-priority-board";
 import { requireUserContext } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { routeForRecord } from "@/lib/record-route";
@@ -58,7 +57,6 @@ export default async function DashboardPage(){
   <TqmProcessMap planPct={planPct} indicatorPct={indicatorPct} monitoringPct={monitoringPct} openFindings={findings.length} capaDue={capaDue} projectPct={projectPct} />
   <TqmScorecard planPct={planPct} indicatorPct={indicatorPct} monitoringPct={monitoringPct} projectPct={projectPct} seriousIncidents={serious} overdueFindings={overdueFindings} />
   <TqmInterventionLoop openFindings={findings.length} overdueFindings={overdueFindings} capaDue={capaDue} projectPct={projectPct} />
-  <TqmPriorityBoard serious={serious} overdueFindings={overdueFindings} capaDue={capaDue} outTarget={outTarget} planOverdue={planOverdue} />
   <section className="grid3"><article className="panel"><div className="head"><h2>Tiến độ kế hoạch chất lượng năm</h2><p>Từ Action thực tế của các kế hoạch.</p></div><TqmDonut value={planPct} label="Hoàn thành" segments={[{label:"Đã hoàn thành",value:planDone,tone:"brand"},{label:"Còn lại",value:Math.max(0,planReq-planDone),tone:"blue"},{label:"Quá hạn",value:planOverdue,tone:"red"}]}/></article><article className="panel"><div className="head"><h2>Điểm nóng cần chú ý</h2><p>Chỉ giữ các vấn đề quản trị cấp bệnh viện.</p></div><div className="hotspots">{hotspots.map((x)=><Link href={x.href} key={x.label} className={`hotspot ${x.tone}`}><strong>{x.label}</strong><b>{x.value}</b></Link>)}</div><div className="quick"><Link className="button secondary" href="/plans">Kế hoạch năm</Link><Link className="button secondary" href="/monitoring">Giám sát</Link><Link className="button secondary" href="/improvement/projects">Cải tiến</Link></div></article></section>
   <section className="grid2"><article className="panel"><div className="head"><h2>Xu hướng chỉ số đạt mục tiêu 12 tháng</h2><p>Tỷ lệ các kỳ chỉ số VERIFIED/LOCKED không ở trạng thái OUT_OF_TARGET.</p></div><TqmTrend points={indicatorTrend}/></article><article className="panel"><div className="head"><h2>Giám sát theo khoa/phòng</h2><p>Đơn vị có tỷ lệ mục đạt thấp được đưa lên trước.</p></div>{deptBars.length?<TqmHorizontalBars rows={deptBars} max={100}/>:<div className="empty-state">Chưa có dữ liệu giám sát đủ để so sánh.</div>}</article></section>
   <section className="panel"><div className="head"><h2>Gantt đề án cải tiến trọng tâm</h2><p>Thời gian và tiến độ lấy từ dữ liệu đề án/Action thật.</p></div>{ganttRows.length?<TqmGantt year={year} rows={ganttRows}/>:<div className="empty-state">Chưa đủ mốc thời gian đề án để dựng Gantt.</div>}</section>
