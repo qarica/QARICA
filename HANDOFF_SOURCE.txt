@@ -1,0 +1,4 @@
+QLCL-TTSG clean source handoff
+Source branch: ux/tqm-smart-ops-v5
+Source commit: ed9f9e658e7858fa09ed07a556fc0fca480e6483
+No Git history, node_modules, build output, Vercel metadata, or local secrets included.

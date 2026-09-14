@@ -1,0 +1,17 @@
+QLCL-TTSG - UPLOAD ORDER
+
+Upload these 4 packages in order after extracting each ZIP:
+1. 01_ROOT_DOCS_SUPABASE
+2. 02_SRC_APP_A
+3. 03_SRC_APP_B
+4. 04_SRC_COMPONENTS_LIB
+
+Important:
+- Extract each ZIP first.
+- In GitHub > Add file > Upload files, drag the CONTENTS inside the extracted folder, not the ZIP itself.
+- Commit after each package.
+- Suggested commit messages:
+  1) Initial source - root docs supabase
+  2) Initial source - app part A
+  3) Initial source - app part B
+  4) Initial source - components and lib
