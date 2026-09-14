@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 const SET_USER_ACCESS_RPC = "qlcl_set_user_access_v1";
-const INTERNAL_LOGIN_DOMAIN = "qlcl-ttsg.local";
+const INTERNAL_LOGIN_DOMAIN = "qlcl-ttsg.com";
 
 function normalizeLoginName(value: unknown) {
   return String(value || "").trim().toLowerCase();
