@@ -1,0 +1,3 @@
+"use client";
+import { useRouter } from "next/navigation";
+export function YearSelector({value}:{value:number}){const router=useRouter();const now=new Date().getFullYear();const years=Array.from({length:7},(_,i)=>now-3+i);if(!years.includes(value))years.push(value);years.sort((a,b)=>b-a);function change(next:number){document.cookie=`qlcl_work_year=${next}; path=/; max-age=31536000; SameSite=Lax`;router.refresh()}return <label className="year-select-wrap" title="Năm làm việc"><span>Năm</span><select value={value} onChange={e=>change(Number(e.target.value))}>{years.map(y=><option value={y} key={y}>{y}</option>)}</select></label>}
