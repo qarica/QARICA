@@ -1,0 +1,32 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/page-header";
+import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { requireUserContext } from "@/lib/auth";
+import { isOperationallyHiddenStatus } from "@/lib/operational-record";
+import { createClient } from "@/lib/supabase/server";
+import { getWorkYear } from "@/lib/work-year";
+
+const TYPE_LABELS:Record<string,string>={ACTION:"Action",PROGRAM:"Kế hoạch",DIRECTIVE:"Chỉ đạo",REPORT:"Báo cáo",INSPECTION:"Tiếp đoàn",INDICATOR_MEASUREMENT:"Chỉ số",MONITORING:"Giám sát",FINDING:"Finding",INCIDENT:"Sự cố",CAPA:"CAPA",RISK:"Rủi ro",FMEA:"FMEA",IMPROVEMENT_PROJECT:"Đề án cải tiến",IMPROVEMENT_PROPOSAL:"Đề xuất cải tiến",ASSESSMENT:"Tự đánh giá",EXTERNAL_ASSESSMENT:"Đánh giá ngoài",AUDIT:"Audit",SAFETY_ALERT:"Bài học/cảnh báo",FEEDBACK:"Phản ánh"};
+
+export default async function AnalyticsPage(){
+ const {user}=await requireUserContext();if(!user.permissions.includes("reports.analytics"))redirect("/dashboard?forbidden=1");const supabase=await createClient();const year=await getWorkYear();
+ const {data,error}=await supabase.from("records").select("record_type,lifecycle_status,owner_department_id,created_at,updated_at").eq("work_year",year);
+ const allRows=(data??[]) as any[];const rows=allRows.filter(r=>!isOperationallyHiddenStatus(r.lifecycle_status));const cancelled=allRows.filter(r=>r.lifecycle_status==="CANCELLED").length;
+ const byType=new Map<string,number>(),byDept=new Map<string,number>(),byStatus=new Map<string,number>();const months=Array.from({length:12},(_,i)=>({label:`T${i+1}`,value:0}));
+ rows.forEach(r=>{byType.set(r.record_type,(byType.get(r.record_type)||0)+1);byStatus.set(r.lifecycle_status,(byStatus.get(r.lifecycle_status)||0)+1);if(r.owner_department_id)byDept.set(r.owner_department_id,(byDept.get(r.owner_department_id)||0)+1);const d=new Date(r.updated_at||r.created_at);if(!Number.isNaN(d.getTime()))months[d.getMonth()].value++});
+ const depIds=Array.from(byDept.keys());const deps=depIds.length?await supabase.from("departments").select("id,name,short_name").in("id",depIds):{data:[],error:null};const depMap=new Map((deps.data??[]).map((d:any)=>[d.id,d.short_name||d.name]));
+ const typeData=Array.from(byType.entries()).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([k,v],i)=>({label:TYPE_LABELS[k]||k,value:v,tone:(i<4?"brand":"blue") as any}));
+ const deptData=Array.from(byDept.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k,v],i)=>({label:String(depMap.get(k)||"Chưa rõ"),value:v,tone:(i<3?"brand":"blue") as any}));
+ const active=rows.filter(r=>r.lifecycle_status==="ACTIVE").length,closed=rows.filter(r=>r.lifecycle_status==="CLOSED").length,unassigned=rows.filter(r=>!r.owner_department_id).length,closure=rows.length?Math.round(closed/rows.length*100):0;
+ const statusSegments=Array.from(byStatus.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,value],i)=>({label:label.replaceAll("_"," "),value,tone:(i===0?"brand":i===1?"green":i===2?"blue":i===3?"amber":"slate") as any}));
+ return <div className="page-stack tqm-analytics">
+  <style>{TQM_CHART_CSS+`.tqm-analytics .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.tqm-analytics .kpi{background:#fff;border:1px solid #e1e9ec;border-radius:17px;padding:16px}.tqm-analytics .kpi span{font-size:10px;color:#718187;font-weight:800;text-transform:uppercase}.tqm-analytics .kpi strong{display:block;font-size:30px;margin-top:8px}.tqm-analytics .kpi small{font-size:10px;color:#7d8c92}.tqm-analytics .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.tqm-analytics .head{padding:16px 18px 4px}.tqm-analytics .head h2{margin:0;font-size:15px}.tqm-analytics .head p{margin:4px 0 0;color:#74838a;font-size:11px}@media(max-width:900px){.tqm-analytics .grid{grid-template-columns:1fr}.tqm-analytics .kpis{grid-template-columns:1fr 1fr}}`}</style>
+  <PageHeader eyebrow={`PHÂN TÍCH QLCL · ${year}`} title="Quality Intelligence" description="Bức tranh TQM toàn viện từ cùng Registry nghiệp vụ: khối lượng, cơ cấu, nhịp vận hành và phân bố trách nhiệm theo đơn vị."/>
+  {error?<div className="alert error">Không tải được dữ liệu: {error.message}</div>:null}
+  <section className="kpis"><article className="kpi"><span>Hồ sơ vận hành</span><strong>{rows.length}</strong><small>{cancelled} hồ sơ đã hủy tách riêng</small></article><article className="kpi"><span>Đang hoạt động</span><strong>{active}</strong><small>Cần tiếp tục theo dõi</small></article><article className="kpi"><span>Đã đóng</span><strong>{closure}%</strong><small>{closed} hồ sơ hoàn tất</small></article><article className="kpi"><span>Thiếu đơn vị sở hữu</span><strong>{unassigned}</strong><small>Cần hoàn thiện trách nhiệm</small></article></section>
+  <section className="grid"><article className="panel"><div className="head"><h2>Cơ cấu module chất lượng</h2><p>Cho biết hệ thống đang phát sinh nhiều hoạt động nhất ở mảng nào.</p></div><TqmHorizontalBars rows={typeData}/></article><article className="panel"><div className="head"><h2>Trạng thái toàn Registry</h2><p>Tỷ trọng hồ sơ theo vòng đời vận hành.</p></div><TqmDonut value={closure} label="Đã đóng" segments={statusSegments.length?statusSegments:[{label:"Chưa có dữ liệu",value:1,tone:"slate"}]}/></article></section>
+  <section className="grid"><article className="panel"><div className="head"><h2>Khối lượng theo khoa/phòng</h2><p>Top đơn vị đang sở hữu nhiều hồ sơ QLCL nhất.</p></div><TqmHorizontalBars rows={deptData}/></article><article className="panel"><div className="head"><h2>Nhịp vận hành 12 tháng</h2><p>Số hồ sơ có cập nhật trong từng tháng.</p></div><TqmTrend points={months} unit=""/></article></section>
+  <section className="module-shortcuts-grid"><Link className="module-shortcut" href="/dashboard"><strong>Dashboard điều hành</strong><span>Quay về bức tranh TQM tổng hợp →</span></Link><Link className="module-shortcut" href="/tasks"><strong>Việc của tôi</strong><span>Đi tới công việc đang phụ trách →</span></Link><Link className="module-shortcut" href="/cancelled-records"><strong>Hồ sơ đã hủy</strong><span>Tra cứu dữ liệu ngoài vận hành →</span></Link></section>
+ </div>
+}
