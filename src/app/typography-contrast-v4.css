@@ -1,0 +1,150 @@
+/* QLCL-TTSG Typography & Contrast V4
+   Final visual hierarchy overrides after executive-ui-v3.css. */
+
+:root{
+  --text:#1b2c33;
+  --muted:#5e7078;
+  --muted-strong:#445961;
+  --sidebar-text:#f1f8f7;
+  --sidebar-section:#dcefed;
+}
+
+html{font-size:16px}
+body{font-size:14px;line-height:1.5;color:var(--text)}
+
+/* Desktop master sidebar: give more room back to TQM dashboards without crowding Vietnamese labels. */
+@media(min-width:861px){
+  .workspace-app .sidebar{width:244px!important}
+  .workspace-app .main-shell{margin-left:244px!important}
+  .workspace-app .sidebar-nav{padding-left:8px!important;padding-right:8px!important}
+  .workspace-app .sidebar-brand{padding-inline:14px!important;gap:10px!important}
+  .workspace-app .nav-label{padding-left:10px!important;padding-right:10px!important}
+  .workspace-app .nav-link{padding-left:10px!important;padding-right:10px!important;gap:10px!important}
+  .workspace-app .sidebar-footer{padding-left:10px!important;padding-right:10px!important}
+  .workspace-app .sidebar.collapsed{width:74px!important}
+  .workspace-app .main-shell.sidebar-collapsed{margin-left:74px!important}
+}
+
+/* Sidebar / master menu: high contrast on deep teal */
+.workspace-app .sidebar-brand-copy strong{font-size:15px!important;line-height:1.2;color:#fff!important}
+.workspace-app .sidebar-brand-copy span{font-size:11.5px!important;line-height:1.35;color:#d1e5e3!important;letter-spacing:.02em!important}
+.workspace-app .nav-section{margin-bottom:16px!important}
+.workspace-app .nav-label{
+  padding:7px 12px 6px!important;
+  font-size:11px!important;
+  line-height:1.25!important;
+  letter-spacing:.075em!important;
+  color:var(--sidebar-section)!important;
+  font-weight:900!important;
+  text-shadow:none!important;
+  opacity:1!important;
+}
+.workspace-app .nav-link{
+  min-height:45px!important;
+  font-size:13.5px!important;
+  line-height:1.3!important;
+  font-weight:700!important;
+  color:var(--sidebar-text)!important;
+  opacity:1!important;
+}
+.workspace-app .nav-link svg{opacity:1!important;color:#dff1ef!important}
+.workspace-app .nav-link:hover{color:#fff!important;background:rgba(255,255,255,.095)!important}
+.workspace-app .nav-link.active{color:#fff!important;font-weight:800!important;background:linear-gradient(135deg,#168c83,#08726c)!important}
+.workspace-app .scope-chip{font-size:11.5px!important;color:#d7e9e7!important}
+
+/* Top bar */
+.workspace-app .org-title strong{font-size:14px!important;line-height:1.25!important}
+.workspace-app .org-title span{font-size:11px!important;color:#65777f!important}
+.workspace-app .profile-copy strong{font-size:12.5px!important}
+.workspace-app .profile-copy small{font-size:11px!important;color:#60727a!important}
+.assistant-topbar{font-size:12.5px!important;font-weight:800!important}
+
+/* Workspace tabs */
+.workspace-context span{font-size:10.5px!important;color:#586c74!important;letter-spacing:.075em!important}
+.workspace-context strong{font-size:14.5px!important;color:#1f343c!important}
+.workspace-tab{font-size:13px!important;font-weight:800!important;color:#425860!important}
+.workspace-tab:hover{color:#18383e!important}
+.workspace-tab.active{color:#075f59!important}
+
+/* Reduce unused vertical space on workspace landing pages */
+.workspace-app .content{padding-top:16px!important}
+.page-stack{gap:14px!important}
+.global-back-bar{min-height:34px!important;margin-bottom:8px!important}
+
+/* Page hierarchy */
+.page-header{padding:18px 21px!important;border-radius:20px!important}
+.page-header .eyebrow,.eyebrow{font-size:10.5px!important;line-height:1.3!important;letter-spacing:.085em!important}
+.page-header h1{font-size:23px!important;line-height:1.2!important;letter-spacing:-.015em!important}
+.page-header p{font-size:13px!important;line-height:1.5!important;color:#586b73!important;margin-top:7px!important}
+
+/* Panels / content */
+.panel-title h2{font-size:15.5px!important;line-height:1.3!important}
+.panel-title p{font-size:12.5px!important;line-height:1.5!important;color:#596d75!important}
+.module-hero-summary h2{font-size:19px!important}
+.module-hero-summary p{font-size:13px!important;color:#586b73!important}
+.module-process-step,.module-principle,.module-shortcut,.operating-spec-panel{font-size:13px}
+
+/* Generic KPIs */
+.kpi-card{min-height:108px!important;padding:15px 17px!important}
+.kpi-card span{font-size:12px!important;line-height:1.35!important;color:#50656d!important;font-weight:800!important}
+.kpi-card strong{font-size:27px!important;line-height:1.05!important;margin-top:7px!important}
+.kpi-card small{font-size:11.5px!important;color:#687b83!important}
+
+/* Incident TQM landing: override page-local tiny type */
+.incident-tqm .kpis{gap:12px!important}
+.incident-tqm .kpi{padding:14px 16px!important;min-height:100px!important;display:flex!important;flex-direction:column!important;justify-content:center!important}
+.incident-tqm .kpi span{font-size:12px!important;line-height:1.3!important;letter-spacing:.025em!important;color:#4f646c!important;font-weight:800!important;text-transform:uppercase!important}
+.incident-tqm .kpi strong{font-size:26px!important;line-height:1!important;margin-top:7px!important;color:#172b33!important}
+.incident-tqm .head{padding:15px 18px 6px!important}
+.incident-tqm .head h2{font-size:15.5px!important;line-height:1.3!important;color:#243a42!important}
+.incident-tqm .head p{font-size:12.5px!important;line-height:1.45!important;color:#596d75!important;margin-top:5px!important}
+
+/* TQM chart text must remain readable */
+.tqm-donut-hole strong{font-size:29px!important}
+.tqm-donut-hole span{font-size:11.5px!important;color:#596d75!important}
+.tqm-donut-legend>div{font-size:12px!important}
+.tqm-donut-legend span{color:#50646c!important}
+.tqm-donut-legend strong{font-size:12.5px!important}
+.tqm-hbar-label strong{font-size:12px!important;color:#334950!important}
+.tqm-hbar-label span{font-size:11px!important;color:#667a82!important}
+.tqm-hbar-row>b{font-size:12px!important}
+.tqm-trend text{font-size:11.5px!important;fill:#536a72!important}
+.tqm-gantt-head>div{font-size:11.5px!important}
+.tqm-gantt-head span{font-size:10.5px!important}
+.tqm-gantt-name strong{font-size:12px!important}
+.tqm-gantt-name small{font-size:10.5px!important}
+
+/* Tables / controls */
+th{font-size:11.5px!important;line-height:1.35!important;letter-spacing:.025em!important;color:#4c6169!important}
+td{font-size:13px!important;line-height:1.45!important;color:#293e46!important}
+.subline{font-size:11.5px!important;color:#63777f!important}
+.record-code-pill{font-size:11px!important}
+.button{font-size:13px!important}
+.button.small{font-size:12px!important}
+input,select,textarea{font-size:13.5px!important}
+.status-badge{font-size:11px!important;font-weight:800!important}
+.chip{font-size:11.5px!important}
+.alert{font-size:12.5px!important}
+
+@media(max-width:860px){
+  body{font-size:14px}
+  .workspace-app .nav-label{font-size:11px!important}
+  .workspace-app .nav-link{font-size:14px!important;min-height:48px!important}
+  .workspace-app .content{padding-top:12px!important}
+  .page-header{padding:16px 17px!important}
+  .page-header h1{font-size:21px!important}
+  .page-header p{font-size:13px!important}
+  .workspace-tab{font-size:12.5px!important}
+  .incident-tqm .kpis{grid-template-columns:1fr 1fr!important}
+  .incident-tqm .kpi span{font-size:11.5px!important}
+  .incident-tqm .kpi strong{font-size:24px!important}
+  th{font-size:11px!important}
+  td{font-size:12.5px!important}
+}
+
+@media(max-width:520px){
+  .page-header h1{font-size:20px!important}
+  .panel-title h2{font-size:15px!important}
+  .module-hero-summary h2{font-size:18px!important}
+  .incident-tqm .kpis{grid-template-columns:1fr!important}
+}

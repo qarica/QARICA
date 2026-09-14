@@ -1,0 +1,150 @@
+:root{
+  --bg:#f8fafc;
+  --surface:#ffffff;
+  --text:#1e293b;
+  --muted:#64748b;
+  --line:#e2e8f0;
+  --brand:#2563eb;
+  --brand-dark:#1d4ed8;
+  --brand-soft:#eff6ff;
+  --info:#2563eb;
+  --info-soft:#eff6ff;
+  --accent-info:#2563eb;
+  --accent-warning:#d69a24;
+  --accent-danger:#ce4b4b;
+  --accent-success:#2b8b5b;
+  --shadow:0 10px 28px rgba(15,23,42,.08);
+}
+
+html,body{background:var(--bg);color:var(--text)}
+
+/* QLVB-style shell: light sidebar, blue active state, slate text */
+.sidebar{
+  background:#fff!important;
+  color:#334155!important;
+  border-right:1px solid #e2e8f0;
+  box-shadow:6px 0 24px rgba(15,23,42,.04)!important;
+  transition:width .2s ease,transform .2s ease;
+}
+.sidebar-brand{border-bottom:1px solid #e2e8f0!important}
+.sidebar-brand strong{color:#1e293b}
+.sidebar-brand span{color:#94a3b8!important}
+.brand-mark{background:#2563eb!important;color:#fff!important;flex:0 0 auto}
+.nav-label{color:#94a3b8!important}
+.nav-link{color:#475569!important}
+.nav-link:hover{background:#f8fafc!important;color:#1e293b!important}
+.nav-link.active{background:#eff6ff!important;color:#1d4ed8!important;font-weight:700}
+.sidebar-footer{background:linear-gradient(180deg,rgba(255,255,255,0),#fff 25%)!important}
+.scope-chip{border-color:#e2e8f0!important;background:#f8fafc!important;color:#64748b!important}
+.sidebar-overlay{background:rgba(15,23,42,.42)!important}
+.sidebar-collapse{margin-left:auto;color:#64748b!important;flex:0 0 auto}
+.sidebar.collapsed{width:72px!important}
+.sidebar.collapsed .sidebar-brand{justify-content:center;padding-left:10px!important;padding-right:10px!important;gap:0!important}
+.sidebar.collapsed .sidebar-brand-copy,.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-link span,.sidebar.collapsed .sidebar-footer{display:none!important}
+.sidebar.collapsed .sidebar-collapse{position:absolute;right:6px;bottom:5px;width:25px;height:25px;background:#fff!important;border:1px solid #e2e8f0;border-radius:8px}
+.sidebar.collapsed .sidebar-nav{padding-left:9px!important;padding-right:9px!important}
+.sidebar.collapsed .nav-section{margin-bottom:6px!important}
+.sidebar.collapsed .nav-link{justify-content:center;gap:0!important;padding-left:0!important;padding-right:0!important;min-height:42px}
+.main-shell{transition:margin-left .2s ease}
+.main-shell.sidebar-collapsed{margin-left:72px!important}
+
+.topbar{background:rgba(255,255,255,.96)!important;border-bottom-color:#e2e8f0!important}
+.header-icon,.year-select-wrap{background:#fff!important;border-color:#e2e8f0!important}
+.icon-button:hover,.profile-button:hover{background:#f8fafc!important}
+.avatar{background:#eff6ff!important;color:#1d4ed8!important}
+.notification-item:hover{background:#f8fafc!important}
+.notification-item.unread{background:#eff6ff!important}
+.link-button,.table-link,.eyebrow{color:#1d4ed8!important}
+
+/* Buttons mirror the previous QLVB visual hierarchy */
+.button.primary{background:#1e293b!important;color:#fff!important;border-color:#1e293b!important}
+.button.primary:hover{background:#334155!important;border-color:#334155!important}
+.button.secondary{background:#fff!important;border-color:#e2e8f0!important;color:#334155!important}
+.button.secondary:hover,.button.tertiary:hover{background:#f8fafc!important}
+.button.tertiary{color:#475569!important;border-color:#e2e8f0!important}
+
+.panel,.kpi-card,.login-card,.modal-card,.notification-panel,.profile-dropdown{border-color:#e2e8f0!important}
+.panel,.kpi-card{box-shadow:none}
+th{background:#f8fafc!important;color:#64748b!important;border-color:#e2e8f0!important}
+td{border-color:#f1f5f9!important}
+tbody tr:hover{background:#f8fafc!important}
+.tabs button.active{color:#1d4ed8!important;border-bottom-color:#2563eb!important}
+input:focus,select:focus,textarea:focus{border-color:#2563eb!important;box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+.check-card:has(input:checked){background:#eff6ff!important;border-color:#bfdbfe!important}
+.panel input[type="radio"],.panel input[type="checkbox"]{accent-color:#2563eb!important}
+.chip{background:#eff6ff!important;color:#1d4ed8!important}
+.scope-note,.permission-note,.module-foundation-note{background:#f8fafc!important;border-color:#e2e8f0!important;color:#475569!important}
+.progress-track,.bar-track{background:#e2e8f0!important}
+.progress-track span,.bar-fill{background:#2563eb!important}
+
+/* Keep semantic states distinct */
+.status-badge.info{background:#eff6ff!important;color:#1d4ed8!important}
+
+/* Shared status-card accent system: same visual language as "Việc của tôi" */
+.kpi-card{border-left:4px solid var(--accent-info)!important}
+.kpi-card.info{border-left-color:var(--accent-info)!important}
+.kpi-card.warning{border-left-color:var(--accent-warning)!important}
+.kpi-card.danger{border-left-color:var(--accent-danger)!important}
+.kpi-card.success{border-left-color:var(--accent-success)!important}
+.my-work-kpi.danger{border-left-color:var(--accent-danger)!important}
+.my-work-kpi.warning{border-left-color:var(--accent-warning)!important}
+.my-work-kpi.success{border-left-color:var(--accent-success)!important}
+
+/* Monitoring workspace still had teal values hard-coded inline; normalize them to QLVB */
+.monitoring-workspace .monitoring-hero{
+  border-color:#e2e8f0!important;
+  background:linear-gradient(135deg,#fff 0%,#f8fafc 68%,#eff6ff 100%)!important;
+  box-shadow:0 8px 24px rgba(15,23,42,.035)!important;
+}
+.monitoring-workspace .monitoring-hero:after{background:rgba(37,99,235,.06)!important}
+.monitoring-workspace .monitoring-hero-meta span{border-color:#e2e8f0!important;color:#475569!important;background:#fff!important}
+.monitoring-workspace .monitoring-flow{border-color:#e2e8f0!important;background:rgba(255,255,255,.92)!important}
+.monitoring-workspace .monitoring-flow small{color:#64748b!important}
+.monitoring-workspace .monitoring-flow .flow-line{background:linear-gradient(90deg,#2563eb 0 35%,#93c5fd 35% 68%,#dbeafe 68%)!important}
+.monitoring-workspace .panel{border-color:#e2e8f0!important;box-shadow:0 4px 16px rgba(15,23,42,.025)!important}
+.monitoring-workspace .tabs{background:#f1f5f9!important}
+.monitoring-workspace .tabs button.active{color:#1d4ed8!important;background:#fff!important}
+.monitoring-workspace .search-box{background:#fff!important}
+.monitoring-workspace .kpi-card:before{display:none!important}
+
+/* QLVB-like login palette */
+.login-hero{background:linear-gradient(145deg,#0f172a,#1e3a8a 62%,#2563eb 145%)!important}
+.login-hero .eyebrow,.login-feature-grid strong{color:#bfdbfe!important}
+.login-hero p,.login-feature-grid span{color:#dbeafe!important}
+.login-panel{background:#f8fafc!important}
+
+/* Mobile list cards in major modules use the same semantic left-border language. */
+@media(max-width:760px){
+  .dashboard-page tbody tr,
+  .plans-page tbody tr,
+  .monitoring-round-card{
+    border-left:4px solid var(--accent-info)!important;
+  }
+  .dashboard-page tbody tr:has(.status-badge.danger),
+  .plans-page tbody tr:has(.status-badge.danger),
+  .monitoring-round-card:has(.status-badge.danger){border-left-color:var(--accent-danger)!important}
+  .dashboard-page tbody tr:has(.status-badge.warning),
+  .plans-page tbody tr:has(.status-badge.warning),
+  .monitoring-round-card:has(.status-badge.warning){border-left-color:var(--accent-warning)!important}
+  .dashboard-page tbody tr:has(.status-badge.success),
+  .plans-page tbody tr:has(.status-badge.success),
+  .monitoring-round-card:has(.status-badge.success){border-left-color:var(--accent-success)!important}
+  .dashboard-page tbody tr:has(.status-badge.info),
+  .plans-page tbody tr:has(.status-badge.info),
+  .monitoring-round-card:has(.status-badge.info){border-left-color:var(--accent-info)!important}
+}
+
+@media(max-width:860px){
+  .sidebar{box-shadow:8px 0 28px rgba(15,23,42,.12)!important}
+  .sidebar.collapsed{width:266px!important}
+  .sidebar.collapsed .sidebar-brand{justify-content:flex-start!important;padding:14px 17px!important;gap:11px!important}
+  .sidebar.collapsed .sidebar-brand-copy,.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-link span,.sidebar.collapsed .sidebar-footer{display:flex!important}
+  .sidebar.collapsed .nav-label{display:block!important}
+  .sidebar.collapsed .sidebar-footer{display:block!important}
+  .sidebar.collapsed .sidebar-collapse{display:none!important}
+  .sidebar.collapsed .sidebar-nav{padding:10px 10px 90px!important}
+  .sidebar.collapsed .nav-section{margin-bottom:12px!important}
+  .sidebar.collapsed .nav-link{justify-content:flex-start!important;gap:11px!important;padding:8px 11px!important;min-height:40px}
+  .main-shell.sidebar-collapsed{margin-left:0!important}
+  .sidebar-collapse{display:none!important}
+}
