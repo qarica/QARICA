@@ -7,6 +7,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Dashboard", href: "/dashboard", icon: "layout-dashboard", permission: "dashboard.view" },
       { label: "Việc của tôi", href: "/tasks", icon: "check-square", permission: "tasks.view" },
+      { label: "Trợ lý QLCL", href: "/assistant", icon: "sparkles", permission: "dashboard.view" },
     ],
   },
   {

@@ -182,6 +182,13 @@ export function NotificationBell() {
 
   return (
     <div className="notification-root" ref={rootRef}>
+      <style>{\`\
+        .notification-filters{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid #edf2f2;background:#fbfdfd}
+        .notification-filters button{border:1px solid transparent;background:transparent;color:#718286;border-radius:999px;padding:6px 9px;font-size:10px;cursor:pointer}
+        .notification-filters button:hover{background:#eef7f5;color:#17645f}
+        .notification-filters button.active{background:#dff4ef;border-color:#b8ded7;color:#0f655f;font-weight:800}
+        .notification-filters b{font-size:9px;margin-left:3px}
+      \`}</style>
       <button
         className={`icon-button header-icon notification-trigger ${unread > 0 ? "has-unread" : ""} ${ringing ? "is-ringing" : ""}`}
         onClick={() => setOpen((v) => !v)}
