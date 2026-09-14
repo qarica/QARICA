@@ -285,6 +285,12 @@ export default async function QualityAssistantPage() {
   const dueToday = items.filter((x) => dayDiff(x.due, today) === 0).length;
   const nextSeven = items.filter((x) => { const d = dayDiff(x.due, today); return d !== null && d >= 0 && d <= 7; }).length;
   const topItems = items.slice(0, 16);
+  const intelligenceLevel =
+    dangerCount >= 5 ? "Đỏ · cần điều phối ngay" :
+    dangerCount >= 2 ? "Cam · cần ưu tiên trong ngày" :
+    topItems.length ? "Vàng · có việc cần theo dõi" :
+    "Xanh · chưa có tín hiệu ưu tiên cao";
+  const systemPriority = Math.min(100, dangerCount * 18 + dueToday * 10 + Math.min(nextSeven, 10) * 3);
 
   return <div className="page-stack qa-page">
     <style>{`
@@ -301,8 +307,8 @@ export default async function QualityAssistantPage() {
         <p>{dangerCount ? `Toàn phạm vi bạn được xem hiện có ${dangerCount} cảnh báo mức cao. ` : "Hiện chưa có cảnh báo mức cao trong phạm vi bạn được xem. "}Trợ lý chỉ gợi ý từ dữ liệu đã ghi nhận; quyết định nghiệp vụ vẫn thực hiện trong workflow gốc để giữ audit trail.</p>
       </section>
       <section className="qa-score">
-        <h2>Ưu tiên hôm nay</h2>
-        <p>{topItems.length ? `Xử lý theo thứ tự: quá hạn → đến hạn → an toàn/rủi ro → xác minh dữ liệu → chuẩn bị mốc sắp tới.` : "Không có tín hiệu cần hành động trong các ngưỡng cảnh báo hiện tại."}</p>
+        <h2>Ưu tiên hôm nay · {systemPriority}/100</h2>
+        <p><strong>{intelligenceLevel}</strong>. {topItems.length ? `Xử lý theo thứ tự: quá hạn → đến hạn → an toàn/rủi ro → xác minh dữ liệu → chuẩn bị mốc sắp tới.` : "Không có tín hiệu cần hành động trong các ngưỡng cảnh báo hiện tại."}</p>
       </section>
     </div>
 
