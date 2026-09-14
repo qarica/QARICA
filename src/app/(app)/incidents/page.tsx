@@ -1,0 +1,41 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { DomainCreateClient } from "@/components/domain-create-client";
+import { PageHeader } from "@/components/page-header";
+import { StatusBadge } from "@/components/status-badge";
+import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { hasAnyPermission, requireUserContext } from "@/lib/auth";
+import { isOperationallyHiddenStatus } from "@/lib/operational-record";
+import { routeForRecord } from "@/lib/record-route";
+import { createClient } from "@/lib/supabase/server";
+import { getWorkYear } from "@/lib/work-year";
+
+const HARM_LABEL:Record<string,string>={NO_HARM:"Không tổn hại",NEAR_MISS:"Suýt xảy ra",MILD:"Nhẹ",MODERATE:"Trung bình",SEVERE:"Nặng",DEATH:"Tử vong"};
+function harmTone(v:string){if(["DEATH","SEVERE"].includes(v))return"red" as const;if(v==="MODERATE")return"amber" as const;if(["MILD","NO_HARM"].includes(v))return"blue" as const;return"slate" as const}
+
+export default async function IncidentsPage(){
+ const {user}=await requireUserContext();if(!hasAnyPermission(user,["incident.report","incident.view_summary","incident.view_case","incident.triage"]))redirect("/dashboard?forbidden=1");const year=await getWorkYear();const supabase=await createClient();
+ const [recordsRes,incidentsRes,depsRes]=await Promise.all([
+  supabase.from("records").select("id,record_code,title,lifecycle_status,owner_department_id").eq("record_type","INCIDENT").eq("work_year",year).order("created_at",{ascending:false}),
+  supabase.from("incidents").select("id,record_id,workflow_status,harm_status,serious_event_flag,reported_at,incident_location_text,lead_department_id"),
+  supabase.from("departments").select("id,name,short_name").eq("is_active",true)
+ ]);
+ const records=((recordsRes.data??[]) as any[]).filter(r=>!isOperationallyHiddenStatus(r.lifecycle_status));const recordMap=new Map(records.map(r=>[r.id,r]));const depMap=new Map((depsRes.data??[]).map((d:any)=>[d.id,d.short_name||d.name]));
+ const rows=((incidentsRes.data??[]) as any[]).filter(x=>recordMap.has(x.record_id)).map(x=>{const r:any=recordMap.get(x.record_id);return{...x,...r,department:String(depMap.get(x.lead_department_id||r.owner_department_id)||"Chưa xác định"),route:routeForRecord("INCIDENT",x.record_id)}});
+ const serious=rows.filter(x=>x.serious_event_flag).length,open=rows.filter(x=>!["CLOSED","CANCELLED"].includes(x.workflow_status)).length,investigating=rows.filter(x=>["INVESTIGATION_REQUIRED","INVESTIGATING","ACTION_FOLLOW_UP"].includes(x.workflow_status)).length;
+ const harmMap=new Map<string,number>();rows.forEach(x=>{const k=String(x.harm_status||"UNCLASSIFIED");harmMap.set(k,(harmMap.get(k)||0)+1)});const harmSegments=Array.from(harmMap.entries()).map(([k,value])=>({label:HARM_LABEL[k]||"Chưa phân loại",value,tone:harmTone(k)}));
+ const locMap=new Map<string,number>();rows.forEach(x=>{const k=String(x.incident_location_text||x.department||"Chưa xác định").trim()||"Chưa xác định";locMap.set(k,(locMap.get(k)||0)+1)});const locationBars=Array.from(locMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([label,value],i)=>({label,value,tone:(i<3?"red":i<6?"amber":"blue") as any}));
+ const depAgg=new Map<string,number>();rows.forEach(x=>depAgg.set(x.department,(depAgg.get(x.department)||0)+1));const depBars=Array.from(depAgg.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([label,value],i)=>({label,value,tone:(i<3?"brand":"blue") as any}));
+ const months=Array.from({length:12},(_,i)=>({label:`T${i+1}`,value:0}));let missingReportedAt=0;rows.forEach(x=>{if(!x.reported_at){missingReportedAt++;return}const d=new Date(x.reported_at);if(!Number.isNaN(d.getTime()))months[d.getMonth()].value++});
+ const firstError=[recordsRes,incidentsRes,depsRes].find((x:any)=>x.error)?.error;
+ const canReport=user.permissions.includes("incident.report")||user.permissions.includes("incident.triage");
+ return <div className="page-stack incident-tqm">
+  <style>{TQM_CHART_CSS+`.incident-tqm .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.incident-tqm .kpi{background:#fff;border:1px solid #e1e9ec;border-radius:17px;padding:16px}.incident-tqm .kpi span{font-size:10px;color:#718187;font-weight:800;text-transform:uppercase}.incident-tqm .kpi strong{display:block;font-size:30px;margin-top:8px}.incident-tqm .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.incident-tqm .head{padding:16px 18px 4px}.incident-tqm .head h2{margin:0;font-size:15px}.incident-tqm .head p{margin:4px 0 0;color:#74838a;font-size:11px}.incident-tqm .hot-list{display:grid;gap:8px;padding:8px 16px 16px}.incident-tqm .hot-row{display:grid;grid-template-columns:minmax(0,1.5fr) 120px 110px auto;gap:10px;align-items:center;border:1px solid #e4eaec;border-radius:13px;padding:12px}.incident-tqm .hot-row.serious{border-color:#efc6c6;background:#fffafa}@media(max-width:900px){.incident-tqm .grid{grid-template-columns:1fr}.incident-tqm .kpis{grid-template-columns:1fr 1fr}.incident-tqm .hot-row{grid-template-columns:1fr 1fr}.incident-tqm .hot-row>div:first-child{grid-column:1/-1}}`}</style>
+  <PageHeader eyebrow={`SỰ CỐ & PHẢN ÁNH · ${year}`} title="Sự cố y khoa & An toàn" description="TQM Safety Intelligence: theo dõi xu hướng báo cáo, mức tổn hại, điểm nóng nơi xảy ra và trạng thái điều tra để ưu tiên phòng ngừa tái diễn." actions={canReport?<DomainCreateClient recordType="INCIDENT" workYear={year}/>:null}/>
+  {firstError?<div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div>:null}
+  <section className="kpis"><article className="kpi"><span>Tổng sự cố</span><strong>{rows.length}</strong></article><article className="kpi"><span>Đang mở</span><strong>{open}</strong></article><article className="kpi"><span>Cần/đang điều tra</span><strong>{investigating}</strong></article><article className="kpi"><span>Sự cố nghiêm trọng</span><strong>{serious}</strong></article></section>
+  <section className="grid"><article className="panel"><div className="head"><h2>Xu hướng báo cáo sự cố 12 tháng</h2><p>Chỉ dùng <strong>reported_at</strong> — ngày nghiệp vụ báo cáo sự cố. {missingReportedAt?`${missingReportedAt} hồ sơ thiếu ngày báo cáo không được đưa vào đường xu hướng.`:"Tất cả hồ sơ đang có ngày báo cáo."}</p></div><TqmTrend points={months} unit=""/></article><article className="panel"><div className="head"><h2>Cơ cấu mức tổn hại</h2><p>Phân bố theo phân loại harm đã được ghi nhận.</p></div><TqmDonut value={rows.length?Math.round(serious/rows.length*100):0} label="Nghiêm trọng" segments={harmSegments.length?harmSegments:[{label:"Chưa có dữ liệu",value:1,tone:"slate"}]}/></article></section>
+  <section className="grid"><article className="panel"><div className="head"><h2>Xếp hạng điểm nóng nơi xảy ra</h2><p>Xếp giảm dần theo số sự cố ghi nhận. Đây là ranking, không gọi là Pareto khi chưa có tỷ lệ tích lũy.</p></div><TqmHorizontalBars rows={locationBars}/></article><article className="panel"><div className="head"><h2>Sự cố theo khoa/phòng phụ trách</h2><p>Khối lượng hồ sơ theo đơn vị đầu mối xử lý.</p></div><TqmHorizontalBars rows={depBars}/></article></section>
+  <section className="panel"><div className="head"><h2>Hồ sơ cần chú ý</h2><p>Sự cố nghiêm trọng, đang điều tra hoặc chưa đóng được ưu tiên ở trên.</p></div><div className="hot-list">{[...rows].sort((a,b)=>Number(b.serious_event_flag)-Number(a.serious_event_flag)).slice(0,12).map(x=><div className={`hot-row ${x.serious_event_flag?"serious":""}`} key={x.id}><div><strong>{x.record_code} · {x.title}</strong><small className="subline">{x.incident_location_text||x.department}</small></div><div>{HARM_LABEL[x.harm_status]||x.harm_status||"Chưa phân loại"}</div><div><StatusBadge status={x.workflow_status}/></div><Link className="button tertiary small" href={x.route}>Mở hồ sơ</Link></div>)}</div></section>
+ </div>
+}
