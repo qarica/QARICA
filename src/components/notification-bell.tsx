@@ -31,6 +31,7 @@ export function NotificationBell() {
   const [recordMap, setRecordMap] = useState<Record<string, string>>({});
   const [routeMap, setRouteMap] = useState<Record<string, string | null>>({});
   const [ringing, setRinging] = useState(false);
+  const [filter, setFilter] = useState<"all" | "unread" | "urgent">("all");
   const rootRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
   const latestCreatedAtRef = useRef<string | null>(null);
@@ -148,6 +149,8 @@ export function NotificationBell() {
   }, []);
 
   const unread = rows.filter((r) => !r.is_read).length;
+  const urgent = rows.filter((r) => !r.is_read && ["HIGH", "URGENT", "CRITICAL"].includes(String(r.priority).toUpperCase())).length;
+  const visibleRows = rows.filter((r) => filter === "all" || (filter === "unread" && !r.is_read) || (filter === "urgent" && !r.is_read && ["HIGH", "URGENT", "CRITICAL"].includes(String(r.priority).toUpperCase())));
 
   async function openNotification(n: N) {
     if (!n.is_read) {
@@ -198,11 +201,17 @@ export function NotificationBell() {
             </div>
             <button className="link-button" onClick={markAll}>Đánh dấu tất cả đã đọc</button>
           </div>
+          <div className="notification-filters" role="tablist" aria-label="Lọc thông báo">
+            <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Tất cả <b>{rows.length}</b></button>
+            <button className={filter === "unread" ? "active" : ""} onClick={() => setFilter("unread")}>Chưa đọc <b>{unread}</b></button>
+            <button className={filter === "urgent" ? "active" : ""} onClick={() => setFilter("urgent")}>Ưu tiên <b>{urgent}</b></button>
+          </div>
+          </div>
           <div className="notification-list">
-            {rows.length === 0 ? (
+            {visibleRows.length === 0 ? (
               <div className="empty-state compact">Chưa có thông báo.</div>
             ) : (
-              rows.map((n) => (
+              visibleRows.map((n) => (
                 <button key={n.id} className={`notification-item ${n.is_read ? "read" : "unread"}`} onClick={() => openNotification(n)}>
                   <span className={`priority-dot ${n.priority.toLowerCase()}`} />
                   <span className="notification-copy">
