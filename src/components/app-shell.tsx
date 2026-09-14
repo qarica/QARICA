@@ -315,15 +315,14 @@ export function AppShell({ children, user, organization, nav, year }: { children
               key={`${itemRoot}:${item.label}`}
               href={item.href}
               prefetch={true}
-              className={`nav-link ${active ? "active" : ""} ${badge?.count ? "has-attention" : ""}`}
-              title={sidebarCollapsed ? `${item.label}${badge?.count ? ` · ${badge.count} cần xử lý` : ""}` : undefined}
+              className={`nav-link ${active ? "active" : ""}`}
+              title={sidebarCollapsed ? item.label : undefined}
               onMouseEnter={() => router.prefetch(item.href)}
               onFocus={() => router.prefetch(item.href)}
               onClick={() => startNavigation(item.href)}
             >
               <Icon name={item.icon} size={18} />
               <span className="nav-link-label">{item.label}</span>
-              {renderBadge(badge)}
             </Link>;
           })}
         </div>)}
@@ -381,7 +380,7 @@ export function AppShell({ children, user, organization, nav, year }: { children
 
     <nav className="mobile-bottom-nav" aria-label="Điều hướng nhanh">
       <Link href="/dashboard" className={pathname === "/dashboard" ? "active" : ""} onClick={() => startNavigation("/dashboard")}><Icon name="layout-dashboard" size={20} /><span>Tổng quan</span></Link>
-      <Link href="/tasks" className={pathname.startsWith("/tasks") ? "active" : ""} onClick={() => startNavigation("/tasks")}><span className="mobile-nav-icon"><Icon name="check-square" size={20} />{renderBadge(tasksAttention, "mobile-nav-badge")}</span><span>Việc của tôi</span></Link>
+      <Link href="/tasks" className={pathname.startsWith("/tasks") ? "active" : ""} onClick={() => startNavigation("/tasks")}><span className="mobile-nav-icon"><Icon name="check-square" size={20} /></span><span>Việc của tôi</span></Link>
       <Link href="/assistant" className={`mobile-assistant ${pathname.startsWith("/assistant") ? "active" : ""}`} onClick={() => startNavigation("/assistant")}><span className="mobile-assistant-icon"><Icon name="sparkles" size={21} />{renderBadge(assistantAttention, "mobile-nav-badge")}</span><span>Trợ lý</span></Link>
       <button type="button" className={mobileOpen ? "active" : ""} onClick={() => setMobileOpen(true)}><Icon name="menu" size={21} /><span>Menu</span></button>
     </nav>
