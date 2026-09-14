@@ -1,0 +1,228 @@
+import { NextResponse } from "next/server";
+import { requireApiPermission } from "@/lib/api-auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+const WORKFLOW_ACTIONS = new Set(["START", "RESUME", "SUBMIT", "BEGIN_VERIFY", "APPROVE", "RETURN"]);
+const VERIFIER_ACTIONS = new Set(["BEGIN_VERIFY", "APPROVE", "RETURN"]);
+const EXECUTION_ACTIONS = new Set(["START", "RESUME", "SUBMIT"]);
+
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireApiPermission("tasks.view");
+  if (!auth.ok) return auth.response;
+
+  const { id: recordId } = await params;
+  const body = await request.json();
+  const requestedAction = String(body.action || "").trim().toUpperCase();
+  const note = body.note ? String(body.note).trim() : "";
+  if (!WORKFLOW_ACTIONS.has(requestedAction)) {
+    return NextResponse.json({ error: "Thao tác workflow không hợp lệ." }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+  const [{ data: caller, error: callerError }, { data: record, error: recordError }] = await Promise.all([
+    admin.from("profiles").select("user_id,organization_id,is_active").eq("user_id", auth.user.id).maybeSingle(),
+    admin.from("records").select("id,organization_id,record_type,lifecycle_status,title").eq("id", recordId).maybeSingle(),
+  ]);
+
+  if (callerError || !caller?.organization_id || !caller.is_active) {
+    return NextResponse.json({ error: callerError?.message || "Tài khoản không hợp lệ hoặc chưa gắn bệnh viện." }, { status: 403 });
+  }
+  if (recordError || !record || record.record_type !== "ACTION") {
+    return NextResponse.json({ error: recordError?.message || "Không tìm thấy công việc." }, { status: 404 });
+  }
+  if (record.organization_id !== caller.organization_id || record.lifecycle_status !== "ACTIVE") {
+    return NextResponse.json({ error: "Công việc không thuộc phạm vi bệnh viện hiện tại hoặc đã ngưng hoạt động." }, { status: 403 });
+  }
+
+  const { data: action, error: actionError } = await admin
+    .from("actions")
+    .select("id,assignee_user_id,workflow_status")
+    .eq("record_id", recordId)
+    .maybeSingle();
+  if (actionError || !action) {
+    return NextResponse.json({ error: actionError?.message || "Không tìm thấy nội dung công việc." }, { status: 404 });
+  }
+
+  const { data: canManage } = await auth.supabase.rpc("has_permission", { p_permission_code: "plans.manage" });
+  const isAssignee = action.assignee_user_id === auth.user.id;
+
+  if (VERIFIER_ACTIONS.has(requestedAction) && !canManage) {
+    return NextResponse.json({ error: "Bạn không có quyền xác minh công việc này." }, { status: 403 });
+  }
+  if (!VERIFIER_ACTIONS.has(requestedAction) && !isAssignee && !canManage) {
+    return NextResponse.json({ error: "Chỉ người được giao việc hoặc người quản lý kế hoạch mới được cập nhật công việc này." }, { status: 403 });
+  }
+
+  // Công việc gắn với kế hoạch chỉ được bắt đầu/tiếp tục/gửi xác minh khi
+  // ít nhất một kế hoạch nguồn đang thực sự ở trạng thái IN_PROGRESS.
+  // Các bước xác minh đã nộp vẫn được phép xử lý để không làm kẹt hồ sơ.
+  if (EXECUTION_ACTIONS.has(requestedAction)) {
+    const { data: planLinks, error: planLinksError } = await admin
+      .from("program_action_links")
+      .select("program_id")
+      .eq("action_id", action.id);
+    if (planLinksError) return NextResponse.json({ error: planLinksError.message }, { status: 400 });
+
+    const programIds = Array.from(new Set((planLinks ?? []).map((row) => row.program_id).filter(Boolean)));
+    if (programIds.length) {
+      const { data: sourcePrograms, error: sourceProgramsError } = await admin
+        .from("work_programs")
+        .select("id,workflow_status")
+        .in("id", programIds);
+      if (sourceProgramsError) return NextResponse.json({ error: sourceProgramsError.message }, { status: 400 });
+
+      const hasActiveSourcePlan = (sourcePrograms ?? []).some((program) => program.workflow_status === "IN_PROGRESS");
+      if (!hasActiveSourcePlan) {
+        return NextResponse.json(
+          { error: "Kế hoạch nguồn hiện chưa ở trạng thái Đang triển khai. Không thể thực hiện hoặc gửi xác minh công việc lúc này." },
+          { status: 409 },
+        );
+      }
+    }
+  }
+
+  if (requestedAction === "SUBMIT") {
+    if (action.workflow_status !== "IN_PROGRESS") {
+      return NextResponse.json({ error: "Chỉ công việc đang thực hiện mới được gửi xác minh." }, { status: 409 });
+    }
+
+    const { count: evidenceCount, error: evidenceError } = await admin
+      .from("evidence_links")
+      .select("id", { count: "exact", head: true })
+      .eq("record_id", recordId);
+    if (evidenceError) return NextResponse.json({ error: evidenceError.message }, { status: 400 });
+    if (!evidenceCount) {
+      return NextResponse.json({ error: "Cần nộp ít nhất 01 minh chứng trước khi gửi xác minh." }, { status: 400 });
+    }
+
+    const { error: submitError } = await admin
+      .from("actions")
+      .update({
+        workflow_status: "EVIDENCE_SUBMITTED",
+        submitted_at: new Date().toISOString(),
+        verified_at: null,
+        verified_by: null,
+        completion_note: null,
+      })
+      .eq("id", action.id)
+      .eq("workflow_status", "IN_PROGRESS");
+    if (submitError) return NextResponse.json({ error: submitError.message }, { status: 400 });
+
+    return NextResponse.json({ ok: true, workflow_status: "EVIDENCE_SUBMITTED" });
+  }
+
+  if (requestedAction === "BEGIN_VERIFY") {
+    if (action.workflow_status !== "EVIDENCE_SUBMITTED") {
+      return NextResponse.json({ error: "Công việc chưa ở trạng thái sẵn sàng xác minh." }, { status: 409 });
+    }
+    const { error } = await admin
+      .from("actions")
+      .update({ workflow_status: "VERIFYING" })
+      .eq("id", action.id)
+      .eq("workflow_status", "EVIDENCE_SUBMITTED");
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true, workflow_status: "VERIFYING" });
+  }
+
+  if (requestedAction === "RETURN") {
+    if (action.workflow_status !== "VERIFYING") {
+      return NextResponse.json({ error: "Chỉ công việc đang xác minh mới được trả lại bổ sung." }, { status: 409 });
+    }
+    if (note.length < 5) {
+      return NextResponse.json({ error: "Vui lòng ghi rõ nội dung cần bổ sung." }, { status: 400 });
+    }
+    const { error } = await admin
+      .from("actions")
+      .update({ workflow_status: "RETURNED", completion_note: note, verified_at: null, verified_by: null })
+      .eq("id", action.id)
+      .eq("workflow_status", "VERIFYING");
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    if (action.assignee_user_id) {
+      await admin.from("notifications").insert({
+        recipient_user_id: action.assignee_user_id,
+        notification_type: "ACTION_RETURNED",
+        priority: "HIGH",
+        title: "Công việc cần bổ sung",
+        message: `${record.title}: ${note}`,
+        target_record_id: recordId,
+        target_route: `/tasks/${recordId}`,
+        notification_event_key: `action-returned:${action.id}:${Date.now()}`,
+      });
+    }
+    return NextResponse.json({ ok: true, workflow_status: "RETURNED" });
+  }
+
+  if (requestedAction === "APPROVE") {
+    if (action.workflow_status !== "VERIFYING") {
+      return NextResponse.json({ error: "Chỉ công việc đang xác minh mới được xác nhận hoàn thành." }, { status: 409 });
+    }
+
+    const { data: evidenceLinks, error: evidenceLinksError } = await admin
+      .from("evidence_links")
+      .select("evidence_id")
+      .eq("record_id", recordId);
+    if (evidenceLinksError) {
+      return NextResponse.json({ error: evidenceLinksError.message }, { status: 400 });
+    }
+    const evidenceIds = (evidenceLinks ?? []).map((row) => row.evidence_id).filter(Boolean);
+
+    const verifiedAt = new Date().toISOString();
+    const { error } = await admin
+      .from("actions")
+      .update({
+        workflow_status: "COMPLETED",
+        verified_at: verifiedAt,
+        verified_by: auth.user.id,
+        completion_note: note || null,
+      })
+      .eq("id", action.id)
+      .eq("workflow_status", "VERIFYING");
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    if (evidenceIds.length) {
+      const { error: evidenceUpdateError } = await admin
+        .from("evidence")
+        .update({ validity_status: "VALID" })
+        .in("id", evidenceIds)
+        .eq("validity_status", "PENDING");
+
+      if (evidenceUpdateError) {
+        await admin
+          .from("actions")
+          .update({ workflow_status: "VERIFYING", verified_at: null, verified_by: null, completion_note: null })
+          .eq("id", action.id)
+          .eq("workflow_status", "COMPLETED");
+        return NextResponse.json({ error: `Không thể cập nhật trạng thái minh chứng: ${evidenceUpdateError.message}` }, { status: 400 });
+      }
+    }
+
+    if (action.assignee_user_id) {
+      await admin.from("notifications").insert({
+        recipient_user_id: action.assignee_user_id,
+        notification_type: "ACTION_VERIFIED",
+        priority: "NORMAL",
+        title: "Công việc đã được xác minh hoàn thành",
+        message: record.title,
+        target_record_id: recordId,
+        target_route: `/tasks/${recordId}`,
+        notification_event_key: `action-verified:${action.id}:${Date.now()}`,
+      });
+    }
+    return NextResponse.json({ ok: true, workflow_status: "COMPLETED", verified_at: verifiedAt });
+  }
+
+  const allowedFrom = requestedAction === "START" ? "NOT_STARTED" : "RETURNED";
+  if (action.workflow_status !== allowedFrom) {
+    return NextResponse.json({ error: "Trạng thái hiện tại không phù hợp với thao tác này. Vui lòng tải lại trang." }, { status: 409 });
+  }
+
+  const { error: updateError } = await admin
+    .from("actions")
+    .update({ workflow_status: "IN_PROGRESS", completion_note: null, verified_at: null, verified_by: null })
+    .eq("id", action.id)
+    .eq("workflow_status", allowedFrom);
+  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
+
+  return NextResponse.json({ ok: true, workflow_status: "IN_PROGRESS" });
+}
