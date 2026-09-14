@@ -1,0 +1,41 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/page-header";
+import { StatusBadge } from "@/components/status-badge";
+import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { hasAnyPermission, requireUserContext } from "@/lib/auth";
+import { isOperationallyHiddenStatus } from "@/lib/operational-record";
+import { routeForRecord } from "@/lib/record-route";
+import { createClient } from "@/lib/supabase/server";
+import { getWorkYear } from "@/lib/work-year";
+
+const REVIEW_LABEL:Record<string,string>={EFFECTIVE:"Có hiệu lực",PARTIALLY_EFFECTIVE:"Hiệu lực một phần",INEFFECTIVE:"Không hiệu lực"};
+function reviewTone(v:string){return v==="EFFECTIVE"?"green" as const:v==="PARTIALLY_EFFECTIVE"?"amber" as const:v==="INEFFECTIVE"?"red" as const:"slate" as const}
+
+export default async function CapaPage(){
+ const {user}=await requireUserContext();if(!hasAnyPermission(user,["capa.view","capa.manage"]))redirect("/dashboard?forbidden=1");const year=await getWorkYear();const supabase=await createClient();
+ const [recordsRes,capasRes,depsRes]=await Promise.all([
+  supabase.from("records").select("id,record_code,title,lifecycle_status,owner_department_id,updated_at").eq("record_type","CAPA").eq("work_year",year).order("updated_at",{ascending:false}),
+  supabase.from("capas").select("id,record_id,workflow_status,effectiveness_due_date,priority,lead_department_id,updated_at"),
+  supabase.from("departments").select("id,name,short_name").eq("is_active",true)
+ ]);
+ const records=((recordsRes.data??[]) as any[]).filter(r=>!isOperationallyHiddenStatus(r.lifecycle_status));const recordMap=new Map(records.map(r=>[r.id,r]));const capas=((capasRes.data??[]) as any[]).filter(c=>recordMap.has(c.record_id));const ids=capas.map(c=>c.id);
+ const reviewsRes=ids.length?await supabase.from("capa_effectiveness_reviews").select("id,capa_id,review_no,actual_review_date,result,created_at").in("capa_id",ids).order("review_no",{ascending:false}):{data:[],error:null};const latest=new Map<string,any>();for(const r of (reviewsRes.data??[]) as any[])if(!latest.has(r.capa_id))latest.set(r.capa_id,r);
+ const depMap=new Map((depsRes.data??[]).map((d:any)=>[d.id,d.short_name||d.name]));const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh"}).format(new Date());
+ const rows=capas.map(c=>{const rec:any=recordMap.get(c.record_id);return{...c,...rec,review:latest.get(c.id),department:String(depMap.get(c.lead_department_id||rec.owner_department_id)||"Chưa xác định"),route:routeForRecord("CAPA",c.record_id)}});
+ const open=rows.filter(x=>!['CLOSED'].includes(x.workflow_status)).length,reviewing=rows.filter(x=>x.workflow_status==="EFFECTIVENESS_REVIEW").length,effective=rows.filter(x=>x.review?.result==="EFFECTIVE"||['EFFECTIVE','CLOSED'].includes(x.workflow_status)).length,overdue=rows.filter(x=>x.effectiveness_due_date&&x.effectiveness_due_date<today&&!['EFFECTIVE','CLOSED'].includes(x.workflow_status)).length,effectivePct=rows.length?Math.round(effective/rows.length*100):0;
+ const reviewMap=new Map<string,number>();rows.forEach(x=>{const k=String(x.review?.result||"NOT_REVIEWED");reviewMap.set(k,(reviewMap.get(k)||0)+1)});const reviewSegments=Array.from(reviewMap.entries()).map(([k,value])=>({label:k==="NOT_REVIEWED"?"Chưa đánh giá":REVIEW_LABEL[k]||k,value,tone:k==="NOT_REVIEWED"?"slate" as const:reviewTone(k)}));
+ const stageMap=new Map<string,number>();rows.forEach(x=>stageMap.set(x.workflow_status,(stageMap.get(x.workflow_status)||0)+1));const stageBars=Array.from(stageMap.entries()).sort((a,b)=>b[1]-a[1]).map(([label,value],i)=>({label:label.replaceAll('_',' '),value,tone:(i<2?"brand":"blue") as any}));
+ const depAgg=new Map<string,number>();rows.forEach(x=>depAgg.set(x.department,(depAgg.get(x.department)||0)+1));const depBars=Array.from(depAgg.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([label,value],i)=>({label,value,tone:(i<3?"brand":"blue") as any}));
+ const months=Array.from({length:12},(_,i)=>({label:`T${i+1}`,value:0}));for(const r of (reviewsRes.data??[]) as any[]){const d=new Date(r.actual_review_date||r.created_at);if(!Number.isNaN(d.getTime()))months[d.getMonth()].value++}
+ const firstError=[recordsRes,capasRes,depsRes,reviewsRes].find((x:any)=>x.error)?.error;
+ return <div className="page-stack capa-tqm">
+  <style>{TQM_CHART_CSS+`.capa-tqm .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.capa-tqm .kpi{background:#fff;border:1px solid #e1e9ec;border-radius:17px;padding:16px}.capa-tqm .kpi span{font-size:10px;color:#718187;font-weight:800;text-transform:uppercase}.capa-tqm .kpi strong{display:block;font-size:30px;margin-top:8px}.capa-tqm .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.capa-tqm .head{padding:16px 18px 4px}.capa-tqm .head h2{margin:0;font-size:15px}.capa-tqm .head p{margin:4px 0 0;color:#74838a;font-size:11px}.capa-list{display:grid;gap:8px;padding:8px 16px 16px}.capa-row{display:grid;grid-template-columns:minmax(0,1.5fr) 130px 120px 120px auto;gap:10px;align-items:center;border:1px solid #e4eaec;border-radius:13px;padding:12px}.capa-row.overdue{border-color:#efc6c6;background:#fffafa}@media(max-width:900px){.capa-tqm .grid{grid-template-columns:1fr}.capa-tqm .kpis{grid-template-columns:1fr 1fr}.capa-row{grid-template-columns:1fr 1fr}.capa-row>div:first-child{grid-column:1/-1}}`}</style>
+  <PageHeader eyebrow={`KHẮC PHỤC & CAPA · ${year}`} title="CAPA" description="TQM CAPA Intelligence: không chỉ đếm Action hoàn thành mà tập trung vào RCA, trạng thái triển khai và quan trọng nhất là kết quả đánh giá hiệu lực."/>
+  {firstError?<div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div>:null}
+  <section className="kpis"><article className="kpi"><span>CAPA đang mở</span><strong>{open}</strong></article><article className="kpi"><span>Chờ đánh giá hiệu lực</span><strong>{reviewing}</strong></article><article className="kpi"><span>Đã xác nhận hiệu lực</span><strong>{effectivePct}%</strong></article><article className="kpi"><span>Quá hạn đánh giá</span><strong>{overdue}</strong></article></section>
+  <section className="grid"><article className="panel"><div className="head"><h2>Kết quả hiệu lực CAPA</h2><p>Tỷ trọng kết luận đánh giá hiệu lực gần nhất của từng CAPA.</p></div><TqmDonut value={effectivePct} label="Có hiệu lực" segments={reviewSegments.length?reviewSegments:[{label:"Chưa có dữ liệu",value:1,tone:"slate"}]}/></article><article className="panel"><div className="head"><h2>CAPA theo giai đoạn</h2><p>Cho biết hồ sơ đang nghẽn ở RCA, triển khai hay đánh giá hiệu lực.</p></div><TqmHorizontalBars rows={stageBars}/></article></section>
+  <section className="grid"><article className="panel"><div className="head"><h2>CAPA theo khoa/phòng</h2><p>Khối lượng CAPA theo đơn vị đầu mối.</p></div><TqmHorizontalBars rows={depBars}/></article><article className="panel"><div className="head"><h2>Nhịp đánh giá hiệu lực</h2><p>Số lượt effectiveness review theo tháng.</p></div><TqmTrend points={months} unit=""/></article></section>
+  <section className="panel"><div className="head"><h2>Danh sách CAPA cần theo dõi</h2><p>Ưu tiên CAPA quá hạn đánh giá hoặc chưa xác nhận hiệu lực.</p></div><div className="capa-list">{[...rows].sort((a,b)=>Number(!!(b.effectiveness_due_date&&b.effectiveness_due_date<today))-Number(!!(a.effectiveness_due_date&&a.effectiveness_due_date<today))).map(x=><div className={`capa-row ${x.effectiveness_due_date&&x.effectiveness_due_date<today&&!['EFFECTIVE','CLOSED'].includes(x.workflow_status)?"overdue":""}`} key={x.id}><div><strong>{x.record_code} · {x.title}</strong><small className="subline">{x.department}</small></div><div><strong>{x.review?REVIEW_LABEL[x.review.result]||x.review.result:"Chưa đánh giá"}</strong><small className="subline">Hiệu lực gần nhất</small></div><div>{x.effectiveness_due_date||"—"}</div><div><StatusBadge status={x.workflow_status}/></div><Link className="button tertiary small" href={x.route}>Mở CAPA</Link></div>)}</div></section>
+ </div>
+}
