@@ -295,7 +295,7 @@ export function AppShell({ children, user, organization, nav, year }: { children
       .workspace-app{background:#eef4fb;color:#152b49}
       .workspace-app .topbar{background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-bottom:1px solid #d7e1ed;min-height:68px;padding:10px 22px;box-shadow:0 4px 18px rgba(22,59,64,.04)}
       .workspace-app .org-title strong{color:#152b49;font-size:14px;letter-spacing:-.01em}
-      .workspace-app .org-title span{color:#65758a;font-size:10px;letter-spacing:.04em}
+      .workspace-app .org-title span{color:#65758a;font-size:10px;letter-spacing:.04em}.workspace-app .sidebar-brand-copy strong{color:#fff}.workspace-app .sidebar-brand-copy span{color:#b9cbe1}.workspace-app .nav-label{color:#c1d2e6}
       .workspace-app .assistant-topbar{border:1px solid #b9cbe1;background:#eaf2fb;color:#1d3f73;border-radius:14px;padding:9px 13px;gap:8px;transition:.2s;box-shadow:none}
       .workspace-app .assistant-topbar:hover,.workspace-app .assistant-topbar.active{background:#dce9f7;border-color:#7fa4cd;color:#102848;transform:translateY(-1px)}
       .workspace-app .assistant-attention-badge{background:#d97706!important;color:#fff!important;border:2px solid #fff;min-width:18px;height:18px}
@@ -303,12 +303,12 @@ export function AppShell({ children, user, organization, nav, year }: { children
       .workspace-app .profile-button{border:1px solid #e2ebeb;background:#fff;border-radius:14px;padding:5px 8px 5px 6px;gap:8px}
       .workspace-app .profile-button:hover{background:#f3f7fc;border-color:#b9cbe1}
       .workspace-app .avatar{background:linear-gradient(135deg,#3f6fa8,#1d3f73);box-shadow:0 4px 10px rgba(21,92,103,.18)}
-      .workspace-app .sidebar{background:#fbfdfd;border-right:1px solid #d7e1ed}
-      .workspace-app .sidebar-brand{border-bottom:1px solid #edf3f3}
-      .workspace-app .brand-mark{background:linear-gradient(135deg,#3f6fa8,#1d3f73);box-shadow:0 8px 18px rgba(21,92,103,.18)}
-      .workspace-app .nav-link{border-radius:12px;margin:2px 10px;padding:10px 12px;color:#607579}
-      .workspace-app .nav-link:hover{background:#eaf2fb;color:#1d3f73}
-      .workspace-app .nav-link.active{background:#e6eef8;color:#1d3f73;font-weight:800;box-shadow:inset 3px 0 #9fc4eb}
+      .workspace-app .sidebar{background:linear-gradient(180deg,#102848 0%,#17345f 100%);border-right:1px solid #294f82;color:#edf4fc}
+      .workspace-app .sidebar-brand{background:#102848;border-bottom:1px solid rgba(255,255,255,.14)}
+      .workspace-app .brand-mark{width:48px;height:48px;border-radius:14px;background:transparent;box-shadow:none}.workspace-app .brand-mark img{width:48px;height:48px;display:block}
+      .workspace-app .nav-link{border-radius:12px;margin:2px 10px;padding:10px 12px;color:#e8f0fa}
+      .workspace-app .nav-link:hover{background:rgba(121,169,216,.16);color:#fff}
+      .workspace-app .nav-link.active{background:#3f6fa8;color:#fff;font-weight:800;box-shadow:inset 3px 0 #b8d6f2}
       .workspace-app .workspace-strip{background:#fff;border-bottom:1px solid #d7e1ed}
       .workspace-app .workspace-tab{border-radius:10px;color:#65758a}
       .workspace-app .workspace-tab.active{background:#e6eef8;color:#1d3f73}
