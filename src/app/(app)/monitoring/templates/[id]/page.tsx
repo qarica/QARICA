@@ -86,7 +86,7 @@ export default async function ChecklistTemplatePage({ params }: { params: Promis
       .monitoring-template-shell .template-hero{position:relative;overflow:hidden;border:1px solid #d9e5e4;border-radius:22px;background:linear-gradient(135deg,#fff 0%,#fbfdfd 62%,#eef7f5 100%);padding:20px 22px;display:grid;grid-template-columns:minmax(0,1fr) 235px;gap:24px;box-shadow:0 8px 28px rgba(27,52,58,.045)}
       .monitoring-template-shell .template-hero:after{content:"";position:absolute;width:250px;height:250px;border-radius:50%;right:-125px;bottom:-170px;background:rgba(15,118,110,.06);pointer-events:none}
       .monitoring-template-shell .template-breadcrumb{display:inline-flex;align-items:center;gap:5px;color:#64747a;font-size:11px;font-weight:700;margin-bottom:11px}
-      .monitoring-template-shell .template-breadcrumb:hover{color:#0f766e}
+      .monitoring-template-shell .template-breadcrumb:hover{color:#1d3f73}
       .monitoring-template-shell .template-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
       .monitoring-template-shell .template-title-row h1{font-size:27px;line-height:1.16;letter-spacing:-.025em;margin:3px 0 5px}
       .monitoring-template-shell .template-description{margin:0;color:#66747a;font-size:12px;line-height:1.5;max-width:760px}

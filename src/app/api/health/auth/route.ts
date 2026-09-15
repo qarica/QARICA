@@ -3,6 +3,12 @@ import { getPublicSupabaseKey, getPublicSupabaseUrl } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
+// Endpoint này công khai (không đăng nhập cũng gọi được) để phục vụ giám
+// sát uptime tự động. Vì vậy KHÔNG trả về chi tiết hạ tầng (tên miền
+// Supabase, nội dung phản hồi thật) ra ngoài — chỉ trả đúng/sai để tránh
+// lộ thông tin không cần thiết cho người ngoài. Chi tiết đầy đủ vẫn được
+// ghi vào log server (console.error) để người quản trị tự tra khi cần,
+// xem trong Vercel > Logs.
 export async function GET() {
   const url = getPublicSupabaseUrl().replace(/\/+$/, "");
   const key = getPublicSupabaseKey();
@@ -17,27 +23,14 @@ export async function GET() {
       cache: "no-store",
     });
 
-    const body = await response.text();
+    if (!response.ok) {
+      const body = await response.text();
+      console.error("[health/auth] upstream not ok", { status: response.status, body: body.slice(0, 300) });
+    }
 
-    return NextResponse.json(
-      {
-        ok: response.ok,
-        supabase_host: new URL(url).host,
-        upstream_status: response.status,
-        upstream_body: body.slice(0, 300),
-      },
-      { status: response.ok ? 200 : 502 },
-    );
+    return NextResponse.json({ ok: response.ok }, { status: response.ok ? 200 : 502 });
   } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        supabase_host: new URL(url).host,
-        upstream_status: null,
-        upstream_body: null,
-        error: error instanceof Error ? error.message : "Unknown upstream error",
-      },
-      { status: 502 },
-    );
+    console.error("[health/auth] upstream fetch failed", error);
+    return NextResponse.json({ ok: false }, { status: 502 });
   }
 }
