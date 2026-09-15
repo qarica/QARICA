@@ -196,7 +196,7 @@
   .workspace-strip{top:64px}
   .workspace-strip-inner{min-height:50px;padding:5px 12px 0;display:block}
   .workspace-context{display:none}
-  .workspace-tabs{width:100%;gap:2px}
+  .workspace-tabs{width:100%;gap:2px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}.workspace-tabs::-webkit-scrollbar{display:none}
   .workspace-tab{min-height:44px;padding:9px 11px 8px;font-size:11px;border-radius:9px 9px 0 0}
 
   .workspace-app .content{padding:16px 12px 20px;max-width:none}
@@ -214,9 +214,9 @@
   .workspace-app input,.workspace-app select,.workspace-app textarea{min-height:44px}
   .workspace-app .button{min-height:42px}
 
-  .workspace-app .modal-backdrop{align-items:flex-end;padding:0}
-  .workspace-app .modal-card,.workspace-app .modal-card.xl{width:100%;max-height:92dvh;border-radius:20px 20px 0 0}
-  .workspace-app .modal-footer{padding-bottom:calc(13px + env(safe-area-inset-bottom))}
+  .workspace-app .modal-backdrop{align-items:flex-end;padding:0;z-index:200}
+  .workspace-app .modal-card,.workspace-app .modal-card.xl{width:100%;max-height:calc(100dvh - 12px - env(safe-area-inset-bottom));min-height:0;border-radius:20px 20px 0 0}
+  .workspace-app .modal-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:28px}.workspace-app .modal-footer{position:sticky;bottom:0;z-index:3;padding-bottom:calc(13px + env(safe-area-inset-bottom));box-shadow:0 -8px 18px rgba(25,42,49,.08)}
 
   .mobile-bottom-nav{
     position:fixed;
