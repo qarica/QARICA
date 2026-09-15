@@ -29,6 +29,7 @@ type MonitoringRow = {
   record_code: string;
   title: string;
   scheduled_date: string | null;
+  created_at: string | null;
   target_department_id: string | null;
   target_area: string | null;
   workflow_status: string;
@@ -44,6 +45,9 @@ function compareRoundNewestFirst(a: MonitoringRow, b: MonitoringRow) {
   const dateA = a.scheduled_date || "";
   const dateB = b.scheduled_date || "";
   if (dateA !== dateB) return dateB.localeCompare(dateA);
+  const createdA = a.created_at || "";
+  const createdB = b.created_at || "";
+  if (createdA !== createdB) return createdB.localeCompare(createdA);
   return b.record_code.localeCompare(a.record_code, "vi", { numeric: true, sensitivity: "base" });
 }
 
