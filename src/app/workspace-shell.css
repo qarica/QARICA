@@ -958,3 +958,24 @@ html,body{
   .workspace-app .kpi-card span{font-size:10px!important}
   .workspace-app .kpi-card small{font-size:10px!important}
 }
+
+
+/* Final correctness patch: explicit variables and device-safe modal height */
+.workspace-app{
+  --brand:#1d3f73!important;
+  --brand-dark:#102848!important;
+  --brand-soft:#e6eef8!important;
+  --line:#d7e1ed!important;
+  --muted:#65758a!important;
+}
+@media(max-width:860px){
+  .modal-backdrop{
+    padding-bottom:calc(76px + env(safe-area-inset-bottom))!important;
+  }
+  .modal-backdrop>.modal-card,
+  .modal-backdrop>.domain-create-modal,
+  .modal-backdrop>.lifecycle-modal-card{
+    height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
+    max-height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
+  }
+}
