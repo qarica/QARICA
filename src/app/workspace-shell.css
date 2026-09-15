@@ -1,4 +1,15 @@
 /* QLCL workspace navigation — task-oriented, responsive, touch friendly. */
+/* Final visual authority: workspace navigation uses the light QLCL palette. */
+.workspace-app .sidebar{background:#fff;color:#40535a;box-shadow:10px 0 30px rgba(35,55,62,.12)}
+.workspace-app .sidebar-brand{background:#fbfdfd;border-bottom-color:var(--line)}
+.workspace-app .sidebar-brand span{color:var(--muted)}
+.workspace-app .nav-label{color:#7b8b91}
+.workspace-app .nav-link{color:#506169}
+.workspace-app .nav-link:hover{background:#f0f7f6;color:var(--brand-dark)}
+.workspace-app .nav-link.active{background:var(--brand-soft);color:var(--brand-dark);box-shadow:inset 3px 0 0 var(--brand)}
+.workspace-app .sidebar-footer{display:none!important}
+.workspace-app .scope-chip{display:none!important}
+
 .workspace-app .sidebar-nav{
   scrollbar-gutter:stable;
   padding-top:12px;
