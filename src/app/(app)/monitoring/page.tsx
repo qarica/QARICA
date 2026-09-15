@@ -17,7 +17,7 @@ export default async function MonitoringPage() {
     supabase.from("checklist_versions").select("id,checklist_template_id,version_no,status,effective_from,effective_to,scoring_method,published_at").order("version_no", { ascending: false }),
     supabase.from("checklist_sections").select("id,checklist_version_id"),
     supabase.from("checklist_items").select("id,checklist_version_id"),
-    supabase.from("monitoring_rounds").select("id,record_id,checklist_version_id,work_year,scheduled_date,created_at,target_department_id,target_area,workflow_status,started_at,completed_at").eq("work_year", year).neq("workflow_status", "CANCELLED").order("scheduled_date", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false, nullsFirst: false }),
+    supabase.from("monitoring_rounds").select("id,record_id,checklist_version_id,work_year,scheduled_date,target_department_id,target_area,workflow_status,started_at,completed_at").eq("work_year", year).neq("workflow_status", "CANCELLED").order("scheduled_date", { ascending: false, nullsFirst: false }).order("started_at", { ascending: false, nullsFirst: false }),
     supabase.from("departments").select("id,name,short_name").eq("is_active", true).order("name"),
   ]);
 
