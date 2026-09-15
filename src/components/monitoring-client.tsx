@@ -40,7 +40,7 @@ type MonitoringRow = {
   scored: number;
   pass_pct: number | null;
 };
-type RoundFilter = "ALL" | MonitoringPhase;
+type RoundFilter = "ALL" | MonitoringPhase | "HAS_FAIL";
 type FormState = { name: string; description: string; ownerDepartmentId: string; scoringMethod: string };
 
 const initialForm: FormState = { name: "", description: "", ownerDepartmentId: "", scoringMethod: "COMPLIANCE_PERCENTAGE" };
@@ -83,11 +83,12 @@ export function MonitoringClient({ year, canManageTemplates, templateRows, monit
   const filteredTemplates = templateRows.filter((row) => `${row.code || ""} ${row.name} ${row.description || ""} ${deptMap.get(row.owner_department_id || "") || ""}`.toLowerCase().includes(q));
   const filteredRounds = monitoringRows.filter((row) => {
     const matchesSearch = `${row.record_code} ${row.title} ${row.checklist_name} ${row.target_area || ""} ${deptMap.get(row.target_department_id || "") || ""}`.toLowerCase().includes(q);
-    const matchesPhase = roundFilter === "ALL" || row.phase === roundFilter;
+    const matchesPhase = roundFilter === "ALL" || (roundFilter === "HAS_FAIL" ? row.fail > 0 : row.phase === roundFilter);
     return matchesSearch && matchesPhase;
   }).sort(compareRoundNewestFirst);
 
   const phaseCount = (phase: MonitoringPhase) => monitoringRows.filter((x) => x.phase === phase).length;
+  const failRoundCount = monitoringRows.filter((x) => x.fail > 0).length;
   const publishedCount = templateRows.filter((x) => x.latest_version_status === "PUBLISHED").length;
   const draftCount = templateRows.filter((x) => x.latest_version_status === "DRAFT").length;
 
@@ -141,7 +142,7 @@ export function MonitoringClient({ year, canManageTemplates, templateRows, monit
       <div className="tabs" style={{ paddingTop: 4 }}><button className={tab === "rounds" ? "active" : ""} onClick={() => { setTab("rounds"); setSearch(""); }}>Đợt giám sát</button><button className={tab === "templates" ? "active" : ""} onClick={() => { setTab("templates"); setSearch(""); }}>Mẫu bảng kiểm</button></div>
       <div className="toolbar"><div className="search-box"><Icon name="search" size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tab === "templates" ? "Tìm theo mã, tên mẫu, khoa/phòng..." : "Tìm theo mã đợt, bảng kiểm, khu vực..."} /></div>{tab === "templates" && canManageTemplates ? <button className="button primary" onClick={openCreate}><Icon name="plus" size={17} /> Tạo mẫu bảng kiểm</button> : null}</div>
 
-      {tab === "rounds" ? <div style={{ padding: "0 16px 12px", display: "flex", gap: 7, flexWrap: "wrap" }}>{([["ALL", "Tất cả"],["NEEDS_CHECK", "Cần kiểm"],["IN_PROGRESS", "Đang kiểm"],["WAITING_RECHECK", "Chờ kiểm lại"],["AWAITING_CONFIRMATION", "Chờ QLCL"],["DONE", "Hoàn tất"]] as [RoundFilter, string][]).map(([value, label]) => <button key={value} className={`button ${roundFilter === value ? "primary" : "secondary"} small`} onClick={() => setRoundFilter(value)}>{label}{value !== "ALL" ? ` (${phaseCount(value as MonitoringPhase)})` : ` (${monitoringRows.length})`}</button>)}</div> : null}
+      {tab === "rounds" ? <div style={{ padding: "0 16px 12px", display: "flex", gap: 7, flexWrap: "wrap" }}>{([["ALL", "Tất cả"],["NEEDS_CHECK", "Cần kiểm"],["IN_PROGRESS", "Đang kiểm"],["WAITING_RECHECK", "Chờ kiểm lại"],["AWAITING_CONFIRMATION", "Chờ QLCL"],["DONE", "Hoàn tất"],["HAS_FAIL", "Có mục không đạt"]] as [RoundFilter, string][]).map(([value, label]) => <button key={value} className={`button ${roundFilter === value ? "primary" : "secondary"} small`} onClick={() => setRoundFilter(value)}>{label}{value === "HAS_FAIL" ? ` (${failRoundCount})` : value !== "ALL" ? ` (${phaseCount(value as MonitoringPhase)})` : ` (${monitoringRows.length})`}</button>)}</div> : null}
 
       {tab === "templates" ? <div className="table-wrap"><table><thead><tr><th>Mã</th><th>Tên mẫu bảng kiểm</th><th>Đơn vị quản lý</th><th>Phiên bản mới nhất</th><th>Cấu trúc</th><th>Cách tính</th></tr></thead><tbody>{filteredTemplates.map((row) => <tr key={row.id}><td><Link className="table-link" href={`/monitoring/templates/${row.id}`}>{row.code || "—"}</Link></td><td><Link className="table-link" href={`/monitoring/templates/${row.id}`}>{row.name}</Link>{!row.is_active ? <span className="subline text-danger">Đã ngưng sử dụng</span> : null}</td><td>{deptMap.get(row.owner_department_id || "") || "—"}</td><td><div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}><strong>{row.latest_version_no ? `v${row.latest_version_no}` : "—"}</strong>{row.latest_version_status ? <VersionBadge status={row.latest_version_status} /> : null}</div>{row.effective_from ? <span className="subline">Hiệu lực từ {formatDate(row.effective_from)}</span> : null}</td><td><strong>{row.section_count}</strong> nhóm · <strong>{row.item_count}</strong> tiêu chí</td><td>{scoringLabel(row.scoring_method)}</td></tr>)}{!filteredTemplates.length ? <tr><td colSpan={6}><div className="empty-state">Chưa có mẫu bảng kiểm.</div></td></tr> : null}</tbody></table></div> : <>
         <div className="monitoring-round-desktop table-wrap"><table><thead><tr><th>Mã đợt</th><th>Đợt giám sát</th><th>Bảng kiểm</th><th>Khoa/Phòng</th><th>Ngày</th><th>Trạng thái</th></tr></thead><tbody>{filteredRounds.map((row) => <tr key={row.id}><td><Link className="table-link" href={`/monitoring/${row.id}`}><strong>{row.record_code}</strong></Link></td><td><Link className="table-link" href={`/monitoring/${row.id}`}><strong>{row.title}</strong></Link>{row.target_area ? <span className="subline">Khu vực: {row.target_area}</span> : null}</td><td>{row.checklist_name}</td><td>{deptMap.get(row.target_department_id || "") || "—"}</td><td>{formatDate(row.scheduled_date)}</td><td><MonitoringPhaseBadge phase={row.phase} /></td></tr>)}{!filteredRounds.length ? <tr><td colSpan={6}><div className="empty-state">Không có đợt giám sát phù hợp bộ lọc hiện tại.</div></td></tr> : null}</tbody></table></div>
