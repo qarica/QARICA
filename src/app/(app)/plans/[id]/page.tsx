@@ -82,9 +82,6 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
         .plan-detail-page tbody td:nth-child(1)::before{content:"Mã"}.plan-detail-page tbody td:nth-child(2)::before{content:"Nội dung"}.plan-detail-page tbody td:nth-child(3)::before{content:"Phụ trách"}.plan-detail-page tbody td:nth-child(4)::before{content:"Ưu tiên"}.plan-detail-page tbody td:nth-child(5)::before{content:"Hạn"}.plan-detail-page tbody td:nth-child(6)::before{content:"Trạng thái"}
         .plan-detail-page tbody td:nth-child(2) strong{font-size:15px!important;line-height:1.35!important}.plan-detail-page .subline{font-size:11px!important;line-height:1.35!important;margin-top:3px!important}
         .plan-detail-page .empty-state{grid-column:1/-1!important}
-        body:has(.plan-detail-page) .modal-backdrop{padding:10px!important;align-items:center!important}
-        body:has(.plan-detail-page) .modal-card{width:calc(100vw - 20px)!important;max-height:calc(100dvh - 20px)!important;border-radius:16px!important}
-        body:has(.plan-detail-page) .modal-head{padding:15px 16px!important}body:has(.plan-detail-page) .modal-body{padding:16px!important}body:has(.plan-detail-page) .modal-body .form-grid.two{grid-template-columns:1fr!important;gap:12px!important}body:has(.plan-detail-page) .modal-body .span-2{grid-column:auto!important}body:has(.plan-detail-page) .modal-footer{padding:11px 14px!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}body:has(.plan-detail-page) .modal-footer .button{width:100%!important;min-height:43px!important}
       }
     `}</style>
     <PageHeader
