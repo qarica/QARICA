@@ -241,10 +241,68 @@ body {
   border-bottom: 1px solid var(--line) !important;
 }
 
+/* FIX: .workspace-strip-inner, .workspace-context và .workspace-tabs
+   chưa từng có quy tắc bố cục (display/gap/padding) ở bất kỳ đâu trong
+   toàn bộ codebase — chỉ có màu chữ nằm rải rác ở 2 file CSS đã xóa.
+   Đây là nguyên nhân "nghĩa vụĐiều hành QLCL" dính liền nhau và các tab
+   con (Kế hoạch/Lịch QLCL/Chỉ đạo.../Nghĩa vụ báo cáo) chen chúc không
+   có khoảng cách. Viết đầy đủ bố cục ở đây — nơi duy nhất còn tồn tại
+   lâu dài, không rải ra file khác nữa. */
+.workspace-app .workspace-strip-inner {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 20px !important;
+  padding: 10px 24px !important;
+  min-height: 58px !important;
+}
+
+.workspace-app .workspace-context {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  flex: 0 0 auto !important;
+}
+
+.workspace-app .workspace-context span {
+  font-size: var(--fs-3xs) !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--muted) !important;
+  font-weight: 800 !important;
+}
+
+.workspace-app .workspace-context strong {
+  font-size: var(--fs-md) !important;
+  color: var(--text) !important;
+  font-weight: 850 !important;
+}
+
+.workspace-app .workspace-tabs {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+  flex: 1 1 auto !important;
+}
+
 .workspace-app .workspace-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 14px !important;
+  border-radius: 10px !important;
+  white-space: nowrap !important;
+  text-decoration: none !important;
   color: #5d6f84 !important;
   font-size: var(--fs-xs) !important;
   font-weight: 750 !important;
+}
+
+.workspace-app .workspace-tab svg {
+  flex: 0 0 auto !important;
+  width: 16px !important;
+  height: 16px !important;
 }
 
 .workspace-app .workspace-tab:hover {
@@ -256,6 +314,24 @@ body {
   background: #ffffff !important;
   color: var(--navy) !important;
   border-bottom-color: var(--navy) !important;
+}
+
+@media (max-width: 760px) {
+  .workspace-app .workspace-strip-inner {
+    padding: 8px 14px !important;
+    gap: 10px !important;
+    flex-wrap: nowrap !important;
+  }
+  .workspace-app .workspace-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 2px !important;
+  }
+  .workspace-app .workspace-tab {
+    padding: 7px 10px !important;
+    font-size: var(--fs-2xs) !important;
+  }
 }
 
 /* =========================
