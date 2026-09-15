@@ -182,8 +182,7 @@ export function NotificationBell() {
 
   return (
     <div className="notification-root" ref={rootRef}>
-      <style>{\`\
-        .notification-filters{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid #edf2f2;background:#fbfdfd}
+      <style>{`\n        .notification-filters{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid #edf2f2;background:#fbfdfd}
         .notification-filters button{border:1px solid transparent;background:transparent;color:#718286;border-radius:999px;padding:6px 9px;font-size:10px;cursor:pointer}
         .notification-filters button:hover{background:#eef7f5;color:#17645f}
         .notification-filters button.active{background:#dff4ef;border-color:#b8ded7;color:#0f655f;font-weight:800}
@@ -212,7 +211,6 @@ export function NotificationBell() {
             <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Tất cả <b>{rows.length}</b></button>
             <button className={filter === "unread" ? "active" : ""} onClick={() => setFilter("unread")}>Chưa đọc <b>{unread}</b></button>
             <button className={filter === "urgent" ? "active" : ""} onClick={() => setFilter("urgent")}>Ưu tiên <b>{urgent}</b></button>
-          </div>
           </div>
           <div className="notification-list">
             {visibleRows.length === 0 ? (
