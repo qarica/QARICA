@@ -437,3 +437,80 @@
 .workspace-app .priority-card *,
 .workspace-app .quality-priority-card *,
 .workspace-app [class*="priority"] *{color:inherit}
+
+
+/* Modal contract v2 — every create/action window must expose a visible footer */
+.workspace-app .modal-backdrop{
+  overflow:hidden!important;
+  overscroll-behavior:none!important;
+}
+.workspace-app .modal-card{
+  display:flex!important;
+  flex-direction:column!important;
+  height:calc(100dvh - 32px)!important;
+  max-height:calc(100dvh - 32px)!important;
+  min-height:0!important;
+}
+.workspace-app .modal-card>.modal-head{
+  flex:0 0 auto!important;
+  position:relative!important;
+  z-index:2!important;
+  background:#fff!important;
+}
+.workspace-app .modal-card>.modal-body{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+.workspace-app .modal-card>.modal-footer,
+.workspace-app .modal-card>.modal-actions{
+  flex:0 0 auto!important;
+  position:relative!important;
+  bottom:auto!important;
+  z-index:5!important;
+  min-height:64px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  background:#f8fbff!important;
+  border-top:1px solid #d7e1ed!important;
+  box-shadow:0 -10px 22px rgba(16,40,72,.12)!important;
+}
+.workspace-app .modal-card>form{
+  display:flex!important;
+  flex:1 1 auto!important;
+  flex-direction:column!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.workspace-app .modal-card>form>.modal-body{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+}
+.workspace-app .modal-card>form>.modal-footer{
+  flex:0 0 auto!important;
+}
+@media(max-width:860px){
+  .workspace-app .modal-backdrop{padding:8px!important;align-items:center!important}
+  .workspace-app .modal-card{
+    width:100%!important;
+    height:calc(100dvh - 16px - env(safe-area-inset-bottom))!important;
+    max-height:calc(100dvh - 16px - env(safe-area-inset-bottom))!important;
+    border-radius:18px!important;
+  }
+  .workspace-app .modal-card>.modal-footer,
+  .workspace-app .modal-card>.modal-actions{
+    min-height:70px!important;
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom))!important;
+  }
+  .workspace-app .modal-card>.modal-footer .button,
+  .workspace-app .modal-card>.modal-actions .button{
+    min-height:44px!important;
+  }
+}
