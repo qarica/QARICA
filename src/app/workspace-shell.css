@@ -355,3 +355,59 @@
   }
   .workspace-app .modal-footer,.workspace-app .modal-actions,.workspace-app .lifecycle-modal-footer{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
 }
+
+
+/* Navy visual system — final brand pass */
+:root{
+  --bg:#eef4fb;
+  --surface:#fff;
+  --text:#152b49;
+  --muted:#65758a;
+  --line:#d7e1ed;
+  --brand:#1d3f73;
+  --brand-dark:#102848;
+  --brand-soft:#e6eef8;
+}
+.login-page{background:#eef4fb!important}
+.login-hero{background:linear-gradient(145deg,#102848 0%,#1d3f73 58%,#4779b3 140%)!important}
+.login-hero .eyebrow{color:#c6daf2!important}
+.login-panel{background:#eef4fb!important}
+.login-card{border-color:#d7e1ed!important}
+.login-card .button.primary{background:#1d3f73!important;border-color:#102848!important}
+.workspace-app{
+  --bg:#eef4fb!important;
+  --text:#152b49!important;
+  --muted:#65758a!important;
+  --line:#d7e1ed!important;
+  --brand:#1d3f73!important;
+  --brand-dark:#102848!important;
+  --brand-soft:#e6eef8!important;
+  background:#eef4fb!important;
+  color:#152b49!important;
+}
+.workspace-app .content{background:#eef4fb!important}
+.workspace-app .sidebar{background:linear-gradient(180deg,#102848 0%,#17345f 100%)!important;color:#edf4fc!important;box-shadow:10px 0 30px rgba(16,40,72,.18)!important}
+.workspace-app .sidebar-brand{background:#102848!important;border:0!important;border-bottom:1px solid rgba(255,255,255,.12)!important;box-shadow:none!important}
+.workspace-app .brand-mark{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
+.workspace-app .sidebar-brand-copy strong{color:#fff!important}
+.workspace-app .sidebar-brand-copy span{color:#b9cbe1!important}
+.workspace-app .nav-label{color:#c1d2e6!important}
+.workspace-app .nav-link{color:#e8f0fa!important}
+.workspace-app .nav-link:hover{background:rgba(121,169,216,.16)!important;color:#fff!important}
+.workspace-app .nav-link.active{background:#3f6fa8!important;color:#fff!important;box-shadow:inset 3px 0 0 #b8d6f2,0 8px 20px rgba(8,27,53,.18)!important}
+.workspace-app .topbar{background:rgba(255,255,255,.96)!important;border-bottom-color:#d7e1ed!important}
+.workspace-app .workspace-strip{background:rgba(239,245,252,.96)!important;border-bottom-color:#d7e1ed!important}
+.workspace-app .workspace-tab{color:#5d6f84!important}
+.workspace-app .workspace-tab:hover{background:#e6eef8!important;color:#1d3f73!important}
+.workspace-app .workspace-tab.active{background:#fff!important;color:#1d3f73!important;border-bottom-color:#1d3f73!important}
+.workspace-app .assistant-topbar{background:#eaf2fb!important;border-color:#b9cbe1!important;color:#1d3f73!important}
+.workspace-app .assistant-topbar:hover,.workspace-app .assistant-topbar.active{background:#dce9f7!important;border-color:#7fa4cd!important}
+.workspace-app .avatar{background:linear-gradient(135deg,#3f6fa8,#1d3f73)!important}
+.workspace-app .header-icon,.workspace-app .mobile-menu{border-color:#d7e1ed!important}
+.workspace-app .button.primary{background:#1d3f73!important;border-color:#102848!important}
+.workspace-app .button.primary:hover{background:#2b5b96!important}
+.workspace-app .kpi-card,.workspace-app .panel,.workspace-app .card{border-color:#d7e1ed!important;background:#fff!important}
+.workspace-app .modal-footer,.workspace-app .modal-actions,.workspace-app .lifecycle-modal-footer{background:#f8fbff!important}
+.mobile-bottom-nav>a.active,.mobile-bottom-nav>button.active{color:#1d3f73!important;background:#e6eef8!important}
+.mobile-bottom-nav .mobile-assistant-icon{background:#e6eef8!important;color:#1d3f73!important}
+.mobile-bottom-nav .mobile-assistant.active .mobile-assistant-icon{background:#1d3f73!important;color:#fff!important}
