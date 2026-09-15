@@ -14,6 +14,7 @@ type UpdateUserBody = {
   primary_department_id?: unknown;
   scope_department_ids?: unknown;
   scope_mode?: unknown;
+  is_active?: unknown;
 };
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -49,6 +50,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!callerVisible?.organization_id || !callerVisible.is_active) return NextResponse.json({ error: "Tài khoản quản trị không hợp lệ." }, { status: 403 });
   if (!targetVisible) return NextResponse.json({ error: "Không tìm thấy người dùng hoặc ngoài phạm vi truy cập." }, { status: 404 });
   if (targetVisible.organization_id !== callerVisible.organization_id) return NextResponse.json({ error: "Không được thay đổi người dùng thuộc bệnh viện khác." }, { status: 403 });
+  if (typeof body.is_active === "boolean" && !body.is_active && id === permissionCheck.user.id) {
+    return NextResponse.json({ error: "Không thể tự ngưng hoạt động tài khoản của chính mình." }, { status: 400 });
+  }
 
   const admin = createAdminClient();
   const { data: tx, error: txError } = await admin.rpc(SET_USER_ACCESS_RPC, {
@@ -66,7 +70,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     },
   });
 
-  if (!txError) return NextResponse.json({ ok: true, transaction: "atomic", result: tx });
+  if (!txError) {
+    // Trạng thái hoạt động (khóa/mở khóa) không nằm trong RPC giao dịch phân
+    // quyền — cập nhật riêng, đơn giản, không ảnh hưởng vai trò/quyền đã lưu.
+    if (typeof body.is_active === "boolean") {
+      const { error: activeError } = await admin.from("profiles").update({ is_active: body.is_active }).eq("user_id", id);
+      if (activeError) return NextResponse.json({ error: "Đã lưu phân quyền nhưng không cập nhật được trạng thái hoạt động: " + activeError.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, transaction: "atomic", result: tx });
+  }
 
   if (isMissingRpcFunction(txError, SET_USER_ACCESS_RPC)) {
     // Permission changes are intentionally fail-closed. The previous delete/insert fallback
