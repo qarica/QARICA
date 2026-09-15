@@ -283,3 +283,24 @@
 @media print{
   .workspace-strip,.mobile-bottom-nav,.assistant-topbar,.admin-launcher{display:none!important}
 }
+
+
+/* Final QLCL light shell: no navy rail and no distracting scope chip. */
+.workspace-app .sidebar{background:#fff;color:#40535a;box-shadow:10px 0 30px rgba(35,55,62,.12)}
+.workspace-app .sidebar-brand{background:#fbfdfd;border-bottom-color:var(--line)}
+.workspace-app .sidebar-brand span{color:var(--muted)}
+.workspace-app .nav-label{color:#7b8b91}
+.workspace-app .nav-link{color:#506169}
+.workspace-app .nav-link:hover{background:#f0f7f6;color:var(--brand-dark)}
+.workspace-app .nav-link.active{background:var(--brand-soft);color:var(--brand-dark);box-shadow:inset 3px 0 0 var(--brand)}
+.workspace-app .sidebar-footer{display:none!important}
+.workspace-app .scope-chip{display:none!important}
+
+/* Mobile forms: header and save actions remain fixed; only body scrolls. */
+@media(max-width:860px){
+  .workspace-app .modal-backdrop{align-items:center;justify-content:center;padding:12px;z-index:200}
+  .workspace-app .modal-card,.workspace-app .modal-card.xl{width:100%;height:calc(100dvh - 24px - env(safe-area-inset-bottom));max-height:calc(100dvh - 24px - env(safe-area-inset-bottom));min-height:0;border-radius:20px;overflow:hidden}
+  .workspace-app .modal-head{flex:0 0 auto}
+  .workspace-app .modal-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:28px}
+  .workspace-app .modal-footer{flex:0 0 auto;position:relative;z-index:3;padding-bottom:calc(13px + env(safe-area-inset-bottom));box-shadow:0 -8px 18px rgba(25,42,49,.08)}
+}
