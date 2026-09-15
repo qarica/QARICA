@@ -310,7 +310,7 @@ export function FiveSChecklistRunClient({ templateId, versionId, templateCode, s
     `}</style>
     {validationModal}
     <section className="panel five-s-run-panel">
-      <div className="panel-title"><div><div className="eyebrow">BẢNG KIỂM ĐANG THỰC HIỆN · {templateCode}</div><h2>Giám sát 5S - Khu vực: Bên ngoài bệnh viện</h2><p>Chấm, ghi chú và chụp/tải ảnh cho từng tiêu chí. Bản nháp được tự lưu trên thiết bị trong khi chưa lưu chính thức.</p></div><span className="status-badge info">Đang kiểm</span></div>
+      <div className="panel-title"><div><div className="eyebrow">BẢNG KIỂM ĐANG THỰC HIỆN · {templateCode}</div><h2>Giám sát 5S - Khu vực: Bên ngoài bệnh viện</h2><p>Chấm, ghi chú và chụp/tải ảnh cho từng tiêu chí. Bản nháp được tự lưu trên thiết bị trong khi chưa lưu chính thức.</p></div><div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}><span className="status-badge info">Đang kiểm</span>{dirty ? <span className="status-badge success" role="status" aria-live="polite">Đã tự lưu nháp</span> : null}</div></div>
       <div style={{ padding: "0 18px 18px", display: "grid", gap: 18 }}>
         {message ? <div className={`alert ${message.tone}`}>{message.text}</div> : null}
         <div data-validation-target="areas"><strong>Khu vực đánh giá</strong><div className="check-grid" style={{ marginTop: 10 }}>
