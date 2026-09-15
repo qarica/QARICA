@@ -22,5 +22,5 @@ const criticalCss=`
   @media print{@page{size:A4;margin:20mm 20mm 20mm 30mm!important}}
 `;
 export const metadata:Metadata={title:"QLCL · TQM",description:"Hệ thống Quản lý Chất lượng và cải tiến toàn diện",icons:{icon:"/icon.svg",apple:"/apple-icon.svg"}};
-export const viewport:Viewport={width:"device-width",initialScale:1,themeColor:"#7a2740"};
+export const viewport:Viewport={width:"device-width",initialScale:1,themeColor:"#0d9488"};
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="vi"><body className={`${appFont.className} ${appFont.variable}`}>{children}<style>{criticalCss}</style></body></html>}

@@ -108,9 +108,9 @@ input:focus,select:focus,textarea:focus{border-color:#2563eb!important;box-shado
 .monitoring-workspace .kpi-card:before{display:none!important}
 
 /* QLVB-like login palette */
-.login-hero{background:linear-gradient(145deg,#33101a,#4a1526 62%,#9c4a63 145%)!important}
-.login-hero .eyebrow,.login-feature-grid strong{color:#e8c3cd!important}
-.login-hero p,.login-feature-grid span{color:#f0dbe1!important}
+.login-hero{background:linear-gradient(145deg,#0a1830,#0f2138 62%,#14b8a6 145%)!important}
+.login-hero .eyebrow,.login-feature-grid strong{color:#99e6da!important}
+.login-hero p,.login-feature-grid span{color:#cdf3ec!important}
 .login-panel{background:#f8fafc!important}
 
 /* Mobile list cards in major modules use the same semantic left-border language. */

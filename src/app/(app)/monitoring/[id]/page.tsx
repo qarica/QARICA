@@ -110,7 +110,7 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
         .monitoring-result-desktop{display:none!important}.monitoring-result-mobile{display:grid;gap:10px;padding:0 12px 12px}
         .monitoring-result-card{border:1px solid #dce6e7;border-radius:14px;padding:13px;background:#fff;display:grid;gap:9px}
         .monitoring-result-card.fail{border-color:#f0c4c4;background:#fffafa}
-        .monitoring-result-card-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.monitoring-result-card-head strong{color:#7a2740;font-size:13px}
+        .monitoring-result-card-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.monitoring-result-card-head strong{color:#0d9488;font-size:13px}
         .monitoring-result-card-content{font-size:16px;line-height:1.42;font-weight:650;color:#263238}
         .monitoring-result-card-note{font-size:13px;line-height:1.45;color:#59686e}
         .monitoring-result-card .monitoring-photo-item{width:132px}.monitoring-result-card .monitoring-photo-item img{width:132px;height:96px}

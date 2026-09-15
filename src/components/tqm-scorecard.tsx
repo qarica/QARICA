@@ -36,12 +36,12 @@ export function TqmScorecard({ planPct, indicatorPct, monitoringPct, projectPct,
         .tqm-scorecard-note{color:#718286;font-size:10px}
         .tqm-scorecard-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
         .tqm-scorecard-row{display:grid;grid-template-columns:7px 1fr auto;gap:10px;align-items:center;border:1px solid #e1eaec;border-radius:13px;padding:11px;text-decoration:none;background:#fff;transition:.2s}
-        .tqm-scorecard-row:hover{border-color:#e3b8c3;background:#fbfefe;transform:translateY(-1px)}
+        .tqm-scorecard-row:hover{border-color:#7dd3c7;background:#fbfefe;transform:translateY(-1px)}
         .tqm-scorecard-row i{width:7px;height:38px;border-radius:99px;background:#16a34a}
         .tqm-scorecard-row.watch i{background:#d97706}.tqm-scorecard-row.risk i{background:#dc2626}
         .tqm-scorecard-row strong{display:block;color:#244148;font-size:11px;line-height:1.35}
         .tqm-scorecard-row span{display:block;color:#74868a;font-size:10px;margin-top:4px}
-        .tqm-scorecard-status{font-size:9px!important;font-weight:800;color:#7a2740!important;background:#faeef1;border-radius:999px;padding:5px 7px;margin:0!important;white-space:nowrap}
+        .tqm-scorecard-status{font-size:9px!important;font-weight:800;color:#0d9488!important;background:#e6fbf8;border-radius:999px;padding:5px 7px;margin:0!important;white-space:nowrap}
         .tqm-scorecard-row.watch .tqm-scorecard-status{color:#9a5a05!important;background:#fff7e8}
         .tqm-scorecard-row.risk .tqm-scorecard-status{color:#a72b35!important;background:#fff0f1}
         @media(max-width:900px){.tqm-scorecard-grid{grid-template-columns:1fr 1fr}}

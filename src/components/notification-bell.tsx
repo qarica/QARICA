@@ -195,7 +195,7 @@ export function NotificationBell() {
     <div className="notification-root" ref={rootRef}>
       <style>{`\n        .notification-filters{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid #edf2f2;background:#fbfdfd}
         .notification-filters button{border:1px solid transparent;background:transparent;color:#718286;border-radius:999px;padding:6px 9px;font-size:10px;cursor:pointer}
-        .notification-filters button:hover{background:#faeef1;color:#7a2740}
+        .notification-filters button:hover{background:#e6fbf8;color:#0d9488}
         .notification-filters button.active{background:#dff4ef;border-color:#b8ded7;color:#0f655f;font-weight:800}
         .notification-filters b{font-size:9px;margin-left:3px}
       `}</style>
