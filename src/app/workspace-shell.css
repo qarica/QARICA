@@ -682,3 +682,102 @@
     max-height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
   }
 }
+
+
+/* Global modal contract: also covers createPortal(document.body) dialogs */
+.modal-backdrop{
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  margin:0!important;
+  padding:8px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  z-index:1000!important;
+}
+.modal-backdrop>.modal-card,
+.modal-backdrop>.domain-create-modal,
+.modal-backdrop>.lifecycle-modal-card{
+  position:relative!important;
+  display:flex!important;
+  flex-direction:column!important;
+  width:min(920px,100%)!important;
+  height:calc(100dvh - 16px)!important;
+  max-height:calc(100dvh - 16px)!important;
+  min-height:0!important;
+  margin:0!important;
+  overflow:hidden!important;
+}
+.modal-backdrop>.modal-card>.modal-head,
+.modal-backdrop>.domain-create-modal>.modal-head,
+.modal-backdrop>.lifecycle-modal-card>.modal-head{
+  flex:0 0 auto!important;
+  position:sticky!important;
+  top:0!important;
+  z-index:5!important;
+  background:#fff!important;
+}
+.modal-backdrop>.modal-card>.modal-body,
+.modal-backdrop>.domain-create-modal>.domain-create-grid,
+.modal-backdrop>.lifecycle-modal-card>.lifecycle-modal-body{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:0!important;
+  max-height:none!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+.modal-backdrop>.modal-card>.modal-footer,
+.modal-backdrop>.modal-card>.modal-actions,
+.modal-backdrop>.domain-create-modal>.modal-footer,
+.modal-backdrop>.lifecycle-modal-card>.lifecycle-modal-footer{
+  flex:0 0 auto!important;
+  position:sticky!important;
+  bottom:0!important;
+  z-index:6!important;
+  min-height:68px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  background:#f8fbff!important;
+  border-top:1px solid #d7e1ed!important;
+  box-shadow:0 -10px 22px rgba(16,40,72,.12)!important;
+}
+.modal-backdrop>.modal-card>form{
+  display:flex!important;
+  flex:1 1 auto!important;
+  flex-direction:column!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.modal-backdrop>.modal-card>form>.modal-body{
+  flex:1 1 auto!important;
+  height:0!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+}
+@media(max-width:860px){
+  .modal-backdrop{
+    padding:8px 8px calc(76px + env(safe-area-inset-bottom))!important;
+  }
+  .modal-backdrop>.modal-card,
+  .modal-backdrop>.domain-create-modal,
+  .modal-backdrop>.lifecycle-modal-card{
+    width:100%!important;
+    height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
+    max-height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
+    border-radius:18px!important;
+  }
+  .modal-backdrop>.modal-card>.modal-footer,
+  .modal-backdrop>.modal-card>.modal-actions,
+  .modal-backdrop>.domain-create-modal>.modal-footer,
+  .modal-backdrop>.lifecycle-modal-card>.lifecycle-modal-footer{
+    min-height:68px!important;
+    padding:10px 14px!important;
+  }
+}
