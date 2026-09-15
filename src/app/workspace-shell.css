@@ -411,3 +411,29 @@
 .mobile-bottom-nav>a.active,.mobile-bottom-nav>button.active{color:#1d3f73!important;background:#e6eef8!important}
 .mobile-bottom-nav .mobile-assistant-icon{background:#e6eef8!important;color:#1d3f73!important}
 .mobile-bottom-nav .mobile-assistant.active .mobile-assistant-icon{background:#1d3f73!important;color:#fff!important}
+
+
+/* Mobile navy enforcement and dashboard surfaces */
+@media(max-width:860px){
+  .workspace-app .sidebar,
+  .workspace-app .sidebar-brand{background:linear-gradient(180deg,#102848 0%,#17345f 100%)!important}
+  .workspace-app .sidebar .nav-link.active{background:#3f6fa8!important;color:#fff!important}
+  .workspace-app .sidebar .nav-link:hover{background:rgba(121,169,216,.16)!important}
+  .workspace-app .mobile-bottom-nav{background:rgba(255,255,255,.98)!important;border-top-color:#d7e1ed!important}
+}
+.workspace-app .hero-card,
+.workspace-app .executive-hero,
+.workspace-app .tqm-hero,
+.workspace-app .priority-card,
+.workspace-app .quality-priority-card,
+.workspace-app [class*="priority"]{
+  background:linear-gradient(135deg,#17345f 0%,#2b5b96 100%)!important;
+  border-color:#294f82!important;
+  color:#fff!important;
+}
+.workspace-app .hero-card *,
+.workspace-app .executive-hero *,
+.workspace-app .tqm-hero *,
+.workspace-app .priority-card *,
+.workspace-app .quality-priority-card *,
+.workspace-app [class*="priority"] *{color:inherit}
