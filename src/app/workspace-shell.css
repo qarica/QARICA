@@ -1,981 +1,523 @@
-/* QLCL workspace navigation — task-oriented, responsive, touch friendly. */
-.workspace-app .sidebar-nav{
-  scrollbar-gutter:stable;
-  padding-top:12px;
-}
-.workspace-app .nav-section{margin-bottom:16px}
-.workspace-app .nav-label{padding:8px 12px 6px;font-size:9.5px;letter-spacing:.12em}
-.workspace-app .nav-link{min-height:44px;padding:9px 11px;border-radius:11px;gap:11px;font-weight:650}
-.workspace-app .nav-link svg{flex:0 0 auto}
-.workspace-app .nav-link.active{box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 8px 22px rgba(0,0,0,.08)}
-.workspace-app .scope-chip{line-height:1.35}
+/* =========================================================
+   QLCL TTSG — CLEAN UI SYSTEM (v2 — post-mortem fixes applied)
+   Navy palette · readable typography · viewport-safe modals
+   ========================================================= */
 
-/* Desktop collapsed rail keeps the eleven-workspace model scan-friendly. */
-@media(min-width:861px){
-  .workspace-app .sidebar.collapsed{width:76px}
-  .workspace-app .main-shell.sidebar-collapsed{margin-left:76px}
-  .workspace-app .sidebar.collapsed .sidebar-brand{justify-content:center;padding-inline:12px}
-  .workspace-app .sidebar.collapsed .sidebar-brand-copy,
-  .workspace-app .sidebar.collapsed .nav-link-label,
-  .workspace-app .sidebar.collapsed .nav-label,
-  .workspace-app .sidebar.collapsed .sidebar-footer{display:none}
-  .workspace-app .sidebar.collapsed .sidebar-nav{padding:12px 9px 80px}
-  .workspace-app .sidebar.collapsed .nav-section{margin-bottom:8px}
-  .workspace-app .sidebar.collapsed .nav-link{justify-content:center;padding:10px;position:relative}
-}
+:root {
+  --bg: #eef4fb;
+  --surface: #ffffff;
+  --text: #152b49;
+  --muted: #54657a; /* darkened from #65758a for WCAG AA margin on white */
+  --line: #d7e1ed;
+  --navy: #1d3f73;
+  --navy-dark: #102848;
+  --navy-mid: #3f6fa8;
+  --navy-soft: #e6eef8;
+  --focus: #9fc4eb;
 
-/* Global assistant lives in the shell instead of consuming a business-menu slot. */
-.assistant-topbar{
-  min-height:38px;
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  position:relative;
-  padding:0 12px;
-  border:1px solid color-mix(in srgb,var(--brand) 22%,#dfe6e9);
-  border-radius:11px;
-  background:color-mix(in srgb,var(--brand) 7%,#fff);
-  color:var(--brand-dark);
-  font-size:12px;
-  font-weight:800;
-  transition:background .18s,border-color .18s,transform .18s;
-}
-.assistant-topbar:hover,.assistant-topbar.active{
-  background:var(--brand-soft);
-  border-color:color-mix(in srgb,var(--brand) 38%,#dfe6e9);
-}
-.assistant-topbar:active{transform:translateY(1px)}
-.assistant-attention-badge{
-  min-width:19px;
-  height:19px;
-  padding:0 5px;
-  border-radius:999px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  font-size:9px;
-  font-weight:900;
-  border:1px solid transparent;
-}
-.assistant-attention-badge.warning{background:#fff4d8;color:#8a5200;border-color:#f3d38c}
-.assistant-attention-badge.urgent{background:#ffe7e7;color:#a82222;border-color:#efb0b0}
-.admin-launcher.active{background:var(--brand-soft);color:var(--brand)}
+  /* Type scale — single source of truth. Reference these tokens
+     instead of hard-coding new font-size values in component CSS. */
+  --fs-2xl: 28px;
+  --fs-xl: 20px;
+  --fs-lg: 17px;
+  --fs-md: 14px;
+  --fs-sm: 13px;
+  --fs-xs: 12px;
+  --fs-2xs: 11px;
+  --fs-3xs: 10px;
 
-/* Secondary workspace navigation provides progressive disclosure. */
-.workspace-strip{
-  position:sticky;
-  top:72px;
-  z-index:24;
-  border-bottom:1px solid var(--line);
-  background:rgba(247,250,250,.94);
-  backdrop-filter:blur(12px);
-}
-.workspace-strip-inner{
-  max-width:1680px;
-  min-height:58px;
-  margin:0 auto;
-  padding:7px 26px 0;
-  display:flex;
-  align-items:flex-end;
-  gap:24px;
-}
-.workspace-context{
-  min-width:190px;
-  padding:0 0 10px;
-  display:flex;
-  flex-direction:column;
-}
-.workspace-context span{
-  color:var(--muted);
-  font-size:9px;
-  font-weight:750;
-  letter-spacing:.04em;
-  text-transform:uppercase;
-}
-.workspace-context strong{margin-top:3px;font-size:13px;white-space:nowrap}
-.workspace-tabs{
-  min-width:0;
-  flex:1;
-  display:flex;
-  align-items:flex-end;
-  gap:3px;
-  overflow-x:auto;
-  overscroll-behavior-x:contain;
-  scrollbar-width:none;
-}
-.workspace-tabs::-webkit-scrollbar{display:none}
-.workspace-tab{
-  min-height:44px;
-  flex:0 0 auto;
-  display:inline-flex;
-  align-items:center;
-  gap:7px;
-  padding:9px 12px 10px;
-  border-radius:10px 10px 0 0;
-  border-bottom:3px solid transparent;
-  color:#58676e;
-  font-size:11.5px;
-  font-weight:750;
-  transition:background .16s,color .16s,border-color .16s;
-}
-.workspace-tab:hover{background:#fff;color:var(--text)}
-.workspace-tab.active{color:var(--brand);background:#fff;border-bottom-color:var(--brand)}
-.workspace-tab svg{flex:0 0 auto}
-
-/* Mobile quick navigation is intentionally limited to the three universal actions + full menu. */
-.mobile-bottom-nav{display:none}
-.mobile-nav-icon,.mobile-assistant-icon{position:relative;display:inline-flex;align-items:center;justify-content:center}
-.mobile-nav-badge{
-  position:absolute;
-  top:-8px;
-  right:-12px;
-  min-width:17px;
-  height:17px;
-  padding:0 4px;
-  border-radius:999px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  border:2px solid #fff;
-  font-size:8px;
-  line-height:1;
-  font-weight:900;
-}
-.mobile-nav-badge.warning{background:#f59e0b;color:#fff}
-.mobile-nav-badge.urgent{background:#d83a3a;color:#fff}
-
-@media(max-width:1180px) and (min-width:861px){
-  .assistant-topbar span:not(.assistant-attention-badge){display:none}
-  .assistant-topbar{width:38px;padding:0;justify-content:center}
-  .profile-copy{max-width:120px}
-  .workspace-context{min-width:160px}
-  .workspace-strip-inner{gap:14px}
+  /* Layout constants used by calc() below — change here, not inline */
+  --mobile-nav-h: 70px;
+  --mobile-nav-gap: 14px;
 }
 
-@media(max-width:860px){
-  .workspace-app{padding-bottom:calc(68px + env(safe-area-inset-bottom))}
-  .workspace-app .sidebar{
-    width:min(326px,88vw)!important;
-    z-index:70;
-    transform:translateX(-104%);
-    transition:transform .22s ease;
-    box-shadow:18px 0 48px rgba(4,24,28,.24);
-  }
-  .workspace-app .sidebar.open{transform:translateX(0)}
-  .workspace-app .sidebar.collapsed{width:min(326px,88vw)!important}
-  .workspace-app .sidebar.collapsed .sidebar-brand-copy,
-  .workspace-app .sidebar.collapsed .nav-link-label,
-  .workspace-app .sidebar.collapsed .nav-label,
-  .workspace-app .sidebar.collapsed .sidebar-footer{display:initial}
-  .workspace-app .sidebar.collapsed .sidebar-brand-copy{display:flex}
-  .workspace-app .sidebar.collapsed .nav-label{display:block}
-  .workspace-app .sidebar.collapsed .sidebar-footer{display:block}
-  .workspace-app .sidebar.collapsed .nav-link{justify-content:flex-start;padding:9px 11px}
-  .workspace-app .sidebar-collapse{display:none!important}
-  .workspace-app .sidebar-close{display:inline-flex!important;margin-left:auto;color:#fff}
-  .workspace-app .sidebar-overlay{display:block;position:fixed;inset:0;z-index:65;border:0;background:rgba(8,22,26,.45);backdrop-filter:blur(2px)}
-  .workspace-app .main-shell,.workspace-app .main-shell.sidebar-collapsed{margin-left:0!important}
+/* =========================
+   Global readable typography
+   ========================= */
 
-  .workspace-app .topbar{
-    height:64px;
-    padding:0 12px;
-    gap:8px;
-  }
-  .workspace-app .topbar-left,.workspace-app .topbar-right{gap:7px;min-width:0}
-  .workspace-app .mobile-menu{display:inline-flex!important;border:1px solid var(--line);background:#fff;flex:0 0 auto}
-  .workspace-app .org-title{min-width:0}
-  .workspace-app .org-title strong{max-width:230px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
-  .workspace-app .org-title span{font-size:9px}
-  .workspace-app .assistant-topbar{display:none}
-  .workspace-app .profile-copy,.workspace-app .profile-button>svg{display:none}
-  .workspace-app .profile-button{padding:3px;min-height:38px}
-  .workspace-app .avatar{width:34px;height:34px}
-  .workspace-app .year-select-wrap{height:36px;padding-inline:7px}
-  .workspace-app .header-icon{width:36px;height:36px}
-
-  .workspace-strip{top:64px}
-  .workspace-strip-inner{min-height:50px;padding:5px 12px 0;display:block}
-  .workspace-context{display:none}
-  .workspace-tabs{width:100%;gap:2px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}.workspace-tabs::-webkit-scrollbar{display:none}
-  .workspace-tab{min-height:44px;padding:9px 11px 8px;font-size:11px;border-radius:9px 9px 0 0}
-
-  .workspace-app .content{padding:16px 12px 20px;max-width:none}
-  .workspace-app .page-header{align-items:flex-start;flex-direction:column;gap:12px}
-  .workspace-app .page-header h1{font-size:23px}
-  .workspace-app .page-actions{width:100%;overflow-x:auto;padding-bottom:2px}
-  .workspace-app .page-actions .button{min-height:42px;flex:0 0 auto}
-  .workspace-app .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-  .workspace-app .chart-grid{grid-template-columns:1fr;gap:10px}
-  .workspace-app .toolbar{align-items:stretch;flex-direction:column}
-  .workspace-app .toolbar-left{width:100%}
-  .workspace-app .search-box{width:100%}
-  .workspace-app .form-grid.two,.workspace-app .check-grid{grid-template-columns:1fr}
-  .workspace-app .span-2{grid-column:span 1}
-  .workspace-app input,.workspace-app select,.workspace-app textarea{min-height:44px}
-  .workspace-app .button{min-height:42px}
-
-  .workspace-app .modal-backdrop{align-items:flex-end;padding:0;z-index:200}
-  .workspace-app .modal-card,.workspace-app .modal-card.xl{width:100%;max-height:calc(100dvh - 12px - env(safe-area-inset-bottom));min-height:0;border-radius:20px 20px 0 0}
-  .workspace-app .modal-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:28px}.workspace-app .modal-footer{position:sticky;bottom:0;z-index:3;padding-bottom:calc(13px + env(safe-area-inset-bottom));box-shadow:0 -8px 18px rgba(25,42,49,.08)}
-
-  .mobile-bottom-nav{
-    position:fixed;
-    left:0;
-    right:0;
-    bottom:0;
-    z-index:55;
-    min-height:68px;
-    padding:5px 8px calc(5px + env(safe-area-inset-bottom));
-    display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
-    align-items:center;
-    border-top:1px solid var(--line);
-    background:rgba(255,255,255,.97);
-    backdrop-filter:blur(14px);
-    box-shadow:0 -8px 28px rgba(25,42,49,.08);
-  }
-  .mobile-bottom-nav>a,.mobile-bottom-nav>button{
-    min-width:0;
-    min-height:54px;
-    border:0;
-    border-radius:12px;
-    background:transparent;
-    color:#647178;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    gap:4px;
-    font-size:9.5px;
-    font-weight:750;
-  }
-  .mobile-bottom-nav>a.active,.mobile-bottom-nav>button.active{color:var(--brand);background:var(--brand-soft)}
-  .mobile-bottom-nav .mobile-assistant-icon{
-    width:34px;
-    height:30px;
-    border-radius:10px;
-    background:color-mix(in srgb,var(--brand) 10%,#fff);
-    color:var(--brand);
-  }
-  .mobile-bottom-nav .mobile-assistant.active .mobile-assistant-icon{background:var(--brand);color:#fff}
+html,
+body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  text-shadow: none !important;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-@media(max-width:560px){
-  .workspace-app .org-title strong{max-width:150px}
-  .workspace-app .org-title span{display:none}
-  .workspace-app .year-select-wrap{max-width:68px;padding-inline:5px}
-  .workspace-app .year-select-wrap svg{display:none}
-  .workspace-app .topbar-right{gap:4px}
-  .workspace-app .kpi-grid{grid-template-columns:1fr 1fr}
-  .workspace-app .kpi-card{min-height:104px;padding:14px}
-  .workspace-app .kpi-card strong{font-size:27px}
-  .workspace-app .panel{border-radius:13px}
-  .workspace-app .panel-title{padding:15px 14px 10px}
-  .workspace-tab span{white-space:nowrap}
-}
-
-@media(max-width:390px){
-  .workspace-app .org-title strong{max-width:98px}
-  .workspace-app .year-select-wrap{max-width:60px}
-  .workspace-app .kpi-grid{grid-template-columns:1fr}
-}
-
-@media print{
-  .workspace-strip,.mobile-bottom-nav,.assistant-topbar,.admin-launcher{display:none!important}
-}
-
-
-/* Final QLCL light shell: no navy rail and no distracting scope chip. */
-.workspace-app .sidebar{background:#fff;color:#40535a;box-shadow:10px 0 30px rgba(35,55,62,.12)}
-.workspace-app .sidebar-brand{background:#fbfdfd;border-bottom-color:var(--line)}
-.workspace-app .sidebar-brand span{color:var(--muted)}
-.workspace-app .nav-label{color:#7b8b91}
-.workspace-app .nav-link{color:#506169}
-.workspace-app .nav-link:hover{background:#f0f7f6;color:var(--brand-dark)}
-.workspace-app .nav-link.active{background:var(--brand-soft);color:var(--brand-dark);box-shadow:inset 3px 0 0 var(--brand)}
-.workspace-app .sidebar-footer{display:none!important}
-.workspace-app .scope-chip{display:none!important}
-
-/* Mobile forms: header and save actions remain fixed; only body scrolls. */
-@media(max-width:860px){
-  .workspace-app .modal-backdrop{align-items:center;justify-content:center;padding:12px;z-index:200}
-  .workspace-app .modal-card,.workspace-app .modal-card.xl{width:100%;height:calc(100dvh - 24px - env(safe-area-inset-bottom));max-height:calc(100dvh - 24px - env(safe-area-inset-bottom));min-height:0;border-radius:20px;overflow:hidden}
-  .workspace-app .modal-head{flex:0 0 auto}
-  .workspace-app .modal-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:28px}
-  .workspace-app .modal-footer{flex:0 0 auto;position:relative;z-index:3;padding-bottom:calc(13px + env(safe-area-inset-bottom));box-shadow:0 -8px 18px rgba(25,42,49,.08)}
-}
-
-
-/* Unified create/action modal contract: viewport-sized shell, independently scrolling body. */
-.workspace-app .modal-backdrop{padding:16px;align-items:center;justify-content:center;overflow:hidden}
-.workspace-app .modal-card,.workspace-app .modal-card.xl,.workspace-app .domain-create-modal,.workspace-app .lifecycle-modal-card{
-  height:min(calc(100dvh - 32px),900px);
-  max-height:calc(100dvh - 32px);
-  min-height:0;
-  overflow:hidden;
-}
-.workspace-app .modal-card>form,.workspace-app .domain-create-modal>form{
-  display:flex;
-  flex:1 1 auto;
-  min-height:0;
-  flex-direction:column;
-  overflow:hidden;
-}
-.workspace-app .modal-head{flex:0 0 auto}
-.workspace-app .modal-body,.workspace-app .domain-create-grid,.workspace-app .lifecycle-modal-body{
-  flex:1 1 auto;
-  min-height:0;
-  overflow-y:auto;
-  overscroll-behavior:contain;
-  -webkit-overflow-scrolling:touch;
-}
-.workspace-app .modal-footer,.workspace-app .modal-actions,.workspace-app .lifecycle-modal-footer{
-  flex:0 0 auto;
-  position:relative;
-  z-index:4;
-  background:#fbfcfc;
-  box-shadow:0 -8px 18px rgba(25,42,49,.08);
-}
-.workspace-app .domain-create-grid{align-content:start}
-@media(max-width:860px){
-  .workspace-app .modal-backdrop{padding:12px;align-items:center}
-  .workspace-app .modal-card,.workspace-app .modal-card.xl,.workspace-app .domain-create-modal,.workspace-app .lifecycle-modal-card{
-    width:100%;
-    height:calc(100dvh - 24px - env(safe-area-inset-bottom));
-    max-height:calc(100dvh - 24px - env(safe-area-inset-bottom));
-    border-radius:20px;
-  }
-}
-@media(max-width:560px){
-  .workspace-app .modal-backdrop{padding:8px;align-items:center}
-  .workspace-app .modal-card,.workspace-app .modal-card.xl,.workspace-app .domain-create-modal,.workspace-app .lifecycle-modal-card{
-    height:calc(100dvh - 16px - env(safe-area-inset-bottom));
-    max-height:calc(100dvh - 16px - env(safe-area-inset-bottom));
-    border-radius:18px;
-  }
-  .workspace-app .modal-footer,.workspace-app .modal-actions,.workspace-app .lifecycle-modal-footer{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
-}
-
-
-/* Navy visual system — final brand pass */
-:root{
-  --bg:#eef4fb;
-  --surface:#fff;
-  --text:#152b49;
-  --muted:#65758a;
-  --line:#d7e1ed;
-  --brand:#1d3f73;
-  --brand-dark:#102848;
-  --brand-soft:#e6eef8;
-}
-.login-page{background:#eef4fb!important}
-.login-hero{background:linear-gradient(145deg,#102848 0%,#1d3f73 58%,#4779b3 140%)!important}
-.login-hero .eyebrow{color:#c6daf2!important}
-.login-panel{background:#eef4fb!important}
-.login-card{border-color:#d7e1ed!important}
-.login-card .button.primary{background:#1d3f73!important;border-color:#102848!important}
-.workspace-app{
-  --bg:#eef4fb!important;
-  --text:#152b49!important;
-  --muted:#65758a!important;
-  --line:#d7e1ed!important;
-  --brand:#1d3f73!important;
-  --brand-dark:#102848!important;
-  --brand-soft:#e6eef8!important;
-  background:#eef4fb!important;
-  color:#152b49!important;
-}
-.workspace-app .content{background:#eef4fb!important}
-.workspace-app .sidebar{background:linear-gradient(180deg,#102848 0%,#17345f 100%)!important;color:#edf4fc!important;box-shadow:10px 0 30px rgba(16,40,72,.18)!important}
-.workspace-app .sidebar-brand{background:#102848!important;border:0!important;border-bottom:1px solid rgba(255,255,255,.12)!important;box-shadow:none!important}
-.workspace-app .brand-mark{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
-.workspace-app .sidebar-brand-copy strong{color:#fff!important}
-.workspace-app .sidebar-brand-copy span{color:#b9cbe1!important}
-.workspace-app .nav-label{color:#c1d2e6!important}
-.workspace-app .nav-link{color:#e8f0fa!important}
-.workspace-app .nav-link:hover{background:rgba(121,169,216,.16)!important;color:#fff!important}
-.workspace-app .nav-link.active{background:#3f6fa8!important;color:#fff!important;box-shadow:inset 3px 0 0 #b8d6f2,0 8px 20px rgba(8,27,53,.18)!important}
-.workspace-app .topbar{background:rgba(255,255,255,.96)!important;border-bottom-color:#d7e1ed!important}
-.workspace-app .workspace-strip{background:rgba(239,245,252,.96)!important;border-bottom-color:#d7e1ed!important}
-.workspace-app .workspace-tab{color:#5d6f84!important}
-.workspace-app .workspace-tab:hover{background:#e6eef8!important;color:#1d3f73!important}
-.workspace-app .workspace-tab.active{background:#fff!important;color:#1d3f73!important;border-bottom-color:#1d3f73!important}
-.workspace-app .assistant-topbar{background:#eaf2fb!important;border-color:#b9cbe1!important;color:#1d3f73!important}
-.workspace-app .assistant-topbar:hover,.workspace-app .assistant-topbar.active{background:#dce9f7!important;border-color:#7fa4cd!important}
-.workspace-app .avatar{background:linear-gradient(135deg,#3f6fa8,#1d3f73)!important}
-.workspace-app .header-icon,.workspace-app .mobile-menu{border-color:#d7e1ed!important}
-.workspace-app .button.primary{background:#1d3f73!important;border-color:#102848!important}
-.workspace-app .button.primary:hover{background:#2b5b96!important}
-.workspace-app .kpi-card,.workspace-app .panel,.workspace-app .card{border-color:#d7e1ed!important;background:#fff!important}
-.workspace-app .modal-footer,.workspace-app .modal-actions,.workspace-app .lifecycle-modal-footer{background:#f8fbff!important}
-.mobile-bottom-nav>a.active,.mobile-bottom-nav>button.active{color:#1d3f73!important;background:#e6eef8!important}
-.mobile-bottom-nav .mobile-assistant-icon{background:#e6eef8!important;color:#1d3f73!important}
-.mobile-bottom-nav .mobile-assistant.active .mobile-assistant-icon{background:#1d3f73!important;color:#fff!important}
-
-
-/* Mobile navy enforcement and dashboard surfaces */
-@media(max-width:860px){
-  .workspace-app .sidebar,
-  .workspace-app .sidebar-brand{background:linear-gradient(180deg,#102848 0%,#17345f 100%)!important}
-  .workspace-app .sidebar .nav-link.active{background:#3f6fa8!important;color:#fff!important}
-  .workspace-app .sidebar .nav-link:hover{background:rgba(121,169,216,.16)!important}
-  .workspace-app .mobile-bottom-nav{background:rgba(255,255,255,.98)!important;border-top-color:#d7e1ed!important}
-}
-.workspace-app .hero-card,
-.workspace-app .executive-hero,
-.workspace-app .tqm-hero,
-.workspace-app .priority-card,
-.workspace-app .quality-priority-card,
-.workspace-app [class*="priority"]{
-  background:linear-gradient(135deg,#17345f 0%,#2b5b96 100%)!important;
-  border-color:#294f82!important;
-  color:#fff!important;
-}
-.workspace-app .hero-card *,
-.workspace-app .executive-hero *,
-.workspace-app .tqm-hero *,
-.workspace-app .priority-card *,
-.workspace-app .quality-priority-card *,
-.workspace-app [class*="priority"] *{color:inherit}
-
-
-/* Modal contract v2 — every create/action window must expose a visible footer */
-.workspace-app .modal-backdrop{
-  overflow:hidden!important;
-  overscroll-behavior:none!important;
-}
-.workspace-app .modal-card{
-  display:flex!important;
-  flex-direction:column!important;
-  height:calc(100dvh - 32px)!important;
-  max-height:calc(100dvh - 32px)!important;
-  min-height:0!important;
-}
-.workspace-app .modal-card>.modal-head{
-  flex:0 0 auto!important;
-  position:relative!important;
-  z-index:2!important;
-  background:#fff!important;
-}
-.workspace-app .modal-card>.modal-body{
-  flex:1 1 auto!important;
-  min-height:0!important;
-  height:auto!important;
-  max-height:none!important;
-  overflow-y:auto!important;
-  overflow-x:hidden!important;
-  overscroll-behavior:contain!important;
-  -webkit-overflow-scrolling:touch!important;
-}
-.workspace-app .modal-card>.modal-footer,
-.workspace-app .modal-card>.modal-actions{
-  flex:0 0 auto!important;
-  position:relative!important;
-  bottom:auto!important;
-  z-index:5!important;
-  min-height:64px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:flex-end!important;
-  background:#f8fbff!important;
-  border-top:1px solid #d7e1ed!important;
-  box-shadow:0 -10px 22px rgba(16,40,72,.12)!important;
-}
-.workspace-app .modal-card>form{
-  display:flex!important;
-  flex:1 1 auto!important;
-  flex-direction:column!important;
-  min-height:0!important;
-  overflow:hidden!important;
-}
-.workspace-app .modal-card>form>.modal-body{
-  flex:1 1 auto!important;
-  min-height:0!important;
-  overflow-y:auto!important;
-}
-.workspace-app .modal-card>form>.modal-footer{
-  flex:0 0 auto!important;
-}
-@media(max-width:860px){
-  .workspace-app .modal-backdrop{padding:8px!important;align-items:center!important}
-  .workspace-app .modal-card{
-    width:100%!important;
-    height:calc(100dvh - 16px - env(safe-area-inset-bottom))!important;
-    max-height:calc(100dvh - 16px - env(safe-area-inset-bottom))!important;
-    border-radius:18px!important;
-  }
-  .workspace-app .modal-card>.modal-footer,
-  .workspace-app .modal-card>.modal-actions{
-    min-height:70px!important;
-    padding:10px 14px calc(10px + env(safe-area-inset-bottom))!important;
-  }
-  .workspace-app .modal-card>.modal-footer .button,
-  .workspace-app .modal-card>.modal-actions .button{
-    min-height:44px!important;
+@media (prefers-reduced-motion: reduce) {
+  html, body, .workspace-app, .workspace-app * {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
   }
 }
 
-
-/* Viewport-safe modal architecture — header/footer never leave the screen */
-.workspace-app .modal-backdrop{
-  position:fixed!important;
-  inset:0!important;
-  width:100vw!important;
-  height:100dvh!important;
-  min-height:0!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  padding:16px!important;
-  overflow:hidden!important;
-  z-index:300!important;
-}
-.workspace-app .modal-card{
-  position:relative!important;
-  display:flex!important;
-  flex-direction:column!important;
-  width:min(920px,100%)!important;
-  height:min(900px,calc(100dvh - 32px))!important;
-  max-height:calc(100dvh - 32px)!important;
-  min-height:0!important;
-  overflow:hidden!important;
-}
-.workspace-app .modal-card>.modal-head{
-  flex:0 0 auto!important;
-  position:sticky!important;
-  top:0!important;
-  z-index:10!important;
-  min-height:72px!important;
-  background:#fff!important;
-}
-.workspace-app .modal-card>.modal-body{
-  flex:1 1 auto!important;
-  min-height:0!important;
-  height:0!important;
-  max-height:none!important;
-  overflow-y:auto!important;
-  overflow-x:hidden!important;
-  padding-bottom:32px!important;
-  overscroll-behavior:contain!important;
-  -webkit-overflow-scrolling:touch!important;
-}
-.workspace-app .modal-card>.modal-footer{
-  flex:0 0 auto!important;
-  position:sticky!important;
-  bottom:0!important;
-  z-index:10!important;
-  min-height:70px!important;
-  background:#f8fbff!important;
-  border-top:1px solid #d7e1ed!important;
-  box-shadow:0 -10px 22px rgba(16,40,72,.12)!important;
-}
-.workspace-app .modal-card>form{
-  display:flex!important;
-  flex:1 1 auto!important;
-  flex-direction:column!important;
-  min-height:0!important;
-  overflow:hidden!important;
-}
-.workspace-app .modal-card>form>.modal-head{position:sticky!important;top:0!important}
-.workspace-app .modal-card>form>.modal-body{
-  flex:1 1 auto!important;
-  height:0!important;
-  min-height:0!important;
-  overflow-y:auto!important;
-}
-.workspace-app .modal-card>form>.modal-footer{
-  position:sticky!important;
-  bottom:0!important;
-  flex:0 0 auto!important;
-}
-@media(max-width:860px){
-  .workspace-app .modal-backdrop{
-    align-items:center!important;
-    padding:8px 8px calc(76px + env(safe-area-inset-bottom))!important;
-  }
-  .workspace-app .modal-card{
-    width:100%!important;
-    height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
-    max-height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
-    border-radius:18px!important;
-  }
-  .workspace-app .modal-card>.modal-head{min-height:68px!important}
-  .workspace-app .modal-card>.modal-footer{
-    min-height:68px!important;
-    padding:10px 14px!important;
-  }
-}
-@media(max-width:560px){
-  .workspace-app .modal-backdrop{padding-inline:6px!important}
-  .workspace-app .modal-card{
-    height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
-    max-height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
-  }
+.workspace-app,
+.workspace-app button,
+.workspace-app input,
+.workspace-app select,
+.workspace-app textarea {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif !important;
+  text-shadow: none !important;
 }
 
-
-/* Final viewport anchoring: never center a tall modal beyond the browser viewport */
-.workspace-app .modal-backdrop{
-  align-items:stretch!important;
-  justify-content:stretch!important;
-  padding:8px!important;
-}
-.workspace-app .modal-card{
-  position:relative!important;
-  top:0!important;
-  bottom:0!important;
-  width:min(920px,100%)!important;
-  height:auto!important;
-  max-height:none!important;
-  margin:auto!important;
-}
-@media(min-width:861px){
-  .workspace-app .modal-card{
-    height:calc(100dvh - 16px)!important;
-    max-height:calc(100dvh - 16px)!important;
-  }
-}
-@media(max-width:860px){
-  .workspace-app .modal-backdrop{
-    padding:8px 8px calc(76px + env(safe-area-inset-bottom))!important;
-  }
-  .workspace-app .modal-card{
-    width:100%!important;
-    height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
-    max-height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
-    margin:0!important;
-    align-self:center!important;
-  }
+.workspace-app {
+  min-height: 100vh;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  --brand: var(--navy) !important;
+  --brand-dark: var(--navy-dark) !important;
+  --brand-soft: var(--navy-soft) !important;
+  /* FIX: --line and --muted were previously self-referencing
+     ( --line: var(--line); ) inside this same rule, which the
+     CSS spec treats as a cycle -> invalid value at computed time.
+     Any child rule using var(--line) or var(--muted) silently fell
+     back to the browser default (transparent / inherited), which is
+     very likely the real source of the "nền giao diện chưa đồng nhất"
+     and stray border/teal artifacts reported in the post-mortem.
+     Fix: do not redeclare tokens that are unchanged from :root —
+     they already inherit correctly without being restated here. */
 }
 
+/* Universal keyboard-focus ring — was entirely missing before.
+   Required for BK01/checklist data entry done via keyboard/tab. */
+.workspace-app *:focus-visible {
+  outline: 2px solid var(--focus) !important;
+  outline-offset: 2px !important;
+  border-radius: 6px;
+}
 
-/* Hard viewport lock for every modal, including non-portal record forms */
-.workspace-app .modal-backdrop{
-  position:fixed!important;
-  top:0!important;
-  right:0!important;
-  bottom:0!important;
-  left:0!important;
-  inset:0!important;
-  width:100vw!important;
-  height:100dvh!important;
-  margin:0!important;
-  transform:none!important;
-  align-items:center!important;
-  justify-content:center!important;
-  padding:8px!important;
+/* =========================
+   Master sidebar
+   ========================= */
+
+.workspace-app .sidebar {
+  background: linear-gradient(
+    180deg,
+    var(--navy-dark) 0%,
+    #17345f 100%
+  ) !important;
+  color: #edf4fc !important;
+  border-right: 1px solid #294f82 !important;
+  box-shadow: 8px 0 24px rgba(16, 40, 72, 0.16) !important;
 }
-.workspace-app .modal-backdrop>.modal-card{
-  position:relative!important;
-  inset:auto!important;
-  margin:0!important;
-  height:calc(100dvh - 16px)!important;
-  max-height:calc(100dvh - 16px)!important;
-  overflow:hidden!important;
+
+.workspace-app .sidebar-brand {
+  min-height: 82px !important;
+  padding: 14px 16px !important;
+  background: var(--navy-dark) !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
 }
-@media(max-width:860px){
-  .workspace-app .modal-backdrop{
-    padding:8px 8px calc(76px + env(safe-area-inset-bottom))!important;
+
+.workspace-app .brand-mark {
+  width: 50px !important;
+  height: 50px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.workspace-app .brand-mark img {
+  width: 50px !important;
+  height: 50px !important;
+  display: block !important;
+}
+
+.workspace-app .sidebar-brand-copy strong {
+  color: #ffffff !important;
+  font-size: var(--fs-lg) !important;
+  line-height: 1.1 !important;
+  font-weight: 850 !important;
+}
+
+.workspace-app .sidebar-brand-copy span {
+  color: #c2d3e8 !important;
+  font-size: var(--fs-2xs) !important;
+  font-weight: 650 !important;
+}
+
+.workspace-app .sidebar-nav {
+  padding: 14px 9px 90px !important;
+  scrollbar-gutter: stable;
+}
+
+.workspace-app .nav-section {
+  margin-bottom: 16px !important;
+}
+
+.workspace-app .nav-label {
+  padding: 10px 12px 6px !important;
+  color: #c2d3e8 !important;
+  font-size: var(--fs-3xs) !important;
+  line-height: 1.25 !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.09em !important;
+}
+
+.workspace-app .nav-link {
+  min-height: 44px !important;
+  margin: 3px 0 !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  color: #edf4fc !important;
+  font-size: var(--fs-sm) !important;
+  line-height: 1.2 !important;
+  font-weight: 750 !important;
+}
+
+.workspace-app .nav-link svg {
+  width: 18px !important;
+  height: 18px !important;
+  flex: 0 0 auto;
+}
+
+.workspace-app .nav-link:hover {
+  background: rgba(159, 196, 235, 0.16) !important;
+  color: #ffffff !important;
+}
+
+.workspace-app .nav-link.active {
+  background: var(--navy-mid) !important;
+  color: #ffffff !important;
+  box-shadow: inset 4px 0 0 var(--focus) !important;
+}
+
+.workspace-app .sidebar-footer,
+.workspace-app .scope-chip {
+  display: none !important;
+}
+
+/* =========================
+   Topbar and workspace tabs
+   ========================= */
+
+.workspace-app .topbar {
+  min-height: 70px !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid var(--line) !important;
+  box-shadow: 0 3px 16px rgba(16, 40, 72, 0.05) !important;
+}
+
+.workspace-app .org-title strong {
+  color: var(--text) !important;
+  font-size: var(--fs-md) !important;
+  font-weight: 850 !important;
+}
+
+.workspace-app .org-title span {
+  color: var(--muted) !important;
+  font-size: var(--fs-3xs) !important;
+  font-weight: 650 !important;
+}
+
+.workspace-app .assistant-topbar {
+  color: var(--navy) !important;
+  background: var(--navy-soft) !important;
+  border: 1px solid #b9cbe1 !important;
+  font-size: var(--fs-xs) !important;
+  font-weight: 800 !important;
+}
+
+.workspace-app .avatar {
+  background: linear-gradient(
+    135deg,
+    var(--navy-mid),
+    var(--navy)
+  ) !important;
+  color: #ffffff !important;
+}
+
+.workspace-app .workspace-strip {
+  background: #eef4fb !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+
+.workspace-app .workspace-tab {
+  color: #5d6f84 !important;
+  font-size: var(--fs-xs) !important;
+  font-weight: 750 !important;
+}
+
+.workspace-app .workspace-tab:hover {
+  background: var(--navy-soft) !important;
+  color: var(--navy) !important;
+}
+
+.workspace-app .workspace-tab.active {
+  background: #ffffff !important;
+  color: var(--navy) !important;
+  border-bottom-color: var(--navy) !important;
+}
+
+/* =========================
+   Main content
+   ========================= */
+
+.workspace-app .content {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+.workspace-app .page-header h1 {
+  color: var(--text) !important;
+  font-size: var(--fs-2xl) !important;
+  line-height: 1.2 !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.workspace-app .page-header p,
+.workspace-app .muted {
+  color: var(--muted) !important;
+  opacity: 1 !important;
+}
+
+.workspace-app .eyebrow {
+  color: var(--navy) !important;
+  font-size: var(--fs-3xs) !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.1em !important;
+}
+
+.workspace-app .panel,
+.workspace-app .card,
+.workspace-app .kpi-card {
+  background: #ffffff !important;
+  border-color: var(--line) !important;
+}
+
+.workspace-app .kpi-card span {
+  color: var(--muted) !important;
+  font-size: var(--fs-2xs) !important;
+  font-weight: 750 !important;
+}
+
+.workspace-app .kpi-card strong {
+  color: var(--text) !important;
+  font-size: 30px !important;
+  font-weight: 850 !important;
+}
+
+.workspace-app .button.primary {
+  background: var(--navy) !important;
+  border-color: var(--navy-dark) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+.workspace-app .button.primary:hover {
+  background: var(--navy-mid) !important;
+}
+
+/* =========================
+   Modal contract
+   Header and footer fixed,
+   only body scrolls.
+
+   IMPORTANT — root cause of "một số modal đúng, một số modal lỗi":
+   this contract only matches THREE named wrapper classes
+   (.modal-card, .domain-create-modal, .lifecycle-modal-card).
+   The post-mortem lists 15+ distinct modal screens (Finding, CAPA,
+   Audit/Tracer, báo cáo sự cố, v.v.) — any of those whose React
+   component uses a different wrapper class name will NOT get this
+   contract and will keep breaking, regardless of how many times this
+   file is edited.
+
+   Two things need to happen, in order:
+   1) Run this to find every distinct wrapper class actually used:
+        grep -rn "modal-backdrop" src/ --include="*.tsx" -A 3 | grep -v node_modules
+   2) Standardize: every modal wrapper component should render with
+      the shared attribute below, in addition to (not instead of) its
+      existing class, so this contract only needs to be written once:
+        <div className="modal-backdrop">
+          <div className="modal-card" data-modal-root>
+   The selectors below match on [data-modal-root] as the durable,
+   naming-independent hook, and keep the three legacy class names as
+   a fallback so nothing regresses before the JSX is updated.
+   ========================= */
+
+.modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important; /* fallback for browsers without dvh */
+  height: 100dvh !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px !important;
+  overflow: hidden !important;
+}
+
+.modal-backdrop > .modal-card,
+.modal-backdrop > .domain-create-modal,
+.modal-backdrop > .lifecycle-modal-card,
+.modal-backdrop > [data-modal-root] {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: min(920px, 100%) !important;
+  height: calc(100vh - 16px) !important;
+  height: calc(100dvh - 16px) !important;
+  max-height: calc(100dvh - 16px) !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+
+.modal-backdrop > .modal-card > .modal-head,
+.modal-backdrop > .domain-create-modal > .modal-head,
+.modal-backdrop > .lifecycle-modal-card > .modal-head,
+.modal-backdrop > [data-modal-root] > .modal-head {
+  flex: 0 0 auto !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 5 !important;
+  background: #ffffff !important;
+}
+
+.modal-backdrop > .modal-card > .modal-body,
+.modal-backdrop > .domain-create-modal > .domain-create-grid,
+.modal-backdrop > .lifecycle-modal-card > .lifecycle-modal-body,
+.modal-backdrop > [data-modal-root] > .modal-body {
+  flex: 1 1 auto !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.modal-backdrop > .modal-card > .modal-footer,
+.modal-backdrop > .modal-card > .modal-actions,
+.modal-backdrop > .domain-create-modal > .modal-footer,
+.modal-backdrop > .lifecycle-modal-card > .lifecycle-modal-footer,
+.modal-backdrop > [data-modal-root] > .modal-footer,
+.modal-backdrop > [data-modal-root] > .modal-actions {
+  flex: 0 0 auto !important;
+  min-height: 70px !important;
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 6 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  background: #f8fbff !important;
+  border-top: 1px solid var(--line) !important;
+  box-shadow: 0 -10px 22px rgba(16, 40, 72, 0.12) !important;
+}
+
+.modal-backdrop > .modal-card > form,
+.modal-backdrop > [data-modal-root] > form {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.modal-backdrop > .modal-card > form > .modal-body,
+.modal-backdrop > [data-modal-root] > form > .modal-body {
+  flex: 1 1 auto !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
+/* =========================
+   Responsive mobile
+   ========================= */
+
+@media (max-width: 860px) {
+  .workspace-app {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom)) !important;
   }
-  .workspace-app .modal-backdrop>.modal-card{
-    height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
-    max-height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
+
+  .workspace-app .sidebar {
+    width: min(326px, 88vw) !important;
+    transform: translateX(-105%);
+    transition: transform 0.22s ease;
   }
-}
 
-
-/* Global modal contract: also covers createPortal(document.body) dialogs */
-.modal-backdrop{
-  position:fixed!important;
-  inset:0!important;
-  width:100vw!important;
-  height:100dvh!important;
-  margin:0!important;
-  padding:8px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  overflow:hidden!important;
-  z-index:1000!important;
-}
-.modal-backdrop>.modal-card,
-.modal-backdrop>.domain-create-modal,
-.modal-backdrop>.lifecycle-modal-card{
-  position:relative!important;
-  display:flex!important;
-  flex-direction:column!important;
-  width:min(920px,100%)!important;
-  height:calc(100dvh - 16px)!important;
-  max-height:calc(100dvh - 16px)!important;
-  min-height:0!important;
-  margin:0!important;
-  overflow:hidden!important;
-}
-.modal-backdrop>.modal-card>.modal-head,
-.modal-backdrop>.domain-create-modal>.modal-head,
-.modal-backdrop>.lifecycle-modal-card>.modal-head{
-  flex:0 0 auto!important;
-  position:sticky!important;
-  top:0!important;
-  z-index:5!important;
-  background:#fff!important;
-}
-.modal-backdrop>.modal-card>.modal-body,
-.modal-backdrop>.domain-create-modal>.domain-create-grid,
-.modal-backdrop>.lifecycle-modal-card>.lifecycle-modal-body{
-  flex:1 1 auto!important;
-  min-height:0!important;
-  height:0!important;
-  max-height:none!important;
-  overflow-y:auto!important;
-  overflow-x:hidden!important;
-  overscroll-behavior:contain!important;
-  -webkit-overflow-scrolling:touch!important;
-}
-.modal-backdrop>.modal-card>.modal-footer,
-.modal-backdrop>.modal-card>.modal-actions,
-.modal-backdrop>.domain-create-modal>.modal-footer,
-.modal-backdrop>.lifecycle-modal-card>.lifecycle-modal-footer{
-  flex:0 0 auto!important;
-  position:sticky!important;
-  bottom:0!important;
-  z-index:6!important;
-  min-height:68px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:flex-end!important;
-  background:#f8fbff!important;
-  border-top:1px solid #d7e1ed!important;
-  box-shadow:0 -10px 22px rgba(16,40,72,.12)!important;
-}
-.modal-backdrop>.modal-card>form{
-  display:flex!important;
-  flex:1 1 auto!important;
-  flex-direction:column!important;
-  min-height:0!important;
-  overflow:hidden!important;
-}
-.modal-backdrop>.modal-card>form>.modal-body{
-  flex:1 1 auto!important;
-  height:0!important;
-  min-height:0!important;
-  overflow-y:auto!important;
-}
-@media(max-width:860px){
-  .modal-backdrop{
-    padding:8px 8px calc(76px + env(safe-area-inset-bottom))!important;
+  .workspace-app .sidebar.open {
+    transform: translateX(0);
   }
-  .modal-backdrop>.modal-card,
-  .modal-backdrop>.domain-create-modal,
-  .modal-backdrop>.lifecycle-modal-card{
-    width:100%!important;
-    height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
-    max-height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
-    border-radius:18px!important;
+
+  .workspace-app .sidebar-close {
+    display: inline-flex !important;
+    margin-left: auto;
+    color: #ffffff !important;
   }
-  .modal-backdrop>.modal-card>.modal-footer,
-  .modal-backdrop>.modal-card>.modal-actions,
-  .modal-backdrop>.domain-create-modal>.modal-footer,
-  .modal-backdrop>.lifecycle-modal-card>.lifecycle-modal-footer{
-    min-height:68px!important;
-    padding:10px 14px!important;
+
+  .workspace-app .topbar {
+    min-height: 64px !important;
   }
-}
 
-
-/* Typography system — consistent scale, strong contrast, no blurred text */
-html,body{
-  font-size:14px!important;
-  color:#152b49!important;
-  text-shadow:none!important;
-  -webkit-font-smoothing:antialiased;
-  text-rendering:optimizeLegibility;
-}
-.workspace-app,.workspace-app button,.workspace-app input,.workspace-app select,.workspace-app textarea{
-  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-  text-shadow:none!important;
-}
-.workspace-app .sidebar-brand-copy strong{
-  font-size:16px!important;
-  line-height:1.15!important;
-  font-weight:800!important;
-  letter-spacing:-.01em!important;
-}
-.workspace-app .sidebar-brand-copy span{
-  font-size:11px!important;
-  line-height:1.2!important;
-  font-weight:650!important;
-  letter-spacing:.03em!important;
-}
-.workspace-app .nav-label{
-  font-size:10px!important;
-  line-height:1.25!important;
-  font-weight:800!important;
-  letter-spacing:.09em!important;
-  opacity:1!important;
-}
-.workspace-app .nav-link{
-  min-height:42px!important;
-  font-size:13px!important;
-  line-height:1.25!important;
-  font-weight:700!important;
-  letter-spacing:-.005em!important;
-}
-.workspace-app .nav-link svg{width:17px;height:17px}
-.workspace-app .org-title strong{
-  font-size:14px!important;
-  line-height:1.2!important;
-  font-weight:800!important;
-}
-.workspace-app .org-title span{
-  font-size:10px!important;
-  line-height:1.25!important;
-  font-weight:650!important;
-  letter-spacing:.04em!important;
-}
-.workspace-app .workspace-context span{
-  font-size:10px!important;
-  font-weight:800!important;
-  opacity:1!important;
-}
-.workspace-app .workspace-context strong{
-  font-size:13px!important;
-  font-weight:800!important;
-}
-.workspace-app .workspace-tab{
-  font-size:12px!important;
-  line-height:1.2!important;
-  font-weight:750!important;
-}
-.workspace-app .content{
-  font-size:14px!important;
-}
-.workspace-app .page-header h1{
-  font-size:28px!important;
-  line-height:1.2!important;
-  font-weight:850!important;
-  letter-spacing:-.025em!important;
-}
-.workspace-app .page-header p{
-  font-size:14px!important;
-  line-height:1.5!important;
-  font-weight:500!important;
-  color:#536981!important;
-}
-.workspace-app .eyebrow{
-  font-size:10px!important;
-  line-height:1.25!important;
-  font-weight:850!important;
-  letter-spacing:.1em!important;
-  opacity:1!important;
-}
-.workspace-app .panel-title h2,
-.workspace-app .settings-section h2,
-.workspace-app .module-next h2{
-  font-size:16px!important;
-  line-height:1.25!important;
-  font-weight:800!important;
-}
-.workspace-app .panel-title p,
-.workspace-app .settings-section p,
-.workspace-app .module-next p{
-  font-size:12px!important;
-  line-height:1.5!important;
-  font-weight:500!important;
-  color:#5f7187!important;
-}
-.workspace-app .kpi-card span{
-  font-size:11px!important;
-  line-height:1.3!important;
-  font-weight:750!important;
-  color:#64778d!important;
-}
-.workspace-app .kpi-card strong{
-  font-size:30px!important;
-  line-height:1!important;
-  font-weight:850!important;
-  color:#152b49!important;
-}
-.workspace-app .kpi-card small{
-  font-size:11px!important;
-  line-height:1.35!important;
-  font-weight:500!important;
-  color:#6b7c90!important;
-}
-.workspace-app .button{
-  font-size:13px!important;
-  line-height:1.2!important;
-  font-weight:750!important;
-}
-.workspace-app input,.workspace-app select,.workspace-app textarea{
-  font-size:14px!important;
-  line-height:1.35!important;
-  font-weight:500!important;
-  color:#152b49!important;
-}
-.workspace-app label>span,.workspace-app .form-grid label>span{
-  font-size:12px!important;
-  line-height:1.3!important;
-  font-weight:750!important;
-  color:#405671!important;
-}
-.workspace-app label small{
-  font-size:10px!important;
-  line-height:1.35!important;
-  font-weight:500!important;
-  color:#6b7c90!important;
-}
-.workspace-app .modal-head h2{
-  font-size:20px!important;
-  line-height:1.2!important;
-  font-weight:850!important;
-  color:#152b49!important;
-}
-.workspace-app .modal-head p{
-  font-size:12px!important;
-  line-height:1.45!important;
-  font-weight:500!important;
-  color:#5f7187!important;
-}
-.workspace-app .modal-body{
-  font-size:14px!important;
-}
-.workspace-app .muted{
-  color:#65758a!important;
-  opacity:1!important;
-}
-.workspace-app [style*="opacity"]{opacity:1!important}
-.workspace-app [class*="title"],.workspace-app [class*="heading"]{text-shadow:none!important}
-@media(max-width:860px){
-  .workspace-app .page-header h1{font-size:24px!important}
-  .workspace-app .page-header p{font-size:13px!important}
-  .workspace-app .nav-link{font-size:14px!important;min-height:44px!important}
-  .workspace-app .workspace-tab{font-size:12px!important}
-  .workspace-app .modal-head h2{font-size:19px!important}
-}
-@media(max-width:560px){
-  .workspace-app .kpi-card strong{font-size:27px!important}
-  .workspace-app .kpi-card span{font-size:10px!important}
-  .workspace-app .kpi-card small{font-size:10px!important}
-}
-
-
-/* Final correctness patch: explicit variables and device-safe modal height */
-.workspace-app{
-  --brand:#1d3f73!important;
-  --brand-dark:#102848!important;
-  --brand-soft:#e6eef8!important;
-  --line:#d7e1ed!important;
-  --muted:#65758a!important;
-}
-@media(max-width:860px){
-  .modal-backdrop{
-    padding-bottom:calc(76px + env(safe-area-inset-bottom))!important;
+  .workspace-app .nav-link {
+    min-height: 46px !important;
+    font-size: var(--fs-md) !important;
   }
-  .modal-backdrop>.modal-card,
-  .modal-backdrop>.domain-create-modal,
-  .modal-backdrop>.lifecycle-modal-card{
-    height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
-    max-height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
+
+  .workspace-app .page-header h1 {
+    font-size: 24px !important;
+  }
+
+  .workspace-app .workspace-tab {
+    font-size: var(--fs-xs) !important;
+  }
+
+  .modal-backdrop {
+    align-items: center !important;
+    padding: 8px 8px 76px !important;
+  }
+
+  .modal-backdrop > .modal-card,
+  .modal-backdrop > .domain-create-modal,
+  .modal-backdrop > .lifecycle-modal-card,
+  .modal-backdrop > [data-modal-root] {
+    width: 100% !important;
+    /* FIX: 84px was an undocumented magic number that happened to be
+       ~2px off from (--mobile-nav-h + padding). Derive it instead. */
+    height: calc(100vh - var(--mobile-nav-h) - var(--mobile-nav-gap)) !important;
+    height: calc(100dvh - var(--mobile-nav-h) - var(--mobile-nav-gap)) !important;
+    max-height: calc(100dvh - var(--mobile-nav-h) - var(--mobile-nav-gap)) !important;
+    border-radius: 18px !important;
+  }
+
+  .modal-backdrop > .modal-card > .modal-footer,
+  .modal-backdrop > .modal-card > .modal-actions,
+  .modal-backdrop > [data-modal-root] > .modal-footer,
+  .modal-backdrop > [data-modal-root] > .modal-actions {
+    min-height: 70px !important;
+    padding: 10px 14px !important;
+  }
+
+  .modal-backdrop > .modal-card > .modal-footer .button,
+  .modal-backdrop > .modal-card > .modal-actions .button,
+  .modal-backdrop > [data-modal-root] > .modal-footer .button,
+  .modal-backdrop > [data-modal-root] > .modal-actions .button {
+    min-height: 44px !important;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed !important;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 900 !important;
+    min-height: var(--mobile-nav-h);
+    background: #ffffff !important;
+    border-top: 1px solid var(--line) !important;
   }
 }
