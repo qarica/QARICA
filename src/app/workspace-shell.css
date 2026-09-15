@@ -304,3 +304,54 @@
   .workspace-app .modal-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:28px}
   .workspace-app .modal-footer{flex:0 0 auto;position:relative;z-index:3;padding-bottom:calc(13px + env(safe-area-inset-bottom));box-shadow:0 -8px 18px rgba(25,42,49,.08)}
 }
+
+
+/* Unified create/action modal contract: viewport-sized shell, independently scrolling body. */
+.workspace-app .modal-backdrop{padding:16px;align-items:center;justify-content:center;overflow:hidden}
+.workspace-app .modal-card,.workspace-app .modal-card.xl,.workspace-app .domain-create-modal,.workspace-app .lifecycle-modal-card{
+  height:min(calc(100dvh - 32px),900px);
+  max-height:calc(100dvh - 32px);
+  min-height:0;
+  overflow:hidden;
+}
+.workspace-app .modal-card>form,.workspace-app .domain-create-modal>form{
+  display:flex;
+  flex:1 1 auto;
+  min-height:0;
+  flex-direction:column;
+  overflow:hidden;
+}
+.workspace-app .modal-head{flex:0 0 auto}
+.workspace-app .modal-body,.workspace-app .domain-create-grid,.workspace-app .lifecycle-modal-body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+.workspace-app .modal-footer,.workspace-app .modal-actions,.workspace-app .lifecycle-modal-footer{
+  flex:0 0 auto;
+  position:relative;
+  z-index:4;
+  background:#fbfcfc;
+  box-shadow:0 -8px 18px rgba(25,42,49,.08);
+}
+.workspace-app .domain-create-grid{align-content:start}
+@media(max-width:860px){
+  .workspace-app .modal-backdrop{padding:12px;align-items:center}
+  .workspace-app .modal-card,.workspace-app .modal-card.xl,.workspace-app .domain-create-modal,.workspace-app .lifecycle-modal-card{
+    width:100%;
+    height:calc(100dvh - 24px - env(safe-area-inset-bottom));
+    max-height:calc(100dvh - 24px - env(safe-area-inset-bottom));
+    border-radius:20px;
+  }
+}
+@media(max-width:560px){
+  .workspace-app .modal-backdrop{padding:8px;align-items:center}
+  .workspace-app .modal-card,.workspace-app .modal-card.xl,.workspace-app .domain-create-modal,.workspace-app .lifecycle-modal-card{
+    height:calc(100dvh - 16px - env(safe-area-inset-bottom));
+    max-height:calc(100dvh - 16px - env(safe-area-inset-bottom));
+    border-radius:18px;
+  }
+  .workspace-app .modal-footer,.workspace-app .modal-actions,.workspace-app .lifecycle-modal-footer{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+}
