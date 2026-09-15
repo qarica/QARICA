@@ -7,7 +7,9 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Dashboard", href: "/dashboard", icon: "layout-dashboard", permission: "dashboard.view" },
       { label: "Việc của tôi", href: "/tasks", icon: "check-square", permission: "tasks.view" },
-      { label: "Trợ lý QLCL", href: "/assistant", icon: "sparkles", permission: "dashboard.view" },
+      // "Trợ lý QLCL" đã bỏ khỏi sidebar theo yêu cầu — đã có nút riêng
+      // ở thanh trên cùng (.assistant-topbar trong app-shell.tsx), giữ
+      // nguyên route /assistant, chỉ ẩn khỏi menu bên trái để đỡ trùng lặp.
     ],
   },
   {

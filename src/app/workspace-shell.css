@@ -480,7 +480,9 @@ body {
 .modal-backdrop > .domain-create-modal > .modal-footer,
 .modal-backdrop > .lifecycle-modal-card > .lifecycle-modal-footer,
 .modal-backdrop > [data-modal-root] > .modal-footer,
-.modal-backdrop > [data-modal-root] > .modal-actions {
+.modal-backdrop > [data-modal-root] > .modal-actions,
+.modal-backdrop > .modal-card > form > .modal-footer,
+.modal-backdrop > .modal-card > form > .modal-actions {
   flex: 0 0 auto !important;
   min-height: 70px !important;
   position: sticky !important;
@@ -492,6 +494,22 @@ body {
   background: #f8fbff !important;
   border-top: 1px solid var(--line) !important;
   box-shadow: 0 -10px 22px rgba(16, 40, 72, 0.12) !important;
+}
+
+/* FIX: domain-create-client.tsx (dùng cho Chỉ đạo/Yêu cầu, Nghĩa vụ báo
+   cáo, Tự đánh giá, Audit/Tracer, Tiếp đoàn...) lồng nội dung trong
+   <form> và đặt tên vùng cuộn là .domain-create-grid thay vì
+   .modal-body — rule .modal-body phía trên không khớp nên vùng này
+   không được lệnh co giãn/cuộn chắc chắn, đẩy nút Lưu khuất khỏi màn
+   hình. Thêm đúng selector cho trường hợp này. */
+.modal-backdrop > .modal-card > form > .domain-create-grid {
+  flex: 1 1 auto !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 .modal-backdrop > .modal-card > form,

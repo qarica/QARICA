@@ -38,7 +38,7 @@ export function Preset5SCreateClient({ departments, canManage }: { departments: 
     <style>{`
       .preset5s-card{padding:14px 15px!important;background:linear-gradient(180deg,#fff 0%,#fcfefe 100%);overflow:visible!important}
       .preset5s-layout{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(330px,390px);gap:14px;align-items:center}
-      .preset5s-icon{width:44px;height:44px;border-radius:13px;background:#e6eef8;color:#1d3f73;display:flex;align-items:center;justify-content:center;flex:0 0 auto;border:1px solid #d7e1ed}
+      .preset5s-icon{width:44px;height:44px;border-radius:13px;background:#faeef1;color:#7a2740;display:flex;align-items:center;justify-content:center;flex:0 0 auto;border:1px solid #d7e1ed}
       .preset5s-copy{min-width:0}
       .preset5s-copy h2{margin:3px 0 4px;font-size:17px;line-height:1.2;letter-spacing:-.01em}
       .preset5s-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}

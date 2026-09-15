@@ -286,7 +286,7 @@ export function FiveSChecklistRunClient({ templateId, versionId, templateCode, s
         .five-s-mobile-card{border:1px solid #dce7e6;background:#fff;border-radius:14px;padding:13px;display:grid;gap:11px;scroll-margin-top:120px}
         .five-s-mobile-card.fail{border-color:#f2c7c7;background:#fffafa}
         .five-s-mobile-card-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
-        .five-s-mobile-card-head strong{font-size:13px;color:#1d3f73}
+        .five-s-mobile-card-head strong{font-size:13px;color:#7a2740}
         .five-s-mobile-card-content{font-size:16px;line-height:1.42;font-weight:650;color:#263238}
         .five-s-result-segments{display:grid;grid-template-columns:1fr 1.2fr .72fr;gap:7px}
         .five-s-result-segments button{min-height:43px;border:1px solid #d9e2e4;background:#fff;border-radius:10px;font-size:13px;font-weight:750;color:#536269;padding:8px 6px}
