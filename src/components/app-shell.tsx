@@ -318,8 +318,8 @@ export function AppShell({ children, user, organization, nav, year }: { children
 
     <aside className={`sidebar ${mobileOpen ? "open" : ""} ${sidebarCollapsed ? "collapsed" : ""}`}>
       <div className="sidebar-brand">
-        <div className="brand-mark"><Icon name="shield-check" size={22} /></div>
-        <div className="sidebar-brand-copy"><strong>QLCL</strong><span>{organization?.short_name || "TTSG"}</span></div>
+        <div className="brand-mark"><img src="/brand/qlcl-mark.svg" alt="" /></div>
+        <div className="sidebar-brand-copy"><strong>QLCL</strong><span>TQM</span></div>
         <button className="icon-button sidebar-collapse" onClick={toggleSidebarCollapsed} title={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"} aria-label={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"}><Icon name={sidebarCollapsed ? "panel-left-open" : "panel-left-close"} size={18} /></button>
         <button className="icon-button sidebar-close" onClick={() => setMobileOpen(false)} aria-label="Đóng menu"><Icon name="x" /></button>
       </div>
