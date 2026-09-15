@@ -290,28 +290,28 @@ export function AppShell({ children, user, organization, nav, year }: { children
     return <span className={`${className} ${badge.urgent ? "urgent" : "warning"}`}>{badge.count > 99 ? "99+" : badge.count}</span>;
   }
 
-  return <div className="app-root workspace-app" style={{ ["--brand" as string]: organization?.primary_color || "#0f766e" }}>
+  return <div className="app-root workspace-app" style={{ ["--brand" as string]: organization?.primary_color || "#1d3f73" }}>
     <style>{`
-      .workspace-app{background:#f6f8f8;color:#183238}
-      .workspace-app .topbar{background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-bottom:1px solid #e5eeee;min-height:68px;padding:10px 22px;box-shadow:0 4px 18px rgba(22,59,64,.04)}
-      .workspace-app .org-title strong{color:#17484b;font-size:14px;letter-spacing:-.01em}
-      .workspace-app .org-title span{color:#8a9a9d;font-size:10px;letter-spacing:.04em}
-      .workspace-app .assistant-topbar{border:1px solid #d5e9e6;background:#f0faf8;color:#17645f;border-radius:14px;padding:9px 13px;gap:8px;transition:.2s;box-shadow:none}
-      .workspace-app .assistant-topbar:hover,.workspace-app .assistant-topbar.active{background:#dff4ef;border-color:#b8ded7;color:#0d5551;transform:translateY(-1px)}
+      .workspace-app{background:#eef4fb;color:#152b49}
+      .workspace-app .topbar{background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-bottom:1px solid #d7e1ed;min-height:68px;padding:10px 22px;box-shadow:0 4px 18px rgba(22,59,64,.04)}
+      .workspace-app .org-title strong{color:#152b49;font-size:14px;letter-spacing:-.01em}
+      .workspace-app .org-title span{color:#65758a;font-size:10px;letter-spacing:.04em}
+      .workspace-app .assistant-topbar{border:1px solid #b9cbe1;background:#eaf2fb;color:#1d3f73;border-radius:14px;padding:9px 13px;gap:8px;transition:.2s;box-shadow:none}
+      .workspace-app .assistant-topbar:hover,.workspace-app .assistant-topbar.active{background:#dce9f7;border-color:#7fa4cd;color:#102848;transform:translateY(-1px)}
       .workspace-app .assistant-attention-badge{background:#d97706!important;color:#fff!important;border:2px solid #fff;min-width:18px;height:18px}
       .workspace-app .header-icon,.workspace-app .icon-button{border-radius:12px}
       .workspace-app .profile-button{border:1px solid #e2ebeb;background:#fff;border-radius:14px;padding:5px 8px 5px 6px;gap:8px}
-      .workspace-app .profile-button:hover{background:#f5faf9;border-color:#cfe3e1}
-      .workspace-app .avatar{background:linear-gradient(135deg,#278d86,#155c67);box-shadow:0 4px 10px rgba(21,92,103,.18)}
-      .workspace-app .sidebar{background:#fbfdfd;border-right:1px solid #e5eeee}
+      .workspace-app .profile-button:hover{background:#f3f7fc;border-color:#b9cbe1}
+      .workspace-app .avatar{background:linear-gradient(135deg,#3f6fa8,#1d3f73);box-shadow:0 4px 10px rgba(21,92,103,.18)}
+      .workspace-app .sidebar{background:#fbfdfd;border-right:1px solid #d7e1ed}
       .workspace-app .sidebar-brand{border-bottom:1px solid #edf3f3}
-      .workspace-app .brand-mark{background:linear-gradient(135deg,#278d86,#155c67);box-shadow:0 8px 18px rgba(21,92,103,.18)}
+      .workspace-app .brand-mark{background:linear-gradient(135deg,#3f6fa8,#1d3f73);box-shadow:0 8px 18px rgba(21,92,103,.18)}
       .workspace-app .nav-link{border-radius:12px;margin:2px 10px;padding:10px 12px;color:#607579}
-      .workspace-app .nav-link:hover{background:#eef7f5;color:#17645f}
-      .workspace-app .nav-link.active{background:#e3f4f0;color:#0f655f;font-weight:800;box-shadow:inset 3px 0 #2c948b}
-      .workspace-app .workspace-strip{background:#fff;border-bottom:1px solid #e7eeee}
-      .workspace-app .workspace-tab{border-radius:10px;color:#718286}
-      .workspace-app .workspace-tab.active{background:#edf8f6;color:#17645f}
+      .workspace-app .nav-link:hover{background:#eaf2fb;color:#1d3f73}
+      .workspace-app .nav-link.active{background:#e6eef8;color:#1d3f73;font-weight:800;box-shadow:inset 3px 0 #9fc4eb}
+      .workspace-app .workspace-strip{background:#fff;border-bottom:1px solid #d7e1ed}
+      .workspace-app .workspace-tab{border-radius:10px;color:#65758a}
+      .workspace-app .workspace-tab.active{background:#e6eef8;color:#1d3f73}
       @media(max-width:760px){.workspace-app .topbar{padding:9px 12px}.workspace-app .org-title{display:none}.workspace-app .assistant-topbar span{display:none}.workspace-app .assistant-topbar{padding:10px}.workspace-app .profile-copy{display:none}}
     `}</style>
     {navigating ? <div className="route-progress" aria-label="Đang chuyển trang"><span /></div> : null}
