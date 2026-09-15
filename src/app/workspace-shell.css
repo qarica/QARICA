@@ -214,9 +214,12 @@
   .workspace-app input,.workspace-app select,.workspace-app textarea{min-height:44px}
   .workspace-app .button{min-height:42px}
 
-  .workspace-app .modal-backdrop{align-items:flex-end;padding:0;z-index:200}
-  .workspace-app .modal-card,.workspace-app .modal-card.xl{width:100%;max-height:calc(100dvh - 12px - env(safe-area-inset-bottom));min-height:0;border-radius:20px 20px 0 0}
-  .workspace-app .modal-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:28px}.workspace-app .modal-footer{position:sticky;bottom:0;z-index:3;padding-bottom:calc(13px + env(safe-area-inset-bottom));box-shadow:0 -8px 18px rgba(25,42,49,.08)}
+  /* All task modals: keep header/actions visible; scroll only the body. */
+  .workspace-app .modal-backdrop{align-items:center;justify-content:center;padding:12px;z-index:200}
+  .workspace-app .modal-card,.workspace-app .modal-card.xl{width:100%;height:calc(100dvh - 24px - env(safe-area-inset-bottom));max-height:calc(100dvh - 24px - env(safe-area-inset-bottom));min-height:0;border-radius:20px;overflow:hidden}
+  .workspace-app .modal-head{flex:0 0 auto}
+  .workspace-app .modal-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:28px}
+  .workspace-app .modal-footer{flex:0 0 auto;position:relative;z-index:3;padding-bottom:calc(13px + env(safe-area-inset-bottom));box-shadow:0 -8px 18px rgba(25,42,49,.08)}
 
   .mobile-bottom-nav{
     position:fixed;
