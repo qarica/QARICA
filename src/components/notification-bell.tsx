@@ -129,13 +129,24 @@ export function NotificationBell() {
   }, [supabase, triggerRing]);
 
   useEffect(() => {
+    // Keep notifications responsive while the user is active, but do not
+    // poll or trigger server-side synchronization in a hidden browser tab.
     load();
-    const timer = window.setInterval(load, 5000);
-    const onFocus = () => load();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 5000);
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void load();
+    };
     window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       if (ringTimerRef.current) window.clearTimeout(ringTimerRef.current);
     };
   }, [load]);
