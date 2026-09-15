@@ -187,7 +187,7 @@ export function NotificationBell() {
         .notification-filters button:hover{background:#eef7f5;color:#17645f}
         .notification-filters button.active{background:#dff4ef;border-color:#b8ded7;color:#0f655f;font-weight:800}
         .notification-filters b{font-size:9px;margin-left:3px}
-      \`}</style>
+      `}</style>
       <button
         className={`icon-button header-icon notification-trigger ${unread > 0 ? "has-unread" : ""} ${ringing ? "is-ringing" : ""}`}
         onClick={() => setOpen((v) => !v)}
