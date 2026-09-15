@@ -10,9 +10,6 @@ import "./domain-create.css";
 import "./brand-overrides.css";
 import "./monitoring-print-compact.css";
 import "./workspace-shell.css";
-import "./professional-ui-v2.css";
-import "./executive-ui-v3.css";
-import "./typography-contrast-v4.css";
 
 const appFont = Nunito_Sans({ subsets:["latin","vietnamese"],weight:["400","500","600","700","800"],display:"swap",variable:"--font-app" });
 const criticalCss=`
@@ -25,5 +22,5 @@ const criticalCss=`
   @media print{@page{size:A4;margin:20mm 20mm 20mm 30mm!important}}
 `;
 export const metadata:Metadata={title:"QLCL · TQM",description:"Hệ thống Quản lý Chất lượng và cải tiến toàn diện",icons:{icon:"/icon.svg",apple:"/apple-icon.svg"}};
-export const viewport:Viewport={width:"device-width",initialScale:1,themeColor:"#087a72"};
+export const viewport:Viewport={width:"device-width",initialScale:1,themeColor:"#1d3f73"};
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="vi"><body className={`${appFont.className} ${appFont.variable}`}>{children}<style>{criticalCss}</style></body></html>}
