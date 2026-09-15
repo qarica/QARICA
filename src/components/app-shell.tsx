@@ -312,7 +312,7 @@ export function AppShell({ children, user, organization, nav, year }: { children
       .workspace-app .workspace-strip{background:#fff;border-bottom:1px solid #d7e1ed}
       .workspace-app .workspace-tab{border-radius:10px;color:#65758a}
       .workspace-app .workspace-tab.active{background:#e6fbf8;color:#0d9488}
-      @media(max-width:760px){.workspace-app .topbar{padding:9px 12px}.workspace-app .org-title{display:none}.workspace-app .assistant-topbar span{display:none}.workspace-app .assistant-topbar{padding:10px}.workspace-app .profile-copy{display:none}}
+      @media(max-width:760px){.workspace-app .topbar{padding:9px 12px}.workspace-app .org-title{display:none}.workspace-app .assistant-topbar{display:none!important}.workspace-app .profile-copy{display:none}}
     `}</style>
     {navigating ? <div className="route-progress" aria-label="Đang chuyển trang"><span /></div> : null}
 

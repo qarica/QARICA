@@ -292,6 +292,7 @@ body {
   gap: 8px !important;
   padding: 8px 14px !important;
   border-radius: 10px !important;
+  border: 1px solid var(--line) !important;
   white-space: nowrap !important;
   text-decoration: none !important;
   color: #5d6f84 !important;
@@ -311,9 +312,9 @@ body {
 }
 
 .workspace-app .workspace-tab.active {
-  background: #ffffff !important;
+  background: var(--navy-soft) !important;
   color: var(--navy) !important;
-  border-bottom-color: var(--navy) !important;
+  border-color: var(--navy) !important;
 }
 
 @media (max-width: 760px) {
