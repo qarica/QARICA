@@ -47,10 +47,7 @@ export function LoginForm() {
 
   return (
     <form className="login-card" onSubmit={submit}>
-      <div className="mobile-brand">
-        <div className="brand-mark">QL</div>
-        <strong>QLCL-TTSG</strong>
-      </div>
+      <div className="mobile-brand"><img src="/brand/qlcl-logo.svg" alt="QLCL TQM" /><strong>QLCL</strong></div>
 
       <div>
         <div className="eyebrow">ĐĂNG NHẬP HỆ THỐNG</div>
