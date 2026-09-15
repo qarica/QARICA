@@ -4,16 +4,16 @@
    ========================================================= */
 
 :root {
-  --bg: #eef4fb;
+  --bg: #f8f4f4;
   --surface: #ffffff;
   --text: #152b49;
   --muted: #54657a; /* darkened from #65758a for WCAG AA margin on white */
   --line: #d7e1ed;
-  --navy: #1d3f73;
-  --navy-dark: #102848;
-  --navy-mid: #3f6fa8;
-  --navy-soft: #e6eef8;
-  --focus: #9fc4eb;
+  --navy: #7a2740;
+  --navy-dark: #33101a;
+  --navy-mid: #9c4a63;
+  --navy-soft: #faeef1;
+  --focus: #e3b8c3;
 
   /* Type scale — single source of truth. Reference these tokens
      instead of hard-coding new font-size values in component CSS. */
@@ -101,7 +101,7 @@ body {
   background: linear-gradient(
     180deg,
     var(--navy-dark) 0%,
-    #17345f 100%
+    #2e0e18 100%
   ) !important;
   color: #edf4fc !important;
   border-right: 1px solid #294f82 !important;
@@ -613,5 +613,47 @@ body {
     min-height: var(--mobile-nav-h);
     background: #ffffff !important;
     border-top: 1px solid var(--line) !important;
+    display: flex !important;
+    align-items: stretch !important;
+    justify-content: space-around !important;
+    padding: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+  }
+
+  /* FIX: .mobile-bottom-nav chưa từng có CSS cho từng mục con (link,
+     button "Menu") — chỉ có khung ngoài, nên icon/chữ trôi tự do không
+     căn giữa, nút Menu hiện viền mặc định của trình duyệt. Viết đầy đủ
+     ở đây, áp dụng chung cho cả <a> và <button> bên trong. */
+  .mobile-bottom-nav > a,
+  .mobile-bottom-nav > button {
+    all: unset !important;
+    box-sizing: border-box !important;
+    flex: 1 1 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    padding: 8px 4px !important;
+    color: var(--muted) !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    cursor: pointer !important;
+  }
+
+  .mobile-bottom-nav > a svg,
+  .mobile-bottom-nav > button svg {
+    flex: 0 0 auto !important;
+  }
+
+  .mobile-bottom-nav > a.active,
+  .mobile-bottom-nav > button.active {
+    color: var(--navy) !important;
+  }
+
+  .mobile-bottom-nav .mobile-assistant-icon {
+    position: relative !important;
+    display: inline-flex !important;
   }
 }

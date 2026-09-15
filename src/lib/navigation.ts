@@ -8,8 +8,9 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Dashboard", href: "/dashboard", icon: "layout-dashboard", permission: "dashboard.view" },
       { label: "Việc của tôi", href: "/tasks", icon: "check-square", permission: "tasks.view" },
       // "Trợ lý QLCL" đã bỏ khỏi sidebar theo yêu cầu — đã có nút riêng
-      // ở thanh trên cùng (.assistant-topbar trong app-shell.tsx), giữ
-      // nguyên route /assistant, chỉ ẩn khỏi menu bên trái để đỡ trùng lặp.
+      // ở thanh trên cùng (.assistant-topbar) và ở thanh dưới trên mobile
+      // (.mobile-assistant trong app-shell.tsx), giữ nguyên route
+      // /assistant, chỉ ẩn khỏi menu bên trái để đỡ trùng lặp.
     ],
   },
   {
