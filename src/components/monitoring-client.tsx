@@ -85,7 +85,7 @@ export function MonitoringClient({ year, canManageTemplates, templateRows, monit
     const matchesSearch = `${row.record_code} ${row.title} ${row.checklist_name} ${row.target_area || ""} ${deptMap.get(row.target_department_id || "") || ""}`.toLowerCase().includes(q);
     const matchesPhase = roundFilter === "ALL" || (roundFilter === "HAS_FAIL" ? row.fail > 0 : row.phase === roundFilter);
     return matchesSearch && matchesPhase;
-  }).sort(compareRoundNewestFirst);
+  }).sort((a, b) => roundFilter === "HAS_FAIL" ? (b.fail - a.fail || compareRoundNewestFirst(a, b)) : compareRoundNewestFirst(a, b));
 
   const phaseCount = (phase: MonitoringPhase) => monitoringRows.filter((x) => x.phase === phase).length;
   const failRoundCount = monitoringRows.filter((x) => x.fail > 0).length;
