@@ -514,3 +514,101 @@
     min-height:44px!important;
   }
 }
+
+
+/* Viewport-safe modal architecture — header/footer never leave the screen */
+.workspace-app .modal-backdrop{
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  min-height:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:16px!important;
+  overflow:hidden!important;
+  z-index:300!important;
+}
+.workspace-app .modal-card{
+  position:relative!important;
+  display:flex!important;
+  flex-direction:column!important;
+  width:min(920px,100%)!important;
+  height:min(900px,calc(100dvh - 32px))!important;
+  max-height:calc(100dvh - 32px)!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.workspace-app .modal-card>.modal-head{
+  flex:0 0 auto!important;
+  position:sticky!important;
+  top:0!important;
+  z-index:10!important;
+  min-height:72px!important;
+  background:#fff!important;
+}
+.workspace-app .modal-card>.modal-body{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:0!important;
+  max-height:none!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding-bottom:32px!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+.workspace-app .modal-card>.modal-footer{
+  flex:0 0 auto!important;
+  position:sticky!important;
+  bottom:0!important;
+  z-index:10!important;
+  min-height:70px!important;
+  background:#f8fbff!important;
+  border-top:1px solid #d7e1ed!important;
+  box-shadow:0 -10px 22px rgba(16,40,72,.12)!important;
+}
+.workspace-app .modal-card>form{
+  display:flex!important;
+  flex:1 1 auto!important;
+  flex-direction:column!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.workspace-app .modal-card>form>.modal-head{position:sticky!important;top:0!important}
+.workspace-app .modal-card>form>.modal-body{
+  flex:1 1 auto!important;
+  height:0!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+}
+.workspace-app .modal-card>form>.modal-footer{
+  position:sticky!important;
+  bottom:0!important;
+  flex:0 0 auto!important;
+}
+@media(max-width:860px){
+  .workspace-app .modal-backdrop{
+    align-items:center!important;
+    padding:8px 8px calc(76px + env(safe-area-inset-bottom))!important;
+  }
+  .workspace-app .modal-card{
+    width:100%!important;
+    height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
+    max-height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
+    border-radius:18px!important;
+  }
+  .workspace-app .modal-card>.modal-head{min-height:68px!important}
+  .workspace-app .modal-card>.modal-footer{
+    min-height:68px!important;
+    padding:10px 14px!important;
+  }
+}
+@media(max-width:560px){
+  .workspace-app .modal-backdrop{padding-inline:6px!important}
+  .workspace-app .modal-card{
+    height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
+    max-height:calc(100dvh - 84px - env(safe-area-inset-bottom))!important;
+  }
+}
