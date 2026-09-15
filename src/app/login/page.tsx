@@ -5,7 +5,7 @@ export default function LoginPage(){
   return <main className="login-page">
     <section className="login-hero">
       <div className="login-hero-inner">
-        <img className="login-brand-logo" src="/brand/qlcl-logo.svg" alt="QLCL TQM" />
+        <img className="login-brand-logo" src="/brand/qlcl-logo-light.svg" alt="QLCL TQM" />
         <div className="eyebrow">QUALITY MANAGEMENT HUB</div>
         <h1>Quản lý chất lượng thông minh</h1>
         <p>Hệ thống quản lý chất lượng bệnh viện: kế hoạch, chỉ số, giám sát, sự cố, CAPA, rủi ro, tự đánh giá và cải tiến trên một nền tảng thống nhất.</p>
