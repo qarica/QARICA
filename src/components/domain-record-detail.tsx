@@ -1,4 +1,5 @@
 import { StatusBadge } from "@/components/status-badge";
+import { AssessmentCriteriaPanel } from "@/components/assessment-criteria-panel";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -249,6 +250,9 @@ export async function DomainRecordDetail({ recordType, recordId }: { recordType:
     ]});
   }
 
-  if (!sections.length) return null;
-  return <div className="domain-detail-stack">{sections.map((section, index) => <DetailSection section={section} key={`${section.title}-${index}`} />)}</div>;
+  if (!sections.length && recordType !== "ASSESSMENT") return null;
+  return <div className="domain-detail-stack">
+    {sections.map((section, index) => <DetailSection section={section} key={`${section.title}-${index}`} />)}
+    {recordType === "ASSESSMENT" ? <AssessmentCriteriaPanel recordId={recordId} /> : null}
+  </div>;
 }

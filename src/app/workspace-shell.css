@@ -535,6 +535,10 @@ body {
   overflow-y: auto !important;
 }
 
+.workspace-app .mobile-bottom-nav {
+  display: none;
+}
+
 /* =========================
    Responsive mobile
    ========================= */
