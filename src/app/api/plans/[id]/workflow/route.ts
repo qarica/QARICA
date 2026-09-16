@@ -30,12 +30,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: record, error: recordError } = await admin.from("records").select("id,organization_id,lifecycle_status,title").eq("id", currentProgram.record_id).maybeSingle();
   if (recordError || !record || record.organization_id !== caller.organization_id || record.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "Kế hoạch không thuộc phạm vi bệnh viện hiện tại hoặc đã ngưng hoạt động." }, { status: 403 });
+  const recordId = record.id;
+  const recordTitle = record.title;
 
   async function updateStatus(from: string, to: string, extra: Record<string, unknown> = {}) {
     if (currentProgram.workflow_status !== from) return NextResponse.json({ error: "Trạng thái hiện tại không phù hợp với thao tác này. Vui lòng tải lại trang." }, { status: 409 });
     const { error } = await admin.from("work_programs").update({ workflow_status: to, ...extra }).eq("id", currentProgram.id).eq("workflow_status", from);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    await admin.from("audit_logs").insert({ actor_user_id: actorUserId, record_id: record.id, table_name: "work_programs", row_id: currentProgram.id, action_type: `PLAN_${to}`, old_value: { workflow_status: from }, new_value: { workflow_status: to }, request_meta: { source: "qlcl-ui" } });
+    await admin.from("audit_logs").insert({ actor_user_id: actorUserId, record_id: recordId, table_name: "work_programs", row_id: currentProgram.id, action_type: `PLAN_${to}`, old_value: { workflow_status: from }, new_value: { workflow_status: to }, request_meta: { source: "qlcl-ui" } });
     return NextResponse.json({ ok: true, workflow_status: to });
   }
 
@@ -65,8 +67,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const nextRevision = Number(program.revision_no || 1) + 1;
     const { error } = await admin.from("work_programs").update({ workflow_status: "DRAFT", approved_by: null, approved_at: null, returned_reason: note, returned_at: new Date().toISOString(), revision_no: nextRevision }).eq("id", program.id).eq("workflow_status", "PENDING_APPROVAL");
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    if (program.owner_user_id) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_RETURNED", priority: "HIGH", title: "Kế hoạch cần chỉnh sửa", message: `${record.title}: ${note}`, target_record_id: record.id, target_route: `/plans/${program.id}`, notification_event_key: `plan-returned:${program.id}:${Date.now()}` });
-    await admin.from("audit_logs").insert({ actor_user_id: actorUserId, record_id: record.id, table_name: "work_programs", row_id: program.id, action_type: "RETURN_PLAN_FOR_REVISION", old_value: { workflow_status: "PENDING_APPROVAL", revision_no: program.revision_no }, new_value: { workflow_status: "DRAFT", note, revision_no: nextRevision }, request_meta: { source: "qlcl-ui" } });
+    if (program.owner_user_id) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_RETURNED", priority: "HIGH", title: "Kế hoạch cần chỉnh sửa", message: `${recordTitle}: ${note}`, target_record_id: recordId, target_route: `/plans/${program.id}`, notification_event_key: `plan-returned:${program.id}:${Date.now()}` });
+    await admin.from("audit_logs").insert({ actor_user_id: actorUserId, record_id: recordId, table_name: "work_programs", row_id: program.id, action_type: "RETURN_PLAN_FOR_REVISION", old_value: { workflow_status: "PENDING_APPROVAL", revision_no: program.revision_no }, new_value: { workflow_status: "DRAFT", note, revision_no: nextRevision }, request_meta: { source: "qlcl-ui" } });
     return NextResponse.json({ ok: true, workflow_status: "DRAFT" });
   }
 
@@ -77,7 +79,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (isMissingRpcFunction(txError, APPROVE_PLAN_BUNDLE_RPC)) return NextResponse.json({ error: "Plan Composer V2 chưa được kích hoạt trên cơ sở dữ liệu. Không phê duyệt để tránh tạo Action không đầy đủ." }, { status: 503 });
       return NextResponse.json({ error: rpcErrorMessage(txError, "Không thể phê duyệt trọn bộ kế hoạch.") }, { status: 400 });
     }
-    if (program.owner_user_id && program.owner_user_id !== actorUserId) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_APPROVED", priority: "NORMAL", title: "Kế hoạch đã được phê duyệt", message: record.title, target_record_id: record.id, target_route: `/plans/${program.id}`, notification_event_key: `plan-approved:${program.id}:${Date.now()}` });
+    if (program.owner_user_id && program.owner_user_id !== actorUserId) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_APPROVED", priority: "NORMAL", title: "Kế hoạch đã được phê duyệt", message: recordTitle, target_record_id: recordId, target_route: `/plans/${program.id}`, notification_event_key: `plan-approved:${program.id}:${Date.now()}` });
     return NextResponse.json({ ok: true, workflow_status: "APPROVED", transaction: "atomic", result: tx });
   }
 
