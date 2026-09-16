@@ -1,0 +1,135 @@
+/* QARICA direct navigation
+   One click from the main menu to each operational function.
+   Section headers organize information; they are not intermediate pages. */
+
+/* Direct sidebar makes the duplicated workspace tab strip unnecessary. */
+.workspace-app .workspace-strip{
+  display:none!important;
+}
+
+/* Desktop: compact enough for a professional operations menu,
+   but preserve readable labels and an independent scroll area. */
+.workspace-app .sidebar-nav{
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain;
+  padding:10px 8px 28px!important;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(194,211,232,.42) transparent;
+}
+.workspace-app .sidebar-nav::-webkit-scrollbar{width:6px}
+.workspace-app .sidebar-nav::-webkit-scrollbar-track{background:transparent}
+.workspace-app .sidebar-nav::-webkit-scrollbar-thumb{
+  background:rgba(194,211,232,.34);
+  border-radius:99px;
+}
+.workspace-app .nav-section{
+  margin-bottom:10px!important;
+}
+.workspace-app .nav-label{
+  padding:9px 11px 5px!important;
+  font-size:10px!important;
+  line-height:1.2!important;
+  letter-spacing:.085em!important;
+  color:#afc4dd!important;
+}
+.workspace-app .nav-link{
+  min-height:40px!important;
+  margin:2px 0!important;
+  padding:8px 10px!important;
+  gap:10px!important;
+  border-radius:10px!important;
+  font-size:12.5px!important;
+  line-height:1.25!important;
+  font-weight:720!important;
+}
+.workspace-app .nav-link svg{
+  width:17px!important;
+  height:17px!important;
+}
+.workspace-app .nav-link.active{
+  background:linear-gradient(90deg,rgba(20,184,166,.95),rgba(28,122,170,.88))!important;
+  box-shadow:inset 3px 0 0 #bfe7f6!important;
+}
+
+/* Collapsed desktop sidebar: section captions do not consume space.
+   Each direct function remains available through its icon + title tooltip. */
+.workspace-app .sidebar.collapsed .nav-label{
+  display:none!important;
+}
+.workspace-app .sidebar.collapsed .nav-section{
+  margin-bottom:5px!important;
+}
+.workspace-app .sidebar.collapsed .nav-link{
+  justify-content:center!important;
+  min-height:42px!important;
+  padding:9px!important;
+}
+
+/* Tablet/mobile is a true navigation drawer, not a squeezed desktop bar. */
+@media(max-width:860px){
+  .workspace-app .sidebar{
+    width:min(88vw,360px)!important;
+    max-width:360px!important;
+    height:100vh!important;
+    height:100dvh!important;
+    z-index:1200!important;
+    box-shadow:18px 0 44px rgba(7,28,52,.32)!important;
+  }
+  .workspace-app .sidebar-brand{
+    min-height:70px!important;
+    padding:10px 14px!important;
+    flex:0 0 auto!important;
+  }
+  .workspace-app .sidebar-nav{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    padding:8px 10px calc(var(--mobile-nav-h) + 24px)!important;
+    -webkit-overflow-scrolling:touch;
+  }
+  .workspace-app .nav-section{
+    margin-bottom:12px!important;
+  }
+  .workspace-app .nav-label{
+    padding:10px 10px 5px!important;
+    font-size:10.5px!important;
+  }
+  .workspace-app .nav-link{
+    min-height:46px!important;
+    padding:11px 12px!important;
+    margin:2px 0!important;
+    gap:11px!important;
+    font-size:13.5px!important;
+    border-radius:12px!important;
+  }
+  .workspace-app .nav-link svg{
+    width:19px!important;
+    height:19px!important;
+  }
+  .workspace-app .sidebar.collapsed .nav-label{
+    display:block!important;
+  }
+  .workspace-app .sidebar.collapsed .nav-link{
+    justify-content:flex-start!important;
+    padding:11px 12px!important;
+  }
+  .workspace-app .sidebar-overlay{
+    z-index:1190!important;
+    background:rgba(8,25,45,.48)!important;
+    backdrop-filter:blur(2px);
+  }
+}
+
+/* Small phone: preserve 44px+ touch targets and use almost full width. */
+@media(max-width:480px){
+  .workspace-app .sidebar{
+    width:min(94vw,350px)!important;
+  }
+  .workspace-app .nav-link{
+    min-height:48px!important;
+    font-size:14px!important;
+  }
+  .workspace-app .nav-label{
+    font-size:10px!important;
+  }
+}
