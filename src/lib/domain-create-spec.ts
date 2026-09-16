@@ -1,5 +1,5 @@
 export type CreateFieldType="text"|"textarea"|"date"|"datetime-local"|"number"|"select"|"department"|"user"|"criteria_version"|"indicator_assignment"|"fmea_model"|"checkbox";
-export type CreateField={key:string;label:string;type:CreateFieldType;required?:boolean;placeholder?:string;options?:{value:string;label:string}[];wide?:boolean};
+export type CreateField={key:string;label:string;type:CreateFieldType;required?:boolean;placeholder?:string;options?:{value:string;label:string}[];wide?:boolean;hint?:string};
 export type DomainCreateSpec={recordType:string;buttonLabel:string;intro:string;permissions:string[];commonOwner?:boolean;fields:CreateField[]};
 const priority=[{value:"LOW",label:"Thấp"},{value:"NORMAL",label:"Bình thường"},{value:"HIGH",label:"Cao"},{value:"URGENT",label:"Khẩn"}];
 const SPECS:Record<string,DomainCreateSpec>={
