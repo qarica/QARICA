@@ -11,6 +11,7 @@ import "./brand-overrides.css";
 import "./monitoring-print-compact.css";
 import "./workspace-shell.css";
 import "./qarica-design-system.css";
+import "./qarica-readability.css";
 
 const appFont = Nunito_Sans({ subsets:["latin","vietnamese"],weight:["400","500","600","700","800"],display:"swap",variable:"--font-app" });
 const criticalCss=`
