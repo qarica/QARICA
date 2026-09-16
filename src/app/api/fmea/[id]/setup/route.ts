@@ -9,7 +9,7 @@ async function context(recordId: string) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { ok: false as const, response: NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 }) };
-  const { data: allowed } = await supabase.rpc("has_permission", { p_permission_code: "fmea.manage" });
+  const { data: allowed } = await supabase.rpc("has_permission", { p_permission_code: "risk.manage" });
   if (!allowed) return { ok: false as const, response: NextResponse.json({ error: "Bạn chưa có quyền quản lý FMEA/HFMEA." }, { status: 403 }) };
   const admin = createAdminClient();
   const [{ data: caller }, { data: record }, { data: study }] = await Promise.all([
