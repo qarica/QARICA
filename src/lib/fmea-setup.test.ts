@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateFmeaRpn, normalizeFmeaFailureMode, normalizeFmeaStep, normalizedFmeaText, validFmeaScore } from "./fmea-setup";
+import { calculateFmeaRpn, canDeleteFmeaAnalysis, canEditFmeaAnalysis, existingFmeaColumn, normalizeFmeaFailureMode, normalizeFmeaStep, normalizedFmeaText, validFmeaScore } from "./fmea-setup";
 
 describe("FMEA setup helpers", () => {
   it("normalizes process steps across compatible column names", () => {
@@ -37,5 +37,18 @@ describe("FMEA setup helpers", () => {
 
   it("normalizes Vietnamese labels for duplicate checks", () => {
     expect(normalizedFmeaText("  Kiểm tra   hồ sơ ")).toBe("kiểm tra hồ sơ");
+  });
+
+  it("allows correction during active analysis but deletion only in draft", () => {
+    expect(canEditFmeaAnalysis("DRAFT")).toBe(true);
+    expect(canEditFmeaAnalysis("IN_PROGRESS")).toBe(true);
+    expect(canEditFmeaAnalysis("RESIDUAL_REVIEW")).toBe(false);
+    expect(canDeleteFmeaAnalysis("DRAFT")).toBe(true);
+    expect(canDeleteFmeaAnalysis("IN_PROGRESS")).toBe(false);
+  });
+
+  it("detects the actual compatible database column", () => {
+    expect(existingFmeaColumn({ failure_mode_description: null, severity_score: 3 }, ["failure_mode", "failure_mode_description", "mode_name"])).toBe("failure_mode_description");
+    expect(existingFmeaColumn({ description: null, notes: null }, ["description", "notes"], ["description"])).toBe("notes");
   });
 });
