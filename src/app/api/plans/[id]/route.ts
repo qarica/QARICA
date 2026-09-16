@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("plans.manage");
   if (!auth.ok) return auth.response;
+  const actorUserId = auth.user.id;
 
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
@@ -33,7 +34,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (taskError) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: ${taskError}` }, { status: 400 });
   }
 
-  const { data: caller } = await admin.from("profiles").select("organization_id,is_active").eq("user_id", auth.user.id).maybeSingle();
+  const { data: caller } = await admin.from("profiles").select("organization_id,is_active").eq("user_id", actorUserId).maybeSingle();
   if (!caller?.organization_id || !caller.is_active) return NextResponse.json({ error: "Tài khoản không hợp lệ." }, { status: 403 });
   const { data: record } = await admin.from("records").select("id,organization_id,lifecycle_status,title,owner_department_id,owner_user_id,updated_at").eq("id", program.record_id).maybeSingle();
   if (!record || record.organization_id !== caller.organization_id || record.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "Kế hoạch không thuộc bệnh viện hiện tại." }, { status: 403 });
@@ -98,8 +99,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: recordUpdateError.message }, { status: 400 });
   }
 
+  const oldDraftActions = cleanPlanDraftActions(oldProgram.draft_actions);
   const { error: auditError } = await admin.from("audit_logs").insert({
-    actor_user_id: auth.user.id,
+    actor_user_id: actorUserId,
     record_id: program.record_id,
     table_name: "work_programs",
     row_id: id,
@@ -110,7 +112,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       general_objective: oldProgram.general_objective,
       specific_objectives: oldProgram.specific_objectives,
       requirements: oldProgram.requirements,
-      draft_action_count: Array.isArray(oldProgram.draft_actions) ? oldProgram.draft_actions.length : 0,
+      draft_actions: oldDraftActions,
+      draft_action_count: oldDraftActions.length,
       start_date: oldProgram.start_date,
       end_date: oldProgram.end_date,
       lead_department_id: oldProgram.lead_department_id,
@@ -122,6 +125,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       general_objective: generalObjective,
       specific_objectives: specificObjectives,
       requirements,
+      draft_actions: draftActions,
       draft_action_count: draftActions.length,
       start_date: startDate,
       end_date: endDate,
