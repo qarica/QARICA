@@ -1,112 +1,64 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
-// Danh sách tiêu chí trong phạm vi 1 đợt tự đánh giá, kèm điểm đã chấm (nếu có).
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id: recordId } = await params;
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
+const ACTIONS = new Set(["SAVE_DRAFT", "SUBMIT"]);
 
-  const admin = createAdminClient();
-  const { data: record } = await admin.from("records").select("id").eq("id", recordId).eq("record_type", "ASSESSMENT").maybeSingle();
-  if (!record) return NextResponse.json({ error: "Không tìm thấy đợt tự đánh giá." }, { status: 404 });
-
-  const { data: round } = await admin.from("assessment_rounds").select("id").eq("record_id", recordId).maybeSingle();
-  if (!round) return NextResponse.json({ error: "Không tìm thấy dữ liệu đợt đánh giá." }, { status: 404 });
-
-  const { data: scope, error: scopeError } = await admin
-    .from("assessment_round_criteria")
-    .select("criterion_id, is_required, workflow_status")
-    .eq("assessment_round_id", round.id);
-  if (scopeError) return NextResponse.json({ error: scopeError.message }, { status: 500 });
-
-  const criterionIds = (scope ?? []).map((s: any) => s.criterion_id);
-  const { data: items } = criterionIds.length
-    ? await admin.from("criteria_items").select("id,code,title,description,sequence_no").in("id", criterionIds).order("sequence_no", { ascending: true })
-    : { data: [] };
-
-  const { data: assessments } = criterionIds.length
-    ? await admin.from("criterion_assessments").select("id,criteria_item_id,score,result,note,workflow_status").eq("assessment_round_id", round.id)
-    : { data: [] };
-
-  const assessmentMap = new Map((assessments ?? []).map((a: any) => [a.criteria_item_id, a]));
-  const scopeMap = new Map((scope ?? []).map((s: any) => [s.criterion_id, s]));
-
-  const criteria = (items ?? []).map((item: any) => {
-    const a = assessmentMap.get(item.id);
-    const s = scopeMap.get(item.id);
-    return {
-      criteria_item_id: item.id,
-      code: item.code,
-      title: item.title,
-      description: item.description,
-      sequence_no: item.sequence_no,
-      is_required: s?.is_required ?? true,
-      score: a?.score ?? null,
-      result: a?.result ?? null,
-      note: a?.note ?? "",
-      workflow_status: a?.workflow_status ?? "DRAFT",
-    };
-  });
-
-  return NextResponse.json({
-    assessment_round_id: round.id,
-    total: criteria.length,
-    scored: criteria.filter((c: any) => c.workflow_status !== "DRAFT" || c.result).length,
-    criteria,
-  });
-}
-
-// Lưu điểm tự chấm cho một tiêu chí (tạo mới hoặc cập nhật).
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id: recordId } = await params;
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
 
-  const { data: canAssess } = await supabase.rpc("has_permission", { p_permission_code: "criteria.assess" });
-  const { data: canManage } = await supabase.rpc("has_permission", { p_permission_code: "criteria.manage" });
-  if (!canAssess && !canManage) return NextResponse.json({ error: "Bạn không có quyền chấm điểm tiêu chí." }, { status: 403 });
+  const [{ data: assess }, { data: manage }] = await Promise.all([
+    supabase.rpc("has_permission", { p_permission_code: "criteria.assess" }),
+    supabase.rpc("has_permission", { p_permission_code: "criteria.manage" }),
+  ]);
+  if (!assess && !manage) return NextResponse.json({ error: "Bạn chưa có quyền tự đánh giá tiêu chí." }, { status: 403 });
 
+  const { id: recordId } = await params;
   const body = await request.json().catch(() => ({}));
-  const criteriaItemId = String(body.criteria_item_id || "");
-  const result = body.result ? String(body.result) : null;
-  const score = body.score === null || body.score === undefined || body.score === "" ? null : Number(body.score);
-  const note = body.note ? String(body.note) : null;
-  if (!criteriaItemId) return NextResponse.json({ error: "Thiếu tiêu chí cần chấm." }, { status: 400 });
+  const action = String(body.action || "").toUpperCase();
+  const criterionId = String(body.criterion_id || "").trim();
+  const proposedLevelId = String(body.proposed_level_id || "").trim();
+  const summaryComment = String(body.summary_comment || "").trim();
+  if (!ACTIONS.has(action) || !criterionId || !proposedLevelId) return NextResponse.json({ error: "Thiếu tiêu chí, mức đánh giá hoặc thao tác không hợp lệ." }, { status: 400 });
 
   const admin = createAdminClient();
-  const { data: record } = await admin.from("records").select("id").eq("id", recordId).eq("record_type", "ASSESSMENT").maybeSingle();
-  if (!record) return NextResponse.json({ error: "Không tìm thấy đợt tự đánh giá." }, { status: 404 });
-  const { data: round } = await admin.from("assessment_rounds").select("id").eq("record_id", recordId).maybeSingle();
-  if (!round) return NextResponse.json({ error: "Không tìm thấy dữ liệu đợt đánh giá." }, { status: 404 });
+  const [{ data: caller }, { data: record }] = await Promise.all([
+    admin.from("profiles").select("organization_id,primary_department_id,is_active").eq("user_id", auth.user.id).maybeSingle(),
+    admin.from("records").select("id,organization_id,lifecycle_status").eq("id", recordId).eq("record_type", "ASSESSMENT").maybeSingle(),
+  ]);
+  if (!caller?.is_active || !caller.organization_id || !record || record.organization_id !== caller.organization_id || record.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "Đợt tự đánh giá không thuộc phạm vi bệnh viện hiện tại hoặc đã đóng." }, { status: 403 });
 
-  const { data: existing } = await admin
-    .from("criterion_assessments")
-    .select("id")
-    .eq("assessment_round_id", round.id)
-    .eq("criteria_item_id", criteriaItemId)
-    .maybeSingle();
+  const { data: round } = await admin.from("assessment_rounds").select("id,workflow_status").eq("record_id", recordId).maybeSingle();
+  if (!round || round.workflow_status !== "IN_PROGRESS") return NextResponse.json({ error: "Chỉ được chấm khi đợt đang ở giai đoạn tự đánh giá." }, { status: 409 });
+  const [{ data: scope }, { data: level }] = await Promise.all([
+    admin.from("assessment_round_criteria").select("criterion_id").eq("assessment_round_id", round.id).eq("criterion_id", criterionId).maybeSingle(),
+    admin.from("criterion_levels").select("id,criterion_id").eq("id", proposedLevelId).eq("criterion_id", criterionId).maybeSingle(),
+  ]);
+  if (!scope || !level) return NextResponse.json({ error: "Tiêu chí hoặc mức đánh giá không thuộc phạm vi của đợt này." }, { status: 409 });
 
-  if (existing) {
-    const { error } = await admin
-      .from("criterion_assessments")
-      .update({ score, result, note, workflow_status: "SUBMITTED" })
-      .eq("id", existing.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  } else {
-    const { error } = await admin.from("criterion_assessments").insert({
-      assessment_round_id: round.id,
-      criteria_item_id: criteriaItemId,
-      score,
-      result,
-      note,
-      workflow_status: "SUBMITTED",
-    });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  let existingQuery = admin.from("criterion_assessments").select("id,workflow_status").eq("assessment_round_id", round.id).eq("criterion_id", criterionId);
+  existingQuery = caller.primary_department_id ? existingQuery.eq("department_id", caller.primary_department_id) : existingQuery.is("department_id", null);
+  const { data: existing } = await existingQuery.limit(1).maybeSingle();
+  if (existing && ["REVIEWED", "FINALIZED", "COMPLETED", "APPROVED"].includes(String(existing.workflow_status))) return NextResponse.json({ error: "Tiêu chí đã được rà soát/chốt nên không thể sửa." }, { status: 409 });
 
-  return NextResponse.json({ ok: true });
+  const now = new Date().toISOString();
+  const values = {
+    assessment_round_id: round.id,
+    criterion_id: criterionId,
+    department_id: caller.primary_department_id || null,
+    proposed_level_id: proposedLevelId,
+    self_assessor_user_id: auth.user.id,
+    summary_comment: summaryComment || null,
+    workflow_status: action === "SUBMIT" ? "SUBMITTED" : "DRAFT",
+    submitted_at: action === "SUBMIT" ? now : null,
+  };
+  const result = existing
+    ? await admin.from("criterion_assessments").update(values).eq("id", existing.id).select("id,workflow_status").single()
+    : await admin.from("criterion_assessments").insert(values).select("id,workflow_status").single();
+  if (result.error) return NextResponse.json({ error: result.error.message }, { status: 400 });
+
+  await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "criterion_assessments", row_id: result.data.id, action_type: action === "SUBMIT" ? "SUBMIT_CRITERION_ASSESSMENT" : "SAVE_CRITERION_ASSESSMENT_DRAFT", new_value: { criterion_id: criterionId, proposed_level_id: proposedLevelId, workflow_status: values.workflow_status }, request_meta: { source: "qlcl-ui" } });
+  return NextResponse.json({ ok: true, status: values.workflow_status, message: action === "SUBMIT" ? "Đã gửi đánh giá tiêu chí." : "Đã lưu nháp tiêu chí." });
 }
