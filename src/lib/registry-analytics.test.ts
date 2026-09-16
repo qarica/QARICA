@@ -16,6 +16,11 @@ describe("registry analytics semantics", () => {
     expect(months[8].value).toBe(0);
   });
 
+  it("buckets timestamps by Asia/Ho_Chi_Minh instead of server timezone", () => {
+    expect(registryMonth("2026-01-31T17:30:00Z")).toBe(2);
+    expect(registryMonth("2026-02-28T17:30:00Z")).toBe(3);
+  });
+
   it("applies month, department and status filters together", () => {
     const filtered = filterRegistryAnalyticsRows(rows, { month: 2, departmentId: "d1", status: "CLOSED" });
     expect(filtered).toHaveLength(1);

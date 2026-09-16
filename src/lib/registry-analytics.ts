@@ -12,11 +12,17 @@ export type RegistryAnalyticsFilter = {
   status?: string | null;
 };
 
+const HCM_MONTH_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Ho_Chi_Minh",
+  month: "numeric",
+});
+
 export function registryMonth(value: string | null | undefined) {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return date.getMonth() + 1;
+  const month = Number(HCM_MONTH_FORMATTER.format(date));
+  return Number.isInteger(month) && month >= 1 && month <= 12 ? month : null;
 }
 
 export function filterRegistryAnalyticsRows<T extends RegistryAnalyticsRow>(rows: T[], filter: RegistryAnalyticsFilter) {
