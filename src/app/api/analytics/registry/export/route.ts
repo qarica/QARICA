@@ -27,16 +27,16 @@ export async function GET(request: Request) {
 
   const operational = ((data ?? []) as any[]).filter((row) => !isOperationallyHiddenStatus(row.lifecycle_status));
   const filtered = filterRegistryAnalyticsRows(operational, { month, departmentId, status });
-  const depIds = Array.from(new Set(filtered.map((row: any) => row.owner_department_id).filter(Boolean)));
-  const userIds = Array.from(new Set(filtered.map((row: any) => row.owner_user_id).filter(Boolean)));
+  const depIds = Array.from(new Set(filtered.map((row: any) => row.owner_department_id).filter(Boolean))) as string[];
+  const userIds = Array.from(new Set(filtered.map((row: any) => row.owner_user_id).filter(Boolean))) as string[];
   const [departmentsRes, profilesRes, selectedDepartmentRes] = await Promise.all([
     depIds.length ? supabase.from("departments").select("id,name,short_name").in("id", depIds) : Promise.resolve({ data: [] as any[] }),
     userIds.length ? supabase.from("profiles").select("user_id,full_name,email").in("user_id", userIds) : Promise.resolve({ data: [] as any[] }),
     departmentId ? supabase.from("departments").select("name,short_name").eq("id", departmentId).maybeSingle() : Promise.resolve({ data: null }),
   ] as any);
-  const depMap = new Map((departmentsRes.data ?? []).map((row: any) => [row.id, row.short_name || row.name]));
-  const userMap = new Map((profilesRes.data ?? []).map((row: any) => [row.user_id, row.full_name || row.email || row.user_id]));
-  const selectedDepartment = selectedDepartmentRes.data?.short_name || selectedDepartmentRes.data?.name || null;
+  const depMap = new Map<string, string>((departmentsRes.data ?? []).map((row: any) => [String(row.id), String(row.short_name || row.name || "—")]));
+  const userMap = new Map<string, string>((profilesRes.data ?? []).map((row: any) => [String(row.user_id), String(row.full_name || row.email || row.user_id)]));
+  const selectedDepartment = selectedDepartmentRes.data ? String(selectedDepartmentRes.data.short_name || selectedDepartmentRes.data.name || "") || null : null;
 
   const csv = buildRegistryAnalyticsCsv({
     year,
@@ -44,14 +44,14 @@ export async function GET(request: Request) {
     department: selectedDepartment,
     status,
     rows: filtered.map((row: any) => ({
-      record_code: row.record_code,
-      record_type: row.record_type,
-      title: row.title,
-      lifecycle_status: row.lifecycle_status,
-      department_name: depMap.get(row.owner_department_id) || "—",
-      owner_name: userMap.get(row.owner_user_id) || "Chưa gán người",
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      record_code: String(row.record_code || ""),
+      record_type: String(row.record_type || ""),
+      title: String(row.title || ""),
+      lifecycle_status: String(row.lifecycle_status || ""),
+      department_name: depMap.get(String(row.owner_department_id || "")) || "—",
+      owner_name: userMap.get(String(row.owner_user_id || "")) || "Chưa gán người",
+      created_at: String(row.created_at || ""),
+      updated_at: row.updated_at ? String(row.updated_at) : null,
     })),
   });
 
