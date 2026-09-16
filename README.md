@@ -4,6 +4,8 @@ Nền tảng Quản trị Chất lượng & Cải tiến.
 
 Slogan: Chất lượng trong tầm kiểm soát.
 
+Production: https://qarica.vercel.app
+
 Kiến trúc chính: Next.js + Supabase + Vercel.
 
 Các engine đang dùng: Registry/Record, Action/Task, Evidence, Monitoring/Checklist, Finding, CAPA, Risk/FMEA, Indicator, Assessment, Inspection, Recurring Work, Notification, Audit Log.
