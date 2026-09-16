@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  arePdsaMilestonesComplete,
   canDeletePdsaMilestone,
   canEditPdsaMilestone,
   canEditSmartObjective,
@@ -9,6 +10,7 @@ import {
   normalizeProjectMilestone,
   normalizeProjectObjective,
   normalizedImprovementText,
+  pdsaMilestoneTargetStatus,
 } from "./improvement-project-setup";
 
 describe("Improvement project setup helpers", () => {
@@ -64,6 +66,22 @@ describe("Improvement project setup helpers", () => {
     expect(canEditPdsaMilestone("EVALUATED", "PLANNED")).toBe(false);
     expect(canDeletePdsaMilestone("DRAFT", "PLANNED")).toBe(true);
     expect(canDeletePdsaMilestone("APPROVED", "PLANNED")).toBe(false);
+  });
+
+  it("enforces milestone lifecycle only while the project is in progress", () => {
+    expect(pdsaMilestoneTargetStatus("IN_PROGRESS", "PLANNED", "START")).toBe("IN_PROGRESS");
+    expect(pdsaMilestoneTargetStatus("IN_PROGRESS", "IN_PROGRESS", "COMPLETE")).toBe("COMPLETED");
+    expect(pdsaMilestoneTargetStatus("IN_PROGRESS", "IN_PROGRESS", "RESET")).toBe("PLANNED");
+    expect(pdsaMilestoneTargetStatus("IN_PROGRESS", "COMPLETED", "REOPEN")).toBe("PLANNED");
+    expect(pdsaMilestoneTargetStatus("APPROVED", "PLANNED", "START")).toBeNull();
+    expect(pdsaMilestoneTargetStatus("IN_PROGRESS", "COMPLETED", "COMPLETE")).toBeNull();
+  });
+
+  it("requires at least one milestone and all milestones completed before project evaluation", () => {
+    expect(arePdsaMilestonesComplete([])).toBe(false);
+    expect(arePdsaMilestonesComplete(["COMPLETED", "COMPLETED"])).toBe(true);
+    expect(arePdsaMilestonesComplete(["COMPLETED", "IN_PROGRESS"])).toBe(false);
+    expect(arePdsaMilestonesComplete(["PLANNED"])).toBe(false);
   });
 
   it("selects only columns that actually exist in a legacy-compatible row", () => {
