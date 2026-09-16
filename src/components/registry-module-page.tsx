@@ -44,7 +44,7 @@ export async function RegistryModulePage({config}:{config:RegistryModuleConfig})
   {error?<div className="alert error">Không tải được dữ liệu: {error.message}</div>:null}
   {indicatorType?<IndicatorQualityOverview rows={rows}/>:assessmentType?<AssessmentInspectionOverviewV2 rows={rows} recordType={assessmentType}/>:correctiveType?<CorrectiveSafetyOverview rows={rows} recordType={correctiveType}/>:operationsType?<OperationsObligationsOverview rows={rows} recordType={operationsType}/>:proactiveRiskType?<RiskProactiveOverview rows={rows} recordType={proactiveRiskType}/>:<TqmRegistryOverview rows={rows} recordType={createType||config.recordTypes[0]||"RECORD"}/>} 
   <section className="module-hero-summary tqm-principle-hero"><div><span className="module-overline">TQM · QUẢN LÝ THEO QUÁ TRÌNH</span><h2>{config.title}</h2><p>{spec?.purpose||config.foundationNote||ux.principle}</p></div><div className="module-hero-stats"><div><strong>{ux.workflow.length}</strong><span>Bước quy trình</span></div><div><strong>{ux.related.length}</strong><span>Liên kết nghiệp vụ</span></div></div></section>
-  <RegistryModuleWorkspace year={year} rows={rows} workflow={ux.workflow} principle={ux.principle} related={ux.related} operatingSpec={spec}/>
+  <RegistryModuleWorkspace year={year} rows={rows} recordType={createType||config.recordTypes[0]||"RECORD"} workflow={ux.workflow} principle={ux.principle} related={ux.related} operatingSpec={spec}/>
   {config.tabs?.length?<nav className="module-tabs module-tabs-bottom">{config.tabs.map(tab=><a href={tab.href} key={tab.href}>{tab.label}</a>)}</nav>:null}
  </div>
 }
