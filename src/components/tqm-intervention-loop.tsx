@@ -16,7 +16,7 @@ export function TqmInterventionLoop({ openFindings, overdueFindings, capaDue, pr
         .tqm-loop-head{margin-bottom:13px}.tqm-loop-head h2{margin:0;font-size:16px}.tqm-loop-head p{margin:4px 0 0;color:#74838a;font-size:11px}
         .tqm-loop-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
         .tqm-loop-card{display:block;border:1px solid #e1eaec;border-radius:14px;padding:14px;text-decoration:none;background:#fbfdfd;transition:.2s}
-        .tqm-loop-card:hover{border-color:#7dd3c7;box-shadow:0 8px 18px rgba(16,40,72,.08);transform:translateY(-1px)}
+        .tqm-loop-card:hover{border-color:#9fc4eb;box-shadow:0 8px 18px rgba(16,40,72,.08);transform:translateY(-1px)}
         .tqm-loop-card header{display:flex;justify-content:space-between;gap:8px;align-items:center}.tqm-loop-card header strong{color:#244148;font-size:12px}
         .tqm-loop-card header i{width:9px;height:9px;border-radius:50%;background:#16a34a}.tqm-loop-card.watch header i{background:#d97706}.tqm-loop-card.risk header i{background:#dc2626}
         .tqm-loop-value{display:block;margin-top:16px;color:#173f45;font-size:23px;font-weight:850}

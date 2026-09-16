@@ -76,7 +76,7 @@ export async function POST(request: Request) {
   const failCount = responses.filter((row) => row.result === "FAIL").length;
   const initialStatus = failCount > 0 ? "IN_PROGRESS" : "AWAITING_CONFIRMATION";
 
-  const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_record_type: "MONITORING", p_work_year: workYear });
+  const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_org: caller.organization_id, p_record_type: "MONITORING", p_work_year: workYear });
   if (codeError || !recordCode) return NextResponse.json({ error: codeError?.message || "Không tạo được mã hồ sơ giám sát." }, { status: 400 });
   const { data: record, error: recordError } = await admin.from("records").insert({ organization_id: caller.organization_id, record_type: "MONITORING", record_code: recordCode, title: `Giám sát 5S - Bên ngoài bệnh viện - ${monitoringDate}`, work_year: workYear, owner_department_id: template.owner_department_id, owner_user_id: auth.user.id, lifecycle_status: "ACTIVE", created_by: auth.user.id }).select("id,record_code").single();
   if (recordError || !record) return NextResponse.json({ error: recordError?.message || "Không tạo được hồ sơ giám sát." }, { status: 400 });

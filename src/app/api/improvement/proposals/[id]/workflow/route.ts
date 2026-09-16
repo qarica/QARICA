@@ -77,7 +77,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: existing } = await admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "CONVERTED_TO_PROJECT").maybeSingle();
     if (existing) return NextResponse.json({ error: "Đề xuất đã được chuyển thành đề án; không tạo trùng." }, { status: 409 });
-    const { data: code, error: codeError } = await admin.rpc("next_record_code", { p_record_type: "IMPROVEMENT_PROJECT", p_work_year: record.work_year });
+    const { data: code, error: codeError } = await admin.rpc("next_record_code", { p_org: record.organization_id, p_record_type: "IMPROVEMENT_PROJECT", p_work_year: record.work_year });
     if (codeError || !code) return NextResponse.json({ error: codeError?.message || "Không cấp được mã đề án." }, { status: 400 });
     const { data: projectRecord, error: recordError } = await admin.from("records").insert({ organization_id: record.organization_id, record_type: "IMPROVEMENT_PROJECT", record_code: code, title: record.title, work_year: record.work_year, owner_department_id: record.owner_department_id, owner_user_id: record.owner_user_id, lifecycle_status: "ACTIVE", created_by: auth.user.id }).select("id").single();
     if (recordError || !projectRecord) return NextResponse.json({ error: recordError?.message || "Không tạo được hồ sơ đề án." }, { status: 400 });

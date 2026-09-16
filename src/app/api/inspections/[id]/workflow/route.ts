@@ -85,7 +85,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     let created = 0;
     for (const milestone of MILESTONES) {
       if (used.has(milestone.offset)) continue;
-      const { data: code, error: codeError } = await admin.rpc("next_record_code", { p_record_type: "ACTION", p_work_year: record.work_year });
+      const { data: code, error: codeError } = await admin.rpc("next_record_code", { p_org: record.organization_id, p_record_type: "ACTION", p_work_year: record.work_year });
       if (codeError || !code) return NextResponse.json({ error: codeError?.message || "Không cấp được mã Action countdown." }, { status: 400 });
 
       const due = addDays(event.visit_date, milestone.offset);

@@ -224,7 +224,7 @@ export async function POST(request: Request) {
 
       const workYear = Number(plannedDate.slice(0, 4));
       const dueDate = addDays(plannedDate, Number(template.due_offset_days || 0));
-      const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_record_type: "ACTION", p_work_year: workYear });
+      const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_org: caller.organization_id, p_record_type: "ACTION", p_work_year: workYear });
       if (codeError || !recordCode) {
         errors += 1;
         if (errorDetails.length < 10) errorDetails.push(`${template.title} · ${plannedDate}: ${codeError?.message || "Không cấp được mã Action"}`);

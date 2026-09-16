@@ -39,7 +39,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (existing) return NextResponse.json({ error: "Phản ánh này đã có Finding liên kết." }, { status: 409 });
     const dueDate = text(body.due_date);
     if (!dueDate || !reason) return NextResponse.json({ error: "Cần mô tả vấn đề hệ thống và hạn khắc phục." }, { status: 400 });
-    const { data: code, error: codeError } = await admin.rpc("next_record_code", { p_record_type: "FINDING", p_work_year: record.work_year });
+    const { data: code, error: codeError } = await admin.rpc("next_record_code", { p_org: record.organization_id, p_record_type: "FINDING", p_work_year: record.work_year });
     if (codeError || !code) return NextResponse.json({ error: codeError?.message || "Không cấp được mã Finding." }, { status: 400 });
     const { data: findingRecord, error: recordError } = await admin.from("records").insert({ organization_id: record.organization_id, record_type: "FINDING", record_code: code, title: `Finding từ ${record.record_code}: ${record.title}`, work_year: record.work_year, owner_department_id: record.owner_department_id || feedback.related_department_id, owner_user_id: record.owner_user_id || feedback.owner_user_id, lifecycle_status: "ACTIVE", created_by: auth.user.id }).select("id").single();
     if (recordError || !findingRecord) return NextResponse.json({ error: recordError?.message || "Không tạo được hồ sơ Finding." }, { status: 400 });

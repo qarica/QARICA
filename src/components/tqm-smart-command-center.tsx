@@ -366,12 +366,12 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
         .tqm-smart-head{display:grid;grid-template-columns:.72fr 1.28fr;gap:14px}
         .tqm-smart-index,.tqm-smart-priority{border:1px solid #dfe8e9;border-radius:20px;background:#fff;padding:18px;box-shadow:0 8px 24px rgba(23,57,63,.05)}
         .tqm-smart-index{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:16px}
-        .tqm-smart-ring{width:94px;height:94px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#0d9488 calc(var(--score)*1%),#e8efef 0);position:relative}
+        .tqm-smart-ring{width:94px;height:94px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#1d3f73 calc(var(--score)*1%),#e8efef 0);position:relative}
         .tqm-smart-ring:after{content:"";position:absolute;inset:9px;border-radius:50%;background:#fff}
         .tqm-smart-ring strong{position:relative;z-index:1;font-size:25px}
         .tqm-smart-index h3,.tqm-smart-priority h3{margin:0;font-size:16px}
         .tqm-smart-index p,.tqm-smart-priority p{margin:5px 0 0;color:#65777d;font-size:11px;line-height:1.5}
-        .tqm-smart-priority{background:linear-gradient(135deg,#0f2138,#0d9488);color:white;border-color:transparent}
+        .tqm-smart-priority{background:linear-gradient(135deg,#102848,#1d3f73);color:white;border-color:transparent}
         .tqm-smart-priority p{color:#d8efec}
         .tqm-priority-number{font-size:38px;font-weight:850;line-height:1;margin:9px 0 4px}
         .tqm-pillar-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -381,7 +381,7 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
         .tqm-pillar strong{font-size:18px}
         .tqm-pillar p{margin:7px 0 0;color:#6b7d83;font-size:10px;line-height:1.45}
         .tqm-mini-track{height:6px;border-radius:999px;background:#edf2f2;overflow:hidden;margin-top:10px}
-        .tqm-mini-track span{display:block;height:100%;border-radius:inherit;background:#0d9488}
+        .tqm-mini-track span{display:block;height:100%;border-radius:inherit;background:#1d3f73}
         .tqm-smart-actions{border:1px solid #e0e9eb;border-radius:18px;background:#fff;padding:16px}
         .tqm-smart-actions-head{display:flex;align-items:end;justify-content:space-between;gap:10px;margin-bottom:10px}
         .tqm-smart-actions-head h3{margin:0;font-size:15px}.tqm-smart-actions-head p{margin:4px 0 0;color:#6b7d83;font-size:10px}

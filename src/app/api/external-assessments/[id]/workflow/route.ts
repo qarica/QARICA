@@ -80,7 +80,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: message }, { status: /already|duplicate|not active|must be locked/i.test(message) ? 409 : 400 });
     }
 
-    const { data: code, error: codeError } = await admin.rpc("next_record_code", { p_record_type: "FINDING", p_work_year: record.work_year });
+    const { data: code, error: codeError } = await admin.rpc("next_record_code", { p_org: record.organization_id, p_record_type: "FINDING", p_work_year: record.work_year });
     if (codeError || !code) return NextResponse.json({ error: codeError?.message || "Không cấp được mã Finding." }, { status: 400 });
     const title = `Chênh lệch ${criterionRef} từ ${record.record_code}`;
     const { data: findingRecord, error: recordError } = await admin.from("records").insert({ organization_id: record.organization_id, record_type: "FINDING", record_code: code, title, work_year: record.work_year, owner_department_id: record.owner_department_id, owner_user_id: record.owner_user_id, lifecycle_status: "ACTIVE", created_by: auth.user.id }).select("id").single();

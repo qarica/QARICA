@@ -46,7 +46,7 @@ export async function POST(request:Request){
  }
  if(ownerDepartmentId){const {data:d}=await admin.from("departments").select("id,is_active").eq("id",ownerDepartmentId).eq("organization_id",caller.organization_id).maybeSingle();if(!d?.is_active)return NextResponse.json({error:"Khoa/phòng phụ trách không hợp lệ."},{status:400});}
  if(ownerUserId){const {data:p}=await admin.from("profiles").select("user_id,is_active").eq("user_id",ownerUserId).eq("organization_id",caller.organization_id).maybeSingle();if(!p?.is_active)return NextResponse.json({error:"Người phụ trách không hợp lệ."},{status:400});}
- const {data:code,error:codeError}=await admin.rpc("next_record_code",{p_record_type:recordType,p_work_year:workYear});if(codeError||!code)return NextResponse.json({error:codeError?.message||"Không cấp được mã hồ sơ."},{status:400});
+ const {data:code,error:codeError}=await admin.rpc("next_record_code",{p_org:caller.organization_id,p_record_type:recordType,p_work_year:workYear});if(codeError||!code)return NextResponse.json({error:codeError?.message||"Không cấp được mã hồ sơ."},{status:400});
  const {data:record,error:recordError}=await admin.from("records").insert({organization_id:caller.organization_id,record_type:recordType,record_code:code,title,work_year:workYear,owner_department_id:ownerDepartmentId,owner_user_id:ownerUserId,lifecycle_status:"ACTIVE",created_by:user.id}).select("id,record_code").single();if(recordError||!record)return NextResponse.json({error:recordError?.message||"Không tạo được hồ sơ Registry."},{status:400});
  const fail=async(message:string)=>{await admin.from("records").update({lifecycle_status:"ARCHIVED"}).eq("id",record.id);return NextResponse.json({error:message},{status:400});};
  let domain:any=null;let err:any=null;

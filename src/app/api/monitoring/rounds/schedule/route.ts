@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   if (!ownerDepartment || ownerDepartment.organization_id !== caller.organization_id) return NextResponse.json({ error: "Mẫu bảng kiểm không thuộc bệnh viện hiện tại." }, { status: 403 });
 
   const workYear = Number(scheduledDate.slice(0, 4));
-  const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_record_type: "MONITORING", p_work_year: workYear });
+  const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_org: caller.organization_id, p_record_type: "MONITORING", p_work_year: workYear });
   if (codeError || !recordCode) return NextResponse.json({ error: codeError?.message || "Không tạo được mã đợt giám sát." }, { status: 400 });
 
   const { data: record, error: recordError } = await admin.from("records").insert({

@@ -107,7 +107,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // Backward-compatible fallback before the transaction migration exists.
-  const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_record_type: "ACTION", p_work_year: source.work_year });
+  const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_org: caller.organization_id, p_record_type: "ACTION", p_work_year: source.work_year });
   if (codeError || !recordCode) return NextResponse.json({ error: codeError?.message || "Không tạo được mã Action." }, { status: 400 });
   const { data: record, error: recordError } = await admin.from("records").insert({ organization_id: caller.organization_id, record_type: "ACTION", record_code: recordCode, title, work_year: source.work_year, owner_department_id: leadDepartmentId, owner_user_id: assigneeUserId, lifecycle_status: "ACTIVE", created_by: user.id }).select("id,record_code").single();
   if (recordError || !record) return NextResponse.json({ error: recordError?.message || "Không tạo được hồ sơ Action." }, { status: 400 });

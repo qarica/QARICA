@@ -92,7 +92,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // Backward-compatible fallback before the migration exists.
-  const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_record_type: "ACTION", p_work_year: visibleRecord.work_year });
+  const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_org: caller.organization_id, p_record_type: "ACTION", p_work_year: visibleRecord.work_year });
   if (codeError || !recordCode) return NextResponse.json({ error: codeError?.message || "Không tạo được mã nhiệm vụ." }, { status: 400 });
 
   const { data: record, error: recordError } = await admin.from("records").insert({

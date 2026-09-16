@@ -37,9 +37,9 @@ export function TqmProcessMap({ planPct, indicatorPct, monitoringPct, openFindin
         .tqm-process-head p{margin:4px 0 0;color:#74838a;font-size:11px;line-height:1.45}
         .tqm-process-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
         .tqm-process-step{position:relative;display:block;min-height:106px;border:1px solid #e1eaec;border-radius:14px;background:#fbfdfd;padding:13px 11px;text-decoration:none;transition:.2s}
-        .tqm-process-step:hover{transform:translateY(-2px);border-color:#7dd3c7;box-shadow:0 8px 18px rgba(16,40,72,.08)}
+        .tqm-process-step:hover{transform:translateY(-2px);border-color:#9fc4eb;box-shadow:0 8px 18px rgba(16,40,72,.08)}
         .tqm-process-step:not(:last-child):after{content:"→";position:absolute;right:-12px;top:42px;color:#9aabad;font-size:18px;z-index:2}
-        .tqm-process-dot{width:10px;height:10px;border-radius:50%;margin-bottom:11px;background:#0d9488}
+        .tqm-process-dot{width:10px;height:10px;border-radius:50%;margin-bottom:11px;background:#1d3f73}
         .tqm-process-step.blue .tqm-process-dot{background:#2563eb}.tqm-process-step.violet .tqm-process-dot{background:#7c3aed}.tqm-process-step.amber .tqm-process-dot{background:#d97706}.tqm-process-step.orange .tqm-process-dot{background:#ea580c}.tqm-process-step.green .tqm-process-dot{background:#16a34a}
         .tqm-process-step strong{display:block;color:#244148;font-size:11px;line-height:1.35}
         .tqm-process-step span{display:block;margin-top:9px;color:#6e8084;font-size:10px}

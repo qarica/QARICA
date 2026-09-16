@@ -124,7 +124,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     } else {
       const capaPriority = String(body.capa_priority || "HIGH");
       if (!CAPA_PRIORITIES.has(capaPriority)) return NextResponse.json({ error: "Mức ưu tiên CAPA không hợp lệ." }, { status: 400 });
-      const { data: capaCode, error: codeError } = await admin.rpc("next_record_code", { p_record_type: "CAPA", p_work_year: visibleRecord.work_year });
+      const { data: capaCode, error: codeError } = await admin.rpc("next_record_code", { p_org: visibleRecord.organization_id, p_record_type: "CAPA", p_work_year: visibleRecord.work_year });
       if (codeError || !capaCode) return NextResponse.json({ error: codeError?.message || "Không tạo được mã CAPA." }, { status: 400 });
       const { data: capaRecord, error: recordError } = await admin.from("records").insert({ organization_id: visibleRecord.organization_id, record_type: "CAPA", record_code: capaCode, title: `CAPA từ ${visibleRecord.record_code}: ${visibleRecord.title}`, work_year: visibleRecord.work_year, owner_department_id: finding.lead_department_id || visibleRecord.owner_department_id, owner_user_id: finding.owner_user_id || visibleRecord.owner_user_id, lifecycle_status: "ACTIVE", created_by: user.id }).select("id").single();
       if (recordError || !capaRecord) return NextResponse.json({ error: recordError?.message || "Không tạo được hồ sơ CAPA." }, { status: 400 });

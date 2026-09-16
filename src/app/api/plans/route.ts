@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     if (ownerError || !owner?.is_active) return NextResponse.json({ error: "Người phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
   }
 
-  const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_record_type: "PROGRAM", p_work_year: workYear });
+  const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_org: caller.organization_id, p_record_type: "PROGRAM", p_work_year: workYear });
   if (codeError || !recordCode) return NextResponse.json({ error: codeError?.message || "Không tạo được mã kế hoạch." }, { status: 400 });
 
   const { data: record, error: recordError } = await admin.from("records").insert({ organization_id: caller.organization_id, record_type: "PROGRAM", record_code: recordCode, title, work_year: workYear, owner_department_id: leadDepartmentId, owner_user_id: ownerUserId, lifecycle_status: "ACTIVE", created_by: auth.user.id }).select("id,record_code").single();
