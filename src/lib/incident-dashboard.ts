@@ -1,3 +1,5 @@
+import { hcmMonthNumber } from "./hcm-date";
+
 const CLOSED_INCIDENT = new Set(["CLOSED", "CANCELLED"]);
 const INVESTIGATION_PHASE = new Set(["INVESTIGATION_REQUIRED", "INVESTIGATING", "ACTION_FOLLOW_UP", "AWAITING_CLOSURE"]);
 
@@ -19,10 +21,4 @@ export function incidentAttentionRank(row: IncidentAttentionLike) {
   return 0;
 }
 
-export function hcmMonthNumber(value?: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  const month = Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Ho_Chi_Minh", month: "numeric" }).format(date));
-  return Number.isInteger(month) && month >= 1 && month <= 12 ? month : null;
-}
+export { hcmMonthNumber };
