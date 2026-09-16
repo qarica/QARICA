@@ -1,4 +1,4 @@
-import { buildTqmCsv } from "@/lib/tqm-csv";
+import { buildTqmCsv } from "./tqm-csv";
 
 export type RegistryExportRow = {
   record_type: string;
