@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
   <title id="title">QARICA</title>
   <desc id="desc">Chữ Q cách điệu với phần đuôi chuyển thành dấu kiểm, biểu trưng cho chất lượng và tuân thủ.</desc>
-  <path d="M31.5 8.5c-13.2 0-23 9.8-23 23s9.8 23 23 23c5.9 0 11-1.8 15-5l-7.4-7.4c-2.1 1.4-4.7 2.1-7.6 2.1-7.5 0-12.8-5.3-12.8-12.7s5.3-12.8 12.8-12.8 12.8 5.3 12.8 12.8c0 2.4-.6 4.7-1.7 6.7l7.5 7.5c2.8-3.9 4.4-8.8 4.4-14.2 0-13.2-9.8-23-23-23Z" fill="currentColor"/>
-  <path d="M34.8 36.7 45.6 47.5 57 35.8" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M31.5 8.5c-13.2 0-23 9.8-23 23s9.8 23 23 23c5.9 0 11-1.8 15-5l-7.4-7.4c-2.1 1.4-4.7 2.1-7.6 2.1-7.5 0-12.8-5.3-12.8-12.7s5.3-12.8 12.8-12.8 12.8 5.3 12.8 12.8c0 2.4-.6 4.7-1.7 6.7l7.5 7.5c2.8-3.9 4.4-8.8 4.4-14.2 0-13.2-9.8-23-23-23Z" fill="#0D6EFD"/>
+  <path d="M34.8 36.7 45.6 47.5 57 35.8" fill="none" stroke="#0D6EFD" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
