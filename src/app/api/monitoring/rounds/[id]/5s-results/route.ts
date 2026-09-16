@@ -5,7 +5,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 export const runtime = "nodejs";
-const SOURCE_CODE = "BK01.V1_QLCL.QĐ.06";
+const FIVE_S_FAMILY_CODES = new Set([
+  "BK01.V1_QLCL.QĐ.06",
+  "BK02.V1_QLCL.QĐ.06",
+  "BK03.V1_QLCL.QĐ.06",
+  "BK05.V1_QLCL.QĐ.06",
+  "BK07.V1_QLCL.QĐ.06",
+  "BK09.V1_QLCL.QĐ.06",
+]);
 const ALLOWED_RESULTS = new Set(["PASS", "FAIL", "NA"]);
 const MAX_IMAGE_SIZE = 12 * 1024 * 1024;
 const SAVE_RESULTS_RPC = "qlcl_monitoring_save_initial_results_v1";
@@ -70,7 +77,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     admin.from("checklist_templates").select("id,code,name,owner_department_id,is_active").eq("id", version.checklist_template_id).maybeSingle(),
     admin.from("checklist_items").select("id,content,allow_na,sequence_no").eq("checklist_version_id", version.id),
   ]);
-  if (!template?.is_active || template.code !== SOURCE_CODE) return NextResponse.json({ error: "Mẫu bảng kiểm 5S không hợp lệ." }, { status: 400 });
+  if (!template?.is_active || !FIVE_S_FAMILY_CODES.has(template.code)) return NextResponse.json({ error: "Mẫu bảng kiểm 5S không hợp lệ." }, { status: 400 });
 
   const itemIds = new Set((items ?? []).map((x) => x.id));
   if (!itemIds.size || responses.length !== itemIds.size) return NextResponse.json({ error: `Phải đánh giá đầy đủ ${itemIds.size} nội dung trước khi lưu bảng kiểm.` }, { status: 409 });
@@ -92,7 +99,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const recheckDueAtIso = new Date(savedAt.getTime() + 5 * 60 * 1000).toISOString();
   const failCount = responses.filter((row) => row.result === "FAIL").length;
   const nextStatus = failCount > 0 ? "IN_PROGRESS" : "AWAITING_CONFIRMATION";
-  const context = { source_code: SOURCE_CODE, template_id: template.id, version_id: version.id, version_no: version.version_no, monitoring_date: monitoringDate, selected_areas: areaList, staff_name: staffName, assessor_user_id: auth.user.id, assessor_name: caller.full_name || null, checklist_saved_at: savedAtIso };
+  const context = { source_code: template.code, template_id: template.id, version_id: version.id, version_no: version.version_no, monitoring_date: monitoringDate, selected_areas: areaList, staff_name: staffName, assessor_user_id: auth.user.id, assessor_name: caller.full_name || null, checklist_saved_at: savedAtIso };
 
   // Upload PENDING evidence first. The core DB save is committed afterwards in one transaction.
   const imageLists = new Map<string, any[]>();

@@ -24,6 +24,15 @@ type DraftState = {
 const FALLBACK_AREAS = ["Sảnh đón khách và cửa ra về","Khu vực bãi đỗ xe","Khu vực sân xung quanh bệnh viện","Khu vực đường bao quanh khuôn viên BV","Khu vực cầu thang bộ lối lên khu Văn Phòng","Bảng hiệu của bệnh viện","Khu vực phía trước các ki-ốt","Khu vực tập kết rác thải y tế và rác thải thông thường"];
 const radioStyle = { width: 18, height: 18, minWidth: 18, padding: 0, margin: 0, cursor: "pointer", accentColor: "#0b8f87" } as const;
 
+const FIVE_S_FAMILY_CODES = new Set([
+  "BK01.V1_QLCL.QĐ.06",
+  "BK02.V1_QLCL.QĐ.06",
+  "BK03.V1_QLCL.QĐ.06",
+  "BK05.V1_QLCL.QĐ.06",
+  "BK07.V1_QLCL.QĐ.06",
+  "BK09.V1_QLCL.QĐ.06",
+]);
+
 export function FiveSChecklistRunClient({ templateId, versionId, templateCode, sections, assessorName, canPerform, roundId = null, initialMonitoringDate = null }: {
   templateId: string;
   versionId: string;
@@ -128,7 +137,7 @@ export function FiveSChecklistRunClient({ templateId, versionId, templateCode, s
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
 
-  if (templateCode !== "BK01.V1_QLCL.QĐ.06" || !canPerform) return null;
+  if (!templateCode || !FIVE_S_FAMILY_CODES.has(templateCode) || !canPerform) return null;
 
   function toggleArea(area: string) {
     setSelectedAreas((current) => current.includes(area) ? current.filter((value) => value !== area) : [...current, area]);

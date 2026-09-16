@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { FiveSChecklistRunClient } from "@/components/five-s-checklist-run-client";
+import { GenericChecklistRunClient } from "@/components/generic-checklist-run-client";
 import { MonitoringBackButton } from "@/components/monitoring-back-button";
 import { MonitoringConfirmClient } from "@/components/monitoring-confirm-client";
 import { MonitoringPrintClient } from "@/components/monitoring-print-client";
@@ -55,21 +56,27 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
     supabase.from("checklist_versions").select("id,checklist_template_id,version_no,status").eq("id", round.checklist_version_id).maybeSingle(),
     supabase.from("checklist_responses").select("id,checklist_item_id,result_status,score,note,answer_value,answered_at").eq("monitoring_round_id", round.id),
     round.lead_assessor_id ? supabase.from("profiles").select("user_id,full_name").eq("user_id", round.lead_assessor_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    supabase.from("checklist_items").select("id,checklist_version_id,section_id,content,sequence_no,metadata").eq("checklist_version_id", round.checklist_version_id).order("sequence_no", { ascending: true }),
+    supabase.from("checklist_items").select("id,checklist_version_id,section_id,content,sequence_no,metadata,answer_type,allow_na").eq("checklist_version_id", round.checklist_version_id).order("sequence_no", { ascending: true }),
     supabase.from("checklist_sections").select("id,checklist_version_id,title,sequence_no").eq("checklist_version_id", round.checklist_version_id).order("sequence_no", { ascending: true }),
   ]);
 
   const version = versionRes.data as any;
   const templateRes = version?.checklist_template_id ? await supabase.from("checklist_templates").select("id,code,name").eq("id", version.checklist_template_id).maybeSingle() : { data: null, error: null };
-  const firstError = [recordRes, versionRes, responsesRes, assessorRes, templateRes, itemsRes, sectionsRes].find((x: any) => x.error)?.error;
+  const itemIdsForOptions = (itemsRes.data ?? []).map((x: any) => x.id);
+  const optionsRes = itemIdsForOptions.length
+    ? await supabase.from("checklist_item_options").select("id,checklist_item_id,option_code,option_label,option_value,sort_order").in("checklist_item_id", itemIdsForOptions).order("sort_order", { ascending: true })
+    : { data: [], error: null };
+  const firstError = [recordRes, versionRes, responsesRes, assessorRes, templateRes, itemsRes, sectionsRes, optionsRes].find((x: any) => x.error)?.error;
   const record = recordRes.data as any;
   const template = templateRes.data as any;
+  const optionsByItem = new Map<string, any[]>();
+  for (const opt of (optionsRes.data ?? []) as any[]) optionsByItem.set(opt.checklist_item_id, [...(optionsByItem.get(opt.checklist_item_id) ?? []), opt]);
 
   const responseMap = new Map((responsesRes.data ?? []).map((x: any) => [x.checklist_item_id, x]));
   const sectionMap = new Map((sectionsRes.data ?? []).map((x: any) => [x.id, x]));
   const rows = (itemsRes.data ?? []).map((item: any) => ({ item, response: responseMap.get(item.id), section: sectionMap.get(item.section_id) }))
     .sort((a: any, b: any) => Number(a.section?.sequence_no ?? 0) - Number(b.section?.sequence_no ?? 0) || Number(a.item.sequence_no ?? 0) - Number(b.item.sequence_no ?? 0));
-  const structure = (sectionsRes.data ?? []).map((section: any) => ({ ...section, items: (itemsRes.data ?? []).filter((item: any) => item.section_id === section.id) }));
+  const structure = (sectionsRes.data ?? []).map((section: any) => ({ ...section, items: (itemsRes.data ?? []).filter((item: any) => item.section_id === section.id).map((item: any) => ({ ...item, options: optionsByItem.get(item.id) ?? [] })) }));
 
   const hasResponses = (responsesRes.data ?? []).length > 0;
   const responseValues = (responsesRes.data ?? []).map((x: any) => x?.answer_value).filter((x: any) => x && typeof x === "object");
@@ -137,7 +144,8 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
 
     {scheduled ? <MonitoringStartClient roundId={round.id} canPerform={user.permissions.includes("monitoring.perform")} /> : null}
 
-    {activeScoring && template?.code === "BK01.V1_QLCL.QĐ.06" ? <FiveSChecklistRunClient templateId={template.id} versionId={version.id} templateCode={template.code} sections={structure as any[]} assessorName={user.fullName} canPerform={user.permissions.includes("monitoring.perform")} roundId={round.id} initialMonitoringDate={round.scheduled_date} /> : null}
+    {activeScoring && ["BK01.V1_QLCL.QĐ.06","BK02.V1_QLCL.QĐ.06","BK03.V1_QLCL.QĐ.06","BK05.V1_QLCL.QĐ.06","BK07.V1_QLCL.QĐ.06","BK09.V1_QLCL.QĐ.06"].includes(template?.code || "") ? <FiveSChecklistRunClient templateId={template.id} versionId={version.id} templateCode={template.code} sections={structure as any[]} assessorName={user.fullName} canPerform={user.permissions.includes("monitoring.perform")} roundId={round.id} initialMonitoringDate={round.scheduled_date} /> : null}
+    {activeScoring && !["BK01.V1_QLCL.QĐ.06","BK02.V1_QLCL.QĐ.06","BK03.V1_QLCL.QĐ.06","BK05.V1_QLCL.QĐ.06","BK07.V1_QLCL.QĐ.06","BK09.V1_QLCL.QĐ.06"].includes(template?.code || "") ? <GenericChecklistRunClient templateId={template.id} versionId={version.id} roundId={round.id} sections={structure as any[]} assessorName={user.fullName} canPerform={user.permissions.includes("monitoring.perform")} initialMonitoringDate={round.scheduled_date} /> : null}
 
     {hasResponses ? <>
       <section className="kpi-grid print-kpis">
