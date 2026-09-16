@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { taskVerificationPermissions } from "@/lib/task-verification-policy";
 
 const WORKFLOW_ACTIONS = new Set(["START", "RESUME", "SUBMIT", "BEGIN_VERIFY", "APPROVE", "RETURN"]);
 const VERIFIER_ACTIONS = new Set(["BEGIN_VERIFY", "APPROVE", "RETURN"]);
@@ -43,7 +44,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: actionError?.message || "Không tìm thấy nội dung công việc." }, { status: 404 });
   }
 
-  const { data: canManage } = await auth.supabase.rpc("has_permission", { p_permission_code: "plans.manage" });
+  const [{ data: planLinks, error: planLinksError }, { data: sourceLinks, error: sourceLinksError }] = await Promise.all([
+    admin.from("program_action_links").select("program_id").eq("action_id", action.id),
+    admin.from("record_links").select("source_record_id").eq("target_record_id", recordId).eq("relation_type", "HAS_ACTION"),
+  ]);
+  if (planLinksError || sourceLinksError) return NextResponse.json({ error: planLinksError?.message || sourceLinksError?.message }, { status: 400 });
+  const sourceRecordIds = Array.from(new Set((sourceLinks ?? []).map((row) => row.source_record_id).filter(Boolean)));
+  const { data: sourceRecords, error: sourceRecordsError } = sourceRecordIds.length
+    ? await admin.from("records").select("record_type").in("id", sourceRecordIds).eq("organization_id", caller.organization_id)
+    : { data: [], error: null };
+  if (sourceRecordsError) return NextResponse.json({ error: sourceRecordsError.message }, { status: 400 });
+  const sourceRecordTypes = Array.from(new Set((sourceRecords ?? []).map((row) => String(row.record_type || "")).filter(Boolean)));
+  const verifierPermissions = taskVerificationPermissions(sourceRecordTypes, (planLinks ?? []).length > 0);
+  const permissionResults = await Promise.all(verifierPermissions.map((permission) => auth.supabase.rpc("has_permission", { p_permission_code: permission })));
+  const canManage = permissionResults.some((result) => result.data === true);
   const isAssignee = action.assignee_user_id === auth.user.id;
 
   if (VERIFIER_ACTIONS.has(requestedAction) && !canManage) {
@@ -57,12 +71,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // ít nhất một kế hoạch nguồn đang thực sự ở trạng thái IN_PROGRESS.
   // Các bước xác minh đã nộp vẫn được phép xử lý để không làm kẹt hồ sơ.
   if (EXECUTION_ACTIONS.has(requestedAction)) {
-    const { data: planLinks, error: planLinksError } = await admin
-      .from("program_action_links")
-      .select("program_id")
-      .eq("action_id", action.id);
-    if (planLinksError) return NextResponse.json({ error: planLinksError.message }, { status: 400 });
-
     const programIds = Array.from(new Set((planLinks ?? []).map((row) => row.program_id).filter(Boolean)));
     if (programIds.length) {
       const { data: sourcePrograms, error: sourceProgramsError } = await admin
