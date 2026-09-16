@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
+import { cleanPlanDraftActions, cleanPlanList, planText, validatePlanDraftAction } from "@/lib/plan-composer";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
@@ -9,6 +10,7 @@ const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v2";
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("plans.manage");
   if (!auth.ok) return auth.response;
+  const actorUserId = auth.user.id;
 
   const { id: programId } = await params;
   const body = await request.json().catch(() => ({}));
@@ -18,8 +20,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const admin = createAdminClient();
   const [{ data: caller, error: callerError }, { data: program, error: programError }] = await Promise.all([
-    admin.from("profiles").select("user_id,organization_id,is_active").eq("user_id", auth.user.id).maybeSingle(),
-    admin.from("work_programs").select("id,record_id,owner_user_id,workflow_status,approved_by,approved_at,general_objective,specific_objectives,requirements,draft_actions,revision_no").eq("id", programId).maybeSingle(),
+    admin.from("profiles").select("user_id,organization_id,is_active").eq("user_id", actorUserId).maybeSingle(),
+    admin.from("work_programs").select("id,record_id,owner_user_id,workflow_status,approved_by,approved_at,general_objective,specific_objectives,requirements,draft_actions,revision_no,start_date,end_date").eq("id", programId).maybeSingle(),
   ]);
 
   if (callerError || !caller?.organization_id || !caller.is_active) return NextResponse.json({ error: callerError?.message || "Tài khoản không hợp lệ hoặc chưa gắn bệnh viện." }, { status: 403 });
@@ -28,42 +30,56 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: record, error: recordError } = await admin.from("records").select("id,organization_id,lifecycle_status,title").eq("id", currentProgram.record_id).maybeSingle();
   if (recordError || !record || record.organization_id !== caller.organization_id || record.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "Kế hoạch không thuộc phạm vi bệnh viện hiện tại hoặc đã ngưng hoạt động." }, { status: 403 });
+  const recordId = record.id;
+  const recordTitle = record.title;
 
   async function updateStatus(from: string, to: string, extra: Record<string, unknown> = {}) {
     if (currentProgram.workflow_status !== from) return NextResponse.json({ error: "Trạng thái hiện tại không phù hợp với thao tác này. Vui lòng tải lại trang." }, { status: 409 });
     const { error } = await admin.from("work_programs").update({ workflow_status: to, ...extra }).eq("id", currentProgram.id).eq("workflow_status", from);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    await admin.from("audit_logs").insert({ actor_user_id: actorUserId, record_id: recordId, table_name: "work_programs", row_id: currentProgram.id, action_type: `PLAN_${to}`, old_value: { workflow_status: from }, new_value: { workflow_status: to }, request_meta: { source: "qlcl-ui" } });
     return NextResponse.json({ ok: true, workflow_status: to });
   }
 
   if (requestedAction === "SUBMIT") {
-    const specific = Array.isArray(program.specific_objectives) ? program.specific_objectives.filter((x: unknown) => String(x || "").trim()) : [];
-    const tasks = Array.isArray(program.draft_actions) ? program.draft_actions : [];
-    if (!String(program.general_objective || "").trim()) return NextResponse.json({ error: "Cần hoàn thiện Mục tiêu chung trước khi gửi duyệt." }, { status: 409 });
+    const specific = cleanPlanList(program.specific_objectives);
+    const tasks = cleanPlanDraftActions(program.draft_actions);
+    if (!planText(program.general_objective)) return NextResponse.json({ error: "Cần hoàn thiện Mục tiêu chung trước khi gửi duyệt." }, { status: 409 });
     if (!specific.length) return NextResponse.json({ error: "Cần có ít nhất 01 Mục tiêu cụ thể trước khi gửi duyệt." }, { status: 409 });
-    if (!String(program.requirements || "").trim()) return NextResponse.json({ error: "Cần hoàn thiện phần Yêu cầu trước khi gửi duyệt." }, { status: 409 });
-    if (!tasks.length) return NextResponse.json({ error: "Kế hoạch cần có ít nhất 01 nhiệm vụ/Action trước khi gửi duyệt." }, { status: 409 });
+    if (!planText(program.requirements)) return NextResponse.json({ error: "Cần hoàn thiện phần Yêu cầu trước khi gửi duyệt." }, { status: 409 });
+    if (!tasks.length) return NextResponse.json({ error: "Kế hoạch cần có ít nhất 01 nhiệm vụ nháp trước khi gửi duyệt." }, { status: 409 });
+    for (const [index, task] of tasks.entries()) {
+      const taskError = validatePlanDraftAction(task, program.start_date, program.end_date);
+      if (taskError) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: ${taskError}` }, { status: 409 });
+      const [{ data: taskDept }, { data: taskOwner }] = await Promise.all([
+        admin.from("departments").select("id").eq("id", task.lead_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle(),
+        admin.from("profiles").select("user_id").eq("user_id", task.assignee_user_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle(),
+      ]);
+      if (!taskDept) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: khoa/phòng phụ trách không còn hợp lệ.` }, { status: 409 });
+      if (!taskOwner) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: người phụ trách không còn hợp lệ.` }, { status: 409 });
+    }
     return updateStatus("DRAFT", "PENDING_APPROVAL", { submitted_at: new Date().toISOString(), returned_reason: null });
   }
 
   if (requestedAction === "RETURN") {
     if (note.length < 5) return NextResponse.json({ error: "Vui lòng ghi rõ nội dung cần chỉnh sửa." }, { status: 400 });
     if (program.workflow_status !== "PENDING_APPROVAL") return NextResponse.json({ error: "Chỉ kế hoạch đang chờ phê duyệt mới được trả lại chỉnh sửa." }, { status: 409 });
-    const { error } = await admin.from("work_programs").update({ workflow_status: "DRAFT", approved_by: null, approved_at: null, returned_reason: note, returned_at: new Date().toISOString(), revision_no: Number(program.revision_no || 1) + 1 }).eq("id", program.id).eq("workflow_status", "PENDING_APPROVAL");
+    const nextRevision = Number(program.revision_no || 1) + 1;
+    const { error } = await admin.from("work_programs").update({ workflow_status: "DRAFT", approved_by: null, approved_at: null, returned_reason: note, returned_at: new Date().toISOString(), revision_no: nextRevision }).eq("id", program.id).eq("workflow_status", "PENDING_APPROVAL");
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    if (program.owner_user_id) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_RETURNED", priority: "HIGH", title: "Kế hoạch cần chỉnh sửa", message: `${record.title}: ${note}`, target_record_id: record.id, target_route: `/plans/${program.id}`, notification_event_key: `plan-returned:${program.id}:${Date.now()}` });
-    await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: record.id, table_name: "work_programs", row_id: program.id, action_type: "RETURN_PLAN_FOR_REVISION", new_value: { note, revision_no: Number(program.revision_no || 1) + 1 }, request_meta: { source: "qlcl-ui" } });
+    if (program.owner_user_id) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_RETURNED", priority: "HIGH", title: "Kế hoạch cần chỉnh sửa", message: `${recordTitle}: ${note}`, target_record_id: recordId, target_route: `/plans/${program.id}`, notification_event_key: `plan-returned:${program.id}:${Date.now()}` });
+    await admin.from("audit_logs").insert({ actor_user_id: actorUserId, record_id: recordId, table_name: "work_programs", row_id: program.id, action_type: "RETURN_PLAN_FOR_REVISION", old_value: { workflow_status: "PENDING_APPROVAL", revision_no: program.revision_no }, new_value: { workflow_status: "DRAFT", note, revision_no: nextRevision }, request_meta: { source: "qlcl-ui" } });
     return NextResponse.json({ ok: true, workflow_status: "DRAFT" });
   }
 
   if (requestedAction === "APPROVE") {
     if (program.workflow_status !== "PENDING_APPROVAL") return NextResponse.json({ error: "Chỉ kế hoạch đang chờ phê duyệt mới được phê duyệt." }, { status: 409 });
-    const { data: tx, error: txError } = await admin.rpc(APPROVE_PLAN_BUNDLE_RPC, { p_program_id: programId, p_actor_user_id: auth.user.id });
+    const { data: tx, error: txError } = await admin.rpc(APPROVE_PLAN_BUNDLE_RPC, { p_program_id: programId, p_actor_user_id: actorUserId });
     if (txError) {
       if (isMissingRpcFunction(txError, APPROVE_PLAN_BUNDLE_RPC)) return NextResponse.json({ error: "Plan Composer V2 chưa được kích hoạt trên cơ sở dữ liệu. Không phê duyệt để tránh tạo Action không đầy đủ." }, { status: 503 });
       return NextResponse.json({ error: rpcErrorMessage(txError, "Không thể phê duyệt trọn bộ kế hoạch.") }, { status: 400 });
     }
-    if (program.owner_user_id && program.owner_user_id !== auth.user.id) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_APPROVED", priority: "NORMAL", title: "Kế hoạch đã được phê duyệt", message: record.title, target_record_id: record.id, target_route: `/plans/${program.id}`, notification_event_key: `plan-approved:${program.id}:${Date.now()}` });
+    if (program.owner_user_id && program.owner_user_id !== actorUserId) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_APPROVED", priority: "NORMAL", title: "Kế hoạch đã được phê duyệt", message: recordTitle, target_record_id: recordId, target_route: `/plans/${program.id}`, notification_event_key: `plan-approved:${program.id}:${Date.now()}` });
     return NextResponse.json({ ok: true, workflow_status: "APPROVED", transaction: "atomic", result: tx });
   }
 
