@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
+import { hcmMonthNumber } from "@/lib/hcm-date";
 import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { routeForRecord } from "@/lib/record-route";
 import { createClient } from "@/lib/supabase/server";
@@ -34,7 +35,7 @@ export default async function RisksPage({searchParams}:{searchParams:Promise<{q?
  const cells=new Map<string,{count:number;levels:string[]}>();for(const r of rows){const s=Number(r.assessment?.severity),l=Number(r.assessment?.likelihood);if(!s||!l)continue;const k=`${s}-${l}`;const c=cells.get(k)||{count:0,levels:[]};c.count++;c.levels.push(String(r.assessment.calculated_level||""));cells.set(k,c)}
  const levelCounts=new Map<string,number>();rows.forEach(r=>{const k=String(r.assessment?.calculated_level||"Chưa đánh giá");levelCounts.set(k,(levelCounts.get(k)||0)+1)});const levelSegments=Array.from(levelCounts.entries()).map(([label,value])=>({label,value,tone:levelTone(label)==="danger"?"red" as const:levelTone(label)==="warning"?"amber" as const:levelTone(label)==="success"?"green" as const:"slate" as const}));
  const depAgg=new Map<string,number>();rows.forEach(r=>depAgg.set(r.department,(depAgg.get(r.department)||0)+1));const depBars=Array.from(depAgg.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([label,value],i)=>({label,value,tone:(i<3?"brand":"blue") as any}));
- const months=Array.from({length:12},(_,i)=>({label:`T${i+1}`,value:0}));rows.forEach(r=>{const d=new Date(r.updated_at);if(!Number.isNaN(d.getTime()))months[d.getMonth()].value++});
+ const months=Array.from({length:12},(_,i)=>({label:`T${i+1}`,value:0}));rows.forEach(r=>{const month=hcmMonthNumber(r.updated_at);if(month)months[month-1].value++});
  const firstError=[recordsRes,risksRes,depsRes,assessmentsRes].find((x:any)=>x.error)?.error;
  const exportRows=rows.map((r,index)=>[index+1,r.record_code,r.title,r.department,workflowLabel(r.workflow_status),r.assessment?.severity??"",r.assessment?.likelihood??"",r.assessment?.calculated_score??"",r.assessment?.calculated_level||"Chưa đánh giá",r.assessment?.assessment_date||"",r.next_review_date||""]);
  return <div className="page-stack risk-tqm">
