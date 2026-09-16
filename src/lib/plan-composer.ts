@@ -19,39 +19,20 @@ export type PlanDraftAction = {
 };
 
 export const planText = (value: unknown) => String(value ?? "").trim();
-
-export function cleanPlanList(value: unknown) {
-  return Array.isArray(value) ? value.map(planText).filter(Boolean).slice(0, 100) : [];
-}
-
+export function cleanPlanList(value: unknown) { return Array.isArray(value) ? value.map(planText).filter(Boolean).slice(0, 100) : []; }
 export function cleanPlanDraftActions(value: unknown): PlanDraftAction[] {
   if (!Array.isArray(value)) return [];
   return value.slice(0, 300).map((raw: any, index) => ({
-    client_id: planText(raw?.client_id) || `draft-${index + 1}`,
-    title: planText(raw?.title),
-    description: planText(raw?.description) || null,
-    priority: planText(raw?.priority || "NORMAL").toUpperCase(),
-    lead_department_id: planText(raw?.lead_department_id) || null,
+    client_id: planText(raw?.client_id) || `draft-${index + 1}`, title: planText(raw?.title), description: planText(raw?.description) || null,
+    priority: planText(raw?.priority || "NORMAL").toUpperCase(), lead_department_id: planText(raw?.lead_department_id) || null,
     collaborating_department_ids: Array.isArray(raw?.collaborating_department_ids) ? raw.collaborating_department_ids.filter((x: unknown): x is string => typeof x === "string" && !!x) : [],
-    assignee_user_id: planText(raw?.assignee_user_id) || null,
-    start_date: planText(raw?.start_date) || null,
-    due_date: planText(raw?.due_date) || null,
-    expected_result: planText(raw?.expected_result),
-    verification_requirement: planText(raw?.verification_requirement) || null,
-    milestone_group: planText(raw?.milestone_group) || null,
-    is_required: raw?.is_required !== false,
-    criteria_refs: Array.isArray(raw?.criteria_refs) ? raw.criteria_refs.slice(0, 50) : [],
+    assignee_user_id: planText(raw?.assignee_user_id) || null, start_date: planText(raw?.start_date) || null, due_date: planText(raw?.due_date) || null,
+    expected_result: planText(raw?.expected_result), verification_requirement: planText(raw?.verification_requirement) || null, milestone_group: planText(raw?.milestone_group) || null,
+    is_required: raw?.is_required !== false, criteria_refs: Array.isArray(raw?.criteria_refs) ? raw.criteria_refs.slice(0, 50) : [],
   }));
 }
-
-export function canEditPlanContent(status: unknown) {
-  return planText(status).toUpperCase() === "DRAFT";
-}
-
-export function validPlanDateWindow(startDate: string | null, endDate: string | null) {
-  return !(startDate && endDate && endDate < startDate);
-}
-
+export function canEditPlanContent(status: unknown) { return planText(status).toUpperCase() === "DRAFT"; }
+export function validPlanDateWindow(startDate: string | null, endDate: string | null) { return !(startDate && endDate && endDate < startDate); }
 export function validatePlanDraftAction(action: PlanDraftAction, planStart: string | null, planEnd: string | null) {
   if (!action.title) return "Nội dung nhiệm vụ là bắt buộc.";
   if (!PLAN_ACTION_PRIORITIES.has(action.priority)) return "Mức ưu tiên nhiệm vụ không hợp lệ.";
@@ -64,8 +45,8 @@ export function validatePlanDraftAction(action: PlanDraftAction, planStart: stri
   if (planEnd && action.due_date > planEnd) return "Hạn nhiệm vụ nằm ngoài thời gian kế hoạch.";
   return null;
 }
-
-export function planComposerReady(input: { generalObjective?: unknown; specificObjectives?: unknown; requirements?: unknown; draftActions?: unknown }) {
+export function planComposerReady(input: { generalObjective?: unknown; specificObjectives?: unknown; requirements?: unknown; draftActions?: unknown; startDate?: string | null; endDate?: string | null }) {
   const actions = cleanPlanDraftActions(input.draftActions);
-  return !!planText(input.generalObjective) && cleanPlanList(input.specificObjectives).length > 0 && !!planText(input.requirements) && actions.length > 0 && actions.every((action) => !validatePlanDraftAction(action, null, null));
+  const startDate = input.startDate || null, endDate = input.endDate || null;
+  return validPlanDateWindow(startDate, endDate) && !!planText(input.generalObjective) && cleanPlanList(input.specificObjectives).length > 0 && !!planText(input.requirements) && actions.length > 0 && actions.every((action) => !validatePlanDraftAction(action, startDate, endDate));
 }
