@@ -14,6 +14,7 @@ import "./qarica-design-system.css";
 import "./qarica-readability.css";
 import "./qarica-copy.css";
 import "./qarica-direct-navigation.css";
+import "./qms-enterprise-redesign.css";
 
 const appFont = Nunito_Sans({ subsets:["latin","vietnamese"],weight:["400","500","600","700","800"],display:"swap",variable:"--font-app" });
 const criticalCss=`
@@ -21,10 +22,10 @@ const criticalCss=`
   .brand-logo-wrap{width:42px!important;height:42px!important;min-width:42px!important;max-width:42px!important;overflow:hidden!important;flex:0 0 42px!important}
   .brand-logo-img{width:42px!important;height:42px!important;max-width:42px!important;max-height:42px!important;object-fit:contain!important;display:block!important}
   .sidebar.collapsed .sidebar-collapse{position:absolute!important;top:20px!important;right:-13px!important;bottom:auto!important;width:28px!important;height:28px!important;margin:0!important;z-index:60!important}
-  .login-logo{width:96px!important;height:96px!important;max-width:96px!important;object-fit:contain!important}\n  .login-brand-logo{width:min(390px,100%)!important;height:auto!important;display:block!important}\n  .mobile-brand img{width:108px!important;height:auto!important;display:block!important}\n  .workspace-app .brand-mark img{width:36px!important;height:36px!important;display:block!important}
+  .login-logo{width:96px!important;height:96px!important;max-width:96px!important;object-fit:contain!important}\n  .login-brand-logo{width:min(390px,100%)!important;height:auto!important;display:block!important}\n  .mobile-brand img{width:108px!important;height:auto!important;display:block!important}\n  .workspace-app .brand-mark img{width:34px!important;height:34px!important;display:block!important}
   @media(max-width:860px){.sidebar.collapsed .sidebar-collapse{display:none!important}}
   @media print{@page{size:A4;margin:20mm 20mm 20mm 30mm!important}}
 `;
 export const metadata:Metadata={title:"QARICA",description:"Nền tảng Quản trị Chất lượng & Cải tiến",icons:{icon:"/icon.svg",apple:"/apple-icon.svg"}};
-export const viewport:Viewport={width:"device-width",initialScale:1,themeColor:"#0b1f3a"};
+export const viewport:Viewport={width:"device-width",initialScale:1,themeColor:"#F8F9FA"};
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="vi"><body className={`${appFont.className} ${appFont.variable}`}>{children}<style>{criticalCss}</style></body></html>}
