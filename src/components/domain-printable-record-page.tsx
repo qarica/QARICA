@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { BrowserPrintButton } from "@/components/browser-print-button";
 import { DomainRecordDetail } from "@/components/domain-record-detail";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
@@ -30,7 +31,7 @@ export async function DomainPrintableRecordPage({ id, recordType, title, backHre
       @media(max-width:760px){.domain-print-page{padding:15px}.dpp-head{grid-template-columns:1fr}.dpp-code{text-align:left}.dpp-meta{grid-template-columns:1fr}.dpp-meta>div:nth-child(odd){border-right:0}.dpp-meta>div{grid-template-columns:125px 1fr}}
       @media print{@page{size:A4;margin:12mm}body{background:#fff!important}.sidebar,.topbar,.workspace-strip,.mobile-bottom-nav,.global-back-bar,.route-progress,.no-print{display:none!important}.main-shell{margin:0!important;padding:0!important}.content{padding:0!important;margin:0!important;max-width:none!important}.domain-print-page{box-shadow:none!important;max-width:none!important;margin:0!important;padding:0!important}.domain-print-page .panel{break-inside:avoid}.domain-print-page .domain-detail-grid{grid-template-columns:1fr 1fr!important}.domain-print-page .domain-field.wide{grid-column:1/-1!important}}
     `}</style>
-    <div className="dpp-toolbar no-print"><Link href={`${backHref}/${id}`}>← Quay lại hồ sơ</Link><button className="dpp-print" type="button" onClick={undefined}>Dùng lệnh In của trình duyệt (Ctrl+P)</button></div>
+    <div className="dpp-toolbar no-print"><Link href={`${backHref}/${id}`}>← Quay lại hồ sơ</Link><BrowserPrintButton /></div>
     <header className="dpp-head"><div><div className="dpp-org">{organization?.name || "HỆ THỐNG QUẢN LÝ CHẤT LƯỢNG"}</div><div className="dpp-title">{title}</div></div><div className="dpp-code">{record.record_code}<small>Năm {record.work_year}</small></div></header>
     <section className="dpp-meta">
       <div><span>Tên hồ sơ</span><strong>{record.title}</strong></div><div><span>Registry</span><strong>{record.lifecycle_status}</strong></div>
