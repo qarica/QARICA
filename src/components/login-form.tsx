@@ -53,7 +53,7 @@ export function LoginForm() {
         <div className="eyebrow">ĐĂNG NHẬP QARICA</div>
         <h2>Chào mừng trở lại</h2>
         <p className="muted">
-          Sử dụng tài khoản và mật khẩu do quản trị viên cấp. Không bắt buộc email.
+          Sử dụng tài khoản và mật khẩu do quản trị viên cấp.
         </p>
       </div>
 
