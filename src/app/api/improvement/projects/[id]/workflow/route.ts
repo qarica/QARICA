@@ -63,9 +63,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (oldStatus !== "IN_PROGRESS") return NextResponse.json({ error: "Đề án chưa ở bước triển khai." }, { status: 409 });
     const { data: milestoneRows, error: milestoneError } = await admin.from("project_milestones").select("*").eq("project_id", project.id);
     if (milestoneError) return NextResponse.json({ error: milestoneError.message }, { status: 400 });
-    const milestoneStatuses = (milestoneRows || []).map((row: any, index: number) => normalizeProjectMilestone(row, index).status);
+    const milestoneStatuses: string[] = (milestoneRows || []).map((row: any, index: number) => normalizeProjectMilestone(row, index).status);
     if (!arePdsaMilestonesComplete(milestoneStatuses)) {
-      const incompleteMilestones = milestoneStatuses.filter((status) => status !== "COMPLETED").length;
+      const incompleteMilestones = milestoneStatuses.filter((status: string) => status !== "COMPLETED").length;
       return NextResponse.json({ error: `Còn ${incompleteMilestones || milestoneStatuses.length || 1} milestone PDSA chưa hoàn thành.` }, { status: 409 });
     }
     const ids = (links || []).map((x: any) => x.target_record_id).filter(Boolean);
