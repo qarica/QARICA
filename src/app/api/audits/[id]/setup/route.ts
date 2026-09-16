@@ -9,6 +9,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
+  const actorUserId = auth.user.id;
   const { data: allowed } = await supabase.rpc("has_permission", { p_permission_code: "audit.manage" });
   if (!allowed) return NextResponse.json({ error: "Bạn chưa có quyền quản lý Audit/Tracer." }, { status: 403 });
 
@@ -18,7 +19,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const reason = text(body.reason) || null;
   const admin: any = createAdminClient();
   const [{ data: caller }, { data: record }, { data: audit }] = await Promise.all([
-    admin.from("profiles").select("organization_id,is_active").eq("user_id", auth.user.id).maybeSingle(),
+    admin.from("profiles").select("organization_id,is_active").eq("user_id", actorUserId).maybeSingle(),
     admin.from("records").select("id,organization_id,lifecycle_status").eq("id", recordId).eq("record_type", "AUDIT").maybeSingle(),
     admin.from("audits").select("id,workflow_status").eq("record_id", recordId).maybeSingle(),
   ]);
@@ -34,7 +35,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   async function writeLog(input: { table: string; rowId: string; actionType: string; oldValue?: unknown; newValue?: unknown; fallbackReason?: string }) {
     return admin.from("audit_logs").insert({
-      actor_user_id: auth.user.id,
+      actor_user_id: actorUserId,
       record_id: recordId,
       table_name: input.table,
       row_id: input.rowId,
