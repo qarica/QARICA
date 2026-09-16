@@ -2,7 +2,8 @@
 
 **QARICA – Nền tảng Quản trị Chất lượng & Cải tiến**
 
-Slogan: **Chất lượng trong tầm kiểm soát.**
+Slogan tiếng Việt: **Chất lượng trong tầm kiểm soát.**  
+English slogan: **Quality under control.**
 
 Brand architecture:
 - Q — Quality

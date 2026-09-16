@@ -43,22 +43,56 @@ export default async function DashboardPage(){
  const ganttRows=projectRows.filter((x:any)=>x.start_date&&x.target_end_date).slice(0,10).map((x:any)=>({label:x.title,start:x.start_date,end:x.target_end_date,progress:x.progress,tone:x.overdue?"red" as const:x.progress>=75?"green" as const:"blue" as const}));
 
  const findings=((findingsRes.data??[]) as any[]).filter((x:any)=>recordIds.has(x.record_id)&&!["CLOSED","CANCELLED"].includes(String(x.workflow_status))); const capas=((capasRes.data??[]) as any[]).filter((x:any)=>recordIds.has(x.record_id)&&!["CLOSED","CANCELLED","EFFECTIVE"].includes(String(x.workflow_status))); const incidents=((incidentsRes.data??[]) as any[]).filter((x:any)=>recordIds.has(x.record_id)&&!["CLOSED","CANCELLED"].includes(String(x.workflow_status))); const serious=incidents.filter((x:any)=>x.serious_event_flag).length; const overdueFindings=findings.filter((x:any)=>x.due_date&&x.due_date<today).length; const capaDue=capas.filter((x:any)=>String(x.workflow_status)==="EFFECTIVENESS_REVIEW"||isDueOnOrBeforeToday(x.effectiveness_due_date,today)).length;
- const hotspots=[{label:"Finding quá hạn",value:overdueFindings,href:"/findings",tone:"red" as const},{label:"CAPA đến hạn đánh giá",value:capaDue,href:"/capa",tone:"amber" as const},{label:"Sự cố nghiêm trọng đang mở",value:serious,href:"/incidents",tone:"red" as const},{label:"Chỉ số ngoài mục tiêu",value:outTarget,href:"/indicators",tone:"amber" as const}].sort((a,b)=>b.value-a.value);
- const hasPrioritySignals=serious>0||overdueFindings>0||capaDue>0||outTarget>0||planOverdue>0;
+ const hotspots=[
+  {label:"Sự cố nghiêm trọng",value:serious,href:"/incidents",tone:"red" as const},
+  {label:"Finding quá hạn",value:overdueFindings,href:"/findings",tone:"red" as const},
+  {label:"CAPA đến hạn",value:capaDue,href:"/capa",tone:"amber" as const},
+  {label:"Chỉ số ngoài mục tiêu",value:outTarget,href:"/indicators",tone:"amber" as const},
+  {label:"Action kế hoạch quá hạn",value:planOverdue,href:"/plans",tone:"amber" as const},
+ ];
+ const priorityTotal=hotspots.reduce((sum,item)=>sum+item.value,0);
+ const hasPrioritySignals=priorityTotal>0;
 
  return <div className="page-stack tqm-dashboard">
-  <style>{TQM_CHART_CSS+`.tqm-dashboard .hero{padding:25px 27px;border-radius:24px;color:#fff;background:radial-gradient(circle at 85% 10%,rgba(159,196,235,.25),transparent 18rem),linear-gradient(135deg,#102848,#1d3f73 45%,#3f6fa8);box-shadow:0 22px 52px rgba(16,40,72,.2)}.tqm-dashboard .hero .eyebrow{color:#c6daf2}.tqm-dashboard .hero h2{font-size:28px;margin:7px 0}.tqm-dashboard .hero p{margin:0;color:#ffffffcc;max-width:850px;line-height:1.6}.tqm-dashboard .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}.tqm-dashboard .kpi{background:#fff;border:1px solid #e1e9ec;border-radius:18px;padding:17px;box-shadow:0 8px 24px rgba(20,48,58,.05)}.tqm-dashboard .kpi span{font-size:10px;color:#718187;text-transform:uppercase;font-weight:800}.tqm-dashboard .kpi strong{display:block;font-size:32px;margin-top:8px}.tqm-dashboard .kpi small{display:block;color:#7d8c92;font-size:10px;margin-top:5px}.tqm-dashboard .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.tqm-dashboard .grid3{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}.tqm-dashboard .head{padding:17px 18px 6px}.tqm-dashboard .head h2{margin:0;font-size:15px}.tqm-dashboard .head p{margin:4px 0 0;color:#74838a;font-size:11px}.tqm-dashboard .hotspots{display:grid;gap:8px;padding:8px 16px 16px}.tqm-dashboard .hotspot{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:13px;border-radius:13px;border:1px solid #e4eaec;background:#fbfdfd}.tqm-dashboard .hotspot strong{font-size:12px}.tqm-dashboard .hotspot b{font-size:22px}.tqm-dashboard .hotspot.red b{color:#c84350}.tqm-dashboard .hotspot.amber b{color:#b86f1a}.tqm-dashboard .quick{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 16px}@media(max-width:920px){.tqm-dashboard .grid2,.tqm-dashboard .grid3{grid-template-columns:1fr}.tqm-dashboard .kpis{grid-template-columns:1fr 1fr}}`}</style>
-  <PageHeader eyebrow={`TQM EXECUTIVE DASHBOARD · ${year}`} title="Bức tranh chất lượng toàn viện" description="Dashboard phân tích để nhìn mục tiêu, quá trình, kết quả và điểm cần cải tiến. Công việc cá nhân được tách sang Việc của tôi." />
+  <style>{TQM_CHART_CSS}</style>
+  <PageHeader eyebrow={`QARICA QUALITY OVERVIEW · ${year}`} title="Tổng quan chất lượng" description="Màn hình đầu tiên chỉ ưu tiên những thông tin cần quyết định hoặc xử lý; phân tích TQM chuyên sâu được đặt phía dưới để xem khi cần." />
   {firstError?<div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div>:null}
-  <section className="hero"><div className="eyebrow">TỔNG QUAN TQM</div><h2>{hasPrioritySignals?"Có tín hiệu cần ưu tiên điều hành":"Chưa ghi nhận tín hiệu ưu tiên trên các chỉ số theo dõi"}</h2><p>Kế hoạch năm đạt {planPct}%, chỉ số chất lượng đạt mục tiêu {indicatorPct}%, giám sát đạt {monitoringPct}% và tỷ lệ Action hoàn thành của đề án cải tiến là {projectPct}%.</p></section>
-  <section className="kpis"><article className="kpi"><span>Hoàn thành kế hoạch năm</span><strong>{planPct}%</strong><small>{planDone}/{planReq} Action · {planOverdue} quá hạn</small></article><article className="kpi"><span>Chỉ số đạt mục tiêu</span><strong>{indicatorPct}%</strong><small>{inTarget}/{evaluableIndicators.length} kỳ VERIFIED/LOCKED có kết luận</small></article><article className="kpi"><span>Kết quả giám sát đạt</span><strong>{monitoringPct}%</strong><small>{monitorPass}/{monitorPass+monitorFail} mục đã chấm</small></article><article className="kpi"><span>Action đề án cải tiến</span><strong>{projectPct}%</strong><small>{projectKpi.completed}/{projectKpi.actions} Action · {projectRows.length} đề án</small></article></section>
-  <TqmSmartCommandCenter year={year} />
-  <TqmProcessMap planPct={planPct} indicatorPct={indicatorPct} monitoringPct={monitoringPct} openFindings={findings.length} capaDue={capaDue} projectPct={projectPct} />
-  <TqmScorecard planPct={planPct} indicatorPct={indicatorPct} monitoringPct={monitoringPct} projectPct={projectPct} seriousIncidents={serious} overdueFindings={overdueFindings} />
-  <TqmInterventionLoop openFindings={findings.length} overdueFindings={overdueFindings} capaDue={capaDue} projectPct={projectPct} />
-  <TqmPriorityBoard serious={serious} overdueFindings={overdueFindings} capaDue={capaDue} outTarget={outTarget} planOverdue={planOverdue} />
-  <section className="grid3"><article className="panel"><div className="head"><h2>Tiến độ kế hoạch chất lượng năm</h2><p>Từ Action thực tế của các kế hoạch.</p></div><TqmDonut value={planPct} label="Hoàn thành" segments={[{label:"Đã hoàn thành",value:planDone,tone:"brand"},{label:"Còn lại",value:Math.max(0,planReq-planDone),tone:"blue"},{label:"Quá hạn",value:planOverdue,tone:"red"}]}/></article><article className="panel"><div className="head"><h2>Điểm nóng cần chú ý</h2><p>Chỉ giữ các vấn đề quản trị cấp bệnh viện.</p></div><div className="hotspots">{hotspots.map((x)=><Link href={x.href} key={x.label} className={`hotspot ${x.tone}`}><strong>{x.label}</strong><b>{x.value}</b></Link>)}</div><div className="quick"><Link className="button secondary" href="/plans">Kế hoạch năm</Link><Link className="button secondary" href="/monitoring">Giám sát</Link><Link className="button secondary" href="/improvement/projects">Cải tiến</Link></div></article></section>
-  <section className="grid2"><article className="panel"><div className="head"><h2>Xu hướng chỉ số đạt mục tiêu 12 tháng</h2><p>Tỷ lệ MEETS_TARGET trong các kỳ VERIFIED/LOCKED đã có kết luận mục tiêu.</p></div><TqmTrend points={indicatorTrend}/></article><article className="panel"><div className="head"><h2>Giám sát theo khoa/phòng</h2><p>Đơn vị có tỷ lệ mục đạt thấp được đưa lên trước.</p></div>{deptBars.length?<TqmHorizontalBars rows={deptBars} max={100}/>:<div className="empty-state">Chưa có dữ liệu giám sát đủ để so sánh.</div>}</article></section>
-  <section className="panel"><div className="head"><h2>Gantt đề án cải tiến trọng tâm</h2><p>Thời gian và tiến độ lấy từ dữ liệu đề án/Action thật.</p></div>{ganttRows.length?<TqmGantt year={year} rows={ganttRows}/>:<div className="empty-state">Chưa đủ mốc thời gian đề án để dựng Gantt.</div>}</section>
+
+  <section className={`dashboard-priority ${hasPrioritySignals?"has-alert":"clear"}`}>
+   <div className="priority-copy">
+    <div className="eyebrow">CẦN BIẾT NGAY</div>
+    <h2>{hasPrioritySignals?`${priorityTotal} tín hiệu cần ưu tiên xử lý`:`Chưa có tín hiệu ưu tiên cần xử lý ngay`}</h2>
+    <p>{hasPrioritySignals?"Các mục bên cạnh được sắp theo nhóm rủi ro vận hành cấp bệnh viện. Mở từng mục để xử lý chi tiết.":"Tiếp tục theo dõi 4 chỉ số điều hành chính và công việc được giao cho cá nhân."}</p>
+    <div className="priority-actions"><Link className="button primary" href="/tasks">Mở Việc của tôi</Link><Link className="button secondary" href="/assistant">Hỏi Trợ lý QLCL</Link></div>
+   </div>
+   <div className="priority-items">
+    {hotspots.map((item)=><Link key={item.label} href={item.href} className={`priority-item ${item.tone}`}><span>{item.label}</span><strong>{item.value}</strong></Link>)}
+   </div>
+  </section>
+
+  <section className="kpis">
+   <article className="kpi"><span>Hoàn thành kế hoạch năm</span><strong>{planPct}%</strong><small>{planDone}/{planReq} Action · {planOverdue} quá hạn</small></article>
+   <article className="kpi"><span>Chỉ số đạt mục tiêu</span><strong>{indicatorPct}%</strong><small>{inTarget}/{evaluableIndicators.length} kỳ đã có kết luận</small></article>
+   <article className="kpi"><span>Kết quả giám sát đạt</span><strong>{monitoringPct}%</strong><small>{monitorPass}/{monitorPass+monitorFail} mục đã chấm</small></article>
+   <article className="kpi"><span>Action đề án cải tiến</span><strong>{projectPct}%</strong><small>{projectKpi.completed}/{projectKpi.actions} Action · {projectRows.length} đề án</small></article>
+  </section>
+
+  <section className="dashboard-grid">
+   <article className="panel"><div className="head"><h2>Xu hướng chỉ số đạt mục tiêu</h2><p>12 tháng gần nhất, chỉ tính kỳ VERIFIED/LOCKED đã có kết luận.</p></div><TqmTrend points={indicatorTrend}/></article>
+   <article className="panel"><div className="head"><h2>Giám sát theo khoa/phòng</h2><p>Đơn vị có tỷ lệ đạt thấp được đưa lên trước để ưu tiên xem xét.</p></div>{deptBars.length?<TqmHorizontalBars rows={deptBars} max={100}/>:<div className="empty-state">Chưa có dữ liệu giám sát đủ để so sánh.</div>}</article>
+  </section>
+
+  <details className="deep-dive">
+   <summary>Phân tích TQM chuyên sâu</summary>
+   <div className="deep-dive-body">
+    <p className="deep-dive-note">Các công cụ dưới đây phục vụ phân tích nguyên nhân, cân bằng hệ thống và theo dõi cải tiến. Không cần xem trước khi xử lý các tín hiệu ưu tiên ở phía trên.</p>
+    <TqmSmartCommandCenter year={year} />
+    <TqmPriorityBoard serious={serious} overdueFindings={overdueFindings} capaDue={capaDue} outTarget={outTarget} planOverdue={planOverdue} />
+    <TqmProcessMap planPct={planPct} indicatorPct={indicatorPct} monitoringPct={monitoringPct} openFindings={findings.length} capaDue={capaDue} projectPct={projectPct} />
+    <TqmScorecard planPct={planPct} indicatorPct={indicatorPct} monitoringPct={monitoringPct} projectPct={projectPct} seriousIncidents={serious} overdueFindings={overdueFindings} />
+    <TqmInterventionLoop openFindings={findings.length} overdueFindings={overdueFindings} capaDue={capaDue} projectPct={projectPct} />
+    <section className="dashboard-grid"><article className="panel"><div className="head"><h2>Tiến độ kế hoạch chất lượng năm</h2><p>Từ Action thực tế của các kế hoạch.</p></div><TqmDonut value={planPct} label="Hoàn thành" segments={[{label:"Đã hoàn thành",value:planDone,tone:"brand"},{label:"Còn lại",value:Math.max(0,planReq-planDone),tone:"blue"},{label:"Quá hạn",value:planOverdue,tone:"red"}]}/></article><article className="panel"><div className="head"><h2>Gantt đề án cải tiến trọng tâm</h2><p>Thời gian và tiến độ lấy từ dữ liệu đề án/Action thật.</p></div>{ganttRows.length?<TqmGantt year={year} rows={ganttRows}/>:<div className="empty-state">Chưa đủ mốc thời gian đề án để dựng Gantt.</div>}</article></section>
+   </div>
+  </details>
  </div>
 }
