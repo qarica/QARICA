@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { operationalRiskTone } from "@/lib/dashboard-kpi";
 
 type ScorecardProps = {
   planPct: number;
@@ -11,9 +12,8 @@ type ScorecardProps = {
 
 type Row = { label: string; value: string; status: string; tone: "good" | "watch" | "risk"; href: string };
 
-function toneFor(value: number, inverse = false): Row["tone"] {
-  const score = inverse ? 100 - Math.min(100, value) : value;
-  return score >= 85 ? "good" : score >= 70 ? "watch" : "risk";
+function toneFor(value: number): Row["tone"] {
+  return value >= 85 ? "good" : value >= 70 ? "watch" : "risk";
 }
 
 export function TqmScorecard({ planPct, indicatorPct, monitoringPct, projectPct, seriousIncidents, overdueFindings }: ScorecardProps) {
@@ -21,9 +21,9 @@ export function TqmScorecard({ planPct, indicatorPct, monitoringPct, projectPct,
     { label: "Lãnh đạo & liên kết chiến lược", value: `${planPct}% kế hoạch`, status: planPct >= 85 ? "Ổn định" : "Cần theo dõi", tone: toneFor(planPct), href: "/plans" },
     { label: "Ra quyết định dựa trên dữ liệu", value: `${indicatorPct}% đạt mục tiêu`, status: indicatorPct >= 85 ? "Ổn định" : "Cần cải thiện", tone: toneFor(indicatorPct), href: "/indicators" },
     { label: "Tiếp cận theo quá trình", value: `${monitoringPct}% giám sát đạt`, status: monitoringPct >= 85 ? "Ổn định" : "Cần theo dõi", tone: toneFor(monitoringPct), href: "/monitoring" },
-    { label: "Cải tiến liên tục", value: `${projectPct}% tiến độ đề án`, status: projectPct >= 85 ? "Ổn định" : "Cần theo dõi", tone: toneFor(projectPct), href: "/improvement/projects" },
-    { label: "An toàn người bệnh", value: `${seriousIncidents} sự cố nghiêm trọng mở`, status: seriousIncidents === 0 ? "Ổn định" : "Ưu tiên", tone: toneFor(seriousIncidents, true), href: "/incidents" },
-    { label: "Khắc phục có kiểm soát", value: `${overdueFindings} Finding quá hạn`, status: overdueFindings === 0 ? "Ổn định" : "Ưu tiên", tone: toneFor(overdueFindings, true), href: "/findings" },
+    { label: "Cải tiến liên tục", value: `${projectPct}% Action hoàn thành`, status: projectPct >= 85 ? "Ổn định" : "Cần theo dõi", tone: toneFor(projectPct), href: "/improvement/projects" },
+    { label: "An toàn người bệnh", value: `${seriousIncidents} sự cố nghiêm trọng mở`, status: seriousIncidents === 0 ? "Không có tín hiệu" : "Ưu tiên", tone: operationalRiskTone(seriousIncidents), href: "/incidents" },
+    { label: "Khắc phục có kiểm soát", value: `${overdueFindings} Finding quá hạn`, status: overdueFindings === 0 ? "Không có tín hiệu" : "Ưu tiên", tone: operationalRiskTone(overdueFindings), href: "/findings" },
   ];
 
   return (
