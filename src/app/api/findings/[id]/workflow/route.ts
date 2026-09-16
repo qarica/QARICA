@@ -44,6 +44,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .eq("record_id", recordId)
     .maybeSingle();
   if (!finding) return NextResponse.json({ error: "Không tìm thấy dữ liệu Finding." }, { status: 404 });
+  const findingId = finding.id;
   const canManage = await hasPermission(supabase, "findings.manage");
   const canOperate = canManage || finding.owner_user_id === user.id || visibleRecord.owner_user_id === user.id;
   if (!canOperate) return NextResponse.json({ error: "Bạn không phải người phụ trách Finding này." }, { status: 403 });
@@ -87,7 +88,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (recordRollbackError) errors.push(`record: ${recordRollbackError.message}`);
     }
     if (findingChanged) {
-      const { error: findingRollbackError } = await admin.from("findings").update(findingRollback).eq("id", finding.id);
+      const { error: findingRollbackError } = await admin.from("findings").update(findingRollback).eq("id", findingId);
       if (findingRollbackError) errors.push(`finding: ${findingRollbackError.message}`);
     }
     if (verificationId) {
@@ -102,7 +103,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     newStatus = "IN_PROGRESS";
   } else if (command === "SUBMIT") {
     if (!["OPEN", "ASSIGNED", "IN_PROGRESS", "RETURNED"].includes(oldStatus)) return NextResponse.json({ error: "Finding không ở trạng thái có thể gửi xác minh." }, { status: 409 });
-    const { data: links } = await admin.from("finding_action_links").select("action_id").eq("finding_id", finding.id);
+    const { data: links } = await admin.from("finding_action_links").select("action_id").eq("finding_id", findingId);
     const actionIds = (links ?? []).map((row: any) => row.action_id).filter(Boolean);
     const { data: linkedActions } = actionIds.length ? await admin.from("actions").select("id,workflow_status").in("id", actionIds) : { data: [] as any[] };
     const unfinished = (linkedActions ?? []).filter((row: any) => row.workflow_status !== "COMPLETED").length;
@@ -127,7 +128,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       });
       if (!txError) {
         const notifyUser = finding.owner_user_id;
-        if (notifyUser && notifyUser !== user.id) await admin.from("notifications").upsert({ recipient_user_id: notifyUser, notification_type: "FINDING_ACCEPT", priority: "NORMAL", title: "Finding đã được xác nhận đóng", message: `${visibleRecord.record_code} · ${visibleRecord.title}`, target_record_id: recordId, target_route: `/findings/${recordId}`, notification_event_key: `finding:ACCEPT:${finding.id}:${notifyUser}:${oldStatus}`, is_read: false }, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true });
+        if (notifyUser && notifyUser !== user.id) await admin.from("notifications").upsert({ recipient_user_id: notifyUser, notification_type: "FINDING_ACCEPT", priority: "NORMAL", title: "Finding đã được xác nhận đóng", message: `${visibleRecord.record_code} · ${visibleRecord.title}`, target_record_id: recordId, target_route: `/findings/${recordId}`, notification_event_key: `finding:ACCEPT:${findingId}:${notifyUser}:${oldStatus}`, is_read: false }, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true });
         return NextResponse.json({ ok: true, status: "CLOSED", transaction: "atomic", result: tx });
       }
       if (!isMissingRpcFunction(txError, ACCEPT_RPC)) {
@@ -151,7 +152,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       });
       if (!txError) {
         const notifyUser = finding.owner_user_id;
-        if (notifyUser && notifyUser !== user.id) await admin.from("notifications").upsert({ recipient_user_id: notifyUser, notification_type: "FINDING_ESCALATE_CAPA", priority: "NORMAL", title: "Finding đã chuyển sang CAPA", message: `${visibleRecord.record_code} · ${visibleRecord.title}`, target_record_id: recordId, target_route: `/findings/${recordId}`, notification_event_key: `finding:ESCALATE_CAPA:${finding.id}:${notifyUser}:${oldStatus}`, is_read: false }, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true });
+        if (notifyUser && notifyUser !== user.id) await admin.from("notifications").upsert({ recipient_user_id: notifyUser, notification_type: "FINDING_ESCALATE_CAPA", priority: "NORMAL", title: "Finding đã chuyển sang CAPA", message: `${visibleRecord.record_code} · ${visibleRecord.title}`, target_record_id: recordId, target_route: `/findings/${recordId}`, notification_event_key: `finding:ESCALATE_CAPA:${findingId}:${notifyUser}:${oldStatus}`, is_read: false }, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true });
         return NextResponse.json({ ok: true, status: "ESCALATED_TO_CAPA", transaction: "atomic", result: tx });
       }
       if (!isMissingRpcFunction(txError, ESCALATE_RPC)) {
@@ -161,19 +162,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       transaction = "legacy-fallback";
     }
 
-    const { data: latest } = await admin.from("finding_verifications").select("verification_no").eq("finding_id", finding.id).order("verification_no", { ascending: false }).limit(1).maybeSingle();
+    const { data: latest } = await admin.from("finding_verifications").select("verification_no").eq("finding_id", findingId).order("verification_no", { ascending: false }).limit(1).maybeSingle();
     const verificationNo = Number(latest?.verification_no || 0) + 1;
     const result = command === "ACCEPT" ? "ACCEPTED" : command === "RETURN" ? "RETURNED" : "ESCALATE_CAPA";
     const nextDueDate = command === "RETURN" ? String(body.next_due_date || "").trim() : null;
     if (command === "RETURN" && !nextDueDate) return NextResponse.json({ error: "Cần xác định hạn bổ sung tiếp theo." }, { status: 400 });
-    const { data: verification, error: verificationError } = await admin.from("finding_verifications").insert({ finding_id: finding.id, verification_no: verificationNo, reviewer_user_id: user.id, result, comment: reason, next_due_date: nextDueDate || null }).select("id").single();
+    const { data: verification, error: verificationError } = await admin.from("finding_verifications").insert({ finding_id: findingId, verification_no: verificationNo, reviewer_user_id: user.id, result, comment: reason, next_due_date: nextDueDate || null }).select("id").single();
     if (verificationError || !verification) return NextResponse.json({ error: verificationError?.message || "Không lưu được kết quả xác minh Finding." }, { status: 400 });
     verificationId = String(verification.id);
     auditDetails = { verification_id: verificationId, verification_no: verificationNo };
 
     if (command === "ACCEPT") {
       newStatus = "CLOSED";
-      const { error: findingError } = await admin.from("findings").update({ workflow_status: newStatus, confirmed_by: user.id, confirmed_at: now, updated_at: now }).eq("id", finding.id);
+      const { error: findingError } = await admin.from("findings").update({ workflow_status: newStatus, confirmed_by: user.id, confirmed_at: now, updated_at: now }).eq("id", findingId);
       if (findingError) {
         const rollbackErrors = await rollbackLegacyChanges();
         return NextResponse.json({ error: rollbackMessage(findingError.message, rollbackErrors) }, { status: 400 });
@@ -193,7 +194,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       historyId = String(history.id);
     } else if (command === "RETURN") {
       newStatus = "RETURNED";
-      const { error: returnError } = await admin.from("findings").update({ workflow_status: newStatus, due_date: nextDueDate, updated_at: now }).eq("id", finding.id);
+      const { error: returnError } = await admin.from("findings").update({ workflow_status: newStatus, due_date: nextDueDate, updated_at: now }).eq("id", findingId);
       if (returnError) {
         const rollbackErrors = await rollbackLegacyChanges();
         return NextResponse.json({ error: rollbackMessage(returnError.message, rollbackErrors) }, { status: 400 });
@@ -223,13 +224,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: rollbackMessage(capaError?.message || "Không tạo được CAPA.", rollbackErrors) }, { status: 400 });
       }
       generatedCapaId = String(capa.id);
-      const { error: linkError } = await admin.from("record_links").insert({ source_record_id: recordId, target_record_id: capaRecord.id, relation_type: "ESCALATED_TO_CAPA", metadata: { finding_id: finding.id, verification_no: verificationNo }, created_by: user.id });
+      const { error: linkError } = await admin.from("record_links").insert({ source_record_id: recordId, target_record_id: capaRecord.id, relation_type: "ESCALATED_TO_CAPA", metadata: { finding_id: findingId, verification_no: verificationNo }, created_by: user.id });
       if (linkError) {
         const rollbackErrors = await rollbackLegacyChanges();
         return NextResponse.json({ error: rollbackMessage(`Không tạo được liên kết Finding → CAPA: ${linkError.message}`, rollbackErrors) }, { status: 400 });
       }
       newStatus = "ESCALATED_TO_CAPA";
-      const { error: escalateError } = await admin.from("findings").update({ workflow_status: newStatus, updated_at: now }).eq("id", finding.id);
+      const { error: escalateError } = await admin.from("findings").update({ workflow_status: newStatus, updated_at: now }).eq("id", findingId);
       if (escalateError) {
         const rollbackErrors = await rollbackLegacyChanges();
         return NextResponse.json({ error: rollbackMessage(escalateError.message, rollbackErrors) }, { status: 400 });
@@ -240,7 +241,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   } else return NextResponse.json({ error: "Thao tác Finding không hợp lệ." }, { status: 400 });
 
   if (!["ACCEPT", "RETURN", "ESCALATE_CAPA"].includes(command)) {
-    const { error } = await admin.from("findings").update({ workflow_status: newStatus, updated_at: now }).eq("id", finding.id);
+    const { error } = await admin.from("findings").update({ workflow_status: newStatus, updated_at: now }).eq("id", findingId);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     findingChanged = true;
   }
@@ -249,7 +250,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     actor_user_id: user.id,
     record_id: recordId,
     table_name: "findings",
-    row_id: finding.id,
+    row_id: findingId,
     action_type: `FINDING_${command}`,
     old_value: { workflow_status: oldStatus, due_date: finding.due_date ?? null },
     new_value: { workflow_status: newStatus, ...auditDetails },
@@ -271,7 +272,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       message: `${visibleRecord.record_code} · ${visibleRecord.title}`,
       target_record_id: recordId,
       target_route: `/findings/${recordId}`,
-      notification_event_key: `finding:${command}:${finding.id}:${notifyUser}:${oldStatus}`,
+      notification_event_key: `finding:${command}:${findingId}:${notifyUser}:${oldStatus}`,
       is_read: false,
     }, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true });
   }
