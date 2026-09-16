@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DomainRecordDetail } from "@/components/domain-record-detail";
 import { DomainWorkflowPanel } from "@/components/domain-workflow-panel";
+import { IncidentPrintActions } from "@/components/incident-print-actions";
 import { PageHeader } from "@/components/page-header";
 import { RecordActionsPanel } from "@/components/record-actions-panel";
 import { RecordCollaborationPanel } from "@/components/record-collaboration-panel";
@@ -30,7 +31,7 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
   const department = departmentResult.data; const owner = ownerResult.data; const spec = getModuleOperatingSpec([record.record_type]);
 
   return <div className="page-stack modern-module-page domain-record-page">
-    <div className="domain-record-top"><Link href={listHref} className="button tertiary small">← Danh sách {moduleTitle}</Link></div>
+    <div className="domain-record-top" style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap"}}><Link href={listHref} className="button tertiary small">← Danh sách {moduleTitle}</Link>{record.record_type === "INCIDENT" && hasAnyPermission(user,["incident.view_case","incident.triage","incident.investigate","incident.close"])?<IncidentPrintActions recordId={record.id} compact/>:null}</div>
     <PageHeader eyebrow={record.record_code} title={record.title} description={`${moduleTitle} · Năm ${record.work_year}`} />
     <section className="panel detail-grid domain-record-meta">
       <div><span>Loại hồ sơ</span><strong>{record.record_type}</strong></div><div><span>Trạng thái Registry</span><StatusBadge status={record.lifecycle_status} /></div>
