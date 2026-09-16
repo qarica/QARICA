@@ -47,10 +47,10 @@ export function LoginForm() {
 
   return (
     <form className="login-card" onSubmit={submit}>
-      <div className="mobile-brand"><img src="/brand/qlcl-logo.svg" alt="QLCL TQM" /></div>
+      <div className="mobile-brand"><img src="/brand/qarica-logo.svg" alt="QARICA" /></div>
 
       <div>
-        <div className="eyebrow">ĐĂNG NHẬP HỆ THỐNG</div>
+        <div className="eyebrow">ĐĂNG NHẬP QARICA</div>
         <h2>Chào mừng trở lại</h2>
         <p className="muted">
           Sử dụng tài khoản và mật khẩu do quản trị viên cấp. Không bắt buộc email.
@@ -63,7 +63,7 @@ export function LoginForm() {
           type="text"
           value={login}
           onChange={(e) => setLogin(e.target.value)}
-          placeholder="Ví dụ: khoa.noi hoặc qlcl01"
+          placeholder="Ví dụ: ten.nguoidung hoặc qarica01"
           autoComplete="username"
           required
         />
@@ -104,7 +104,8 @@ export function LoginForm() {
       </button>
 
       <p className="tiny muted center">
-        Dữ liệu truy cập được kiểm soát theo vai trò, quyền và phạm vi khoa/phòng.
+        Dữ liệu truy cập được kiểm soát theo vai trò, quyền và phạm vi được phân công.<br />
+        © 2026 Trần Trường Vinh · QARICA. All rights reserved.
       </p>
     </form>
   );

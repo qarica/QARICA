@@ -21,6 +21,6 @@ const criticalCss=`
   @media(max-width:860px){.sidebar.collapsed .sidebar-collapse{display:none!important}}
   @media print{@page{size:A4;margin:20mm 20mm 20mm 30mm!important}}
 `;
-export const metadata:Metadata={title:"QLCL · TQM",description:"Hệ thống Quản lý Chất lượng và cải tiến toàn diện",icons:{icon:"/icon.svg",apple:"/apple-icon.svg"}};
+export const metadata:Metadata={title:"QARICA",description:"Nền tảng Quản trị Chất lượng & Cải tiến",icons:{icon:"/icon.svg",apple:"/apple-icon.svg"}};
 export const viewport:Viewport={width:"device-width",initialScale:1,themeColor:"#0d9488"};
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="vi"><body className={`${appFont.className} ${appFont.variable}`}>{children}<style>{criticalCss}</style></body></html>}
