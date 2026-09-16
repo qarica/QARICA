@@ -104,7 +104,7 @@ export function LoginForm() {
       </button>
 
       <p className="tiny muted center">
-        Dữ liệu truy cập được kiểm soát theo vai trò, quyền và phạm vi được phân công.<br />
+        Dữ liệu truy cập được kiểm soát theo vai trò, quyền và phạm vi được&nbsp;phân&nbsp;công.<br />
         © 2026 Trần Trường Vinh · QARICA. All rights reserved.
       </p>
     </form>
