@@ -13,6 +13,7 @@ const L: Record<string, string> = {
 };
 
 const PHASE_LABEL: Record<string, string> = { PLAN: "Plan", DO: "Do", STUDY: "Study", ACT: "Act" };
+const MILESTONE_STATUS_LABEL: Record<string, string> = { PLANNED: "Dự kiến", IN_PROGRESS: "Đang thực hiện", COMPLETED: "Hoàn thành" };
 
 type Objective = { id: string; order: number; statement: string; indicator: string | null; baseline: string | null; target: string | null; unit: string | null; due_date: string | null };
 type Milestone = { id: string; order: number; title: string; phase: string; description: string | null; start_date: string | null; end_date: string | null; status: string };
@@ -61,6 +62,8 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
 
   const liveObjectives = setupReady ? objectiveRows.length : objectives;
   const liveMilestones = setupReady ? milestoneRows.length : milestones;
+  const incompleteMilestones = setupReady ? milestoneRows.filter((item) => item.status !== "COMPLETED").length : liveMilestones;
+  const completedMilestones = Math.max(liveMilestones - incompleteMilestones, 0);
   const milestoneEditable = ["DRAFT", "APPROVED", "IN_PROGRESS"].includes(status);
 
   const loadSetup = useCallback(async () => {
@@ -113,6 +116,33 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không lưu được dữ liệu SMART/PDSA.");
       return false;
+    } finally { setBusy(false); }
+  }
+
+  async function milestoneStatusCmd(item: Milestone, action: "START" | "COMPLETE" | "RESET" | "REOPEN") {
+    if (busy) return;
+    let reason = "";
+    if (action === "RESET" || action === "REOPEN") {
+      const answer = window.prompt(action === "RESET" ? `Lý do hoàn milestone “${item.title}” về Dự kiến:` : `Lý do mở lại milestone “${item.title}”:`);
+      if (!answer?.trim()) return;
+      reason = answer.trim();
+    } else if (action === "COMPLETE" && !window.confirm(`Xác nhận milestone “${item.title}” đã hoàn thành?`)) return;
+
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const response = await fetch(`/api/improvement/projects/${recordId}/milestones/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ milestone_id: item.id, action, reason }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error || "Không cập nhật được trạng thái milestone PDSA.");
+      setNotice(json.message || "Đã cập nhật milestone PDSA.");
+      if ((action === "RESET" || action === "REOPEN") && editingMilestoneId === item.id) resetMilestoneForm();
+      await loadSetup();
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Không cập nhật được trạng thái milestone PDSA.");
     } finally { setBusy(false); }
   }
 
@@ -211,13 +241,13 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
       {notice ? <div className="alert success">{notice}</div> : null}
       <div className="domain-metrics">
         <div><strong>{liveObjectives}</strong><span>Mục tiêu SMART</span></div>
-        <div><strong>{liveMilestones}</strong><span>Milestone/PDSA</span></div>
+        <div><strong>{completedMilestones}/{liveMilestones}</strong><span>Milestone hoàn thành</span></div>
         <div><strong>{actions}/{incomplete}</strong><span>Action / chưa xong</span></div>
         <div><strong>{evidence}</strong><span>Minh chứng</span></div>
       </div>
 
       {canManage ? <div className="alert" style={{ fontSize: 12 }}>
-        <strong>Khung thời gian đề án:</strong> {projectStart || "chưa đặt"} → {projectEnd || "chưa đặt"}. Mục tiêu SMART được khóa sau khi gửi phê duyệt; milestone đã thực hiện cũng bị khóa để giữ lịch sử PDSA.
+        <strong>Khung thời gian đề án:</strong> {projectStart || "chưa đặt"} → {projectEnd || "chưa đặt"}. Mục tiêu SMART được khóa sau khi gửi phê duyệt; milestone đã bắt đầu cũng bị khóa nội dung để giữ lịch sử PDSA. Khi cần sửa sai trạng thái, phải hoàn/mở lại có lý do và audit trail.
       </div> : null}
 
       {status === "DRAFT" && canManage ? <section style={{ display: "grid", gap: 10 }}>
@@ -266,7 +296,19 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
             {milestoneRows.map((item) => {
               const canEdit = milestoneEditable && item.status === "PLANNED";
               const canDelete = status === "DRAFT" && item.status === "PLANNED";
-              return <tr key={item.id}><td>{item.order}</td><td>{PHASE_LABEL[item.phase] || item.phase}</td><td><strong>{item.title}</strong>{item.description ? <div style={{ color: "#64748b", fontSize: 12 }}>{item.description}</div> : null}</td><td>{item.start_date || "—"} → {item.end_date || "—"}</td><td>{item.status}</td><td>{canEdit || canDelete ? <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{canEdit ? <button type="button" className="button tertiary small" disabled={busy} onClick={() => editMilestone(item)}>Sửa</button> : null}{canDelete ? <button type="button" className="button danger small" disabled={busy} onClick={() => void deleteMilestone(item)}>Xóa</button> : null}</div> : <span className="muted">Đã khóa</span>}</td></tr>;
+              const canStart = status === "IN_PROGRESS" && item.status === "PLANNED";
+              const canComplete = status === "IN_PROGRESS" && item.status === "IN_PROGRESS";
+              const canReset = status === "IN_PROGRESS" && item.status === "IN_PROGRESS";
+              const canReopen = status === "IN_PROGRESS" && item.status === "COMPLETED";
+              const hasAction = canEdit || canDelete || canStart || canComplete || canReset || canReopen;
+              return <tr key={item.id}><td>{item.order}</td><td>{PHASE_LABEL[item.phase] || item.phase}</td><td><strong>{item.title}</strong>{item.description ? <div style={{ color: "#64748b", fontSize: 12 }}>{item.description}</div> : null}</td><td>{item.start_date || "—"} → {item.end_date || "—"}</td><td>{MILESTONE_STATUS_LABEL[item.status] || item.status}</td><td>{hasAction ? <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {canStart ? <button type="button" className="button primary small" disabled={busy} onClick={() => void milestoneStatusCmd(item, "START")}>Bắt đầu</button> : null}
+                {canComplete ? <button type="button" className="button primary small" disabled={busy} onClick={() => void milestoneStatusCmd(item, "COMPLETE")}>Hoàn thành</button> : null}
+                {canReset ? <button type="button" className="button tertiary small" disabled={busy} onClick={() => void milestoneStatusCmd(item, "RESET")}>Hoàn về dự kiến</button> : null}
+                {canReopen ? <button type="button" className="button tertiary small" disabled={busy} onClick={() => void milestoneStatusCmd(item, "REOPEN")}>Mở lại</button> : null}
+                {canEdit ? <button type="button" className="button tertiary small" disabled={busy} onClick={() => editMilestone(item)}>Sửa</button> : null}
+                {canDelete ? <button type="button" className="button danger small" disabled={busy} onClick={() => void deleteMilestone(item)}>Xóa</button> : null}
+              </div> : <span className="muted">Đã khóa</span>}</td></tr>;
             })}
           </tbody></table>
         </div>
@@ -276,13 +318,16 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
       {status === "DRAFT" && canManage && (liveObjectives < 1 || liveMilestones < 1) ? <div className="alert">Cần ít nhất 01 mục tiêu SMART và 01 milestone/PDSA trước khi gửi phê duyệt.</div> : null}
       {status === "PENDING_APPROVAL" && canManage ? <button className="button primary" disabled={busy} onClick={() => void cmd("APPROVE")}>Phê duyệt đề án</button> : null}
       {status === "APPROVED" && canManage ? <button className="button primary" disabled={busy} onClick={() => void cmd("START")}>Bắt đầu triển khai PDSA</button> : null}
-      {status === "IN_PROGRESS" && canManage ? <form onSubmit={evaluate} className="domain-detail-grid">
-        <label className="wide">Đánh giá mức đạt mục tiêu *<textarea rows={4} value={summary} onChange={(e) => setSummary(e.target.value)} required /></label>
-        <label>Kết quả<select value={result} onChange={(e) => setResult(e.target.value)}><option value="ACHIEVED">Đạt</option><option value="PARTIAL">Đạt một phần</option><option value="NOT_ACHIEVED">Chưa đạt</option></select></label>
-        <label><input type="checkbox" checked={sustain} onChange={(e) => setSustain(e.target.checked)} /> Cần kế hoạch duy trì</label>
-        <label><input type="checkbox" checked={scale} onChange={(e) => setScale(e.target.checked)} /> Đề xuất nhân rộng</label>
-        <button className="button primary" disabled={busy || actions < 1 || incomplete > 0 || evidence < 1}>Đánh giá kết quả</button>
-      </form> : null}
+      {status === "IN_PROGRESS" && canManage ? <>
+        {incompleteMilestones > 0 ? <div className="alert">Còn <strong>{incompleteMilestones}</strong> milestone PDSA chưa hoàn thành. Hoàn tất toàn bộ milestone trước khi đánh giá kết quả đề án.</div> : null}
+        <form onSubmit={evaluate} className="domain-detail-grid">
+          <label className="wide">Đánh giá mức đạt mục tiêu *<textarea rows={4} value={summary} onChange={(e) => setSummary(e.target.value)} required /></label>
+          <label>Kết quả<select value={result} onChange={(e) => setResult(e.target.value)}><option value="ACHIEVED">Đạt</option><option value="PARTIAL">Đạt một phần</option><option value="NOT_ACHIEVED">Chưa đạt</option></select></label>
+          <label><input type="checkbox" checked={sustain} onChange={(e) => setSustain(e.target.checked)} /> Cần kế hoạch duy trì</label>
+          <label><input type="checkbox" checked={scale} onChange={(e) => setScale(e.target.checked)} /> Đề xuất nhân rộng</label>
+          <button className="button primary" disabled={busy || incompleteMilestones > 0 || actions < 1 || incomplete > 0 || evidence < 1}>Đánh giá kết quả</button>
+        </form>
+      </> : null}
       {status === "EVALUATED" && canManage ? <button className="button primary" disabled={busy} onClick={() => { const x = window.prompt("Kết luận duy trì/nhân rộng:"); if (x?.trim()) void cmd("CLOSE", { comment: x.trim() }); }}>Đóng đề án</button> : null}
     </div>
   </section>;
