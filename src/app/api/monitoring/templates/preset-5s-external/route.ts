@@ -130,7 +130,6 @@ export async function POST(request: Request) {
     weight: 1,
     finding_on_fail: false,
     evidence_required_on_fail: false,
-    default_severity: null,
     sequence_no: (index + 1) * 10,
     metadata: {
       source_code: SOURCE_CODE,
