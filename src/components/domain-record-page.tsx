@@ -4,6 +4,7 @@ import { DomainRecordDetail } from "@/components/domain-record-detail";
 import { DomainWorkflowPanel } from "@/components/domain-workflow-panel";
 import { IncidentPrintActions } from "@/components/incident-print-actions";
 import { PageHeader } from "@/components/page-header";
+import { QualityRecordEditPanel } from "@/components/quality-record-edit-panel";
 import { RecordActionsPanel } from "@/components/record-actions-panel";
 import { RecordCollaborationPanel } from "@/components/record-collaboration-panel";
 import { RecordHistoryPanel } from "@/components/record-history-panel";
@@ -46,6 +47,7 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
       {record.closed_at ? <div><span>Đóng lúc</span><strong>{formatDateTime(record.closed_at)}</strong></div> : null}
     </section>
     <DomainRecordDetail recordType={record.record_type} recordId={record.id} />
+    <QualityRecordEditPanel recordId={record.id} recordType={record.record_type} />
     <DomainWorkflowPanel recordId={record.id} recordType={record.record_type} />
     <RecordActionsPanel recordId={record.id} recordType={record.record_type} sourceTitle={`${record.record_code} · ${record.title}`} />
     <RecordTraceabilityPanel recordId={record.id} />
