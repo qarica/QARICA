@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canEditAuditScope, canEditAuditSession, hasAuditScopeContent, validAuditSessionWindow } from "./audit-setup";
+import { canEditAuditScope, canEditAuditSession, hasAuditScopeContent, hcmLocalInputToIso, validAuditSessionWindow } from "./audit-setup";
 
 describe("audit setup edit rules", () => {
   it("allows scope changes only while Audit is draft", () => {
@@ -14,7 +14,8 @@ describe("audit setup edit rules", () => {
     expect(canEditAuditSession("DRAFT_REPORT", "PLANNED")).toBe(false);
   });
 
-  it("validates session timing", () => {
+  it("interprets datetime-local values as Vietnam time and validates session timing", () => {
+    expect(hcmLocalInputToIso("2026-09-16T08:00")).toBe("2026-09-16T01:00:00.000Z");
     expect(validAuditSessionWindow("2026-09-16T08:00", "2026-09-16T09:00")).toBe(true);
     expect(validAuditSessionWindow("2026-09-16T08:00", "2026-09-16T08:00")).toBe(false);
     expect(validAuditSessionWindow("", "2026-09-16T09:00")).toBe(false);
