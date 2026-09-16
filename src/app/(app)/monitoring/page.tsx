@@ -62,7 +62,7 @@ export default async function MonitoringPage() {
     <section className="tqm-grid"><article className="panel"><div className="tqm-head"><h2>Xu hướng lượt giám sát 12 tháng</h2><p>Cho biết nhịp triển khai giám sát trong năm.</p></div><TqmTrend points={months} unit=""/></article><article className="panel"><div className="tqm-head"><h2>Kết quả bảng kiểm</h2><p>Tổng hợp PASS/FAIL từ các mục đã chấm.</p></div><TqmDonut value={passPct} label="Mục đạt" segments={[{label:"Đạt",value:allPass,tone:"brand"},{label:"Chưa đạt",value:allFail,tone:"red"}]} /></article></section>
     <section className="panel"><div className="tqm-head"><h2>Giám sát theo khoa/phòng</h2><p>Xếp đơn vị có tỷ lệ mục đạt thấp lên trước để QLCL ưu tiên hỗ trợ và giám sát lại.</p></div>{depBars.length?<TqmHorizontalBars rows={depBars} max={100}/>:<div className="empty-state">Chưa có dữ liệu chấm điểm theo khoa/phòng.</div>}</section>
     <div className="detail-label">BẢNG KIỂM & ĐỢT GIÁM SÁT CHI TIẾT</div>
-    <Preset5SCreateClient departments={departments} canManage={canManageTemplates} />
+    {!templateRows.some((t: any) => t.code === "BK01.V1_QLCL.QĐ.06") ? <Preset5SCreateClient departments={departments} canManage={canManageTemplates} /> : null}
     <MonitoringClient year={year} canManageTemplates={canManageTemplates} templateRows={templateRows as any[]} monitoringRows={monitoringRows as any[]} departments={departments} />
   </div>;
 }
