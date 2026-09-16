@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/page-header";
 import { QualityRecordEditPanel } from "@/components/quality-record-edit-panel";
 import { RecordActionsPanel } from "@/components/record-actions-panel";
 import { RecordCollaborationPanel } from "@/components/record-collaboration-panel";
+import { RecordDepartmentParticipantsPanel } from "@/components/record-department-participants-panel";
 import { RecordHistoryPanel } from "@/components/record-history-panel";
 import { RecordTraceabilityPanel } from "@/components/record-traceability-panel";
 import { StatusBadge } from "@/components/status-badge";
@@ -49,6 +50,7 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
     <DomainRecordDetail recordType={record.record_type} recordId={record.id} />
     <QualityRecordEditPanel recordId={record.id} recordType={record.record_type} />
     <DomainWorkflowPanel recordId={record.id} recordType={record.record_type} />
+    <RecordDepartmentParticipantsPanel recordId={record.id} recordType={record.record_type} lifecycleStatus={record.lifecycle_status} primaryDepartmentId={record.owner_department_id} primaryDepartmentName={department?.short_name || department?.name || "Chưa gán"} />
     <RecordActionsPanel recordId={record.id} recordType={record.record_type} sourceTitle={`${record.record_code} · ${record.title}`} />
     <RecordTraceabilityPanel recordId={record.id} />
     <RecordCollaborationPanel recordId={record.id} />
