@@ -26,6 +26,18 @@ function firstValue(row: FmeaRow, keys: readonly string[]) {
   return null;
 }
 
+export function existingFmeaColumn(row: FmeaRow, keys: readonly string[], exclude: string[] = []) {
+  return keys.find((key) => !exclude.includes(key) && Object.prototype.hasOwnProperty.call(row, key)) || null;
+}
+
+export function canEditFmeaAnalysis(status: string | null | undefined) {
+  return ["DRAFT", "IN_PROGRESS"].includes(String(status || "").toUpperCase());
+}
+
+export function canDeleteFmeaAnalysis(status: string | null | undefined) {
+  return String(status || "").toUpperCase() === "DRAFT";
+}
+
 export function normalizedFmeaText(value: unknown) {
   return String(value ?? "").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
 }
