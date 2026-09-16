@@ -44,6 +44,25 @@ export function canDeletePdsaMilestone(projectStatus: string | null | undefined,
   return String(projectStatus || "").toUpperCase() === "DRAFT" && String(milestoneStatus || "PLANNED").toUpperCase() === "PLANNED";
 }
 
+export function pdsaMilestoneTargetStatus(
+  projectStatus: string | null | undefined,
+  milestoneStatus: string | null | undefined,
+  action: string | null | undefined,
+) {
+  if (String(projectStatus || "").toUpperCase() !== "IN_PROGRESS") return null;
+  const current = String(milestoneStatus || "PLANNED").toUpperCase();
+  const command = String(action || "").toUpperCase();
+  if (command === "START" && current === "PLANNED") return "IN_PROGRESS";
+  if (command === "COMPLETE" && current === "IN_PROGRESS") return "COMPLETED";
+  if (command === "RESET" && current === "IN_PROGRESS") return "PLANNED";
+  if (command === "REOPEN" && current === "COMPLETED") return "PLANNED";
+  return null;
+}
+
+export function arePdsaMilestonesComplete(statuses: Array<string | null | undefined>) {
+  return statuses.length > 0 && statuses.every((status) => String(status || "").toUpperCase() === "COMPLETED");
+}
+
 export function normalizedImprovementText(value: unknown) {
   return String(value ?? "").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
 }
