@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { lifecyclePermissionFor } from "@/lib/record-lifecycle";
+import { canCancelIncident, lifecyclePermissionFor } from "@/lib/record-lifecycle";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
@@ -23,7 +23,7 @@ async function resolveRecordId(supabase: Awaited<ReturnType<typeof createClient>
   return last;
 }
 
-async function getRecordAndPermission(supabase: Awaited<ReturnType<typeof createClient>>, recordId: string) {
+async function getRecordAndPermission(supabase: Awaited<ReturnType<typeof createClient>>, recordId: string, userId: string) {
   const { data: record, error } = await supabase
     .from("records")
     .select("id,organization_id,record_type,record_code,title,lifecycle_status,closed_at")
@@ -33,7 +33,30 @@ async function getRecordAndPermission(supabase: Awaited<ReturnType<typeof create
 
   const permission = lifecyclePermissionFor(record.record_type);
   const { data: allowed } = await supabase.rpc("has_permission", { p_permission_code: permission });
-  return { record, canManage: !!allowed, permission };
+  if (record.record_type !== "INCIDENT") return { record, canManage: !!allowed, permission };
+
+  const [{ data: canTriage }, { data: incident }] = await Promise.all([
+    supabase.rpc("has_permission", { p_permission_code: "incident.triage" }),
+    supabase.from("incidents").select("id,workflow_status").eq("record_id", recordId).maybeSingle(),
+  ]);
+  let isReporter = false;
+  if (incident?.id) {
+    const { data: ownReport } = await supabase
+      .from("incident_reports")
+      .select("id")
+      .eq("incident_id", incident.id)
+      .eq("reporter_user_id", userId)
+      .limit(1)
+      .maybeSingle();
+    isReporter = !!ownReport;
+  }
+  const canManage = canCancelIncident({
+    hasClosePermission: !!allowed,
+    hasTriagePermission: !!canTriage,
+    isReporter,
+    workflowStatus: incident?.workflow_status,
+  });
+  return { record, canManage, permission: canManage ? null : "incident.report/incident.triage/incident.close" };
 }
 
 export async function GET(request: Request) {
@@ -44,7 +67,7 @@ export async function GET(request: Request) {
   const pathname = new URL(request.url).searchParams.get("path") || "";
   const recordId = await resolveRecordId(supabase, pathname);
   if (!recordId) return NextResponse.json({ record: null });
-  const result = await getRecordAndPermission(supabase, recordId);
+  const result = await getRecordAndPermission(supabase, recordId, user.id);
   return NextResponse.json(result);
 }
 
@@ -72,7 +95,7 @@ export async function POST(request: Request) {
   if (!["CANCEL", "ARCHIVE"].includes(action)) return NextResponse.json({ error: "Thao tác không hợp lệ." }, { status: 400 });
   if (reason.length < 3) return NextResponse.json({ error: "Vui lòng nhập lý do rõ ràng trước khi thực hiện." }, { status: 400 });
 
-  const { record, canManage, permission } = await getRecordAndPermission(supabase, recordId);
+  const { record, canManage, permission } = await getRecordAndPermission(supabase, recordId, user.id);
   if (!record) return NextResponse.json({ error: "Không tìm thấy hồ sơ hoặc bạn không có quyền truy cập." }, { status: 404 });
   if (!canManage) return NextResponse.json({ error: `Bạn chưa được cấp quyền ${permission || "quản lý hồ sơ"}.` }, { status: 403 });
 

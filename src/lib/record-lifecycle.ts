@@ -23,3 +23,13 @@ export const RECORD_LIFECYCLE_PERMISSION: Record<string, string> = {
 export function lifecyclePermissionFor(recordType: string) {
   return RECORD_LIFECYCLE_PERMISSION[recordType] || "system.manage";
 }
+
+export function canCancelIncident(input: {
+  hasClosePermission: boolean;
+  hasTriagePermission: boolean;
+  isReporter: boolean;
+  workflowStatus: string | null | undefined;
+}) {
+  if (input.hasClosePermission || input.hasTriagePermission) return true;
+  return input.isReporter && String(input.workflowStatus || "").toUpperCase() === "REPORTED";
+}

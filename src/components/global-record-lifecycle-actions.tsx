@@ -34,6 +34,7 @@ export function GlobalRecordLifecycleActions(){
   const record=info.record; const isTerminal=TERMINAL.has(record.lifecycle_status);
   const canCancel=!!info.canManage&&!isTerminal&&record.lifecycle_status!=="CLOSED";
   if(!canCancel)return null;
+  const isIncident=record.record_type==="INCIDENT";
 
   async function submit(){
     if(busy)return;
@@ -56,14 +57,14 @@ export function GlobalRecordLifecycleActions(){
       @media print{.record-danger-zone,.lifecycle-modal-backdrop{display:none!important}}
     `}</style>
     <section className="record-danger-zone" aria-label="Quản trị hồ sơ">
-      <div className="record-danger-zone-copy"><strong>Quản trị hồ sơ</strong><span>Chỉ hủy khi hồ sơ/tác vụ được tạo nhầm hoặc không còn áp dụng. Dữ liệu và lịch sử vẫn được giữ để truy vết.</span></div>
-      <button type="button" className="button record-cancel-button" onClick={()=>{setError("");setReason("");setOpen(true);}}>Hủy hồ sơ</button>
+      <div className="record-danger-zone-copy"><strong>{isIncident?"Quản trị báo cáo sự cố":"Quản trị hồ sơ"}</strong><span>Chỉ hủy khi hồ sơ/tác vụ được tạo nhầm hoặc không còn áp dụng. Dữ liệu và lịch sử vẫn được giữ để truy vết.</span></div>
+      <button type="button" className="button record-cancel-button" onClick={()=>{setError("");setReason("");setOpen(true);}}>{isIncident?"Hủy báo cáo":"Hủy hồ sơ"}</button>
     </section>
 
     {open?<div className="modal-backdrop lifecycle-modal-backdrop" role="dialog" aria-modal="true" aria-label="Hủy hồ sơ">
       <div className="modal-card lifecycle-modal-card">
         <div className="modal-head lifecycle-modal-head">
-          <div><div className="eyebrow">{record.record_code}</div><h2>Hủy hồ sơ / tác vụ</h2></div>
+          <div><div className="eyebrow">{record.record_code}</div><h2>{isIncident?"Hủy báo cáo sự cố":"Hủy hồ sơ / tác vụ"}</h2></div>
           <button className="icon-button" type="button" onClick={()=>!busy&&setOpen(false)} aria-label="Đóng">×</button>
         </div>
         <div className="modal-body lifecycle-modal-body">
