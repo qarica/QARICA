@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { arePdsaMilestonesComplete, normalizeProjectMilestone } from "@/lib/improvement-project-setup";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
@@ -60,6 +61,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     message = "Đã bắt đầu triển khai đề án/PDSA.";
   } else if (command === "EVALUATE") {
     if (oldStatus !== "IN_PROGRESS") return NextResponse.json({ error: "Đề án chưa ở bước triển khai." }, { status: 409 });
+    const { data: milestoneRows, error: milestoneError } = await admin.from("project_milestones").select("*").eq("project_id", project.id);
+    if (milestoneError) return NextResponse.json({ error: milestoneError.message }, { status: 400 });
+    const milestoneStatuses = (milestoneRows || []).map((row: any, index: number) => normalizeProjectMilestone(row, index).status);
+    if (!arePdsaMilestonesComplete(milestoneStatuses)) {
+      const incompleteMilestones = milestoneStatuses.filter((status) => status !== "COMPLETED").length;
+      return NextResponse.json({ error: `Còn ${incompleteMilestones || milestoneStatuses.length || 1} milestone PDSA chưa hoàn thành.` }, { status: 409 });
+    }
     const ids = (links || []).map((x: any) => x.target_record_id).filter(Boolean);
     if (!ids.length) return NextResponse.json({ error: "Cần Action/can thiệp trước khi đánh giá." }, { status: 409 });
     const { data: actions } = await admin.from("actions").select("workflow_status").in("record_id", ids);
