@@ -90,9 +90,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id: recordId } = await params;
   const ctx = await context(recordId);
   if (!ctx.ok) return ctx.response;
+  const admin = ctx.admin;
+  const study = ctx.study;
   try {
-    const data = await snapshot(ctx.admin, ctx.study.id);
-    return NextResponse.json({ steps: data.steps, modes: data.modes, workflow_status: ctx.study.workflow_status, method: ctx.study.method });
+    const data = await snapshot(admin, study.id);
+    return NextResponse.json({ steps: data.steps, modes: data.modes, workflow_status: study.workflow_status, method: study.method });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Không đọc được dữ liệu FMEA." }, { status: 400 });
   }
@@ -102,32 +104,35 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id: recordId } = await params;
   const ctx = await context(recordId);
   if (!ctx.ok) return ctx.response;
+  const admin = ctx.admin;
+  const actorUserId = ctx.user.id;
+  const study = ctx.study;
   const body = await request.json().catch(() => ({}));
   const action = text(body.action).toUpperCase();
   const reason = text(body.reason) || null;
-  if (!canEditFmeaAnalysis(ctx.study.workflow_status)) return NextResponse.json({ error: "FMEA đã qua giai đoạn được phép chỉnh sửa phân tích nền." }, { status: 409 });
+  if (!canEditFmeaAnalysis(study.workflow_status)) return NextResponse.json({ error: "FMEA đã qua giai đoạn được phép chỉnh sửa phân tích nền." }, { status: 409 });
 
   async function logChange(input: { table: string; rowId: string; actionType: string; oldValue?: unknown; newValue?: unknown; fallbackReason?: string }) {
-    return ctx.admin.from("audit_logs").insert({ actor_user_id: ctx.user.id, record_id: recordId, table_name: input.table, row_id: input.rowId, action_type: input.actionType, old_value: input.oldValue ?? null, new_value: input.newValue ?? null, reason: reason || input.fallbackReason || null, request_meta: { source: "qlcl-ui", fmea_workflow_status: ctx.study.workflow_status } });
+    return admin.from("audit_logs").insert({ actor_user_id: actorUserId, record_id: recordId, table_name: input.table, row_id: input.rowId, action_type: input.actionType, old_value: input.oldValue ?? null, new_value: input.newValue ?? null, reason: reason || input.fallbackReason || null, request_meta: { source: "qlcl-ui", fmea_workflow_status: study.workflow_status } });
   }
 
   if (["ADD_STEP", "UPDATE_STEP", "DELETE_STEP"].includes(action)) {
     const stepId = text(body.step_id);
-    const current = await snapshot(ctx.admin, ctx.study.id);
+    const current = await snapshot(admin, study.id);
 
     if (action === "DELETE_STEP") {
-      if (!canDeleteFmeaAnalysis(ctx.study.workflow_status)) return NextResponse.json({ error: "Chỉ được xóa bước quy trình khi FMEA còn DRAFT." }, { status: 409 });
+      if (!canDeleteFmeaAnalysis(study.workflow_status)) return NextResponse.json({ error: "Chỉ được xóa bước quy trình khi FMEA còn DRAFT." }, { status: 409 });
       if (!stepId) return NextResponse.json({ error: "Thiếu bước quy trình cần xóa." }, { status: 400 });
       if (!reason || reason.length < 3) return NextResponse.json({ error: "Cần nhập lý do xóa để truy vết." }, { status: 400 });
       if (current.modes.some((mode) => mode.process_step_id === stepId)) return NextResponse.json({ error: "Bước này đang có failure mode. Hãy xóa các failure mode thuộc bước trước." }, { status: 409 });
       const raw = current.rawSteps.find((row) => String(row.id) === stepId);
       if (!raw) return NextResponse.json({ error: "Không tìm thấy bước quy trình." }, { status: 404 });
       const oldValue = normalizeFmeaStep(raw);
-      const { error: deleteError } = await ctx.admin.from("fmea_process_steps").delete().eq("id", stepId).eq("fmea_study_id", ctx.study.id);
+      const { error: deleteError } = await admin.from("fmea_process_steps").delete().eq("id", stepId).eq("fmea_study_id", study.id);
       if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 400 });
       const { error: logError } = await logChange({ table: "fmea_process_steps", rowId: stepId, actionType: "FMEA_PROCESS_STEP_DELETE", oldValue });
       if (logError) {
-        const restore = await ctx.admin.from("fmea_process_steps").insert(raw);
+        const restore = await admin.from("fmea_process_steps").insert(raw);
         return NextResponse.json({ error: restore.error ? `Không ghi được audit trail và không tự khôi phục được bước: ${restore.error.message}` : `Không ghi được audit trail; thao tác xóa đã được hoàn tác. ${logError.message}` }, { status: 400 });
       }
       return NextResponse.json({ ok: true, message: "Đã xóa bước quy trình nhập nhầm và lưu audit trail." });
@@ -139,8 +144,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (action === "ADD_STEP") {
       const order = current.steps.length ? Math.max(...current.steps.map((step) => Number(step.order) || 0)) + 1 : 1;
-      const base = { fmea_study_id: ctx.study.id };
-      const result = await insertCompatible(ctx.admin, "fmea_process_steps", [
+      const base = { fmea_study_id: study.id };
+      const result = await insertCompatible(admin, "fmea_process_steps", [
         { ...base, sequence_no: order, step_name: label, step_description: description || null },
         { ...base, step_no: order, step_name: label, description: description || null },
         { ...base, step_order: order, name: label, description: description || null },
@@ -148,7 +153,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       ]);
       if (!result.data) return NextResponse.json({ error: result.error }, { status: 400 });
       const { error: logError } = await logChange({ table: "fmea_process_steps", rowId: result.data.id, actionType: "FMEA_PROCESS_STEP_ADD", newValue: { label, description: description || null, order } });
-      if (logError) { await ctx.admin.from("fmea_process_steps").delete().eq("id", result.data.id); return NextResponse.json({ error: `Không ghi được audit trail; bước mới đã được hoàn tác. ${logError.message}` }, { status: 400 }); }
+      if (logError) { await admin.from("fmea_process_steps").delete().eq("id", result.data.id); return NextResponse.json({ error: `Không ghi được audit trail; bước mới đã được hoàn tác. ${logError.message}` }, { status: 400 }); }
       return NextResponse.json({ ok: true, message: "Đã thêm bước quy trình." });
     }
 
@@ -158,30 +163,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const patch = stepPatch(raw, label, description);
     if (!patch) return NextResponse.json({ error: "Schema bước quy trình hiện tại chưa hỗ trợ chỉnh sửa tương thích." }, { status: 409 });
     const oldValue = normalizeFmeaStep(raw);
-    const { error: updateError } = await ctx.admin.from("fmea_process_steps").update(patch).eq("id", stepId).eq("fmea_study_id", ctx.study.id);
+    const { error: updateError } = await admin.from("fmea_process_steps").update(patch).eq("id", stepId).eq("fmea_study_id", study.id);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
     const newValue = { ...oldValue, label, description: description || null };
     const { error: logError } = await logChange({ table: "fmea_process_steps", rowId: stepId, actionType: "FMEA_PROCESS_STEP_UPDATE", oldValue, newValue, fallbackReason: "Điều chỉnh bước quy trình trong giai đoạn phân tích." });
-    if (logError) { await ctx.admin.from("fmea_process_steps").update(rollbackPatch(raw, patch)).eq("id", stepId); return NextResponse.json({ error: `Không ghi được audit trail; thay đổi đã được hoàn tác. ${logError.message}` }, { status: 400 }); }
+    if (logError) { await admin.from("fmea_process_steps").update(rollbackPatch(raw, patch)).eq("id", stepId); return NextResponse.json({ error: `Không ghi được audit trail; thay đổi đã được hoàn tác. ${logError.message}` }, { status: 400 }); }
     return NextResponse.json({ ok: true, message: "Đã cập nhật bước quy trình và lưu audit trail." });
   }
 
   if (["ADD_MODE", "UPDATE_MODE", "DELETE_MODE"].includes(action)) {
     const modeId = text(body.mode_id);
-    const current = await snapshot(ctx.admin, ctx.study.id);
+    const current = await snapshot(admin, study.id);
 
     if (action === "DELETE_MODE") {
-      if (!canDeleteFmeaAnalysis(ctx.study.workflow_status)) return NextResponse.json({ error: "Chỉ được xóa failure mode khi FMEA còn DRAFT." }, { status: 409 });
+      if (!canDeleteFmeaAnalysis(study.workflow_status)) return NextResponse.json({ error: "Chỉ được xóa failure mode khi FMEA còn DRAFT." }, { status: 409 });
       if (!modeId) return NextResponse.json({ error: "Thiếu failure mode cần xóa." }, { status: 400 });
       if (!reason || reason.length < 3) return NextResponse.json({ error: "Cần nhập lý do xóa để truy vết." }, { status: 400 });
       const raw = current.rawModes.find((row) => String(row.id) === modeId);
       if (!raw) return NextResponse.json({ error: "Không tìm thấy failure mode." }, { status: 404 });
       const oldValue = normalizeFmeaFailureMode(raw);
-      const { error: deleteError } = await ctx.admin.from("fmea_failure_modes").delete().eq("id", modeId);
+      const { error: deleteError } = await admin.from("fmea_failure_modes").delete().eq("id", modeId);
       if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 400 });
       const { error: logError } = await logChange({ table: "fmea_failure_modes", rowId: modeId, actionType: "FMEA_FAILURE_MODE_DELETE", oldValue });
       if (logError) {
-        const restore = await ctx.admin.from("fmea_failure_modes").insert(raw);
+        const restore = await admin.from("fmea_failure_modes").insert(raw);
         return NextResponse.json({ error: restore.error ? `Không ghi được audit trail và không tự khôi phục được failure mode: ${restore.error.message}` : `Không ghi được audit trail; thao tác xóa đã được hoàn tác. ${logError.message}` }, { status: 400 });
       }
       return NextResponse.json({ ok: true, message: "Đã xóa failure mode nhập nhầm và lưu audit trail." });
@@ -199,7 +204,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (action === "ADD_MODE") {
       const order = current.modes.filter((mode) => mode.process_step_id === processStepId).length + 1;
       const base = { process_step_id: processStepId, is_high_priority: highPriority };
-      const result = await insertCompatible(ctx.admin, "fmea_failure_modes", [
+      const result = await insertCompatible(admin, "fmea_failure_modes", [
         { ...base, sequence_no: order, failure_mode: label, potential_effect: effect || null, potential_cause: cause || null, current_controls: control || null, severity_score: severity, occurrence_score: occurrence, detection_score: detection, rpn },
         { ...base, mode_no: order, failure_mode_description: label, potential_effect: effect || null, potential_cause: cause || null, current_controls: control || null, severity: severity, occurrence: occurrence, detection: detection, rpn },
         { ...base, sort_order: order, mode_name: label, effect: effect || null, cause: cause || null, current_control: control || null, severity, occurrence, detection, risk_priority_number: rpn },
@@ -208,7 +213,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!result.data) return NextResponse.json({ error: result.error }, { status: 400 });
       const newValue = { process_step_id: processStepId, label, effect: effect || null, cause: cause || null, control: control || null, severity, occurrence, detection, rpn, is_high_priority: highPriority };
       const { error: logError } = await logChange({ table: "fmea_failure_modes", rowId: result.data.id, actionType: "FMEA_FAILURE_MODE_ADD", newValue });
-      if (logError) { await ctx.admin.from("fmea_failure_modes").delete().eq("id", result.data.id); return NextResponse.json({ error: `Không ghi được audit trail; failure mode mới đã được hoàn tác. ${logError.message}` }, { status: 400 }); }
+      if (logError) { await admin.from("fmea_failure_modes").delete().eq("id", result.data.id); return NextResponse.json({ error: `Không ghi được audit trail; failure mode mới đã được hoàn tác. ${logError.message}` }, { status: 400 }); }
       return NextResponse.json({ ok: true, message: `Đã thêm failure mode. RPN = ${rpn}.` });
     }
 
@@ -217,11 +222,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!raw) return NextResponse.json({ error: "Không tìm thấy failure mode." }, { status: 404 });
     const patch = modePatch(raw, { processStepId, label, effect, cause, control, severity, occurrence, detection, rpn, highPriority });
     const oldValue = normalizeFmeaFailureMode(raw);
-    const { error: updateError } = await ctx.admin.from("fmea_failure_modes").update(patch).eq("id", modeId);
+    const { error: updateError } = await admin.from("fmea_failure_modes").update(patch).eq("id", modeId);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
     const newValue = { ...oldValue, process_step_id: processStepId, label, effect: effect || null, cause: cause || null, control: control || null, severity, occurrence, detection, rpn, is_high_priority: highPriority };
     const { error: logError } = await logChange({ table: "fmea_failure_modes", rowId: modeId, actionType: "FMEA_FAILURE_MODE_UPDATE", oldValue, newValue, fallbackReason: "Điều chỉnh failure mode trong giai đoạn phân tích." });
-    if (logError) { await ctx.admin.from("fmea_failure_modes").update(rollbackPatch(raw, patch)).eq("id", modeId); return NextResponse.json({ error: `Không ghi được audit trail; thay đổi đã được hoàn tác. ${logError.message}` }, { status: 400 }); }
+    if (logError) { await admin.from("fmea_failure_modes").update(rollbackPatch(raw, patch)).eq("id", modeId); return NextResponse.json({ error: `Không ghi được audit trail; thay đổi đã được hoàn tác. ${logError.message}` }, { status: 400 }); }
     return NextResponse.json({ ok: true, message: `Đã cập nhật failure mode. RPN = ${rpn}.` });
   }
 
