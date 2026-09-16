@@ -6,6 +6,7 @@ import { TaskWorkflowClient } from "@/components/task-workflow-client";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { canVerifyTask, taskStepResponsibility } from "@/lib/task-verification-policy";
 
 const PRIORITY_LABELS: Record<string, string> = {
   LOW: "Thấp",
@@ -39,12 +40,19 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   if (actionError) return <div className="alert error">Không tải được nội dung công việc: {actionError.message}</div>;
   if (!action) notFound();
 
-  const [departmentRes, assigneeRes, planLinkRes, evidenceRes] = await Promise.all([
+  const [departmentRes, assigneeRes, planLinkRes, evidenceRes, sourceLinksRes] = await Promise.all([
     action.lead_department_id ? supabase.from("departments").select("id,name,short_name").eq("id", action.lead_department_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_user_id ? supabase.from("profiles").select("user_id,full_name,email,job_title").eq("user_id", action.assignee_user_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     supabase.from("program_action_links").select("program_id,milestone_group,is_required").eq("action_id", action.id).maybeSingle(),
     supabase.from("evidence_links").select("id,evidence_id,evidence_role").eq("record_id", recordId),
+    supabase.from("record_links").select("source_record_id").eq("target_record_id", recordId).eq("relation_type", "HAS_ACTION"),
   ]);
+
+  const sourceRecordIds = Array.from(new Set((sourceLinksRes.data ?? []).map((row: any) => row.source_record_id).filter(Boolean))) as string[];
+  const sourceRecordsRes = sourceRecordIds.length
+    ? await supabase.from("records").select("id,record_type").in("id", sourceRecordIds)
+    : { data: [], error: null };
+  const sourceRecordTypes = Array.from(new Set((sourceRecordsRes.data ?? []).map((row: any) => String(row.record_type || "")).filter(Boolean)));
 
   const evidenceIds = (evidenceRes.data ?? []).map((row: any) => row.evidence_id).filter(Boolean) as string[];
   let evidenceItems: any[] = [];
@@ -71,9 +79,11 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   const due = action.due_date ? new Date(`${action.due_date}T00:00:00`) : null;
   const isOverdue = !!due && due.getTime() < new Date().setHours(0, 0, 0, 0) && !["COMPLETED", "CANCELLED", "NOT_APPLICABLE"].includes(action.workflow_status);
   const status = isOverdue ? "OVERDUE" : action.workflow_status;
-  const canVerify = user.permissions.includes("plans.manage");
+  const canVerify = canVerifyTask(user.permissions, sourceRecordTypes, !!planLinkRes.data?.program_id);
   const canOperate = action.assignee_user_id === user.id || canVerify;
-  const firstError = [departmentRes as any, assigneeRes as any, planLinkRes, evidenceRes, { error: evidenceItemsError }].find((r: any) => r?.error)?.error;
+  const assigneeLabel = (assigneeRes.data as any)?.full_name || (assigneeRes.data as any)?.email || "Người được giao nhiệm vụ";
+  const responsibility = taskStepResponsibility(action.workflow_status, assigneeLabel, sourceRecordTypes, !!planLinkRes.data?.program_id);
+  const firstError = [departmentRes as any, assigneeRes as any, planLinkRes, evidenceRes, sourceLinksRes, sourceRecordsRes, { error: evidenceItemsError }].find((r: any) => r?.error)?.error;
 
   return <div className="page-stack">
     <PageHeader
@@ -86,6 +96,9 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
       </div>}
     />
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
+    <div className="scope-note" role="status">
+      <strong>Bước hiện tại: {responsibility.step}</strong> · Chờ <strong>{responsibility.responsible}</strong> · Việc tiếp theo: <strong>{responsibility.nextAction}</strong>
+    </div>
 
     <section className="kpi-grid">
       <article className="kpi-card"><span>Trạng thái</span><div style={{ marginTop: 13 }}><StatusBadge status={status} /></div><small>Workflow của Action</small></article>
