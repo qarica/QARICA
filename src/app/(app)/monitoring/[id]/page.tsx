@@ -130,7 +130,7 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
       }
     `}</style>
     <PageHeader eyebrow={`ĐỢT GIÁM SÁT · ${record?.record_code || "—"}`} title={record?.title || "Đợt giám sát"} description={`${template?.name || "Bảng kiểm"} · v${version?.version_no || "—"}`} />
-    <div className="monitoring-sticky-actions no-print"><MonitoringBackButton roundId={round.id} />{hasResponses ? <MonitoringPrintClient isConfirmed={isConfirmed} /> : null}</div>
+    <div className="monitoring-sticky-actions no-print"><MonitoringBackButton roundId={round.id} />{hasResponses ? <MonitoringPrintClient roundId={round.id} isConfirmed={isConfirmed} /> : null}</div>
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
 
     <section className="panel monitoring-status-panel" style={{ padding: 16 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}><div><div className="eyebrow">TRẠNG THÁI ĐỢT GIÁM SÁT</div><strong style={{ fontSize: 18 }}>{phaseLabel}</strong><div className="subline">Ngày dự kiến/thực hiện: {formatDate(round.scheduled_date)} · Người giám sát: {assessorName || "—"}</div></div><span className={`status-badge ${phaseTone}`}>{phaseLabel}</span></div></section>
