@@ -1,4 +1,5 @@
 import { AssessmentWorkflowClient } from "@/components/assessment-workflow-client";
+import { AssessmentCriteriaClient } from "@/components/assessment-criteria-client";
 import { AuditWorkflowClient } from "@/components/audit-workflow-client";
 import { CapaWorkflowClient } from "@/components/capa-workflow-client";
 import { DirectiveWorkflowClient } from "@/components/directive-workflow-client";
@@ -82,7 +83,18 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     ]);
     const submitted = (assessments ?? []).filter((x: any) => ["SUBMITTED", "REVIEWED", "FINALIZED", "COMPLETED", "APPROVED"].includes(String(x.workflow_status))).length;
     const canManage = user.permissions.includes("criteria.manage");
-    return <AssessmentWorkflowClient recordId={recordId} status={round.workflow_status} canManage={canManage} canReview={canManage || user.permissions.includes("criteria.review")} scope={scope ?? 0} submitted={submitted} evidence={evidence ?? 0} />;
+    const { data: scopeRows } = await supabase.from("assessment_round_criteria").select("criterion_id,is_required").eq("assessment_round_id", round.id);
+    const criterionIds = (scopeRows ?? []).map((x: any) => x.criterion_id).filter(Boolean);
+    const [{ data: criterionRows }, { data: levelRows }, { data: assessmentRows }] = criterionIds.length ? await Promise.all([
+      supabase.from("criteria_items").select("id,criterion_code,criterion_name,sequence_no").in("id", criterionIds).order("sequence_no"),
+      supabase.from("criterion_levels").select("id,criterion_id,level_code,level_value,level_name,sequence_no").in("criterion_id", criterionIds).order("sequence_no"),
+      supabase.from("criterion_assessments").select("criterion_id,proposed_level_id,summary_comment,workflow_status,self_assessor_user_id").eq("assessment_round_id", round.id),
+    ]) : [{ data: [] }, { data: [] }, { data: [] }] as any;
+    const ownAssessments = new Map((assessmentRows ?? []).filter((x: any) => x.self_assessor_user_id === user.id).map((x: any) => [x.criterion_id, x]));
+    const scopeMap = new Map((scopeRows ?? []).map((x: any) => [x.criterion_id, x.is_required !== false]));
+    const criteria = (criterionRows ?? []).map((criterion: any) => { const saved: any = ownAssessments.get(criterion.id); return { id: criterion.id, code: criterion.criterion_code, name: criterion.criterion_name, required: scopeMap.get(criterion.id) !== false, levels: (levelRows ?? []).filter((level: any) => level.criterion_id === criterion.id).map((level: any) => ({ id: level.id, label: `${level.level_code}${level.level_name ? ` · ${level.level_name}` : ""}${level.level_value == null ? "" : ` (${level.level_value} điểm)`}` })), levelId: saved?.proposed_level_id || "", comment: saved?.summary_comment || "", status: saved?.workflow_status || "NOT_STARTED" }; });
+    const canAssess = user.permissions.includes("criteria.assess") || canManage;
+    return <><AssessmentWorkflowClient recordId={recordId} status={round.workflow_status} canManage={canManage} canReview={canManage || user.permissions.includes("criteria.review")} scope={scope ?? 0} submitted={submitted} evidence={evidence ?? 0} /><AssessmentCriteriaClient recordId={recordId} editable={round.workflow_status === "IN_PROGRESS" && canAssess} criteria={criteria} /></>;
   }
 
   if (recordType === "AUDIT") {
