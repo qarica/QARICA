@@ -28,6 +28,22 @@ function firstValue(row: ImprovementRow, keys: readonly string[]) {
   return null;
 }
 
+export function existingImprovementColumn(row: ImprovementRow, keys: readonly string[], exclude: string[] = []) {
+  return keys.find((key) => !exclude.includes(key) && Object.prototype.hasOwnProperty.call(row, key)) || null;
+}
+
+export function canEditSmartObjective(projectStatus: string | null | undefined) {
+  return String(projectStatus || "").toUpperCase() === "DRAFT";
+}
+
+export function canEditPdsaMilestone(projectStatus: string | null | undefined, milestoneStatus: string | null | undefined) {
+  return ["DRAFT", "APPROVED", "IN_PROGRESS"].includes(String(projectStatus || "").toUpperCase()) && String(milestoneStatus || "PLANNED").toUpperCase() === "PLANNED";
+}
+
+export function canDeletePdsaMilestone(projectStatus: string | null | undefined, milestoneStatus: string | null | undefined) {
+  return String(projectStatus || "").toUpperCase() === "DRAFT" && String(milestoneStatus || "PLANNED").toUpperCase() === "PLANNED";
+}
+
 export function normalizedImprovementText(value: unknown) {
   return String(value ?? "").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
 }
