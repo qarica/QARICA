@@ -109,7 +109,13 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     const findingIds = (links ?? []).map((x: any) => x.finding_id).filter(Boolean);
     const { data: findings } = findingIds.length ? await supabase.from("findings").select("id,workflow_status").in("id", findingIds) : { data: [] as any[] };
     const openFindings = (findings ?? []).filter((x: any) => !["CLOSED", "CANCELLED"].includes(String(x.workflow_status))).length;
-    return <AuditWorkflowClient recordId={recordId} status={audit.workflow_status} canManage={user.permissions.includes("audit.manage")} scopes={scopes ?? 0} sessions={sessions ?? 0} findings={findingIds.length} openFindings={openFindings} evidence={evidence ?? 0} />;
+    const [{ data: scopeRows }, { data: sessionRows }, { data: departments }] = await Promise.all([
+      supabase.from("audit_scopes").select("id,department_id,process_name,area_name,scope_description").eq("audit_id", audit.id),
+      supabase.from("audit_sessions").select("id,scheduled_start,scheduled_end,department_id,location,session_status").eq("audit_id", audit.id).order("scheduled_start"),
+      supabase.from("departments").select("id,name,short_name").eq("is_active", true).order("name"),
+    ]);
+    const departmentMap = new Map((departments ?? []).map((x: any) => [x.id, x.short_name || x.name]));
+    return <AuditWorkflowClient recordId={recordId} status={audit.workflow_status} canManage={user.permissions.includes("audit.manage")} scopes={scopes ?? 0} sessions={sessions ?? 0} findings={findingIds.length} openFindings={openFindings} evidence={evidence ?? 0} departments={(departments ?? []).map((x: any) => ({ id: x.id, label: x.short_name || x.name }))} scopeRows={(scopeRows ?? []).map((x: any) => ({ id: x.id, department: departmentMap.get(x.department_id) || "", process: x.process_name || "", area: x.area_name || "", description: x.scope_description || "" }))} sessionRows={(sessionRows ?? []).map((x: any) => ({ id: x.id, start: x.scheduled_start ? new Date(x.scheduled_start).toLocaleString("vi-VN") : "", end: x.scheduled_end ? new Date(x.scheduled_end).toLocaleString("vi-VN") : "", department: departmentMap.get(x.department_id) || "", location: x.location || "", status: x.session_status || "PLANNED" }))} />;
   }
 
   if (recordType === "FMEA") {

@@ -40,10 +40,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     message = "Đã bắt đầu Audit/Tracer.";
   } else if (cmd === "SUBMIT_REPORT") {
     if (old !== "IN_PROGRESS" || !sessions || !evidence) return NextResponse.json({ error: "Cần phiên thực hiện và bằng chứng Audit trước khi gửi báo cáo." }, { status: 409 });
-    next = "REPORT_REVIEW";
+    next = "DRAFT_REPORT";
     message = "Đã gửi báo cáo Audit để rà soát.";
   } else if (cmd === "START_FOLLOW_UP") {
-    if (old !== "REPORT_REVIEW") return NextResponse.json({ error: "Báo cáo Audit chưa ở bước rà soát." }, { status: 409 });
+    if (!["DRAFT_REPORT", "REPORT_REVIEW"].includes(old)) return NextResponse.json({ error: "Báo cáo Audit chưa ở bước rà soát." }, { status: 409 });
     next = "FOLLOW_UP";
     message = "Đã chuyển theo dõi Finding sau Audit.";
   } else if (cmd === "CLOSE") {
