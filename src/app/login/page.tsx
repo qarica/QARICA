@@ -5,7 +5,7 @@ export default function LoginPage(){
   return <main className="login-page">
     <section className="login-hero">
       <div className="login-hero-inner">
-        <img className="login-brand-logo" src="/brand/qarica-logo-light.svg" alt="QARICA" />
+        <img className="login-brand-logo" src="/brand/qarica-logo-light-v2.svg" alt="QARICA" />
         <div className="eyebrow">NỀN TẢNG QUẢN TRỊ CHẤT LƯỢNG</div>
         <h1>Chất lượng trong tầm kiểm soát</h1>
         <p className="login-slogan-en">Quality under control</p>
