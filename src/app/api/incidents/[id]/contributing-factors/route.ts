@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-const ALLOWED = new Set([
+const ALLOWED = new Set<string>([
   "PATIENT",
   "STAFF",
   "TASK_TECHNOLOGY",
@@ -66,10 +66,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!canInvestigate && !canTriage) return NextResponse.json({ error: "Bạn chưa có quyền cập nhật yếu tố góp phần." }, { status: 403 });
 
   const body: any = await request.json().catch(() => ({}));
-  const factors = Array.isArray(body.factors)
-    ? Array.from(new Set(body.factors.map((x: unknown) => String(x || "").trim().toUpperCase()).filter(Boolean)))
+  const rawFactors: string[] = Array.isArray(body.factors)
+    ? body.factors.map((x: unknown) => String(x || "").trim().toUpperCase()).filter((x: string) => x.length > 0)
     : [];
-  const invalid = factors.find((x) => !ALLOWED.has(x));
+  const factors: string[] = Array.from(new Set<string>(rawFactors));
+  const invalid = factors.find((x: string) => !ALLOWED.has(x));
   if (invalid) return NextResponse.json({ error: `Yếu tố góp phần không hợp lệ: ${invalid}` }, { status: 400 });
 
   const admin = createAdminClient();
