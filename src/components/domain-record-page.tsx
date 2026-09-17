@@ -43,6 +43,8 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
   ] as any);
   const department = departmentResult.data; const owner = ownerResult.data; const spec = getModuleOperatingSpec([record.record_type]);
   const isIncident = record.record_type === "INCIDENT";
+  const isCapa = record.record_type === "CAPA";
+  const isPriorityWorkflow = isIncident || isCapa;
 
   const meta = <section className="panel detail-grid domain-record-meta">
     <div><span>Loại hồ sơ</span><strong>{record.record_type}</strong></div><div><span>Trạng thái Registry</span><StatusBadge status={record.lifecycle_status} /></div>
@@ -52,7 +54,7 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
   </section>;
 
   return <div className="page-stack modern-module-page domain-record-page">
-    {isIncident ? <style>{`.incident-record-priority{display:grid;gap:14px}.incident-support-details{border:1px solid #e1e9ec;border-radius:15px;background:#fff;overflow:hidden}.incident-support-details>summary{cursor:pointer;padding:15px 18px;font-weight:850;color:#334155}.incident-support-details[open]>summary{border-bottom:1px solid #e7eef0}.incident-support-body{display:grid;gap:14px;padding:14px}.incident-context{padding:12px 16px;border:1px solid #dbe7ea;border-radius:13px;background:#f8fbfc;color:#52636a;font-size:12px}.incident-context strong{color:#183b45}`}</style> : null}
+    {isPriorityWorkflow ? <style>{`.priority-record-stack{display:grid;gap:14px}.priority-support-details{border:1px solid #e1e9ec;border-radius:15px;background:#fff;overflow:hidden}.priority-support-details>summary{cursor:pointer;padding:15px 18px;font-weight:850;color:#334155}.priority-support-details[open]>summary{border-bottom:1px solid #e7eef0}.priority-support-body{display:grid;gap:14px;padding:14px}.priority-context{padding:12px 16px;border:1px solid #dbe7ea;border-radius:13px;background:#f8fbfc;color:#52636a;font-size:12px}.priority-context strong{color:#183b45}`}</style> : null}
     <div className="domain-record-top" style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap"}}>
       <Link href={listHref} className="button tertiary small">← Danh sách {moduleTitle}</Link>
       {isIncident && hasAnyPermission(user,["incident.view_case","incident.triage","incident.investigate","incident.close"])?<IncidentPrintActions recordId={record.id} compact/>:null}
@@ -60,16 +62,16 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
     </div>
     <PageHeader eyebrow={record.record_code} title={record.title} description={`${moduleTitle} · Năm ${record.work_year}`} />
 
-    {isIncident ? <>
-      <div className="incident-context"><strong>Ưu tiên xử lý:</strong> xem bước nghiệp vụ hiện tại trước; báo cáo gốc và audit trail vẫn được giữ nguyên. Hoàn tất điều tra/RCA và Action/CAPA áp dụng trước khi qua gate đóng.</div>
-      <div className="incident-record-priority">
+    {isPriorityWorkflow ? <>
+      <div className="priority-context"><strong>Ưu tiên xử lý:</strong> {isIncident ? "xem bước nghiệp vụ hiện tại trước; báo cáo gốc và audit trail vẫn được giữ nguyên. Hoàn tất điều tra/RCA và Action/CAPA áp dụng trước khi qua gate đóng." : "thực hiện theo chuỗi RCA → Corrective/Preventive Action → minh chứng → đánh giá hiệu lực → đóng. Không đóng CAPA chỉ vì Action đã hoàn tất."}</div>
+      <div className="priority-record-stack">
         <DomainWorkflowPanel recordId={record.id} recordType={record.record_type} />
         <DomainRecordDetail recordType={record.record_type} recordId={record.id} />
         <QualityRecordEditPanel recordId={record.id} recordType={record.record_type} />
         <RecordActionsPanel recordId={record.id} recordType={record.record_type} sourceTitle={`${record.record_code} · ${record.title}`} />
         <OperatingGate spec={spec} />
       </div>
-      <details className="incident-support-details"><summary>Thông tin quản trị, liên kết và lịch sử hồ sơ</summary><div className="incident-support-body">{meta}<RecordTraceabilityPanel recordId={record.id} /><RecordCollaborationPanel recordId={record.id} /><RecordHistoryPanel recordId={record.id} /></div></details>
+      <details className="priority-support-details"><summary>Thông tin quản trị, liên kết và lịch sử hồ sơ</summary><div className="priority-support-body">{meta}<RecordTraceabilityPanel recordId={record.id} /><RecordCollaborationPanel recordId={record.id} /><RecordHistoryPanel recordId={record.id} /></div></details>
     </> : <>
       {meta}
       <DomainRecordDetail recordType={record.record_type} recordId={record.id} />
