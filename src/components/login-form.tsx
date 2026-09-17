@@ -47,7 +47,7 @@ export function LoginForm() {
 
   return (
     <form className="login-card" onSubmit={submit}>
-      <div className="mobile-brand"><img src="/brand/qarica-logo.svg" alt="QARICA" /></div>
+      <div className="mobile-brand"><img src="/brand/qarica-logo-v2.svg" alt="QARICA" /></div>
 
       <div>
         <div className="eyebrow">ĐĂNG NHẬP QARICA</div>
