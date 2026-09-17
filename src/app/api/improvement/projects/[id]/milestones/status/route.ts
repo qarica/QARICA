@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   existingImprovementColumn,
+  isValidActDecision,
   MILESTONE_COLUMNS,
   normalizeProjectMilestone,
   pdsaMilestoneTargetStatus,
@@ -16,7 +17,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
-
   const { data: allowed } = await supabase.rpc("has_permission", { p_permission_code: "projects.manage" });
   if (!allowed) return NextResponse.json({ error: "Bạn chưa có quyền quản lý đề án cải tiến." }, { status: 403 });
 
@@ -39,20 +39,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Đề án không thuộc phạm vi bệnh viện hiện tại hoặc đã đóng." }, { status: 403 });
   }
 
-  const { data: rawMilestone, error: milestoneError } = await admin
-    .from("project_milestones")
-    .select("*")
-    .eq("id", milestoneId)
-    .eq("project_id", project.id)
-    .maybeSingle();
+  const { data: rawMilestone, error: milestoneError } = await admin.from("project_milestones").select("*").eq("id", milestoneId).eq("project_id", project.id).maybeSingle();
   if (milestoneError) return NextResponse.json({ error: milestoneError.message }, { status: 400 });
   if (!rawMilestone) return NextResponse.json({ error: "Không tìm thấy milestone trong đề án này." }, { status: 404 });
 
   const milestone = normalizeProjectMilestone(rawMilestone);
   const targetStatus = pdsaMilestoneTargetStatus(project.workflow_status, milestone.status, action);
-  if (!targetStatus) {
-    return NextResponse.json({ error: `Không thể thực hiện ${action} khi đề án=${project.workflow_status} và milestone=${milestone.status}.` }, { status: 409 });
-  }
+  if (!targetStatus) return NextResponse.json({ error: `Không thể thực hiện ${action} khi đề án=${project.workflow_status} và milestone=${milestone.status}.` }, { status: 409 });
 
   const statusColumn = existingImprovementColumn(rawMilestone, MILESTONE_COLUMNS.status);
   if (!statusColumn) return NextResponse.json({ error: "Schema milestone hiện tại không có cột trạng thái tương thích để cập nhật an toàn." }, { status: 409 });
@@ -60,9 +53,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = { [statusColumn]: targetStatus };
   if (Object.prototype.hasOwnProperty.call(rawMilestone, "updated_at")) patch.updated_at = now;
-  const rollback: Record<string, unknown> = { [statusColumn]: rawMilestone[statusColumn] ?? null };
-  if (Object.prototype.hasOwnProperty.call(rawMilestone, "updated_at")) rollback.updated_at = rawMilestone.updated_at ?? null;
 
+  if (action === "COMPLETE" && milestone.phase === "STUDY") {
+    const studyResult = String(body.study_result || "").trim();
+    const learningSummary = String(body.learning_summary || "").trim();
+    if (!studyResult || !learningSummary) return NextResponse.json({ error: "Pha STUDY chỉ được hoàn thành khi đã ghi kết quả đo lường và bài học rút ra." }, { status: 409 });
+    patch.study_result = studyResult;
+    patch.learning_summary = learningSummary;
+  }
+  if (action === "COMPLETE" && milestone.phase === "ACT") {
+    const actDecision = String(body.act_decision || "").trim().toUpperCase();
+    if (!isValidActDecision(actDecision)) return NextResponse.json({ error: "Pha ACT cần quyết định ADOPT, ADAPT hoặc ABANDON trước khi hoàn thành." }, { status: 409 });
+    patch.act_decision = actDecision;
+  }
+
+  const rollback: Record<string, unknown> = {};
+  for (const key of Object.keys(patch)) rollback[key] = rawMilestone[key] ?? null;
   const { error: updateError } = await admin.from("project_milestones").update(patch).eq("id", milestoneId).eq("project_id", project.id);
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
 
@@ -73,23 +79,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     table_name: "project_milestones",
     row_id: milestoneId,
     action_type: `IMPROVEMENT_MILESTONE_${action}`,
-    old_value: { status: milestone.status },
-    new_value: { status: targetStatus },
+    old_value: { status: milestone.status, study_result: milestone.study_result, learning_summary: milestone.learning_summary, act_decision: milestone.act_decision },
+    new_value: { status: targetStatus, study_result: patch.study_result ?? milestone.study_result, learning_summary: patch.learning_summary ?? milestone.learning_summary, act_decision: patch.act_decision ?? milestone.act_decision },
     reason: actionReason,
-    request_meta: { source: "qlcl-ui", project_workflow_status: project.workflow_status },
+    request_meta: { source: "qlcl-ui", project_workflow_status: project.workflow_status, pdsa_phase: milestone.phase },
   });
   if (auditError) {
     const { error: rollbackError } = await admin.from("project_milestones").update(rollback).eq("id", milestoneId).eq("project_id", project.id);
     return NextResponse.json({ error: rollbackError ? `Không ghi được audit log và không rollback được milestone: ${auditError.message}; ${rollbackError.message}` : `Không ghi được audit log; thay đổi trạng thái đã được hoàn tác. ${auditError.message}` }, { status: 400 });
   }
 
-  const message = action === "START"
-    ? "Đã bắt đầu milestone PDSA."
-    : action === "COMPLETE"
-      ? "Đã hoàn thành milestone PDSA."
-      : action === "RESET"
-        ? "Đã hoàn milestone về trạng thái Dự kiến để chỉnh sửa/thực hiện lại."
-        : "Đã mở lại milestone để thực hiện lại.";
-
+  const message = action === "START" ? "Đã bắt đầu milestone PDSA." : action === "COMPLETE" ? "Đã hoàn thành milestone PDSA và lưu kết quả học tập/quyết định khi áp dụng." : action === "RESET" ? "Đã hoàn milestone về trạng thái Dự kiến để chỉnh sửa/thực hiện lại." : "Đã mở lại milestone để thực hiện lại.";
   return NextResponse.json({ ok: true, status: targetStatus, message });
 }
