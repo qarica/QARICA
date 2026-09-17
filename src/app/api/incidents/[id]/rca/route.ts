@@ -96,6 +96,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       five_whys: [],
       fishbone: [],
       root_causes: [],
+      trace_state: null,
       counts: { timeline: 0, five_whys: 0, fishbone: 0, root_causes: 0 },
     });
   }
@@ -116,6 +117,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const rootCauses = rootRes.data ?? [];
   const ready = timeline.length >= 1 && fiveWhys.length >= 3 && fishbone.length >= 1 && rootCauses.length >= 1;
 
+  let traceState: Record<string, unknown> | null = null;
+  const admin = createAdminClient();
+  const { data: traceData, error: traceError } = await admin.rpc("qlcl_incident_action_trace_state_v1", { p_incident_record_id: recordId });
+  if (!traceError && traceData && typeof traceData === "object") traceState = traceData as Record<string, unknown>;
+
   return NextResponse.json({
     ok: true,
     required: !!incident.rca_required,
@@ -130,6 +136,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     five_whys: fiveWhys,
     fishbone,
     root_causes: rootCauses,
+    trace_state: traceState,
     counts: { timeline: timeline.length, five_whys: fiveWhys.length, fishbone: fishbone.length, root_causes: rootCauses.length },
   });
 }
