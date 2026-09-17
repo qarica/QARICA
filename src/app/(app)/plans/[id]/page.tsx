@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { PlanActionCreateClient } from "@/components/plan-action-create-client";
 import { PlanComposerClient } from "@/components/plan-composer-client";
+import { PlanPrintActions } from "@/components/plan-print-actions";
 import { PlanWorkflowClient } from "@/components/plan-workflow-client";
 import { StatusBadge } from "@/components/status-badge";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
@@ -91,6 +92,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       description={`${TYPE_LABELS[program.program_type] || program.program_type} · Năm ${recordRes.data.work_year}`}
       actions={<div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
         <Link className="button secondary" href="/plans">← Danh sách kế hoạch</Link>
+        <PlanPrintActions planId={id} compact />
         <PlanWorkflowClient planId={id} currentStatus={program.workflow_status} canManage={canManage} requiredActions={requiredActions} completedActions={completedActions} />
       </div>}
     />

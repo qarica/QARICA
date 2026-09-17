@@ -94,13 +94,10 @@ export function PlanComposerClient({
     setMessage(null);
     try {
       const cleanedSpecifics = specifics.map((s) => s.trim()).filter(Boolean);
+      // Lưu tạm mọi lúc, kể cả đang làm dở - chỉ bỏ những dòng nhiệm vụ hoàn toàn
+      // chưa nhập gì cả (không có tiêu đề). Việc bắt buộc đầy đủ thông tin để
+      // "Gửi phê duyệt" đã có sẵn ở bước gửi duyệt, không chặn lại ở đây.
       const cleanedTasks = tasks.filter((t) => t.title.trim());
-      for (const t of cleanedTasks) {
-        if (!t.lead_department_id) throw new Error(`Nhiệm vụ "${t.title}" thiếu Khoa/phòng chủ trì.`);
-        if (!t.assignee_user_id) throw new Error(`Nhiệm vụ "${t.title}" thiếu Người phụ trách.`);
-        if (!t.due_date) throw new Error(`Nhiệm vụ "${t.title}" thiếu Hạn hoàn thành.`);
-        if (!t.expected_result.trim()) throw new Error(`Nhiệm vụ "${t.title}" thiếu Kết quả kỳ vọng.`);
-      }
       const res = await fetch(`/api/plans/${planId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
