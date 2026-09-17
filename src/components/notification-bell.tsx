@@ -52,7 +52,8 @@ export function NotificationBell() {
 
   const load = useCallback(async () => {
     // 5S recheck deadlines need a fast synchronization loop. Broader quality
-    // attention is synchronized at most once per minute to avoid unnecessary DB load.
+    // attention and assigned Action reminders are synchronized at most once
+    // per minute to avoid unnecessary DB load.
     let syncedNew = false;
     try {
       const syncRes = await fetch("/api/notifications/sync-monitoring-overdue", {
@@ -71,13 +72,23 @@ export function NotificationBell() {
     if (now - lastQualitySyncRef.current >= QUALITY_SYNC_INTERVAL_MS) {
       lastQualitySyncRef.current = now;
       try {
-        const qualityRes = await fetch("/api/notifications/sync-quality-attention", {
-          method: "POST",
-          cache: "no-store",
-        });
+        const [qualityRes, actionRes] = await Promise.all([
+          fetch("/api/notifications/sync-quality-attention", {
+            method: "POST",
+            cache: "no-store",
+          }),
+          fetch("/api/notifications/sync-action-reminders", {
+            method: "POST",
+            cache: "no-store",
+          }),
+        ]);
         if (qualityRes.ok) {
           const quality = await qualityRes.json();
           syncedNew = syncedNew || Number(quality?.created || 0) > 0;
+        }
+        if (actionRes.ok) {
+          const actions = await actionRes.json();
+          syncedNew = syncedNew || Number(actions?.created || 0) > 0;
         }
       } catch {
         // Cross-module attention is supplemental; never block the notification bell.
