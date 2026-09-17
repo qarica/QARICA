@@ -9,14 +9,17 @@ import { QualityRecordEditPanel } from "@/components/quality-record-edit-panel";
 import { RecordActionsPanel } from "@/components/record-actions-panel";
 import { RecordCollaborationPanel } from "@/components/record-collaboration-panel";
 import { RecordHistoryPanel } from "@/components/record-history-panel";
+import { RecordQualityDomainsClient } from "@/components/record-quality-domains-client";
 import { RecordTraceabilityPanel } from "@/components/record-traceability-panel";
 import { StatusBadge } from "@/components/status-badge";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { getModuleOperatingSpec } from "@/lib/module-operating-spec";
+import { canCreateLinkedAction } from "@/lib/source-action-policy";
 import { createClient } from "@/lib/supabase/server";
 
 const STANDARD_PRINT_TYPES = new Set(["FINDING", "CAPA", "RISK", "AUDIT"]);
+const SHARED_DOMAIN_TYPES = new Set(["INCIDENT", "CAPA", "RISK", "FMEA", "INDICATOR_MEASUREMENT", "IMPROVEMENT_PROPOSAL", "IMPROVEMENT_PROJECT"]);
 
 function SpecCard({ title, items }: { title: string; items: string[] }) {
   return <article className="operating-spec-card"><div className="operating-spec-title">{title}</div><ul>{items.map((item, index) => <li key={`${title}-${index}`}>{item}</li>)}</ul></article>;
@@ -46,6 +49,8 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
   const isIncident = record.record_type === "INCIDENT";
   const isCapa = record.record_type === "CAPA";
   const isPriorityWorkflow = isIncident || isCapa;
+  const showSharedDomains = SHARED_DOMAIN_TYPES.has(record.record_type);
+  const canManageDomains = canCreateLinkedAction(user.permissions, record.record_type);
 
   const meta = <section className="panel detail-grid domain-record-meta">
     <div><span>Loại hồ sơ</span><strong>{record.record_type}</strong></div><div><span>Trạng thái Registry</span><StatusBadge status={record.lifecycle_status} /></div>
@@ -69,6 +74,7 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
         <DomainWorkflowPanel recordId={record.id} recordType={record.record_type} />
         <DomainRecordDetail recordType={record.record_type} recordId={record.id} />
         <QualityRecordEditPanel recordId={record.id} recordType={record.record_type} />
+        {showSharedDomains ? <RecordQualityDomainsClient recordId={record.id} canManage={canManageDomains} /> : null}
         <RecordActionsPanel recordId={record.id} recordType={record.record_type} sourceTitle={`${record.record_code} · ${record.title}`} />
         {isIncident ? <IncidentLessonsLearnedClient recordId={record.id} /> : null}
         <OperatingGate spec={spec} />
@@ -79,6 +85,7 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
       <DomainRecordDetail recordType={record.record_type} recordId={record.id} />
       <QualityRecordEditPanel recordId={record.id} recordType={record.record_type} />
       <DomainWorkflowPanel recordId={record.id} recordType={record.record_type} />
+      {showSharedDomains ? <RecordQualityDomainsClient recordId={record.id} canManage={canManageDomains} /> : null}
       <RecordActionsPanel recordId={record.id} recordType={record.record_type} sourceTitle={`${record.record_code} · ${record.title}`} />
       <RecordTraceabilityPanel recordId={record.id} />
       <RecordCollaborationPanel recordId={record.id} />
