@@ -1,0 +1,17 @@
+{
+  "name": "QARICA",
+  "short_name": "QARICA",
+  "description": "Nền tảng Quản trị Chất lượng & Cải tiến",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#eef4fb",
+  "theme_color": "#102848",
+  "icons": [
+    {
+      "src": "/brand/qarica-app-icon-v2.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
