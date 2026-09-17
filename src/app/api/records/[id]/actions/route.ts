@@ -58,13 +58,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!permissionResults.some((result) => result.data === true)) return NextResponse.json({ error: "Bạn chưa có quyền giao Action từ hồ sơ này." }, { status: 403 });
 
   const body = await request.json().catch(() => ({}));
-  const title = String(body.title || "").trim(); const description = String(body.description || "").trim() || null; const priority = String(body.priority || "NORMAL").trim().toUpperCase();
-  const leadDepartmentId = String(body.lead_department_id || "").trim(); const assigneeUserId = String(body.assignee_user_id || "").trim();
-  const startDate = body.start_date ? String(body.start_date) : null; const dueDate = body.due_date ? String(body.due_date) : null;
-  const expectedResult = String(body.expected_result || "").trim(); const verificationRequirement = String(body.verification_requirement || "").trim() || null;
+  const title = String(body.title || "").trim();
+  const description = String(body.description || "").trim() || null;
+  const priority = String(body.priority || "NORMAL").trim().toUpperCase();
+  const leadDepartmentId = String(body.lead_department_id || "").trim();
+  const assigneeUserId = String(body.assignee_user_id || "").trim();
+  const startDate = body.start_date ? String(body.start_date) : null;
+  const dueDate = body.due_date ? String(body.due_date) : null;
+  const expectedResult = String(body.expected_result || "").trim();
+  const verificationRequirement = String(body.verification_requirement || "").trim() || null;
   const capaActionType = String(body.capa_action_type || "CORRECTIVE").toUpperCase();
   const riskTreatmentType = String(body.risk_treatment_type || "REDUCE").toUpperCase();
   const failureModeId = String(body.failure_mode_id || "").trim();
+  const rootCauseIds = Array.from(new Set((Array.isArray(body.root_cause_ids) ? body.root_cause_ids : []).map((value: unknown) => String(value || "").trim()).filter(Boolean)));
+
   if (!title) return NextResponse.json({ error: "Nội dung công việc là bắt buộc." }, { status: 400 });
   if (!leadDepartmentId) return NextResponse.json({ error: "Cần chọn khoa/phòng phụ trách." }, { status: 400 });
   if (!assigneeUserId) return NextResponse.json({ error: "Cần chọn người phụ trách." }, { status: 400 });
@@ -75,6 +82,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (source.record_type === "CAPA" && !CAPA_TYPES.has(capaActionType)) return NextResponse.json({ error: "Loại hành động CAPA không hợp lệ." }, { status: 400 });
   if (source.record_type === "RISK" && !RISK_TYPES.has(riskTreatmentType)) return NextResponse.json({ error: "Biện pháp xử lý rủi ro không hợp lệ." }, { status: 400 });
   if (source.record_type === "FMEA" && !failureModeId) return NextResponse.json({ error: "Cần chọn failure mode mà Action này xử lý." }, { status: 400 });
+  if (!(["INCIDENT", "CAPA"].includes(source.record_type)) && rootCauseIds.length) return NextResponse.json({ error: "Chỉ Action từ Sự cố/CAPA mới được gắn nguyên nhân gốc RCA." }, { status: 400 });
 
   const admin = createAdminClient();
   const [{ data: caller, error: callerError }, { data: department }, { data: assignee }] = await Promise.all([
@@ -96,9 +104,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const rpcPayload = {
-    title, description, priority, lead_department_id: leadDepartmentId, assignee_user_id: assigneeUserId,
-    start_date: startDate, due_date: dueDate, expected_result: expectedResult, verification_requirement: verificationRequirement,
-    capa_action_type: capaActionType, risk_treatment_type: riskTreatmentType, failure_mode_id: failureModeId || null,
+    title,
+    description,
+    priority,
+    lead_department_id: leadDepartmentId,
+    assignee_user_id: assigneeUserId,
+    start_date: startDate,
+    due_date: dueDate,
+    expected_result: expectedResult,
+    verification_requirement: verificationRequirement,
+    capa_action_type: capaActionType,
+    risk_treatment_type: riskTreatmentType,
+    failure_mode_id: failureModeId || null,
+    root_cause_ids: rootCauseIds,
   };
   const { data: tx, error: txError } = await admin.rpc(CREATE_LINKED_ACTION_RPC, { p_source_record_id: source.id, p_actor_user_id: user.id, p_payload: rpcPayload });
   if (!txError) {
@@ -107,17 +125,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   if (!isMissingRpcFunction(txError, CREATE_LINKED_ACTION_RPC)) {
     const txMessage = rpcErrorMessage(txError, "Không tạo được Action liên kết.");
-    return NextResponse.json({ error: txMessage }, { status: /required|invalid|outside organization|not found|must be active|does not support|failure mode/i.test(txMessage) ? 409 : 400 });
+    return NextResponse.json({ error: txMessage }, { status: /required|invalid|outside organization|not found|must be active|does not support|failure mode|root cause|rca/i.test(txMessage) ? 409 : 400 });
   }
 
   const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_org: caller.organization_id, p_record_type: "ACTION", p_work_year: source.work_year });
   if (codeError || !recordCode) return NextResponse.json({ error: codeError?.message || "Không tạo được mã Action." }, { status: 400 });
   const { data: record, error: recordError } = await admin.from("records").insert({ organization_id: caller.organization_id, record_type: "ACTION", record_code: recordCode, title, work_year: source.work_year, owner_department_id: leadDepartmentId, owner_user_id: assigneeUserId, lifecycle_status: "ACTIVE", created_by: user.id }).select("id,record_code").single();
   if (recordError || !record) return NextResponse.json({ error: recordError?.message || "Không tạo được hồ sơ Action." }, { status: 400 });
-  const { data: action, error: actionError } = await admin.from("actions").insert({ record_id: record.id, description, priority, lead_department_id: leadDepartmentId, assignee_user_id: assigneeUserId, start_date: startDate, due_date: dueDate, expected_result: expectedResult, verification_requirement: verificationRequirement, workflow_status: "NOT_STARTED" }).select("id").single();
+  const { data: action, error: actionError } = await admin.from("actions").insert({ record_id: record.id, title, description, priority, lead_department_id: leadDepartmentId, assignee_user_id: assigneeUserId, start_date: startDate, due_date: dueDate, expected_result: expectedResult, verification_requirement: verificationRequirement, workflow_status: "NOT_STARTED" }).select("id").single();
   if (actionError || !action) { await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id); return NextResponse.json({ error: actionError?.message || "Không tạo được nội dung Action." }, { status: 400 }); }
 
-  const { error: linkError } = await admin.from("record_links").insert({ source_record_id: source.id, target_record_id: record.id, relation_type: "HAS_ACTION", metadata: { source_record_type: source.record_type, source_record_code: source.record_code, failure_mode_id: failureModeId || null }, created_by: user.id });
+  const { error: linkError } = await admin.from("record_links").insert({ source_record_id: source.id, target_record_id: record.id, relation_type: "HAS_ACTION", metadata: { source_record_type: source.record_type, source_record_code: source.record_code, failure_mode_id: failureModeId || null, root_cause_ids: rootCauseIds }, created_by: user.id });
   if (linkError) { await admin.from("actions").update({ workflow_status: "CANCELLED" }).eq("id", action.id); await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id); return NextResponse.json({ error: `Không liên kết được Action với hồ sơ nguồn: ${linkError.message}` }, { status: 400 }); }
 
   const specialized = await addSpecializedLink(admin, source, action.id, record.id, user.id, { ...body, capa_action_type: capaActionType, risk_treatment_type: riskTreatmentType, failure_mode_id: failureModeId });
@@ -129,7 +147,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: `Không liên kết được Action với workflow chuyên biệt: ${specialized.error.message}` }, { status: 400 });
   }
 
+  if (rootCauseIds.length) {
+    const { error: rootLinkError } = await admin.rpc("qlcl_attach_action_root_causes_v1", { p_source_record_id: source.id, p_action_id: action.id, p_actor_user_id: user.id, p_root_cause_ids: rootCauseIds });
+    if (rootLinkError) {
+      await admin.from("actions").update({ workflow_status: "CANCELLED" }).eq("id", action.id);
+      await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id);
+      return NextResponse.json({ error: `Không liên kết được Action với nguyên nhân gốc RCA: ${rootLinkError.message}` }, { status: 409 });
+    }
+  }
+
   await admin.from("notifications").upsert({ recipient_user_id: assigneeUserId, notification_type: "ACTION_ASSIGNED", priority, title: "Bạn được giao công việc mới", message: `${title} · nguồn ${source.record_code}`, target_record_id: record.id, target_route: `/tasks/${record.id}`, notification_event_key: `record-action:${source.id}:${action.id}:${assigneeUserId}`, is_read: false }, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true });
-  await admin.from("audit_logs").insert({ actor_user_id: user.id, record_id: source.id, table_name: "record_links", row_id: record.id, action_type: "CREATE_LINKED_ACTION", new_value: { action_record_id: record.id, action_id: action.id, title, due_date: dueDate, assignee_user_id: assigneeUserId, failure_mode_id: failureModeId || null }, request_meta: { source: "qlcl-ui", source_record_type: source.record_type, transaction: "legacy-fallback" } });
+  await admin.from("audit_logs").insert({ actor_user_id: user.id, record_id: source.id, table_name: "record_links", row_id: record.id, action_type: "CREATE_LINKED_ACTION", new_value: { action_record_id: record.id, action_id: action.id, title, due_date: dueDate, assignee_user_id: assigneeUserId, failure_mode_id: failureModeId || null, root_cause_ids: rootCauseIds }, request_meta: { source: "qlcl-ui", source_record_type: source.record_type, transaction: "legacy-fallback" } });
   return NextResponse.json({ ok: true, action_id: action.id, record_id: record.id, record_code: record.record_code, transaction: "legacy-fallback" });
 }
