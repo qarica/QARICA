@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 
 type Department = { id: string; name: string; short_name?: string | null };
 type Profile = { user_id: string; full_name?: string | null; email?: string | null; primary_department_id?: string | null };
+type FailureMode = { id: string; label: string; high?: boolean };
 
-export function RecordActionCreateClient({ recordId, recordType, sourceTitle, departments, profiles }: { recordId: string; recordType: string; sourceTitle: string; departments: Department[]; profiles: Profile[] }) {
+export function RecordActionCreateClient({ recordId, recordType, sourceTitle, departments, profiles, failureModes = [] }: { recordId: string; recordType: string; sourceTitle: string; departments: Department[]; profiles: Profile[]; failureModes?: FailureMode[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [departmentId, setDepartmentId] = useState("");
@@ -15,17 +16,9 @@ export function RecordActionCreateClient({ recordId, recordType, sourceTitle, de
   const visibleProfiles = useMemo(() => profiles.filter((p) => !departmentId || !p.primary_department_id || p.primary_department_id === departmentId), [profiles, departmentId]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const raw = Object.fromEntries(new FormData(form).entries());
-    setBusy(true); setError("");
-    try {
-      const response = await fetch(`/api/records/${recordId}/actions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(raw) });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || "Không tạo được công việc.");
-      form.reset(); setDepartmentId(""); setOpen(false); router.refresh();
-    } catch (err) { setError(err instanceof Error ? err.message : "Không tạo được công việc."); }
-    finally { setBusy(false); }
+    event.preventDefault(); const form = event.currentTarget; const raw = Object.fromEntries(new FormData(form).entries()); setBusy(true); setError("");
+    try { const response = await fetch(`/api/records/${recordId}/actions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(raw) }); const result = await response.json().catch(() => ({})); if (!response.ok) throw new Error(result.error || "Không tạo được công việc."); form.reset(); setDepartmentId(""); setOpen(false); router.refresh(); }
+    catch (err) { setError(err instanceof Error ? err.message : "Không tạo được công việc."); } finally { setBusy(false); }
   }
 
   return <>
@@ -34,6 +27,7 @@ export function RecordActionCreateClient({ recordId, recordType, sourceTitle, de
       <div className="modal-head"><div><strong>Giao công việc</strong><div className="subline">Nguồn: {sourceTitle}</div></div><button className="icon-button" type="button" onClick={() => setOpen(false)}>×</button></div>
       <form onSubmit={submit}><div className="modal-body form-stack">
         {error ? <div className="alert error">{error}</div> : null}
+        {recordType === "FMEA" ? <label>Failure mode cần xử lý<select name="failure_mode_id" required><option value="">Chọn failure mode</option>{failureModes.map((m) => <option key={m.id} value={m.id}>{m.high ? "[Ưu tiên cao] " : ""}{m.label}</option>)}</select></label> : null}
         <label>Nội dung công việc<input name="title" required placeholder="Việc cần thực hiện" /></label>
         <div className="form-grid two">
           <label>Khoa/Phòng phụ trách<select name="lead_department_id" required value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}><option value="">Chọn khoa/phòng</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select></label>
