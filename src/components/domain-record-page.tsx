@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DomainRecordDetail } from "@/components/domain-record-detail";
 import { DomainWorkflowPanel } from "@/components/domain-workflow-panel";
+import { IncidentLessonsLearnedClient } from "@/components/incident-lessons-learned-client";
 import { IncidentPrintActions } from "@/components/incident-print-actions";
 import { PageHeader } from "@/components/page-header";
 import { QualityRecordEditPanel } from "@/components/quality-record-edit-panel";
@@ -69,6 +70,7 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
         <DomainRecordDetail recordType={record.record_type} recordId={record.id} />
         <QualityRecordEditPanel recordId={record.id} recordType={record.record_type} />
         <RecordActionsPanel recordId={record.id} recordType={record.record_type} sourceTitle={`${record.record_code} · ${record.title}`} />
+        {isIncident ? <IncidentLessonsLearnedClient recordId={record.id} /> : null}
         <OperatingGate spec={spec} />
       </div>
       <details className="priority-support-details"><summary>Thông tin quản trị, liên kết và lịch sử hồ sơ</summary><div className="priority-support-body">{meta}<RecordTraceabilityPanel recordId={record.id} /><RecordCollaborationPanel recordId={record.id} /><RecordHistoryPanel recordId={record.id} /></div></details>
