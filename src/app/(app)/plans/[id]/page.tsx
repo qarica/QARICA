@@ -33,10 +33,14 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   if (programError) return <div className="alert error">Không tải được kế hoạch: {programError.message}</div>;
   if (!program) notFound();
 
-  const { data: caller83 } = await supabase.from("profiles").select("organization_id").eq("user_id", user.id).maybeSingle();
-  const { data: criteriaVersion83 } = caller83?.organization_id
-    ? await supabase.from("criteria_set_versions").select("id, criteria_sets!inner(code, organization_id)").eq("criteria_sets.code", "83TC-BYT").eq("criteria_sets.organization_id", caller83.organization_id).maybeSingle()
-    : { data: null };
+  let criteriaVersion83Id: string | null = null;
+  if (user.organizationId) {
+    const { data: criteriaSet83 } = await supabase.from("criteria_sets").select("id").eq("code", "83TC-BYT").eq("organization_id", user.organizationId).maybeSingle();
+    if (criteriaSet83?.id) {
+      const { data: version83 } = await supabase.from("criteria_set_versions").select("id").eq("criteria_set_id", criteriaSet83.id).maybeSingle();
+      criteriaVersion83Id = version83?.id ?? null;
+    }
+  }
 
   const [recordRes, progressRes, departmentRes, ownerRes, approverRes, linksRes, departmentsRes, profilesRes, criteriaRes] = await Promise.all([
     supabase.from("records").select("id,record_code,title,work_year,lifecycle_status,created_by,created_at,updated_at").eq("id", program.record_id).maybeSingle(),
@@ -47,8 +51,8 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
     supabase.from("program_action_links").select("action_id,relation_type,weight,sequence_no,milestone_group,is_required").eq("program_id", id).order("sequence_no", { ascending: true, nullsFirst: false }),
     supabase.from("departments").select("id,name,short_name").eq("is_active", true).order("name"),
     supabase.from("profiles").select("user_id,full_name,email,primary_department_id").eq("is_active", true).order("full_name", { ascending: true, nullsFirst: false }),
-    criteriaVersion83?.id
-      ? supabase.from("criteria_items").select("id,code,title").eq("criteria_version_id", criteriaVersion83.id).order("sequence_no", { ascending: true })
+    criteriaVersion83Id
+      ? supabase.from("criteria_items").select("id,code,title").eq("criteria_version_id", criteriaVersion83Id).order("sequence_no", { ascending: true })
       : Promise.resolve({ data: [], error: null }),
   ]);
 
