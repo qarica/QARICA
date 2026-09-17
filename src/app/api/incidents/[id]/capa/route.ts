@@ -15,7 +15,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { data: source } = await supabase.from("records").select("id,lifecycle_status").eq("id", incidentRecordId).eq("record_type", "INCIDENT").maybeSingle();
   if (!source) return NextResponse.json({ error: "Không tìm thấy sự cố hoặc ngoài phạm vi truy cập." }, { status: 404 });
   const [{ data: incident }, { data: links }] = await Promise.all([
-    supabase.from("incidents").select("workflow_status").eq("record_id", incidentRecordId).maybeSingle(),
+    supabase.from("incidents").select("id,workflow_status,rca_required").eq("record_id", incidentRecordId).maybeSingle(),
     supabase.from("record_links").select("target_record_id").eq("source_record_id", incidentRecordId).eq("relation_type", "GENERATED_CAPA"),
   ]);
   const ids = (links ?? []).map((x: any) => x.target_record_id).filter(Boolean);
@@ -28,7 +28,20 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       linkedCapa = { id: record.id, code: record.record_code, status: String(capa?.workflow_status || record.lifecycle_status) };
     }
   }
-  return NextResponse.json({ ok: true, can_create: !!canInvestigate && !!canManageCapa && source.lifecycle_status === "ACTIVE" && ["INVESTIGATING", "ACTION_FOLLOW_UP"].includes(String(incident?.workflow_status || "")) && !linkedCapa, linked_capa: linkedCapa });
+  let completedRcaId: string | null = null;
+  if (incident?.id) {
+    const { data: rca } = await admin.from("rca_analyses").select("id").eq("incident_id", incident.id).eq("status", "COMPLETED").order("completed_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+    completedRcaId = rca?.id ? String(rca.id) : null;
+  }
+  const rcaReady = !incident?.rca_required || !!completedRcaId;
+  return NextResponse.json({
+    ok: true,
+    can_create: !!canInvestigate && !!canManageCapa && source.lifecycle_status === "ACTIVE" && ["INVESTIGATING", "ACTION_FOLLOW_UP"].includes(String(incident?.workflow_status || "")) && rcaReady && !linkedCapa,
+    linked_capa: linkedCapa,
+    rca_required: !!incident?.rca_required,
+    rca_ready: rcaReady,
+    rca_analysis_id: completedRcaId,
+  });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -52,9 +65,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: incident } = await admin.from("incidents").select("id,workflow_status,verified_description,summary,lead_department_id,case_owner_user_id,rca_required").eq("record_id", incidentRecordId).maybeSingle();
   if (!incident) return NextResponse.json({ error: "Không tìm thấy dữ liệu nghiệp vụ của sự cố." }, { status: 404 });
   if (!["INVESTIGATING", "ACTION_FOLLOW_UP"].includes(String(incident.workflow_status))) return NextResponse.json({ error: "Chỉ tạo CAPA sau khi sự cố đã vào bước điều tra/RCA hoặc theo dõi hành động." }, { status: 409 });
+
+  const { data: completedRca } = await admin.from("rca_analyses").select("id,status").eq("incident_id", incident.id).eq("status", "COMPLETED").order("completed_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+  if (incident.rca_required && !completedRca?.id) return NextResponse.json({ error: "Sự cố yêu cầu RCA: phải hoàn tất RCA có cấu trúc trước khi tạo CAPA." }, { status: 409 });
+
   const { data: existingLinks } = await admin.from("record_links").select("target_record_id").eq("source_record_id", incidentRecordId).eq("relation_type", "GENERATED_CAPA");
   const existingIds = (existingLinks ?? []).map((x: any) => x.target_record_id).filter(Boolean);
-  if (existingIds.length) { const { data: active } = await admin.from("records").select("id,record_code,title,lifecycle_status").in("id", existingIds).eq("record_type", "CAPA").neq("lifecycle_status", "ARCHIVED").limit(1).maybeSingle(); if (active) return NextResponse.json({ error: `Sự cố đã có CAPA liên kết ${active.record_code}.`, record_id: active.id, record_code: active.record_code }, { status: 409 }); }
+  if (existingIds.length) {
+    const { data: active } = await admin.from("records").select("id,record_code,title,lifecycle_status").in("id", existingIds).eq("record_type", "CAPA").neq("lifecycle_status", "ARCHIVED").limit(1).maybeSingle();
+    if (active) return NextResponse.json({ error: `Sự cố đã có CAPA liên kết ${active.record_code}.`, record_id: active.id, record_code: active.record_code }, { status: 409 });
+  }
+
   const problemStatement = String(body.problem_statement || incident.verified_description || incident.summary || source.title || "").trim();
   if (!problemStatement) return NextResponse.json({ error: "Cần có mô tả vấn đề làm căn cứ CAPA." }, { status: 400 });
   const priority = String(body.priority || (incident.rca_required ? "HIGH" : "NORMAL")).toUpperCase();
@@ -68,10 +89,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: record, error: recordError } = await admin.from("records").insert({ organization_id: source.organization_id, record_type: "CAPA", record_code: code, title, work_year: source.work_year, owner_department_id: ownerDepartmentId, owner_user_id: ownerUserId, lifecycle_status: "ACTIVE", created_by: auth.user.id }).select("id,record_code").single();
   if (recordError || !record) return NextResponse.json({ error: recordError?.message || "Không tạo được hồ sơ CAPA." }, { status: 400 });
   const rollback = async () => { await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id); };
-  const { data: capa, error: capaError } = await admin.from("capas").insert({ record_id: record.id, problem_statement: problemStatement, priority, lead_department_id: ownerDepartmentId, owner_user_id: ownerUserId, workflow_status: "DRAFT", approval_required: body.approval_required !== false, effectiveness_due_date: effectivenessDueDate }).select("id").single();
+  const { data: capa, error: capaError } = await admin.from("capas").insert({ record_id: record.id, problem_statement: problemStatement, priority, lead_department_id: ownerDepartmentId, owner_user_id: ownerUserId, workflow_status: "DRAFT", approval_required: body.approval_required !== false, effectiveness_due_date: effectivenessDueDate, rca_analysis_id: completedRca?.id || null }).select("id").single();
   if (capaError || !capa) { await rollback(); return NextResponse.json({ error: capaError?.message || "Không tạo được nội dung CAPA." }, { status: 400 }); }
-  const { error: linkError } = await admin.from("record_links").insert({ source_record_id: incidentRecordId, target_record_id: record.id, relation_type: "GENERATED_CAPA", metadata: { source_record_type: "INCIDENT", source_record_code: source.record_code, source_incident_id: incident.id, rca_required: !!incident.rca_required }, created_by: auth.user.id });
+  const { error: linkError } = await admin.from("record_links").insert({ source_record_id: incidentRecordId, target_record_id: record.id, relation_type: "GENERATED_CAPA", metadata: { source_record_type: "INCIDENT", source_record_code: source.record_code, source_incident_id: incident.id, rca_required: !!incident.rca_required, rca_analysis_id: completedRca?.id || null }, created_by: auth.user.id });
   if (linkError) { await admin.from("capas").delete().eq("id", capa.id); await rollback(); return NextResponse.json({ error: `Không liên kết được CAPA với sự cố nguồn: ${linkError.message}` }, { status: 400 }); }
-  await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: incidentRecordId, table_name: "record_links", row_id: record.id, action_type: "GENERATE_CAPA_FROM_INCIDENT", new_value: { capa_record_id: record.id, capa_id: capa.id, record_code: record.record_code, priority }, request_meta: { source: "qlcl-ui", source_record_type: "INCIDENT" } });
-  return NextResponse.json({ ok: true, record_id: record.id, capa_id: capa.id, record_code: record.record_code, message: `Đã tạo ${record.record_code} và liên kết với sự cố nguồn.` });
+  await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: incidentRecordId, table_name: "record_links", row_id: record.id, action_type: "GENERATE_CAPA_FROM_INCIDENT", new_value: { capa_record_id: record.id, capa_id: capa.id, record_code: record.record_code, priority, rca_analysis_id: completedRca?.id || null }, request_meta: { source: "qlcl-ui", source_record_type: "INCIDENT" } });
+  return NextResponse.json({ ok: true, record_id: record.id, capa_id: capa.id, record_code: record.record_code, rca_analysis_id: completedRca?.id || null, message: `Đã tạo ${record.record_code} và liên kết với sự cố nguồn.` });
 }
