@@ -33,7 +33,12 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   if (programError) return <div className="alert error">Không tải được kế hoạch: {programError.message}</div>;
   if (!program) notFound();
 
-  const [recordRes, progressRes, departmentRes, ownerRes, approverRes, linksRes, departmentsRes, profilesRes] = await Promise.all([
+  const { data: caller83 } = await supabase.from("profiles").select("organization_id").eq("user_id", user.id).maybeSingle();
+  const { data: criteriaVersion83 } = caller83?.organization_id
+    ? await supabase.from("criteria_set_versions").select("id, criteria_sets!inner(code, organization_id)").eq("criteria_sets.code", "83TC-BYT").eq("criteria_sets.organization_id", caller83.organization_id).maybeSingle()
+    : { data: null };
+
+  const [recordRes, progressRes, departmentRes, ownerRes, approverRes, linksRes, departmentsRes, profilesRes, criteriaRes] = await Promise.all([
     supabase.from("records").select("id,record_code,title,work_year,lifecycle_status,created_by,created_at,updated_at").eq("id", program.record_id).maybeSingle(),
     supabase.from("vw_program_progress").select("program_id,required_actions,completed_actions,progress_pct,overdue_actions").eq("program_id", id).maybeSingle(),
     program.lead_department_id ? supabase.from("departments").select("id,name,short_name").eq("id", program.lead_department_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -42,6 +47,9 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
     supabase.from("program_action_links").select("action_id,relation_type,weight,sequence_no,milestone_group,is_required").eq("program_id", id).order("sequence_no", { ascending: true, nullsFirst: false }),
     supabase.from("departments").select("id,name,short_name").eq("is_active", true).order("name"),
     supabase.from("profiles").select("user_id,full_name,email,primary_department_id").eq("is_active", true).order("full_name", { ascending: true, nullsFirst: false }),
+    criteriaVersion83?.id
+      ? supabase.from("criteria_items").select("id,code,title").eq("criteria_version_id", criteriaVersion83.id).order("sequence_no", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (!recordRes.data) notFound();
@@ -103,6 +111,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       planId={id}
       departments={(departmentsRes.data ?? []) as any[]}
       profiles={(profilesRes.data ?? []) as any[]}
+      criteriaItems={(criteriaRes.data ?? []) as any[]}
       initialTitle={recordRes.data.title}
       initialGeneralObjective={program.general_objective}
       initialSpecificObjectives={program.specific_objectives}

@@ -6,6 +6,7 @@ import { Icon } from "@/components/icon";
 
 type Department = { id: string; name: string; short_name: string | null };
 type Profile = { user_id: string; full_name: string | null; email: string | null };
+type CriterionItem = { id: string; code: string; title: string };
 
 type DraftTask = {
   title: string;
@@ -17,9 +18,10 @@ type DraftTask = {
   expected_result: string;
   verification_requirement: string;
   description: string;
+  criteria_refs: string[];
 };
 
-const EMPTY_TASK: DraftTask = { title: "", lead_department_id: "", assignee_user_id: "", start_date: "", due_date: "", priority: "NORMAL", expected_result: "", verification_requirement: "", description: "" };
+const EMPTY_TASK: DraftTask = { title: "", lead_department_id: "", assignee_user_id: "", start_date: "", due_date: "", priority: "NORMAL", expected_result: "", verification_requirement: "", description: "", criteria_refs: [] };
 
 function toTask(raw: any): DraftTask {
   return {
@@ -32,6 +34,7 @@ function toTask(raw: any): DraftTask {
     expected_result: raw?.expected_result || "",
     verification_requirement: raw?.verification_requirement || "",
     description: raw?.description || "",
+    criteria_refs: Array.isArray(raw?.criteria_refs) ? raw.criteria_refs : [],
   };
 }
 
@@ -39,6 +42,7 @@ export function PlanComposerClient({
   planId,
   departments,
   profiles,
+  criteriaItems,
   initialTitle,
   initialGeneralObjective,
   initialSpecificObjectives,
@@ -52,6 +56,7 @@ export function PlanComposerClient({
   planId: string;
   departments: Department[];
   profiles: Profile[];
+  criteriaItems: CriterionItem[];
   initialTitle: string;
   initialGeneralObjective: string | null;
   initialSpecificObjectives: unknown;
@@ -72,6 +77,13 @@ export function PlanComposerClient({
 
   function updateTask(index: number, patch: Partial<DraftTask>) {
     setTasks((prev) => prev.map((t, i) => (i === index ? { ...t, ...patch } : t)));
+  }
+  function toggleCriterion(index: number, code: string) {
+    setTasks((prev) => prev.map((t, i) => {
+      if (i !== index) return t;
+      const has = t.criteria_refs.includes(code);
+      return { ...t, criteria_refs: has ? t.criteria_refs.filter((c) => c !== code) : [...t.criteria_refs, code] };
+    }));
   }
   function addTask() {
     setTasks((prev) => [...prev, { ...EMPTY_TASK, lead_department_id: defaultDepartmentId || "" }]);
@@ -166,6 +178,18 @@ export function PlanComposerClient({
               <label className="span-2">Kết quả kỳ vọng *<input value={t.expected_result} onChange={(e) => updateTask(i, { expected_result: e.target.value })} /></label>
               <label className="span-2">Yêu cầu minh chứng (không bắt buộc)<input value={t.verification_requirement} onChange={(e) => updateTask(i, { verification_requirement: e.target.value })} /></label>
               <label className="span-2">Mô tả thêm (không bắt buộc)<textarea rows={2} value={t.description} onChange={(e) => updateTask(i, { description: e.target.value })} /></label>
+              {criteriaItems.length ? <div className="span-2">
+                <span className="tiny muted">Liên quan đến tiêu chí nào trong 83 tiêu chí (không bắt buộc)</span>
+                <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 8, padding: 8, marginTop: 6, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 4 }}>
+                  {criteriaItems.map((c) => (
+                    <label key={c.id} style={{ display: "flex", gap: 6, alignItems: "flex-start", fontSize: 12, fontWeight: 400 }}>
+                      <input type="checkbox" checked={t.criteria_refs.includes(c.code)} onChange={() => toggleCriterion(i, c.code)} style={{ marginTop: 2 }} />
+                      <span><strong>{c.code}</strong> — {c.title}</span>
+                    </label>
+                  ))}
+                </div>
+                {t.criteria_refs.length ? <div style={{ marginTop: 4, fontSize: 11.5, color: "#0f766e" }}>Đã chọn: {t.criteria_refs.join(", ")}</div> : null}
+              </div> : null}
             </div>
           </div>
         ))}
