@@ -42,7 +42,7 @@ export default async function DashboardPage(){
  const projectRows=projects.map((p:any)=>{const r:any=recordMap.get(p.record_id);const acts=(projectActions.get(p.record_id)??[]).filter((a:any)=>!["CANCELLED","NOT_APPLICABLE"].includes(String(a.workflow_status)));const done=acts.filter((a:any)=>a.workflow_status==="COMPLETED").length;const progress=acts.length?Math.round(done/acts.length*100):0;const overdue=acts.filter((a:any)=>a.workflow_status!=="COMPLETED"&&a.due_date&&a.due_date<today).length;return{...p,title:r?.title||"Đề án cải tiến",record_code:r?.record_code||"—",actions:acts.length,completed:done,progress,overdue}}); const projectKpi=buildProjectActionKpi(projectRows); const projectPct=projectKpi.percentage;
  const ganttRows=projectRows.filter((x:any)=>x.start_date&&x.target_end_date).slice(0,10).map((x:any)=>({label:x.title,start:x.start_date,end:x.target_end_date,progress:x.progress,tone:x.overdue?"red" as const:x.progress>=75?"green" as const:"blue" as const}));
 
- const findings=((findingsRes.data??[]) as any[]).filter((x:any)=>recordIds.has(x.record_id)&&!["CLOSED","CANCELLED"].includes(String(x.workflow_status))); const capas=((capasRes.data??[]) as any[]).filter((x:any)=>recordIds.has(x.record_id)&&!["CLOSED","CANCELLED","EFFECTIVE"].includes(String(x.workflow_status))); const incidents=((incidentsRes.data??[]) as any[]).filter((x:any)=>recordIds.has(x.record_id)&&!["CLOSED","CANCELLED"].includes(String(x.workflow_status))); const serious=incidents.filter((x:any)=>x.serious_event_flag).length; const overdueFindings=findings.filter((x:any)=>x.due_date&&x.due_date<today).length; const capaDue=capas.filter((x:any)=>String(x.workflow_status)==="EFFECTIVENESS_REVIEW"||isDueOnOrBeforeToday(x.effectiveness_due_date,today)).length;
+ const findings=((findingsRes.data??[]) as any[]).filter((x:any)=>recordIds.has(x.record_id)&&!["CLOSED","CANCELLED"].includes(String(x.workflow_status))); const capas=((capasRes.data??[]) as any[]).filter((x:any)=>recordIds.has(x.record_id)&&!["CLOSED","CANCELLED","EFFECTIVE"].includes(String(x.workflow_status))); const incidents=((incidentsRes.data??[]) as any[]).filter((x:any)=>recordIds.has(x.record_id)&&!["CLOSED","CANCELLED"].includes(String(x.workflow_status))); const serious=incidents.filter((x:any)=>x.serious_event_flag).length; const overdueFindings=findings.filter((x:any)=>x.due_date&&x.due_date<today).length; const capaDue=capas.filter((x:any)=>String(x.workflow_status)==="EFFECTIVENESS_REVIEW"||isDueOnOrBeforeToday(x.effectiveness_due_date,today)).length; const activeProjects=projects.filter((x:any)=>!["COMPLETED","CLOSED","CANCELLED"].includes(String(x.workflow_status))).length;
  const hotspots=[
   {label:"Sự cố nghiêm trọng",value:serious,href:"/incidents",tone:"red" as const},
   {label:"Finding quá hạn",value:overdueFindings,href:"/findings",tone:"red" as const},
@@ -52,29 +52,33 @@ export default async function DashboardPage(){
  ];
  const priorityTotal=hotspots.reduce((sum,item)=>sum+item.value,0);
  const hasPrioritySignals=priorityTotal>0;
+ const dailyKpis=[
+  {label:"Sự cố đang mở",value:incidents.length,detail:`${serious} nghiêm trọng`,href:"/incidents",tone:serious?"danger":"neutral"},
+  {label:"Sự cố nghiêm trọng",value:serious,detail:"Cần ưu tiên rà soát",href:"/incidents",tone:serious?"danger":"neutral"},
+  {label:"Finding quá hạn",value:overdueFindings,detail:`${findings.length} finding đang mở`,href:"/findings",tone:overdueFindings?"danger":"neutral"},
+  {label:"CAPA đến hạn",value:capaDue,detail:`${capas.length} CAPA đang theo dõi`,href:"/capa",tone:capaDue?"warning":"neutral"},
+  {label:"Đề án đang triển khai",value:activeProjects,detail:`${projectKpi.completed}/${projectKpi.actions} action hoàn thành`,href:"/improvement",tone:"neutral"},
+ ];
 
  return <div className="page-stack tqm-dashboard">
   <style>{TQM_CHART_CSS}</style>
-  <PageHeader eyebrow={`QARICA QUALITY OVERVIEW · ${year}`} title="Tổng quan chất lượng" description="Màn hình đầu tiên chỉ ưu tiên những thông tin cần quyết định hoặc xử lý; phân tích TQM chuyên sâu được đặt phía dưới để xem khi cần." />
+  <PageHeader eyebrow={`QARICA · ĐIỀU HÀNH QLCL · ${year}`} title="Tổng quan chất lượng" description="Ưu tiên việc cần xử lý trước; số liệu phân tích và công cụ TQM chuyên sâu được đặt phía dưới." />
   {firstError?<div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div>:null}
+
+  <section className="kpis" aria-label="Chỉ số điều hành hằng ngày">
+   {dailyKpis.map((item)=><Link key={item.label} href={item.href} className={`kpi kpi-link ${item.tone}`}><span>{item.label}</span><strong>{item.value}</strong><small>{item.detail}</small></Link>)}
+  </section>
 
   <section className={`dashboard-priority ${hasPrioritySignals?"has-alert":"clear"}`}>
    <div className="priority-copy">
-    <div className="eyebrow">CẦN BIẾT NGAY</div>
-    <h2>{hasPrioritySignals?`${priorityTotal} tín hiệu cần ưu tiên xử lý`:`Chưa có tín hiệu ưu tiên cần xử lý ngay`}</h2>
-    <p>{hasPrioritySignals?"Các mục bên cạnh được sắp theo nhóm rủi ro vận hành cấp bệnh viện. Mở từng mục để xử lý chi tiết.":"Tiếp tục theo dõi 4 chỉ số điều hành chính và công việc được giao cho cá nhân."}</p>
+    <div className="eyebrow">VIỆC CẦN XỬ LÝ</div>
+    <h2>{hasPrioritySignals?`${priorityTotal} tín hiệu cần ưu tiên`:`Chưa có tín hiệu ưu tiên cần xử lý ngay`}</h2>
+    <p>{hasPrioritySignals?"Các tín hiệu được gom theo rủi ro vận hành. Chọn từng mục để đi thẳng tới danh sách xử lý.":"Tiếp tục theo dõi công việc được giao và các chỉ số điều hành."}</p>
     <div className="priority-actions"><Link className="button primary" href="/tasks">Mở Việc của tôi</Link><Link className="button secondary" href="/assistant">Hỏi Trợ lý QLCL</Link></div>
    </div>
    <div className="priority-items">
     {hotspots.map((item)=><Link key={item.label} href={item.href} className={`priority-item ${item.tone}`}><span>{item.label}</span><strong>{item.value}</strong></Link>)}
    </div>
-  </section>
-
-  <section className="kpis">
-   <article className="kpi"><span>Hoàn thành kế hoạch năm</span><strong>{planPct}%</strong><small>{planDone}/{planReq} Action · {planOverdue} quá hạn</small></article>
-   <article className="kpi"><span>Chỉ số đạt mục tiêu</span><strong>{indicatorPct}%</strong><small>{inTarget}/{evaluableIndicators.length} kỳ đã có kết luận</small></article>
-   <article className="kpi"><span>Kết quả giám sát đạt</span><strong>{monitoringPct}%</strong><small>{monitorPass}/{monitorPass+monitorFail} mục đã chấm</small></article>
-   <article className="kpi"><span>Action đề án cải tiến</span><strong>{projectPct}%</strong><small>{projectKpi.completed}/{projectKpi.actions} Action · {projectRows.length} đề án</small></article>
   </section>
 
   <section className="dashboard-grid">
@@ -83,9 +87,15 @@ export default async function DashboardPage(){
   </section>
 
   <details className="deep-dive">
-   <summary>Phân tích TQM chuyên sâu</summary>
+   <summary>Báo cáo và phân tích TQM chuyên sâu</summary>
    <div className="deep-dive-body">
-    <p className="deep-dive-note">Các công cụ dưới đây phục vụ phân tích nguyên nhân, cân bằng hệ thống và theo dõi cải tiến. Không cần xem trước khi xử lý các tín hiệu ưu tiên ở phía trên.</p>
+    <p className="deep-dive-note">Khu vực này phục vụ phân tích, cân bằng hệ thống và theo dõi cải tiến; không làm gián đoạn luồng xử lý công việc hằng ngày.</p>
+    <section className="kpis">
+     <article className="kpi"><span>Hoàn thành kế hoạch năm</span><strong>{planPct}%</strong><small>{planDone}/{planReq} Action · {planOverdue} quá hạn</small></article>
+     <article className="kpi"><span>Chỉ số đạt mục tiêu</span><strong>{indicatorPct}%</strong><small>{inTarget}/{evaluableIndicators.length} kỳ đã có kết luận</small></article>
+     <article className="kpi"><span>Kết quả giám sát đạt</span><strong>{monitoringPct}%</strong><small>{monitorPass}/{monitorPass+monitorFail} mục đã chấm</small></article>
+     <article className="kpi"><span>Action đề án cải tiến</span><strong>{projectPct}%</strong><small>{projectKpi.completed}/{projectKpi.actions} Action · {projectRows.length} đề án</small></article>
+    </section>
     <TqmSmartCommandCenter year={year} />
     <TqmPriorityBoard serious={serious} overdueFindings={overdueFindings} capaDue={capaDue} outTarget={outTarget} planOverdue={planOverdue} />
     <TqmProcessMap planPct={planPct} indicatorPct={indicatorPct} monitoringPct={monitoringPct} openFindings={findings.length} capaDue={capaDue} projectPct={projectPct} />
