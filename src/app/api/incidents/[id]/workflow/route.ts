@@ -5,6 +5,7 @@ import { incidentReadyToCloseGate } from "@/lib/quality-gates";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 const HARM = new Set(["NO_HARM", "MILD", "MODERATE", "SEVERE", "DEATH", "NEAR_MISS"]);
+const REJECT_REASONS = new Set(["DUPLICATE", "INSUFFICIENT_INFO", "NOT_A_MEDICAL_INCIDENT", "OTHER"]);
 const START_INV_RPC = "qlcl_start_incident_investigation_v1";
 const COMPLETE_INV_RPC = "qlcl_complete_incident_investigation_v1";
 const CLOSE_RPC = "qlcl_close_incident_v1";
@@ -16,7 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const body: any = await request.json().catch(() => ({}));
   const command = String(body.action || "").toUpperCase();
-  const permission = command === "CLOSE" ? "incident.close" : command === "TRIAGE" ? "incident.triage" : "incident.investigate";
+  const permission = command === "CLOSE" ? "incident.close" : command === "TRIAGE" || command === "REJECT" ? "incident.triage" : "incident.investigate";
   const [{ data: allowed }, { data: canTriage }] = await Promise.all([
     supabase.rpc("has_permission", { p_permission_code: permission }),
     supabase.rpc("has_permission", { p_permission_code: "incident.triage" }),
@@ -38,7 +39,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let reason = String(body.comment || "").trim() || null;
   let message = "Đã cập nhật sự cố.";
 
-  if (command === "TRIAGE") {
+  if (command === "REJECT") {
+    if (!["REPORTED", "RETURNED"].includes(oldStatus)) return NextResponse.json({ error: "Chỉ có thể từ chối hồ sơ đang ở bước tiếp nhận/xác minh." }, { status: 409 });
+    const reasonCode = String(body.reject_reason_code || "").toUpperCase();
+    if (!REJECT_REASONS.has(reasonCode)) return NextResponse.json({ error: "Vui lòng chọn lý do từ chối hợp lệ." }, { status: 400 });
+    const note = String(body.comment || "").trim();
+    if (reasonCode === "OTHER" && !note) return NextResponse.json({ error: "Lý do \"Khác\" cần ghi rõ nội dung." }, { status: 400 });
+    const REASON_LABEL: Record<string, string> = { DUPLICATE: "Trùng lặp với báo cáo khác", INSUFFICIENT_INFO: "Không đủ thông tin để xác minh dù đã liên hệ", NOT_A_MEDICAL_INCIDENT: "Không phải sự cố y khoa (hiểu lầm/ngoài phạm vi)", OTHER: "Khác" };
+    reason = `${REASON_LABEL[reasonCode]}${note ? `: ${note}` : ""}`;
+    newStatus = "REJECTED";
+    const { error: updateError } = await admin.from("incidents").update({ workflow_status: newStatus, case_owner_user_id: auth.user.id, closed_at: now, updated_at: now }).eq("id", incident.id);
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
+    const { error: recordError } = await admin.from("records").update({ lifecycle_status: "CLOSED", closed_at: now, updated_at: now }).eq("id", recordId);
+    if (recordError) {
+      await admin.from("incidents").update({ workflow_status: oldStatus, closed_at: null, updated_at: now }).eq("id", incident.id);
+      return NextResponse.json({ error: recordError.message }, { status: 400 });
+    }
+    await admin.from("record_status_history").insert({ record_id: recordId, old_status: "ACTIVE", new_status: "CLOSED", changed_by: auth.user.id, reason });
+    message = "Đã từ chối -- hồ sơ đóng ngay, lý do được lưu lại đầy đủ.";
+  } else if (command === "TRIAGE") {
     if (!["REPORTED", "RETURNED"].includes(oldStatus)) return NextResponse.json({ error: "Sự cố không ở bước tiếp nhận/xác minh." }, { status: 409 });
     const description = String(body.verified_description || "").trim();
     const harm = String(body.harm_status || "").toUpperCase();
