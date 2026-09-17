@@ -1,49 +1,84 @@
+import Link from "next/link";
+import { StatusBadge } from "@/components/status-badge";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { routeForRecord } from "@/lib/record-route";
 import { createClient } from "@/lib/supabase/server";
 
-type Row={id:string;record_code:string;title:string;lifecycle_status:string;department_name:string;created_at:string;updated_at:string};
+type Row={id:string;record_code:string;title:string;lifecycle_status:string;department_name:string;owner_name?:string;created_at:string;updated_at:string};
 type Tone="brand"|"blue"|"amber"|"red"|"green"|"slate";
 const FINAL_STATES=new Set(["VERIFIED","LOCKED"]);
 const TARGET_LEVELS=new Set(["MEETS_TARGET","OUT_OF_TARGET"]);
+const STATUS_LABEL:Record<string,string>={DRAFT:"Nháp",RETURNED:"Bị trả lại",SUBMITTED:"Chờ xác minh",VERIFIED:"Đã xác minh",LOCKED:"Đã khóa"};
+const RESULT_LABEL:Record<string,string>={MEETS_TARGET:"Đạt",OUT_OF_TARGET:"Ngoài mục tiêu",NOT_EVALUATED:"Chưa đánh giá"};
+const FREQ_LABEL:Record<string,string>={MONTHLY:"Hàng tháng",QUARTERLY:"Hàng quý",SEMIANNUAL:"6 tháng",ANNUAL:"Hàng năm",WEEKLY:"Hàng tuần"};
 
 function monthIndex(value?:string|null){if(!value)return null;const match=String(value).match(/^\d{4}-(\d{2})-/);if(!match)return null;const m=Number(match[1]);return m>=1&&m<=12?m-1:null}
+function fmt(value:unknown){if(value===null||value===undefined||value==="")return "—";const n=Number(value);return Number.isFinite(n)?new Intl.NumberFormat("vi-VN",{maximumFractionDigits:2}).format(n):String(value)}
+function priorityOf(status:string,result:string|null){if(result==="OUT_OF_TARGET"&&FINAL_STATES.has(status))return 0;if(status==="SUBMITTED")return 1;if(status==="RETURNED")return 2;if(status==="DRAFT")return 3;return 9}
 
-export async function IndicatorQualityOverview({rows}:{rows:Row[]}){
- const supabase=await createClient();const recordIds=rows.map(r=>r.id);if(!recordIds.length)return null;
- const {data,error}=await supabase.from("indicator_measurements").select("id,record_id,indicator_assignment_id,period_start,period_end,workflow_status,result_level,calculated_value,raw_value").in("record_id",recordIds);
- const measurements=(data??[]) as any[];
+export async function IndicatorQualityOverview({rows,year}:{rows:Row[];year:number}){
+ const supabase=await createClient();
+ const assignmentsRes=await supabase.from("indicator_assignments").select("id,indicator_version_id,department_id,collector_user_id,work_year,frequency,local_target,status").eq("work_year",year).eq("status","ACTIVE");
+ const assignments=(assignmentsRes.data??[]) as any[];const assignmentIds=assignments.map(x=>x.id);const assignmentMap=new Map(assignments.map(x=>[x.id,x]));
+ const measurementsRes=assignmentIds.length?await supabase.from("indicator_measurements").select("id,record_id,indicator_assignment_id,period_start,period_end,workflow_status,result_level,calculated_value,raw_value,source_mode,updated_at").in("indicator_assignment_id",assignmentIds).order("period_end",{ascending:false}):{data:[] as any[],error:null};
+ const measurements=(measurementsRes.data??[]) as any[];
+ const versionIds=Array.from(new Set(assignments.map(x=>x.indicator_version_id).filter(Boolean)));
+ const versionsRes=versionIds.length?await supabase.from("indicator_definition_versions").select("id,indicator_definition_id,version_no,calculation_type,desired_direction,frequency,unit,multiplier,status").in("id",versionIds):{data:[] as any[],error:null};
+ const versions=(versionsRes.data??[]) as any[];const versionMap=new Map(versions.map(x=>[x.id,x]));
+ const definitionIds=Array.from(new Set(versions.map(x=>x.indicator_definition_id).filter(Boolean)));
+ const definitionsRes=definitionIds.length?await supabase.from("indicator_definitions").select("id,code,name,quality_dimension,purpose,is_active").in("id",definitionIds):{data:[] as any[],error:null};
+ const definitions=(definitionsRes.data??[]) as any[];const definitionMap=new Map(definitions.map(x=>[x.id,x]));
+ const departmentIds=Array.from(new Set(assignments.map(x=>x.department_id).filter(Boolean)));
+ const collectorIds=Array.from(new Set(assignments.map(x=>x.collector_user_id).filter(Boolean)));
+ const [departmentsRes,profilesRes]=await Promise.all([
+  departmentIds.length?supabase.from("departments").select("id,name,short_name").in("id",departmentIds):Promise.resolve({data:[],error:null}),
+  collectorIds.length?supabase.from("profiles").select("user_id,full_name,email").in("user_id",collectorIds):Promise.resolve({data:[],error:null}),
+ ]);
+ const departmentMap=new Map((departmentsRes.data??[]).map((x:any)=>[x.id,x.short_name||x.name]));
+ const profileMap=new Map((profilesRes.data??[]).map((x:any)=>[x.user_id,x.full_name||x.email||x.user_id]));
+ const recordMap=new Map(rows.map(x=>[x.id,x]));
+
  const finalRows=measurements.filter(x=>FINAL_STATES.has(String(x.workflow_status)));
  const evaluable=finalRows.filter(x=>TARGET_LEVELS.has(String(x.result_level)));
  const notEvaluated=finalRows.filter(x=>String(x.result_level)==="NOT_EVALUATED").length;
  const inTarget=evaluable.filter(x=>String(x.result_level)==="MEETS_TARGET").length;
  const outTarget=evaluable.filter(x=>String(x.result_level)==="OUT_OF_TARGET").length;
  const attainment=evaluable.length?Math.round(inTarget/evaluable.length*100):0;
- const draftCount=Math.max(0,measurements.length-finalRows.length);
+ const submitted=measurements.filter(x=>String(x.workflow_status)==="SUBMITTED").length;
+ const locked=measurements.filter(x=>String(x.workflow_status)==="LOCKED").length;
+ const targetReady=assignments.filter(x=>x.local_target!==null&&x.local_target!==undefined).length;
 
- const assignmentIds=Array.from(new Set(measurements.map(x=>x.indicator_assignment_id).filter(Boolean)));
- const assignmentsRes=assignmentIds.length?await supabase.from("indicator_assignments").select("id,indicator_version_id,local_target,frequency").in("id",assignmentIds):{data:[] as any[],error:null};
- const assignments=(assignmentsRes.data??[]) as any[];const assignmentMap=new Map(assignments.map(x=>[x.id,x]));
- const versionIds=Array.from(new Set(assignments.map(x=>x.indicator_version_id).filter(Boolean)));
- const versionsRes=versionIds.length?await supabase.from("indicator_definition_versions").select("id,indicator_definition_id,unit,desired_direction").in("id",versionIds):{data:[] as any[],error:null};
- const versions=(versionsRes.data??[]) as any[];const versionMap=new Map(versions.map(x=>[x.id,x]));
- const definitionIds=Array.from(new Set(versions.map(x=>x.indicator_definition_id).filter(Boolean)));
- const definitionsRes=definitionIds.length?await supabase.from("indicator_definitions").select("id,code,name,quality_dimension").in("id",definitionIds):{data:[] as any[],error:null};
- const definitions=(definitionsRes.data??[]) as any[];const definitionMap=new Map(definitions.map(x=>[x.id,x]));
+ const latestByAssignment=new Map<string,any>();
+ for(const m of measurements){if(!latestByAssignment.has(m.indicator_assignment_id))latestByAssignment.set(m.indicator_assignment_id,m)}
+ const withoutMeasurement=Math.max(0,assignments.length-latestByAssignment.size);
+ const queue=measurements.filter(x=>priorityOf(String(x.workflow_status),x.result_level)==0||["SUBMITTED","RETURNED","DRAFT"].includes(String(x.workflow_status))).sort((a,b)=>priorityOf(String(a.workflow_status),a.result_level)-priorityOf(String(b.workflow_status),b.result_level)||String(b.period_end||"").localeCompare(String(a.period_end||""))).slice(0,12);
 
- const monthly=Array.from({length:12},(_,i)=>({label:`T${i+1}`,value:0,total:0,ok:0}));
+ const monthly=Array.from({length:12},(_,i)=>({label:`T${i+1}`,total:0,ok:0}));
  for(const x of evaluable){const index=monthIndex(x.period_end);if(index===null)continue;monthly[index].total++;if(String(x.result_level)==="MEETS_TARGET")monthly[index].ok++;}
- const trend=monthly.map(x=>({label:x.label,value:x.total?Math.round(x.ok/x.total*100):0}));
+ const trend=monthly.filter(x=>x.total>0).map(x=>({label:x.label,value:Math.round(x.ok/x.total*100)}));
 
  const byIndicator=new Map<string,{label:string;total:number;ok:number}>();
  for(const x of evaluable){const assignment=assignmentMap.get(x.indicator_assignment_id);const version=assignment?versionMap.get(assignment.indicator_version_id):null;const definition=version?definitionMap.get(version.indicator_definition_id):null;const key=definition?.id||x.indicator_assignment_id||x.record_id;const label=definition?`${definition.code||""} ${definition.name||""}`.trim():"Chỉ số chưa định danh";const current=byIndicator.get(key)||{label,total:0,ok:0};current.total++;if(String(x.result_level)==="MEETS_TARGET")current.ok++;byIndicator.set(key,current);}
  const indicatorBars=Array.from(byIndicator.values()).map(x=>{const pct=x.total?Math.round(x.ok/x.total*100):0;return{label:x.label,value:pct,tone:(pct>=90?"green":pct>=75?"blue":pct>=50?"amber":"red") as Tone,caption:`${x.ok}/${x.total} kỳ đạt`}}).sort((a,b)=>a.value-b.value).slice(0,10);
- const firstError=error||assignmentsRes.error||versionsRes.error||definitionsRes.error;
+
+ const operatingRows=assignments.map(a=>{const version=versionMap.get(a.indicator_version_id);const definition=version?definitionMap.get(version.indicator_definition_id):null;const latest=latestByAssignment.get(a.id);const status=String(latest?.workflow_status||"NO_MEASUREMENT");const result=latest?.result_level?String(latest.result_level):null;return{assignment:a,version,definition,latest,status,result,priority:latest?priorityOf(status,result):-1}}).sort((a,b)=>a.priority-b.priority||String(a.definition?.code||"").localeCompare(String(b.definition?.code||""))).slice(0,30);
+ const firstError=assignmentsRes.error||measurementsRes.error||versionsRes.error||definitionsRes.error||departmentsRes.error||profilesRes.error;
 
  return <>
-  <style>{TQM_CHART_CSS+`.iq-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.iq-kpi{background:#fff;border:1px solid #e1e9ec;border-radius:17px;padding:15px 16px}.iq-kpi span{display:block;font-size:10px;color:#728188;font-weight:800;text-transform:uppercase}.iq-kpi strong{display:block;font-size:29px;line-height:1;margin-top:8px}.iq-kpi small{display:block;font-size:10px;color:#7d8c92;margin-top:6px}.iq-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.iq-head{padding:16px 18px 4px}.iq-head h2{margin:0;font-size:15px}.iq-head p{margin:4px 0 0;color:#74838a;font-size:11px}@media(max-width:1100px){.iq-kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.iq-grid{grid-template-columns:1fr}}@media(max-width:700px){.iq-kpis{grid-template-columns:1fr 1fr}}`}</style>
-  {firstError?<div className="alert error">Một phần analytics chỉ số chưa tải được: {firstError.message}</div>:null}
-  <section className="iq-kpis"><article className="iq-kpi"><span>Kỳ đo trong năm</span><strong>{measurements.length}</strong><small>{draftCount} kỳ chưa VERIFIED/LOCKED</small></article><article className="iq-kpi"><span>Kỳ đã xác minh/khóa</span><strong>{finalRows.length}</strong><small>Được phép dùng cho analytics</small></article><article className="iq-kpi"><span>Đạt mục tiêu</span><strong>{attainment}%</strong><small>{inTarget}/{evaluable.length||0} kỳ có target để đánh giá</small></article><article className="iq-kpi"><span>Ngoài mục tiêu</span><strong>{outTarget}</strong><small>Cần phân tích nguyên nhân trước khi quyết định can thiệp</small></article><article className="iq-kpi"><span>Chưa đánh giá mục tiêu</span><strong>{notEvaluated}</strong><small>VERIFIED/LOCKED nhưng chưa có target; không tính là đạt</small></article></section>
-  <section className="iq-grid"><article className="panel"><div className="iq-head"><h2>Mức đạt mục tiêu chỉ số</h2><p>Mẫu số chỉ gồm kỳ VERIFIED/LOCKED có `MEETS_TARGET` hoặc `OUT_OF_TARGET`. `NOT_EVALUATED` được tách riêng, không được tính là đạt.</p></div><TqmDonut value={attainment} label="Kỳ đạt" segments={[{label:"Đạt mục tiêu",value:inTarget,tone:"green"},{label:"Ngoài mục tiêu",value:outTarget,tone:"red"}]}/></article><article className="panel"><div className="iq-head"><h2>Chỉ số cần ưu tiên phân tích</h2><p>Xếp chỉ số có tỷ lệ kỳ đạt thấp lên trước. Đây là tỷ lệ theo kỳ đo đã xác minh và có target, không phải điểm số tự tạo.</p></div>{indicatorBars.length?<TqmHorizontalBars rows={indicatorBars} max={100}/>:<div className="empty-state">Chưa đủ kỳ VERIFIED/LOCKED có target để so sánh.</div>}</article></section>
-  <section className="panel"><div className="iq-head"><h2>Xu hướng tỷ lệ kỳ đạt mục tiêu theo tháng</h2><p>Mỗi điểm = số kỳ `MEETS_TARGET` / tổng kỳ có target và <strong>period_end</strong> trong tháng đó. Tháng không có kỳ đủ điều kiện hiển thị 0 và không được hiểu là chất lượng bằng 0.</p></div><TqmTrend points={trend} unit="%"/></section>
+  <style>{TQM_CHART_CSS+`.iq-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.iq-kpi{background:#fff;border:1px solid #e1e9ec;border-radius:17px;padding:15px 16px}.iq-kpi span{display:block;font-size:10px;color:#728188;font-weight:800;text-transform:uppercase}.iq-kpi strong{display:block;font-size:29px;line-height:1;margin-top:8px}.iq-kpi small{display:block;font-size:10px;color:#7d8c92;margin-top:6px}.iq-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.iq-head{padding:16px 18px 4px}.iq-head h2{margin:0;font-size:15px}.iq-head p{margin:4px 0 0;color:#74838a;font-size:11px}.iq-queue{display:grid;gap:8px;padding:8px 16px 16px}.iq-queue-row{display:grid;grid-template-columns:minmax(0,1.7fr) 110px 120px 110px auto;gap:10px;align-items:center;padding:11px 12px;border:1px solid #e4eaec;border-radius:13px}.iq-queue-row.danger{border-color:#f2c7cc;background:#fffafb}.iq-queue-row strong{font-size:11px}.iq-queue-row small{display:block;color:#7a898f;margin-top:3px}.iq-table{display:grid;gap:7px;padding:8px 16px 16px}.iq-assignment{display:grid;grid-template-columns:minmax(220px,1.8fr) 120px 125px 110px 130px 90px;gap:10px;align-items:center;padding:11px;border:1px solid #e4eaec;border-radius:12px}.iq-assignment strong{font-size:11px}.iq-assignment small{display:block;color:#7a898f;margin-top:3px}.iq-pill{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:4px 7px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:9px;font-weight:800}.iq-pill.red{background:#fff0f1;color:#b42335}.iq-pill.amber{background:#fff7e6;color:#92400e}.iq-pill.green{background:#eaf7ef;color:#166534}.iq-empty-banner{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:15px 17px;border:1px solid #f0d59e;background:#fffaf0;border-radius:14px}.iq-empty-banner strong{display:block;font-size:12px}.iq-empty-banner span{display:block;color:#78633d;font-size:10px;margin-top:3px}@media(max-width:1200px){.iq-kpis{grid-template-columns:repeat(3,1fr)}.iq-assignment{grid-template-columns:1.5fr 1fr 1fr}.iq-assignment>*:nth-child(n+4){display:none}}@media(max-width:900px){.iq-grid{grid-template-columns:1fr}.iq-queue-row{grid-template-columns:1fr 1fr}.iq-queue-row>div:first-child{grid-column:1/-1}}@media(max-width:700px){.iq-kpis{grid-template-columns:1fr 1fr}.iq-assignment{grid-template-columns:1fr}.iq-assignment>*{display:block!important}.iq-empty-banner{display:grid}}`}</style>
+  {firstError?<div className="alert error">Một phần dữ liệu chỉ số chưa tải được: {firstError.message}</div>:null}
+  {assignments.length>0&&measurements.length===0?<section className="iq-empty-banner"><div><strong>Đã có {assignments.length} chỉ số/phân công đang hoạt động nhưng chưa có kỳ đo trong năm {year}.</strong><span>Dùng nút “Nhập kỳ đo” phía trên để chọn đúng chỉ số được phân công; dữ liệu được nhập thủ công và đi qua Nháp → Xác minh → Khóa.</span></div><span className="iq-pill amber">{withoutMeasurement} phân công chưa có dữ liệu</span></section>:null}
+  <section className="iq-kpis">
+   <article className="iq-kpi"><span>Phân công hoạt động</span><strong>{assignments.length}</strong><small>{withoutMeasurement} chưa có kỳ đo</small></article>
+   <article className="iq-kpi"><span>Đã đặt mục tiêu</span><strong>{assignments.length?Math.round(targetReady/assignments.length*100):0}%</strong><small>{targetReady}/{assignments.length} phân công có target</small></article>
+   <article className="iq-kpi"><span>Kỳ đo đã tạo</span><strong>{measurements.length}</strong><small>{finalRows.length} đã VERIFIED/LOCKED</small></article>
+   <article className="iq-kpi"><span>Chờ xác minh</span><strong>{submitted}</strong><small>Cần người có quyền verify xử lý</small></article>
+   <article className="iq-kpi"><span>Ngoài mục tiêu</span><strong>{outTarget}</strong><small>Chỉ tính kỳ VERIFIED/LOCKED có target</small></article>
+   <article className="iq-kpi"><span>Đã khóa</span><strong>{locked}</strong><small>Số liệu đã chốt audit trail</small></article>
+  </section>
+  <section className="panel"><div className="iq-head"><h2>Việc cần xử lý</h2><p>Ưu tiên kỳ ngoài mục tiêu đã xác minh, kỳ chờ xác minh, bị trả lại và nháp. Mở thẳng hồ sơ để thực hiện bước tiếp theo.</p></div><div className="iq-queue">{queue.map((x:any)=>{const a=assignmentMap.get(x.indicator_assignment_id);const v=a?versionMap.get(a.indicator_version_id):null;const d=v?definitionMap.get(v.indicator_definition_id):null;const rec=recordMap.get(x.record_id);const danger=String(x.result_level)==="OUT_OF_TARGET";return <div className={`iq-queue-row ${danger?"danger":""}`} key={x.id}><div><strong>{d?.code||rec?.record_code||"IND"} · {d?.name||rec?.title||"Kỳ đo chỉ số"}</strong><small>{x.period_start||"—"} → {x.period_end||"—"} · {departmentMap.get(a?.department_id)||"Toàn viện"}</small></div><div><span className={`iq-pill ${danger?"red":x.workflow_status==="SUBMITTED"?"amber":""}`}>{RESULT_LABEL[String(x.result_level)]||STATUS_LABEL[String(x.workflow_status)]||x.workflow_status}</span></div><div><strong>{fmt(x.calculated_value)} {v?.unit||""}</strong><small>Kết quả</small></div><div><StatusBadge status={x.workflow_status}/></div><Link className="button tertiary small" href={routeForRecord("INDICATOR_MEASUREMENT",x.record_id)}>Xử lý</Link></div>})}{!queue.length?<div className="empty-state">Chưa có kỳ đo cần xử lý. Khi có dữ liệu Nháp/Trả lại/Chờ xác minh hoặc ngoài mục tiêu, hệ thống sẽ đưa lên đây.</div>:null}</div></section>
+  <section className="panel"><div className="iq-head"><h2>Danh mục chỉ số đang vận hành</h2><p>Hiển thị trực tiếp cấu hình năm {year}: chỉ số, chiều chất lượng, tần suất, mục tiêu, đơn vị/người thu thập và kỳ đo gần nhất.</p></div><div className="iq-table">{operatingRows.map((x:any)=>{const a=x.assignment,v=x.version,d=x.definition,m=x.latest;const hasTarget=a.local_target!==null&&a.local_target!==undefined;return <div className="iq-assignment" key={a.id}><div><strong>{d?.code||"—"} · {d?.name||"Chỉ số chưa định danh"}</strong><small>{d?.quality_dimension||"Chưa phân loại"} · {v?.calculation_type||"—"} · {v?.unit||""}</small></div><div><strong>{FREQ_LABEL[String(a.frequency||v?.frequency)]||a.frequency||v?.frequency||"—"}</strong><small>Tần suất</small></div><div><strong>{hasTarget?`${fmt(a.local_target)} ${v?.unit||""}`:"Chưa đặt"}</strong><small>Mục tiêu</small></div><div><strong>{departmentMap.get(a.department_id)||"Toàn viện"}</strong><small>{profileMap.get(a.collector_user_id)||"Chưa gán người"}</small></div><div>{m?<><span className={`iq-pill ${x.result==="OUT_OF_TARGET"?"red":x.result==="MEETS_TARGET"?"green":x.status==="SUBMITTED"?"amber":""}`}>{RESULT_LABEL[x.result||""]||STATUS_LABEL[x.status]||x.status}</span><small>{m.period_end||"—"} · {m.source_mode||"MANUAL"}</small></>:<><span className="iq-pill amber">Chưa có kỳ đo</span><small>Cần tạo dữ liệu</small></>}</div><div>{m?<Link className="button tertiary small" href={routeForRecord("INDICATOR_MEASUREMENT",m.record_id)}>Mở</Link>:<span className="iq-pill">Chờ nhập</span>}</div></div>})}{!operatingRows.length?<div className="empty-state">Chưa có chỉ số/phân công hoạt động cho năm {year}.</div>:null}</div></section>
+  <section className="iq-grid"><article className="panel"><div className="iq-head"><h2>Mức đạt mục tiêu chỉ số</h2><p>Mẫu số chỉ gồm kỳ VERIFIED/LOCKED có target. Kỳ chưa đánh giá mục tiêu được tách riêng ({notEvaluated}), không được tính là đạt.</p></div>{evaluable.length?<TqmDonut value={attainment} label="Kỳ đạt" segments={[{label:"Đạt mục tiêu",value:inTarget,tone:"green"},{label:"Ngoài mục tiêu",value:outTarget,tone:"red"}]}/>:<div className="empty-state">Chưa có kỳ VERIFIED/LOCKED có target để tính tỷ lệ đạt.</div>}</article><article className="panel"><div className="iq-head"><h2>Chỉ số cần ưu tiên phân tích</h2><p>Xếp chỉ số có tỷ lệ kỳ đạt thấp lên trước; không tạo điểm tổng hợp giả.</p></div>{indicatorBars.length?<TqmHorizontalBars rows={indicatorBars} max={100}/>:<div className="empty-state">Chưa đủ kỳ VERIFIED/LOCKED có target để so sánh.</div>}</article></section>
+  <section className="panel"><div className="iq-head"><h2>Xu hướng tỷ lệ kỳ đạt mục tiêu</h2><p>Chỉ hiển thị tháng thực sự có kỳ VERIFIED/LOCKED và có target; không vẽ 0 cho tháng chưa có dữ liệu.</p></div>{trend.length?<TqmTrend points={trend} unit="%"/>:<div className="empty-state">Chưa có dữ liệu đã xác minh/khóa để dựng xu hướng.</div>}</section>
  </>;
 }
