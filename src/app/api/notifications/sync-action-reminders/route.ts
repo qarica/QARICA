@@ -32,6 +32,18 @@ type ActionRow = {
   due_date: string | null;
 };
 
+type NotificationPayload = {
+  recipient_user_id: string;
+  notification_type: string;
+  priority: string;
+  title: string;
+  message: string;
+  target_record_id: string | null;
+  target_route: string;
+  notification_event_key: string;
+  is_read: boolean;
+};
+
 export async function POST() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
@@ -47,26 +59,25 @@ export async function POST() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  const payload = ((data ?? []) as ActionRow[])
-    .filter((row) => !["COMPLETED", "CANCELLED", "NOT_APPLICABLE", "CLOSED"].includes(String(row.workflow_status)))
-    .map((row) => {
-      const days = row.days_to_due === null || row.days_to_due === undefined ? null : Number(row.days_to_due);
-      const phase = reminderPhase(days);
-      if (!phase || days === null) return null;
-      const dueKey = row.due_date ? String(row.due_date).slice(0, 10) : "none";
-      return {
-        recipient_user_id: userId,
-        notification_type: `ACTION_${phase.code}`,
-        priority: phase.priority,
-        title: phase.title,
-        message: reminderMessage(days, row.record_code, row.title),
-        target_record_id: row.record_id,
-        target_route: row.record_id ? `/tasks/${row.record_id}` : "/tasks",
-        notification_event_key: `action:${userId}:${row.action_id}:${phase.code}:${dueKey}`,
-        is_read: false,
-      };
-    })
-    .filter(Boolean);
+  const payload: NotificationPayload[] = [];
+  for (const row of (data ?? []) as ActionRow[]) {
+    if (["COMPLETED", "CANCELLED", "NOT_APPLICABLE", "CLOSED"].includes(String(row.workflow_status))) continue;
+    const days = row.days_to_due === null || row.days_to_due === undefined ? null : Number(row.days_to_due);
+    const phase = reminderPhase(days);
+    if (!phase || days === null) continue;
+    const dueKey = row.due_date ? String(row.due_date).slice(0, 10) : "none";
+    payload.push({
+      recipient_user_id: userId,
+      notification_type: `ACTION_${phase.code}`,
+      priority: phase.priority,
+      title: phase.title,
+      message: reminderMessage(days, row.record_code, row.title),
+      target_record_id: row.record_id,
+      target_route: row.record_id ? `/tasks/${row.record_id}` : "/tasks",
+      notification_event_key: `action:${userId}:${row.action_id}:${phase.code}:${dueKey}`,
+      is_read: false,
+    });
+  }
 
   if (!payload.length) return NextResponse.json({ ok: true, created: 0, candidates: 0 });
 
