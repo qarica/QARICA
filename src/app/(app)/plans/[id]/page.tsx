@@ -42,6 +42,11 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
+  const draftTasks: Array<{ automation_kind?: string; automation_confirmed?: boolean }> = Array.isArray(program.draft_actions) ? program.draft_actions : [];
+  const draftActionCount = draftTasks.length;
+  const draftIndicatorCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "INDICATOR" && t?.automation_confirmed).length;
+  const draftMonitoringCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "MONITORING" && t?.automation_confirmed).length;
+
   const [recordRes, progressRes, departmentRes, ownerRes, approverRes, linksRes, departmentsRes, profilesRes, criteriaRes] = await Promise.all([
     supabase.from("records").select("id,record_code,title,work_year,lifecycle_status,created_by,created_at,updated_at").eq("id", program.record_id).maybeSingle(),
     supabase.from("vw_program_progress").select("program_id,required_actions,completed_actions,progress_pct,overdue_actions").eq("program_id", id).maybeSingle(),
@@ -164,7 +169,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       actions={<div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
         <Link className="button secondary" href="/plans">← Danh sách kế hoạch</Link>
         <PlanPrintActions planId={id} compact />
-        <PlanWorkflowClient planId={id} currentStatus={program.workflow_status} canManage={canManage} requiredActions={requiredActions} completedActions={completedActions} />
+        <PlanWorkflowClient planId={id} currentStatus={program.workflow_status} canManage={canManage} requiredActions={requiredActions} completedActions={completedActions} draftActionCount={draftActionCount} draftIndicatorCount={draftIndicatorCount} draftMonitoringCount={draftMonitoringCount} />
       </div>}
     />
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}

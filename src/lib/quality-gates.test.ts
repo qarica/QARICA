@@ -49,4 +49,12 @@ describe("quality workflow gates", () => {
   it("allows incident closure readiness only with completed Actions and evidence", () => {
     expect(incidentReadyToCloseGate({ actionCount: 2, incompleteActionCount: 0, evidenceCount: 1 })).toEqual({ ok: true });
   });
+
+  it("blocks serious incident closure readiness without a CAPA", () => {
+    expect(incidentReadyToCloseGate({ actionCount: 1, incompleteActionCount: 0, evidenceCount: 1, isSerious: true, hasCapa: false }).ok).toBe(false);
+  });
+
+  it("allows serious incident closure readiness once a CAPA is linked", () => {
+    expect(incidentReadyToCloseGate({ actionCount: 1, incompleteActionCount: 0, evidenceCount: 1, isSerious: true, hasCapa: true })).toEqual({ ok: true });
+  });
 });

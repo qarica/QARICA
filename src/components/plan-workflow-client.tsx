@@ -12,6 +12,8 @@ export function PlanWorkflowClient({
   completedActions,
   composerReady = true,
   draftActionCount = 0,
+  draftIndicatorCount = 0,
+  draftMonitoringCount = 0,
 }: {
   planId: string;
   currentStatus: string;
@@ -20,6 +22,8 @@ export function PlanWorkflowClient({
   completedActions: number;
   composerReady?: boolean;
   draftActionCount?: number;
+  draftIndicatorCount?: number;
+  draftMonitoringCount?: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -32,7 +36,13 @@ export function PlanWorkflowClient({
     let note = "";
     if (action === "SUBMIT" && !composerReady) { setMessage("Chưa đủ điều kiện gửi duyệt: cần mục tiêu chung, mục tiêu cụ thể, yêu cầu và ít nhất 01 nhiệm vụ dự kiến đầy đủ."); return; }
     if (action === "SUBMIT" && !window.confirm(`Gửi kế hoạch cùng ${draftActionCount} nhiệm vụ dự kiến sang bước phê duyệt?`)) return;
-    if (action === "APPROVE" && !window.confirm("Phê duyệt kế hoạch này? Các nhiệm vụ dự kiến sẽ được tạo thành Action chính thức và giao cho người phụ trách.")) return;
+    if (action === "APPROVE") {
+      const parts = [`${draftActionCount} Action`];
+      if (draftIndicatorCount > 0) parts.push(`${draftIndicatorCount} kỳ đo chỉ số`);
+      if (draftMonitoringCount > 0) parts.push(`${draftMonitoringCount} đợt giám sát`);
+      const summary = parts.join(", ");
+      if (!window.confirm(`Phê duyệt kế hoạch này sẽ TẠO NGAY và giao việc thật cho người phụ trách:\n\n${summary}.\n\nKhông có thao tác hoàn tác gọn — chỉ tiếp tục nếu đã kiểm tra đúng danh sách nhiệm vụ. Xác nhận phê duyệt?`)) return;
+    }
     if (action === "START" && !window.confirm("Bắt đầu triển khai kế hoạch và các Action đã được tạo khi phê duyệt?")) return;
     if (action === "HOLD" && !window.confirm("Tạm dừng triển khai kế hoạch này?")) return;
     if (action === "RESUME" && !window.confirm("Tiếp tục triển khai kế hoạch này?")) return;

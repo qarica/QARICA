@@ -27,9 +27,10 @@ export function inspectionCloseGate(input: { incompleteActionCount: number; evid
   return { ok: true };
 }
 
-export function incidentReadyToCloseGate(input: { actionCount: number; incompleteActionCount: number; evidenceCount: number }): GateResult {
+export function incidentReadyToCloseGate(input: { actionCount: number; incompleteActionCount: number; evidenceCount: number; isSerious?: boolean; hasCapa?: boolean }): GateResult {
   if (input.actionCount < 1) return { ok: false, error: "Cần ít nhất 01 Action phòng ngừa/khắc phục trước khi đóng sự cố." };
   if (input.incompleteActionCount > 0) return { ok: false, error: `Còn ${input.incompleteActionCount} Action chưa hoàn thành.` };
   if (input.evidenceCount < 1) return { ok: false, error: "Cần ít nhất 01 minh chứng xử lý sự cố." };
+  if (input.isSerious && !input.hasCapa) return { ok: false, error: "Sự cố nghiêm trọng (NC3) phải có CAPA gắn kèm (không chỉ Action thường) trước khi đóng." };
   return { ok: true };
 }
