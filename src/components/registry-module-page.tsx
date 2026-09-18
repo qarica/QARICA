@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AssessmentInspectionOverviewV2 } from "@/components/assessment-inspection-overview-v2";
 import { CorrectiveSafetyOverview } from "@/components/corrective-safety-overview";
+import { CriterionResponsibilitySourceClient } from "@/components/criterion-responsibility-source-client";
 import { DomainCreateClient } from "@/components/domain-create-client";
 import { IndicatorQualityOverview } from "@/components/indicator-quality-overview";
 import { OperationsObligationsOverview } from "@/components/operations-obligations-overview";
@@ -42,6 +43,7 @@ export async function RegistryModulePage({config}:{config:RegistryModuleConfig})
   <PageHeader eyebrow={`${config.eyebrow} · NĂM ${year}`} title={config.title} description={config.description}/>
   {canCreate&&createType?<div className="module-action-row"><DomainCreateClient recordType={createType} workYear={year}/></div>:null}
   {error?<div className="alert error">Không tải được dữ liệu: {error.message}</div>:null}
+  {createType==="ASSESSMENT"&&year===2026?<CriterionResponsibilitySourceClient canManage={user.permissions.includes("criteria.manage")}/>:null}
   {indicatorType?<IndicatorQualityOverview rows={rows} year={year} canManage={user.permissions.includes("indicators.manage")} canSync={user.permissions.includes("indicators.enter")||user.permissions.includes("indicators.manage")}/>:assessmentType?<AssessmentInspectionOverviewV2 rows={rows} recordType={assessmentType}/>:correctiveType?<CorrectiveSafetyOverview rows={rows} recordType={correctiveType}/>:operationsType?<OperationsObligationsOverview rows={rows} recordType={operationsType}/>:proactiveRiskType?<RiskProactiveOverview rows={rows} recordType={proactiveRiskType}/>:<TqmRegistryOverview rows={rows} recordType={createType||config.recordTypes[0]||"RECORD"}/>} 
   <section className="module-hero-summary tqm-principle-hero"><div><span className="module-overline">TQM · QUẢN LÝ THEO QUÁ TRÌNH</span><h2>{config.title}</h2><p>{spec?.purpose||config.foundationNote||ux.principle}</p></div><div className="module-hero-stats"><div><strong>{ux.workflow.length}</strong><span>Bước quy trình</span></div><div><strong>{ux.related.length}</strong><span>Liên kết nghiệp vụ</span></div></div></section>
   <RegistryModuleWorkspace year={year} rows={rows} recordType={createType||config.recordTypes[0]||"RECORD"} workflow={ux.workflow} principle={ux.principle} related={ux.related} operatingSpec={spec}/>
