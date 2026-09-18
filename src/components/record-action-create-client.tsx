@@ -4,7 +4,6 @@ import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AssignmentTargetSelect,
-  assignmentTargetToken,
   parseAssignmentTargetToken,
   type AssignmentTargetOption,
 } from "@/components/assignment-target-select";
