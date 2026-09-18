@@ -82,5 +82,5 @@ export function validatePlanDraftAction(action: PlanDraftAction, planStart: stri
 export function planComposerReady(input: { generalObjective?: unknown; specificObjectives?: unknown; requirements?: unknown; draftActions?: unknown; startDate?: string | null; endDate?: string | null }) {
   const actions = cleanPlanDraftActions(input.draftActions);
   const startDate = input.startDate || null, endDate = input.endDate || null;
-  return validPlanDateWindow(startDate, endDate) && !!planText(input.generalObjective) && cleanPlanList(input.specificObjectives).length > 0 && !!planText(input.requirements) && actions.length > 0 && actions.every((action) => !validatePlanDraftAction(action, startDate, endDate));
+  return validPlanDateWindow(startDate, endDate) && !!planText(input.generalObjective) && actions.length > 0 && actions.every((action) => !validatePlanDraftAction(action, startDate, endDate));
 }
