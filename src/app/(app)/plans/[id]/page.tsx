@@ -10,6 +10,7 @@ import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { routeForRecord } from "@/lib/record-route";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const TYPE_LABELS: Record<string, string> = {
   ANNUAL_PLAN: "Kế hoạch năm",
@@ -25,6 +26,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
 
   const { id } = await params;
   const supabase = await createClient();
+  const admin = createAdminClient();
   const { data: program, error: programError } = await supabase
     .from("work_programs")
     .select("id,record_id,program_type,parent_program_id,description,objective,general_objective,specific_objectives,requirements,draft_actions,returned_reason,start_date,end_date,lead_department_id,owner_user_id,workflow_status,approved_by,approved_at,created_at,updated_at")
@@ -134,14 +136,14 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
     return template ? { id: row.id, label: `${template.code ? template.code + " · " : ""}${template.short_name || template.name} · v${row.version_no}` } : null;
   }).filter(Boolean) as { id: string; label: string }[];
 
-  const { data: publishedCriteriaVersionsRaw } = await supabase
+  const { data: publishedCriteriaVersionsRaw } = await admin
     .from("criteria_set_versions")
     .select("id,criteria_set_id,version_no,status")
     .eq("status", "PUBLISHED")
     .order("published_at", { ascending: false });
   const criteriaSetIds = Array.from(new Set((publishedCriteriaVersionsRaw ?? []).map((row: any) => row.criteria_set_id).filter(Boolean)));
   const { data: publishedCriteriaSetsRaw } = criteriaSetIds.length
-    ? await supabase.from("criteria_sets").select("id,code,name,organization_id").in("id", criteriaSetIds)
+    ? await admin.from("criteria_sets").select("id,code,name,organization_id").in("id", criteriaSetIds)
     : { data: [] as any[] };
   const criteriaSetById = new Map((publishedCriteriaSetsRaw ?? []).filter((row: any) => !row.organization_id || row.organization_id === user.organizationId).map((row: any) => [row.id, row]));
   const assessmentCriteriaVersions = (publishedCriteriaVersionsRaw ?? []).map((row: any) => {
