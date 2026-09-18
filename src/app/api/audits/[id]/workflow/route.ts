@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 const CLOSE_RPC = "qlcl_close_audit_v1";
+const CREATE_FINDING_RPC = "qlcl_audit_create_finding_v1";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await createClient();
@@ -34,7 +35,45 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     a.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId),
   ]);
 
-  if (cmd === "START") {
+  if (cmd === "CREATE_FINDING") {
+    if (!["IN_PROGRESS", "DRAFT_REPORT", "REPORT_REVIEW", "FOLLOW_UP"].includes(old)) {
+      return NextResponse.json({ error: "Audit chưa ở giai đoạn được ghi nhận Finding." }, { status: 409 });
+    }
+    const sourceRef = String(b.source_ref || "").trim();
+    const description = String(b.description || "").trim();
+    const severity = String(b.severity || "").trim().toUpperCase();
+    const dueDate = String(b.due_date || "").trim();
+    const leadDepartmentId = String(b.lead_department_id || "").trim();
+    const ownerUserId = String(b.owner_user_id || "").trim();
+    if (!sourceRef || !description || !dueDate || !leadDepartmentId || !ownerUserId) {
+      return NextResponse.json({ error: "Cần đủ mã phát hiện, mô tả, khoa/phòng, người phụ trách và hạn khắc phục." }, { status: 400 });
+    }
+    if (!["MINOR", "MAJOR", "CRITICAL"].includes(severity)) {
+      return NextResponse.json({ error: "Mức độ Finding không hợp lệ." }, { status: 400 });
+    }
+    const { data: tx, error: txError } = await a.rpc(CREATE_FINDING_RPC, {
+      p_audit_record_id: recordId,
+      p_actor_user_id: auth.user.id,
+      p_source_ref: sourceRef,
+      p_description: description,
+      p_severity: severity,
+      p_due_date: dueDate,
+      p_lead_department_id: leadDepartmentId,
+      p_owner_user_id: ownerUserId,
+    });
+    if (txError) {
+      const txMessage = rpcErrorMessage(txError, "Không thể tạo Finding từ Audit.");
+      return NextResponse.json({ error: txMessage }, { status: /already|duplicate|outside|not active|status|invalid/i.test(txMessage) ? 409 : 400 });
+    }
+    const findingCode = tx && typeof tx === "object" && "finding_code" in tx ? String((tx as Record<string, unknown>).finding_code || "") : "";
+    const alreadyExists = !!(tx && typeof tx === "object" && "already_exists" in tx && (tx as Record<string, unknown>).already_exists);
+    return NextResponse.json({
+      ok: true,
+      transaction: "atomic",
+      result: tx,
+      message: alreadyExists ? "Finding này đã tồn tại; QARICA mở lại liên kết hiện có thay vì tạo trùng." : findingCode ? `Đã tạo Finding ${findingCode} từ Audit và giao người phụ trách.` : "Đã tạo Finding từ Audit và giữ liên kết truy vết.",
+    });
+  } else if (cmd === "START") {
     if (old !== "DRAFT" || !scopes) return NextResponse.json({ error: "Cần phạm vi Audit trước khi bắt đầu." }, { status: 409 });
     next = "IN_PROGRESS";
     message = "Đã bắt đầu Audit/Tracer.";
