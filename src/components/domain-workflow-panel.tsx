@@ -116,7 +116,7 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     const responsibilityMap = new Map((responsibilityRows ?? []).map((row: any) => [row.criteria_item_id, row]));
 
     const routedCriteria = (criterionRows ?? []).filter((criterion: any) => {
-      if (canManage) return true;
+      if (canManage || Number(round.work_year || 0) < 2026) return true;
       const responsibility: any = responsibilityMap.get(criterion.id);
       return !!user.primaryDepartmentId
         && responsibility?.mapping_status === "CONFIRMED"
