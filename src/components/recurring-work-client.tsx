@@ -339,7 +339,15 @@ export function RecurringWorkClient({
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || "Không lưu được mẫu định kỳ.");
       setModalOpen(false);
-      setMessage({ tone: "success", text: editing ? "Đã cập nhật công việc định kỳ." : "Đã tạo công việc định kỳ." });
+      const sync = json.sync;
+      const syncText = sync
+        ? ` Lịch đã đồng bộ 90 ngày tới: ${Number(sync.createdActions || 0)} Action mới${Number(sync.createdMonitoringRounds || 0) ? `, ${sync.createdMonitoringRounds} đợt giám sát` : ""}${Number(sync.createdReports || 0) ? `, ${sync.createdReports} báo cáo` : ""}.`
+        : "";
+      if (json.sync_warning) {
+        setMessage({ tone: "info", text: `${editing ? "Đã cập nhật" : "Đã tạo"} cấu hình. ${json.sync_warning} Có thể dùng nút “Đồng bộ lại 90 ngày” để thử lại.` });
+      } else {
+        setMessage({ tone: "success", text: `${editing ? "Đã cập nhật" : "Đã tạo"} công việc định kỳ.${syncText}` });
+      }
       router.refresh();
     } catch (error) {
       setMessage({ tone: "error", text: error instanceof Error ? error.message : "Không lưu được mẫu định kỳ." });
@@ -362,7 +370,14 @@ export function RecurringWorkClient({
       });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || "Không cập nhật được trạng thái.");
-      setMessage({ tone: "success", text: nextActive ? "Đã kích hoạt mẫu định kỳ." : "Đã ngưng mẫu; lịch sử cũ được giữ nguyên." });
+      if (nextActive && json.sync_warning) {
+        setMessage({ tone: "info", text: `Đã kích hoạt mẫu nhưng đồng bộ lịch chưa hoàn tất: ${json.sync_warning}` });
+      } else if (nextActive) {
+        const sync = json.sync;
+        setMessage({ tone: "success", text: `Đã kích hoạt và đồng bộ lịch: ${Number(sync?.createdActions || 0)} Action mới${Number(sync?.createdMonitoringRounds || 0) ? `, ${sync.createdMonitoringRounds} đợt giám sát` : ""}${Number(sync?.createdReports || 0) ? `, ${sync.createdReports} báo cáo` : ""}.` });
+      } else {
+        setMessage({ tone: "success", text: "Đã ngưng mẫu; lịch sử cũ được giữ nguyên." });
+      }
       router.refresh();
     } catch (error) {
       setMessage({ tone: "error", text: error instanceof Error ? error.message : "Không cập nhật được trạng thái." });
@@ -426,8 +441,8 @@ export function RecurringWorkClient({
 
     <section className="panel">
       <div className="recurring-toolbar">
-        <div className="recurring-toolbar-copy"><strong>Recurring Work Engine</strong><span>Mỗi mẫu chỉ định nghĩa một lần; hệ thống sinh Action theo chu kỳ và chống trùng theo từng kỳ.</span></div>
-        {canManage ? <div className="recurring-toolbar-actions"><button className="button secondary" disabled={busy} onClick={sync}>Đồng bộ 90 ngày tới</button><button className="button primary" disabled={busy} onClick={openCreate}>+ Tạo công việc định kỳ</button></div> : null}
+        <div className="recurring-toolbar-copy"><strong>Recurring Work Engine</strong><span>Mỗi mẫu chỉ định nghĩa một lần; khi lưu/kích hoạt, hệ thống tự đồng bộ 90 ngày tới vào Lịch chất lượng và chống trùng theo từng kỳ.</span></div>
+        {canManage ? <div className="recurring-toolbar-actions"><button className="button secondary" disabled={busy} onClick={sync}>Đồng bộ lại 90 ngày</button><button className="button primary" disabled={busy} onClick={openCreate}>+ Tạo công việc định kỳ</button></div> : null}
       </div>
       <div className="table-wrap"><table><thead><tr><th>Công việc</th><th>Chu kỳ</th><th>Phụ trách</th><th>Run</th><th>Trạng thái</th><th></th></tr></thead><tbody>
         {templates.map((row) => <tr key={row.id}>
