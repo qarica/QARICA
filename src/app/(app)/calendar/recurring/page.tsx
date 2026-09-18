@@ -11,21 +11,23 @@ export default async function RecurringWorkPage() {
   if (!hasAnyPermission(user, ["dashboard.view", "plans.view", "plans.manage"])) redirect("/dashboard?forbidden=1");
 
   const supabase = await createClient();
-  const [templatesRes, departmentsRes, profilesRes, runsRes, checklistVersionsRes] = await Promise.all([
+  const [templatesRes, departmentsRes, profilesRes, groupsRes, runsRes, checklistVersionsRes] = await Promise.all([
     supabase
       .from("recurring_work_templates")
-      .select("id,title,description,recurrence_rule,start_date,end_date,due_offset_days,lead_department_id,assignee_user_id,expected_result,evidence_requirement,priority,is_active,source_code,source_label,source_criteria,automation_kind,automation_ref_id,automation_target_department_id,automation_target_area,automation_report_recipient,automation_report_method,automation_report_type,created_at,updated_at")
+      .select("id,title,description,recurrence_rule,start_date,end_date,due_offset_days,lead_department_id,assignment_target_type,assignee_user_id,assignee_group_id,expected_result,evidence_requirement,priority,is_active,source_code,source_label,source_criteria,automation_kind,automation_ref_id,automation_target_department_id,automation_target_area,automation_report_recipient,automation_report_method,automation_report_type,created_at,updated_at")
       .order("is_active", { ascending: false })
       .order("title"),
     supabase.from("departments").select("id,name,short_name,is_active").eq("is_active", true).order("name"),
     supabase.from("profiles").select("user_id,full_name,email,primary_department_id,is_active").eq("is_active", true).order("full_name", { ascending: true, nullsFirst: false }),
+    supabase.from("work_groups").select("id,code,name,lead_department_id,leader_user_id,is_active").eq("is_active", true).order("name"),
     supabase.from("recurring_work_runs").select("id,template_id,planned_date,generated_action_id,generated_output_record_id,status").order("planned_date", { ascending: false }).limit(1000),
     supabase.from("checklist_versions").select("id,checklist_template_id,version_no,status").eq("status","PUBLISHED").order("published_at",{ascending:false}),
   ]);
 
-  const firstError = [templatesRes, departmentsRes, profilesRes, runsRes, checklistVersionsRes].find((result) => result.error)?.error;
+  const firstError = [templatesRes, departmentsRes, profilesRes, groupsRes, runsRes, checklistVersionsRes].find((result) => result.error)?.error;
   const departmentMap = new Map((departmentsRes.data ?? []).map((row: any) => [row.id, row.name]));
   const profileMap = new Map((profilesRes.data ?? []).map((row: any) => [row.user_id, row.full_name || row.email || row.user_id]));
+  const groupMap = new Map((groupsRes.data ?? []).map((row: any) => [row.id, [row.code, row.name].filter(Boolean).join(" · ")]));
   const checklistTemplateIds = Array.from(new Set((checklistVersionsRes.data ?? []).map((row: any) => row.checklist_template_id)));
   const checklistTemplatesRes = checklistTemplateIds.length
     ? await supabase.from("checklist_templates").select("id,code,name,short_name,is_active,organization_id").in("id", checklistTemplateIds).eq("is_active", true)
@@ -73,7 +75,9 @@ export default async function RecurringWorkPage() {
     return {
       ...template,
       department_name: template.lead_department_id ? departmentMap.get(template.lead_department_id) || null : null,
-      assignee_name: template.assignee_user_id ? profileMap.get(template.assignee_user_id) || null : null,
+      assignee_name: template.assignment_target_type === "GROUP"
+        ? (template.assignee_group_id ? groupMap.get(template.assignee_group_id) || null : null)
+        : (template.assignee_user_id ? profileMap.get(template.assignee_user_id) || null : null),
       generated_count: runs.filter((run: any) => !!run.generated_action_id).length,
       pending_count: runs.filter((run: any) => !run.generated_action_id && String(run.status || "").toUpperCase() === "PENDING").length,
       latest_planned_date: runs[0]?.planned_date || null,
@@ -98,6 +102,7 @@ export default async function RecurringWorkPage() {
       templates={rows as any[]}
       departments={(departmentsRes.data ?? []) as any[]}
       profiles={(profilesRes.data ?? []) as any[]}
+      groups={(groupsRes.data ?? []) as any[]}
       canManage={user.permissions.includes("plans.manage")}
       blueprints={blueprints as any[]}
       checklists={checklists}
