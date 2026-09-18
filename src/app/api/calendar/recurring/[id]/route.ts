@@ -36,38 +36,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (nextActive && (!current.start_date || !current.lead_department_id || !current.assignee_user_id || !current.expected_result || !current.evidence_requirement || !validRule(current.recurrence_rule))) {
       return NextResponse.json({ error: "Mẫu chưa đủ người phụ trách, lịch, kết quả hoặc minh chứng để kích hoạt." }, { status: 409 });
     }
-    const scheduleChanged =
-    recurrenceRule !== String(current.recurrence_rule || "") ||
-    startDate !== String(current.start_date || "") ||
-    (endDate || null) !== (current.end_date || null) ||
-    automationKind !== String(current.automation_kind || "ACTION") ||
-    (automationRefId || null) !== (current.automation_ref_id || null) ||
-    (automationTargetDepartmentId || null) !== (current.automation_target_department_id || null) ||
-    (automationTargetArea || null) !== (current.automation_target_area || null);
-
-  if (scheduleChanged) {
-    const today = hcmToday();
-    const { data: futureRuns, error: futureRunsError } = await admin
-      .from("recurring_work_runs")
-      .select("id,planned_date,generated_action_id,generated_output_record_id,status")
-      .eq("template_id", id)
-      .gte("planned_date", today);
-    if (futureRunsError) return NextResponse.json({ error: futureRunsError.message }, { status: 400 });
-
-    const materializedFuture = (futureRuns || []).filter((row: any) => row.generated_action_id || row.generated_output_record_id);
-    if (materializedFuture.length) {
-      return NextResponse.json({
-        error: `Lịch này đã sinh ${materializedFuture.length} kỳ công việc/đợt giám sát trong tương lai. Không thể đổi chu kỳ hoặc nguồn đầu ra trực tiếp vì sẽ làm lệch lịch sử. Hãy ngưng mẫu cũ và tạo cấu hình thay thế.`,
-      }, { status: 409 });
-    }
-
-    const removableIds = (futureRuns || []).map((row: any) => row.id).filter(Boolean);
-    if (removableIds.length) {
-      const { error: deleteRunsError } = await admin.from("recurring_work_runs").delete().in("id", removableIds);
-      if (deleteRunsError) return NextResponse.json({ error: deleteRunsError.message }, { status: 400 });
-    }
-  }
-
   const { error } = await admin.from("recurring_work_templates").update({ is_active: nextActive, updated_at: new Date().toISOString() }).eq("id", id).eq("organization_id", caller.organization_id);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     const sync = nextActive ? await syncRecurringTemplateNow({
@@ -143,6 +111,38 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { data: checklistTemplate } = await admin.from("checklist_templates").select("id,organization_id,is_active").eq("id", checklistVersion.checklist_template_id).maybeSingle();
     if (!checklistTemplate?.is_active || (checklistTemplate.organization_id && checklistTemplate.organization_id !== caller.organization_id)) {
       return NextResponse.json({ error: "Bảng kiểm tự động nằm ngoài phạm vi bệnh viện." }, { status: 400 });
+    }
+  }
+
+  const scheduleChanged =
+    recurrenceRule !== String(current.recurrence_rule || "") ||
+    startDate !== String(current.start_date || "") ||
+    (endDate || null) !== (current.end_date || null) ||
+    automationKind !== String(current.automation_kind || "ACTION") ||
+    (automationRefId || null) !== (current.automation_ref_id || null) ||
+    (automationTargetDepartmentId || null) !== (current.automation_target_department_id || null) ||
+    (automationTargetArea || null) !== (current.automation_target_area || null);
+
+  if (scheduleChanged) {
+    const today = hcmToday();
+    const { data: futureRuns, error: futureRunsError } = await admin
+      .from("recurring_work_runs")
+      .select("id,planned_date,generated_action_id,generated_output_record_id,status")
+      .eq("template_id", id)
+      .gte("planned_date", today);
+    if (futureRunsError) return NextResponse.json({ error: futureRunsError.message }, { status: 400 });
+
+    const materializedFuture = (futureRuns || []).filter((row: any) => row.generated_action_id || row.generated_output_record_id);
+    if (materializedFuture.length) {
+      return NextResponse.json({
+        error: `Lịch này đã sinh ${materializedFuture.length} kỳ công việc/đợt giám sát trong tương lai. Không thể đổi chu kỳ hoặc nguồn đầu ra trực tiếp vì sẽ làm lệch lịch sử. Hãy ngưng mẫu cũ và tạo cấu hình thay thế.`,
+      }, { status: 409 });
+    }
+
+    const removableIds = (futureRuns || []).map((row: any) => row.id).filter(Boolean);
+    if (removableIds.length) {
+      const { error: deleteRunsError } = await admin.from("recurring_work_runs").delete().in("id", removableIds);
+      if (deleteRunsError) return NextResponse.json({ error: deleteRunsError.message }, { status: 400 });
     }
   }
 
