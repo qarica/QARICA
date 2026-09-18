@@ -8,8 +8,7 @@ import {
   automationKindLabel,
   suggestPlanAutomationKinds,
   suggestPlanAutomationResource,
-  type PlanAutomationKind,
-  type PlanAutomationResource,
+  type PlanAutomationKind
 } from "@/lib/plan-automation";
 
 type Department = { id: string; name: string; short_name: string | null };
