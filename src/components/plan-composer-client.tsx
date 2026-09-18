@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { MultiCheckSelect } from "@/components/multi-check-select";
 import {
   automationKindLabel,
   suggestPlanAutomationKind,
@@ -12,14 +13,19 @@ import {
 } from "@/lib/plan-automation";
 
 type Department = { id: string; name: string; short_name: string | null };
-type Profile = { user_id: string; full_name: string | null; email: string | null };
+type Profile = { user_id: string; full_name: string | null; email: string | null; primary_department_id?: string | null };
+type ReferenceOption = { id: string; label: string; description?: string | null };
 type CriterionItem = { id: string; code: string; title: string };
 type AutomationOption = { id: string; label: string };
 
 type DraftTask = {
+  client_id: string;
   title: string;
   lead_department_id: string;
+  collaborating_department_ids: string[];
   assignee_user_id: string;
+  collaborating_user_ids: string[];
+  parent_client_id: string;
   start_date: string;
   due_date: string;
   priority: "LOW" | "NORMAL" | "HIGH" | "URGENT" | "CRITICAL";
@@ -42,9 +48,13 @@ type DraftTask = {
 };
 
 const EMPTY_TASK: DraftTask = {
+  client_id: "draft-1",
   title: "",
   lead_department_id: "",
+  collaborating_department_ids: [],
   assignee_user_id: "",
+  collaborating_user_ids: [],
+  parent_client_id: "",
   start_date: "",
   due_date: "",
   priority: "NORMAL",
@@ -71,9 +81,13 @@ function toTask(raw: any): DraftTask {
     ? String(raw.automation_kind).toUpperCase() as PlanAutomationKind
     : "ACTION";
   return {
+    client_id: raw?.client_id || "draft-" + Math.random().toString(36).slice(2, 10),
     title: raw?.title || "",
     lead_department_id: raw?.lead_department_id || "",
+    collaborating_department_ids: Array.isArray(raw?.collaborating_department_ids) ? raw.collaborating_department_ids : [],
     assignee_user_id: raw?.assignee_user_id || "",
+    collaborating_user_ids: Array.isArray(raw?.collaborating_user_ids) ? raw.collaborating_user_ids : [],
+    parent_client_id: raw?.parent_client_id || "",
     start_date: raw?.start_date || "",
     due_date: raw?.due_date || "",
     priority: raw?.priority || "NORMAL",
@@ -110,7 +124,11 @@ export function PlanComposerClient({
   initialRequirements,
   initialDraftActions,
   defaultDepartmentId,
+  initialDepartmentIds,
   initialOwnerUserId,
+  initialOwnerUserIds,
+  referenceOptions,
+  initialReferenceIds,
   initialStartDate,
   initialEndDate,
 }: {
@@ -127,7 +145,11 @@ export function PlanComposerClient({
   initialRequirements: string | null;
   initialDraftActions: unknown;
   defaultDepartmentId: string | null;
+  initialDepartmentIds: string[];
   initialOwnerUserId: string | null;
+  initialOwnerUserIds: string[];
+  referenceOptions: ReferenceOption[];
+  initialReferenceIds: string[];
   initialStartDate: string | null;
   initialEndDate: string | null;
 }) {
@@ -139,15 +161,20 @@ export function PlanComposerClient({
       : [""],
   );
   const [requirements, setRequirements] = useState(initialRequirements || "");
+  const [planDepartmentIds, setPlanDepartmentIds] = useState<string[]>(initialDepartmentIds.length ? initialDepartmentIds : (defaultDepartmentId ? [defaultDepartmentId] : []));
+  const [planOwnerUserIds, setPlanOwnerUserIds] = useState<string[]>(initialOwnerUserIds.length ? initialOwnerUserIds : (initialOwnerUserId ? [initialOwnerUserId] : []));
+  const [referenceIds, setReferenceIds] = useState<string[]>(initialReferenceIds);
   const [tasks, setTasks] = useState<DraftTask[]>(
     Array.isArray(initialDraftActions) && initialDraftActions.length
       ? (initialDraftActions as any[]).map(toTask)
-      : [{ ...EMPTY_TASK, lead_department_id: defaultDepartmentId || "" }],
+      : [{ ...EMPTY_TASK, client_id: "draft-1", lead_department_id: defaultDepartmentId || "", assignee_user_id: initialOwnerUserId || "" }],
   );
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const deptOptions = useMemo(() => departments.map((d) => ({ id: d.id, label: d.short_name || d.name })), [departments]);
+  const planProfileOptions = useMemo(() => profiles.filter((p) => !planDepartmentIds.length || !p.primary_department_id || planDepartmentIds.includes(p.primary_department_id)).map((p) => ({ id: p.user_id, label: p.full_name || p.email || p.user_id })), [profiles, planDepartmentIds]);
+  const allProfileOptions = useMemo(() => profiles.map((p) => ({ id: p.user_id, label: p.full_name || p.email || p.user_id })), [profiles]);
 
   function updateTask(index: number, patch: Partial<DraftTask>) {
     setTasks((prev) => prev.map((task, i) => (i === index ? { ...task, ...patch } : task)));
@@ -163,12 +190,26 @@ export function PlanComposerClient({
     );
   }
 
-  function addTask() {
-    setTasks((prev) => [...prev, { ...EMPTY_TASK, lead_department_id: defaultDepartmentId || "" }]);
+  function addTask(parentClientId = "") {
+    setTasks((prev) => {
+      const parent = parentClientId ? prev.find((x) => x.client_id === parentClientId) : null;
+      return [...prev, {
+        ...EMPTY_TASK,
+        client_id: "draft-ui-" + Date.now() + "-" + (prev.length + 1),
+        parent_client_id: parentClientId,
+        lead_department_id: parent?.lead_department_id || planDepartmentIds[0] || defaultDepartmentId || "",
+        assignee_user_id: parent?.assignee_user_id || planOwnerUserIds[0] || initialOwnerUserId || "",
+        due_date: parent?.due_date || "",
+      }];
+    });
   }
 
   function removeTask(index: number) {
-    setTasks((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+    setTasks((prev) => {
+      if (prev.length <= 1) return prev;
+      const removed = prev[index];
+      return prev.filter((_, i) => i !== index).map((task) => task.parent_client_id === removed.client_id ? { ...task, parent_client_id: "" } : task);
+    });
   }
 
   function updateSpecific(index: number, value: string) {
@@ -236,8 +277,11 @@ export function PlanComposerClient({
           specific_objectives: cleanedSpecifics,
           requirements,
           draft_actions: cleanedTasks,
-          lead_department_id: defaultDepartmentId,
-          owner_user_id: initialOwnerUserId,
+          lead_department_id: planDepartmentIds[0] || defaultDepartmentId,
+          lead_department_ids: planDepartmentIds,
+          owner_user_id: planOwnerUserIds[0] || initialOwnerUserId,
+          owner_user_ids: planOwnerUserIds,
+          reference_ids: referenceIds,
           start_date: initialStartDate,
           end_date: initialEndDate,
         }),
@@ -291,6 +335,21 @@ export function PlanComposerClient({
 
       <label>Yêu cầu (không bắt buộc)<textarea rows={3} value={requirements} onChange={(e) => setRequirements(e.target.value)} /></label>
 
+      <section className="panel" style={{ padding: 13, background: "#fbfdfd" }}>
+        <div className="form-grid two">
+          <label>Khoa/phòng chủ trì & phối hợp *
+            <MultiCheckSelect options={deptOptions} value={planDepartmentIds} onChange={(ids) => { setPlanDepartmentIds(ids); setPlanOwnerUserIds((current) => current.filter((id) => { const p = profiles.find((x) => x.user_id === id); return !p?.primary_department_id || ids.includes(p.primary_department_id); })); }} placeholder="Chọn một hoặc nhiều khoa/phòng" />
+          </label>
+          <label>Người phụ trách / phối hợp
+            <MultiCheckSelect options={planProfileOptions} value={planOwnerUserIds} onChange={setPlanOwnerUserIds} placeholder="Chọn một hoặc nhiều người" />
+          </label>
+          <label className="span-2">Căn cứ lập kế hoạch
+            <MultiCheckSelect options={referenceOptions} value={referenceIds} onChange={setReferenceIds} placeholder="Chọn văn bản BYT/SYT/Bệnh viện..." emptyText="Chưa có văn bản trong module Văn bản / Chỉ đạo." />
+          </label>
+        </div>
+        <div className="tiny muted" style={{ marginTop: 8 }}>Mục đầu tiên là đầu mối chính để tương thích workflow; các mục còn lại được lưu là đơn vị/người phối hợp.</div>
+      </section>
+
       <div>
         <span className="tiny muted">Nhiệm vụ kế hoạch * · Action được tạo khi kế hoạch phê duyệt; đầu ra liên quan được tạo tự động nếu đã đủ dữ liệu.</span>
 
@@ -304,14 +363,29 @@ export function PlanComposerClient({
           return (
             <div key={i} className="panel" style={{ padding: 12, marginTop: 10, background: "#fbfdfd" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
-                <strong>Nhiệm vụ {i + 1}</strong>
-                <button type="button" className="button secondary small" onClick={() => removeTask(i)}>Xoá nhiệm vụ</button>
+                <div><strong>{task.parent_client_id ? "↳ Nhiệm vụ con" : "Nhiệm vụ"} {i + 1}</strong>{task.parent_client_id ? <div className="tiny muted">Kế thừa trong nhóm nhiệm vụ lớn</div> : null}</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button type="button" className="button tertiary small" onClick={() => addTask(task.client_id)}>+ Nhiệm vụ con</button>
+                  <button type="button" className="button secondary small" onClick={() => removeTask(i)}>Xoá nhiệm vụ</button>
+                </div>
               </div>
 
               <div className="form-grid two">
                 <label className="span-2">Tiêu đề *<input value={task.title} onChange={(e) => updateTask(i, { title: e.target.value })} /></label>
-                <label>Khoa/phòng chủ trì *<select value={task.lead_department_id} onChange={(e) => updateTask(i, { lead_department_id: e.target.value })}><option value="">-- Chọn --</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select></label>
-                <label>Người phụ trách *<select value={task.assignee_user_id} onChange={(e) => updateTask(i, { assignee_user_id: e.target.value })}><option value="">-- Chọn --</option>{profiles.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name || p.email}</option>)}</select></label>
+                <label>Khoa/phòng đầu mối *<select value={task.lead_department_id} onChange={(e) => updateTask(i, { lead_department_id: e.target.value })}><option value="">-- Chọn --</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select></label>
+                <label>Người đầu mối *<select value={task.assignee_user_id} onChange={(e) => updateTask(i, { assignee_user_id: e.target.value })}><option value="">-- Chọn --</option>{profiles.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name || p.email}</option>)}</select></label>
+                <label>Khoa/phòng phối hợp
+                  <MultiCheckSelect options={deptOptions.filter((x) => x.id !== task.lead_department_id)} value={task.collaborating_department_ids} onChange={(ids) => updateTask(i, { collaborating_department_ids: ids })} placeholder="Chọn nhiều đơn vị phối hợp" />
+                </label>
+                <label>Người phối hợp
+                  <MultiCheckSelect options={allProfileOptions.filter((x) => x.id !== task.assignee_user_id)} value={task.collaborating_user_ids} onChange={(ids) => updateTask(i, { collaborating_user_ids: ids })} placeholder="Chọn nhiều người phối hợp" />
+                </label>
+                <label className="span-2">Thuộc nhiệm vụ lớn
+                  <select value={task.parent_client_id} onChange={(e) => updateTask(i, { parent_client_id: e.target.value })}>
+                    <option value="">— Nhiệm vụ cấp 1 —</option>
+                    {tasks.filter((x) => x.client_id !== task.client_id).map((x, taskIndex) => <option key={x.client_id} value={x.client_id}>{taskIndex + 1}. {x.title || "Nhiệm vụ chưa đặt tên"}</option>)}
+                  </select>
+                </label>
                 <label>Ngày bắt đầu<input type="date" value={task.start_date} onChange={(e) => updateTask(i, { start_date: e.target.value })} /></label>
                 <label>Hạn hoàn thành *<input type="date" value={task.due_date} onChange={(e) => updateTask(i, { due_date: e.target.value })} /></label>
                 <label>Mức ưu tiên<select value={task.priority} onChange={(e) => updateTask(i, { priority: e.target.value as DraftTask["priority"] })}><option value="LOW">Thấp</option><option value="NORMAL">Bình thường</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn</option><option value="CRITICAL">Rất khẩn</option></select></label>
@@ -412,7 +486,7 @@ export function PlanComposerClient({
                         </>
                       ) : task.automation_kind === "ASSESSMENT" ? (
                         <>
-                          <label className="span-2">Bộ tiêu chí đã phát hành *
+                          <label className="span-2">Bộ tiêu chí đã phát hành * <small className="muted">({assessmentCriteriaVersions.length} bộ khả dụng)</small>
                             <select value={task.automation_ref_id} onChange={(e) => updateTask(i, { automation_ref_id: e.target.value })}>
                               <option value="">-- Chọn bộ tiêu chí / phiên bản --</option>
                               {assessmentCriteriaVersions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
