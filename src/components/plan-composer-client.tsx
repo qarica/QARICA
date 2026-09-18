@@ -604,7 +604,7 @@ export function PlanComposerClient({
             <MultiCheckSelect options={referenceOptions} value={referenceIds} onChange={setReferenceIds} placeholder="Chọn văn bản BYT/SYT/Bệnh viện..." emptyText="Chưa có văn bản trong module Văn bản / Chỉ đạo." />
           </label>
           <label className="span-2">Nhóm thực hiện
-            <MultiCheckSelect options={workGroupOptions} value={planAssignedGroupIds} onChange={setPlanAssignedGroupIds} placeholder="Chọn một hoặc nhiều nhóm công tác" emptyText="Chưa có nhóm. Tạo tại menu Nhóm công tác." />
+            <MultiCheckSelect options={workGroupOptions} value={planAssignedGroupIds} onChange={setPlanAssignedGroupIds} placeholder="Chọn nhóm đã cấu hình" emptyText="Chưa có nhóm được cấu hình. Quản trị viên tạo tại Quản trị hệ thống → Nhóm phân công." />
           </label>
         </div>
         <div className="tiny muted" style={{ marginTop: 8 }}>Mục đầu tiên là đầu mối chính để tương thích workflow; các mục còn lại được lưu là đơn vị/người phối hợp.</div>
@@ -657,9 +657,22 @@ export function PlanComposerClient({
                 <label>Người phối hợp
                   <MultiCheckSelect options={allProfileOptions.filter((x) => x.id !== task.assignee_user_id)} value={task.collaborating_user_ids} onChange={(ids) => updateTask(i, { collaborating_user_ids: ids })} placeholder="Chọn nhiều người phối hợp" />
                 </label>
-                <label className="span-2">Nhóm phối hợp
-                  <MultiCheckSelect options={workGroupOptions} value={task.collaborating_group_ids} onChange={(ids) => updateTask(i, { collaborating_group_ids: ids })} placeholder="Chọn nhóm thực hiện/phối hợp" emptyText="Chưa có nhóm công tác đang hoạt động." />
-                  {task.collaborating_group_ids.length ? <span className="tiny muted">Khi kế hoạch được phê duyệt, thành viên đang hoạt động của nhóm sẽ được chụp snapshot và thêm vào Action. Người đã chọn trực tiếp sẽ không bị nhân đôi.</span> : null}
+                <label className="span-2">Nhóm thực hiện
+                  <MultiCheckSelect
+                    options={workGroupOptions}
+                    value={task.collaborating_group_ids}
+                    onChange={(ids) => {
+                      const primaryGroup = workGroupOptions.find((group) => group.id === ids[0]);
+                      updateTask(i, {
+                        collaborating_group_ids: ids,
+                        lead_department_id: task.lead_department_id || primaryGroup?.leadDepartmentId || "",
+                        assignee_user_id: task.assignee_user_id || primaryGroup?.leaderUserId || "",
+                      });
+                    }}
+                    placeholder="Chọn nhóm đã cấu hình"
+                    emptyText="Chưa có nhóm đang hoạt động. Quản trị viên cấu hình tại Quản trị hệ thống → Nhóm phân công."
+                  />
+                  {task.collaborating_group_ids.length ? <span className="tiny muted">Thành viên lấy từ cấu hình nhóm. Nếu khoa đầu mối/người đầu mối đang trống, QARICA tự điền từ nhóm được chọn đầu tiên. Không cần khai báo lại thành viên trong kế hoạch.</span> : null}
                 </label>
                 <label>Ngày bắt đầu<input type="date" value={task.start_date} onChange={(e) => updateTask(i, { start_date: e.target.value })} /></label>
                 <label>Hạn hoàn thành *<input type="date" value={task.due_date} onChange={(e) => updateTask(i, { due_date: e.target.value })} /></label>
