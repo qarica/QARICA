@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Option = { id: string; label: string };
+type ProfileOption = { id: string; label: string; departmentId: string };
+type FindingRow = { id: string; recordId: string; code: string; title: string; sourceRef: string; severity: string; dueDate: string; status: string; department: string; href: string };
 type Scope = { id: string; department: string; process: string; area: string; description: string };
 type Session = { id: string; start: string; end: string; department: string; location: string; status: string };
 type RawScope = { id: string; department_id: string | null; process_name: string | null; area_name: string | null; scope_description: string | null };
@@ -11,6 +14,7 @@ type RawSession = { id: string; scheduled_start: string; scheduled_end: string |
 
 const EMPTY_SCOPE = { department_id: "", process_name: "", area_name: "", scope_description: "" };
 const EMPTY_SESSION = { department_id: "", scheduled_start: "", scheduled_end: "", location: "" };
+const EMPTY_FINDING = { source_ref: "", description: "", severity: "MAJOR", due_date: "", lead_department_id: "", owner_user_id: "" };
 
 function hcmDateTimeLocal(value: string | null | undefined) {
   if (!value) return "";
@@ -21,7 +25,7 @@ function hcmDateTimeLocal(value: string | null | undefined) {
   return `${map.get("year")}-${map.get("month")}-${map.get("day")}T${map.get("hour")}:${map.get("minute")}`;
 }
 
-export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessions, findings, openFindings, evidence, departments, scopeRows, sessionRows }: { recordId: string; status: string; canManage: boolean; scopes: number; sessions: number; findings: number; openFindings: number; evidence: number; departments: Option[]; scopeRows: Scope[]; sessionRows: Session[] }) {
+export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessions, findings, openFindings, evidence, departments, profiles, scopeRows, sessionRows, findingRows }: { recordId: string; status: string; canManage: boolean; scopes: number; sessions: number; findings: number; openFindings: number; evidence: number; departments: Option[]; profiles: ProfileOption[]; scopeRows: Scope[]; sessionRows: Session[]; findingRows: FindingRow[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -30,6 +34,8 @@ export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessi
   const [session, setSession] = useState(EMPTY_SESSION);
   const [editingScopeId, setEditingScopeId] = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [finding, setFinding] = useState(EMPTY_FINDING);
+  const filteredFindingOwners = finding.lead_department_id ? profiles.filter((x) => x.departmentId === finding.lead_department_id) : [];
 
   async function call(url: string, action: string, payload: Record<string, unknown> = {}) {
     if (busy) return false;
@@ -106,8 +112,13 @@ export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessi
     if (ok && editingSessionId === id) { setEditingSessionId(null); setSession(EMPTY_SESSION); }
   }
 
+  async function createFinding() {
+    const ok = await run("CREATE_FINDING", finding);
+    if (ok) setFinding(EMPTY_FINDING);
+  }
+
   return <section className="panel audit-workflow-panel">
-    <style>{`.audit-setup-actions{display:flex;gap:6px;flex-wrap:wrap}.audit-edit-note{padding:9px 10px;border:1px solid #dbe5e8;border-radius:10px;background:#f8fafc;color:#64748b;font-size:11px}.audit-form-actions{display:flex;gap:8px;flex-wrap:wrap}.audit-workflow-panel table td:last-child{white-space:nowrap}`}</style>
+    <style>{`.audit-setup-actions{display:flex;gap:6px;flex-wrap:wrap}.audit-edit-note{padding:9px 10px;border:1px solid #dbe5e8;border-radius:10px;background:#f8fafc;color:#64748b;font-size:11px}.audit-form-actions{display:flex;gap:8px;flex-wrap:wrap}.audit-finding-box{border:1px solid #dbe7ea;border-radius:14px;padding:14px;background:#fbfdfe;display:grid;gap:12px}.audit-finding-box h3{margin:0}.audit-finding-box p{margin:0;color:#64748b;font-size:12px}.audit-workflow-panel table td:last-child{white-space:nowrap}`}</style>
     <div className="panel-title"><div><h2>Audit/Tracer Workflow</h2><p>Phạm vi → thực hiện → báo cáo → Finding → recheck → đóng.</p></div><strong>{status}</strong></div>
     <div style={{ padding: "0 18px 18px", display: "grid", gap: 14 }}>
       {error ? <div className="alert error">{error}</div> : null}{notice ? <div className="alert success">{notice}</div> : null}
@@ -121,6 +132,22 @@ export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessi
       {status === "IN_PROGRESS" && canManage ? <div className="page-stack"><h3>{editingSessionId ? "Sửa phiên Audit PLANNED" : "Tạo phiên thực hiện Audit"}</h3>{editingSessionId ? <div className="audit-edit-note">Chỉ lịch phiên còn PLANNED được phép sửa. Phiên đã thực hiện sẽ được khóa để giữ lịch sử.</div> : null}<div className="detail-grid"><label><span>Bắt đầu *</span><input type="datetime-local" value={session.scheduled_start} onChange={(e) => setSession({ ...session, scheduled_start: e.target.value })} /></label><label><span>Kết thúc</span><input type="datetime-local" value={session.scheduled_end} onChange={(e) => setSession({ ...session, scheduled_end: e.target.value })} /></label><label><span>Khoa/phòng</span><select value={session.department_id} onChange={(e) => setSession({ ...session, department_id: e.target.value })}><option value="">Chọn...</option>{departments.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label><label><span>Địa điểm</span><input value={session.location} onChange={(e) => setSession({ ...session, location: e.target.value })} /></label></div><div className="audit-form-actions"><button type="button" className="button secondary" disabled={busy || !session.scheduled_start} onClick={saveSession}>{editingSessionId ? "Lưu sửa phiên" : "Tạo phiên Audit"}</button>{editingSessionId ? <button type="button" className="button tertiary" disabled={busy} onClick={() => { setEditingSessionId(null); setSession(EMPTY_SESSION); }}>Hủy sửa</button> : null}</div></div> : null}
 
       {sessionRows.length ? <div className="table-wrap"><table><thead><tr><th>Bắt đầu</th><th>Kết thúc</th><th>Khoa/phòng</th><th>Địa điểm</th><th>Trạng thái</th>{status === "IN_PROGRESS" && canManage ? <th>Thao tác</th> : null}</tr></thead><tbody>{sessionRows.map((x) => <tr key={x.id}><td>{x.start}</td><td>{x.end || "—"}</td><td>{x.department || "—"}</td><td>{x.location || "—"}</td><td>{x.status}</td>{status === "IN_PROGRESS" && canManage ? <td>{String(x.status || "PLANNED").toUpperCase() === "PLANNED" ? <div className="audit-setup-actions"><button type="button" className="button tertiary small" disabled={busy} onClick={() => editSession(x.id)}>Sửa</button><button type="button" className="button tertiary small" disabled={busy} onClick={() => deleteSession(x.id)}>Xóa</button></div> : <span>Đã khóa</span>}</td> : null}</tr>)}</tbody></table></div> : null}
+      {findingRows.length ? <div className="table-wrap"><table><thead><tr><th>Mã Finding</th><th>Tham chiếu Audit</th><th>Khoa/phòng</th><th>Mức độ</th><th>Hạn</th><th>Trạng thái</th><th></th></tr></thead><tbody>{findingRows.map((x) => <tr key={x.id}><td><strong>{x.code}</strong><small className="subline">{x.title}</small></td><td>{x.sourceRef}</td><td>{x.department}</td><td>{x.severity}</td><td>{x.dueDate || "—"}</td><td>{x.status}</td><td><Link className="button tertiary small" href={x.href}>Mở Finding</Link></td></tr>)}</tbody></table></div> : null}
+
+      {canManage && ["IN_PROGRESS", "DRAFT_REPORT", "REPORT_REVIEW", "FOLLOW_UP"].includes(status) ? <div className="audit-finding-box">
+        <div><h3>Ghi nhận phát hiện → tự tạo Finding</h3><p>Nhập một lần tại Audit. QARICA tự tạo Finding, giao người xử lý, gửi thông báo và giữ liên kết truy vết. Cùng mã tham chiếu trong Audit sẽ không tạo trùng.</p></div>
+        <div className="detail-grid">
+          <label><span>Mã / tham chiếu phát hiện *</span><input value={finding.source_ref} maxLength={120} placeholder="Ví dụ: NC-01 / QT-03" onChange={(e) => setFinding({ ...finding, source_ref: e.target.value })} /></label>
+          <label><span>Mức độ *</span><select value={finding.severity} onChange={(e) => setFinding({ ...finding, severity: e.target.value })}><option value="MINOR">Nhẹ</option><option value="MAJOR">Nghiêm trọng</option><option value="CRITICAL">Tới hạn</option></select></label>
+          <label><span>Khoa/phòng chịu khắc phục *</span><select value={finding.lead_department_id} onChange={(e) => setFinding({ ...finding, lead_department_id: e.target.value, owner_user_id: "" })}><option value="">— Chọn khoa/phòng —</option>{departments.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
+          <label><span>Người phụ trách *</span><select value={finding.owner_user_id} disabled={!finding.lead_department_id} onChange={(e) => setFinding({ ...finding, owner_user_id: e.target.value })}><option value="">— Chọn người —</option>{filteredFindingOwners.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
+          <label><span>Hạn khắc phục *</span><input type="date" value={finding.due_date} onChange={(e) => setFinding({ ...finding, due_date: e.target.value })} /></label>
+          <label className="wide"><span>Mô tả phát hiện / điểm không phù hợp *</span><textarea rows={3} value={finding.description} onChange={(e) => setFinding({ ...finding, description: e.target.value })} /></label>
+        </div>
+        {finding.lead_department_id && !filteredFindingOwners.length ? <div className="alert info">Khoa/phòng này chưa có người dùng hoạt động được gán làm đơn vị chính. Cần cập nhật người phụ trách trước khi tạo Finding.</div> : null}
+        <div className="audit-form-actions"><button className="button primary" type="button" disabled={busy || !finding.source_ref.trim() || !finding.description.trim() || !finding.due_date || !finding.lead_department_id || !finding.owner_user_id} onClick={createFinding}>Tạo Finding từ Audit</button></div>
+      </div> : null}
+
       {status === "IN_PROGRESS" && canManage ? <button className="button primary" disabled={busy || sessions < 1 || evidence < 1} onClick={() => run("SUBMIT_REPORT")}>Gửi báo cáo rà soát</button> : null}
       {["DRAFT_REPORT", "REPORT_REVIEW"].includes(status) && canManage ? <button className="button primary" disabled={busy} onClick={() => run("START_FOLLOW_UP")}>Chuyển theo dõi Finding</button> : null}
       {status === "FOLLOW_UP" && canManage ? <button className="button primary" disabled={busy || openFindings > 0} onClick={() => { const conclusion = window.prompt("Kết luận đóng Audit/Tracer:"); if (conclusion?.trim()) run("CLOSE", { comment: conclusion.trim() }); }}>Đóng Audit/Tracer</button> : null}
