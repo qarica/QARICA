@@ -274,6 +274,7 @@ export function PlanComposerClient({
       ? (initialDraftActions as any[]).map(toTask)
       : [{ ...EMPTY_TASK, client_id: "draft-1", lead_department_id: defaultDepartmentId || "", assignee_user_id: initialOwnerUserId || "" }],
   );
+  const [childEnabledIds, setChildEnabledIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
@@ -351,6 +352,17 @@ export function PlanComposerClient({
 
   function promoteTask(index: number) {
     updateTask(index, { parent_client_id: "" });
+  }
+
+  function setChildMode(task: DraftTask, enabled: boolean) {
+    const childCount = tasks.filter((item) => item.parent_client_id === task.client_id).length;
+    if (!enabled && childCount > 0) {
+      setMessage({ tone: "error", text: `Nhiệm vụ này đang có ${childCount} nhiệm vụ con. Hãy xóa hoặc đưa các nhiệm vụ con lên cấp 1 trước khi bỏ chọn.` });
+      return;
+    }
+    setChildEnabledIds((current) => enabled
+      ? Array.from(new Set([...current, task.client_id]))
+      : current.filter((id) => id !== task.client_id));
   }
 
   function removeTask(index: number) {
@@ -615,13 +627,21 @@ export function PlanComposerClient({
                 <div>
                   <div className="task-title-line">
                     <span className="task-index">{row.label}</span>
-                    <strong>{row.depth === 1 ? "Nhiệm vụ con" : "Nhiệm vụ lớn"}</strong>
+                    <strong>{row.depth === 1 ? "Nhiệm vụ con" : (row.childCount > 0 ? "Nhiệm vụ lớn" : "Nhiệm vụ")}</strong>
+                    {row.depth === 0 ? <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 700, color: "#52677a" }}>
+                      <input
+                        type="checkbox"
+                        checked={row.childCount > 0 || childEnabledIds.includes(task.client_id)}
+                        onChange={(e) => setChildMode(task, e.target.checked)}
+                      />
+                      Có nhiệm vụ con
+                    </label> : null}
                     {row.depth === 0 && row.childCount > 0 ? <span className="tiny muted">{row.childCount} nhiệm vụ con</span> : null}
                   </div>
                   {row.depth === 1 ? <div className="task-parent-note">Thuộc: {row.parentTitle}</div> : null}
                 </div>
                 <div className="task-actions">
-                  {row.depth === 0 ? <button type="button" className="button tertiary small" onClick={() => addTask(task.client_id)}>+ Thêm nhiệm vụ con</button> : null}
+                  {row.depth === 0 && (row.childCount > 0 || childEnabledIds.includes(task.client_id)) ? <button type="button" className="button tertiary small" onClick={() => addTask(task.client_id)}>+ Thêm nhiệm vụ con</button> : null}
                   {row.depth === 1 ? <button type="button" className="button tertiary small" onClick={() => promoteTask(i)}>Đưa lên cấp 1</button> : null}
                   <button type="button" className="button secondary small" onClick={() => removeTask(i)}>Xoá</button>
                 </div>
