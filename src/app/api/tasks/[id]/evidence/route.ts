@@ -74,15 +74,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: canManage } = await auth.supabase.rpc("has_permission", { p_permission_code: "plans.manage" });
   let isAssignee = action.assignee_user_id === auth.user.id;
   if (action.assignment_target_type === "GROUP" && action.assignee_group_id) {
-    const { data: membership, error: membershipError } = await admin
-      .from("work_group_members")
+    const { data: assignmentSnapshot, error: snapshotError } = await admin
+      .from("work_group_assignment_snapshots")
       .select("id")
+      .eq("target_record_id", recordId)
       .eq("group_id", action.assignee_group_id)
-      .eq("user_id", auth.user.id)
-      .eq("is_active", true)
+      .eq("assignment_role", "ACTION_ASSIGNEE_GROUP")
+      .contains("member_snapshot", [{ user_id: auth.user.id }])
       .maybeSingle();
-    if (membershipError) return NextResponse.json({ error: membershipError.message }, { status: 400 });
-    isAssignee = !!membership;
+    if (snapshotError) return NextResponse.json({ error: snapshotError.message }, { status: 400 });
+    isAssignee = !!assignmentSnapshot;
   }
   if (!isAssignee && !canManage) {
     return NextResponse.json({ error: "Chỉ cá nhân/nhóm được giao việc hoặc người quản lý kế hoạch mới được nộp minh chứng." }, { status: 403 });
