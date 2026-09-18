@@ -601,18 +601,29 @@ export function PlanComposerClient({
       <div>
         <span className="tiny muted"><strong>4. Nhiệm vụ kế hoạch *</strong> · Action được tạo khi kế hoạch phê duyệt; đầu ra liên quan được tạo tự động nếu đã đủ dữ liệu.</span>
 
-        {tasks.map((task, i) => {
+        <div className="task-tree">
+        {taskTreeRows.map((row) => {
+          const task = row.task;
+          const i = row.index;
           const suggestions = suggestPlanAutomationKinds({ title: task.title, description: task.description, expectedResult: task.expected_result }) as AutomationOutputKind[];
           const selectedKinds = task.automation_outputs.map((output) => output.kind);
           const missingSuggestions = suggestions.filter((kind) => !selectedKinds.includes(kind));
 
           return (
-            <div key={i} className="panel" style={{ padding: 12, marginTop: 10, background: "#fbfdfd" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
-                <div><strong>{task.parent_client_id ? "↳ Nhiệm vụ con" : "Nhiệm vụ"} {i + 1}</strong>{task.parent_client_id ? <div className="tiny muted">Kế thừa trong nhóm nhiệm vụ lớn</div> : null}</div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <button type="button" className="button tertiary small" onClick={() => addTask(task.client_id)}>+ Nhiệm vụ con</button>
-                  <button type="button" className="button secondary small" onClick={() => removeTask(i)}>Xoá nhiệm vụ</button>
+            <div key={task.client_id} className={`panel task-card ${row.depth === 1 ? "child" : "root"}`}>
+              <div className="task-heading">
+                <div>
+                  <div className="task-title-line">
+                    <span className="task-index">{row.label}</span>
+                    <strong>{row.depth === 1 ? "Nhiệm vụ con" : "Nhiệm vụ lớn"}</strong>
+                    {row.depth === 0 && row.childCount > 0 ? <span className="tiny muted">{row.childCount} nhiệm vụ con</span> : null}
+                  </div>
+                  {row.depth === 1 ? <div className="task-parent-note">Thuộc: {row.parentTitle}</div> : null}
+                </div>
+                <div className="task-actions">
+                  {row.depth === 0 ? <button type="button" className="button tertiary small" onClick={() => addTask(task.client_id)}>+ Thêm nhiệm vụ con</button> : null}
+                  {row.depth === 1 ? <button type="button" className="button tertiary small" onClick={() => promoteTask(i)}>Đưa lên cấp 1</button> : null}
+                  <button type="button" className="button secondary small" onClick={() => removeTask(i)}>Xoá</button>
                 </div>
               </div>
 
@@ -629,12 +640,6 @@ export function PlanComposerClient({
                 <label className="span-2">Nhóm phối hợp
                   <MultiCheckSelect options={workGroupOptions} value={task.collaborating_group_ids} onChange={(ids) => updateTask(i, { collaborating_group_ids: ids })} placeholder="Chọn nhóm thực hiện/phối hợp" emptyText="Chưa có nhóm công tác đang hoạt động." />
                   {task.collaborating_group_ids.length ? <span className="tiny muted">Khi kế hoạch được phê duyệt, thành viên đang hoạt động của nhóm sẽ được chụp snapshot và thêm vào Action. Người đã chọn trực tiếp sẽ không bị nhân đôi.</span> : null}
-                </label>
-                <label className="span-2">Thuộc nhiệm vụ lớn
-                  <select value={task.parent_client_id} onChange={(e) => updateTask(i, { parent_client_id: e.target.value })}>
-                    <option value="">— Nhiệm vụ cấp 1 —</option>
-                    {tasks.filter((x) => x.client_id !== task.client_id).map((x, taskIndex) => <option key={x.client_id} value={x.client_id}>{taskIndex + 1}. {x.title || "Nhiệm vụ chưa đặt tên"}</option>)}
-                  </select>
                 </label>
                 <label>Ngày bắt đầu<input type="date" value={task.start_date} onChange={(e) => updateTask(i, { start_date: e.target.value })} /></label>
                 <label>Hạn hoàn thành *<input type="date" value={task.due_date} onChange={(e) => updateTask(i, { due_date: e.target.value })} /></label>
@@ -812,8 +817,9 @@ export function PlanComposerClient({
             </div>
           );
         })}
+        </div>
 
-        <button type="button" className="button tertiary small" style={{ marginTop: 10 }} onClick={() => addTask()}>+ Thêm nhiệm vụ</button>
+        <button type="button" className="button tertiary small" style={{ marginTop: 10 }} onClick={() => addTask()}>+ Thêm nhiệm vụ cấp 1</button>
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
