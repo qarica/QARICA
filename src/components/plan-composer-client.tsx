@@ -6,7 +6,7 @@ import { Icon } from "@/components/icon";
 import { MultiCheckSelect } from "@/components/multi-check-select";
 import {
   automationKindLabel,
-  suggestPlanAutomationKind,
+  suggestPlanAutomationKinds,
   suggestPlanAutomationResource,
   type PlanAutomationKind,
   type PlanAutomationResource,
@@ -18,6 +18,20 @@ type ReferenceOption = { id: string; label: string; description?: string | null 
 type WorkGroupOption = { id: string; label: string; description?: string | null; memberUserIds: string[]; leaderUserId: string | null; leadDepartmentId: string | null };
 type CriterionItem = { id: string; code: string; title: string };
 type AutomationOption = { id: string; label: string };
+type AutomationOutputKind = Exclude<PlanAutomationKind, "ACTION">;
+type AutomationOutput = {
+  kind: AutomationOutputKind;
+  ref_id: string;
+  target_department_id: string;
+  target_area: string;
+  report_recipient: string;
+  report_method: string;
+  report_period: string;
+  report_recurrence_rule: string;
+  report_recurrence_end_date: string;
+  assessment_round_type: string;
+  audit_type: string;
+};
 
 type DraftTask = {
   client_id: string;
@@ -37,6 +51,7 @@ type DraftTask = {
   criteria_refs: string[];
   automation_kind: PlanAutomationKind;
   automation_confirmed: boolean;
+  automation_outputs: AutomationOutput[];
   automation_ref_id: string;
   automation_target_department_id: string;
   automation_target_area: string;
@@ -67,6 +82,7 @@ const EMPTY_TASK: DraftTask = {
   criteria_refs: [],
   automation_kind: "ACTION",
   automation_confirmed: false,
+  automation_outputs: [],
   automation_ref_id: "",
   automation_target_department_id: "",
   automation_target_area: "",
@@ -79,10 +95,65 @@ const EMPTY_TASK: DraftTask = {
   automation_audit_type: "",
 };
 
+function emptyOutput(kind: AutomationOutputKind, refId = ""): AutomationOutput {
+  return {
+    kind,
+    ref_id: refId,
+    target_department_id: "",
+    target_area: "",
+    report_recipient: "",
+    report_method: "",
+    report_period: "",
+    report_recurrence_rule: "",
+    report_recurrence_end_date: "",
+    assessment_round_type: "",
+    audit_type: "",
+  };
+}
+
 function toTask(raw: any): DraftTask {
-  const kind = ["ACTION", "INDICATOR", "MONITORING", "REPORT", "ASSESSMENT", "AUDIT", "IMPROVEMENT"].includes(String(raw?.automation_kind || "").toUpperCase())
+  const legacyKind = ["ACTION", "INDICATOR", "MONITORING", "REPORT", "ASSESSMENT", "AUDIT", "IMPROVEMENT"].includes(String(raw?.automation_kind || "").toUpperCase())
     ? String(raw.automation_kind).toUpperCase() as PlanAutomationKind
     : "ACTION";
+  const rawOutputs = Array.isArray(raw?.automation_outputs) ? raw.automation_outputs : [];
+  const parsedOutputs: AutomationOutput[] = rawOutputs
+    .map((row: any) => {
+      const kind = String(row?.kind || "").toUpperCase();
+      if (!["INDICATOR","MONITORING","REPORT","ASSESSMENT","AUDIT","IMPROVEMENT"].includes(kind)) return null;
+      return {
+        kind: kind as AutomationOutputKind,
+        ref_id: row?.ref_id || "",
+        target_department_id: row?.target_department_id || "",
+        target_area: row?.target_area || "",
+        report_recipient: row?.report_recipient || "",
+        report_method: row?.report_method || "",
+        report_period: row?.report_period || "",
+        report_recurrence_rule: row?.report_recurrence_rule || "",
+        report_recurrence_end_date: row?.report_recurrence_end_date || "",
+        assessment_round_type: row?.assessment_round_type || "",
+        audit_type: row?.audit_type || "",
+      } as AutomationOutput;
+    })
+    .filter((x: AutomationOutput | null): x is AutomationOutput => !!x);
+
+  if (!parsedOutputs.length && raw?.automation_confirmed === true && legacyKind !== "ACTION") {
+    parsedOutputs.push({
+      kind: legacyKind as AutomationOutputKind,
+      ref_id: raw?.automation_ref_id || "",
+      target_department_id: raw?.automation_target_department_id || "",
+      target_area: raw?.automation_target_area || "",
+      report_recipient: raw?.automation_report_recipient || "",
+      report_method: raw?.automation_report_method || "",
+      report_period: raw?.automation_report_period || "",
+      report_recurrence_rule: raw?.automation_report_recurrence_rule || "",
+      report_recurrence_end_date: raw?.automation_report_recurrence_end_date || "",
+      assessment_round_type: raw?.automation_assessment_round_type || "",
+      audit_type: raw?.automation_audit_type || "",
+    });
+  }
+
+  const uniqueOutputs = Array.from(new Map(parsedOutputs.map((row) => [row.kind, row])).values());
+  const first = uniqueOutputs[0];
   return {
     client_id: raw?.client_id || "draft-" + Math.random().toString(36).slice(2, 10),
     title: raw?.title || "",
@@ -99,18 +170,19 @@ function toTask(raw: any): DraftTask {
     verification_requirement: raw?.verification_requirement || "",
     description: raw?.description || "",
     criteria_refs: Array.isArray(raw?.criteria_refs) ? raw.criteria_refs : [],
-    automation_kind: kind,
-    automation_confirmed: raw?.automation_confirmed === true,
-    automation_ref_id: raw?.automation_ref_id || "",
-    automation_target_department_id: raw?.automation_target_department_id || "",
-    automation_target_area: raw?.automation_target_area || "",
-    automation_report_recipient: raw?.automation_report_recipient || "",
-    automation_report_method: raw?.automation_report_method || "",
-    automation_report_period: raw?.automation_report_period || "",
-    automation_report_recurrence_rule: raw?.automation_report_recurrence_rule || "",
-    automation_report_recurrence_end_date: raw?.automation_report_recurrence_end_date || "",
-    automation_assessment_round_type: raw?.automation_assessment_round_type || "",
-    automation_audit_type: raw?.automation_audit_type || "",
+    automation_kind: first?.kind || legacyKind,
+    automation_confirmed: uniqueOutputs.length > 0,
+    automation_outputs: uniqueOutputs,
+    automation_ref_id: first?.ref_id || raw?.automation_ref_id || "",
+    automation_target_department_id: first?.target_department_id || raw?.automation_target_department_id || "",
+    automation_target_area: first?.target_area || raw?.automation_target_area || "",
+    automation_report_recipient: first?.report_recipient || raw?.automation_report_recipient || "",
+    automation_report_method: first?.report_method || raw?.automation_report_method || "",
+    automation_report_period: first?.report_period || raw?.automation_report_period || "",
+    automation_report_recurrence_rule: first?.report_recurrence_rule || raw?.automation_report_recurrence_rule || "",
+    automation_report_recurrence_end_date: first?.report_recurrence_end_date || raw?.automation_report_recurrence_end_date || "",
+    automation_assessment_round_type: first?.assessment_round_type || raw?.automation_assessment_round_type || "",
+    automation_audit_type: first?.audit_type || raw?.automation_audit_type || "",
   };
 }
 
@@ -246,38 +318,61 @@ export function PlanComposerClient({
     return [task.title, task.description, task.expected_result].filter(Boolean).join(" ");
   }
 
-  function acceptSuggestion(index: number, kind: PlanAutomationKind, candidate: PlanAutomationResource | null) {
-    updateTask(index, {
-      automation_kind: kind,
-      automation_confirmed: true,
-      automation_ref_id: candidate?.id || "",
-      automation_target_department_id: "",
-      automation_target_area: "",
-      automation_report_recipient: "",
-      automation_report_method: "",
-      automation_report_period: "",
-      automation_report_recurrence_rule: "",
-      automation_report_recurrence_end_date: "",
-      automation_assessment_round_type: "",
-      automation_audit_type: "",
-    });
+  function resourcesForKind(kind: AutomationOutputKind) {
+    if (kind === "INDICATOR") return indicatorAssignments;
+    if (kind === "MONITORING") return monitoringChecklists;
+    if (kind === "ASSESSMENT") return assessmentCriteriaVersions;
+    return [] as AutomationOption[];
   }
 
-  function chooseAutomationKind(index: number, kind: PlanAutomationKind) {
-    updateTask(index, {
-      automation_kind: kind,
-      automation_confirmed: true,
-      automation_ref_id: "",
-      automation_target_department_id: "",
-      automation_target_area: "",
-      automation_report_recipient: "",
-      automation_report_method: "",
-      automation_report_period: "",
-      automation_report_recurrence_rule: "",
-      automation_report_recurrence_end_date: "",
-      automation_assessment_round_type: "",
-      automation_audit_type: "",
-    });
+  function updateAutomationOutput(index: number, kind: AutomationOutputKind, patch: Partial<AutomationOutput>) {
+    setTasks((prev) => prev.map((task, i) => {
+      if (i !== index) return task;
+      const outputs = task.automation_outputs.map((output) => output.kind === kind ? { ...output, ...patch } : output);
+      const first = outputs[0];
+      return {
+        ...task,
+        automation_outputs: outputs,
+        automation_kind: first?.kind || "ACTION",
+        automation_confirmed: outputs.length > 0,
+      };
+    }));
+  }
+
+  function setAutomationKinds(index: number, kinds: string[]) {
+    const selected = kinds.filter((kind): kind is AutomationOutputKind => ["INDICATOR","MONITORING","REPORT","ASSESSMENT","AUDIT","IMPROVEMENT"].includes(kind));
+    setTasks((prev) => prev.map((task, i) => {
+      if (i !== index) return task;
+      const current = new Map(task.automation_outputs.map((output) => [output.kind, output]));
+      const outputs = selected.map((kind) => current.get(kind) || emptyOutput(kind));
+      const first = outputs[0];
+      return {
+        ...task,
+        automation_outputs: outputs,
+        automation_kind: first?.kind || "ACTION",
+        automation_confirmed: outputs.length > 0,
+      };
+    }));
+  }
+
+  function acceptSuggestions(index: number, kinds: AutomationOutputKind[]) {
+    setTasks((prev) => prev.map((task, i) => {
+      if (i !== index) return task;
+      const current = new Map(task.automation_outputs.map((output) => [output.kind, output]));
+      for (const kind of kinds) {
+        if (current.has(kind)) continue;
+        const candidate = suggestPlanAutomationResource(taskText(task), resourcesForKind(kind));
+        current.set(kind, emptyOutput(kind, candidate?.id || ""));
+      }
+      const outputs = Array.from(current.values());
+      const first = outputs[0];
+      return {
+        ...task,
+        automation_outputs: outputs,
+        automation_kind: first?.kind || "ACTION",
+        automation_confirmed: outputs.length > 0,
+      };
+    }));
   }
 
   async function save() {
