@@ -68,7 +68,7 @@ alter table public.work_group_assignment_snapshots enable row level security;
 drop policy if exists work_groups_select_same_org on public.work_groups;
 create policy work_groups_select_same_org on public.work_groups
 for select to authenticated
-using (organization_id = public.current_user_organization_id());
+using (exists (select 1 from public.profiles p where p.user_id=auth.uid() and p.organization_id=work_groups.organization_id and p.is_active));
 
 drop policy if exists work_group_members_select_same_org on public.work_group_members;
 create policy work_group_members_select_same_org on public.work_group_members
@@ -76,13 +76,13 @@ for select to authenticated
 using (exists(
   select 1 from public.work_groups g
   where g.id=work_group_members.group_id
-    and g.organization_id=public.current_user_organization_id()
+    and exists (select 1 from public.profiles p where p.user_id=auth.uid() and p.organization_id=g.organization_id and p.is_active)
 ));
 
 drop policy if exists work_group_assignment_snapshots_select_same_org on public.work_group_assignment_snapshots;
 create policy work_group_assignment_snapshots_select_same_org on public.work_group_assignment_snapshots
 for select to authenticated
-using (organization_id=public.current_user_organization_id());
+using (exists (select 1 from public.profiles p where p.user_id=auth.uid() and p.organization_id=work_group_assignment_snapshots.organization_id and p.is_active));
 
 comment on table public.work_groups is 'Reusable user groups/working teams for assignment across QARICA.';
 comment on table public.work_group_assignment_snapshots is 'Historical snapshot of group members at assignment time; later membership changes must not rewrite old assignments.';
