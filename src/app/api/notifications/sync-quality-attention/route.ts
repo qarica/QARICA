@@ -117,7 +117,7 @@ export async function POST() {
       notification_type: type,
       priority,
       title,
-      message: `${record.record_code || "QLCL"} · ${message}`,
+      message: `${record.record_code || "QARICA"} · ${message}`,
       target_record_id: recordId,
       target_route: routeForRecord(record.record_type, recordId),
       notification_event_key: eventKey,

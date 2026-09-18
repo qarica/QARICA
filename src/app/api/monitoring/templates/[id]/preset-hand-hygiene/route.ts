@@ -46,7 +46,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     {
       checklist_version_id: versionId,
       title: "1. Quan sát cơ hội vệ sinh tay",
-      description: "Ghi nhận lặp lại từng cơ hội vệ sinh tay. Kế hoạch QLCL TTSG quy định quan sát trực tiếp theo 5 thời điểm, tối thiểu 30 cơ hội/khoa/tháng.",
+      description: "Ghi nhận lặp lại từng cơ hội vệ sinh tay. Kế hoạch QLCL bệnh viện quy định quan sát trực tiếp theo 5 thời điểm, tối thiểu 30 cơ hội/khoa/tháng.",
       sequence_no: 10,
     },
     {
@@ -90,7 +90,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       { code: "INCORRECT", label: "Chưa đúng kỹ thuật" },
     ],
     compliance_rule: "Đạt khi có thực hiện vệ sinh tay đúng thời điểm và đúng kỹ thuật.",
-    sources: ["Kế hoạch hoạt động QLCL TTSG 2026", "TMMC-GQM-SOP01 AT-10", "WHO My 5 Moments for Hand Hygiene"],
+    sources: ["Kế hoạch hoạt động QLCL bệnh viện 2026", "TMMC-GQM-SOP01 AT-10", "WHO My 5 Moments for Hand Hygiene"],
   };
 
   const { error: itemError } = await admin.from("checklist_items").insert([

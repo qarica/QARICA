@@ -42,7 +42,7 @@ export async function prepareChecklistPhoto(file: File, context: { itemNo: numbe
   const localTime = new Date(capturedAt).toLocaleString("vi-VN");
   const gps = geo.latitude == null ? "GPS: Không có dữ liệu vị trí" : `GPS: ${geo.latitude.toFixed(6)}, ${geo.longitude!.toFixed(6)} · ±${Math.round(geo.accuracy || 0)}m`;
   const lines = [
-    `QLCL-TTSG · ${localTime}`,
+    `QARICA · ${localTime}`,
     `Tiêu chí ${context.itemNo}: ${short(context.itemContent)}`,
     `Khu vực: ${short(context.area || "Chưa xác định")}`,
     gps,
