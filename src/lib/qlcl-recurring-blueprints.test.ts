@@ -7,8 +7,8 @@ describe("QLCL recurring blueprints", () => {
     expect(new Set(codes).size).toBe(codes.length);
   });
 
-  it("covers the 31 operating handbook jobs plus fall-risk monitoring", () => {
-    expect(QLCL_RECURRING_BLUEPRINTS).toHaveLength(32);
+  it("covers the operating handbook jobs plus source-backed monitoring/reporting", () => {
+    expect(QLCL_RECURRING_BLUEPRINTS).toHaveLength(33);
     expect(findRecurringBlueprint("HN-01")?.cadence).toBe("DAILY");
     expect(findRecurringBlueprint("N-09")?.cadence).toBe("YEARLY");
   });
@@ -16,6 +16,20 @@ describe("QLCL recurring blueprints", () => {
   it("does not silently invent a precise date when the source only gives a window", () => {
     expect(findRecurringBlueprint("HTh-01")?.scheduleNeedsChoice).toBe(true);
     expect(findRecurringBlueprint("N-05")?.scheduleNeedsChoice).toBe(true);
+  });
+
+  it("maps KSK H2 to a monthly source-backed report without inventing the submission method", () => {
+    const item = findRecurringBlueprint("KSK-H2-2026");
+    expect(item?.automationKind).toBe("REPORT");
+    expect(item?.monthDay).toBe(15);
+    expect(item?.endDate).toBe("2026-12-15");
+    expect(item?.automationReportRecipient).toBe("Sở Y tế");
+    expect(item?.automationReportMethod).toBeUndefined();
+  });
+
+  it("maps existing quality reports to report outputs", () => {
+    expect(findRecurringBlueprint("HTh-05")?.automationKind).toBe("REPORT");
+    expect(findRecurringBlueprint("HQ-05")?.automationKind).toBe("REPORT");
   });
 
   it("maps the fall-risk source to the published checklist code and hospital-wide area", () => {
