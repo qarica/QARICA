@@ -4,6 +4,7 @@ import {
   CRITERION_2026_SOURCE_GROUPS,
   responsibilityDepartmentCandidates,
   sourceLeadForCode,
+  sourceNeedsManualConfirmation,
 } from "./criteria-2026-source";
 
 describe("2026 criteria responsibility source", () => {
@@ -35,4 +36,8 @@ describe("2026 criteria responsibility source", () => {
     ]);
     expect(new Set(matches.map((item) => item.id))).toEqual(new Set(["q", "k"]));
   });
+  it("never auto-confirms a multi-owner source label from a partial department match", () => {
+    expect(sourceNeedsManualConfirmation("Ban Giám đốc, Phòng Nhân sự")).toBe(true);
+  });
+
 });
