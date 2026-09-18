@@ -18,18 +18,22 @@ const ACTION_SELECT="action_id,record_id,record_code,title,work_year,workflow_st
 export default async function TasksPage(){
  const {user}=await requireUserContext();requirePermission(user,"tasks.view");const year=await getWorkYear();const supabase=await createClient();
  const isQlcl=user.roleCodes.includes("QLCL_MANAGER")||user.roleCodes.includes("HOI_DONG_QLCL");const isDepartmentHead=user.roleCodes.includes("DEPARTMENT_HEAD");const isBoard=user.roleCodes.includes("BAN_GIAM_DOC");
- const groupMembershipRes=await supabase.from("work_group_members").select("group_id").eq("user_id",user.id).eq("is_active",true);
- const myGroupIds=Array.from(new Set((groupMembershipRes.data??[]).map((row:any)=>row.group_id).filter(Boolean))) as string[];
+ const groupAssignmentRes=await supabase
+  .from("work_group_assignment_snapshots")
+  .select("target_record_id,group_id")
+  .eq("assignment_role","ACTION_ASSIGNEE_GROUP")
+  .contains("member_snapshot",[{user_id:user.id}]);
+ const myGroupActionRecordIds=Array.from(new Set((groupAssignmentRes.data??[]).map((row:any)=>row.target_record_id).filter(Boolean))) as string[];
  const [directActionsRes,groupActionsRes,attentionRes]=await Promise.all([
   supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).eq("assignee_user_id",user.id).order("due_date",{ascending:true,nullsFirst:false}),
-  myGroupIds.length
-   ? supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).in("assignee_group_id",myGroupIds).order("due_date",{ascending:true,nullsFirst:false})
+  myGroupActionRecordIds.length
+   ? supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).in("record_id",myGroupActionRecordIds).order("due_date",{ascending:true,nullsFirst:false})
    : Promise.resolve({data:[] as any[],error:null}),
   supabase.from("notifications").select("id,title,message,priority,target_route,target_record_id,created_at,is_read").eq("recipient_user_id",user.id).eq("is_read",false).order("created_at",{ascending:false}).limit(20),
  ]);
  const actionRowsById=new Map<string,any>();
  for(const row of [...(directActionsRes.data??[]),...(groupActionsRes.data??[])])actionRowsById.set((row as any).action_id,row);
- const actionsRes={data:Array.from(actionRowsById.values()),error:directActionsRes.error||groupActionsRes.error||groupMembershipRes.error};
+ const actionsRes={data:Array.from(actionRowsById.values()),error:directActionsRes.error||groupActionsRes.error||groupAssignmentRes.error};
  let scopeActionsRes:any={data:[] as any[],error:null};
  if(isQlcl){scopeActionsRes=await supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).order("due_date",{ascending:true,nullsFirst:false});}
  else if(isDepartmentHead&&user.primaryDepartmentId){scopeActionsRes=await supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).eq("lead_department_id",user.primaryDepartmentId).order("due_date",{ascending:true,nullsFirst:false});}
