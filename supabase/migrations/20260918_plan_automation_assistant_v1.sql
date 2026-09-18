@@ -440,3 +440,20 @@ $function$;
 
 revoke all on function public.qlcl_approve_plan_bundle_v3(uuid,uuid) from public;
 grant execute on function public.qlcl_approve_plan_bundle_v3(uuid,uuid) to service_role;
+
+create or replace function public.qlcl_approve_plan_bundle_v2(
+  p_program_id uuid,
+  p_actor_user_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+begin
+  return public.qlcl_approve_plan_bundle_v3(p_program_id,p_actor_user_id);
+end;
+$function$;
+
+revoke all on function public.qlcl_approve_plan_bundle_v2(uuid,uuid) from public;
+grant execute on function public.qlcl_approve_plan_bundle_v2(uuid,uuid) to service_role;
