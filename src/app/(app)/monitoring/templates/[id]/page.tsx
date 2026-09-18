@@ -22,7 +22,7 @@ export default async function ChecklistTemplatePage({ params }: { params: Promis
   const supabase = await createClient();
   const { data: template, error: templateError } = await supabase
     .from("checklist_templates")
-    .select("id,code,name,description,owner_department_id,is_active,created_at,updated_at")
+    .select("id,code,source_code,name,description,owner_department_id,is_active,created_at,updated_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -74,7 +74,7 @@ export default async function ChecklistTemplatePage({ params }: { params: Promis
   const firstError = versionsRes.error || (departmentRes as any).error || structureError;
   const canManage = user.permissions.includes("checklists.manage");
   const canPerform = user.permissions.includes("monitoring.perform");
-  const isFiveS = template.code === "BK01.V1_QLCL.QĐ.06";
+  const isFiveS = template.source_code === "BK01.V1_QLCL.QĐ.06" || template.code === "BK01.V1_QLCL.QĐ.06";
   const isPublished = currentVersion?.status === "PUBLISHED";
   const departmentName = (departmentRes.data as any)?.name || "Chưa gắn đơn vị quản lý";
   const statusLabel = currentVersion?.status === "PUBLISHED" ? "Đã phát hành" : currentVersion?.status === "RETIRED" ? "Ngưng sử dụng" : currentVersion?.status === "DRAFT" ? "Bản nháp" : "Chưa có phiên bản";
@@ -129,7 +129,7 @@ export default async function ChecklistTemplatePage({ params }: { params: Promis
     <section className="template-hero">
       <div>
         <Link className="template-breadcrumb" href="/monitoring">← Giám sát & Bảng kiểm</Link>
-        <div className="eyebrow">MẪU BẢNG KIỂM · {template.code || "CHƯA CÓ MÃ"}</div>
+        <div className="eyebrow">MẪU BẢNG KIỂM · {template.code || "CHƯA CÓ MÃ"}{template.source_code ? ` · Nguồn: ${template.source_code}` : ""}</div>
         <div className="template-title-row">
           <h1>{template.name}</h1>
           <span className={`status-badge ${statusTone}`}>{statusLabel}</span>
@@ -174,15 +174,13 @@ export default async function ChecklistTemplatePage({ params }: { params: Promis
       sections={structure as any[]}
       canManage={canManage}
     />
-    {currentVersion?.status === "DRAFT" ? <>
-      {isFiveS ? <FiveSChecklistPreviewClient templateCode={template.code} sections={structure as any[]} /> : null}
-      <ChecklistPublishClient
-        templateId={template.id}
-        versionId={currentVersion?.id ?? null}
-        versionStatus={currentVersion?.status ?? null}
-        itemCount={items.length}
-        canManage={canManage}
-      />
-    </> : null}
+    {currentVersion?.status === "DRAFT" && isFiveS ? <FiveSChecklistPreviewClient templateCode={template.source_code || template.code} sections={structure as any[]} /> : null}
+    <ChecklistPublishClient
+      templateId={template.id}
+      versionId={currentVersion?.id ?? null}
+      versionStatus={currentVersion?.status ?? null}
+      itemCount={items.length}
+      canManage={canManage}
+    />
   </div>;
 }

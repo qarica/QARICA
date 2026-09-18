@@ -6,7 +6,7 @@ import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 import { syncRecurringTemplateNow } from "@/lib/recurring-sync";
 
 const ALLOWED_ACTIONS = new Set(["SUBMIT", "APPROVE", "RETURN", "START", "HOLD", "RESUME", "COMPLETE"]);
-const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v9";
+const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v10";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("plans.manage");

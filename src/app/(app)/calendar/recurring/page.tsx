@@ -30,13 +30,13 @@ export default async function RecurringWorkPage() {
   const groupMap = new Map((groupsRes.data ?? []).map((row: any) => [row.id, [row.code, row.name].filter(Boolean).join(" · ")]));
   const checklistTemplateIds = Array.from(new Set((checklistVersionsRes.data ?? []).map((row: any) => row.checklist_template_id)));
   const checklistTemplatesRes = checklistTemplateIds.length
-    ? await supabase.from("checklist_templates").select("id,code,name,short_name,is_active,organization_id").in("id", checklistTemplateIds).eq("is_active", true)
+    ? await supabase.from("checklist_templates").select("id,code,source_code,name,short_name,is_active,organization_id").in("id", checklistTemplateIds).eq("is_active", true)
     : { data: [] as any[], error: null };
   const checklistTemplateMap = new Map((checklistTemplatesRes.data ?? []).map((row: any) => [row.id, row]));
   const checklists = (checklistVersionsRes.data ?? []).map((row: any) => {
     const template = checklistTemplateMap.get(row.checklist_template_id) as any;
-    return template ? { id: row.id, code: template.code || "", label: `${template.code ? template.code + " · " : ""}${template.short_name || template.name} · v${row.version_no}` } : null;
-  }).filter(Boolean) as { id: string; code: string; label: string }[];
+    return template ? { id: row.id, code: template.code || "", source_code: template.source_code || "", label: `${template.code ? template.code + " · " : ""}${template.short_name || template.name}${template.source_code ? ` · Nguồn ${template.source_code}` : ""} · v${row.version_no}` } : null;
+  }).filter(Boolean) as { id: string; code: string; source_code: string; label: string }[];
 
   const normalize = (value: unknown) => String(value ?? "")
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/đ/g, "d").replace(/[^a-z0-9]+/g, " ").trim();
@@ -52,7 +52,7 @@ export default async function RecurringWorkPage() {
     }) || null;
     const deptProfiles = department ? profiles.filter((row: any) => row.primary_department_id === department.id) : [];
     const assignee = deptProfiles.length === 1 ? deptProfiles[0] : null;
-    const checklist = blueprint.automationChecklistCode ? checklists.find((row) => row.code === blueprint.automationChecklistCode) || null : null;
+    const checklist = blueprint.automationChecklistCode ? checklists.find((row) => row.code === blueprint.automationChecklistCode || row.source_code === blueprint.automationChecklistCode) || null : null;
     return {
       ...blueprint,
       department_id: department?.id || null,

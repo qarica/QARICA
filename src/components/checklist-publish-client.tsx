@@ -21,7 +21,27 @@ export function ChecklistPublishClient({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
-  if (!canManage || !versionId || versionStatus !== "DRAFT") return null;
+  if (!canManage || !versionId) return null;
+
+  async function createRevision() {
+    if (!window.confirm("Tạo phiên bản Nháp mới từ phiên bản hiện tại để cập nhật bảng kiểm? Bản đã phát hành vẫn được giữ nguyên.")) return;
+    setBusy(true); setMessage(null);
+    try {
+      const res = await fetch(`/api/monitoring/templates/${templateId}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Không thể tạo bản cập nhật.");
+      setMessage({ tone: "success", text: data.existing ? "Đã có một phiên bản Nháp để cập nhật." : `Đã tạo phiên bản v${data.version_no} ở trạng thái Nháp.` });
+      router.refresh();
+    } catch (error) {
+      setMessage({ tone: "error", text: error instanceof Error ? error.message : "Có lỗi xảy ra." });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function publish() {
     if (!itemCount) return setMessage({ tone: "error", text: "Phiên bản chưa có tiêu chí để phát hành." });
@@ -44,14 +64,30 @@ export function ChecklistPublishClient({
     }
   }
 
+  if (versionStatus === "PUBLISHED") {
+    return <section className="panel" style={{ padding: 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <div className="eyebrow">QUẢN LÝ PHIÊN BẢN</div>
+          <h2 style={{ margin: "5px 0 6px" }}>Cập nhật bảng kiểm</h2>
+          <p className="muted" style={{ margin: 0 }}>Không sửa đè bản đã phát hành. QARICA sao chép cấu trúc hiện tại sang một phiên bản Nháp mới để chỉnh sửa.</p>
+        </div>
+        <button className="button secondary" disabled={busy} onClick={createRevision}><Icon name="refresh-cw" size={17} /> {busy ? "Đang tạo..." : "Tạo bản cập nhật"}</button>
+      </div>
+      {message ? <div className={`alert ${message.tone}`} style={{ marginTop: 14 }}>{message.text}</div> : null}
+    </section>;
+  }
+
+  if (versionStatus !== "DRAFT") return null;
+
   return <section className="panel" style={{ padding: 18 }}>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
       <div>
         <div className="eyebrow">HOÀN TẤT CẤU HÌNH PHIÊN BẢN</div>
         <h2 style={{ margin: "5px 0 6px" }}>Phát hành bảng kiểm</h2>
-        <p className="muted" style={{ margin: 0 }}>Chỉ phát hành sau khi nội dung và màn hình thực hiện đã được kiểm tra. Sau phát hành, v1 không chỉnh sửa trực tiếp nữa.</p>
+        <p className="muted" style={{ margin: 0 }}>Chỉ phát hành sau khi nội dung và màn hình thực hiện đã được kiểm tra. Sau phát hành, phiên bản được khóa để bảo toàn lịch sử.</p>
       </div>
-      <button className="button primary" disabled={busy} onClick={publish}><Icon name="shield-check" size={17} /> {busy ? "Đang phát hành..." : "Phát hành v1"}</button>
+      <button className="button primary" disabled={busy} onClick={publish}><Icon name="shield-check" size={17} /> {busy ? "Đang phát hành..." : "Phát hành phiên bản"}</button>
     </div>
     {message ? <div className={`alert ${message.tone}`} style={{ marginTop: 14 }}>{message.text}</div> : null}
   </section>;
