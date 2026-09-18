@@ -26,6 +26,7 @@ export type QlclRecurringBlueprint = {
   priority?: "LOW" | "NORMAL" | "HIGH" | "URGENT" | "CRITICAL";
   automationKind?: "ACTION" | "MONITORING";
   automationChecklistCode?: string;
+  automationTargetArea?: string;
 };
 
 const SOURCE = "Sổ tay tác nghiệp QLCL 2026 · Phần II";
@@ -286,7 +287,7 @@ export const QLCL_RECURRING_BLUEPRINTS: QlclRecurringBlueprint[] = [
     evidenceRequirement:"Bảng kiểm trượt/ngã; ảnh minh chứng nếu cần; danh mục vị trí nguy cơ; hồ sơ khắc phục và kết quả kiểm tra lại.",
     description:"Giám sát hiện trường các khu vực có nguy cơ trượt, ngã; theo dõi hành động khắc phục.",
     scheduleHint:"Kế hoạch nguồn quy định giám sát hằng ngày/đột xuất và rà soát toàn bộ; chọn ngày chạy đợt định kỳ trong hệ thống.", scheduleNeedsChoice:true, monthDay:15, priority:"HIGH",
-    automationKind:"MONITORING", automationChecklistCode:"BANGKIEM_TRUOTNGA.V1_QLCL.01",
+    automationKind:"MONITORING", automationChecklistCode:"BANGKIEM_TRUOTNGA.V1_QLCL.01", automationTargetArea:"Toàn bộ Tòa A và Tòa B",
   },
 ];
 
