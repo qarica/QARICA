@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
-import { cleanPlanDraftActions, cleanPlanList, planText, validatePlanDraftAction } from "@/lib/plan-composer";
+import { cleanPlanDraftActions, planText, validatePlanDraftAction } from "@/lib/plan-composer";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
