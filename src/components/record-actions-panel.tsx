@@ -22,10 +22,10 @@ type TraceState = {
   ineffective_capa_count?: number;
 };
 
-export async function RecordActionsPanel({ recordId, recordType, sourceTitle }: { recordId: string; recordType: string; sourceTitle: string }) {
+export async function RecordActionsPanel({ recordId, recordType, sourceTitle, allowCreate = true }: { recordId: string; recordType: string; sourceTitle: string; allowCreate?: boolean }) {
   const { user } = await requireUserContext();
   const supabase = await createClient();
-  const canCreate = canCreateLinkedAction(user.permissions, recordType);
+  const canCreate = allowCreate && canCreateLinkedAction(user.permissions, recordType);
   const { data: links } = await supabase.from("record_links").select("target_record_id,relation_type,created_at").eq("source_record_id", recordId).eq("relation_type", "HAS_ACTION").order("created_at", { ascending: false });
   const targetIds = Array.from(new Set((links ?? []).map((row: any) => String(row.target_record_id || "")).filter(Boolean)));
   const [recordRes, actionRes, departmentsRes, profilesRes] = await Promise.all([

@@ -128,14 +128,14 @@ export async function DomainRecordDetail({ recordType, recordId }: { recordType:
   }
 
   if (recordType === "INCIDENT") {
-    const { data: row, error } = await supabase.from("incidents").select("id,occurred_at,detected_at,reported_at,incident_location_text,summary,verified_description,harm_status,serious_event_flag,workflow_status,investigation_required,rca_required,closed_at").eq("record_id", recordId).maybeSingle();
+    const { data: row, error } = await supabase.from("incidents").select("id,occurred_at,detected_at,reported_at,incident_location_text,summary,verified_description,verified_initial_response,verified_initial_response_at,harm_status,serious_event_flag,workflow_status,investigation_required,rca_required,closed_at").eq("record_id", recordId).maybeSingle();
     if (row) {
       const [actions, investigations] = await Promise.all([countRows(supabase, "incident_initial_actions", "incident_id", row.id), countRows(supabase, "incident_investigations", "incident_id", row.id)]);
       const { data: investigation } = await supabase.from("incident_investigations").select("investigation_type,started_at,completed_at,verified_event_summary,harm_conclusion,rca_required,conclusion,status").eq("incident_id", row.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
       sections.push({ title: "Hồ sơ sự cố", subtitle: "Chỉ hiển thị thông tin mà tài khoản hiện tại được RLS cho phép truy cập.", metrics: [{ label: "Xử trí ban đầu", value: actions }, { label: "Điều tra", value: investigations }], fields: [
         { label: "Trạng thái", value: row.workflow_status, kind: "status" }, { label: "Mức tổn hại", value: row.harm_status, kind: "status" }, { label: "Sự cố nghiêm trọng", value: row.serious_event_flag, kind: "boolean" }, { label: "Cần điều tra", value: row.investigation_required, kind: "boolean" }, { label: "Cần RCA", value: row.rca_required, kind: "boolean" },
         { label: "Xảy ra", value: row.occurred_at, kind: "datetime" }, { label: "Phát hiện", value: row.detected_at, kind: "datetime" }, { label: "Báo cáo", value: row.reported_at, kind: "datetime" }, { label: "Vị trí", value: row.incident_location_text },
-        { label: "Tóm tắt", value: row.summary, wide: true }, { label: "Mô tả đã xác minh", value: row.verified_description, wide: true }, { label: "Đóng lúc", value: row.closed_at, kind: "datetime" }
+        { label: "Tóm tắt", value: row.summary, wide: true }, { label: "Mô tả đã xác minh", value: row.verified_description, wide: true }, { label: "Xử trí tức thời sau xác minh", value: row.verified_initial_response, wide: true }, { label: "Ghi nhận xử trí lúc", value: row.verified_initial_response_at, kind: "datetime" }, { label: "Đóng lúc", value: row.closed_at, kind: "datetime" }
       ]});
       if (investigation) sections.push({ title: "Điều tra gần nhất", fields: [
         { label: "Loại điều tra", value: investigation.investigation_type }, { label: "Trạng thái", value: investigation.status, kind: "status" }, { label: "Bắt đầu", value: investigation.started_at, kind: "datetime" }, { label: "Hoàn tất", value: investigation.completed_at, kind: "datetime" }, { label: "RCA bắt buộc", value: investigation.rca_required, kind: "boolean" },
