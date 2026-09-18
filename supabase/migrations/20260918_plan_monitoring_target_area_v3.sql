@@ -97,13 +97,6 @@ begin
   if nullif(trim(coalesce(v_program.general_objective,'')),'') is null then
     raise exception 'General objective is required';
   end if;
-  if jsonb_typeof(v_program.specific_objectives)<>'array'
-     or jsonb_array_length(v_program.specific_objectives)<1 then
-    raise exception 'At least one specific objective is required';
-  end if;
-  if nullif(trim(coalesce(v_program.requirements,'')),'') is null then
-    raise exception 'Requirements are required';
-  end if;
   if jsonb_typeof(v_program.draft_actions)<>'array'
      or jsonb_array_length(v_program.draft_actions)<1 then
     raise exception 'At least one plan task is required';
