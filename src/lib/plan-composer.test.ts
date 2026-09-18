@@ -14,6 +14,18 @@ describe("Plan Composer V2 helpers", () => {
     expect(actions[0]).toMatchObject({ title: "Rà soát quy trình", priority: "HIGH", lead_department_id: "d1", assignee_user_id: "u1", due_date: "2026-12-01", expected_result: "Biên bản", is_required: true });
   });
 
+  it("normalizes and deduplicates collaborative work groups", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "A",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-12-01",
+      expected_result: "B",
+      collaborating_group_ids: [" g1 ", "g1", "g2", ""],
+    }]);
+    expect(task.collaborating_group_ids).toEqual(["g1", "g2"]);
+  });
+
   it("validates plan and task date windows", () => {
     expect(validPlanDateWindow("2026-01-01", "2026-12-31")).toBe(true);
     expect(validPlanDateWindow("2026-12-31", "2026-01-01")).toBe(false);
