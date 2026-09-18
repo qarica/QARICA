@@ -123,7 +123,7 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
           </details>
 
           <div className="scope-note"><strong>Sau khi tạo:</strong> kế hoạch ở trạng thái Nháp. Thêm nhiệm vụ theo luồng <strong>Nội dung → Giao cho → Hạn → Kết quả</strong>; QARICA tự sinh phần phân công/lộ trình từ dữ liệu nhiệm vụ.</div>
-        </div>        </div>
+        </div>
       </div>
       <div className="modal-footer" style={{ flexShrink: 0, padding: "14px 24px", boxShadow: "0 -6px 18px rgba(26,42,49,.04)" }}><button type="button" className="button secondary" disabled={busy} onClick={requestClose}>Hủy / Đóng</button><button className="button primary" disabled={busy}><Icon name="save" size={17} /> {busy ? "Đang tạo..." : "Tạo bản nháp"}</button></div>
     </form></div>, document.body) : null;
