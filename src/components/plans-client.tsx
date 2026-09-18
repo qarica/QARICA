@@ -130,7 +130,7 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
                     setForm((current) => ({
                       ...current,
                       assignmentTarget: token,
-                      leadDepartmentId: option?.departmentId || current.leadDepartmentId,
+                      leadDepartmentId: option?.departmentId || "",
                     }));
                   }}
                   placeholder="Tìm cá nhân hoặc nhóm phụ trách..."
