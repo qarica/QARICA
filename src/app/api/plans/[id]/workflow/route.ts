@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 const ALLOWED_ACTIONS = new Set(["SUBMIT", "APPROVE", "RETURN", "START", "HOLD", "RESUME", "COMPLETE"]);
-const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v3";
+const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v4";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("plans.manage");
@@ -87,6 +87,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bảng kiểm đã chọn nằm ngoài phạm vi bệnh viện.` }, { status: 409 });
         }
       }
+
+      if (task.automation_confirmed && task.automation_kind === "ASSESSMENT") {
+        const { data: criteriaVersion } = await admin
+          .from("criteria_set_versions")
+          .select("id,criteria_set_id,status")
+          .eq("id", task.automation_ref_id)
+          .maybeSingle();
+        if (!criteriaVersion || criteriaVersion.status !== "PUBLISHED") {
+          return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bộ tiêu chí đã chọn chưa được phát hành hoặc không còn hợp lệ.` }, { status: 409 });
+        }
+        const { data: criteriaSet } = await admin
+          .from("criteria_sets")
+          .select("id,organization_id")
+          .eq("id", criteriaVersion.criteria_set_id)
+          .maybeSingle();
+        if (!criteriaSet || (criteriaSet.organization_id && criteriaSet.organization_id !== caller.organization_id)) {
+          return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bộ tiêu chí đã chọn nằm ngoài phạm vi bệnh viện.` }, { status: 409 });
+        }
+      }
     }
     return updateStatus("DRAFT", "PENDING_APPROVAL", { submitted_at: new Date().toISOString(), returned_reason: null });
   }
@@ -106,7 +125,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (program.workflow_status !== "PENDING_APPROVAL") return NextResponse.json({ error: "Chỉ kế hoạch đang chờ phê duyệt mới được phê duyệt." }, { status: 409 });
     const { data: tx, error: txError } = await admin.rpc(APPROVE_PLAN_BUNDLE_RPC, { p_program_id: programId, p_actor_user_id: actorUserId });
     if (txError) {
-      if (isMissingRpcFunction(txError, APPROVE_PLAN_BUNDLE_RPC)) return NextResponse.json({ error: "Plan Automation V1 chưa được kích hoạt trên cơ sở dữ liệu. Không phê duyệt để tránh tạo Action/đầu ra không đầy đủ." }, { status: 503 });
+      if (isMissingRpcFunction(txError, APPROVE_PLAN_BUNDLE_RPC)) return NextResponse.json({ error: "Plan Automation V2 chưa được kích hoạt trên cơ sở dữ liệu. Không phê duyệt để tránh tạo Action/đầu ra không đầy đủ." }, { status: 503 });
       return NextResponse.json({ error: rpcErrorMessage(txError, "Không thể phê duyệt trọn bộ kế hoạch.") }, { status: 400 });
     }
     if (program.owner_user_id && program.owner_user_id !== actorUserId) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_APPROVED", priority: "NORMAL", title: "Kế hoạch đã được phê duyệt", message: recordTitle, target_record_id: recordId, target_route: `/plans/${program.id}`, notification_event_key: `plan-approved:${program.id}:${Date.now()}` });

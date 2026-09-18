@@ -14,6 +14,13 @@ describe("plan automation assistant", () => {
     expect(suggestPlanAutomationKind({ title: "Giám sát tuân thủ vệ sinh tay" })).toBe("MONITORING");
   });
 
+  it("suggests reporting, self-assessment, audit and improvement from source-like task text", () => {
+    expect(suggestPlanAutomationKind({ title: "Báo cáo kết quả về Sở Y tế ngày 15 hằng tháng" })).toBe("REPORT");
+    expect(suggestPlanAutomationKind({ title: "Tự đánh giá theo Bộ tiêu chí chất lượng" })).toBe("ASSESSMENT");
+    expect(suggestPlanAutomationKind({ title: "Audit nội bộ quy trình cấp phát thuốc" })).toBe("AUDIT");
+    expect(suggestPlanAutomationKind({ title: "Đề án cải tiến chất lượng giảm thời gian chờ" })).toBe("IMPROVEMENT");
+  });
+
   it("keeps ordinary work as Action", () => {
     expect(suggestPlanAutomationKind({ title: "Soạn quy trình tiếp nhận người bệnh" })).toBe("ACTION");
   });

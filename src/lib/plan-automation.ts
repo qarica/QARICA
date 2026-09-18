@@ -1,4 +1,4 @@
-export const PLAN_AUTOMATION_KINDS = ["ACTION", "INDICATOR", "MONITORING"] as const;
+export const PLAN_AUTOMATION_KINDS = ["ACTION", "INDICATOR", "MONITORING", "REPORT", "ASSESSMENT", "AUDIT", "IMPROVEMENT"] as const;
 export type PlanAutomationKind = (typeof PLAN_AUTOMATION_KINDS)[number];
 
 export type PlanAutomationResource = { id: string; label: string };
@@ -20,6 +20,38 @@ export function suggestPlanAutomationKind(input: {
 }): PlanAutomationKind {
   const text = fold([input.title, input.description, input.expectedResult].filter(Boolean).join(" "));
   if (!text) return "ACTION";
+
+  const improvementSignals = [
+    /\bde an cai tien\b/,
+    /\bcai tien chat luong\b/,
+    /\bpdsa\b/,
+    /\bpdca\b/,
+  ];
+  if (improvementSignals.some((pattern) => pattern.test(text))) return "IMPROVEMENT";
+
+  const assessmentSignals = [
+    /\btu danh gia\b/,
+    /\bcham tieu chi\b/,
+    /\bbo tieu chi\b.*\bdanh gia\b/,
+    /\bassessment\b/,
+  ];
+  if (assessmentSignals.some((pattern) => pattern.test(text))) return "ASSESSMENT";
+
+  const auditSignals = [
+    /\baudit\b/,
+    /\btracer\b/,
+    /\bdanh gia noi bo\b/,
+    /\bkiem tra cheo\b/,
+  ];
+  if (auditSignals.some((pattern) => pattern.test(text))) return "AUDIT";
+
+  const reportSignals = [
+    /\bbao cao\b/,
+    /\bnop bao cao\b/,
+    /\bgui bao cao\b/,
+    /\btong hop\b.*\bbao cao\b/,
+  ];
+  if (reportSignals.some((pattern) => pattern.test(text))) return "REPORT";
 
   const indicatorSignals = [
     /\bchi so\b/,
@@ -74,5 +106,9 @@ export function suggestPlanAutomationResource(
 export function automationKindLabel(kind: PlanAutomationKind) {
   if (kind === "INDICATOR") return "Chỉ số chất lượng";
   if (kind === "MONITORING") return "Đợt giám sát";
+  if (kind === "REPORT") return "Nghĩa vụ báo cáo";
+  if (kind === "ASSESSMENT") return "Tự đánh giá chất lượng";
+  if (kind === "AUDIT") return "Audit / Tracer";
+  if (kind === "IMPROVEMENT") return "Đề án cải tiến";
   return "Chỉ Action";
 }
