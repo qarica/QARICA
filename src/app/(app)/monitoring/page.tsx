@@ -14,7 +14,7 @@ export default async function MonitoringPage() {
   const year = await getWorkYear();
   const supabase = await createClient();
   const [templatesRes, versionsRes, sectionsRes, itemsRes, roundsRes, departmentsRes] = await Promise.all([
-    supabase.from("checklist_templates").select("id,code,name,description,owner_department_id,is_active,created_at,updated_at").order("updated_at", { ascending: false }),
+    supabase.from("checklist_templates").select("id,code,internal_code,name,description,owner_department_id,is_active,created_at,updated_at").order("updated_at", { ascending: false }),
     supabase.from("checklist_versions").select("id,checklist_template_id,version_no,status,effective_from,effective_to,scoring_method,published_at").order("version_no", { ascending: false }),
     supabase.from("checklist_sections").select("id,checklist_version_id"),
     supabase.from("checklist_items").select("id,checklist_version_id"),

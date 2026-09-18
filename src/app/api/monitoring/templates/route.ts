@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,6 +11,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const name = String(body.name || "").trim();
   const description = body.description ? String(body.description).trim() : null;
+  const sourceCode = body.source_code ? String(body.source_code).trim() : null;
   const ownerDepartmentId = String(body.owner_department_id || "").trim();
   const scoringMethod = String(body.scoring_method || "COMPLIANCE_PERCENTAGE").trim();
 
@@ -41,19 +41,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Khoa/phòng quản lý mẫu không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
   }
 
-  const code = `BKT-${new Date().getFullYear()}-${randomUUID().slice(0, 6).toUpperCase()}`;
-  const { data: template, error: templateError } = await admin
-    .from("checklist_templates")
-    .insert({
-      code,
-      name,
-      description,
-      owner_department_id: ownerDepartmentId,
-      is_active: true,
-      created_by: auth.user.id,
-    })
-    .select("id,code,name")
-    .single();
+  const year = new Date().getFullYear();
+  const prefix = `BK-${year}-`;
+  let template: { id: string; code: string; name: string } | null = null;
+  let templateError: { message: string; code?: string } | null = null;
+  // Retain existing codes. Only newly created templates receive the new internal code.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data: latest, error: lookupError } = await admin.from("checklist_templates")
+      .select("internal_code").eq("organization_id", caller.organization_id).like("internal_code", `${prefix}%`).order("internal_code", { ascending: false }).limit(1);
+    if (lookupError) return NextResponse.json({ error: lookupError.message }, { status: 400 });
+    const last = Number(String(latest?.[0]?.internal_code || "").slice(prefix.length));
+    const next = Number.isInteger(last) && last > 0 ? last + 1 : 1;
+    if (next > 9999) return NextResponse.json({ error: "Đã hết mã bảng kiểm trong năm." }, { status: 409 });
+    const code = `${prefix}${String(next).padStart(4, "0")}`;
+    const result = await admin.from("checklist_templates").insert({
+      code, internal_code: code, name, description, source_code: sourceCode, owner_department_id: ownerDepartmentId,
+      organization_id: caller.organization_id,
+      is_active: true, created_by: auth.user.id,
+    }).select("id,code,name").single();
+    template = result.data;
+    templateError = result.error;
+    if (!templateError || templateError.code !== "23505") break;
+  }
 
   if (templateError || !template) {
     return NextResponse.json({ error: templateError?.message || "Không tạo được mẫu bảng kiểm." }, { status: 400 });

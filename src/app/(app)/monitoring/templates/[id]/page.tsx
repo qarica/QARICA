@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ChecklistPublishClient } from "@/components/checklist-publish-client";
+import { ChecklistCatalogActions } from "@/components/checklist-catalog-actions";
 import { ChecklistTemplateEditorClient } from "@/components/checklist-template-editor-client";
 import { FiveSChecklistPreviewClient } from "@/components/five-s-checklist-preview-client";
 import { HandHygienePresetLoader } from "@/components/hand-hygiene-preset-loader";
@@ -22,7 +23,7 @@ export default async function ChecklistTemplatePage({ params }: { params: Promis
   const supabase = await createClient();
   const { data: template, error: templateError } = await supabase
     .from("checklist_templates")
-    .select("id,code,name,description,owner_department_id,is_active,created_at,updated_at")
+    .select("id,code,name,description,source_code,owner_department_id,is_active,created_at,updated_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -156,6 +157,7 @@ export default async function ChecklistTemplatePage({ params }: { params: Promis
     </section>
 
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
+    {canManage ? <ChecklistCatalogActions id={template.id} name={template.name} description={template.description} sourceCode={template.source_code} active={template.is_active} draft={currentVersion?.status === "DRAFT"} /> : null}
     {isPublished ? <div className="scope-note"><strong>Phân tách rõ mẫu và lần thực hiện:</strong> trang này quản lý cấu trúc/phiên bản; mỗi lần đi chấm được tạo thành một đợt giám sát có mã, trạng thái và lịch sử riêng.</div> : null}
 
     <HandHygienePresetLoader

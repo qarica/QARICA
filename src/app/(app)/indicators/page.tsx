@@ -1,8 +1,9 @@
 import { RegistryModulePage } from "@/components/registry-module-page";
+import Link from "next/link";
 
 export default function IndicatorsPage() {
   return (
-    <RegistryModulePage
+    <><div className="page-stack"><Link className="button secondary" href="/catalogs" style={{ alignSelf: "flex-start" }}>Khai báo chỉ số chất lượng →</Link></div><RegistryModulePage
       config={{
         eyebrow: "ĐO LƯỜNG & GIÁM SÁT",
         title: "Chỉ số chất lượng",
@@ -10,6 +11,6 @@ export default function IndicatorsPage() {
         permissions: ["indicators.view", "indicators.manage", "indicators.enter", "indicators.verify"],
         recordTypes: ["INDICATOR_MEASUREMENT"],
       }}
-    />
+    /></>
   );
 }
