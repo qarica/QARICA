@@ -6,7 +6,6 @@ import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 const TYPE_LABELS: Record<string, string> = { ANNUAL_PLAN: "Kế hoạch năm", THEMATIC_PLAN: "Kế hoạch chuyên đề", DEPARTMENT_PLAN: "Kế hoạch khoa/phòng", PROGRAM: "Chương trình", OTHER: "Khác" };
-const PRIORITY: Record<string, string> = { LOW: "Thấp", NORMAL: "Bình thường", HIGH: "Cao", URGENT: "Khẩn", CRITICAL: "Rất khẩn" };
 
 function text(value: unknown) { const s = String(value ?? "").trim(); return s || "—"; }
 
@@ -31,12 +30,20 @@ export default async function PlanPrintPage({ params }: { params: Promise<{ id: 
   if (!record) notFound();
 
   const actionIds = (links ?? []).map((x: any) => x.action_id);
-  const [{ data: actionRecords }, { data: actionRows }] = actionIds.length ? await Promise.all([
-    supabase.from("records").select("id,record_code,title,owner_department_id,owner_user_id").in("id", actionIds),
-    supabase.from("actions").select("record_id,priority,due_date,expected_result,workflow_status").in("record_id", actionIds),
-  ]) : [{ data: [] }, { data: [] }] as any;
-  const actionRowMap = new Map((actionRows ?? []).map((x: any) => [x.record_id, x]));
-  const printableActions = (actionRecords ?? []).map((x: any) => ({ ...x, ...(actionRowMap.get(x.id) || {}) }));
+  const { data: actionRows } = actionIds.length
+    ? await supabase.from("actions").select("id,record_id,start_date,due_date,expected_result").in("id", actionIds)
+    : { data: [] as any[] };
+  const actionRecordIds = (actionRows ?? []).map((x: any) => x.record_id).filter(Boolean);
+  const { data: actionRecords } = actionRecordIds.length
+    ? await supabase.from("records").select("id,record_code,title,owner_department_id,owner_user_id").in("id", actionRecordIds)
+    : { data: [] as any[] };
+  const actionById = new Map((actionRows ?? []).map((x: any) => [x.id, x]));
+  const recordById = new Map((actionRecords ?? []).map((x: any) => [x.id, x]));
+  const printableActions = (links ?? []).map((link: any) => {
+    const action: any = actionById.get(link.action_id);
+    const record: any = action ? recordById.get(action.record_id) : null;
+    return action && record ? { ...record, ...action } : null;
+  }).filter(Boolean);
 
   const isDraftBundle = program.workflow_status === "DRAFT" || program.workflow_status === "PENDING_APPROVAL";
   const draftTasks: any[] = isDraftBundle && Array.isArray(program.draft_actions) ? program.draft_actions : [];
@@ -58,7 +65,7 @@ export default async function PlanPrintPage({ params }: { params: Promise<{ id: 
       .ppr-row{display:grid;grid-template-columns:150px 1fr;min-height:36px;border-bottom:1px solid #d7dee8}.ppr-row:nth-child(odd){border-right:1px solid #d7dee8}.ppr-row.wide{grid-column:1/-1;border-right:0}
       .ppr-row span{padding:8px;background:#f8fafc;color:#475569;border-right:1px solid #d7dee8}.ppr-row strong{padding:8px;white-space:pre-wrap;font-weight:650}
       .ppr-list{margin:6px 0 0;padding-left:22px}.ppr-list li{margin-bottom:4px}
-      .ppr-table{width:100%;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;margin-top:6px}.ppr-table th,.ppr-table td{border:1px solid #d7dee8;padding:6px;text-align:left;vertical-align:top}.ppr-table th{background:#f8fafc}
+      .ppr-table{width:100%;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;margin-top:6px}.ppr-table th,.ppr-table td{border:1px solid #d7dee8;padding:6px;text-align:left;vertical-align:top;white-space:pre-wrap}.ppr-table th{background:#f8fafc}
       .ppr-sign{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:34px;font-size:12.5px;text-align:center}
       .ppr-sign .box{min-height:120px}.ppr-sign .role{font-weight:800;text-transform:uppercase}.ppr-sign .hint{font-style:italic;color:#475569;font-size:11.5px;margin-top:2px}
       .ppr-note{font-size:10px;color:#64748b;line-height:1.45;margin-top:20px;font-family:Arial,sans-serif}
@@ -110,10 +117,10 @@ export default async function PlanPrintPage({ params }: { params: Promise<{ id: 
 
     <section className="ppr-section">
       <h3>V. Danh sách nhiệm vụ / hành động</h3>
-      {printableActions.length ? <table className="ppr-table"><thead><tr><th>Mã</th><th>Nội dung</th><th>Kết quả kỳ vọng</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th></tr></thead><tbody>
-        {printableActions.map((a: any) => <tr key={a.id}><td>{a.record_code}</td><td>{a.title}</td><td>{text(a.expected_result)}</td><td>{PRIORITY[a.priority] || text(a.priority)}</td><td>{formatDate(a.due_date)}</td><td>{text(a.workflow_status)}</td></tr>)}
-      </tbody></table> : draftTasks.length ? <table className="ppr-table"><thead><tr><th>Nội dung (nháp – chưa phê duyệt)</th><th>Kết quả kỳ vọng</th><th>Ưu tiên</th><th>Hạn</th></tr></thead><tbody>
-        {draftTasks.map((t: any, i: number) => <tr key={i}><td>{text(t.title)}</td><td>{text(t.expected_result)}</td><td>{PRIORITY[t.priority] || text(t.priority)}</td><td>{t.due_date ? formatDate(t.due_date) : "—"}</td></tr>)}
+      {printableActions.length ? <table className="ppr-table"><thead><tr><th>Mã</th><th>Nội dung</th><th>Kết quả kỳ vọng</th><th>Ngày bắt đầu</th><th>Hạn hoàn thành</th></tr></thead><tbody>
+        {printableActions.map((a: any) => <tr key={a.id}><td>{a.record_code}</td><td>{a.title}</td><td>{text(a.expected_result)}</td><td>{formatDate(a.start_date)}</td><td>{formatDate(a.due_date)}</td></tr>)}
+      </tbody></table> : draftTasks.length ? <table className="ppr-table"><thead><tr><th>Nội dung (nháp – chưa phê duyệt)</th><th>Kết quả kỳ vọng</th><th>Ngày bắt đầu</th><th>Hạn hoàn thành</th></tr></thead><tbody>
+        {draftTasks.map((t: any, i: number) => <tr key={i}><td>{text(t.title)}</td><td>{text(t.expected_result)}</td><td>{t.start_date ? formatDate(t.start_date) : "—"}</td><td>{t.due_date ? formatDate(t.due_date) : "—"}</td></tr>)}
       </tbody></table> : <p style={{ margin: 0 }}>Chưa có nhiệm vụ nào.</p>}
       {isDraftBundle && draftTasks.length ? <p style={{ fontSize: 11, fontStyle: "italic", color: "#64748b", marginTop: 6 }}>* Danh sách nhiệm vụ ở dạng nháp, sẽ được tạo thành hồ sơ Action chính thức sau khi kế hoạch được phê duyệt trên hệ thống.</p> : null}
     </section>

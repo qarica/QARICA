@@ -21,6 +21,7 @@ export type PlanDraftAction = {
   automation_confirmed: boolean;
   automation_ref_id: string | null;
   automation_target_department_id: string | null;
+  automation_target_area: string | null;
   automation_report_recipient: string | null;
   automation_report_method: string | null;
   automation_report_period: string | null;
@@ -45,6 +46,7 @@ export function cleanPlanDraftActions(value: unknown): PlanDraftAction[] {
     automation_confirmed: raw?.automation_confirmed === true,
     automation_ref_id: planText(raw?.automation_ref_id) || null,
     automation_target_department_id: planText(raw?.automation_target_department_id) || null,
+    automation_target_area: planText(raw?.automation_target_area) || null,
     automation_report_recipient: planText(raw?.automation_report_recipient) || null,
     automation_report_method: planText(raw?.automation_report_method) || null,
     automation_report_period: planText(raw?.automation_report_period) || null,
@@ -68,7 +70,7 @@ export function validatePlanDraftAction(action: PlanDraftAction, planStart: stri
   if (planEnd && action.due_date > planEnd) return "Hạn nhiệm vụ nằm ngoài thời gian kế hoạch.";
   if (action.automation_confirmed && action.automation_kind === "INDICATOR" && !action.automation_ref_id) return "Đã xác nhận tạo Chỉ số nhưng chưa chọn chỉ số hiện có.";
   if (action.automation_confirmed && action.automation_kind === "MONITORING" && !action.automation_ref_id) return "Đã xác nhận tạo Đợt giám sát nhưng chưa chọn bảng kiểm đã phát hành.";
-  if (action.automation_confirmed && action.automation_kind === "MONITORING" && !action.automation_target_department_id) return "Đợt giám sát cần khoa/phòng được giám sát.";
+  if (action.automation_confirmed && action.automation_kind === "MONITORING" && !action.automation_target_department_id && !action.automation_target_area) return "Đợt giám sát cần khoa/phòng hoặc phạm vi được giám sát.";
   if (action.automation_confirmed && action.automation_kind === "ASSESSMENT" && !action.automation_ref_id) return "Tự đánh giá cần chọn bộ tiêu chí đã phát hành.";
   if (action.automation_confirmed && action.automation_kind === "REPORT" && !action.automation_report_recipient) return "Báo cáo cần nơi nhận.";
   if (action.automation_confirmed && action.automation_kind === "REPORT" && !action.automation_report_method) return "Báo cáo cần phương thức gửi.";
@@ -80,5 +82,5 @@ export function validatePlanDraftAction(action: PlanDraftAction, planStart: stri
 export function planComposerReady(input: { generalObjective?: unknown; specificObjectives?: unknown; requirements?: unknown; draftActions?: unknown; startDate?: string | null; endDate?: string | null }) {
   const actions = cleanPlanDraftActions(input.draftActions);
   const startDate = input.startDate || null, endDate = input.endDate || null;
-  return validPlanDateWindow(startDate, endDate) && !!planText(input.generalObjective) && cleanPlanList(input.specificObjectives).length > 0 && !!planText(input.requirements) && actions.length > 0 && actions.every((action) => !validatePlanDraftAction(action, startDate, endDate));
+  return validPlanDateWindow(startDate, endDate) && !!planText(input.generalObjective) && actions.length > 0 && actions.every((action) => !validatePlanDraftAction(action, startDate, endDate));
 }

@@ -22,8 +22,6 @@ export async function POST(request: Request) {
 
   if (!title) return NextResponse.json({ error: "Tên kế hoạch là bắt buộc." }, { status: 400 });
   if (!generalObjective) return NextResponse.json({ error: "Mục tiêu chung là bắt buộc." }, { status: 400 });
-  if (!specificObjectives.length) return NextResponse.json({ error: "Cần có ít nhất 01 mục tiêu cụ thể." }, { status: 400 });
-  if (!requirements) return NextResponse.json({ error: "Yêu cầu của kế hoạch là bắt buộc." }, { status: 400 });
   if (!Number.isInteger(workYear) || workYear < 2000 || workYear > 2200) return NextResponse.json({ error: "Năm kế hoạch không hợp lệ." }, { status: 400 });
   if (!PLAN_TYPES.has(programType)) return NextResponse.json({ error: "Loại kế hoạch không hợp lệ." }, { status: 400 });
   if (!leadDepartmentId) return NextResponse.json({ error: "Cần chọn khoa/phòng chủ trì." }, { status: 400 });
