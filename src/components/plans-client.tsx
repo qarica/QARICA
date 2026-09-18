@@ -7,6 +7,12 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { StatusBadge } from "@/components/status-badge";
 import { MultiCheckSelect } from "@/components/multi-check-select";
+import {
+  AssignmentTargetSelect,
+  assignmentTargetToken,
+  parseAssignmentTargetToken,
+  type AssignmentTargetOption,
+} from "@/components/assignment-target-select";
 import { formatDate } from "@/lib/format";
 
 type PlanRow = {
@@ -17,18 +23,19 @@ type PlanRow = {
 type Department = { id: string; name: string; short_name: string | null; is_active: boolean };
 type Profile = { user_id: string; full_name: string | null; email: string | null; primary_department_id: string | null; is_active: boolean };
 type ReferenceOption = { id: string; label: string; description?: string | null };
+type WorkGroupOption = { id: string; label: string; description?: string | null; leadDepartmentId?: string | null };
 type FormState = {
   title: string; programType: string; generalObjective: string; specificObjectives: string[]; requirements: string; description: string;
-  startDate: string; endDate: string; referenceIds: string[];
+  startDate: string; endDate: string; referenceIds: string[]; assignmentTarget: string; leadDepartmentId: string;
 };
 
 const TYPE_LABELS: Record<string, string> = { ANNUAL_PLAN: "Kế hoạch năm", THEMATIC_PLAN: "Kế hoạch chuyên đề", DEPARTMENT_PLAN: "Kế hoạch khoa/phòng", PROGRAM: "Chương trình", OTHER: "Khác" };
 
 function initialForm(year: number): FormState {
-  return { title: "", programType: "ANNUAL_PLAN", generalObjective: "", specificObjectives: [], requirements: "", description: "", startDate: `${year}-01-01`, endDate: `${year}-12-31`, referenceIds: [] };
+  return { title: "", programType: "ANNUAL_PLAN", generalObjective: "", specificObjectives: [], requirements: "", description: "", startDate: `${year}-01-01`, endDate: `${year}-12-31`, referenceIds: [], assignmentTarget: "", leadDepartmentId: "" };
 }
 
-export function PlansClient({ year, canManage, rows, departments, profiles, referenceOptions }: { year: number; canManage: boolean; rows: PlanRow[]; departments: Department[]; profiles: Profile[]; referenceOptions: ReferenceOption[] }) {
+export function PlansClient({ year, canManage, rows, departments, profiles, referenceOptions, workGroupOptions }: { year: number; canManage: boolean; rows: PlanRow[]; departments: Department[]; profiles: Profile[]; referenceOptions: ReferenceOption[]; workGroupOptions: WorkGroupOption[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -40,6 +47,22 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
   useEffect(() => { if (!formOpen) return; const previous = document.body.style.overflow; document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = previous; }; }, [formOpen]);
   const deptMap = useMemo(() => new Map(departments.map((d) => [d.id, d.short_name || d.name])), [departments]);
   const userMap = useMemo(() => new Map(profiles.map((p) => [p.user_id, p.full_name || p.email || "Người dùng"])), [profiles]);
+  const assignmentOptions = useMemo<AssignmentTargetOption[]>(() => [
+    ...profiles.map((profile) => ({
+      id: profile.user_id,
+      kind: "USER" as const,
+      label: profile.full_name || profile.email || profile.user_id,
+      description: profile.primary_department_id ? deptMap.get(profile.primary_department_id) || null : null,
+      departmentId: profile.primary_department_id || null,
+    })),
+    ...workGroupOptions.map((group) => ({
+      id: group.id,
+      kind: "GROUP" as const,
+      label: group.label,
+      description: group.description || "Nhóm phân công",
+      departmentId: group.leadDepartmentId || null,
+    })),
+  ], [profiles, workGroupOptions, deptMap]);
   const filtered = rows.filter((row) => { const text = `${row.record_code} ${row.title} ${deptMap.get(row.lead_department_id || "") || ""}`.toLowerCase(); return text.includes(search.trim().toLowerCase()) && (status === "ALL" || row.workflow_status === status); });
   const total = rows.length;
   const inProgress = rows.filter((r) => ["APPROVED", "IN_PROGRESS"].includes(r.workflow_status)).length;
@@ -56,6 +79,9 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
     e.preventDefault();
     const specificObjectives = form.specificObjectives.map((x) => x.trim()).filter(Boolean);
     if (!form.title.trim()) return setMessage({ tone: "error", text: "Vui lòng nhập tên kế hoạch." });
+    const assignmentTarget = parseAssignmentTargetToken(form.assignmentTarget);
+    if (!assignmentTarget) return setMessage({ tone: "error", text: "Vui lòng chọn người hoặc nhóm phụ trách kế hoạch." });
+    if (!form.leadDepartmentId) return setMessage({ tone: "error", text: "Kế hoạch cần xác định đơn vị chủ trì. QARICA sẽ tự điền từ người/nhóm được chọn khi có thể." });
     if (!form.generalObjective.trim()) return setMessage({ tone: "error", text: "Vui lòng nhập mục tiêu." });
     if (form.startDate && form.endDate && form.endDate < form.startDate) return setMessage({ tone: "error", text: "Ngày kết thúc không được trước ngày bắt đầu." });
 
@@ -64,6 +90,11 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
       const res = await fetch("/api/plans", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         work_year: year, title: form.title.trim(), program_type: form.programType, general_objective: form.generalObjective.trim(), specific_objectives: specificObjectives,
         requirements: form.requirements.trim(), description: form.description.trim() || null, start_date: form.startDate || null, end_date: form.endDate || null,
+        lead_department_id: form.leadDepartmentId,
+        lead_department_ids: [form.leadDepartmentId],
+        owner_user_id: assignmentTarget?.kind === "USER" ? assignmentTarget.id : null,
+        owner_user_ids: assignmentTarget?.kind === "USER" ? [assignmentTarget.id] : [],
+        assigned_group_ids: assignmentTarget?.kind === "GROUP" ? [assignmentTarget.id] : [],
         reference_ids: form.referenceIds, draft_actions: [],
       }) });
       const data = await res.json(); if (!res.ok) throw new Error(data.error || "Không thể tạo kế hoạch.");
@@ -76,19 +107,40 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
 
   const modal = formOpen && typeof document !== "undefined" ? createPortal(
     <div className="modal-backdrop" style={{ padding: 16 }}><form className="modal-card" onSubmit={submit} style={{ width: "min(1440px, calc(100vw - 32px))", height: "min(900px, calc(100dvh - 32px))", maxHeight: "calc(100dvh - 32px)", borderRadius: 18 }}>
-      <div className="modal-head" style={{ flexShrink: 0, padding: "18px 24px" }}><div><div className="eyebrow">PLAN COMPOSER · {year}</div><h2>Tạo kế hoạch mới</h2><p className="muted" style={{ margin: "5px 0 0", fontSize: 12 }}>Tạo nhanh khung văn bản; căn cứ đứng trước mục tiêu. Phân công thực hiện ở từng nhiệm vụ, không nhập lặp tại đây.</p></div><button type="button" className="icon-button" title="Đóng cửa sổ" aria-label="Đóng cửa sổ" onClick={requestClose}><Icon name="x" size={22} /></button></div>
+      <div className="modal-head" style={{ flexShrink: 0, padding: "18px 24px" }}><div><div className="eyebrow">PLAN COMPOSER · {year}</div><h2>Tạo kế hoạch mới</h2><p className="muted" style={{ margin: "5px 0 0", fontSize: 12 }}>Tạo nhanh khung văn bản; căn cứ đứng trước mục tiêu. Kế hoạch có đầu mối phụ trách bắt buộc, còn phân công chi tiết nằm ở từng nhiệm vụ.</p></div><button type="button" className="icon-button" title="Đóng cửa sổ" aria-label="Đóng cửa sổ" onClick={requestClose}><Icon name="x" size={22} /></button></div>
       <div className="modal-body" style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", padding: "24px 28px 30px" }}>
         {message ? <div className={`alert ${message.tone}`} style={{ marginBottom: 18 }}>{message.text}</div> : null}
         <div className="form-stack" style={{ gap: 22 }}>
           <section>
             <div style={{ marginBottom: 13 }}>
               <strong style={{ fontSize: 14 }}>1. Thông tin cơ bản</strong>
-              <div className="muted tiny" style={{ marginTop: 4 }}>Chỉ nhập phần khung. Phân công cá nhân/nhóm thực hiện tại từng nhiệm vụ.</div>
+              <div className="muted tiny" style={{ marginTop: 4 }}>Kế hoạch phải có đầu mối phụ trách ngay từ đầu; phân công chi tiết vẫn thực hiện tại từng nhiệm vụ.</div>
             </div>
             <div className="form-grid two" style={{ gap: 16 }}>
               <label className="span-2"><span>Tên kế hoạch *</span><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={`Ví dụ: Kế hoạch hoạt động quản lý chất lượng bệnh viện năm ${year}`} /></label>
               <label><span>Ngày bắt đầu</span><input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></label>
               <label><span>Ngày kết thúc</span><input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></label>
+              <label className="span-2"><span>Phụ trách kế hoạch *</span>
+                <AssignmentTargetSelect
+                  options={assignmentOptions}
+                  value={form.assignmentTarget}
+                  onChange={(token) => {
+                    const target = parseAssignmentTargetToken(token);
+                    const option = target ? assignmentOptions.find((item) => item.kind === target.kind && item.id === target.id) : null;
+                    setForm((current) => ({
+                      ...current,
+                      assignmentTarget: token,
+                      leadDepartmentId: option?.departmentId || current.leadDepartmentId,
+                    }));
+                  }}
+                  placeholder="Tìm cá nhân hoặc nhóm phụ trách..."
+                />
+                <span className="tiny muted">QARICA tự nhận biết cá nhân/nhóm và tự lấy đơn vị chủ trì khi đã cấu hình.</span>
+              </label>
+              <details className="span-2">
+                <summary className="tiny muted" style={{ cursor: "pointer", fontWeight: 700 }}>Điều chỉnh đơn vị chủ trì</summary>
+                <label style={{ marginTop: 8 }}><span>Đơn vị chủ trì *</span><select value={form.leadDepartmentId} onChange={(e) => setForm({ ...form, leadDepartmentId: e.target.value })}><option value="">-- Chọn đơn vị --</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select></label>
+              </details>
             </div>
           </section>
 
