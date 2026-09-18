@@ -81,7 +81,7 @@ export function MonitoringClient({ year, canManageTemplates, templateRows, monit
 
   const deptMap = useMemo(() => new Map(departments.map((d) => [d.id, d.short_name || d.name])), [departments]);
   const q = search.trim().toLowerCase();
-  const filteredTemplates = templateRows.filter((row) => `${row.code || ""} ${row.name} ${row.description || ""} ${deptMap.get(row.owner_department_id || "") || ""}`.toLowerCase().includes(q));
+  const filteredTemplates = templateRows.filter((row) => `${row.code || ""} ${row.source_code || ""} ${row.name} ${row.description || ""} ${deptMap.get(row.owner_department_id || "") || ""}`.toLowerCase().includes(q));
   const filteredRounds = monitoringRows.filter((row) => {
     const matchesSearch = `${row.record_code} ${row.title} ${row.checklist_name} ${row.target_area || ""} ${deptMap.get(row.target_department_id || "") || ""}`.toLowerCase().includes(q);
     const matchesPhase = roundFilter === "ALL" || (roundFilter === "HAS_FAIL" ? row.fail > 0 : row.phase === roundFilter);
