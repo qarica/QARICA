@@ -12,6 +12,7 @@ import { routeForRecord } from "@/lib/record-route";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadPlanReferenceOptions } from "@/lib/plan-reference-options";
+import { loadWorkGroupOptions } from "@/lib/work-group-options";
 
 const TYPE_LABELS: Record<string, string> = {
   ANNUAL_PLAN: "Kế hoạch năm",
@@ -30,16 +31,17 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   const admin = createAdminClient();
   const { data: program, error: programError } = await supabase
     .from("work_programs")
-    .select("id,record_id,program_type,parent_program_id,description,objective,general_objective,specific_objectives,requirements,draft_actions,returned_reason,start_date,end_date,lead_department_id,lead_department_ids,owner_user_id,owner_user_ids,workflow_status,approved_by,approved_at,created_at,updated_at")
+    .select("id,record_id,program_type,parent_program_id,description,objective,general_objective,specific_objectives,requirements,draft_actions,returned_reason,start_date,end_date,lead_department_id,lead_department_ids,owner_user_id,owner_user_ids,assigned_group_ids,workflow_status,approved_by,approved_at,created_at,updated_at")
     .eq("id", id)
     .maybeSingle();
 
   if (programError) return <div className="alert error">Không tải được kế hoạch: {programError.message}</div>;
   if (!program) notFound();
 
-  const [referenceOptions, referenceLinksRes] = await Promise.all([
+  const [referenceOptions, referenceLinksRes, workGroupOptions] = await Promise.all([
     user.organizationId ? loadPlanReferenceOptions(user.organizationId) : Promise.resolve([]),
     admin.from("program_reference_links").select("directive_id,sequence_no").eq("program_id", id).order("sequence_no", { ascending: true, nullsFirst: false }),
+    user.organizationId ? loadWorkGroupOptions(user.organizationId) : Promise.resolve([]),
   ]);
   const initialReferenceIds = (referenceLinksRes.data ?? []).map((x: any) => x.directive_id);
 
@@ -226,6 +228,8 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       initialOwnerUserIds={Array.isArray((program as any).owner_user_ids) && (program as any).owner_user_ids.length ? (program as any).owner_user_ids : (program.owner_user_id ? [program.owner_user_id] : [])}
       referenceOptions={referenceOptions}
       initialReferenceIds={initialReferenceIds}
+      workGroupOptions={workGroupOptions}
+      initialAssignedGroupIds={Array.isArray((program as any).assigned_group_ids) ? (program as any).assigned_group_ids : []}
       initialStartDate={program.start_date}
       initialEndDate={program.end_date}
     /> : null}
