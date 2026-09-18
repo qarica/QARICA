@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 const ALLOWED_ACTIONS = new Set(["SUBMIT", "APPROVE", "RETURN", "START", "HOLD", "RESUME", "COMPLETE"]);
-const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v6";
+const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v7";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("plans.manage");
@@ -70,55 +70,57 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: nhiệm vụ cha không còn tồn tại.` }, { status: 409 });
       }
 
-      if (task.automation_confirmed && task.automation_kind === "INDICATOR") {
-        const { data: assignment } = await admin
-          .from("indicator_assignments")
-          .select("id,department_id,work_year,status")
-          .eq("id", task.automation_ref_id)
-          .maybeSingle();
-        if (!assignment || assignment.status !== "ACTIVE" || Number(assignment.work_year) !== Number(record.work_year)) {
-          return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: chỉ số đã chọn không còn hợp lệ cho năm kế hoạch.` }, { status: 409 });
+      for (const output of task.automation_outputs) {
+        if (output.kind === "INDICATOR") {
+          const { data: assignment } = await admin
+            .from("indicator_assignments")
+            .select("id,department_id,work_year,status")
+            .eq("id", output.ref_id)
+            .maybeSingle();
+          if (!assignment || assignment.status !== "ACTIVE" || Number(assignment.work_year) !== Number(record.work_year)) {
+            return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: chỉ số đã chọn không còn hợp lệ cho năm kế hoạch.` }, { status: 409 });
+          }
+          if (assignment.department_id) {
+            const { data: indicatorDept } = await admin.from("departments").select("id").eq("id", assignment.department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
+            if (!indicatorDept) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: chỉ số đã chọn nằm ngoài phạm vi bệnh viện.` }, { status: 409 });
+          }
         }
-        if (assignment.department_id) {
-          const { data: indicatorDept } = await admin.from("departments").select("id").eq("id", assignment.department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
-          if (!indicatorDept) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: chỉ số đã chọn nằm ngoài phạm vi bệnh viện.` }, { status: 409 });
-        }
-      }
 
-      if (task.automation_confirmed && task.automation_kind === "MONITORING") {
-        const [{ data: checklistVersion }, { data: targetDept }] = await Promise.all([
-          admin.from("checklist_versions").select("id,checklist_template_id,status").eq("id", task.automation_ref_id).maybeSingle(),
-          task.automation_target_department_id
-            ? admin.from("departments").select("id").eq("id", task.automation_target_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle()
-            : Promise.resolve({ data: null, error: null }),
-        ] as any);
-        if (!checklistVersion || checklistVersion.status !== "PUBLISHED") {
-          return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bảng kiểm đã chọn chưa được phát hành hoặc không còn hợp lệ.` }, { status: 409 });
+        if (output.kind === "MONITORING") {
+          const [{ data: checklistVersion }, { data: targetDept }] = await Promise.all([
+            admin.from("checklist_versions").select("id,checklist_template_id,status").eq("id", output.ref_id).maybeSingle(),
+            output.target_department_id
+              ? admin.from("departments").select("id").eq("id", output.target_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle()
+              : Promise.resolve({ data: null, error: null }),
+          ] as any);
+          if (!checklistVersion || checklistVersion.status !== "PUBLISHED") {
+            return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bảng kiểm đã chọn chưa được phát hành hoặc không còn hợp lệ.` }, { status: 409 });
+          }
+          if (output.target_department_id && !targetDept) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: khoa/phòng được giám sát không hợp lệ.` }, { status: 409 });
+          if (!output.target_department_id && !output.target_area) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: cần chọn khoa/phòng hoặc phạm vi giám sát.` }, { status: 409 });
+          const { data: template } = await admin.from("checklist_templates").select("id,organization_id,is_active").eq("id", checklistVersion.checklist_template_id).maybeSingle();
+          if (!template?.is_active || (template.organization_id && template.organization_id !== caller.organization_id)) {
+            return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bảng kiểm đã chọn nằm ngoài phạm vi bệnh viện.` }, { status: 409 });
+          }
         }
-        if (task.automation_target_department_id && !targetDept) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: khoa/phòng được giám sát không hợp lệ.` }, { status: 409 });
-        if (!task.automation_target_department_id && !task.automation_target_area) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: cần chọn khoa/phòng hoặc phạm vi giám sát.` }, { status: 409 });
-        const { data: template } = await admin.from("checklist_templates").select("id,organization_id,is_active").eq("id", checklistVersion.checklist_template_id).maybeSingle();
-        if (!template?.is_active || (template.organization_id && template.organization_id !== caller.organization_id)) {
-          return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bảng kiểm đã chọn nằm ngoài phạm vi bệnh viện.` }, { status: 409 });
-        }
-      }
 
-      if (task.automation_confirmed && task.automation_kind === "ASSESSMENT") {
-        const { data: criteriaVersion } = await admin
-          .from("criteria_set_versions")
-          .select("id,criteria_set_id,status")
-          .eq("id", task.automation_ref_id)
-          .maybeSingle();
-        if (!criteriaVersion || criteriaVersion.status !== "PUBLISHED") {
-          return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bộ tiêu chí đã chọn chưa được phát hành hoặc không còn hợp lệ.` }, { status: 409 });
-        }
-        const { data: criteriaSet } = await admin
-          .from("criteria_sets")
-          .select("id,organization_id")
-          .eq("id", criteriaVersion.criteria_set_id)
-          .maybeSingle();
-        if (!criteriaSet || (criteriaSet.organization_id && criteriaSet.organization_id !== caller.organization_id)) {
-          return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bộ tiêu chí đã chọn nằm ngoài phạm vi bệnh viện.` }, { status: 409 });
+        if (output.kind === "ASSESSMENT") {
+          const { data: criteriaVersion } = await admin
+            .from("criteria_set_versions")
+            .select("id,criteria_set_id,status")
+            .eq("id", output.ref_id)
+            .maybeSingle();
+          if (!criteriaVersion || criteriaVersion.status !== "PUBLISHED") {
+            return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bộ tiêu chí đã chọn chưa được phát hành hoặc không còn hợp lệ.` }, { status: 409 });
+          }
+          const { data: criteriaSet } = await admin
+            .from("criteria_sets")
+            .select("id,organization_id")
+            .eq("id", criteriaVersion.criteria_set_id)
+            .maybeSingle();
+          if (!criteriaSet || (criteriaSet.organization_id && criteriaSet.organization_id !== caller.organization_id)) {
+            return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bộ tiêu chí đã chọn nằm ngoài phạm vi bệnh viện.` }, { status: 409 });
+          }
         }
       }
     }

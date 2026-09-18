@@ -6,7 +6,7 @@ import { Icon } from "@/components/icon";
 import { MultiCheckSelect } from "@/components/multi-check-select";
 import {
   automationKindLabel,
-  suggestPlanAutomationKind,
+  suggestPlanAutomationKinds,
   suggestPlanAutomationResource,
   type PlanAutomationKind,
   type PlanAutomationResource,
@@ -18,6 +18,28 @@ type ReferenceOption = { id: string; label: string; description?: string | null 
 type WorkGroupOption = { id: string; label: string; description?: string | null; memberUserIds: string[]; leaderUserId: string | null; leadDepartmentId: string | null };
 type CriterionItem = { id: string; code: string; title: string };
 type AutomationOption = { id: string; label: string };
+const OUTPUT_KIND_OPTIONS = [
+  { id: "INDICATOR", label: "Chỉ số chất lượng" },
+  { id: "MONITORING", label: "Đợt giám sát" },
+  { id: "REPORT", label: "Nghĩa vụ báo cáo" },
+  { id: "ASSESSMENT", label: "Tự đánh giá chất lượng" },
+  { id: "AUDIT", label: "Audit / Tracer" },
+  { id: "IMPROVEMENT", label: "Đề án cải tiến" },
+];
+type AutomationOutputKind = Exclude<PlanAutomationKind, "ACTION">;
+type AutomationOutput = {
+  kind: AutomationOutputKind;
+  ref_id: string;
+  target_department_id: string;
+  target_area: string;
+  report_recipient: string;
+  report_method: string;
+  report_period: string;
+  report_recurrence_rule: string;
+  report_recurrence_end_date: string;
+  assessment_round_type: string;
+  audit_type: string;
+};
 
 type DraftTask = {
   client_id: string;
@@ -37,6 +59,7 @@ type DraftTask = {
   criteria_refs: string[];
   automation_kind: PlanAutomationKind;
   automation_confirmed: boolean;
+  automation_outputs: AutomationOutput[];
   automation_ref_id: string;
   automation_target_department_id: string;
   automation_target_area: string;
@@ -67,6 +90,7 @@ const EMPTY_TASK: DraftTask = {
   criteria_refs: [],
   automation_kind: "ACTION",
   automation_confirmed: false,
+  automation_outputs: [],
   automation_ref_id: "",
   automation_target_department_id: "",
   automation_target_area: "",
@@ -79,10 +103,65 @@ const EMPTY_TASK: DraftTask = {
   automation_audit_type: "",
 };
 
+function emptyOutput(kind: AutomationOutputKind, refId = ""): AutomationOutput {
+  return {
+    kind,
+    ref_id: refId,
+    target_department_id: "",
+    target_area: "",
+    report_recipient: "",
+    report_method: "",
+    report_period: "",
+    report_recurrence_rule: "",
+    report_recurrence_end_date: "",
+    assessment_round_type: "",
+    audit_type: "",
+  };
+}
+
 function toTask(raw: any): DraftTask {
-  const kind = ["ACTION", "INDICATOR", "MONITORING", "REPORT", "ASSESSMENT", "AUDIT", "IMPROVEMENT"].includes(String(raw?.automation_kind || "").toUpperCase())
+  const legacyKind = ["ACTION", "INDICATOR", "MONITORING", "REPORT", "ASSESSMENT", "AUDIT", "IMPROVEMENT"].includes(String(raw?.automation_kind || "").toUpperCase())
     ? String(raw.automation_kind).toUpperCase() as PlanAutomationKind
     : "ACTION";
+  const rawOutputs = Array.isArray(raw?.automation_outputs) ? raw.automation_outputs : [];
+  const parsedOutputs: AutomationOutput[] = rawOutputs
+    .map((row: any) => {
+      const kind = String(row?.kind || "").toUpperCase();
+      if (!["INDICATOR","MONITORING","REPORT","ASSESSMENT","AUDIT","IMPROVEMENT"].includes(kind)) return null;
+      return {
+        kind: kind as AutomationOutputKind,
+        ref_id: row?.ref_id || "",
+        target_department_id: row?.target_department_id || "",
+        target_area: row?.target_area || "",
+        report_recipient: row?.report_recipient || "",
+        report_method: row?.report_method || "",
+        report_period: row?.report_period || "",
+        report_recurrence_rule: row?.report_recurrence_rule || "",
+        report_recurrence_end_date: row?.report_recurrence_end_date || "",
+        assessment_round_type: row?.assessment_round_type || "",
+        audit_type: row?.audit_type || "",
+      } as AutomationOutput;
+    })
+    .filter((x: AutomationOutput | null): x is AutomationOutput => !!x);
+
+  if (!parsedOutputs.length && raw?.automation_confirmed === true && legacyKind !== "ACTION") {
+    parsedOutputs.push({
+      kind: legacyKind as AutomationOutputKind,
+      ref_id: raw?.automation_ref_id || "",
+      target_department_id: raw?.automation_target_department_id || "",
+      target_area: raw?.automation_target_area || "",
+      report_recipient: raw?.automation_report_recipient || "",
+      report_method: raw?.automation_report_method || "",
+      report_period: raw?.automation_report_period || "",
+      report_recurrence_rule: raw?.automation_report_recurrence_rule || "",
+      report_recurrence_end_date: raw?.automation_report_recurrence_end_date || "",
+      assessment_round_type: raw?.automation_assessment_round_type || "",
+      audit_type: raw?.automation_audit_type || "",
+    });
+  }
+
+  const uniqueOutputs = Array.from(new Map(parsedOutputs.map((row) => [row.kind, row])).values());
+  const first = uniqueOutputs[0];
   return {
     client_id: raw?.client_id || "draft-" + Math.random().toString(36).slice(2, 10),
     title: raw?.title || "",
@@ -99,18 +178,19 @@ function toTask(raw: any): DraftTask {
     verification_requirement: raw?.verification_requirement || "",
     description: raw?.description || "",
     criteria_refs: Array.isArray(raw?.criteria_refs) ? raw.criteria_refs : [],
-    automation_kind: kind,
-    automation_confirmed: raw?.automation_confirmed === true,
-    automation_ref_id: raw?.automation_ref_id || "",
-    automation_target_department_id: raw?.automation_target_department_id || "",
-    automation_target_area: raw?.automation_target_area || "",
-    automation_report_recipient: raw?.automation_report_recipient || "",
-    automation_report_method: raw?.automation_report_method || "",
-    automation_report_period: raw?.automation_report_period || "",
-    automation_report_recurrence_rule: raw?.automation_report_recurrence_rule || "",
-    automation_report_recurrence_end_date: raw?.automation_report_recurrence_end_date || "",
-    automation_assessment_round_type: raw?.automation_assessment_round_type || "",
-    automation_audit_type: raw?.automation_audit_type || "",
+    automation_kind: first?.kind || legacyKind,
+    automation_confirmed: uniqueOutputs.length > 0,
+    automation_outputs: uniqueOutputs,
+    automation_ref_id: first?.ref_id || raw?.automation_ref_id || "",
+    automation_target_department_id: first?.target_department_id || raw?.automation_target_department_id || "",
+    automation_target_area: first?.target_area || raw?.automation_target_area || "",
+    automation_report_recipient: first?.report_recipient || raw?.automation_report_recipient || "",
+    automation_report_method: first?.report_method || raw?.automation_report_method || "",
+    automation_report_period: first?.report_period || raw?.automation_report_period || "",
+    automation_report_recurrence_rule: first?.report_recurrence_rule || raw?.automation_report_recurrence_rule || "",
+    automation_report_recurrence_end_date: first?.report_recurrence_end_date || raw?.automation_report_recurrence_end_date || "",
+    automation_assessment_round_type: first?.assessment_round_type || raw?.automation_assessment_round_type || "",
+    automation_audit_type: first?.audit_type || raw?.automation_audit_type || "",
   };
 }
 
@@ -246,38 +326,61 @@ export function PlanComposerClient({
     return [task.title, task.description, task.expected_result].filter(Boolean).join(" ");
   }
 
-  function acceptSuggestion(index: number, kind: PlanAutomationKind, candidate: PlanAutomationResource | null) {
-    updateTask(index, {
-      automation_kind: kind,
-      automation_confirmed: true,
-      automation_ref_id: candidate?.id || "",
-      automation_target_department_id: "",
-      automation_target_area: "",
-      automation_report_recipient: "",
-      automation_report_method: "",
-      automation_report_period: "",
-      automation_report_recurrence_rule: "",
-      automation_report_recurrence_end_date: "",
-      automation_assessment_round_type: "",
-      automation_audit_type: "",
-    });
+  function resourcesForKind(kind: AutomationOutputKind) {
+    if (kind === "INDICATOR") return indicatorAssignments;
+    if (kind === "MONITORING") return monitoringChecklists;
+    if (kind === "ASSESSMENT") return assessmentCriteriaVersions;
+    return [] as AutomationOption[];
   }
 
-  function chooseAutomationKind(index: number, kind: PlanAutomationKind) {
-    updateTask(index, {
-      automation_kind: kind,
-      automation_confirmed: true,
-      automation_ref_id: "",
-      automation_target_department_id: "",
-      automation_target_area: "",
-      automation_report_recipient: "",
-      automation_report_method: "",
-      automation_report_period: "",
-      automation_report_recurrence_rule: "",
-      automation_report_recurrence_end_date: "",
-      automation_assessment_round_type: "",
-      automation_audit_type: "",
-    });
+  function updateAutomationOutput(index: number, kind: AutomationOutputKind, patch: Partial<AutomationOutput>) {
+    setTasks((prev) => prev.map((task, i) => {
+      if (i !== index) return task;
+      const outputs = task.automation_outputs.map((output) => output.kind === kind ? { ...output, ...patch } : output);
+      const first = outputs[0];
+      return {
+        ...task,
+        automation_outputs: outputs,
+        automation_kind: first?.kind || "ACTION",
+        automation_confirmed: outputs.length > 0,
+      };
+    }));
+  }
+
+  function setAutomationKinds(index: number, kinds: string[]) {
+    const selected = kinds.filter((kind): kind is AutomationOutputKind => ["INDICATOR","MONITORING","REPORT","ASSESSMENT","AUDIT","IMPROVEMENT"].includes(kind));
+    setTasks((prev) => prev.map((task, i) => {
+      if (i !== index) return task;
+      const current = new Map(task.automation_outputs.map((output) => [output.kind, output]));
+      const outputs = selected.map((kind) => current.get(kind) || emptyOutput(kind));
+      const first = outputs[0];
+      return {
+        ...task,
+        automation_outputs: outputs,
+        automation_kind: first?.kind || "ACTION",
+        automation_confirmed: outputs.length > 0,
+      };
+    }));
+  }
+
+  function acceptSuggestions(index: number, kinds: AutomationOutputKind[]) {
+    setTasks((prev) => prev.map((task, i) => {
+      if (i !== index) return task;
+      const current = new Map(task.automation_outputs.map((output) => [output.kind, output]));
+      for (const kind of kinds) {
+        if (current.has(kind)) continue;
+        const candidate = suggestPlanAutomationResource(taskText(task), resourcesForKind(kind));
+        current.set(kind, emptyOutput(kind, candidate?.id || ""));
+      }
+      const outputs = Array.from(current.values());
+      const first = outputs[0];
+      return {
+        ...task,
+        automation_outputs: outputs,
+        automation_kind: first?.kind || "ACTION",
+        automation_confirmed: outputs.length > 0,
+      };
+    }));
   }
 
   async function save() {
@@ -431,11 +534,9 @@ export function PlanComposerClient({
         <span className="tiny muted"><strong>4. Nhiệm vụ kế hoạch *</strong> · Action được tạo khi kế hoạch phê duyệt; đầu ra liên quan được tạo tự động nếu đã đủ dữ liệu.</span>
 
         {tasks.map((task, i) => {
-          const suggestion = suggestPlanAutomationKind({ title: task.title, description: task.description, expectedResult: task.expected_result });
-          const resources = suggestion === "INDICATOR" ? indicatorAssignments : suggestion === "MONITORING" ? monitoringChecklists : suggestion === "ASSESSMENT" ? assessmentCriteriaVersions : [];
-          const candidate = ["INDICATOR", "MONITORING", "ASSESSMENT"].includes(suggestion) ? suggestPlanAutomationResource(taskText(task), resources) : null;
-          const selectedResources = task.automation_kind === "INDICATOR" ? indicatorAssignments : task.automation_kind === "MONITORING" ? monitoringChecklists : task.automation_kind === "ASSESSMENT" ? assessmentCriteriaVersions : [];
-          const selectedLabel = selectedResources.find((item) => item.id === task.automation_ref_id)?.label;
+          const suggestions = suggestPlanAutomationKinds({ title: task.title, description: task.description, expectedResult: task.expected_result }) as AutomationOutputKind[];
+          const selectedKinds = task.automation_outputs.map((output) => output.kind);
+          const missingSuggestions = suggestions.filter((kind) => !selectedKinds.includes(kind));
 
           return (
             <div key={i} className="panel" style={{ padding: 12, marginTop: 10, background: "#fbfdfd" }}>
@@ -477,144 +578,138 @@ export function PlanComposerClient({
                 <div className="qarica-assist">
                   <div className="qa-head">
                     <div>
-                      <div className="qa-eyebrow">TRỢ LÝ QARICA · KẾ THỪA DỮ LIỆU</div>
-                      {task.automation_confirmed ? (
+                      <div className="qa-eyebrow">TRỢ LÝ QARICA · NHIỀU ĐẦU RA</div>
+                      {task.automation_outputs.length ? (
                         <>
-                          <div className="qa-title">Đã xác nhận: {automationKindLabel(task.automation_kind)}</div>
-                          <div className="qa-copy">QARICA sẽ dùng lại tiêu đề, khoa/phòng, người phụ trách và thời hạn; không yêu cầu nhập lại ở module đích.</div>
+                          <div className="qa-title">Đã chọn {task.automation_outputs.length} đầu ra bổ sung</div>
+                          <div className="qa-copy">Một nhiệm vụ luôn tạo 01 Action. Các đầu ra dưới đây được tạo thêm và liên kết cùng Action khi kế hoạch được phê duyệt.</div>
                         </>
-                      ) : suggestion !== "ACTION" ? (
+                      ) : suggestions.length ? (
                         <>
-                          <div className="qa-title">Gợi ý: {automationKindLabel(suggestion)}</div>
-                          <div className="qa-copy">
-                            {candidate
-                              ? `Tìm thấy 01 dữ liệu phù hợp: ${candidate.label}. Xác nhận một lần để dùng lại.`
-                              : suggestion === "INDICATOR"
-                                ? "Nhiệm vụ có dấu hiệu theo dõi chỉ số. Chọn một chỉ số đã tồn tại; QARICA không tự tạo master chỉ số mới."
-                                : suggestion === "MONITORING"
-                                  ? "Nhiệm vụ có dấu hiệu giám sát. QARICA sẽ hỏi bảng kiểm và đối tượng giám sát còn thiếu."
-                                  : suggestion === "ASSESSMENT"
-                                    ? "Nhiệm vụ có dấu hiệu tự đánh giá. Chọn bộ tiêu chí đã phát hành; QARICA không tự tạo bộ tiêu chí."
-                                    : suggestion === "REPORT"
-                                      ? "Nhiệm vụ có dấu hiệu báo cáo. QARICA chỉ hỏi nơi nhận, phương thức và kỳ báo cáo."
-                                      : suggestion === "AUDIT"
-                                        ? "Nhiệm vụ có dấu hiệu Audit/Tracer. Xác nhận loại đánh giá để tạo hồ sơ đúng workflow."
-                                        : "Nhiệm vụ có dấu hiệu cải tiến. QARICA sẽ tạo đề án Nháp, không tự suy diễn baseline, SMART hoặc PDSA."}
-                          </div>
+                          <div className="qa-title">Gợi ý: {suggestions.map((kind) => automationKindLabel(kind)).join(" + ")}</div>
+                          <div className="qa-copy">Có thể chọn một hoặc nhiều đầu ra. QARICA chỉ gợi ý từ nội dung; người dùng quyết định và hoàn thiện cấu hình còn thiếu.</div>
                         </>
                       ) : (
                         <>
-                          <div className="qa-title">Đầu ra mặc định: Action</div>
-                          <div className="qa-copy">Nếu đây chỉ là đầu việc thông thường, không cần khai báo thêm.</div>
+                          <div className="qa-title">Đầu ra mặc định: Chỉ Action</div>
+                          <div className="qa-copy">Nếu đây là đầu việc thông thường, không cần chọn thêm đầu ra.</div>
                         </>
                       )}
                     </div>
-
                     <div className="qa-actions">
-                      {task.automation_confirmed ? <span className="qa-confirmed">✓ Đã xác nhận</span> : null}
-                      {!task.automation_confirmed && suggestion !== "ACTION" ? (
-                        <button type="button" className="button primary small" onClick={() => acceptSuggestion(i, suggestion, candidate)}>
-                          {candidate ? "Xác nhận gợi ý" : "Dùng gợi ý"}
+                      {task.automation_outputs.length ? <span className="qa-confirmed">✓ {task.automation_outputs.length} đầu ra</span> : null}
+                      {missingSuggestions.length ? (
+                        <button type="button" className="button primary small" onClick={() => acceptSuggestions(i, missingSuggestions)}>
+                          Dùng {missingSuggestions.length > 1 ? (missingSuggestions.length + " gợi ý") : "gợi ý"}
                         </button>
                       ) : null}
-                      <select
-                        aria-label="Chọn đầu ra tự động"
-                        value={task.automation_confirmed ? task.automation_kind : "ACTION"}
-                        onChange={(e) => chooseAutomationKind(i, e.target.value as PlanAutomationKind)}
-                        style={{ minWidth: 145 }}
-                      >
-                        <option value="ACTION">Chỉ Action</option>
-                        <option value="INDICATOR">Chỉ số</option>
-                        <option value="MONITORING">Đợt giám sát</option>
-                        <option value="REPORT">Báo cáo</option>
-                        <option value="ASSESSMENT">Tự đánh giá</option>
-                        <option value="AUDIT">Audit / Tracer</option>
-                        <option value="IMPROVEMENT">Đề án cải tiến</option>
-                      </select>
                     </div>
                   </div>
 
-                  {task.automation_confirmed && task.automation_kind !== "ACTION" ? (
-                    <div className="qa-fields">
-                      {task.automation_kind === "INDICATOR" ? (
-                        <>
-                          <label className="span-2">Chỉ số hiện có *
-                            <select value={task.automation_ref_id} onChange={(e) => updateTask(i, { automation_ref_id: e.target.value })}>
-                              <option value="">-- Chọn chỉ số đã có --</option>
-                              {indicatorAssignments.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                            </select>
+                  <div style={{ marginTop: 10 }}>
+                    <label>Đầu ra bổ sung
+                      <MultiCheckSelect
+                        options={OUTPUT_KIND_OPTIONS}
+                        value={selectedKinds}
+                        onChange={(ids) => setAutomationKinds(i, ids)}
+                        placeholder="Chọn một hoặc nhiều đầu ra"
+                        emptyText="Không có loại đầu ra."
+                      />
+                    </label>
+                    <div className="tiny muted" style={{ marginTop: 5 }}>Không chọn mục nào = chỉ tạo Action. Có thể chọn đồng thời Giám sát, Báo cáo, Tự đánh giá, Audit, Chỉ số hoặc Đề án cải tiến.</div>
+                  </div>
+
+                  {task.automation_outputs.map((output) => {
+                    const outputResources = resourcesForKind(output.kind);
+                    const selectedLabel = outputResources.find((item) => item.id === output.ref_id)?.label;
+                    return (
+                      <div className="qa-fields" key={output.kind}>
+                        <div className="span-2" style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                          <strong>{automationKindLabel(output.kind)}</strong>
+                          <button type="button" className="button tertiary small" onClick={() => setAutomationKinds(i, selectedKinds.filter((kind) => kind !== output.kind))}>Bỏ đầu ra</button>
+                        </div>
+
+                        {output.kind === "INDICATOR" ? (
+                          <>
+                            <label className="span-2">Chỉ số hiện có *
+                              <select value={output.ref_id} onChange={(e) => updateAutomationOutput(i, output.kind, { ref_id: e.target.value })}>
+                                <option value="">-- Chọn chỉ số đã có --</option>
+                                {indicatorAssignments.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                              </select>
+                            </label>
+                            {!indicatorAssignments.length ? <div className="qa-note">Chưa có chỉ số/phân công chỉ số phù hợp trong năm. QARICA không tự tạo master chỉ số.</div> : null}
+                          </>
+                        ) : output.kind === "MONITORING" ? (
+                          <>
+                            <label>Bảng kiểm đã phát hành *
+                              <select value={output.ref_id} onChange={(e) => updateAutomationOutput(i, output.kind, { ref_id: e.target.value })}>
+                                <option value="">-- Chọn bảng kiểm --</option>
+                                {monitoringChecklists.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                              </select>
+                            </label>
+                            <label>Khoa/phòng được giám sát
+                              <select value={output.target_department_id} onChange={(e) => updateAutomationOutput(i, output.kind, { target_department_id: e.target.value, target_area: e.target.value ? "" : output.target_area })}>
+                                <option value="">-- Không cố định theo khoa/phòng --</option>
+                                {deptOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                              </select>
+                            </label>
+                            <label className="span-2">Hoặc phạm vi/khu vực giám sát
+                              <input value={output.target_area} onChange={(e) => updateAutomationOutput(i, output.kind, { target_area: e.target.value, target_department_id: e.target.value.trim() ? "" : output.target_department_id })} placeholder="Ví dụ: Toàn bộ Tòa A và Tòa B" />
+                            </label>
+                            {!output.target_department_id && !output.target_area.trim() ? <div className="qa-note">Cần chọn một trong hai: khoa/phòng cụ thể hoặc phạm vi/khu vực giám sát.</div> : null}
+                          </>
+                        ) : output.kind === "ASSESSMENT" ? (
+                          <>
+                            <label className="span-2">Bộ tiêu chí đã phát hành * <small className="muted">({assessmentCriteriaVersions.length} bộ khả dụng)</small>
+                              <select value={output.ref_id} onChange={(e) => updateAutomationOutput(i, output.kind, { ref_id: e.target.value })}>
+                                <option value="">-- Chọn bộ tiêu chí / phiên bản --</option>
+                                {assessmentCriteriaVersions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                              </select>
+                            </label>
+                            <label className="span-2">Loại đợt tự đánh giá
+                              <input value={output.assessment_round_type} onChange={(e) => updateAutomationOutput(i, output.kind, { assessment_round_type: e.target.value })} placeholder="Ví dụ: Tự đánh giá định kỳ" />
+                            </label>
+                            {!assessmentCriteriaVersions.length ? <div className="qa-note">Chưa có bộ tiêu chí PUBLISHED. Cần phát hành bộ tiêu chí trước.</div> : null}
+                          </>
+                        ) : output.kind === "REPORT" ? (
+                          <>
+                            <label>Nơi nhận *
+                              <input value={output.report_recipient} onChange={(e) => updateAutomationOutput(i, output.kind, { report_recipient: e.target.value })} placeholder="Ví dụ: Sở Y tế TP.HCM" />
+                            </label>
+                            <label>Phương thức gửi *
+                              <input value={output.report_method} onChange={(e) => updateAutomationOutput(i, output.kind, { report_method: e.target.value })} placeholder="Phần mềm / Email / Văn bản..." />
+                            </label>
+                            <label>Kỳ báo cáo *
+                              <input value={output.report_period} onChange={(e) => updateAutomationOutput(i, output.kind, { report_period: e.target.value })} placeholder="Ví dụ: Tháng 9/2026" />
+                            </label>
+                            <label>Chu kỳ
+                              <select value={output.report_recurrence_rule} onChange={(e) => updateAutomationOutput(i, output.kind, { report_recurrence_rule: e.target.value })}>
+                                <option value="">Một lần</option>
+                                <option value="MONTHLY">Hàng tháng</option>
+                                <option value="QUARTERLY">Hàng quý</option>
+                                <option value="SEMIANNUAL">6 tháng</option>
+                                <option value="ANNUAL">Hàng năm</option>
+                              </select>
+                            </label>
+                            {output.report_recurrence_rule ? <label className="span-2">Kết thúc chu kỳ
+                              <input type="date" value={output.report_recurrence_end_date} onChange={(e) => updateAutomationOutput(i, output.kind, { report_recurrence_end_date: e.target.value })} />
+                            </label> : null}
+                          </>
+                        ) : output.kind === "AUDIT" ? (
+                          <label className="span-2">Loại Audit / Tracer *
+                            <input value={output.audit_type} onChange={(e) => updateAutomationOutput(i, output.kind, { audit_type: e.target.value })} placeholder="Ví dụ: Audit nội bộ / Tracer / Kiểm tra chéo" />
                           </label>
-                          {!indicatorAssignments.length ? <div className="qa-note">Chưa có chỉ số/phân công chỉ số phù hợp trong năm. QARICA không tự tạo master chỉ số; cần tạo hoặc phân công chỉ số trước.</div> : null}
-                        </>
-                      ) : task.automation_kind === "MONITORING" ? (
-                        <>
-                          <label>Bảng kiểm đã phát hành *
-                            <select value={task.automation_ref_id} onChange={(e) => updateTask(i, { automation_ref_id: e.target.value })}>
-                              <option value="">-- Chọn bảng kiểm --</option>
-                              {monitoringChecklists.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                            </select>
-                          </label>
-                          <label>Khoa/phòng được giám sát
-                            <select value={task.automation_target_department_id} onChange={(e) => updateTask(i, { automation_target_department_id: e.target.value, automation_target_area: e.target.value ? "" : task.automation_target_area })}>
-                              <option value="">-- Không cố định theo khoa/phòng --</option>
-                              {deptOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                            </select>
-                          </label>
-                          <label className="span-2">Hoặc phạm vi/khu vực giám sát
-                            <input value={task.automation_target_area} onChange={(e) => updateTask(i, { automation_target_area: e.target.value, automation_target_department_id: e.target.value.trim() ? "" : task.automation_target_department_id })} placeholder="Ví dụ: Toàn bộ Tòa A và Tòa B" />
-                          </label>
-                          {!task.automation_target_department_id && !task.automation_target_area.trim() ? <div className="qa-note">Cần chọn <strong>một trong hai</strong>: khoa/phòng cụ thể hoặc phạm vi/khu vực giám sát. Không cần nhập cả hai.</div> : null}
-                        </>
-                      ) : task.automation_kind === "ASSESSMENT" ? (
-                        <>
-                          <label className="span-2">Bộ tiêu chí đã phát hành * <small className="muted">({assessmentCriteriaVersions.length} bộ khả dụng)</small>
-                            <select value={task.automation_ref_id} onChange={(e) => updateTask(i, { automation_ref_id: e.target.value })}>
-                              <option value="">-- Chọn bộ tiêu chí / phiên bản --</option>
-                              {assessmentCriteriaVersions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                            </select>
-                          </label>
-                          <label className="span-2">Loại đợt tự đánh giá
-                            <input value={task.automation_assessment_round_type} onChange={(e) => updateTask(i, { automation_assessment_round_type: e.target.value })} placeholder="Ví dụ: Tự đánh giá định kỳ" />
-                          </label>
-                          {!assessmentCriteriaVersions.length ? <div className="qa-note">Chưa có bộ tiêu chí PUBLISHED. QARICA không tạo bộ tiêu chí từ câu chữ; cần phát hành bộ tiêu chí trước.</div> : null}
-                        </>
-                      ) : task.automation_kind === "REPORT" ? (
-                        <>
-                          <label>Nơi nhận *
-                            <input value={task.automation_report_recipient} onChange={(e) => updateTask(i, { automation_report_recipient: e.target.value })} placeholder="Ví dụ: Sở Y tế TP.HCM" />
-                          </label>
-                          <label>Phương thức gửi *
-                            <input value={task.automation_report_method} onChange={(e) => updateTask(i, { automation_report_method: e.target.value })} placeholder="Phần mềm / Email / Văn bản..." />
-                          </label>
-                          <label>Kỳ báo cáo *
-                            <input value={task.automation_report_period} onChange={(e) => updateTask(i, { automation_report_period: e.target.value })} placeholder="Ví dụ: Tháng 9/2026" />
-                          </label>
-                          <label>Chu kỳ
-                            <select value={task.automation_report_recurrence_rule} onChange={(e) => updateTask(i, { automation_report_recurrence_rule: e.target.value })}>
-                              <option value="">Một lần</option>
-                              <option value="MONTHLY">Hàng tháng</option>
-                              <option value="QUARTERLY">Hàng quý</option>
-                              <option value="SEMIANNUAL">6 tháng</option>
-                              <option value="ANNUAL">Hàng năm</option>
-                            </select>
-                          </label>
-                          {task.automation_report_recurrence_rule ? <label className="span-2">Kết thúc chu kỳ
-                            <input type="date" value={task.automation_report_recurrence_end_date} onChange={(e) => updateTask(i, { automation_report_recurrence_end_date: e.target.value })} />
-                          </label> : null}
-                        </>
-                      ) : task.automation_kind === "AUDIT" ? (
-                        <label className="span-2">Loại Audit / Tracer *
-                          <input value={task.automation_audit_type} onChange={(e) => updateTask(i, { automation_audit_type: e.target.value })} placeholder="Ví dụ: Audit nội bộ / Tracer / Kiểm tra chéo" />
-                        </label>
-                      ) : (
-                        <div className="qa-note">QARICA sẽ tạo hồ sơ Đề án cải tiến ở trạng thái Nháp, kế thừa owner và thời gian. Baseline, SMART và PDSA phải được người phụ trách hoàn thiện trong workflow đề án; hệ thống không tự suy diễn.</div>
-                      )}
-                      <div className="qa-preview">
-                        Khi kế hoạch được phê duyệt: <strong>Action</strong> + <strong>{automationKindLabel(task.automation_kind)}</strong> được tạo và liên kết cùng nguồn.
-                        {selectedLabel ? <> Dữ liệu nguồn: <strong>{selectedLabel}</strong>.</> : null}
+                        ) : (
+                          <div className="qa-note">QARICA sẽ tạo hồ sơ Đề án cải tiến ở trạng thái Nháp, kế thừa người phụ trách và thời gian. Baseline, SMART và PDSA phải được hoàn thiện trong workflow đề án.</div>
+                        )}
+
+                        <div className="qa-preview">
+                          Khi phê duyệt: <strong>Action</strong> + <strong>{automationKindLabel(output.kind)}</strong>.
+                          {selectedLabel ? <> Dữ liệu nguồn: <strong>{selectedLabel}</strong>.</> : null}
+                        </div>
                       </div>
-                    </div>
-                  ) : null}
+                    );
+                  })}
                 </div>
 
                 {criteriaItems.length ? <div className="span-2">

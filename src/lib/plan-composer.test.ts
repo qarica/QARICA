@@ -26,6 +26,43 @@ describe("Plan Composer V2 helpers", () => {
     expect(task.collaborating_group_ids).toEqual(["g1", "g2"]);
   });
 
+  it("migrates one legacy automation output without losing configuration", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát vệ sinh tay",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-12-01",
+      expected_result: "B",
+      automation_kind: "MONITORING",
+      automation_confirmed: true,
+      automation_ref_id: "checklist-v1",
+      automation_target_department_id: "d2",
+    }]);
+    expect(task.automation_outputs).toEqual([expect.objectContaining({
+      kind: "MONITORING",
+      ref_id: "checklist-v1",
+      target_department_id: "d2",
+    })]);
+  });
+
+  it("keeps independent configuration for multiple outputs", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát và báo cáo",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-12-01",
+      expected_result: "B",
+      automation_outputs: [
+        { kind: "MONITORING", ref_id: "checklist-v1", target_department_id: "d2" },
+        { kind: "REPORT", report_recipient: "BGĐ", report_method: "Email", report_period: "Tháng 12/2026" },
+      ],
+    }]);
+    expect(task.automation_outputs).toHaveLength(2);
+    expect(task.automation_outputs[0]).toMatchObject({ kind: "MONITORING", ref_id: "checklist-v1" });
+    expect(task.automation_outputs[1]).toMatchObject({ kind: "REPORT", report_recipient: "BGĐ" });
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toBeNull();
+  });
+
   it("validates plan and task date windows", () => {
     expect(validPlanDateWindow("2026-01-01", "2026-12-31")).toBe(true);
     expect(validPlanDateWindow("2026-12-31", "2026-01-01")).toBe(false);
@@ -53,7 +90,7 @@ describe("Plan Composer V2 helpers", () => {
       automation_kind: "INDICATOR",
       automation_confirmed: true,
     }]);
-    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toContain("chưa chọn chỉ số");
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toContain("Chỉ số cần chọn");
   });
 
   it("asks only for the missing monitoring target after a checklist is selected", () => {
