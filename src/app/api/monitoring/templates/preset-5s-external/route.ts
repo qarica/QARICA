@@ -65,11 +65,10 @@ export async function POST(request: Request) {
 
   const { data: existingTemplates } = await admin
     .from("checklist_templates")
-    .select("id,code,name,owner_department_id,is_active")
-    .eq("code", SOURCE_CODE)
+    .select("id,code,source_code,name,owner_department_id,is_active")
     .eq("owner_department_id", ownerDepartmentId)
-    .limit(1);
-  const existing = existingTemplates?.[0];
+    .limit(100);
+  const existing = existingTemplates?.find((row: any) => row.source_code === SOURCE_CODE || row.code === SOURCE_CODE);
   if (existing) {
     return NextResponse.json({ ok: true, existing: true, id: existing.id, code: existing.code, name: existing.name });
   }
@@ -82,8 +81,20 @@ export async function POST(request: Request) {
     "Trường hợp KHÔNG ĐẠT, nhân viên thực hiện 5S phải khắc phục ngay (nếu có) hoặc điều động nhân viên HK thực hiện biện pháp khắc phục và kiểm tra lại trong vòng 05 phút sau khi báo.",
   ].join(" ");
 
+  const { data: generatedCode, error: generatedCodeError } = await admin.rpc("qlcl_next_master_code_v1", {
+    p_org: caller.organization_id,
+    p_kind: "CHECKLIST",
+    p_work_year: new Date().getFullYear(),
+  });
+  if (generatedCodeError || !generatedCode) {
+    return NextResponse.json({ error: generatedCodeError?.message || "Không sinh được mã bảng kiểm." }, { status: 400 });
+  }
+
   const { data: template, error: templateError } = await admin.from("checklist_templates").insert({
-    code: SOURCE_CODE,
+    organization_id: caller.organization_id,
+    code: generatedCode,
+    source_code: SOURCE_CODE,
+    code_scheme_version: 2,
     name: TEMPLATE_NAME,
     description,
     owner_department_id: ownerDepartmentId,
