@@ -15,7 +15,7 @@ type Template = {
   expected_result: string | null;
   evidence_requirement: string | null;
   priority: string;
-  automation_kind: "ACTION" | "MONITORING";
+  automation_kind: "ACTION" | "MONITORING" | "REPORT";
 };
 
 const DAY_CODE: Record<string, number> = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
@@ -170,6 +170,7 @@ export async function POST(request: Request) {
 
   let createdActions = 0;
   let createdMonitoringRounds = 0;
+  let createdReports = 0;
   let existingRunsCount = 0;
   let skippedTemplates = 0;
   let errors = 0;
@@ -224,7 +225,7 @@ export async function POST(request: Request) {
         existingRunsCount += 1;
       }
 
-      const materialized = await admin.rpc("qlcl_materialize_recurring_run_v2", {
+      const materialized = await admin.rpc("qlcl_materialize_recurring_run_v3", {
         p_run_id: run.id,
         p_actor_user_id: auth.user.id,
       });
@@ -238,6 +239,7 @@ export async function POST(request: Request) {
       if (!materialized.data.already_generated) {
         createdActions += 1;
         if (materialized.data.output_record_id && template.automation_kind === "MONITORING") createdMonitoringRounds += 1;
+        if (materialized.data.output_record_id && template.automation_kind === "REPORT") createdReports += 1;
       } else {
         existingRunsCount += 1;
       }
@@ -256,6 +258,7 @@ export async function POST(request: Request) {
     to: horizonEnd,
     created_actions: createdActions,
     created_monitoring_rounds: createdMonitoringRounds,
+    created_reports: createdReports,
     existing_runs: existingRunsCount,
     skipped_templates: skippedTemplates,
     errors,
