@@ -236,7 +236,6 @@ export function PlanComposerClient({
   referenceOptions,
   initialReferenceIds,
   workGroupOptions,
-  initialAssignedGroupIds,
   initialStartDate,
   initialEndDate,
 }: {
@@ -278,10 +277,7 @@ export function PlanComposerClient({
       : [""],
   );
   const [requirements, setRequirements] = useState(initialRequirements || "");
-  const [planDepartmentIds, setPlanDepartmentIds] = useState<string[]>(initialDepartmentIds.length ? initialDepartmentIds : (defaultDepartmentId ? [defaultDepartmentId] : []));
-  const [planOwnerUserIds, setPlanOwnerUserIds] = useState<string[]>(initialOwnerUserIds.length ? initialOwnerUserIds : (initialOwnerUserId ? [initialOwnerUserId] : []));
   const [referenceIds, setReferenceIds] = useState<string[]>(initialReferenceIds);
-  const planAssignedGroupIds = initialAssignedGroupIds;
   const [tasks, setTasks] = useState<DraftTask[]>(
     Array.isArray(initialDraftActions) && initialDraftActions.length
       ? (initialDraftActions as any[]).map(toTask)
@@ -292,7 +288,6 @@ export function PlanComposerClient({
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const deptOptions = useMemo(() => departments.map((d) => ({ id: d.id, label: d.short_name || d.name })), [departments]);
-  const planProfileOptions = useMemo(() => profiles.filter((p) => !planDepartmentIds.length || !p.primary_department_id || planDepartmentIds.includes(p.primary_department_id)).map((p) => ({ id: p.user_id, label: p.full_name || p.email || p.user_id })), [profiles, planDepartmentIds]);
   const assignmentOptions = useMemo<AssignmentTargetOption[]>(() => {
     const departmentMap = new Map(departments.map((department) => [department.id, department.short_name || department.name]));
     return [
@@ -368,9 +363,9 @@ export function PlanComposerClient({
         ...EMPTY_TASK,
         client_id: "draft-ui-" + Date.now() + "-" + (prev.length + 1),
         parent_client_id: parentClientId,
-        lead_department_id: parent?.lead_department_id || planDepartmentIds[0] || defaultDepartmentId || "",
+        lead_department_id: parent?.lead_department_id || initialDepartmentIds[0] || defaultDepartmentId || "",
         assignment_target_type: parent?.assignment_target_type || "USER",
-        assignee_user_id: parent?.assignment_target_type === "GROUP" ? "" : (parent?.assignee_user_id || planOwnerUserIds[0] || initialOwnerUserId || ""),
+        assignee_user_id: parent?.assignment_target_type === "GROUP" ? "" : (parent?.assignee_user_id || initialOwnerUserIds[0] || initialOwnerUserId || ""),
         assignee_group_id: parent?.assignment_target_type === "GROUP" ? (parent?.assignee_group_id || "") : "",
         start_date: parent?.start_date || "",
         due_date: parent?.due_date || "",
@@ -496,10 +491,6 @@ export function PlanComposerClient({
       setMessage({ tone: "error", text: "Mục tiêu chung là bắt buộc." });
       return;
     }
-    if (!planDepartmentIds.length) {
-      setMessage({ tone: "error", text: "Cần chọn ít nhất một khoa/phòng chủ trì hoặc phối hợp." });
-      return;
-    }
     if (planStartDate && planEndDate && planEndDate < planStartDate) {
       setMessage({ tone: "error", text: "Ngày kết thúc kế hoạch không được trước ngày bắt đầu." });
       return;
@@ -520,12 +511,7 @@ export function PlanComposerClient({
           specific_objectives: cleanedSpecifics,
           requirements,
           draft_actions: cleanedTasks,
-          lead_department_id: planDepartmentIds[0] || defaultDepartmentId,
-          lead_department_ids: planDepartmentIds,
-          owner_user_id: planOwnerUserIds[0] || initialOwnerUserId,
-          owner_user_ids: planOwnerUserIds,
           reference_ids: referenceIds,
-          assigned_group_ids: planAssignedGroupIds,
           start_date: planStartDate || null,
           end_date: planEndDate || null,
         }),
@@ -604,8 +590,16 @@ export function PlanComposerClient({
         </div>
       </section>
 
+      <section className="panel" style={{ padding: 13, background: "#fbfdfd" }}>
+        <div style={{ marginBottom: 10 }}>
+          <strong>2. Căn cứ lập kế hoạch</strong>
+          <div className="tiny muted" style={{ marginTop: 3 }}>Chọn từ Thư viện Văn bản / Chỉ đạo; không nhập lại nội dung văn bản.</div>
+        </div>
+        <MultiCheckSelect options={referenceOptions} value={referenceIds} onChange={setReferenceIds} placeholder="Chọn văn bản BYT/SYT/Bệnh viện..." emptyText="Chưa có văn bản trong module Văn bản / Chỉ đạo." />
+      </section>
+
       <section>
-        <strong>2. Mục tiêu & yêu cầu</strong>
+        <strong>3. Mục tiêu & yêu cầu</strong>
         <div style={{ marginTop: 10 }}>
           <label>Mục tiêu chung *<textarea rows={3} value={generalObjective} onChange={(e) => setGeneralObjective(e.target.value)} /></label>
         </div>
@@ -624,24 +618,8 @@ export function PlanComposerClient({
 
       <label>Yêu cầu (không bắt buộc)<textarea rows={3} value={requirements} onChange={(e) => setRequirements(e.target.value)} /></label>
 
-      <section className="panel" style={{ padding: 13, background: "#fbfdfd" }}>
-        <div style={{ marginBottom: 10 }}><strong>3. Phân công & căn cứ</strong></div>
-        <div className="form-grid two">
-          <label>Khoa/phòng chủ trì & phối hợp *
-            <MultiCheckSelect options={deptOptions} value={planDepartmentIds} onChange={(ids) => { setPlanDepartmentIds(ids); setPlanOwnerUserIds((current) => current.filter((id) => { const p = profiles.find((x) => x.user_id === id); return !p?.primary_department_id || ids.includes(p.primary_department_id); })); }} placeholder="Chọn một hoặc nhiều khoa/phòng" />
-          </label>
-          <label>Người phụ trách / phối hợp
-            <MultiCheckSelect options={planProfileOptions} value={planOwnerUserIds} onChange={setPlanOwnerUserIds} placeholder="Chọn một hoặc nhiều người" />
-          </label>
-          <label className="span-2">Căn cứ lập kế hoạch
-            <MultiCheckSelect options={referenceOptions} value={referenceIds} onChange={setReferenceIds} placeholder="Chọn văn bản BYT/SYT/Bệnh viện..." emptyText="Chưa có văn bản trong module Văn bản / Chỉ đạo." />
-          </label>
-        </div>
-        <div className="tiny muted" style={{ marginTop: 8 }}>Mục đầu tiên là đầu mối chính để tương thích workflow; các mục còn lại được lưu là đơn vị/người phối hợp.</div>
-      </section>
-
       <div>
-        <span className="tiny muted"><strong>4. Nhiệm vụ kế hoạch *</strong> · Action được tạo khi kế hoạch phê duyệt; đầu ra liên quan được tạo tự động nếu đã đủ dữ liệu.</span>
+        <span className="tiny muted"><strong>4. Nhiệm vụ kế hoạch *</strong> · Phân công thực hiện nằm tại từng nhiệm vụ; không khai báo lặp ở đầu kế hoạch.</span>
 
         <div className="task-tree">
         {taskTreeRows.map((row) => {
