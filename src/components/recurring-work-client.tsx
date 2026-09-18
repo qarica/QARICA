@@ -24,7 +24,46 @@ type TemplateRow = {
   generated_count: number;
   pending_count: number;
   latest_planned_date?: string | null;
+  source_code?: string | null;
+  source_label?: string | null;
+  source_criteria?: string[];
+  automation_kind?: "ACTION" | "MONITORING";
+  automation_ref_id?: string | null;
+  automation_target_department_id?: string | null;
+  automation_target_area?: string | null;
 };
+
+type BlueprintRow = {
+  code: string;
+  title: string;
+  sourceLabel: string;
+  cadence: Cadence;
+  criteria: string[];
+  departmentHint: string;
+  ownerHint: string;
+  expectedResult: string;
+  evidenceRequirement: string;
+  description: string;
+  scheduleHint: string;
+  scheduleNeedsChoice: boolean;
+  weekday?: string;
+  monthDay?: number;
+  weekOfMonth?: number;
+  startMonth?: number;
+  priority?: string;
+  automationKind?: "ACTION" | "MONITORING";
+  automationChecklistCode?: string;
+  automationTargetArea?: string;
+  department_id?: string | null;
+  department_name?: string | null;
+  assignee_user_id?: string | null;
+  assignee_name?: string | null;
+  checklist_id?: string | null;
+  checklist_label?: string | null;
+  already_configured: boolean;
+};
+
+type ChecklistOption = { id: string; code: string; label: string };
 
 type Cadence = "DAILY" | "WEEKLY" | "MONTHLY_DATE" | "MONTHLY_WEEK" | "QUARTERLY" | "YEARLY";
 
@@ -44,6 +83,14 @@ type FormState = {
   evidence_requirement: string;
   priority: string;
   is_active: boolean;
+  source_code: string;
+  source_label: string;
+  source_criteria: string[];
+  automation_kind: "ACTION" | "MONITORING";
+  automation_ref_id: string;
+  automation_target_department_id: string;
+  automation_target_area: string;
+  schedule_note: string;
 };
 
 const WEEKDAYS = [
@@ -61,6 +108,9 @@ function defaultForm(): FormState {
     title: "", description: "", cadence: "MONTHLY_DATE", weekday: "MO", monthDay: String(Number(today.slice(-2))), weekOfMonth: "1",
     start_date: today, end_date: "", due_offset_days: "0", lead_department_id: "", assignee_user_id: "",
     expected_result: "", evidence_requirement: "", priority: "NORMAL", is_active: true,
+    source_code: "", source_label: "", source_criteria: [],
+    automation_kind: "ACTION", automation_ref_id: "", automation_target_department_id: "", automation_target_area: "",
+    schedule_note: "",
   };
 }
 
@@ -109,11 +159,15 @@ export function RecurringWorkClient({
   departments,
   profiles,
   canManage,
+  blueprints,
+  checklists,
 }: {
   templates: TemplateRow[];
   departments: Department[];
   profiles: Profile[];
   canManage: boolean;
+  blueprints: BlueprintRow[];
+  checklists: ChecklistOption[];
 }) {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
@@ -132,6 +186,42 @@ export function RecurringWorkClient({
     setEditing(null);
     setForm(defaultForm());
     setMessage(null);
+    setModalOpen(true);
+  }
+
+  function openBlueprint(row: BlueprintRow) {
+    const today = todayHcm();
+    const year = Number(today.slice(0, 4));
+    const month = row.startMonth || Number(today.slice(5, 7));
+    const day = Math.max(1, Math.min(28, row.monthDay || Number(today.slice(8, 10))));
+    const startDate = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    setEditing(null);
+    setForm({
+      ...defaultForm(),
+      title: row.title,
+      description: row.description,
+      cadence: row.cadence,
+      weekday: row.weekday || "MO",
+      monthDay: String(row.monthDay || day),
+      weekOfMonth: String(row.weekOfMonth || 1),
+      start_date: startDate < today ? today : startDate,
+      lead_department_id: row.department_id || "",
+      assignee_user_id: row.assignee_user_id || "",
+      expected_result: row.expectedResult,
+      evidence_requirement: row.evidenceRequirement,
+      priority: row.priority || "NORMAL",
+      source_code: row.code,
+      source_label: row.sourceLabel,
+      source_criteria: row.criteria,
+      automation_kind: row.automationKind || "ACTION",
+      automation_ref_id: row.checklist_id || "",
+      automation_target_department_id: "",
+      automation_target_area: row.automationTargetArea || "",
+      schedule_note: row.scheduleHint,
+    });
+    setMessage(row.department_id && row.assignee_user_id
+      ? { tone: "info", text: row.scheduleNeedsChoice ? "QARICA đã điền dữ liệu nguồn. Anh/chị chỉ cần xác nhận lịch vận hành trước khi lưu." : "QARICA đã điền đủ dữ liệu nguồn; kiểm tra và xác nhận để kích hoạt." }
+      : { tone: "info", text: "QARICA đã kế thừa dữ liệu nguồn. Chỉ còn chọn phần chưa xác định rõ trước khi lưu." });
     setModalOpen(true);
   }
 
@@ -154,6 +244,14 @@ export function RecurringWorkClient({
       evidence_requirement: row.evidence_requirement || "",
       priority: row.priority || "NORMAL",
       is_active: row.is_active,
+      source_code: row.source_code || "",
+      source_label: row.source_label || "",
+      source_criteria: Array.isArray(row.source_criteria) ? row.source_criteria : [],
+      automation_kind: row.automation_kind || "ACTION",
+      automation_ref_id: row.automation_ref_id || "",
+      automation_target_department_id: row.automation_target_department_id || "",
+      automation_target_area: row.automation_target_area || "",
+      schedule_note: "",
     });
     setMessage(null);
     setModalOpen(true);
@@ -172,6 +270,14 @@ export function RecurringWorkClient({
       setMessage({ tone: "error", text: "Ngày kết thúc không được trước ngày bắt đầu." });
       return;
     }
+    if (form.automation_kind === "MONITORING" && !form.automation_ref_id) {
+      setMessage({ tone: "error", text: "Để tự tạo đợt giám sát, cần chọn bảng kiểm đã phát hành." });
+      return;
+    }
+    if (form.automation_kind === "MONITORING" && !form.automation_target_department_id && !form.automation_target_area.trim()) {
+      setMessage({ tone: "error", text: "Để tự tạo đợt giám sát, cần khoa/phòng hoặc phạm vi giám sát." });
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -188,6 +294,13 @@ export function RecurringWorkClient({
         evidence_requirement: form.evidence_requirement.trim(),
         priority: form.priority,
         is_active: form.is_active,
+        source_code: form.source_code || null,
+        source_label: form.source_label || null,
+        source_criteria: form.source_criteria,
+        automation_kind: form.automation_kind,
+        automation_ref_id: form.automation_ref_id || null,
+        automation_target_department_id: form.automation_target_department_id || null,
+        automation_target_area: form.automation_target_area.trim() || null,
       };
       const response = await fetch(editing ? `/api/calendar/recurring/${editing.id}` : "/api/calendar/recurring", {
         method: editing ? "PATCH" : "POST",
@@ -245,7 +358,7 @@ export function RecurringWorkClient({
       const errors = Number(json.errors || 0);
       setMessage({
         tone: errors ? "error" : "success",
-        text: `Đồng bộ xong: tạo ${json.created_actions || 0} Action mới, ${json.existing_runs || 0} kỳ đã tồn tại${skipped ? `, ${skipped} mẫu chưa đủ điều kiện` : ""}${errors ? `, ${errors} lỗi cần kiểm tra` : ""}.`,
+        text: `Đồng bộ xong: tạo ${json.created_actions || 0} Action mới${Number(json.created_monitoring_rounds || 0) ? ` + ${json.created_monitoring_rounds} đợt giám sát` : ""}, ${json.existing_runs || 0} kỳ đã tồn tại${skipped ? `, ${skipped} mẫu chưa đủ điều kiện` : ""}${errors ? `, ${errors} lỗi cần kiểm tra` : ""}.`,
       });
       router.refresh();
     } catch (error) {
@@ -262,12 +375,25 @@ export function RecurringWorkClient({
       .recurring-title{display:grid;gap:3px}.recurring-title strong{font-size:13px}.recurring-title small{font-size:10px;color:#64748b;line-height:1.35}.recurring-muted{color:#64748b;font-size:11px}.recurring-run-stat{display:grid;gap:2px}.recurring-run-stat strong{font-size:12px}.recurring-run-stat span{font-size:9.5px;color:#64748b}
       .recurring-status{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;padding:4px 7px;border-radius:999px}.recurring-status.active{background:#ecfdf5;color:#166534}.recurring-status.inactive{background:#f1f5f9;color:#64748b}
       .recurring-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}.recurring-actions .button{min-height:34px}
-      .recurring-help{padding:12px 14px;border-top:1px solid #eef2f3;background:#f8fafc;color:#64748b;font-size:10.5px;line-height:1.5}.recurring-help strong{color:#334155}
+      .recurring-help{padding:12px 14px;border-top:1px solid #eef2f3;background:#f8fafc;color:#64748b;font-size:10.5px;line-height:1.5}.recurring-help strong{color:#334155}.blueprint-panel{margin-bottom:14px;overflow:hidden}.blueprint-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:15px 16px;border-bottom:1px solid #e6edf3;background:linear-gradient(135deg,#f8fbff,#eef5fb)}.blueprint-head h2{margin:0;color:#173b64;font-size:15px}.blueprint-head p{margin:4px 0 0;color:#64748b;font-size:10.5px;line-height:1.45}.blueprint-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;padding:12px}.blueprint-card{border:1px solid #dde7ef;border-radius:13px;padding:11px;background:#fff;display:grid;gap:8px}.blueprint-card.done{background:#f7faf9;border-color:#cde4d8}.blueprint-code{display:inline-flex;width:max-content;padding:3px 6px;border-radius:999px;background:#eaf2fb;color:#315f91;font-size:9px;font-weight:900;letter-spacing:.04em}.blueprint-card.done .blueprint-code{background:#e7f4ed;color:#26704c}.blueprint-title{font-size:11.5px;font-weight:850;color:#25384c;line-height:1.35}.blueprint-meta{font-size:9.5px;color:#6b7d8e;line-height:1.45}.blueprint-note{font-size:9.5px;border-radius:9px;padding:7px 8px;background:#fff8ea;color:#7a571e}.blueprint-actions{display:flex;justify-content:space-between;align-items:center;gap:8px}.blueprint-done{font-size:9.5px;color:#2b6d4f;font-weight:850}
       .recurring-modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.recurring-modal-grid .span-2{grid-column:1/-1}.recurring-field{display:grid;gap:5px}.recurring-field label{font-size:10px;font-weight:850;color:#475569}.recurring-field small{font-size:9px;color:#64748b;line-height:1.35}.recurring-field input,.recurring-field select,.recurring-field textarea{width:100%}.recurring-field textarea{min-height:80px;resize:vertical}.recurring-inline{display:grid;grid-template-columns:1fr 1fr;gap:8px}.recurring-switch{display:flex;align-items:center;gap:8px;padding:10px 11px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;font-size:11px;font-weight:750}.recurring-switch input{width:auto}
-      @media(max-width:760px){.recurring-toolbar{align-items:stretch}.recurring-toolbar-actions{display:grid;grid-template-columns:1fr;width:100%}.recurring-toolbar-actions .button{width:100%;justify-content:center;min-height:42px}.recurring-work-client .table-wrap{overflow:visible!important;padding:0 10px 10px}.recurring-work-client table,.recurring-work-client tbody{display:block;width:100%}.recurring-work-client thead{display:none}.recurring-work-client tbody tr{display:block;margin:10px 0;border:1px solid #e2e8f0;border-left:4px solid #2563eb;border-radius:14px;background:#fff;overflow:hidden}.recurring-work-client tbody tr:has(.recurring-status.inactive){border-left-color:#94a3b8}.recurring-work-client tbody td{display:grid;grid-template-columns:90px minmax(0,1fr);gap:8px;padding:8px 11px;border:0;border-bottom:1px solid #eef2f3;white-space:normal}.recurring-work-client tbody td:last-child{border-bottom:0}.recurring-work-client tbody td::before{font-size:9px;font-weight:850;color:#7b8794;text-transform:uppercase;letter-spacing:.04em}.recurring-work-client tbody td:nth-child(1)::before{content:"Công việc"}.recurring-work-client tbody td:nth-child(2)::before{content:"Chu kỳ"}.recurring-work-client tbody td:nth-child(3)::before{content:"Phụ trách"}.recurring-work-client tbody td:nth-child(4)::before{content:"Run"}.recurring-work-client tbody td:nth-child(5)::before{content:"Trạng thái"}.recurring-work-client tbody td:nth-child(6)::before{content:"Thao tác"}.recurring-actions{justify-content:flex-start}.recurring-modal-grid{grid-template-columns:1fr}.recurring-modal-grid .span-2{grid-column:auto}.recurring-inline{grid-template-columns:1fr}}
+      @media(max-width:1050px){.blueprint-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.blueprint-grid{grid-template-columns:1fr}.recurring-toolbar{align-items:stretch}.recurring-toolbar-actions{display:grid;grid-template-columns:1fr;width:100%}.recurring-toolbar-actions .button{width:100%;justify-content:center;min-height:42px}.recurring-work-client .table-wrap{overflow:visible!important;padding:0 10px 10px}.recurring-work-client table,.recurring-work-client tbody{display:block;width:100%}.recurring-work-client thead{display:none}.recurring-work-client tbody tr{display:block;margin:10px 0;border:1px solid #e2e8f0;border-left:4px solid #2563eb;border-radius:14px;background:#fff;overflow:hidden}.recurring-work-client tbody tr:has(.recurring-status.inactive){border-left-color:#94a3b8}.recurring-work-client tbody td{display:grid;grid-template-columns:90px minmax(0,1fr);gap:8px;padding:8px 11px;border:0;border-bottom:1px solid #eef2f3;white-space:normal}.recurring-work-client tbody td:last-child{border-bottom:0}.recurring-work-client tbody td::before{font-size:9px;font-weight:850;color:#7b8794;text-transform:uppercase;letter-spacing:.04em}.recurring-work-client tbody td:nth-child(1)::before{content:"Công việc"}.recurring-work-client tbody td:nth-child(2)::before{content:"Chu kỳ"}.recurring-work-client tbody td:nth-child(3)::before{content:"Phụ trách"}.recurring-work-client tbody td:nth-child(4)::before{content:"Run"}.recurring-work-client tbody td:nth-child(5)::before{content:"Trạng thái"}.recurring-work-client tbody td:nth-child(6)::before{content:"Thao tác"}.recurring-actions{justify-content:flex-start}.recurring-modal-grid{grid-template-columns:1fr}.recurring-modal-grid .span-2{grid-column:auto}.recurring-inline{grid-template-columns:1fr}}
     `}</style>
 
     {message ? <div className={`alert ${message.tone === "error" ? "error" : message.tone === "success" ? "success" : "info"}`} style={{ margin: "0 0 10px" }}>{message.text}</div> : null}
+
+    <section className="panel blueprint-panel">
+      <div className="blueprint-head"><div><h2>QARICA gợi ý từ Kế hoạch/Sổ tay tác nghiệp</h2><p>Không nhập lại từ đầu: chọn một đầu việc nguồn, QARICA điền sẵn nội dung, đơn vị, người phụ trách (khi xác định được), kết quả và minh chứng. Phần nguồn chưa quy định ngày cụ thể sẽ yêu cầu xác nhận đúng 1 lần.</p></div><span className="recurring-status active">{blueprints.filter((x) => x.already_configured).length}/{blueprints.length} đã cấu hình</span></div>
+      <div className="blueprint-grid">
+        {blueprints.map((row) => <article key={row.code} className={`blueprint-card ${row.already_configured ? "done" : ""}`}>
+          <span className="blueprint-code">{row.code}</span>
+          <div className="blueprint-title">{row.title}</div>
+          <div className="blueprint-meta">{row.scheduleHint}<br/>{row.department_name || row.departmentHint}{row.assignee_name ? ` · ${row.assignee_name}` : " · cần xác nhận người phụ trách"}{row.criteria.length ? ` · TC: ${row.criteria.join(", ")}` : ""}</div>
+          {row.automationKind === "MONITORING" ? <div className="blueprint-note">Tự động tạo cả <strong>Action + Đợt giám sát</strong>{row.checklist_label ? ` bằng ${row.checklist_label}` : "; chưa tìm thấy bảng kiểm nguồn"}.</div> : row.scheduleNeedsChoice ? <div className="blueprint-note">Nguồn chưa ấn định ngày cụ thể — chỉ cần xác nhận lịch một lần.</div> : null}
+          <div className="blueprint-actions">{row.already_configured ? <span className="blueprint-done">✓ Đã kế thừa vào hệ thống</span> : <span className="recurring-muted">{row.sourceLabel}</span>}{canManage && !row.already_configured ? <button className="button primary small" disabled={busy} onClick={() => openBlueprint(row)}>Thiết lập 1 click</button> : null}</div>
+        </article>)}
+      </div>
+    </section>
 
     <section className="panel">
       <div className="recurring-toolbar">
@@ -290,9 +416,10 @@ export function RecurringWorkClient({
 
     {modalOpen ? <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setModalOpen(false); }}>
       <div className="modal-card" style={{ maxWidth: 820 }}>
-        <div className="modal-head"><div><h2>{editing ? "Cập nhật công việc định kỳ" : "Tạo công việc định kỳ"}</h2><p>Mỗi kỳ sẽ sinh một Action có người chịu trách nhiệm và yêu cầu minh chứng rõ ràng.</p></div><button className="icon-button" disabled={busy} onClick={() => setModalOpen(false)}>×</button></div>
+        <div className="modal-head"><div><h2>{editing ? "Cập nhật công việc định kỳ" : form.source_code ? `Thiết lập ${form.source_code}` : "Tạo công việc định kỳ"}</h2><p>{form.source_code ? "Dữ liệu đã được kế thừa từ nguồn; chỉ xác nhận phần còn thiếu hoặc lịch vận hành." : "Mỗi kỳ sẽ sinh một Action có người chịu trách nhiệm và yêu cầu minh chứng rõ ràng."}</p></div><button className="icon-button" disabled={busy} onClick={() => setModalOpen(false)}>×</button></div>
         <div className="modal-body">
           <div className="recurring-modal-grid">
+            {form.source_code ? <div className="span-2 scope-note" style={{margin:0}}><strong>{form.source_code} · {form.source_label}</strong>{form.source_criteria.length ? <> · Tiêu chí: {form.source_criteria.join(", ")}</> : null}{form.schedule_note ? <div style={{marginTop:4}}>{form.schedule_note}</div> : null}</div> : null}
             <div className="recurring-field span-2"><label>Tên công việc *</label><input value={form.title} onChange={(e) => patch("title", e.target.value)} placeholder="Ví dụ: Báo cáo sự cố cấp cứu ngoại viện (115)" /></div>
             <div className="recurring-field span-2"><label>Mô tả / hướng dẫn</label><textarea value={form.description} onChange={(e) => patch("description", e.target.value)} placeholder="Nội dung thực hiện, phạm vi, cách phối hợp…" /></div>
             <div className="recurring-field"><label>Chu kỳ *</label><select value={form.cadence} onChange={(e) => patch("cadence", e.target.value as Cadence)}><option value="DAILY">Hằng ngày</option><option value="WEEKLY">Hằng tuần</option><option value="MONTHLY_DATE">Hằng tháng theo ngày</option><option value="MONTHLY_WEEK">Hằng tháng theo tuần</option><option value="QUARTERLY">Hằng quý</option><option value="YEARLY">Hằng năm</option></select></div>
@@ -307,6 +434,12 @@ export function RecurringWorkClient({
             <div className="recurring-field"><label>Người phụ trách *</label><select value={form.assignee_user_id} onChange={(e) => patch("assignee_user_id", e.target.value)}><option value="">— Chọn người —</option>{filteredProfiles.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name || p.email || p.user_id}</option>)}</select></div>
             <div className="recurring-field span-2"><label>Kết quả mong đợi *</label><textarea value={form.expected_result} onChange={(e) => patch("expected_result", e.target.value)} placeholder="Sản phẩm/kết quả phải hoàn thành ở mỗi kỳ" /></div>
             <div className="recurring-field span-2"><label>Minh chứng bắt buộc *</label><textarea value={form.evidence_requirement} onChange={(e) => patch("evidence_requirement", e.target.value)} placeholder="Ví dụ: báo cáo, biên bản, bảng kiểm, file số liệu…" /></div>
+            <div className="recurring-field span-2"><label>Đầu ra tự động</label><select value={form.automation_kind} onChange={(e) => patch("automation_kind", e.target.value as "ACTION" | "MONITORING")}><option value="ACTION">Chỉ tạo Action</option><option value="MONITORING">Tạo Action + Đợt giám sát</option></select><small>Chỉ bật Đợt giám sát khi đã có bảng kiểm phù hợp; QARICA không tự bịa bảng kiểm.</small></div>
+            {form.automation_kind === "MONITORING" ? <>
+              <div className="recurring-field"><label>Bảng kiểm đã phát hành *</label><select value={form.automation_ref_id} onChange={(e) => patch("automation_ref_id", e.target.value)}><option value="">— Chọn bảng kiểm —</option>{checklists.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>
+              <div className="recurring-field"><label>Khoa/phòng được giám sát</label><select value={form.automation_target_department_id} onChange={(e) => patch("automation_target_department_id", e.target.value)}><option value="">— Không cố định theo khoa —</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
+              <div className="recurring-field span-2"><label>Phạm vi/khu vực giám sát</label><input value={form.automation_target_area} onChange={(e) => patch("automation_target_area", e.target.value)} placeholder="Ví dụ: Toàn bộ Tòa A và Tòa B" /><small>Cần ít nhất một trong hai: khoa/phòng hoặc phạm vi khu vực.</small></div>
+            </> : null}
             <label className="recurring-switch span-2"><input type="checkbox" checked={form.is_active} onChange={(e) => patch("is_active", e.target.checked)} /> Kích hoạt mẫu ngay sau khi lưu</label>
           </div>
           {message?.tone === "error" ? <div className="alert error" style={{ marginTop: 12 }}>{message.text}</div> : null}
