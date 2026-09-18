@@ -349,7 +349,6 @@ export function PlanComposerClient({
       </div>
 
       <section className="panel" style={{ padding: 13, background: "#fbfdfd" }}>
-        <strong>3. Phân công & căn cứ</strong>
         <div style={{ marginBottom: 10 }}>
           <strong>1. Thông tin kế hoạch</strong>
           <div className="tiny muted" style={{ marginTop: 3 }}>Khi kế hoạch còn ở trạng thái Nháp, có thể sửa toàn bộ thông tin dưới đây. Sau khi Gửi duyệt, nội dung mới được khóa.</div>
@@ -400,6 +399,7 @@ export function PlanComposerClient({
       <label>Yêu cầu (không bắt buộc)<textarea rows={3} value={requirements} onChange={(e) => setRequirements(e.target.value)} /></label>
 
       <section className="panel" style={{ padding: 13, background: "#fbfdfd" }}>
+        <div style={{ marginBottom: 10 }}><strong>3. Phân công & căn cứ</strong></div>
         <div className="form-grid two">
           <label>Khoa/phòng chủ trì & phối hợp *
             <MultiCheckSelect options={deptOptions} value={planDepartmentIds} onChange={(ids) => { setPlanDepartmentIds(ids); setPlanOwnerUserIds((current) => current.filter((id) => { const p = profiles.find((x) => x.user_id === id); return !p?.primary_department_id || ids.includes(p.primary_department_id); })); }} placeholder="Chọn một hoặc nhiều khoa/phòng" />
