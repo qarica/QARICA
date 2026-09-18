@@ -56,7 +56,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
 
   const draftTasks: Array<{ automation_kind?: string; automation_confirmed?: boolean; automation_outputs?: Array<{ kind?: string; monitoring_recurrence?: string }> }> = Array.isArray(program.draft_actions) ? program.draft_actions : [];
   const draftActionCount = draftTasks.length;
-  const outputsOf = (task: typeof draftTasks[number]) => Array.isArray(task.automation_outputs) && task.automation_outputs.length
+  const outputsOf = (task: typeof draftTasks[number]): Array<{ kind?: string; monitoring_recurrence?: string }> => Array.isArray(task.automation_outputs) && task.automation_outputs.length
     ? task.automation_outputs
     : (task.automation_confirmed && task.automation_kind ? [{ kind: task.automation_kind }] : []);
   const countOutput = (kind: string) => draftTasks.reduce((sum, task) => sum + outputsOf(task).filter((output) => String(output?.kind || "").toUpperCase() === kind).length, 0);
