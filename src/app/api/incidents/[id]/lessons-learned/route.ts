@@ -41,11 +41,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+  const isClosedIncident = incident.workflow_status === "CLOSED";
+  const isPublished = lesson?.status === "PUBLISHED";
   return NextResponse.json({
     ok: true,
     incident_status: incident.workflow_status,
-    editable: record.lifecycle_status === "ACTIVE" && (!!canInvestigate || !!canClose),
-    can_publish: record.lifecycle_status === "ACTIVE" && incident.workflow_status === "CLOSED" && !!canClose,
+    editable: !isPublished && (isClosedIncident ? !!canClose : record.lifecycle_status === "ACTIVE" && (!!canInvestigate || !!canClose)),
+    can_publish: !isPublished && isClosedIncident && !!canClose,
     lesson: lesson ?? null,
   });
 }
@@ -56,7 +58,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   if (!record || !incident) return NextResponse.json({ error: "Không tìm thấy sự cố hoặc ngoài phạm vi truy cập." }, { status: 404 });
-  if (record.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "Hồ sơ sự cố không còn hoạt động." }, { status: 409 });
+  const isClosedIncident = incident.workflow_status === "CLOSED";
+  if (record.lifecycle_status !== "ACTIVE" && !isClosedIncident) return NextResponse.json({ error: "Hồ sơ sự cố không còn hoạt động." }, { status: 409 });
 
   const body: any = await request.json().catch(() => ({}));
   const publish = body.publish === true;
@@ -65,7 +68,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     supabase.rpc("has_permission", { p_permission_code: "incident.close" }),
   ]);
   if (publish && !canClose) return NextResponse.json({ error: "Bạn chưa có quyền duyệt/phát hành bài học kinh nghiệm." }, { status: 403 });
-  if (!publish && !canInvestigate && !canClose) return NextResponse.json({ error: "Bạn chưa có quyền cập nhật bài học kinh nghiệm." }, { status: 403 });
+  if (isClosedIncident && !canClose) return NextResponse.json({ error: "Sau khi đóng sự cố, chỉ người có quyền đóng sự cố mới được hoàn thiện bài học kinh nghiệm." }, { status: 403 });
+  if (!publish && !isClosedIncident && !canInvestigate && !canClose) return NextResponse.json({ error: "Bạn chưa có quyền cập nhật bài học kinh nghiệm." }, { status: 403 });
 
   const payload = {
     title: String(body.title || "").trim(),
