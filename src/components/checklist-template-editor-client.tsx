@@ -52,6 +52,21 @@ export function ChecklistTemplateEditorClient({ template, version, versions, sec
   const itemCount = useMemo(() => sections.reduce((sum, s) => sum + s.items.length, 0), [sections]);
   const editable = !!version && version.status === "DRAFT" && canManage && template.is_active;
 
+  async function createRevision() {
+    if (!version || !template.is_active) return;
+    if (!window.confirm(`Tạo phiên bản cập nhật mới từ v${version.version_no}? Nội dung đã phát hành hiện tại vẫn được giữ nguyên để truy vết.`)) return;
+    setBusy(true); setMessage(null);
+    try {
+      const res = await fetch(`/api/monitoring/templates/${template.id}/versions`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Không tạo được bản cập nhật.");
+      router.refresh();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Có lỗi xảy ra."); }
+    finally { setBusy(false); }
+  }
+
   async function createSection(e: FormEvent) {
     e.preventDefault();
     if (!version) return;
@@ -139,8 +154,8 @@ export function ChecklistTemplateEditorClient({ template, version, versions, sec
     </section>
 
     <section className="panel">
-      <div className="panel-title"><div><h2>Thông tin mẫu</h2><p>{template.description || "Chưa có mô tả phạm vi sử dụng."}</p></div><div style={{ display: "flex", gap: 8, alignItems: "center" }}>{version ? <VersionBadge status={version.status} /> : null}{editable ? <button className="button primary" onClick={() => { setMessage(null); setSectionOpen(true); }}><Icon name="plus" size={17} /> Thêm nhóm mục</button> : null}</div></div>
-      {!editable ? <div className="scope-note" style={{ margin: "0 18px 18px" }}>{version?.status === "PUBLISHED" ? "Phiên bản đã phát hành được khóa nội dung để bảo toàn dữ liệu lịch sử." : "Bạn không có quyền chỉnh sửa phiên bản này."}</div> : null}
+      <div className="panel-title"><div><h2>Thông tin mẫu</h2><p>{template.description || "Chưa có mô tả phạm vi sử dụng."}</p></div><div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>{version ? <VersionBadge status={version.status} /> : null}{canManage && template.is_active && version?.status === "PUBLISHED" ? <button className="button secondary" disabled={busy} onClick={createRevision}>Tạo bản cập nhật</button> : null}{editable ? <button className="button primary" onClick={() => { setMessage(null); setSectionOpen(true); }}><Icon name="plus" size={17} /> Thêm nhóm mục</button> : null}</div></div>
+      {!editable ? <div className="scope-note" style={{ margin: "0 18px 18px" }}>{!template.is_active ? "Mẫu bảng kiểm đã ngưng sử dụng. Dữ liệu lịch sử vẫn được giữ nhưng không cho tạo phiên bản cập nhật mới." : version?.status === "PUBLISHED" ? "Phiên bản đã phát hành được khóa. Chọn Tạo bản cập nhật để sao chép sang phiên bản Nháp mới rồi chỉnh sửa." : "Bạn không có quyền chỉnh sửa phiên bản này."}</div> : null}
     </section>
 
     {sections.map((section, index) => <section className="panel" key={section.id}>
