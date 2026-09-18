@@ -36,6 +36,7 @@ export const WORKSPACES: WorkspaceDefinition[] = [
     eyebrow: "Chỉ số · giám sát · bảng kiểm",
     tabs: [
       { label: "Chỉ số chất lượng", href: "/indicators", icon: "chart-no-axes-column-increasing", anyPermissions: ["indicators.view", "indicators.manage", "indicators.enter", "indicators.verify"] },
+      { label: "Danh mục chỉ số", href: "/indicators/catalog", icon: "list-tree", anyPermissions: ["indicators.view", "indicators.manage"] },
       { label: "Giám sát & Bảng kiểm", href: "/monitoring", icon: "list-checks", anyPermissions: ["monitoring.view", "monitoring.perform", "checklists.manage"] },
     ],
   },
@@ -45,6 +46,7 @@ export const WORKSPACES: WorkspaceDefinition[] = [
     eyebrow: "Tự đánh giá · đánh giá ngoài · tracer · tiếp đoàn",
     tabs: [
       { label: "Tự đánh giá", href: "/assessments", icon: "badge-check", anyPermissions: ["criteria.view", "criteria.assess", "criteria.review", "criteria.manage"] },
+      { label: "Bộ tiêu chí", href: "/assessments/catalog", icon: "list-tree", anyPermissions: ["criteria.view", "criteria.manage"] },
       { label: "Đánh giá ngoài", href: "/external-assessments", icon: "search-check", anyPermissions: ["criteria.view", "criteria.assess", "criteria.review", "criteria.manage"] },
       { label: "Audit / Tracer", href: "/audits", icon: "search-check", anyPermissions: ["audit.view", "audit.perform", "audit.manage"] },
       { label: "Tiếp đoàn", href: "/inspections", icon: "clipboard-search", anyPermissions: ["inspections.view", "inspections.manage"] },
