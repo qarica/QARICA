@@ -65,6 +65,48 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   const actionMap = new Map((actionsRes.data ?? []).map((a: any) => [a.action_id, a]));
   const linkedActions = (linksRes.data ?? []).map((link: any) => ({ ...link, action: actionMap.get(link.action_id) as any })).filter((x: any) => x.action);
 
+  const workYear = Number(recordRes.data.work_year);
+  const { data: indicatorAssignmentsRaw } = await supabase
+    .from("indicator_assignments")
+    .select("id,indicator_version_id,department_id,collector_user_id,frequency,local_target,status")
+    .eq("work_year", workYear)
+    .eq("status", "ACTIVE");
+  const indicatorVersionIds = Array.from(new Set((indicatorAssignmentsRaw ?? []).map((row: any) => row.indicator_version_id)));
+  const { data: indicatorVersionsRaw } = indicatorVersionIds.length
+    ? await supabase.from("indicator_definition_versions").select("id,indicator_definition_id,version_no,unit").in("id", indicatorVersionIds)
+    : { data: [] as any[] };
+  const indicatorDefinitionIds = Array.from(new Set((indicatorVersionsRaw ?? []).map((row: any) => row.indicator_definition_id)));
+  const { data: indicatorDefinitionsRaw } = indicatorDefinitionIds.length
+    ? await supabase.from("indicator_definitions").select("id,code,name").in("id", indicatorDefinitionIds).eq("is_active", true)
+    : { data: [] as any[] };
+
+  const versionById = new Map((indicatorVersionsRaw ?? []).map((row: any) => [row.id, row]));
+  const definitionById = new Map((indicatorDefinitionsRaw ?? []).map((row: any) => [row.id, row]));
+  const departmentNameById = new Map((departmentsRes.data ?? []).map((row: any) => [row.id, row.short_name || row.name]));
+  const indicatorAssignments = (indicatorAssignmentsRaw ?? []).map((row: any) => {
+    const version = versionById.get(row.indicator_version_id) as any;
+    const definition = version ? definitionById.get(version.indicator_definition_id) as any : null;
+    return {
+      id: row.id,
+      label: `${definition?.code ? definition.code + " · " : ""}${definition?.name || "Chỉ số"} · ${departmentNameById.get(row.department_id) || "Toàn viện"} · ${row.frequency || "chưa đặt tần suất"}`,
+    };
+  }).filter((row: any) => !row.label.startsWith("Chỉ số ·"));
+
+  const { data: checklistVersionsRaw } = await supabase
+    .from("checklist_versions")
+    .select("id,checklist_template_id,version_no,status")
+    .eq("status", "PUBLISHED")
+    .order("published_at", { ascending: false });
+  const checklistTemplateIds = Array.from(new Set((checklistVersionsRaw ?? []).map((row: any) => row.checklist_template_id)));
+  const { data: checklistTemplatesRaw } = checklistTemplateIds.length
+    ? await supabase.from("checklist_templates").select("id,code,name,short_name,is_active").in("id", checklistTemplateIds).eq("is_active", true)
+    : { data: [] as any[] };
+  const templateById = new Map((checklistTemplatesRaw ?? []).map((row: any) => [row.id, row]));
+  const monitoringChecklists = (checklistVersionsRaw ?? []).map((row: any) => {
+    const template = templateById.get(row.checklist_template_id) as any;
+    return template ? { id: row.id, label: `${template.code ? template.code + " · " : ""}${template.short_name || template.name} · v${row.version_no}` } : null;
+  }).filter(Boolean) as { id: string; label: string }[];
+
   const progress = progressRes.data as any;
   const pct = Math.max(0, Math.min(100, Math.round(Number(progress?.progress_pct ?? 0))));
   const requiredActions = Number(progress?.required_actions ?? 0);
@@ -116,6 +158,8 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       departments={(departmentsRes.data ?? []) as any[]}
       profiles={(profilesRes.data ?? []) as any[]}
       criteriaItems={(criteriaRes.data ?? []) as any[]}
+      indicatorAssignments={indicatorAssignments}
+      monitoringChecklists={monitoringChecklists}
       initialTitle={recordRes.data.title}
       initialGeneralObjective={program.general_objective}
       initialSpecificObjectives={program.specific_objectives}
