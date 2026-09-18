@@ -30,12 +30,20 @@ export default async function PlanPrintPage({ params }: { params: Promise<{ id: 
   if (!record) notFound();
 
   const actionIds = (links ?? []).map((x: any) => x.action_id);
-  const [{ data: actionRecords }, { data: actionRows }] = actionIds.length ? await Promise.all([
-    supabase.from("records").select("id,record_code,title,owner_department_id,owner_user_id").in("id", actionIds),
-    supabase.from("actions").select("record_id,start_date,due_date,expected_result").in("record_id", actionIds),
-  ]) : [{ data: [] }, { data: [] }] as any;
-  const actionRowMap = new Map((actionRows ?? []).map((x: any) => [x.record_id, x]));
-  const printableActions = (actionRecords ?? []).map((x: any) => ({ ...x, ...(actionRowMap.get(x.id) || {}) }));
+  const { data: actionRows } = actionIds.length
+    ? await supabase.from("actions").select("id,record_id,start_date,due_date,expected_result").in("id", actionIds)
+    : { data: [] as any[] };
+  const actionRecordIds = (actionRows ?? []).map((x: any) => x.record_id).filter(Boolean);
+  const { data: actionRecords } = actionRecordIds.length
+    ? await supabase.from("records").select("id,record_code,title,owner_department_id,owner_user_id").in("id", actionRecordIds)
+    : { data: [] as any[] };
+  const actionById = new Map((actionRows ?? []).map((x: any) => [x.id, x]));
+  const recordById = new Map((actionRecords ?? []).map((x: any) => [x.id, x]));
+  const printableActions = (links ?? []).map((link: any) => {
+    const action: any = actionById.get(link.action_id);
+    const record: any = action ? recordById.get(action.record_id) : null;
+    return action && record ? { ...record, ...action } : null;
+  }).filter(Boolean);
 
   const isDraftBundle = program.workflow_status === "DRAFT" || program.workflow_status === "PENDING_APPROVAL";
   const draftTasks: any[] = isDraftBundle && Array.isArray(program.draft_actions) ? program.draft_actions : [];
