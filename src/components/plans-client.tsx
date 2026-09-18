@@ -17,18 +17,19 @@ type PlanRow = {
 type Department = { id: string; name: string; short_name: string | null; is_active: boolean };
 type Profile = { user_id: string; full_name: string | null; email: string | null; primary_department_id: string | null; is_active: boolean };
 type ReferenceOption = { id: string; label: string; description?: string | null };
+type WorkGroupOption = { id: string; label: string; description?: string | null; memberUserIds?: string[] };
 type FormState = {
   title: string; programType: string; generalObjective: string; specificObjectives: string[]; requirements: string; description: string;
-  startDate: string; endDate: string; leadDepartmentIds: string[]; ownerUserIds: string[]; referenceIds: string[];
+  startDate: string; endDate: string; leadDepartmentIds: string[]; ownerUserIds: string[]; referenceIds: string[]; assignedGroupIds: string[];
 };
 
 const TYPE_LABELS: Record<string, string> = { ANNUAL_PLAN: "Kế hoạch năm", THEMATIC_PLAN: "Kế hoạch chuyên đề", DEPARTMENT_PLAN: "Kế hoạch khoa/phòng", PROGRAM: "Chương trình", OTHER: "Khác" };
 
 function initialForm(year: number): FormState {
-  return { title: "", programType: "ANNUAL_PLAN", generalObjective: "", specificObjectives: [""], requirements: "", description: "", startDate: `${year}-01-01`, endDate: `${year}-12-31`, leadDepartmentIds: [], ownerUserIds: [], referenceIds: [] };
+  return { title: "", programType: "ANNUAL_PLAN", generalObjective: "", specificObjectives: [""], requirements: "", description: "", startDate: `${year}-01-01`, endDate: `${year}-12-31`, leadDepartmentIds: [], ownerUserIds: [], referenceIds: [], assignedGroupIds: [] };
 }
 
-export function PlansClient({ year, canManage, rows, departments, profiles, referenceOptions }: { year: number; canManage: boolean; rows: PlanRow[]; departments: Department[]; profiles: Profile[]; referenceOptions: ReferenceOption[] }) {
+export function PlansClient({ year, canManage, rows, departments, profiles, referenceOptions, workGroupOptions }: { year: number; canManage: boolean; rows: PlanRow[]; departments: Department[]; profiles: Profile[]; referenceOptions: ReferenceOption[]; workGroupOptions: WorkGroupOption[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -67,7 +68,7 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
         requirements: form.requirements.trim(), description: form.description.trim() || null, start_date: form.startDate || null, end_date: form.endDate || null,
         lead_department_id: form.leadDepartmentIds[0] || null, lead_department_ids: form.leadDepartmentIds,
         owner_user_id: form.ownerUserIds[0] || null, owner_user_ids: form.ownerUserIds,
-        reference_ids: form.referenceIds, draft_actions: [],
+        reference_ids: form.referenceIds, assigned_group_ids: form.assignedGroupIds, draft_actions: [],
       }) });
       const data = await res.json(); if (!res.ok) throw new Error(data.error || "Không thể tạo kế hoạch.");
       setMessage({ tone: "success", text: `Đã tạo bản nháp ${data.record_code}. Mở kế hoạch để bổ sung nhiệm vụ trước khi gửi duyệt.` });
@@ -94,6 +95,7 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
             <label><span>Ngày kết thúc</span><input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></label>
             <label className="span-2"><span>Người phụ trách / phối hợp</span><MultiCheckSelect options={profileOptions} value={form.ownerUserIds} onChange={(ids) => setForm({ ...form, ownerUserIds: ids })} placeholder="Chọn một hoặc nhiều người" /></label>
             <label className="span-2"><span>Căn cứ lập kế hoạch</span><MultiCheckSelect options={referenceOptions} value={form.referenceIds} onChange={(ids) => setForm({ ...form, referenceIds: ids })} placeholder="Chọn nhiều văn bản BYT/SYT/Bệnh viện..." emptyText="Chưa có văn bản trong Thư viện Văn bản/Chỉ đạo." /></label>
+            <label className="span-2"><span>Nhóm thực hiện</span><MultiCheckSelect options={workGroupOptions} value={form.assignedGroupIds} onChange={(ids) => setForm({ ...form, assignedGroupIds: ids })} placeholder="Chọn một hoặc nhiều nhóm công tác" emptyText="Chưa có nhóm. Tạo tại menu Nhóm công tác." /></label>
           </div></section>
           <section style={{ borderTop: "1px solid var(--line)", paddingTop: 22 }}><div style={{ marginBottom: 13 }}><strong style={{ fontSize: 14 }}>2. Mục tiêu kế hoạch</strong><div className="muted tiny" style={{ marginTop: 4 }}>Mục tiêu chung là bắt buộc; mục tiêu cụ thể có thể để trống nếu kế hoạch không cần tách riêng.</div></div><div className="form-grid two" style={{ gap: 16 }}>
             <label className="span-2"><span>Mục tiêu chung *</span><textarea rows={3} value={form.generalObjective} onChange={(e) => setForm({ ...form, generalObjective: e.target.value })} placeholder="Mục tiêu tổng quát cần đạt trong năm/kỳ kế hoạch" /></label>
