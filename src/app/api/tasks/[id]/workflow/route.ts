@@ -61,24 +61,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let isAssignee = action.assignee_user_id === auth.user.id;
   let groupRecipientIds: string[] = [];
   if (action.assignment_target_type === "GROUP" && action.assignee_group_id) {
-    const { data: groupMembers, error: groupMembersError } = await admin
-      .from("work_group_members")
-      .select("user_id")
+    const { data: assignmentSnapshot, error: snapshotError } = await admin
+      .from("work_group_assignment_snapshots")
+      .select("member_snapshot")
+      .eq("target_record_id", recordId)
       .eq("group_id", action.assignee_group_id)
-      .eq("is_active", true);
-    if (groupMembersError) return NextResponse.json({ error: groupMembersError.message }, { status: 400 });
-    const candidateIds = Array.from(new Set((groupMembers ?? []).map((row) => row.user_id).filter(Boolean))) as string[];
-    if (candidateIds.length) {
+      .eq("assignment_role", "ACTION_ASSIGNEE_GROUP")
+      .maybeSingle();
+    if (snapshotError) return NextResponse.json({ error: snapshotError.message }, { status: 400 });
+
+    const snapshotIds = Array.from(new Set(
+      (Array.isArray(assignmentSnapshot?.member_snapshot) ? assignmentSnapshot.member_snapshot : [])
+        .map((row: any) => String(row?.user_id || "").trim())
+        .filter(Boolean),
+    ));
+    isAssignee = snapshotIds.includes(auth.user.id);
+
+    if (snapshotIds.length) {
       const { data: activeProfiles, error: activeProfilesError } = await admin
         .from("profiles")
         .select("user_id")
-        .in("user_id", candidateIds)
+        .in("user_id", snapshotIds)
         .eq("organization_id", caller.organization_id)
         .eq("is_active", true);
       if (activeProfilesError) return NextResponse.json({ error: activeProfilesError.message }, { status: 400 });
       groupRecipientIds = Array.from(new Set((activeProfiles ?? []).map((row) => row.user_id).filter(Boolean))) as string[];
     }
-    isAssignee = groupRecipientIds.includes(auth.user.id);
   }
 
   const executionRecipientIds = action.assignment_target_type === "GROUP"
@@ -89,7 +97,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Bạn không có quyền xác minh công việc này." }, { status: 403 });
   }
   if (!VERIFIER_ACTIONS.has(requestedAction) && !isAssignee && !canManage) {
-    return NextResponse.json({ error: "Chỉ người được giao việc hoặc người quản lý kế hoạch mới được cập nhật công việc này." }, { status: 403 });
+    return NextResponse.json({ error: "Chỉ cá nhân hoặc thành viên nhóm được giao việc tại thời điểm phân công, hoặc người có quyền xác minh, mới được cập nhật công việc này." }, { status: 403 });
   }
 
   // Công việc gắn với kế hoạch chỉ được bắt đầu/tiếp tục/gửi xác minh khi
