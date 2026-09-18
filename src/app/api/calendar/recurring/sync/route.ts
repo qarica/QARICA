@@ -15,6 +15,7 @@ type Template = {
   expected_result: string | null;
   evidence_requirement: string | null;
   priority: string;
+  automation_kind: "ACTION" | "MONITORING";
 };
 
 const DAY_CODE: Record<string, number> = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
@@ -148,7 +149,7 @@ export async function POST(request: Request) {
 
   const { data: templateRows, error: templateError } = await admin
     .from("recurring_work_templates")
-    .select("id,title,description,recurrence_rule,start_date,end_date,due_offset_days,lead_department_id,assignee_user_id,expected_result,evidence_requirement,priority")
+    .select("id,title,description,recurrence_rule,start_date,end_date,due_offset_days,lead_department_id,assignee_user_id,expected_result,evidence_requirement,priority,automation_kind")
     .eq("organization_id", caller.organization_id)
     .eq("is_active", true);
   if (templateError) return NextResponse.json({ error: templateError.message }, { status: 400 });
@@ -159,7 +160,7 @@ export async function POST(request: Request) {
   if (templateIds.length) {
     const { data: existingRuns, error: runsError } = await admin
       .from("recurring_work_runs")
-      .select("id,template_id,period_key,planned_date,generated_action_id,status")
+      .select("id,template_id,period_key,planned_date,generated_action_id,generated_output_record_id,status")
       .in("template_id", templateIds)
       .gte("planned_date", today)
       .lte("planned_date", horizonEnd);
@@ -168,6 +169,7 @@ export async function POST(request: Request) {
   }
 
   let createdActions = 0;
+  let createdMonitoringRounds = 0;
   let existingRunsCount = 0;
   let skippedTemplates = 0;
   let errors = 0;
@@ -205,7 +207,7 @@ export async function POST(request: Request) {
           status: "PENDING",
         }).select("id,template_id,period_key,planned_date,generated_action_id,status").maybeSingle();
         if (inserted.error || !inserted.data) {
-          const fallback = await admin.from("recurring_work_runs").select("id,template_id,period_key,planned_date,generated_action_id,status").eq("template_id", template.id).eq("period_key", periodKey).maybeSingle();
+          const fallback = await admin.from("recurring_work_runs").select("id,template_id,period_key,planned_date,generated_action_id,generated_output_record_id,status").eq("template_id", template.id).eq("period_key", periodKey).maybeSingle();
           if (fallback.error || !fallback.data) {
             errors += 1;
             if (errorDetails.length < 10) errorDetails.push(`${template.title} · ${plannedDate}: ${inserted.error?.message || fallback.error?.message || "Không tạo được run"}`);
@@ -222,79 +224,29 @@ export async function POST(request: Request) {
         existingRunsCount += 1;
       }
 
-      const workYear = Number(plannedDate.slice(0, 4));
-      const dueDate = addDays(plannedDate, Number(template.due_offset_days || 0));
-      const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_org: caller.organization_id, p_record_type: "ACTION", p_work_year: workYear });
-      if (codeError || !recordCode) {
-        errors += 1;
-        if (errorDetails.length < 10) errorDetails.push(`${template.title} · ${plannedDate}: ${codeError?.message || "Không cấp được mã Action"}`);
-        continue;
-      }
-
-      const { data: record, error: recordError } = await admin.from("records").insert({
-        organization_id: caller.organization_id,
-        record_type: "ACTION",
-        record_code: recordCode,
-        title: template.title,
-        work_year: workYear,
-        owner_department_id: template.lead_department_id,
-        owner_user_id: template.assignee_user_id,
-        lifecycle_status: "ACTIVE",
-        created_by: auth.user.id,
-      }).select("id,record_code").single();
-      if (recordError || !record) {
-        errors += 1;
-        if (errorDetails.length < 10) errorDetails.push(`${template.title} · ${plannedDate}: ${recordError?.message || "Không tạo được hồ sơ Action"}`);
-        continue;
-      }
-
-      const { data: action, error: actionError } = await admin.from("actions").insert({
-        record_id: record.id,
-        description: template.description,
-        priority: template.priority || "NORMAL",
-        lead_department_id: template.lead_department_id,
-        assignee_user_id: template.assignee_user_id,
-        start_date: plannedDate,
-        due_date: dueDate,
-        expected_result: template.expected_result,
-        verification_requirement: template.evidence_requirement,
-        workflow_status: "NOT_STARTED",
-      }).select("id").single();
-
-      if (actionError || !action) {
-        await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id);
-        errors += 1;
-        if (errorDetails.length < 10) errorDetails.push(`${template.title} · ${plannedDate}: ${actionError?.message || "Không tạo được nội dung Action"}`);
-        continue;
-      }
-
-      const { error: runUpdateError } = await admin.from("recurring_work_runs").update({
-        generated_action_id: action.id,
-        generated_at: new Date().toISOString(),
-        status: "GENERATED",
-      }).eq("id", run.id).is("generated_action_id", null);
-
-      if (runUpdateError) {
-        await admin.from("actions").update({ workflow_status: "CANCELLED" }).eq("id", action.id);
-        await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id);
-        errors += 1;
-        if (errorDetails.length < 10) errorDetails.push(`${template.title} · ${plannedDate}: ${runUpdateError.message}`);
-        continue;
-      }
-
-      await admin.from("notifications").insert({
-        recipient_user_id: template.assignee_user_id,
-        notification_type: "RECURRING_ACTION_ASSIGNED",
-        priority: template.priority || "NORMAL",
-        title: "Công việc định kỳ đã được tạo",
-        message: `${template.title} · hạn ${dueDate}`,
-        target_record_id: record.id,
-        target_route: `/tasks/${record.id}`,
-        notification_event_key: `recurring-action:${run.id}:${template.assignee_user_id}`,
+      const materialized = await admin.rpc("qlcl_materialize_recurring_run_v2", {
+        p_run_id: run.id,
+        p_actor_user_id: auth.user.id,
       });
 
-      createdActions += 1;
-      existingByKey.set(key, { ...run, generated_action_id: action.id, status: "GENERATED" });
+      if (materialized.error || !materialized.data?.ok) {
+        errors += 1;
+        if (errorDetails.length < 10) errorDetails.push(`${template.title} · ${plannedDate}: ${materialized.error?.message || "Không sinh được công việc định kỳ"}`);
+        continue;
+      }
+
+      if (!materialized.data.already_generated) {
+        createdActions += 1;
+        if (materialized.data.output_record_id && template.automation_kind === "MONITORING") createdMonitoringRounds += 1;
+      } else {
+        existingRunsCount += 1;
+      }
+      existingByKey.set(key, {
+        ...run,
+        generated_action_id: materialized.data.action_id || run.generated_action_id,
+        generated_output_record_id: materialized.data.output_record_id || run.generated_output_record_id,
+        status: "GENERATED",
+      });
     }
   }
 
@@ -303,6 +255,7 @@ export async function POST(request: Request) {
     from: today,
     to: horizonEnd,
     created_actions: createdActions,
+    created_monitoring_rounds: createdMonitoringRounds,
     existing_runs: existingRunsCount,
     skipped_templates: skippedTemplates,
     errors,
