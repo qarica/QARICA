@@ -2,6 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  AssignmentTargetSelect,
+  assignmentTargetToken,
+  parseAssignmentTargetToken,
+  type AssignmentTargetOption,
+} from "@/components/assignment-target-select";
 
 type Department = { id: string; name: string; short_name?: string | null };
 type Profile = { user_id: string; full_name?: string | null; email?: string | null; primary_department_id?: string | null };
@@ -194,11 +200,25 @@ export function RecurringWorkClient({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
 
-  const filteredProfiles = useMemo(() => {
-    if (!form.lead_department_id) return profiles;
-    const sameDepartment = profiles.filter((p) => p.primary_department_id === form.lead_department_id);
-    return sameDepartment.length ? sameDepartment : profiles;
-  }, [profiles, form.lead_department_id]);
+  const assignmentOptions = useMemo<AssignmentTargetOption[]>(() => {
+    const departmentMap = new Map(departments.map((department) => [department.id, department.short_name || department.name]));
+    return [
+      ...profiles.map((profile) => ({
+        id: profile.user_id,
+        kind: "USER" as const,
+        label: profile.full_name || profile.email || profile.user_id,
+        description: profile.primary_department_id ? departmentMap.get(profile.primary_department_id) || null : null,
+        departmentId: profile.primary_department_id || null,
+      })),
+      ...groups.map((group) => ({
+        id: group.id,
+        kind: "GROUP" as const,
+        label: [group.code, group.name].filter(Boolean).join(" · "),
+        description: "Nhóm phân công",
+        departmentId: group.lead_department_id || null,
+      })),
+    ];
+  }, [profiles, groups, departments]);
 
   function openCreate() {
     setEditing(null);
@@ -441,7 +461,7 @@ export function RecurringWorkClient({
     {message ? <div className={`alert ${message.tone === "error" ? "error" : message.tone === "success" ? "success" : "info"}`} style={{ margin: "0 0 10px" }}>{message.text}</div> : null}
 
     <section className="panel blueprint-panel">
-      <div className="blueprint-head"><div><h2>QARICA gợi ý từ Kế hoạch/Sổ tay tác nghiệp</h2><p>Không nhập lại từ đầu: chọn một đầu việc nguồn, QARICA điền sẵn nội dung, đơn vị, người phụ trách (khi xác định được), kết quả và minh chứng. Phần nguồn chưa quy định ngày cụ thể sẽ yêu cầu xác nhận đúng 1 lần.</p></div><span className="recurring-status active">{blueprints.filter((x) => x.already_configured).length}/{blueprints.length} đã cấu hình</span></div>
+      <div className="blueprint-head"><div><h2>QARICA gợi ý từ Kế hoạch/Sổ tay tác nghiệp</h2><p>Không nhập lại từ đầu: chọn một đầu việc nguồn, QARICA điền sẵn nội dung, đơn vị, đối tượng phụ trách (cá nhân hoặc nhóm), kết quả và minh chứng. Phần nguồn chưa quy định ngày cụ thể sẽ yêu cầu xác nhận đúng 1 lần.</p></div><span className="recurring-status active">{blueprints.filter((x) => x.already_configured).length}/{blueprints.length} đã cấu hình</span></div>
       <div className="blueprint-grid">
         {blueprints.map((row) => <article key={row.code} className={`blueprint-card ${row.already_configured ? "done" : ""}`}>
           <span className="blueprint-code">{row.code}</span>
@@ -488,15 +508,31 @@ export function RecurringWorkClient({
             <div className="recurring-field"><label>Ngày kết thúc</label><input type="date" value={form.end_date} onChange={(e) => patch("end_date", e.target.value)} /></div>
             <div className="recurring-field"><label>Hạn sau ngày kế hoạch</label><input type="number" min="0" max="365" value={form.due_offset_days} onChange={(e) => patch("due_offset_days", e.target.value)} /><small>0 = đến hạn đúng ngày được sinh trên lịch.</small></div>
             <div className="recurring-field"><label>Mức ưu tiên</label><select value={form.priority} onChange={(e) => patch("priority", e.target.value)}><option value="LOW">Thấp</option><option value="NORMAL">Bình thường</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn</option><option value="CRITICAL">Rất khẩn / trọng yếu</option></select></div>
-            <div className="recurring-field"><label>Khoa/Phòng chủ trì *</label><select value={form.lead_department_id} onChange={(e) => { patch("lead_department_id", e.target.value); if (form.assignment_target_type === "USER") patch("assignee_user_id", ""); }}><option value="">— Chọn đơn vị —</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
-            <div className="recurring-field"><label>Phân công cho *</label><select value={form.assignment_target_type} onChange={(e) => {
-              const target = e.target.value as "USER" | "GROUP";
-              setForm((current) => ({ ...current, assignment_target_type: target, assignee_user_id: target === "USER" ? current.assignee_user_id : "", assignee_group_id: target === "GROUP" ? current.assignee_group_id : "" }));
-            }}><option value="USER">Cá nhân</option><option value="GROUP">Nhóm</option></select></div>
-            {form.assignment_target_type === "USER" ? <div className="recurring-field span-2"><label>Cá nhân phụ trách *</label><select value={form.assignee_user_id} onChange={(e) => patch("assignee_user_id", e.target.value)}><option value="">— Chọn người —</option>{filteredProfiles.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name || p.email || p.user_id}</option>)}</select></div> : <div className="recurring-field span-2"><label>Nhóm phụ trách *</label><select value={form.assignee_group_id} onChange={(e) => {
-              const group = groups.find((item) => item.id === e.target.value);
-              setForm((current) => ({ ...current, assignee_group_id: e.target.value, lead_department_id: current.lead_department_id || group?.lead_department_id || "" }));
-            }}><option value="">— Chọn nhóm đã cấu hình —</option>{groups.map((group) => <option key={group.id} value={group.id}>{[group.code,group.name].filter(Boolean).join(" · ")}</option>)}</select><small>Thành viên nhóm lấy từ Quản trị hệ thống → Nhóm phân công và được snapshot khi từng Action được sinh.</small></div>}
+            <div className="recurring-field span-2"><label>Giao cho *</label>
+              <AssignmentTargetSelect
+                options={assignmentOptions}
+                value={assignmentTargetToken(form.assignment_target_type, form.assignment_target_type === "GROUP" ? form.assignee_group_id : form.assignee_user_id)}
+                onChange={(token) => {
+                  const target = parseAssignmentTargetToken(token);
+                  if (!target) return;
+                  const option = assignmentOptions.find((item) => item.kind === target.kind && item.id === target.id);
+                  setForm((current) => ({
+                    ...current,
+                    assignment_target_type: target.kind,
+                    assignee_user_id: target.kind === "USER" ? target.id : "",
+                    assignee_group_id: target.kind === "GROUP" ? target.id : "",
+                    lead_department_id: option?.departmentId || current.lead_department_id,
+                  }));
+                }}
+                placeholder="Tìm cá nhân hoặc nhóm..."
+              />
+              <small>Chọn một lần; QARICA tự nhận biết cá nhân hay nhóm và tự lấy đơn vị mặc định.</small>
+            </div>
+            <details className="recurring-field span-2">
+              <summary style={{ cursor: "pointer", fontSize: 10, fontWeight: 850, color: "#64748b" }}>Điều chỉnh đơn vị chủ trì</summary>
+              <label style={{ marginTop: 8 }}>Khoa/Phòng chủ trì *</label>
+              <select value={form.lead_department_id} onChange={(e) => patch("lead_department_id", e.target.value)}><option value="">— Chọn đơn vị —</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+            </details>
             <div className="recurring-field span-2"><label>Kết quả mong đợi *</label><textarea value={form.expected_result} onChange={(e) => patch("expected_result", e.target.value)} placeholder="Sản phẩm/kết quả phải hoàn thành ở mỗi kỳ" /></div>
             <div className="recurring-field span-2"><label>Minh chứng bắt buộc *</label><textarea value={form.evidence_requirement} onChange={(e) => patch("evidence_requirement", e.target.value)} placeholder="Ví dụ: báo cáo, biên bản, bảng kiểm, file số liệu…" /></div>
             <div className="recurring-field span-2"><label>Đầu ra tự động</label><select value={form.automation_kind} onChange={(e) => patch("automation_kind", e.target.value as "ACTION" | "MONITORING" | "REPORT")}><option value="ACTION">Chỉ tạo Action</option><option value="MONITORING">Tạo Action + Đợt giám sát</option><option value="REPORT">Tạo Action + Báo cáo từng kỳ</option></select><small>QARICA chỉ tự tạo hồ sơ nghiệp vụ khi đã đủ dữ liệu nguồn bắt buộc; phần còn thiếu sẽ được hỏi ngay bên dưới.</small></div>
