@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 const ALLOWED_ACTIONS = new Set(["SUBMIT", "APPROVE", "RETURN", "START", "HOLD", "RESUME", "COMPLETE"]);
-const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v5";
+const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v6";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("plans.manage");
@@ -61,6 +61,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (task.collaborating_user_ids.length) {
         const { data: collaborators } = await admin.from("profiles").select("user_id").in("user_id", task.collaborating_user_ids).eq("organization_id", caller.organization_id).eq("is_active", true);
         if ((collaborators ?? []).length !== new Set(task.collaborating_user_ids).size) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: có người phối hợp không còn hợp lệ.` }, { status: 409 });
+      }
+      if (task.collaborating_group_ids.length) {
+        const { data: groups } = await admin.from("work_groups").select("id").in("id", task.collaborating_group_ids).eq("organization_id", caller.organization_id).eq("is_active", true);
+        if ((groups ?? []).length !== new Set(task.collaborating_group_ids).size) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: có nhóm phối hợp không còn hợp lệ hoặc đã ngưng.` }, { status: 409 });
       }
       if (task.parent_client_id && !tasks.some((candidate) => candidate.client_id === task.parent_client_id)) {
         return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: nhiệm vụ cha không còn tồn tại.` }, { status: 409 });
