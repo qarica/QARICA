@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   automationKindLabel,
   suggestPlanAutomationKind,
+  suggestPlanAutomationKinds,
   suggestPlanAutomationResource,
 } from "./plan-automation";
 
@@ -19,6 +20,10 @@ describe("plan automation assistant", () => {
     expect(suggestPlanAutomationKind({ title: "Tự đánh giá theo Bộ tiêu chí chất lượng" })).toBe("ASSESSMENT");
     expect(suggestPlanAutomationKind({ title: "Audit nội bộ quy trình cấp phát thuốc" })).toBe("AUDIT");
     expect(suggestPlanAutomationKind({ title: "Đề án cải tiến chất lượng giảm thời gian chờ" })).toBe("IMPROVEMENT");
+  });
+
+  it("can suggest multiple outputs from one task", () => {
+    expect(suggestPlanAutomationKinds({ title: "Giám sát tuân thủ và báo cáo kết quả hàng tháng" })).toEqual(expect.arrayContaining(["MONITORING", "REPORT"]));
   });
 
   it("keeps ordinary work as Action", () => {
