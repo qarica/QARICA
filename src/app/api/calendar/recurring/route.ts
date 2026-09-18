@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { syncRecurringTemplateNow } from "@/lib/recurring-sync";
 
 const PRIORITIES = new Set(["LOW", "NORMAL", "HIGH", "URGENT", "CRITICAL"]);
 const RULE_PATTERNS = [
@@ -118,5 +119,18 @@ export async function POST(request: Request) {
     const duplicateSource = sourceCode && String(error?.message || "").toLowerCase().includes("uq_recurring_work_templates_source_code");
     return NextResponse.json({ error: duplicateSource ? "Gợi ý nguồn này đã được kích hoạt trước đó." : error?.message || "Không tạo được mẫu công việc định kỳ." }, { status: duplicateSource ? 409 : 400 });
   }
-  return NextResponse.json({ ok: true, id: template.id });
+  const sync = isActive ? await syncRecurringTemplateNow({
+    admin,
+    templateId: template.id,
+    organizationId: caller.organization_id,
+    actorUserId: auth.user.id,
+    horizonDays: 90,
+  }) : null;
+
+  return NextResponse.json({
+    ok: true,
+    id: template.id,
+    sync,
+    sync_warning: sync && !sync.ok ? (sync.error || sync.errorDetails?.[0] || "Đã lưu cấu hình nhưng chưa đồng bộ đủ lịch.") : null,
+  });
 }
