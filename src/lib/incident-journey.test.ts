@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getIncidentJourneyState } from "@/lib/incident-journey";
+import { getIncidentJourneyState } from "./incident-journey";
 
 describe("incident journey", () => {
   it("routes a newly reported incident to triage", () => {
