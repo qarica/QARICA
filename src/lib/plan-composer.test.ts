@@ -73,4 +73,12 @@ describe("Plan Composer V2 helpers", () => {
     expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toBeNull();
   });
 
+  it("asks only for missing business-output configuration", () => {
+    const base = { title: "A", lead_department_id: "d1", assignee_user_id: "u1", due_date: "2026-12-01", expected_result: "B", automation_confirmed: true };
+    expect(validatePlanDraftAction(cleanPlanDraftActions([{ ...base, automation_kind: "REPORT" }])[0], null, null)).toContain("nơi nhận");
+    expect(validatePlanDraftAction(cleanPlanDraftActions([{ ...base, automation_kind: "ASSESSMENT" }])[0], null, null)).toContain("bộ tiêu chí");
+    expect(validatePlanDraftAction(cleanPlanDraftActions([{ ...base, automation_kind: "AUDIT" }])[0], null, null)).toContain("loại đánh giá");
+    expect(validatePlanDraftAction(cleanPlanDraftActions([{ ...base, automation_kind: "IMPROVEMENT" }])[0], null, null)).toBeNull();
+  });
+
 });
