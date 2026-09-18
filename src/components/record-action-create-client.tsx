@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 type Department = { id: string; name: string; short_name?: string | null };
 type Profile = { user_id: string; full_name?: string | null; email?: string | null; primary_department_id?: string | null };
+type WorkGroup = { id: string; code?: string | null; name: string; lead_department_id?: string | null; leader_user_id?: string | null };
 type FailureMode = { id: string; label: string; high?: boolean };
 type RootCause = { id: string; label: string; actionRequired?: boolean };
 
@@ -14,6 +15,7 @@ export function RecordActionCreateClient({
   sourceTitle,
   departments,
   profiles,
+  groups,
   failureModes = [],
   rootCauses = [],
 }: {
@@ -22,12 +24,15 @@ export function RecordActionCreateClient({
   sourceTitle: string;
   departments: Department[];
   profiles: Profile[];
+  groups: WorkGroup[];
   failureModes?: FailureMode[];
   rootCauses?: RootCause[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [departmentId, setDepartmentId] = useState("");
+  const [assignmentTargetType, setAssignmentTargetType] = useState<"USER"|"GROUP">("USER");
+  const [assigneeGroupId, setAssigneeGroupId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [selectedRootCauseIds, setSelectedRootCauseIds] = useState<string[]>([]);
@@ -46,6 +51,13 @@ export function RecordActionCreateClient({
       return;
     }
     const raw: Record<string, unknown> = Object.fromEntries(new FormData(form).entries());
+    raw.assignment_target_type = assignmentTargetType;
+    if (assignmentTargetType === "GROUP") {
+      raw.assignee_group_id = assigneeGroupId;
+      delete raw.assignee_user_id;
+    } else {
+      delete raw.assignee_group_id;
+    }
     raw.root_cause_ids = selectedRootCauseIds;
     setBusy(true);
     setError("");
@@ -55,6 +67,8 @@ export function RecordActionCreateClient({
       if (!response.ok) throw new Error(result.error || "Không tạo được công việc.");
       form.reset();
       setDepartmentId("");
+      setAssignmentTargetType("USER");
+      setAssigneeGroupId("");
       setSelectedRootCauseIds([]);
       setCapaActionType("CORRECTIVE");
       setOpen(false);
@@ -77,7 +91,13 @@ export function RecordActionCreateClient({
         <label>Nội dung công việc<input name="title" required placeholder="Việc cần thực hiện" /></label>
         <div className="form-grid two">
           <label>Khoa/Phòng phụ trách<select name="lead_department_id" required value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}><option value="">Chọn khoa/phòng</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select></label>
-          <label>Người phụ trách<select name="assignee_user_id" required><option value="">Chọn người phụ trách</option>{visibleProfiles.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name || p.email || "Người dùng"}</option>)}</select></label>
+          <label>Phân công cho<select value={assignmentTargetType} onChange={(e) => { setAssignmentTargetType(e.target.value as "USER"|"GROUP"); setAssigneeGroupId(""); }}><option value="USER">Cá nhân</option><option value="GROUP">Nhóm</option></select></label>
+          {assignmentTargetType === "USER" ? <label className="span-2">Cá nhân phụ trách<select name="assignee_user_id" required><option value="">Chọn người phụ trách</option>{visibleProfiles.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name || p.email || "Người dùng"}</option>)}</select></label> : <label className="span-2">Nhóm phụ trách<select required value={assigneeGroupId} onChange={(e) => {
+            const id = e.target.value;
+            const group = groups.find((item) => item.id === id);
+            setAssigneeGroupId(id);
+            if (!departmentId && group?.lead_department_id) setDepartmentId(group.lead_department_id);
+          }}><option value="">Chọn nhóm đã cấu hình</option>{groups.map((g) => <option key={g.id} value={g.id}>{[g.code,g.name].filter(Boolean).join(" · ")}</option>)}</select><span className="subline">Thành viên nhóm được lấy từ Quản trị hệ thống → Nhóm phân công và chụp snapshot tại thời điểm giao việc.</span></label>}
           <label>Ngày bắt đầu<input name="start_date" type="date" /></label><label>Hạn hoàn thành<input name="due_date" type="date" required /></label>
           <label>Mức ưu tiên<select name="priority" defaultValue="NORMAL"><option value="LOW">Thấp</option><option value="NORMAL">Bình thường</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn</option><option value="CRITICAL">Rất khẩn / trọng yếu</option></select></label>
           {recordType === "CAPA" ? <label>Loại hành động CAPA<select name="capa_action_type" value={capaActionType} onChange={(e) => setCapaActionType(e.target.value)}><option value="CORRECTION">Khắc phục tức thời</option><option value="CORRECTIVE">Khắc phục nguyên nhân</option><option value="PREVENTIVE">Phòng ngừa tái diễn</option><option value="VERIFICATION">Xác minh</option></select></label> : null}
