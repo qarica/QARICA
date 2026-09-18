@@ -27,10 +27,13 @@ type TemplateRow = {
   source_code?: string | null;
   source_label?: string | null;
   source_criteria?: string[];
-  automation_kind?: "ACTION" | "MONITORING";
+  automation_kind?: "ACTION" | "MONITORING" | "REPORT";
   automation_ref_id?: string | null;
   automation_target_department_id?: string | null;
   automation_target_area?: string | null;
+  automation_report_recipient?: string | null;
+  automation_report_method?: string | null;
+  automation_report_type?: string | null;
 };
 
 type BlueprintRow = {
@@ -51,9 +54,13 @@ type BlueprintRow = {
   weekOfMonth?: number;
   startMonth?: number;
   priority?: string;
-  automationKind?: "ACTION" | "MONITORING";
+  automationKind?: "ACTION" | "MONITORING" | "REPORT";
   automationChecklistCode?: string;
   automationTargetArea?: string;
+  automationReportRecipient?: string;
+  automationReportMethod?: string;
+  automationReportType?: string;
+  endDate?: string;
   department_id?: string | null;
   department_name?: string | null;
   assignee_user_id?: string | null;
@@ -86,10 +93,13 @@ type FormState = {
   source_code: string;
   source_label: string;
   source_criteria: string[];
-  automation_kind: "ACTION" | "MONITORING";
+  automation_kind: "ACTION" | "MONITORING" | "REPORT";
   automation_ref_id: string;
   automation_target_department_id: string;
   automation_target_area: string;
+  automation_report_recipient: string;
+  automation_report_method: string;
+  automation_report_type: string;
   schedule_note: string;
 };
 
@@ -110,6 +120,7 @@ function defaultForm(): FormState {
     expected_result: "", evidence_requirement: "", priority: "NORMAL", is_active: true,
     source_code: "", source_label: "", source_criteria: [],
     automation_kind: "ACTION", automation_ref_id: "", automation_target_department_id: "", automation_target_area: "",
+    automation_report_recipient: "", automation_report_method: "", automation_report_type: "",
     schedule_note: "",
   };
 }
@@ -205,6 +216,7 @@ export function RecurringWorkClient({
       monthDay: String(row.monthDay || day),
       weekOfMonth: String(row.weekOfMonth || 1),
       start_date: startDate < today ? today : startDate,
+      end_date: row.endDate || "",
       lead_department_id: row.department_id || "",
       assignee_user_id: row.assignee_user_id || "",
       expected_result: row.expectedResult,
@@ -217,6 +229,9 @@ export function RecurringWorkClient({
       automation_ref_id: row.checklist_id || "",
       automation_target_department_id: "",
       automation_target_area: row.automationTargetArea || "",
+      automation_report_recipient: row.automationReportRecipient || "",
+      automation_report_method: row.automationReportMethod || "",
+      automation_report_type: row.automationReportType || "",
       schedule_note: row.scheduleHint,
     });
     setMessage(row.department_id && row.assignee_user_id
@@ -251,6 +266,9 @@ export function RecurringWorkClient({
       automation_ref_id: row.automation_ref_id || "",
       automation_target_department_id: row.automation_target_department_id || "",
       automation_target_area: row.automation_target_area || "",
+      automation_report_recipient: row.automation_report_recipient || "",
+      automation_report_method: row.automation_report_method || "",
+      automation_report_type: row.automation_report_type || "",
       schedule_note: "",
     });
     setMessage(null);
@@ -278,6 +296,14 @@ export function RecurringWorkClient({
       setMessage({ tone: "error", text: "Để tự tạo đợt giám sát, cần khoa/phòng hoặc phạm vi giám sát." });
       return;
     }
+    if (form.automation_kind === "REPORT" && !form.automation_report_recipient.trim()) {
+      setMessage({ tone: "error", text: "Để tự tạo báo cáo từng kỳ, cần xác định nơi nhận." });
+      return;
+    }
+    if (form.automation_kind === "REPORT" && !form.automation_report_method.trim()) {
+      setMessage({ tone: "error", text: "Để tự tạo báo cáo từng kỳ, cần xác nhận phương thức gửi." });
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -301,6 +327,9 @@ export function RecurringWorkClient({
         automation_ref_id: form.automation_ref_id || null,
         automation_target_department_id: form.automation_target_department_id || null,
         automation_target_area: form.automation_target_area.trim() || null,
+        automation_report_recipient: form.automation_report_recipient.trim() || null,
+        automation_report_method: form.automation_report_method.trim() || null,
+        automation_report_type: form.automation_report_type.trim() || null,
       };
       const response = await fetch(editing ? `/api/calendar/recurring/${editing.id}` : "/api/calendar/recurring", {
         method: editing ? "PATCH" : "POST",
@@ -358,7 +387,7 @@ export function RecurringWorkClient({
       const errors = Number(json.errors || 0);
       setMessage({
         tone: errors ? "error" : "success",
-        text: `Đồng bộ xong: tạo ${json.created_actions || 0} Action mới${Number(json.created_monitoring_rounds || 0) ? ` + ${json.created_monitoring_rounds} đợt giám sát` : ""}, ${json.existing_runs || 0} kỳ đã tồn tại${skipped ? `, ${skipped} mẫu chưa đủ điều kiện` : ""}${errors ? `, ${errors} lỗi cần kiểm tra` : ""}.`,
+        text: `Đồng bộ xong: tạo ${json.created_actions || 0} Action mới${Number(json.created_monitoring_rounds || 0) ? ` + ${json.created_monitoring_rounds} đợt giám sát` : ""}${Number(json.created_reports || 0) ? ` + ${json.created_reports} báo cáo` : ""}, ${json.existing_runs || 0} kỳ đã tồn tại${skipped ? `, ${skipped} mẫu chưa đủ điều kiện` : ""}${errors ? `, ${errors} lỗi cần kiểm tra` : ""}.`,
       });
       router.refresh();
     } catch (error) {
@@ -389,7 +418,7 @@ export function RecurringWorkClient({
           <span className="blueprint-code">{row.code}</span>
           <div className="blueprint-title">{row.title}</div>
           <div className="blueprint-meta">{row.scheduleHint}<br/>{row.department_name || row.departmentHint}{row.assignee_name ? ` · ${row.assignee_name}` : " · cần xác nhận người phụ trách"}{row.criteria.length ? ` · TC: ${row.criteria.join(", ")}` : ""}</div>
-          {row.automationKind === "MONITORING" ? <div className="blueprint-note">Tự động tạo cả <strong>Action + Đợt giám sát</strong>{row.checklist_label ? ` bằng ${row.checklist_label}` : "; chưa tìm thấy bảng kiểm nguồn"}.</div> : row.scheduleNeedsChoice ? <div className="blueprint-note">Nguồn chưa ấn định ngày cụ thể — chỉ cần xác nhận lịch một lần.</div> : null}
+          {row.automationKind === "MONITORING" ? <div className="blueprint-note">Tự động tạo cả <strong>Action + Đợt giám sát</strong>{row.checklist_label ? ` bằng ${row.checklist_label}` : "; chưa tìm thấy bảng kiểm nguồn"}.</div> : row.automationKind === "REPORT" ? <div className="blueprint-note">Tự động tạo <strong>Action + hồ sơ Báo cáo riêng cho từng kỳ</strong>. Trường nguồn chưa quy định sẽ được hỏi đúng 1 lần.</div> : row.scheduleNeedsChoice ? <div className="blueprint-note">Nguồn chưa ấn định ngày cụ thể — chỉ cần xác nhận lịch một lần.</div> : null}
           <div className="blueprint-actions">{row.already_configured ? <span className="blueprint-done">✓ Đã kế thừa vào hệ thống</span> : <span className="recurring-muted">{row.sourceLabel}</span>}{canManage && !row.already_configured ? <button className="button primary small" disabled={busy} onClick={() => openBlueprint(row)}>Thiết lập 1 click</button> : null}</div>
         </article>)}
       </div>
