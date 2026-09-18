@@ -94,6 +94,11 @@ const SOURCE_ALIASES: Record<string, string[]> = {
   "khoa kham benh cskh": ["khoa kham benh", "phong marketing cskh"],
 };
 
+export function sourceNeedsManualConfirmation(sourceLabel: string) {
+  const label = fold(sourceLabel);
+  return label === "ban giam doc phong nhan su";
+}
+
 export function responsibilityDepartmentCandidates(sourceLabel: string, departments: ResponsibilityDepartment[]) {
   const label = fold(sourceLabel);
   const aliases = SOURCE_ALIASES[label] ?? [label];
