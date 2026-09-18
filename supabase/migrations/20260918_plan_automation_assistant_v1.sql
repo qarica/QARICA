@@ -264,8 +264,7 @@ begin
       v_assignee_user_id,'ACTION_ASSIGNED',v_priority,'Bạn được giao công việc mới',
       v_title,v_action_record_id,'/tasks/'||v_action_record_id::text,
       'action-assigned:'||v_action_id::text||':'||v_assignee_user_id::text,false
-    )
-    on conflict(recipient_user_id,notification_event_key) do nothing;
+    );
 
     if v_automation_confirmed and v_automation_kind='INDICATOR' then
       select * into v_indicator_assignment
