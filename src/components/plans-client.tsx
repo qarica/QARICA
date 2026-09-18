@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { StatusBadge } from "@/components/status-badge";
+import { MultiCheckSelect } from "@/components/multi-check-select";
 import { formatDate } from "@/lib/format";
 
 type PlanRow = {
@@ -15,18 +16,20 @@ type PlanRow = {
 };
 type Department = { id: string; name: string; short_name: string | null; is_active: boolean };
 type Profile = { user_id: string; full_name: string | null; email: string | null; primary_department_id: string | null; is_active: boolean };
+type ReferenceOption = { id: string; label: string; description?: string | null };
+type WorkGroupOption = { id: string; label: string; description?: string | null; memberUserIds?: string[] };
 type FormState = {
   title: string; programType: string; generalObjective: string; specificObjectives: string[]; requirements: string; description: string;
-  startDate: string; endDate: string; leadDepartmentId: string; ownerUserId: string;
+  startDate: string; endDate: string; leadDepartmentIds: string[]; ownerUserIds: string[]; referenceIds: string[]; assignedGroupIds: string[];
 };
 
 const TYPE_LABELS: Record<string, string> = { ANNUAL_PLAN: "Kế hoạch năm", THEMATIC_PLAN: "Kế hoạch chuyên đề", DEPARTMENT_PLAN: "Kế hoạch khoa/phòng", PROGRAM: "Chương trình", OTHER: "Khác" };
 
 function initialForm(year: number): FormState {
-  return { title: "", programType: "ANNUAL_PLAN", generalObjective: "", specificObjectives: [""], requirements: "", description: "", startDate: `${year}-01-01`, endDate: `${year}-12-31`, leadDepartmentId: "", ownerUserId: "" };
+  return { title: "", programType: "ANNUAL_PLAN", generalObjective: "", specificObjectives: [""], requirements: "", description: "", startDate: `${year}-01-01`, endDate: `${year}-12-31`, leadDepartmentIds: [], ownerUserIds: [], referenceIds: [], assignedGroupIds: [] };
 }
 
-export function PlansClient({ year, canManage, rows, departments, profiles }: { year: number; canManage: boolean; rows: PlanRow[]; departments: Department[]; profiles: Profile[] }) {
+export function PlansClient({ year, canManage, rows, departments, profiles, referenceOptions, workGroupOptions }: { year: number; canManage: boolean; rows: PlanRow[]; departments: Department[]; profiles: Profile[]; referenceOptions: ReferenceOption[]; workGroupOptions: WorkGroupOption[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -54,7 +57,7 @@ export function PlansClient({ year, canManage, rows, departments, profiles }: { 
     e.preventDefault();
     const specificObjectives = form.specificObjectives.map((x) => x.trim()).filter(Boolean);
     if (!form.title.trim()) return setMessage({ tone: "error", text: "Vui lòng nhập tên kế hoạch." });
-    if (!form.leadDepartmentId) return setMessage({ tone: "error", text: "Vui lòng chọn khoa/phòng chủ trì." });
+    if (!form.leadDepartmentIds.length) return setMessage({ tone: "error", text: "Vui lòng chọn ít nhất một khoa/phòng chủ trì/phối hợp." });
     if (!form.generalObjective.trim()) return setMessage({ tone: "error", text: "Vui lòng nhập mục tiêu chung." });
     if (form.startDate && form.endDate && form.endDate < form.startDate) return setMessage({ tone: "error", text: "Ngày kết thúc không được trước ngày bắt đầu." });
 
@@ -63,7 +66,9 @@ export function PlansClient({ year, canManage, rows, departments, profiles }: { 
       const res = await fetch("/api/plans", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         work_year: year, title: form.title.trim(), program_type: form.programType, general_objective: form.generalObjective.trim(), specific_objectives: specificObjectives,
         requirements: form.requirements.trim(), description: form.description.trim() || null, start_date: form.startDate || null, end_date: form.endDate || null,
-        lead_department_id: form.leadDepartmentId, owner_user_id: form.ownerUserId || null, draft_actions: [],
+        lead_department_id: form.leadDepartmentIds[0] || null, lead_department_ids: form.leadDepartmentIds,
+        owner_user_id: form.ownerUserIds[0] || null, owner_user_ids: form.ownerUserIds,
+        reference_ids: form.referenceIds, assigned_group_ids: form.assignedGroupIds, draft_actions: [],
       }) });
       const data = await res.json(); if (!res.ok) throw new Error(data.error || "Không thể tạo kế hoạch.");
       setMessage({ tone: "success", text: `Đã tạo bản nháp ${data.record_code}. Mở kế hoạch để bổ sung nhiệm vụ trước khi gửi duyệt.` });
@@ -73,7 +78,9 @@ export function PlansClient({ year, canManage, rows, departments, profiles }: { 
     finally { setBusy(false); }
   }
 
-  const eligibleProfiles = profiles.filter((p) => !form.leadDepartmentId || !p.primary_department_id || p.primary_department_id === form.leadDepartmentId);
+  const eligibleProfiles = profiles.filter((p) => !form.leadDepartmentIds.length || !p.primary_department_id || form.leadDepartmentIds.includes(p.primary_department_id));
+  const departmentOptions = departments.map((d) => ({ id: d.id, label: d.short_name || d.name }));
+  const profileOptions = eligibleProfiles.map((p) => ({ id: p.user_id, label: p.full_name || p.email || p.user_id }));
   const modal = formOpen && typeof document !== "undefined" ? createPortal(
     <div className="modal-backdrop" style={{ padding: 16 }}><form className="modal-card" onSubmit={submit} style={{ width: "min(1440px, calc(100vw - 32px))", height: "min(900px, calc(100dvh - 32px))", maxHeight: "calc(100dvh - 32px)", borderRadius: 18 }}>
       <div className="modal-head" style={{ flexShrink: 0, padding: "18px 24px" }}><div><div className="eyebrow">PLAN COMPOSER V2 · {year}</div><h2>Tạo kế hoạch mới</h2><p className="muted" style={{ margin: "5px 0 0", fontSize: 12 }}>Tạo phần khung kế hoạch. Sau khi lưu Nháp, bổ sung nhiệm vụ dự kiến ngay trên trang chi tiết trước khi gửi phê duyệt.</p></div><button type="button" className="icon-button" title="Đóng cửa sổ" aria-label="Đóng cửa sổ" onClick={requestClose}><Icon name="x" size={22} /></button></div>
@@ -83,10 +90,12 @@ export function PlansClient({ year, canManage, rows, departments, profiles }: { 
           <section><div style={{ marginBottom: 13 }}><strong style={{ fontSize: 14 }}>1. Thông tin kế hoạch</strong><div className="muted tiny" style={{ marginTop: 4 }}>Tên, loại, đơn vị chủ trì và đầu mối.</div></div><div className="form-grid two" style={{ gap: 16 }}>
             <label className="span-2"><span>Tên kế hoạch *</span><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={`Ví dụ: Kế hoạch hoạt động quản lý chất lượng bệnh viện năm ${year}`} /></label>
             <label><span>Loại kế hoạch *</span><select value={form.programType} onChange={(e) => setForm({ ...form, programType: e.target.value })}><option value="ANNUAL_PLAN">Kế hoạch năm</option><option value="THEMATIC_PLAN">Kế hoạch chuyên đề</option><option value="DEPARTMENT_PLAN">Kế hoạch khoa/phòng</option><option value="PROGRAM">Chương trình</option><option value="OTHER">Khác</option></select></label>
-            <label><span>Khoa/Phòng chủ trì *</span><select value={form.leadDepartmentId} onChange={(e) => setForm({ ...form, leadDepartmentId: e.target.value, ownerUserId: "" })}><option value="">— Chọn đơn vị —</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+            <label><span>Khoa/Phòng chủ trì & phối hợp *</span><MultiCheckSelect options={departmentOptions} value={form.leadDepartmentIds} onChange={(ids) => setForm({ ...form, leadDepartmentIds: ids, ownerUserIds: form.ownerUserIds.filter((id) => { const p = profiles.find((x) => x.user_id === id); return !p?.primary_department_id || ids.includes(p.primary_department_id); }) })} placeholder="Chọn một hoặc nhiều khoa/phòng" /></label>
             <label><span>Ngày bắt đầu</span><input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></label>
             <label><span>Ngày kết thúc</span><input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></label>
-            <label className="span-2"><span>Người phụ trách</span><select value={form.ownerUserId} onChange={(e) => setForm({ ...form, ownerUserId: e.target.value })}><option value="">— Chưa chỉ định —</option>{eligibleProfiles.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name || p.email || p.user_id}</option>)}</select></label>
+            <label className="span-2"><span>Người phụ trách / phối hợp</span><MultiCheckSelect options={profileOptions} value={form.ownerUserIds} onChange={(ids) => setForm({ ...form, ownerUserIds: ids })} placeholder="Chọn một hoặc nhiều người" /></label>
+            <label className="span-2"><span>Căn cứ lập kế hoạch</span><MultiCheckSelect options={referenceOptions} value={form.referenceIds} onChange={(ids) => setForm({ ...form, referenceIds: ids })} placeholder="Chọn nhiều văn bản BYT/SYT/Bệnh viện..." emptyText="Chưa có văn bản trong Thư viện Văn bản/Chỉ đạo." /></label>
+            <label className="span-2"><span>Nhóm thực hiện</span><MultiCheckSelect options={workGroupOptions} value={form.assignedGroupIds} onChange={(ids) => setForm({ ...form, assignedGroupIds: ids })} placeholder="Chọn một hoặc nhiều nhóm công tác" emptyText="Chưa có nhóm. Tạo tại menu Nhóm công tác." /></label>
           </div></section>
           <section style={{ borderTop: "1px solid var(--line)", paddingTop: 22 }}><div style={{ marginBottom: 13 }}><strong style={{ fontSize: 14 }}>2. Mục tiêu kế hoạch</strong><div className="muted tiny" style={{ marginTop: 4 }}>Mục tiêu chung là bắt buộc; mục tiêu cụ thể có thể để trống nếu kế hoạch không cần tách riêng.</div></div><div className="form-grid two" style={{ gap: 16 }}>
             <label className="span-2"><span>Mục tiêu chung *</span><textarea rows={3} value={form.generalObjective} onChange={(e) => setForm({ ...form, generalObjective: e.target.value })} placeholder="Mục tiêu tổng quát cần đạt trong năm/kỳ kế hoạch" /></label>
@@ -96,7 +105,8 @@ export function PlansClient({ year, canManage, rows, departments, profiles }: { 
             <label className="span-2"><span>Yêu cầu <small className="muted">(không bắt buộc)</small></span><textarea rows={3} value={form.requirements} onChange={(e) => setForm({ ...form, requirements: e.target.value })} placeholder="Nguyên tắc, nguồn lực, yêu cầu phối hợp hoặc điều kiện triển khai" /></label>
             <label className="span-2"><span>Mô tả / phạm vi</span><textarea rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Phạm vi áp dụng hoặc ghi chú triển khai" /></label>
           </div></section>
-          <div className="scope-note"><strong>Sau khi tạo:</strong> kế hoạch ở trạng thái Nháp. Bổ sung ít nhất 01 nhiệm vụ dự kiến trên trang chi tiết; các nhiệm vụ này chỉ được tạo thành Action chính thức khi kế hoạch được phê duyệt.</div>
+          <div className="scope-note"><strong>Căn cứ:</strong> danh sách lấy từ module <strong>Văn bản / Chỉ đạo</strong>. Có thể nhập văn bản BYT, Sở Y tế hoặc văn bản nội bộ một lần rồi tái sử dụng cho nhiều kế hoạch.</div>
+                    <div className="scope-note"><strong>Sau khi tạo:</strong> kế hoạch ở trạng thái Nháp. Bổ sung ít nhất 01 nhiệm vụ dự kiến trên trang chi tiết; các nhiệm vụ này chỉ được tạo thành Action chính thức khi kế hoạch được phê duyệt.</div>
         </div>
       </div>
       <div className="modal-footer" style={{ flexShrink: 0, padding: "14px 24px", boxShadow: "0 -6px 18px rgba(26,42,49,.04)" }}><button type="button" className="button secondary" disabled={busy} onClick={requestClose}>Hủy / Đóng</button><button className="button primary" disabled={busy}><Icon name="save" size={17} /> {busy ? "Đang tạo..." : "Tạo bản nháp"}</button></div>

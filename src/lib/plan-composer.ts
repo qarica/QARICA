@@ -9,6 +9,9 @@ export type PlanDraftAction = {
   priority: string;
   lead_department_id: string | null;
   collaborating_department_ids: string[];
+  collaborating_group_ids: string[];
+  collaborating_user_ids: string[];
+  parent_client_id: string | null;
   assignee_user_id: string | null;
   start_date: string | null;
   due_date: string | null;
@@ -32,13 +35,17 @@ export type PlanDraftAction = {
 };
 
 export const planText = (value: unknown) => String(value ?? "").trim();
-export function cleanPlanList(value: unknown) { return Array.isArray(value) ? value.map(planText).filter(Boolean).slice(0, 100) : []; }
+export function cleanPlanList(value: unknown): string[] { return Array.isArray(value) ? value.map(planText).filter(Boolean).slice(0, 100) : []; }
+function cleanPlanIdList(value: unknown, limit: number): string[] { return Array.isArray(value) ? Array.from(new Set(value.map(planText).filter(Boolean))).slice(0, limit) : []; }
 export function cleanPlanDraftActions(value: unknown): PlanDraftAction[] {
   if (!Array.isArray(value)) return [];
   return value.slice(0, 300).map((raw: any, index) => ({
     client_id: planText(raw?.client_id) || `draft-${index + 1}`, title: planText(raw?.title), description: planText(raw?.description) || null,
     priority: planText(raw?.priority || "NORMAL").toUpperCase(), lead_department_id: planText(raw?.lead_department_id) || null,
-    collaborating_department_ids: Array.isArray(raw?.collaborating_department_ids) ? raw.collaborating_department_ids.filter((x: unknown): x is string => typeof x === "string" && !!x) : [],
+    collaborating_department_ids: cleanPlanIdList(raw?.collaborating_department_ids, 50),
+    collaborating_group_ids: cleanPlanIdList(raw?.collaborating_group_ids, 50),
+    collaborating_user_ids: cleanPlanIdList(raw?.collaborating_user_ids, 100),
+    parent_client_id: planText(raw?.parent_client_id) || null,
     assignee_user_id: planText(raw?.assignee_user_id) || null, start_date: planText(raw?.start_date) || null, due_date: planText(raw?.due_date) || null,
     expected_result: planText(raw?.expected_result), verification_requirement: planText(raw?.verification_requirement) || null, milestone_group: planText(raw?.milestone_group) || null,
     is_required: raw?.is_required !== false, criteria_refs: Array.isArray(raw?.criteria_refs) ? raw.criteria_refs.slice(0, 50) : [],
