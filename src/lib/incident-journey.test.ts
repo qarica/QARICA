@@ -48,4 +48,36 @@ describe("incident journey", () => {
     expect(state.step).toBe(6);
     expect(state.targetId).toBe("incident-lessons");
   });
+
+  it("treats legacy CANCELLED incidents as terminal instead of an unknown workflow", () => {
+    const state = getIncidentJourneyState("CANCELLED");
+    expect(state.step).toBe(6);
+    expect(state.targetId).toBeNull();
+    expect(state.title).toContain("kết thúc");
+  });
+
+  it("maps every supported workflow status to a concrete user step", () => {
+    const statuses = [
+      "REPORTED",
+      "RETURNED",
+      "TRIAGED",
+      "INVESTIGATION_REQUIRED",
+      "INVESTIGATING",
+      "ACTION_FOLLOW_UP",
+      "AWAITING_CLOSURE",
+      "CLOSED",
+      "REJECTED",
+      "CANCELLED",
+    ];
+    for (const status of statuses) {
+      const state = getIncidentJourneyState(status, {
+        canTriage: true,
+        canInvestigate: true,
+        canClose: true,
+        rcaRequired: status === "INVESTIGATING",
+      });
+      expect(state.step).toBeGreaterThanOrEqual(2);
+      expect(state.title).not.toBe("Kiểm tra trạng thái hồ sơ");
+    }
+  });
 });
