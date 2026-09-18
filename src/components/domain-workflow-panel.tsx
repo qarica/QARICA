@@ -16,6 +16,7 @@ import { RiskWorkflowClient } from "@/components/risk-workflow-client";
 import { ReportWorkflowClient } from "@/components/report-workflow-client";
 import { SafetyAlertWorkflowClient } from "@/components/safety-alert-workflow-client";
 import { requireUserContext } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 function todayHcm() {
@@ -94,14 +95,16 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     const canAssess = user.permissions.includes("criteria.assess") || canManage;
     const criterionIds = (scopeRows ?? []).map((row: any) => row.criterion_id).filter(Boolean);
 
+    const admin = createAdminClient();
     const [{ data: criterionRows }, { data: responsibilityRows }] = criterionIds.length
       ? await Promise.all([
           supabase.from("criteria_items")
             .select("id,code,title,description,sequence_no")
             .in("id", criterionIds)
             .order("sequence_no"),
-          supabase.from("criterion_responsibilities")
+          admin.from("criterion_responsibilities")
             .select("criteria_item_id,source_lead_label,lead_department_id,source_target_text,due_date,is_priority,mapping_status")
+            .eq("organization_id", user.organizationId)
             .eq("work_year", Number(round.work_year || 0))
             .eq("criteria_version_id", round.criteria_version_id)
             .in("criteria_item_id", criterionIds),
