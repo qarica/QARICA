@@ -35,9 +35,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const now = new Date().toISOString();
   const today = now.slice(0, 10);
+  const previousTo = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  const { error: retireError } = await admin
+    .from("checklist_versions")
+    .update({ status: "RETIRED", effective_to: previousTo })
+    .eq("checklist_template_id", templateId)
+    .eq("status", "PUBLISHED")
+    .neq("id", versionId);
+  if (retireError) return NextResponse.json({ error: retireError.message }, { status: 400 });
+
   const { data: published, error } = await admin
     .from("checklist_versions")
-    .update({ status: "PUBLISHED", published_at: now, published_by: auth.user.id, effective_from: today })
+    .update({ status: "PUBLISHED", published_at: now, published_by: auth.user.id, effective_from: today, effective_to: null })
     .eq("id", versionId)
     .eq("status", "DRAFT")
     .select("id,status,published_at,effective_from")
