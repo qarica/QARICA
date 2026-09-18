@@ -31,6 +31,7 @@ type DraftTask = {
   automation_confirmed: boolean;
   automation_ref_id: string;
   automation_target_department_id: string;
+  automation_target_area: string;
   automation_report_recipient: string;
   automation_report_method: string;
   automation_report_period: string;
@@ -55,6 +56,7 @@ const EMPTY_TASK: DraftTask = {
   automation_confirmed: false,
   automation_ref_id: "",
   automation_target_department_id: "",
+  automation_target_area: "",
   automation_report_recipient: "",
   automation_report_method: "",
   automation_report_period: "",
@@ -83,6 +85,7 @@ function toTask(raw: any): DraftTask {
     automation_confirmed: raw?.automation_confirmed === true,
     automation_ref_id: raw?.automation_ref_id || "",
     automation_target_department_id: raw?.automation_target_department_id || "",
+    automation_target_area: raw?.automation_target_area || "",
     automation_report_recipient: raw?.automation_report_recipient || "",
     automation_report_method: raw?.automation_report_method || "",
     automation_report_period: raw?.automation_report_period || "",
@@ -190,6 +193,7 @@ export function PlanComposerClient({
       automation_confirmed: true,
       automation_ref_id: candidate?.id || "",
       automation_target_department_id: "",
+      automation_target_area: "",
       automation_report_recipient: "",
       automation_report_method: "",
       automation_report_period: "",
@@ -206,6 +210,7 @@ export function PlanComposerClient({
       automation_confirmed: true,
       automation_ref_id: "",
       automation_target_department_id: "",
+      automation_target_area: "",
       automation_report_recipient: "",
       automation_report_method: "",
       automation_report_period: "",
@@ -394,12 +399,16 @@ export function PlanComposerClient({
                               {monitoringChecklists.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
                             </select>
                           </label>
-                          <label>Khoa/phòng được giám sát *
-                            <select value={task.automation_target_department_id} onChange={(e) => updateTask(i, { automation_target_department_id: e.target.value })}>
-                              <option value="">-- Chọn đối tượng giám sát --</option>
+                          <label>Khoa/phòng được giám sát
+                            <select value={task.automation_target_department_id} onChange={(e) => updateTask(i, { automation_target_department_id: e.target.value, automation_target_area: e.target.value ? "" : task.automation_target_area })}>
+                              <option value="">-- Không cố định theo khoa/phòng --</option>
                               {deptOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
                             </select>
                           </label>
+                          <label className="span-2">Hoặc phạm vi/khu vực giám sát
+                            <input value={task.automation_target_area} onChange={(e) => updateTask(i, { automation_target_area: e.target.value, automation_target_department_id: e.target.value.trim() ? "" : task.automation_target_department_id })} placeholder="Ví dụ: Toàn bộ Tòa A và Tòa B" />
+                          </label>
+                          {!task.automation_target_department_id && !task.automation_target_area.trim() ? <div className="qa-note">Cần chọn <strong>một trong hai</strong>: khoa/phòng cụ thể hoặc phạm vi/khu vực giám sát. Không cần nhập cả hai.</div> : null}
                         </>
                       ) : task.automation_kind === "ASSESSMENT" ? (
                         <>
