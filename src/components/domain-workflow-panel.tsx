@@ -183,7 +183,7 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
   }
 
   if (recordType === "CAPA") {
-    const { data: capa } = await supabase.from("capas").select("id,workflow_status,approval_required,rca_analysis_id").eq("record_id", recordId).maybeSingle();
+    const { data: capa } = await supabase.from("capas").select("id,workflow_status,approval_required,rca_analysis_id,required_resources").eq("record_id", recordId).maybeSingle();
     if (!capa) return null;
     const [{ data: links }, { count: evidenceCount }, { count: reviewCount }, rcaResult] = await Promise.all([
       supabase.from("capa_action_links").select("action_id,action_type").eq("capa_id", capa.id),
@@ -194,7 +194,7 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     const actionIds = (links ?? []).map((row: any) => row.action_id).filter(Boolean);
     const { data: actions } = actionIds.length ? await supabase.from("actions").select("id,workflow_status").in("id", actionIds) : { data: [] as any[] };
     const incomplete = (actions ?? []).filter((row: any) => !["COMPLETED", "CANCELLED", "NOT_APPLICABLE"].includes(String(row.workflow_status))).length;
-    return <CapaWorkflowClient recordId={recordId} status={capa.workflow_status} canManage={user.permissions.includes("capa.manage")} approvalRequired={!!capa.approval_required} hasCompletedRca={rcaResult.data?.status === "COMPLETED" && !!String(rcaResult.data?.conclusion || "").trim()} correctiveCount={(links ?? []).filter((x: any) => x.action_type === "CORRECTIVE").length} preventiveCount={(links ?? []).filter((x: any) => x.action_type === "PREVENTIVE").length} incompleteActionCount={incomplete} evidenceCount={evidenceCount ?? 0} effectivenessReviewCount={reviewCount ?? 0} />;
+    return <CapaWorkflowClient recordId={recordId} status={capa.workflow_status} canManage={user.permissions.includes("capa.manage")} approvalRequired={!!capa.approval_required} hasCompletedRca={rcaResult.data?.status === "COMPLETED" && !!String(rcaResult.data?.conclusion || "").trim()} correctiveCount={(links ?? []).filter((x: any) => x.action_type === "CORRECTIVE").length} preventiveCount={(links ?? []).filter((x: any) => x.action_type === "PREVENTIVE").length} incompleteActionCount={incomplete} evidenceCount={evidenceCount ?? 0} effectivenessReviewCount={reviewCount ?? 0} requiredResources={capa.required_resources || ""} />;
   }
 
   if (recordType === "FINDING") {

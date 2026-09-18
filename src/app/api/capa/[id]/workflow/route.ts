@@ -21,7 +21,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (visible.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "CAPA không còn hoạt động." }, { status: 409 });
 
   const admin: any = createAdminClient();
-  const { data: capa, error } = await admin.from("capas").select("id,workflow_status,approval_required,rca_analysis_id,effectiveness_due_date").eq("record_id", recordId).maybeSingle();
+  const { data: capa, error } = await admin.from("capas").select("id,workflow_status,approval_required,rca_analysis_id,effectiveness_due_date,required_resources").eq("record_id", recordId).maybeSingle();
   if (error || !capa) return NextResponse.json({ error: error?.message || "Không tìm thấy dữ liệu CAPA." }, { status: 404 });
   const oldStatus = String(capa.workflow_status || "DRAFT");
   const now = new Date().toISOString(); const today = now.slice(0,10);
@@ -77,7 +77,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { data: actions } = await admin.from("actions").select("workflow_status").in("id", ids);
     const incomplete=(actions||[]).filter((x:any)=>!["COMPLETED","CANCELLED","NOT_APPLICABLE"].includes(String(x.workflow_status))).length;
     const { count } = await admin.from("evidence_links").select("id", { count:"exact", head:true }).eq("record_id", recordId);
-    const gate = capaEffectivenessGate({ incompleteActionCount: incomplete, evidenceCount: count ?? 0 });
+    const gate = capaEffectivenessGate({ incompleteActionCount: incomplete, evidenceCount: count ?? 0, hasRequiredResources: !!String(capa.required_resources || "").trim() });
     if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: 409 });
     newStatus = "EFFECTIVENESS_REVIEW";
     const { error: updateError } = await admin.from("capas").update({ workflow_status:newStatus, updated_at:now }).eq("id",capa.id);
@@ -88,7 +88,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const result=String(body.result||"").toUpperCase(); const method=String(body.evaluation_method||"").trim(); const target=String(body.target_description||"").trim(); const actual=String(body.actual_result||"").trim();
     if(!validReview.has(result)||!method||!target||!actual)return NextResponse.json({error:"Cần đủ phương pháp, mục tiêu, kết quả thực tế và kết luận hiệu lực."},{status:400});
     const { data:last }=await admin.from("capa_effectiveness_reviews").select("review_no").eq("capa_id",capa.id).order("review_no",{ascending:false}).limit(1).maybeSingle();
-    const { data: review, error:reviewError }=await admin.from("capa_effectiveness_reviews").insert({capa_id:capa.id,review_no:Number(last?.review_no||0)+1,planned_review_date:capa.effectiveness_due_date,actual_review_date:today,evaluation_method:method,target_description:target,actual_result:actual,result,comment:reason}).select("id").single();
+    const { data: review, error:reviewError }=await admin.from("capa_effectiveness_reviews").insert({capa_id:capa.id,review_no:Number(last?.review_no||0)+1,planned_review_date:capa.effectiveness_due_date,actual_review_date:today,evaluation_method:method,target_description:target,actual_result:actual,result,comment:reason,reviewed_by:auth.user.id}).select("id").single();
     if(reviewError||!review)return NextResponse.json({error:reviewError?.message||"Không lưu được đánh giá hiệu lực."},{status:400});
     newStatus=result==="EFFECTIVE"?"EFFECTIVE":"IN_PROGRESS";
     const { error: updateError } = await admin.from("capas").update({workflow_status:newStatus,updated_at:now}).eq("id",capa.id);
@@ -97,6 +97,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: updateError.message }, { status: 400 });
     }
     message=result==="EFFECTIVE"?"CAPA được xác nhận có hiệu lực.":"CAPA chưa đạt hiệu lực; đã mở lại bước triển khai.";
+  } else if (command === "SET_RESOURCES") {
+    if (oldStatus === "CLOSED") return NextResponse.json({ error: "CAPA đã đóng, không thể sửa nguồn lực cần." }, { status: 409 });
+    const resources = String(body.required_resources || "").trim();
+    if (!resources) return NextResponse.json({ error: "Cần mô tả nguồn lực cần (nhân lực, kinh phí, thiết bị...)." }, { status: 400 });
+    const { error: updateError } = await admin.from("capas").update({ required_resources: resources, updated_at: now }).eq("id", capa.id);
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
+    reason = reason || "Cập nhật nguồn lực cần cho CAPA."; message = "Đã lưu nguồn lực cần.";
   } else if (command === "CLOSE") {
     if(oldStatus!=="EFFECTIVE")return NextResponse.json({error:"Chỉ CAPA đã xác nhận có hiệu lực mới được đóng."},{status:409});
     reason = reason || "CAPA đã được xác nhận hiệu lực.";

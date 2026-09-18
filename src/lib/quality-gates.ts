@@ -7,9 +7,10 @@ export function findingSubmitGate(input: { actionCount: number; unfinishedAction
   return { ok: true };
 }
 
-export function capaEffectivenessGate(input: { incompleteActionCount: number; evidenceCount: number }): GateResult {
+export function capaEffectivenessGate(input: { incompleteActionCount: number; evidenceCount: number; hasRequiredResources?: boolean }): GateResult {
   if (input.incompleteActionCount > 0) return { ok: false, error: `Còn ${input.incompleteActionCount} Action chưa hoàn thành.` };
   if (input.evidenceCount < 1) return { ok: false, error: "Cần ít nhất 01 minh chứng trước đánh giá hiệu lực." };
+  if (input.hasRequiredResources === false) return { ok: false, error: "Cần khai báo nguồn lực cần trước đánh giá hiệu lực." };
   return { ok: true };
 }
 
