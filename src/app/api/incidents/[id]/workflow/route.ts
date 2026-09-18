@@ -30,7 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (record.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "Hồ sơ sự cố không còn hoạt động." }, { status: 409 });
 
   const admin: any = createAdminClient();
-  const { data: incident, error } = await admin.from("incidents").select("id,workflow_status,investigation_required,rca_required").eq("record_id", recordId).maybeSingle();
+  const { data: incident, error } = await admin.from("incidents").select("id,workflow_status,investigation_required,rca_required,verified_initial_response").eq("record_id", recordId).maybeSingle();
   if (error || !incident) return NextResponse.json({ error: error?.message || "Không tìm thấy dữ liệu sự cố." }, { status: 404 });
 
   const oldStatus = String(incident.workflow_status || "REPORTED");
@@ -65,10 +65,38 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const serious = !!body.serious_event_flag;
     const investigate = !!body.investigation_required || serious;
     const rca = !!body.rca_required || serious;
+    const verifiedInitialResponse = String(body.verified_initial_response || "").trim();
+    const { data: latestReport } = await admin
+      .from("incident_reports")
+      .select("initial_response_description")
+      .eq("incident_id", incident.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const originalInitialResponse = String(latestReport?.initial_response_description || "").trim();
+    const existingVerifiedResponse = String(incident.verified_initial_response || "").trim();
+    if (!originalInitialResponse && !existingVerifiedResponse && !verifiedInitialResponse) {
+      return NextResponse.json({ error: "Cần ghi nhận xử trí tức thời hoặc ghi rõ không áp dụng trước khi hoàn tất xác minh." }, { status: 400 });
+    }
     newStatus = investigate ? "INVESTIGATION_REQUIRED" : "TRIAGED";
-    const { error: updateError } = await admin.from("incidents").update({ verified_description: description, harm_status: harm, serious_event_flag: serious, investigation_required: investigate, rca_required: rca, workflow_status: newStatus, case_owner_user_id: auth.user.id, updated_at: now }).eq("id", incident.id);
+    const triageUpdate: Record<string, unknown> = {
+      verified_description: description,
+      harm_status: harm,
+      serious_event_flag: serious,
+      investigation_required: investigate,
+      rca_required: rca,
+      workflow_status: newStatus,
+      case_owner_user_id: auth.user.id,
+      updated_at: now,
+    };
+    if (verifiedInitialResponse) {
+      triageUpdate.verified_initial_response = verifiedInitialResponse;
+      triageUpdate.verified_initial_response_by = auth.user.id;
+      triageUpdate.verified_initial_response_at = now;
+    }
+    const { error: updateError } = await admin.from("incidents").update(triageUpdate).eq("id", incident.id);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
-    reason = reason || `Phân loại ${harm}; điều tra=${investigate}; RCA=${rca}.`;
+    reason = reason || `Phân loại ${harm}; điều tra=${investigate}; RCA=${rca}; xử trí tức thời=${originalInitialResponse || existingVerifiedResponse || verifiedInitialResponse ? "đã ghi nhận" : "thiếu"}.`;
     message = investigate ? "Đã xác minh; sự cố cần điều tra." : "Đã xác minh và phân loại sự cố.";
   } else if (command === "START_INVESTIGATION") {
     if (oldStatus !== "INVESTIGATION_REQUIRED") return NextResponse.json({ error: "Sự cố chưa ở bước cần điều tra." }, { status: 409 });
