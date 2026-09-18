@@ -14,6 +14,10 @@ export function PlanWorkflowClient({
   draftActionCount = 0,
   draftIndicatorCount = 0,
   draftMonitoringCount = 0,
+  draftReportCount = 0,
+  draftAssessmentCount = 0,
+  draftAuditCount = 0,
+  draftImprovementCount = 0,
 }: {
   planId: string;
   currentStatus: string;
@@ -24,6 +28,10 @@ export function PlanWorkflowClient({
   draftActionCount?: number;
   draftIndicatorCount?: number;
   draftMonitoringCount?: number;
+  draftReportCount?: number;
+  draftAssessmentCount?: number;
+  draftAuditCount?: number;
+  draftImprovementCount?: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -40,6 +48,10 @@ export function PlanWorkflowClient({
       const parts = [`${draftActionCount} Action`];
       if (draftIndicatorCount > 0) parts.push(`${draftIndicatorCount} kỳ đo chỉ số`);
       if (draftMonitoringCount > 0) parts.push(`${draftMonitoringCount} đợt giám sát`);
+      if (draftReportCount > 0) parts.push(`${draftReportCount} nghĩa vụ báo cáo`);
+      if (draftAssessmentCount > 0) parts.push(`${draftAssessmentCount} đợt tự đánh giá`);
+      if (draftAuditCount > 0) parts.push(`${draftAuditCount} Audit/Tracer`);
+      if (draftImprovementCount > 0) parts.push(`${draftImprovementCount} đề án cải tiến nháp`);
       const summary = parts.join(", ");
       if (!window.confirm(`Phê duyệt kế hoạch này sẽ TẠO NGAY và giao việc thật cho người phụ trách:\n\n${summary}.\n\nKhông có thao tác hoàn tác gọn — chỉ tiếp tục nếu đã kiểm tra đúng danh sách nhiệm vụ. Xác nhận phê duyệt?`)) return;
     }
