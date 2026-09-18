@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { responsibilityDepartmentCandidates } from "@/lib/criteria-2026-source";
+import { responsibilityDepartmentCandidates, sourceNeedsManualConfirmation } from "@/lib/criteria-2026-source";
 
 type Department = { id: string; name: string; short_name?: string | null };
 type Responsibility = {
@@ -82,13 +82,14 @@ export function CriterionResponsibilitySourceClient({ canManage }: { canManage: 
         confirmedDepartmentIds,
         confirmed: responsibilities.length === criteria.length && criteria.length > 0 && responsibilities.every((row) => row.mapping_status === "CONFIRMED" && !!row.lead_department_id),
         candidates,
+        manualConfirmation: sourceNeedsManualConfirmation(group.sourceLeadLabel),
       };
     });
   }, [data]);
 
   const confirmedCriteria = data?.criteria.filter((item) => item.responsibility?.mapping_status === "CONFIRMED" && item.responsibility.lead_department_id).length ?? 0;
   const priorityTotal = data?.criteria.filter((item) => item.responsibility?.is_priority).length ?? 0;
-  const clearGroups = groups.filter((group) => !group.confirmed && group.candidates.length === 1);
+  const clearGroups = groups.filter((group) => !group.confirmed && !group.manualConfirmation && group.candidates.length === 1);
 
   async function confirmGroup(sourceLeadLabel: string, departmentId: string) {
     const response = await fetch("/api/assessments/responsibilities", {
@@ -165,7 +166,7 @@ export function CriterionResponsibilitySourceClient({ canManage }: { canManage: 
       {groups.map((group) => {
         const selectedId = selection[group.sourceLeadLabel] || "";
         const confirmedDept = group.confirmedDepartmentIds.length === 1 ? data.departments.find((item) => item.id === group.confirmedDepartmentIds[0]) : null;
-        const needsChoice = !group.confirmed && group.candidates.length !== 1;
+        const needsChoice = !group.confirmed && (group.manualConfirmation || group.candidates.length !== 1);
         return <article key={group.sourceLeadLabel} className={`csm-row ${needsChoice ? "needs" : ""}`}>
           <div className="csm-source"><strong>{group.sourceLeadLabel}</strong><small>{group.codes.join(", ")}{group.priorityCount ? " · " + group.priorityCount + " tiêu chí ưu tiên" : ""}</small></div>
           <div className="csm-count"><strong>{group.criteria.length}</strong>tiêu chí</div>
