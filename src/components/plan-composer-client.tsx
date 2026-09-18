@@ -280,6 +280,39 @@ export function PlanComposerClient({
   const deptOptions = useMemo(() => departments.map((d) => ({ id: d.id, label: d.short_name || d.name })), [departments]);
   const planProfileOptions = useMemo(() => profiles.filter((p) => !planDepartmentIds.length || !p.primary_department_id || planDepartmentIds.includes(p.primary_department_id)).map((p) => ({ id: p.user_id, label: p.full_name || p.email || p.user_id })), [profiles, planDepartmentIds]);
   const allProfileOptions = useMemo(() => profiles.map((p) => ({ id: p.user_id, label: p.full_name || p.email || p.user_id })), [profiles]);
+  const taskTreeRows = useMemo(() => {
+    const taskIds = new Set(tasks.map((task) => task.client_id));
+    const roots = tasks
+      .map((task, index) => ({ task, index }))
+      .filter(({ task }) => !task.parent_client_id || !taskIds.has(task.parent_client_id));
+    const rows: Array<{ task: DraftTask; index: number; depth: 0 | 1; label: string; parentTitle: string | null; childCount: number }> = [];
+    const handled = new Set<string>();
+
+    roots.forEach((root, rootIndex) => {
+      const children = tasks
+        .map((task, index) => ({ task, index }))
+        .filter(({ task }) => task.parent_client_id === root.task.client_id);
+      rows.push({ task: root.task, index: root.index, depth: 0, label: String(rootIndex + 1), parentTitle: null, childCount: children.length });
+      handled.add(root.task.client_id);
+      children.forEach((child, childIndex) => {
+        rows.push({
+          task: child.task,
+          index: child.index,
+          depth: 1,
+          label: `${rootIndex + 1}.${childIndex + 1}`,
+          parentTitle: root.task.title || `Nhiệm vụ ${rootIndex + 1}`,
+          childCount: 0,
+        });
+        handled.add(child.task.client_id);
+      });
+    });
+
+    tasks.forEach((task, index) => {
+      if (handled.has(task.client_id)) return;
+      rows.push({ task, index, depth: 0, label: String(rows.filter((row) => row.depth === 0).length + 1), parentTitle: null, childCount: 0 });
+    });
+    return rows;
+  }, [tasks]);
 
   function updateTask(index: number, patch: Partial<DraftTask>) {
     setTasks((prev) => prev.map((task, i) => (i === index ? { ...task, ...patch } : task)));
@@ -297,24 +330,42 @@ export function PlanComposerClient({
 
   function addTask(parentClientId = "") {
     setTasks((prev) => {
-      const parent = parentClientId ? prev.find((x) => x.client_id === parentClientId) : null;
-      return [...prev, {
+      const parentIndex = parentClientId ? prev.findIndex((x) => x.client_id === parentClientId) : -1;
+      const parent = parentIndex >= 0 ? prev[parentIndex] : null;
+      const newTask: DraftTask = {
         ...EMPTY_TASK,
         client_id: "draft-ui-" + Date.now() + "-" + (prev.length + 1),
         parent_client_id: parentClientId,
         lead_department_id: parent?.lead_department_id || planDepartmentIds[0] || defaultDepartmentId || "",
         assignee_user_id: parent?.assignee_user_id || planOwnerUserIds[0] || initialOwnerUserId || "",
+        start_date: parent?.start_date || "",
         due_date: parent?.due_date || "",
-      }];
+      };
+      if (!parent) return [...prev, newTask];
+
+      let insertAt = parentIndex + 1;
+      while (insertAt < prev.length && prev[insertAt].parent_client_id === parentClientId) insertAt += 1;
+      return [...prev.slice(0, insertAt), newTask, ...prev.slice(insertAt)];
     });
   }
 
+  function promoteTask(index: number) {
+    updateTask(index, { parent_client_id: "" });
+  }
+
   function removeTask(index: number) {
-    setTasks((prev) => {
-      if (prev.length <= 1) return prev;
-      const removed = prev[index];
-      return prev.filter((_, i) => i !== index).map((task) => task.parent_client_id === removed.client_id ? { ...task, parent_client_id: "" } : task);
-    });
+    const target = tasks[index];
+    if (!target) return;
+    const childCount = tasks.filter((task) => task.parent_client_id === target.client_id).length;
+    if (childCount > 0) {
+      setMessage({ tone: "error", text: `Nhiệm vụ này đang có ${childCount} nhiệm vụ con. Hãy xóa hoặc đưa các nhiệm vụ con lên cấp 1 trước.` });
+      return;
+    }
+    if (tasks.length <= 1) {
+      setMessage({ tone: "error", text: "Kế hoạch cần còn ít nhất một nhiệm vụ." });
+      return;
+    }
+    setTasks((prev) => prev.filter((_, i) => i !== index));
   }
 
   function updateSpecific(index: number, value: string) {
@@ -412,7 +463,7 @@ export function PlanComposerClient({
     setMessage(null);
     try {
       const cleanedSpecifics = specifics.map((s) => s.trim()).filter(Boolean);
-      const cleanedTasks = tasks.filter((task) => task.title.trim());
+      const cleanedTasks = taskTreeRows.map((row) => row.task).filter((task) => task.title.trim());
       const res = await fetch(`/api/plans/${planId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -458,7 +509,17 @@ export function PlanComposerClient({
         .plan-composer .qa-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px;padding-top:10px;border-top:1px solid #dce7f0}
         .plan-composer .qa-note{grid-column:1/-1;border-radius:10px;background:#fff8ea;color:#7a571e;padding:8px 10px;font-size:10px;line-height:1.45}
         .plan-composer .qa-preview{grid-column:1/-1;border-radius:10px;background:#fff;padding:9px 10px;border:1px dashed #cbd7e2;font-size:10px;color:#52677a;line-height:1.45}
-        @media(max-width:760px){.plan-composer .qa-fields{grid-template-columns:1fr}}
+        .plan-composer .task-tree{display:grid;gap:10px;margin-top:10px}
+        .plan-composer .task-card{position:relative;padding:12px;background:#fbfdfd}
+        .plan-composer .task-card.child{margin-left:30px;background:#fff;border-color:#d9e5e8}
+        .plan-composer .task-card.child:before{content:"";position:absolute;left:-18px;top:-11px;width:14px;height:31px;border-left:2px solid #c8d8dd;border-bottom:2px solid #c8d8dd;border-bottom-left-radius:8px}
+        .plan-composer .task-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap}
+        .plan-composer .task-title-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .plan-composer .task-index{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:24px;padding:0 7px;border-radius:999px;background:#eaf2f4;color:#24424b;font-size:10px;font-weight:900}
+        .plan-composer .task-card.child .task-index{background:#f1f5f9;color:#475569}
+        .plan-composer .task-parent-note{font-size:10px;color:#71828a;margin-top:3px}
+        .plan-composer .task-actions{display:flex;gap:6px;flex-wrap:wrap}
+        @media(max-width:760px){.plan-composer .qa-fields{grid-template-columns:1fr}.plan-composer .task-card.child{margin-left:14px}.plan-composer .task-card.child:before{left:-9px;width:7px}}
       `}</style>
 
       <div className="panel-title" style={{ padding: 0 }}>
