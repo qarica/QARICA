@@ -15,6 +15,7 @@ import {
 type Department = { id: string; name: string; short_name: string | null };
 type Profile = { user_id: string; full_name: string | null; email: string | null; primary_department_id?: string | null };
 type ReferenceOption = { id: string; label: string; description?: string | null };
+type WorkGroupOption = { id: string; label: string; description?: string | null; memberUserIds: string[]; leaderUserId: string | null; leadDepartmentId: string | null };
 type CriterionItem = { id: string; code: string; title: string };
 type AutomationOption = { id: string; label: string };
 
@@ -23,6 +24,7 @@ type DraftTask = {
   title: string;
   lead_department_id: string;
   collaborating_department_ids: string[];
+  collaborating_group_ids: string[];
   assignee_user_id: string;
   collaborating_user_ids: string[];
   parent_client_id: string;
@@ -52,6 +54,7 @@ const EMPTY_TASK: DraftTask = {
   title: "",
   lead_department_id: "",
   collaborating_department_ids: [],
+  collaborating_group_ids: [],
   assignee_user_id: "",
   collaborating_user_ids: [],
   parent_client_id: "",
@@ -85,6 +88,7 @@ function toTask(raw: any): DraftTask {
     title: raw?.title || "",
     lead_department_id: raw?.lead_department_id || "",
     collaborating_department_ids: Array.isArray(raw?.collaborating_department_ids) ? raw.collaborating_department_ids : [],
+    collaborating_group_ids: Array.isArray(raw?.collaborating_group_ids) ? raw.collaborating_group_ids : [],
     assignee_user_id: raw?.assignee_user_id || "",
     collaborating_user_ids: Array.isArray(raw?.collaborating_user_ids) ? raw.collaborating_user_ids : [],
     parent_client_id: raw?.parent_client_id || "",
@@ -131,6 +135,8 @@ export function PlanComposerClient({
   initialOwnerUserIds,
   referenceOptions,
   initialReferenceIds,
+  workGroupOptions,
+  initialAssignedGroupIds,
   initialStartDate,
   initialEndDate,
 }: {
@@ -154,6 +160,8 @@ export function PlanComposerClient({
   initialOwnerUserIds: string[];
   referenceOptions: ReferenceOption[];
   initialReferenceIds: string[];
+  workGroupOptions: WorkGroupOption[];
+  initialAssignedGroupIds: string[];
   initialStartDate: string | null;
   initialEndDate: string | null;
 }) {
@@ -173,6 +181,7 @@ export function PlanComposerClient({
   const [planDepartmentIds, setPlanDepartmentIds] = useState<string[]>(initialDepartmentIds.length ? initialDepartmentIds : (defaultDepartmentId ? [defaultDepartmentId] : []));
   const [planOwnerUserIds, setPlanOwnerUserIds] = useState<string[]>(initialOwnerUserIds.length ? initialOwnerUserIds : (initialOwnerUserId ? [initialOwnerUserId] : []));
   const [referenceIds, setReferenceIds] = useState<string[]>(initialReferenceIds);
+  const [planAssignedGroupIds, setPlanAssignedGroupIds] = useState<string[]>(initialAssignedGroupIds);
   const [tasks, setTasks] = useState<DraftTask[]>(
     Array.isArray(initialDraftActions) && initialDraftActions.length
       ? (initialDraftActions as any[]).map(toTask)
@@ -310,6 +319,7 @@ export function PlanComposerClient({
           owner_user_id: planOwnerUserIds[0] || initialOwnerUserId,
           owner_user_ids: planOwnerUserIds,
           reference_ids: referenceIds,
+          assigned_group_ids: planAssignedGroupIds,
           start_date: planStartDate || null,
           end_date: planEndDate || null,
         }),
@@ -410,6 +420,9 @@ export function PlanComposerClient({
           <label className="span-2">Căn cứ lập kế hoạch
             <MultiCheckSelect options={referenceOptions} value={referenceIds} onChange={setReferenceIds} placeholder="Chọn văn bản BYT/SYT/Bệnh viện..." emptyText="Chưa có văn bản trong module Văn bản / Chỉ đạo." />
           </label>
+          <label className="span-2">Nhóm thực hiện
+            <MultiCheckSelect options={workGroupOptions} value={planAssignedGroupIds} onChange={setPlanAssignedGroupIds} placeholder="Chọn một hoặc nhiều nhóm công tác" emptyText="Chưa có nhóm. Tạo tại menu Nhóm công tác." />
+          </label>
         </div>
         <div className="tiny muted" style={{ marginTop: 8 }}>Mục đầu tiên là đầu mối chính để tương thích workflow; các mục còn lại được lưu là đơn vị/người phối hợp.</div>
       </section>
@@ -443,6 +456,10 @@ export function PlanComposerClient({
                 </label>
                 <label>Người phối hợp
                   <MultiCheckSelect options={allProfileOptions.filter((x) => x.id !== task.assignee_user_id)} value={task.collaborating_user_ids} onChange={(ids) => updateTask(i, { collaborating_user_ids: ids })} placeholder="Chọn nhiều người phối hợp" />
+                </label>
+                <label className="span-2">Nhóm phối hợp
+                  <MultiCheckSelect options={workGroupOptions} value={task.collaborating_group_ids} onChange={(ids) => updateTask(i, { collaborating_group_ids: ids })} placeholder="Chọn nhóm thực hiện/phối hợp" emptyText="Chưa có nhóm công tác đang hoạt động." />
+                  {task.collaborating_group_ids.length ? <span className="tiny muted">Khi kế hoạch được phê duyệt, thành viên đang hoạt động của nhóm sẽ được chụp snapshot và thêm vào Action. Người đã chọn trực tiếp sẽ không bị nhân đôi.</span> : null}
                 </label>
                 <label className="span-2">Thuộc nhiệm vụ lớn
                   <select value={task.parent_client_id} onChange={(e) => updateTask(i, { parent_client_id: e.target.value })}>
@@ -617,7 +634,7 @@ export function PlanComposerClient({
           );
         })}
 
-        <button type="button" className="button tertiary small" style={{ marginTop: 10 }} onClick={addTask}>+ Thêm nhiệm vụ</button>
+        <button type="button" className="button tertiary small" style={{ marginTop: 10 }} onClick={() => addTask()}>+ Thêm nhiệm vụ</button>
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
