@@ -438,7 +438,7 @@ begin
 end;
 $function$;
 
-revoke all on function public.qlcl_approve_plan_bundle_v3(uuid,uuid) from public;
+revoke all on function public.qlcl_approve_plan_bundle_v3(uuid,uuid) from public, anon, authenticated;
 grant execute on function public.qlcl_approve_plan_bundle_v3(uuid,uuid) to service_role;
 
 create or replace function public.qlcl_approve_plan_bundle_v2(
@@ -455,5 +455,5 @@ begin
 end;
 $function$;
 
-revoke all on function public.qlcl_approve_plan_bundle_v2(uuid,uuid) from public;
+revoke all on function public.qlcl_approve_plan_bundle_v2(uuid,uuid) from public, anon, authenticated;
 grant execute on function public.qlcl_approve_plan_bundle_v2(uuid,uuid) to service_role;
