@@ -82,21 +82,26 @@ export function WorkGroupsClient({canManage,groups,members,departments,profiles}
 
  const modal=open&&typeof document!=="undefined"?createPortal(
   <div className="modal-backdrop"><form className="modal-card" onSubmit={submit} style={{width:"min(1100px,calc(100vw - 32px))",maxHeight:"calc(100dvh - 32px)"}}>
-   <div className="modal-head"><div><div className="eyebrow">NHÓM CÔNG TÁC</div><h2>{form.id?"Cập nhật nhóm":"Tạo nhóm mới"}</h2></div><button type="button" className="icon-button" onClick={()=>!busy&&setOpen(false)}>×</button></div>
+   <div className="modal-head"><div><div className="eyebrow">NHÓM PHÂN CÔNG</div><h2>{form.id?"Cập nhật nhóm":"Tạo nhóm mới"}</h2></div><button type="button" className="icon-button" onClick={()=>!busy&&setOpen(false)}>×</button></div>
    <div className="modal-body" style={{overflowY:"auto"}}>
     <div className="form-grid two">
-     <label>Mã nhóm<input value={form.code} onChange={e=>setForm({...form,code:e.target.value})} placeholder="VD: QLCL-HSBA"/></label>
-     <label>Tên nhóm *<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>
-     <label>Loại nhóm<select value={form.group_type} onChange={e=>setForm({...form,group_type:e.target.value})}>{Object.entries(TYPE_LABELS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
-     <label>Khoa/phòng đầu mối<select value={form.lead_department_id} onChange={e=>setForm({...form,lead_department_id:e.target.value})}><option value="">— Chưa chọn —</option>{departments.map(d=><option key={d.id} value={d.id}>{d.short_name||d.name}</option>)}</select></label>
-     <label>Hiệu lực từ<input type="date" value={form.valid_from} onChange={e=>setForm({...form,valid_from:e.target.value})}/></label>
-     <label>Đến<input type="date" value={form.valid_to} onChange={e=>setForm({...form,valid_to:e.target.value})}/></label>
-     <label className="span-2">Mô tả<textarea rows={3} value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></label>
+     <label className="span-2">Tên nhóm *<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Ví dụ: Phòng ABC, Trưởng khoa/phòng, Mạng lưới QLCL"/></label>
      <label className="span-2">Thành viên
       <MultiCheckSelect options={profileOptions} value={form.member_ids} onChange={ids=>setForm(current=>({...current,member_ids:ids,leader_user_id:ids.includes(current.leader_user_id)?current.leader_user_id:""}))} placeholder="Chọn thành viên nhóm"/>
      </label>
-     <label className="span-2">Trưởng nhóm<select value={form.leader_user_id} onChange={e=>setLeader(e.target.value)}><option value="">— Chưa chỉ định —</option>{form.member_ids.map(id=><option key={id} value={id}>{profileMap.get(id)||id}</option>)}</select></label>
-     {form.member_ids.length?<div className="span-2 table-wrap"><table><thead><tr><th>Thành viên</th><th>Vai trò</th></tr></thead><tbody>{form.member_ids.map(id=><tr key={id}><td>{profileMap.get(id)||id}</td><td>{id===form.leader_user_id?"Trưởng nhóm":<select value={form.member_roles[id]||"MEMBER"} onChange={e=>setForm(current=>({...current,member_roles:{...current.member_roles,[id]:e.target.value}}))}><option value="MEMBER">Thành viên</option><option value="DEPUTY">Phó nhóm</option><option value="SECRETARY">Thư ký</option></select>}</td></tr>)}</tbody></table></div>:null}
+     <label>Trưởng nhóm<select value={form.leader_user_id} onChange={e=>setLeader(e.target.value)}><option value="">— Chưa chỉ định —</option>{form.member_ids.map(id=><option key={id} value={id}>{profileMap.get(id)||id}</option>)}</select></label>
+     <label>Khoa/phòng mặc định<select value={form.lead_department_id} onChange={e=>setForm({...form,lead_department_id:e.target.value})}><option value="">— Không cố định —</option>{departments.map(d=><option key={d.id} value={d.id}>{d.short_name||d.name}</option>)}</select></label>
+     <div className="span-2 scope-note" style={{margin:0}}>Nhóm được khai báo một lần và dùng lại ở mọi nơi. Vai trò <strong>phụ trách / đầu mối / hỗ trợ</strong> do từng lần giao việc quyết định, không phải tạo nhóm mới.</div>
+     <details className="span-2">
+      <summary className="tiny muted" style={{cursor:"pointer",fontWeight:800}}>Thông tin nâng cao</summary>
+      <div className="form-grid two" style={{marginTop:10}}>
+       <label>Mã nhóm<input value={form.code} onChange={e=>setForm({...form,code:e.target.value})} placeholder="Tự chọn nếu cần"/></label>
+       <label>Loại nhóm<select value={form.group_type} onChange={e=>setForm({...form,group_type:e.target.value})}>{Object.entries(TYPE_LABELS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+       <label>Hiệu lực từ<input type="date" value={form.valid_from} onChange={e=>setForm({...form,valid_from:e.target.value})}/></label>
+       <label>Đến<input type="date" value={form.valid_to} onChange={e=>setForm({...form,valid_to:e.target.value})}/></label>
+       <label className="span-2">Mô tả<textarea rows={3} value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></label>
+      </div>
+     </details>
     </div>
    </div>
    <div className="modal-footer"><button type="button" className="button secondary" onClick={()=>setOpen(false)} disabled={busy}>Đóng</button><button className="button primary" disabled={busy}>{busy?"Đang lưu...":"Lưu nhóm"}</button></div>
