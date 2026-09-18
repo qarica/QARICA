@@ -33,7 +33,7 @@ export const INDICATOR_2026_BLUEPRINT: Indicator2026Blueprint[] = [
     frequency: "MONTHLY",
     note: "Duy trì, khôi phục theo dõi từ dữ liệu 2024",
     activeFrom: "2026-10-01",
-    exactDefinitionCodes: [],
+    exactDefinitionCodes: ["CSCL-03", "CSCL-NDNB-01"],
     matchKeywords: ["dung", "nguoi", "benh"],
   },
   {
@@ -69,7 +69,7 @@ export const INDICATOR_2026_BLUEPRINT: Indicator2026Blueprint[] = [
     frequency: "QUARTERLY",
     note: "Duy trì, khôi phục theo dõi từ dữ liệu 2024",
     activeFrom: "2026-10-01",
-    exactDefinitionCodes: [],
+    exactDefinitionCodes: ["CSCL-09", "CSCL-10"],
     matchKeywords: ["hai", "long", "nguoi", "benh"],
   },
   {
