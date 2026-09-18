@@ -28,11 +28,40 @@ const RISK_PROACTIVE_TYPES = new Set(["FMEA"]);
 export async function RegistryModulePage({config}:{config:RegistryModuleConfig}){
  const {user}=await requireUserContext();if(!hasAnyPermission(user,config.permissions))redirect("/dashboard?forbidden=1");
  const supabase=await createClient();const year=await getWorkYear();const ux=getModuleUx(config.recordTypes);const spec=getModuleOperatingSpec(config.recordTypes);const createType=config.recordTypes.length===1?config.recordTypes[0]:null;const canCreate=!!createType&&canCreateDomainRecord(user.permissions,createType);
- const {data,error}=await supabase.from("records").select("id,record_type,record_code,title,lifecycle_status,owner_department_id,owner_user_id,created_at,updated_at").in("record_type",config.recordTypes).eq("work_year",year).order("updated_at",{ascending:false}).limit(300);
+ const {data,error}=await supabase.from("records").select("id,record_type,record_code,title,lifecycle_status,owner_department_id,owner_user_id,metadata,created_at,updated_at").in("record_type",config.recordTypes).eq("work_year",year).order("updated_at",{ascending:false}).limit(300);
  const raw=((data??[]) as any[]).filter(r=>!isOperationallyHiddenStatus(r.lifecycle_status));const depIds=Array.from(new Set(raw.map(r=>r.owner_department_id).filter(Boolean)));const userIds=Array.from(new Set(raw.map(r=>r.owner_user_id).filter(Boolean)));
  const [deps,profiles]=await Promise.all([depIds.length?supabase.from("departments").select("id,name,short_name").in("id",depIds):Promise.resolve({data:[],error:null}),userIds.length?supabase.from("profiles").select("user_id,full_name,email").in("user_id",userIds):Promise.resolve({data:[],error:null})]);
  const depMap=new Map((deps.data??[]).map((r:any)=>[r.id,r.short_name||r.name]));const profileMap=new Map((profiles.data??[]).map((r:any)=>[r.user_id,r.full_name||r.email||r.user_id]));
- const rows=raw.map(r=>({...r,department_name:depMap.get(r.owner_department_id)||"—",owner_name:profileMap.get(r.owner_user_id)||"Chưa gán người",route:routeForRecord(r.record_type,r.id)}));
+ const assessmentProgramIds=createType==="ASSESSMENT"
+  ? Array.from(new Set(raw.map((r:any)=>String(r.metadata?.program_id||"").trim()).filter(Boolean)))
+  : [];
+ const assessmentProgramMap=new Map<string,{record_id:string;record_code:string;title:string}>();
+ if(assessmentProgramIds.length){
+  const {data:programRows}=await supabase.from("work_programs").select("id,record_id").in("id",assessmentProgramIds);
+  const programRecordIds=Array.from(new Set((programRows??[]).map((row:any)=>row.record_id).filter(Boolean)));
+  const {data:programRecords}=programRecordIds.length
+    ? await supabase.from("records").select("id,record_code,title").in("id",programRecordIds)
+    : {data:[] as any[]};
+  const programRecordMap=new Map((programRecords??[]).map((row:any)=>[row.id,row]));
+  for(const program of (programRows??[]) as any[]){
+   const source=programRecordMap.get(program.record_id) as any;
+   if(source)assessmentProgramMap.set(String(program.id),{record_id:String(source.id),record_code:String(source.record_code||""),title:String(source.title||"")});
+  }
+ }
+ const rows=raw.map((r:any)=>{
+  const programId=String(r.metadata?.program_id||"").trim();
+  const sourcePlan=programId?assessmentProgramMap.get(programId):null;
+  const fromPlan=String(r.metadata?.origin||"").toUpperCase()==="PLAN_AUTOMATION"&&!!sourcePlan;
+  return {...r,
+   department_name:depMap.get(r.owner_department_id)||"—",
+   owner_name:profileMap.get(r.owner_user_id)||"Chưa gán người",
+   route:routeForRecord(r.record_type,r.id),
+   source_kind:createType==="ASSESSMENT"?(fromPlan?"PLAN":"MANUAL"):null,
+   source_plan_code:sourcePlan?.record_code||null,
+   source_plan_title:sourcePlan?.title||null,
+   source_plan_route:sourcePlan?`/plans/${programId}`:null,
+  };
+ });
  const assessmentType=createType&&ASSESSMENT_ANALYTICS_TYPES.has(createType)?createType:null;
  const correctiveType=createType&&CORRECTIVE_ANALYTICS_TYPES.has(createType)?createType:null;
  const operationsType=createType&&OPERATIONS_ANALYTICS_TYPES.has(createType)?createType:null;
