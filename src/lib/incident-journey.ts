@@ -7,7 +7,8 @@ export type IncidentJourneyStatus =
   | "ACTION_FOLLOW_UP"
   | "AWAITING_CLOSURE"
   | "CLOSED"
-  | "REJECTED";
+  | "REJECTED"
+  | "CANCELLED";
 
 export type IncidentJourneyState = {
   step: number;
@@ -116,11 +117,11 @@ export function getIncidentJourneyState(
     };
   }
 
-  if (normalized === "REJECTED") {
+  if (normalized === "REJECTED" || normalized === "CANCELLED") {
     return {
       step: 6,
-      title: "Hồ sơ đã đóng vì không phải sự cố y khoa",
-      instruction: "Lý do từ chối được lưu trong lịch sử. Không tiếp tục điều tra, Action/CAPA hay gate đóng.",
+      title: normalized === "CANCELLED" ? "Hồ sơ đã hủy/kết thúc" : "Hồ sơ đã đóng vì không phải sự cố y khoa",
+      instruction: normalized === "CANCELLED" ? "Hồ sơ lịch sử đã kết thúc. Không tiếp tục điều tra, Action/CAPA hay gate đóng." : "Lý do từ chối được lưu trong lịch sử. Không tiếp tục điều tra, Action/CAPA hay gate đóng.",
       next: "Không còn thao tác nghiệp vụ.",
       targetId: null,
     };
