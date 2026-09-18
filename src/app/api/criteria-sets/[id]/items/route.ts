@@ -26,7 +26,9 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     const {data:dup}=await admin.from("criteria_items").select("id").eq("criteria_version_id",version.id).eq("code",code).maybeSingle();
     if(dup)return NextResponse.json({error:"Mã tiêu chí đã tồn tại trong phiên bản này."},{status:409});
   }
-  const {data:existing}=await admin.from("criteria_items").select("sequence_no").eq("criteria_version_id",version.id).eq("parent_criteria_item_id",parentId).order("sequence_no",{ascending:false}).limit(1);
+  let sequenceQuery=admin.from("criteria_items").select("sequence_no").eq("criteria_version_id",version.id);
+  sequenceQuery=parentId?sequenceQuery.eq("parent_criteria_item_id",parentId):sequenceQuery.is("parent_criteria_item_id",null);
+  const {data:existing}=await sequenceQuery.order("sequence_no",{ascending:false}).limit(1);
   const sequenceNo=Number(body.sequence_no)||((Number(existing?.[0]?.sequence_no)||0)+10);
   const {data:item,error}=await admin.from("criteria_items").insert({
     criteria_version_id:version.id,code,title,description:clean(body.description)||null,sequence_no:sequenceNo,
