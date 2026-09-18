@@ -100,22 +100,61 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
   if (recordType === "AUDIT") {
     const { data: audit } = await supabase.from("audits").select("id,workflow_status").eq("record_id", recordId).maybeSingle();
     if (!audit) return null;
-    const [{ count: scopes }, { count: sessions }, { data: links }, { count: evidence }] = await Promise.all([
+    const [{ count: scopes }, { count: sessions }, { data: links }, { count: evidence }, { data: traceLinks }] = await Promise.all([
       supabase.from("audit_scopes").select("id", { count: "exact", head: true }).eq("audit_id", audit.id),
       supabase.from("audit_sessions").select("id", { count: "exact", head: true }).eq("audit_id", audit.id),
       supabase.from("audit_finding_links").select("finding_id").eq("audit_id", audit.id),
       supabase.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId),
+      supabase.from("record_links").select("target_record_id,metadata").eq("source_record_id", recordId).eq("relation_type", "GENERATED_FINDING"),
     ]);
     const findingIds = (links ?? []).map((x: any) => x.finding_id).filter(Boolean);
-    const { data: findings } = findingIds.length ? await supabase.from("findings").select("id,workflow_status").in("id", findingIds) : { data: [] as any[] };
+    const { data: findings } = findingIds.length
+      ? await supabase.from("findings").select("id,record_id,workflow_status,severity,due_date,owner_user_id,lead_department_id").in("id", findingIds)
+      : { data: [] as any[] };
+    const findingRecordIds = (findings ?? []).map((x: any) => x.record_id).filter(Boolean);
+    const { data: findingRecords } = findingRecordIds.length
+      ? await supabase.from("records").select("id,record_code,title").in("id", findingRecordIds)
+      : { data: [] as any[] };
     const openFindings = (findings ?? []).filter((x: any) => !["CLOSED", "CANCELLED"].includes(String(x.workflow_status))).length;
-    const [{ data: scopeRows }, { data: sessionRows }, { data: departments }] = await Promise.all([
+    const [{ data: scopeRows }, { data: sessionRows }, { data: departments }, { data: profiles }] = await Promise.all([
       supabase.from("audit_scopes").select("id,department_id,process_name,area_name,scope_description").eq("audit_id", audit.id),
       supabase.from("audit_sessions").select("id,scheduled_start,scheduled_end,department_id,location,session_status").eq("audit_id", audit.id).order("scheduled_start"),
       supabase.from("departments").select("id,name,short_name").eq("is_active", true).order("name"),
+      supabase.from("profiles").select("user_id,full_name,email,primary_department_id,department_id").eq("is_active", true).order("full_name", { ascending: true, nullsFirst: false }),
     ]);
     const departmentMap = new Map((departments ?? []).map((x: any) => [x.id, x.short_name || x.name]));
-    return <AuditWorkflowClient recordId={recordId} status={audit.workflow_status} canManage={user.permissions.includes("audit.manage")} scopes={scopes ?? 0} sessions={sessions ?? 0} findings={findingIds.length} openFindings={openFindings} evidence={evidence ?? 0} departments={(departments ?? []).map((x: any) => ({ id: x.id, label: x.short_name || x.name }))} scopeRows={(scopeRows ?? []).map((x: any) => ({ id: x.id, department: departmentMap.get(x.department_id) || "", process: x.process_name || "", area: x.area_name || "", description: x.scope_description || "" }))} sessionRows={(sessionRows ?? []).map((x: any) => ({ id: x.id, start: x.scheduled_start ? new Date(x.scheduled_start).toLocaleString("vi-VN") : "", end: x.scheduled_end ? new Date(x.scheduled_end).toLocaleString("vi-VN") : "", department: departmentMap.get(x.department_id) || "", location: x.location || "", status: x.session_status || "PLANNED" }))} />;
+    const recordMap = new Map((findingRecords ?? []).map((x: any) => [x.id, x]));
+    const traceMap = new Map((traceLinks ?? []).map((x: any) => [x.target_record_id, x.metadata || {}]));
+    return <AuditWorkflowClient
+      recordId={recordId}
+      status={audit.workflow_status}
+      canManage={user.permissions.includes("audit.manage")}
+      scopes={scopes ?? 0}
+      sessions={sessions ?? 0}
+      findings={findingIds.length}
+      openFindings={openFindings}
+      evidence={evidence ?? 0}
+      departments={(departments ?? []).map((x: any) => ({ id: x.id, label: x.short_name || x.name }))}
+      profiles={(profiles ?? []).map((x: any) => ({ id: x.user_id, label: x.full_name || x.email || x.user_id, departmentId: x.primary_department_id || x.department_id || "" }))}
+      scopeRows={(scopeRows ?? []).map((x: any) => ({ id: x.id, department: departmentMap.get(x.department_id) || "", process: x.process_name || "", area: x.area_name || "", description: x.scope_description || "" }))}
+      sessionRows={(sessionRows ?? []).map((x: any) => ({ id: x.id, start: x.scheduled_start ? new Date(x.scheduled_start).toLocaleString("vi-VN") : "", end: x.scheduled_end ? new Date(x.scheduled_end).toLocaleString("vi-VN") : "", department: departmentMap.get(x.department_id) || "", location: x.location || "", status: x.session_status || "PLANNED" }))}
+      findingRows={(findings ?? []).map((x: any) => {
+        const rec: any = recordMap.get(x.record_id);
+        const trace: any = traceMap.get(x.record_id);
+        return {
+          id: x.id,
+          recordId: x.record_id,
+          code: rec?.record_code || "Finding",
+          title: rec?.title || "",
+          sourceRef: String(trace?.audit_source_ref || "—"),
+          severity: x.severity || "—",
+          dueDate: x.due_date || "",
+          status: x.workflow_status || "OPEN",
+          department: departmentMap.get(x.lead_department_id) || "—",
+          href: `/findings/${x.record_id}`,
+        };
+      })}
+    />;
   }
 
   if (recordType === "FMEA") {
