@@ -47,6 +47,21 @@ create index if not exists idx_criteria_items_parent on public.criteria_items(pa
 create index if not exists idx_criteria_items_version_active on public.criteria_items(criteria_version_id,is_active);
 create index if not exists idx_checklist_templates_source_code on public.checklist_templates(source_code);
 
+create unique index if not exists uq_criteria_sets_org_code_ci
+  on public.criteria_sets(organization_id,upper(code))
+  where code is not null and trim(code)<>'';
+create unique index if not exists uq_indicator_definitions_org_code_ci
+  on public.indicator_definitions(organization_id,upper(code))
+  where code is not null and trim(code)<>'';
+create unique index if not exists uq_checklist_templates_org_code_ci
+  on public.checklist_templates(organization_id,upper(code))
+  where code is not null and trim(code)<>'';
+create unique index if not exists uq_indicator_definition_versions_no
+  on public.indicator_definition_versions(indicator_definition_id,version_no);
+create unique index if not exists uq_criteria_items_version_code_ci
+  on public.criteria_items(criteria_version_id,upper(code))
+  where code is not null and trim(code)<>'';
+
 create unique index if not exists uq_criteria_sets_org_code_ci on public.criteria_sets(organization_id,upper(code)) where code is not null and trim(code)<>'';
 create unique index if not exists uq_indicator_definitions_org_code_ci on public.indicator_definitions(organization_id,upper(code)) where code is not null and trim(code)<>'';
 create unique index if not exists uq_checklist_templates_org_code_ci on public.checklist_templates(organization_id,upper(code)) where code is not null and trim(code)<>'';
