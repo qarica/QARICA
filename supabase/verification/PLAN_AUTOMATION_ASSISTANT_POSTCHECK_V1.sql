@@ -14,6 +14,9 @@ with checks as (
   select 'v3_authenticated_denied',
          case when not has_function_privilege('authenticated','public.qlcl_approve_plan_bundle_v3(uuid,uuid)','EXECUTE') then 'PASS' else 'FAIL' end
   union all
+  select 'v3_anon_denied',
+         case when not has_function_privilege('anon','public.qlcl_approve_plan_bundle_v3(uuid,uuid)','EXECUTE') then 'PASS' else 'FAIL' end
+  union all
   select 'plan_auto_indicator_trace_support',
          case when exists(
            select 1
