@@ -8,6 +8,7 @@ import { PlanWorkflowClient } from "@/components/plan-workflow-client";
 import { StatusBadge } from "@/components/status-badge";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { formatDate, formatDateTime } from "@/lib/format";
+import { routeForRecord } from "@/lib/record-route";
 import { createClient } from "@/lib/supabase/server";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -46,6 +47,10 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   const draftActionCount = draftTasks.length;
   const draftIndicatorCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "INDICATOR" && t?.automation_confirmed).length;
   const draftMonitoringCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "MONITORING" && t?.automation_confirmed).length;
+  const draftReportCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "REPORT" && t?.automation_confirmed).length;
+  const draftAssessmentCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "ASSESSMENT" && t?.automation_confirmed).length;
+  const draftAuditCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "AUDIT" && t?.automation_confirmed).length;
+  const draftImprovementCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "IMPROVEMENT" && t?.automation_confirmed).length;
 
   const [recordRes, progressRes, departmentRes, ownerRes, approverRes, linksRes, departmentsRes, profilesRes, criteriaRes] = await Promise.all([
     supabase.from("records").select("id,record_code,title,work_year,lifecycle_status,created_by,created_at,updated_at").eq("id", program.record_id).maybeSingle(),
@@ -129,6 +134,21 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
     return template ? { id: row.id, label: `${template.code ? template.code + " · " : ""}${template.short_name || template.name} · v${row.version_no}` } : null;
   }).filter(Boolean) as { id: string; label: string }[];
 
+  const { data: publishedCriteriaVersionsRaw } = await supabase
+    .from("criteria_set_versions")
+    .select("id,criteria_set_id,version_no,status")
+    .eq("status", "PUBLISHED")
+    .order("published_at", { ascending: false });
+  const criteriaSetIds = Array.from(new Set((publishedCriteriaVersionsRaw ?? []).map((row: any) => row.criteria_set_id).filter(Boolean)));
+  const { data: publishedCriteriaSetsRaw } = criteriaSetIds.length
+    ? await supabase.from("criteria_sets").select("id,code,name,organization_id").in("id", criteriaSetIds)
+    : { data: [] as any[] };
+  const criteriaSetById = new Map((publishedCriteriaSetsRaw ?? []).filter((row: any) => !row.organization_id || row.organization_id === user.organizationId).map((row: any) => [row.id, row]));
+  const assessmentCriteriaVersions = (publishedCriteriaVersionsRaw ?? []).map((row: any) => {
+    const set = criteriaSetById.get(row.criteria_set_id) as any;
+    return set ? { id: row.id, label: `${set.code ? set.code + " · " : ""}${set.name || "Bộ tiêu chí"} · v${row.version_no}` } : null;
+  }).filter(Boolean) as { id: string; label: string }[];
+
   const progress = progressRes.data as any;
   const pct = Math.max(0, Math.min(100, Math.round(Number(progress?.progress_pct ?? 0))));
   const requiredActions = Number(progress?.required_actions ?? 0);
@@ -169,7 +189,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       actions={<div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
         <Link className="button secondary" href="/plans">← Danh sách kế hoạch</Link>
         <PlanPrintActions planId={id} compact />
-        <PlanWorkflowClient planId={id} currentStatus={program.workflow_status} canManage={canManage} requiredActions={requiredActions} completedActions={completedActions} draftActionCount={draftActionCount} draftIndicatorCount={draftIndicatorCount} draftMonitoringCount={draftMonitoringCount} />
+        <PlanWorkflowClient planId={id} currentStatus={program.workflow_status} canManage={canManage} requiredActions={requiredActions} completedActions={completedActions} draftActionCount={draftActionCount} draftIndicatorCount={draftIndicatorCount} draftMonitoringCount={draftMonitoringCount} draftReportCount={draftReportCount} draftAssessmentCount={draftAssessmentCount} draftAuditCount={draftAuditCount} draftImprovementCount={draftImprovementCount} />
       </div>}
     />
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
@@ -182,6 +202,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       criteriaItems={(criteriaRes.data ?? []) as any[]}
       indicatorAssignments={indicatorAssignments}
       monitoringChecklists={monitoringChecklists}
+      assessmentCriteriaVersions={assessmentCriteriaVersions}
       initialTitle={recordRes.data.title}
       initialGeneralObjective={program.general_objective}
       initialSpecificObjectives={program.specific_objectives}
@@ -235,7 +256,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
         Chỉ được giao nhiệm vụ/Action chính thức khi kế hoạch đã được phê duyệt và chuyển sang <strong>Đang triển khai</strong>. Kế hoạch Nháp hoặc Chờ phê duyệt không phát sinh giao việc mới.
       </div> : null}
       <div className="table-wrap"><table><thead><tr><th>Mã</th><th>Nội dung</th><th>Phụ trách</th><th>Ưu tiên</th><th>Hạn</th><th>Tự động tạo</th><th>Trạng thái</th></tr></thead><tbody>
-        {linkedActions.map((x: any) => { const outputs = outputsByActionRecord.get(String(x.action.record_id)) ?? []; return <tr key={x.action_id}><td><Link className="table-link" href={`/tasks/${x.action.record_id}`}>{x.action.record_code}</Link></td><td><strong>{x.action.title}</strong>{x.milestone_group ? <span className="subline">{x.milestone_group}</span> : null}{!x.is_required ? <span className="subline">Không tính vào tiến độ bắt buộc</span> : null}</td><td>{deptMap.get(x.action.lead_department_id) || "—"}<span className="subline">{profileMap.get(x.action.assignee_user_id) || "Chưa phân công"}</span></td><td>{x.action.priority}</td><td className={x.action.is_overdue ? "text-danger" : ""}>{formatDate(x.action.due_date)}</td><td>{outputs.length ? <div style={{display:"grid",gap:4}}>{outputs.map((output:any) => { const href = output.record_type === "MONITORING" ? `/monitoring/${output.id}` : output.record_type === "INDICATOR_MEASUREMENT" ? `/indicators/measurements/${output.id}` : "#"; const label = output.record_type === "MONITORING" ? "Đợt giám sát" : output.record_type === "INDICATOR_MEASUREMENT" ? "Kỳ đo chỉ số" : output.record_type; return <Link key={output.id} className="table-link" href={href}>{label} · {output.record_code}</Link>; })}</div> : <span className="muted">Chỉ Action</span>}</td><td><StatusBadge status={x.action.is_overdue ? "OVERDUE" : x.action.workflow_status} /></td></tr>})}
+        {linkedActions.map((x: any) => { const outputs = outputsByActionRecord.get(String(x.action.record_id)) ?? []; return <tr key={x.action_id}><td><Link className="table-link" href={`/tasks/${x.action.record_id}`}>{x.action.record_code}</Link></td><td><strong>{x.action.title}</strong>{x.milestone_group ? <span className="subline">{x.milestone_group}</span> : null}{!x.is_required ? <span className="subline">Không tính vào tiến độ bắt buộc</span> : null}</td><td>{deptMap.get(x.action.lead_department_id) || "—"}<span className="subline">{profileMap.get(x.action.assignee_user_id) || "Chưa phân công"}</span></td><td>{x.action.priority}</td><td className={x.action.is_overdue ? "text-danger" : ""}>{formatDate(x.action.due_date)}</td><td>{outputs.length ? <div style={{display:"grid",gap:4}}>{outputs.map((output:any) => { const href = routeForRecord(output.record_type, output.id); const label = output.record_type === "MONITORING" ? "Đợt giám sát" : output.record_type === "INDICATOR_MEASUREMENT" ? "Kỳ đo chỉ số" : output.record_type === "REPORT" ? "Báo cáo" : output.record_type === "ASSESSMENT" ? "Tự đánh giá" : output.record_type === "AUDIT" ? "Audit / Tracer" : output.record_type === "IMPROVEMENT_PROJECT" ? "Đề án cải tiến" : output.record_type; return <Link key={output.id} className="table-link" href={href}>{label} · {output.record_code}</Link>; })}</div> : <span className="muted">Chỉ Action</span>}</td><td><StatusBadge status={x.action.is_overdue ? "OVERDUE" : x.action.workflow_status} /></td></tr>})}
         {!linkedActions.length ? <tr><td colSpan={7}><div className="empty-state">Kế hoạch chưa có nhiệm vụ/Action liên kết.</div></td></tr> : null}
       </tbody></table></div>
     </section>
