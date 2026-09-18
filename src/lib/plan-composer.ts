@@ -28,7 +28,9 @@ export type PlanDraftAction = {
   collaborating_group_ids: string[];
   collaborating_user_ids: string[];
   parent_client_id: string | null;
+  assignment_target_type: "USER" | "GROUP";
   assignee_user_id: string | null;
+  assignee_group_id: string | null;
   start_date: string | null;
   due_date: string | null;
   expected_result: string;
@@ -126,7 +128,9 @@ export function cleanPlanDraftActions(value: unknown): PlanDraftAction[] {
       collaborating_group_ids: cleanPlanIdList(raw?.collaborating_group_ids, 50),
       collaborating_user_ids: cleanPlanIdList(raw?.collaborating_user_ids, 100),
       parent_client_id: planText(raw?.parent_client_id) || null,
+      assignment_target_type: planText(raw?.assignment_target_type).toUpperCase() === "GROUP" || planText(raw?.assignee_group_id) ? "GROUP" : "USER",
       assignee_user_id: planText(raw?.assignee_user_id) || null,
+      assignee_group_id: planText(raw?.assignee_group_id) || null,
       start_date: planText(raw?.start_date) || null,
       due_date: planText(raw?.due_date) || null,
       expected_result: planText(raw?.expected_result),
@@ -173,7 +177,8 @@ export function validatePlanDraftAction(action: PlanDraftAction, planStart: stri
   if (!action.title) return "Nội dung nhiệm vụ là bắt buộc.";
   if (!PLAN_ACTION_PRIORITIES.has(action.priority)) return "Mức ưu tiên nhiệm vụ không hợp lệ.";
   if (!action.lead_department_id) return "Mỗi nhiệm vụ cần khoa/phòng phụ trách.";
-  if (!action.assignee_user_id) return "Mỗi nhiệm vụ cần người phụ trách.";
+  if (action.assignment_target_type === "GROUP" && !action.assignee_group_id) return "Mỗi nhiệm vụ giao cho Nhóm cần chọn nhóm phụ trách.";
+  if (action.assignment_target_type === "USER" && !action.assignee_user_id) return "Mỗi nhiệm vụ giao cho Cá nhân cần chọn người phụ trách.";
   if (!action.due_date) return "Mỗi nhiệm vụ cần hạn hoàn thành.";
   if (!action.expected_result) return "Mỗi nhiệm vụ cần kết quả mong đợi.";
   if (action.start_date && action.due_date < action.start_date) return "Hạn nhiệm vụ không được trước ngày bắt đầu.";

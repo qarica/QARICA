@@ -64,7 +64,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: action, error: actionError } = await admin
     .from("actions")
-    .select("id,assignee_user_id,lead_department_id,workflow_status")
+    .select("id,assignment_target_type,assignee_user_id,assignee_group_id,lead_department_id,workflow_status")
     .eq("record_id", recordId)
     .maybeSingle();
   if (actionError || !action) {
@@ -72,9 +72,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { data: canManage } = await auth.supabase.rpc("has_permission", { p_permission_code: "plans.manage" });
-  const isAssignee = action.assignee_user_id === auth.user.id;
+  let isAssignee = action.assignee_user_id === auth.user.id;
+  if (action.assignment_target_type === "GROUP" && action.assignee_group_id) {
+    const { data: assignmentSnapshot, error: snapshotError } = await admin
+      .from("work_group_assignment_snapshots")
+      .select("id")
+      .eq("target_record_id", recordId)
+      .eq("group_id", action.assignee_group_id)
+      .eq("assignment_role", "ACTION_ASSIGNEE_GROUP")
+      .contains("member_snapshot", [{ user_id: auth.user.id }])
+      .maybeSingle();
+    if (snapshotError) return NextResponse.json({ error: snapshotError.message }, { status: 400 });
+    isAssignee = !!assignmentSnapshot;
+  }
   if (!isAssignee && !canManage) {
-    return NextResponse.json({ error: "Chỉ người được giao việc hoặc người quản lý kế hoạch mới được nộp minh chứng." }, { status: 403 });
+    return NextResponse.json({ error: "Chỉ cá nhân/nhóm được giao việc hoặc người quản lý kế hoạch mới được nộp minh chứng." }, { status: 403 });
   }
   if (action.workflow_status !== "IN_PROGRESS") {
     return NextResponse.json({ error: "Chỉ được nộp minh chứng khi công việc đang thực hiện." }, { status: 409 });

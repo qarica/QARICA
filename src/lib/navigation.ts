@@ -13,7 +13,6 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "ĐIỀU HÀNH CHẤT LƯỢNG",
     items: [
       { label: "Kế hoạch chất lượng", href: "/plans", icon: "target", anyPermissions: ["plans.view", "plans.manage"] },
-      { label: "Nhóm công tác", href: "/work-groups", icon: "users-round", anyPermissions: ["plans.view", "plans.manage"] },
       { label: "Chỉ đạo / Yêu cầu", href: "/directives", icon: "megaphone", anyPermissions: ["directives.view", "directives.manage"] },
       { label: "Chỉ số chất lượng", href: "/indicators", icon: "gauge", anyPermissions: ["indicators.view", "indicators.manage", "indicators.enter", "indicators.verify"] },
       { label: "Giám sát & Bảng kiểm", href: "/monitoring", icon: "clipboard-check", anyPermissions: ["monitoring.view", "monitoring.perform", "checklists.manage"] },

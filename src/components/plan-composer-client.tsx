@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { MultiCheckSelect } from "@/components/multi-check-select";
 import {
+  AssignmentTargetSelect,
+  AssignmentTargetsMultiSelect,
+  assignmentTargetToken,
+  parseAssignmentTargetToken,
+  type AssignmentTargetOption,
+} from "@/components/assignment-target-select";
+import {
   automationKindLabel,
   suggestPlanAutomationKinds,
   suggestPlanAutomationResource,
@@ -48,7 +55,9 @@ type DraftTask = {
   lead_department_id: string;
   collaborating_department_ids: string[];
   collaborating_group_ids: string[];
+  assignment_target_type: "USER" | "GROUP";
   assignee_user_id: string;
+  assignee_group_id: string;
   collaborating_user_ids: string[];
   parent_client_id: string;
   start_date: string;
@@ -79,7 +88,9 @@ const EMPTY_TASK: DraftTask = {
   lead_department_id: "",
   collaborating_department_ids: [],
   collaborating_group_ids: [],
+  assignment_target_type: "USER",
   assignee_user_id: "",
+  assignee_group_id: "",
   collaborating_user_ids: [],
   parent_client_id: "",
   start_date: "",
@@ -175,7 +186,9 @@ function toTask(raw: any): DraftTask {
     lead_department_id: raw?.lead_department_id || "",
     collaborating_department_ids: Array.isArray(raw?.collaborating_department_ids) ? raw.collaborating_department_ids : [],
     collaborating_group_ids: Array.isArray(raw?.collaborating_group_ids) ? raw.collaborating_group_ids : [],
+    assignment_target_type: String(raw?.assignment_target_type || "").toUpperCase() === "GROUP" || raw?.assignee_group_id ? "GROUP" : "USER",
     assignee_user_id: raw?.assignee_user_id || "",
+    assignee_group_id: raw?.assignee_group_id || "",
     collaborating_user_ids: Array.isArray(raw?.collaborating_user_ids) ? raw.collaborating_user_ids : [],
     parent_client_id: raw?.parent_client_id || "",
     start_date: raw?.start_date || "",
@@ -268,7 +281,7 @@ export function PlanComposerClient({
   const [planDepartmentIds, setPlanDepartmentIds] = useState<string[]>(initialDepartmentIds.length ? initialDepartmentIds : (defaultDepartmentId ? [defaultDepartmentId] : []));
   const [planOwnerUserIds, setPlanOwnerUserIds] = useState<string[]>(initialOwnerUserIds.length ? initialOwnerUserIds : (initialOwnerUserId ? [initialOwnerUserId] : []));
   const [referenceIds, setReferenceIds] = useState<string[]>(initialReferenceIds);
-  const [planAssignedGroupIds, setPlanAssignedGroupIds] = useState<string[]>(initialAssignedGroupIds);
+  const planAssignedGroupIds = initialAssignedGroupIds;
   const [tasks, setTasks] = useState<DraftTask[]>(
     Array.isArray(initialDraftActions) && initialDraftActions.length
       ? (initialDraftActions as any[]).map(toTask)
@@ -280,7 +293,25 @@ export function PlanComposerClient({
 
   const deptOptions = useMemo(() => departments.map((d) => ({ id: d.id, label: d.short_name || d.name })), [departments]);
   const planProfileOptions = useMemo(() => profiles.filter((p) => !planDepartmentIds.length || !p.primary_department_id || planDepartmentIds.includes(p.primary_department_id)).map((p) => ({ id: p.user_id, label: p.full_name || p.email || p.user_id })), [profiles, planDepartmentIds]);
-  const allProfileOptions = useMemo(() => profiles.map((p) => ({ id: p.user_id, label: p.full_name || p.email || p.user_id })), [profiles]);
+  const assignmentOptions = useMemo<AssignmentTargetOption[]>(() => {
+    const departmentMap = new Map(departments.map((department) => [department.id, department.short_name || department.name]));
+    return [
+      ...profiles.map((profile) => ({
+        id: profile.user_id,
+        kind: "USER" as const,
+        label: profile.full_name || profile.email || profile.user_id,
+        description: profile.primary_department_id ? departmentMap.get(profile.primary_department_id) || null : null,
+        departmentId: profile.primary_department_id || null,
+      })),
+      ...workGroupOptions.map((group) => ({
+        id: group.id,
+        kind: "GROUP" as const,
+        label: group.label,
+        description: "Nhóm phân công",
+        departmentId: group.leadDepartmentId || null,
+      })),
+    ];
+  }, [profiles, workGroupOptions, departments]);
   const taskTreeRows = useMemo(() => {
     const taskIds = new Set(tasks.map((task) => task.client_id));
     const roots = tasks
@@ -338,7 +369,9 @@ export function PlanComposerClient({
         client_id: "draft-ui-" + Date.now() + "-" + (prev.length + 1),
         parent_client_id: parentClientId,
         lead_department_id: parent?.lead_department_id || planDepartmentIds[0] || defaultDepartmentId || "",
-        assignee_user_id: parent?.assignee_user_id || planOwnerUserIds[0] || initialOwnerUserId || "",
+        assignment_target_type: parent?.assignment_target_type || "USER",
+        assignee_user_id: parent?.assignment_target_type === "GROUP" ? "" : (parent?.assignee_user_id || planOwnerUserIds[0] || initialOwnerUserId || ""),
+        assignee_group_id: parent?.assignment_target_type === "GROUP" ? (parent?.assignee_group_id || "") : "",
         start_date: parent?.start_date || "",
         due_date: parent?.due_date || "",
       };
@@ -603,9 +636,6 @@ export function PlanComposerClient({
           <label className="span-2">Căn cứ lập kế hoạch
             <MultiCheckSelect options={referenceOptions} value={referenceIds} onChange={setReferenceIds} placeholder="Chọn văn bản BYT/SYT/Bệnh viện..." emptyText="Chưa có văn bản trong module Văn bản / Chỉ đạo." />
           </label>
-          <label className="span-2">Nhóm thực hiện
-            <MultiCheckSelect options={workGroupOptions} value={planAssignedGroupIds} onChange={setPlanAssignedGroupIds} placeholder="Chọn một hoặc nhiều nhóm công tác" emptyText="Chưa có nhóm. Tạo tại menu Nhóm công tác." />
-          </label>
         </div>
         <div className="tiny muted" style={{ marginTop: 8 }}>Mục đầu tiên là đầu mối chính để tương thích workflow; các mục còn lại được lưu là đơn vị/người phối hợp.</div>
       </section>
@@ -649,18 +679,57 @@ export function PlanComposerClient({
 
               <div className="form-grid two">
                 <label className="span-2">Tiêu đề *<input value={task.title} onChange={(e) => updateTask(i, { title: e.target.value })} /></label>
-                <label>Khoa/phòng đầu mối *<select value={task.lead_department_id} onChange={(e) => updateTask(i, { lead_department_id: e.target.value })}><option value="">-- Chọn --</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select></label>
-                <label>Người đầu mối *<select value={task.assignee_user_id} onChange={(e) => updateTask(i, { assignee_user_id: e.target.value })}><option value="">-- Chọn --</option>{profiles.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name || p.email}</option>)}</select></label>
-                <label>Khoa/phòng phối hợp
-                  <MultiCheckSelect options={deptOptions.filter((x) => x.id !== task.lead_department_id)} value={task.collaborating_department_ids} onChange={(ids) => updateTask(i, { collaborating_department_ids: ids })} placeholder="Chọn nhiều đơn vị phối hợp" />
+                <label className="span-2">Giao cho *
+                  <AssignmentTargetSelect
+                    options={assignmentOptions}
+                    value={assignmentTargetToken(task.assignment_target_type, task.assignment_target_type === "GROUP" ? task.assignee_group_id : task.assignee_user_id)}
+                    onChange={(token) => {
+                      const target = parseAssignmentTargetToken(token);
+                      if (!target) return;
+                      const option = assignmentOptions.find((item) => item.kind === target.kind && item.id === target.id);
+                      updateTask(i, {
+                        assignment_target_type: target.kind,
+                        assignee_user_id: target.kind === "USER" ? target.id : "",
+                        assignee_group_id: target.kind === "GROUP" ? target.id : "",
+                        lead_department_id: option?.departmentId || task.lead_department_id,
+                        collaborating_user_ids: target.kind === "USER" ? task.collaborating_user_ids.filter((id) => id !== target.id) : task.collaborating_user_ids,
+                        collaborating_group_ids: target.kind === "GROUP" ? task.collaborating_group_ids.filter((id) => id !== target.id) : task.collaborating_group_ids,
+                      });
+                    }}
+                    placeholder="Tìm cá nhân hoặc nhóm..."
+                  />
+                  <span className="tiny muted">Chọn cá nhân hoặc nhóm trong cùng một ô. QARICA tự nhận biết loại và tự lấy đơn vị mặc định.</span>
                 </label>
-                <label>Người phối hợp
-                  <MultiCheckSelect options={allProfileOptions.filter((x) => x.id !== task.assignee_user_id)} value={task.collaborating_user_ids} onChange={(ids) => updateTask(i, { collaborating_user_ids: ids })} placeholder="Chọn nhiều người phối hợp" />
+                <label className="span-2">Thêm hỗ trợ <span className="tiny muted">(không bắt buộc)</span>
+                  <AssignmentTargetsMultiSelect
+                    options={assignmentOptions.filter((item) => assignmentTargetToken(item.kind, item.id) !== assignmentTargetToken(task.assignment_target_type, task.assignment_target_type === "GROUP" ? task.assignee_group_id : task.assignee_user_id))}
+                    value={[
+                      ...task.collaborating_user_ids.map((id) => assignmentTargetToken("USER", id)),
+                      ...task.collaborating_group_ids.map((id) => assignmentTargetToken("GROUP", id)),
+                    ]}
+                    onChange={(tokens) => {
+                      const users: string[] = [];
+                      const groups: string[] = [];
+                      for (const token of tokens) {
+                        const target = parseAssignmentTargetToken(token);
+                        if (!target) continue;
+                        if (target.kind === "USER") users.push(target.id);
+                        else groups.push(target.id);
+                      }
+                      updateTask(i, { collaborating_user_ids: users, collaborating_group_ids: groups });
+                    }}
+                    placeholder="Thêm cá nhân hoặc nhóm hỗ trợ"
+                  />
                 </label>
-                <label className="span-2">Nhóm phối hợp
-                  <MultiCheckSelect options={workGroupOptions} value={task.collaborating_group_ids} onChange={(ids) => updateTask(i, { collaborating_group_ids: ids })} placeholder="Chọn nhóm thực hiện/phối hợp" emptyText="Chưa có nhóm công tác đang hoạt động." />
-                  {task.collaborating_group_ids.length ? <span className="tiny muted">Khi kế hoạch được phê duyệt, thành viên đang hoạt động của nhóm sẽ được chụp snapshot và thêm vào Action. Người đã chọn trực tiếp sẽ không bị nhân đôi.</span> : null}
-                </label>
+                <details className="span-2">
+                  <summary className="tiny muted" style={{ cursor: "pointer", fontWeight: 700 }}>Điều chỉnh đơn vị phụ trách</summary>
+                  <label style={{ marginTop: 8 }}>Khoa/phòng đầu mối *
+                    <select value={task.lead_department_id} onChange={(e) => updateTask(i, { lead_department_id: e.target.value })}>
+                      <option value="">-- Chọn --</option>
+                      {departments.map((d) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}
+                    </select>
+                  </label>
+                </details>
                 <label>Ngày bắt đầu<input type="date" value={task.start_date} onChange={(e) => updateTask(i, { start_date: e.target.value })} /></label>
                 <label>Hạn hoàn thành *<input type="date" value={task.due_date} onChange={(e) => updateTask(i, { due_date: e.target.value })} /></label>
                 <label>Mức ưu tiên<select value={task.priority} onChange={(e) => updateTask(i, { priority: e.target.value as DraftTask["priority"] })}><option value="LOW">Thấp</option><option value="NORMAL">Bình thường</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn</option><option value="CRITICAL">Rất khẩn</option></select></label>

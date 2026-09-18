@@ -33,8 +33,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const onlyToggle = Object.keys(body).every((key) => key === "is_active");
   if (onlyToggle) {
     const nextActive = Boolean(body.is_active);
-    if (nextActive && (!current.start_date || !current.lead_department_id || !current.assignee_user_id || !current.expected_result || !current.evidence_requirement || !validRule(current.recurrence_rule))) {
-      return NextResponse.json({ error: "Mẫu chưa đủ người phụ trách, lịch, kết quả hoặc minh chứng để kích hoạt." }, { status: 409 });
+    const currentTargetType = String(current.assignment_target_type || "USER").toUpperCase();
+    const hasAssignee = currentTargetType === "GROUP" ? !!current.assignee_group_id : !!current.assignee_user_id;
+    if (nextActive && (!current.start_date || !current.lead_department_id || !hasAssignee || !current.expected_result || !current.evidence_requirement || !validRule(current.recurrence_rule))) {
+      return NextResponse.json({ error: "Mẫu chưa đủ đối tượng phụ trách, lịch, kết quả hoặc minh chứng để kích hoạt." }, { status: 409 });
     }
   const { error } = await admin.from("recurring_work_templates").update({ is_active: nextActive, updated_at: new Date().toISOString() }).eq("id", id).eq("organization_id", caller.organization_id);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -59,7 +61,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const endDate = body.end_date ? String(body.end_date).trim() : null;
   const dueOffsetDays = Number(body.due_offset_days ?? 0);
   const leadDepartmentId = String(body.lead_department_id || "").trim();
+  const assignmentTargetType = String(body.assignment_target_type ?? current.assignment_target_type ?? (body.assignee_group_id ? "GROUP" : "USER")).trim().toUpperCase();
   const assigneeUserId = String(body.assignee_user_id || "").trim();
+  const assigneeGroupId = String(body.assignee_group_id || "").trim();
   const expectedResult = String(body.expected_result || "").trim();
   const evidenceRequirement = String(body.evidence_requirement || "").trim();
   const priority = String(body.priority || "NORMAL").trim().toUpperCase();
@@ -82,7 +86,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return NextResponse.json({ error: "Ngày bắt đầu là bắt buộc." }, { status: 400 });
   if (endDate && (!/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate)) return NextResponse.json({ error: "Ngày kết thúc không hợp lệ." }, { status: 400 });
   if (!Number.isInteger(dueOffsetDays) || dueOffsetDays < 0 || dueOffsetDays > 365) return NextResponse.json({ error: "Số ngày đến hạn phải từ 0 đến 365." }, { status: 400 });
-  if (!leadDepartmentId || !assigneeUserId) return NextResponse.json({ error: "Cần chọn khoa/phòng và người phụ trách." }, { status: 400 });
+  if (!leadDepartmentId) return NextResponse.json({ error: "Cần chọn khoa/phòng chủ trì." }, { status: 400 });
+  if (!["USER","GROUP"].includes(assignmentTargetType)) return NextResponse.json({ error: "Đối tượng phân công không hợp lệ." }, { status: 400 });
+  if (assignmentTargetType === "USER" && !assigneeUserId) return NextResponse.json({ error: "Cần chọn cá nhân phụ trách." }, { status: 400 });
+  if (assignmentTargetType === "GROUP" && !assigneeGroupId) return NextResponse.json({ error: "Cần chọn nhóm phụ trách." }, { status: 400 });
   if (!expectedResult || !evidenceRequirement) return NextResponse.json({ error: "Kết quả mong đợi và yêu cầu minh chứng là bắt buộc." }, { status: 400 });
   if (!PRIORITIES.has(priority)) return NextResponse.json({ error: "Mức ưu tiên không hợp lệ." }, { status: 400 });
   if (!["ACTION","MONITORING","REPORT"].includes(automationKind)) return NextResponse.json({ error: "Loại tự động hóa không hợp lệ." }, { status: 400 });
@@ -92,12 +99,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (automationKind === "REPORT" && !automationReportRecipient) return NextResponse.json({ error: "Báo cáo định kỳ cần nơi nhận." }, { status: 400 });
   if (automationKind === "REPORT" && !automationReportMethod) return NextResponse.json({ error: "Báo cáo định kỳ cần phương thức gửi." }, { status: 400 });
 
-  const [{ data: department, error: departmentError }, { data: assignee, error: assigneeError }] = await Promise.all([
-    admin.from("departments").select("id,is_active").eq("id", leadDepartmentId).eq("organization_id", caller.organization_id).maybeSingle(),
-    admin.from("profiles").select("user_id,is_active").eq("user_id", assigneeUserId).eq("organization_id", caller.organization_id).maybeSingle(),
-  ]);
+  const { data: department, error: departmentError } = await admin.from("departments").select("id,is_active").eq("id", leadDepartmentId).eq("organization_id", caller.organization_id).maybeSingle();
   if (departmentError || !department?.is_active) return NextResponse.json({ error: "Khoa/phòng chủ trì không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
-  if (assigneeError || !assignee?.is_active) return NextResponse.json({ error: "Người phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
+  if (assignmentTargetType === "USER") {
+    const { data: assignee, error: assigneeError } = await admin.from("profiles").select("user_id,is_active").eq("user_id", assigneeUserId).eq("organization_id", caller.organization_id).maybeSingle();
+    if (assigneeError || !assignee?.is_active) return NextResponse.json({ error: "Cá nhân phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
+  } else {
+    const { data: group, error: groupError } = await admin.from("work_groups").select("id,is_active").eq("id", assigneeGroupId).eq("organization_id", caller.organization_id).maybeSingle();
+    if (groupError || !group?.is_active) return NextResponse.json({ error: "Nhóm phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
+    const { count: memberCount } = await admin.from("work_group_members").select("id", { count: "exact", head: true }).eq("group_id", assigneeGroupId).eq("is_active", true);
+    if (!memberCount) return NextResponse.json({ error: "Nhóm phụ trách chưa có thành viên hoạt động." }, { status: 400 });
+  }
 
   if (automationKind === "MONITORING") {
     const [{ data: checklistVersion }, { data: targetDepartment }] = await Promise.all([
@@ -154,7 +166,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     end_date: endDate,
     due_offset_days: dueOffsetDays,
     lead_department_id: leadDepartmentId,
-    assignee_user_id: assigneeUserId,
+    assignment_target_type: assignmentTargetType,
+    assignee_user_id: assignmentTargetType === "USER" ? assigneeUserId : null,
+    assignee_group_id: assignmentTargetType === "GROUP" ? assigneeGroupId : null,
     expected_result: expectedResult,
     evidence_requirement: evidenceRequirement,
     priority,

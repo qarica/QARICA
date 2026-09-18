@@ -11,7 +11,7 @@ type Department={id:string;name:string;short_name:string|null};
 type Profile={user_id:string;full_name:string|null;email:string|null;primary_department_id:string|null};
 
 const TYPE_LABELS:Record<string,string>={
- WORKING_GROUP:"Nhóm công tác",AUDIT_TEAM:"Nhóm Audit/Tracer",ASSESSMENT_TEAM:"Nhóm đánh giá",RCA_TEAM:"Nhóm RCA",IMPROVEMENT_TEAM:"Nhóm cải tiến",MONITORING_TEAM:"Nhóm giám sát",OTHER:"Khác"
+ WORKING_GROUP:"Nhóm phân công",AUDIT_TEAM:"Nhóm Audit/Tracer",ASSESSMENT_TEAM:"Nhóm đánh giá",RCA_TEAM:"Nhóm RCA",IMPROVEMENT_TEAM:"Nhóm cải tiến",MONITORING_TEAM:"Nhóm giám sát",OTHER:"Khác"
 };
 function emptyForm(){return {id:"",code:"",name:"",group_type:"WORKING_GROUP",description:"",lead_department_id:"",leader_user_id:"",valid_from:"",valid_to:"",is_active:true,member_ids:[] as string[],member_roles:{} as Record<string,string>};}
 
@@ -54,7 +54,7 @@ export function WorkGroupsClient({canManage,groups,members,departments,profiles}
    };
    const res=await fetch(form.id?`/api/work-groups/${form.id}`:"/api/work-groups",{method:form.id?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
    const json=await res.json();if(!res.ok)throw new Error(json.error||"Không lưu được nhóm.");
-   setMessage({tone:"success",text:form.id?"Đã cập nhật nhóm công tác.":"Đã tạo nhóm công tác."});
+   setMessage({tone:"success",text:form.id?"Đã cập nhật nhóm phân công.":"Đã tạo nhóm phân công."});
    setOpen(false);router.refresh();
   }catch(err){setMessage({tone:"error",text:err instanceof Error?err.message:"Có lỗi xảy ra."});}
   finally{setBusy(false);}
@@ -82,21 +82,26 @@ export function WorkGroupsClient({canManage,groups,members,departments,profiles}
 
  const modal=open&&typeof document!=="undefined"?createPortal(
   <div className="modal-backdrop"><form className="modal-card" onSubmit={submit} style={{width:"min(1100px,calc(100vw - 32px))",maxHeight:"calc(100dvh - 32px)"}}>
-   <div className="modal-head"><div><div className="eyebrow">NHÓM CÔNG TÁC</div><h2>{form.id?"Cập nhật nhóm":"Tạo nhóm mới"}</h2></div><button type="button" className="icon-button" onClick={()=>!busy&&setOpen(false)}>×</button></div>
+   <div className="modal-head"><div><div className="eyebrow">NHÓM PHÂN CÔNG</div><h2>{form.id?"Cập nhật nhóm":"Tạo nhóm mới"}</h2></div><button type="button" className="icon-button" onClick={()=>!busy&&setOpen(false)}>×</button></div>
    <div className="modal-body" style={{overflowY:"auto"}}>
     <div className="form-grid two">
-     <label>Mã nhóm<input value={form.code} onChange={e=>setForm({...form,code:e.target.value})} placeholder="VD: QLCL-HSBA"/></label>
-     <label>Tên nhóm *<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>
-     <label>Loại nhóm<select value={form.group_type} onChange={e=>setForm({...form,group_type:e.target.value})}>{Object.entries(TYPE_LABELS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
-     <label>Khoa/phòng đầu mối<select value={form.lead_department_id} onChange={e=>setForm({...form,lead_department_id:e.target.value})}><option value="">— Chưa chọn —</option>{departments.map(d=><option key={d.id} value={d.id}>{d.short_name||d.name}</option>)}</select></label>
-     <label>Hiệu lực từ<input type="date" value={form.valid_from} onChange={e=>setForm({...form,valid_from:e.target.value})}/></label>
-     <label>Đến<input type="date" value={form.valid_to} onChange={e=>setForm({...form,valid_to:e.target.value})}/></label>
-     <label className="span-2">Mô tả<textarea rows={3} value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></label>
+     <label className="span-2">Tên nhóm *<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Ví dụ: Phòng ABC, Trưởng khoa/phòng, Mạng lưới QLCL"/></label>
      <label className="span-2">Thành viên
       <MultiCheckSelect options={profileOptions} value={form.member_ids} onChange={ids=>setForm(current=>({...current,member_ids:ids,leader_user_id:ids.includes(current.leader_user_id)?current.leader_user_id:""}))} placeholder="Chọn thành viên nhóm"/>
      </label>
-     <label className="span-2">Trưởng nhóm<select value={form.leader_user_id} onChange={e=>setLeader(e.target.value)}><option value="">— Chưa chỉ định —</option>{form.member_ids.map(id=><option key={id} value={id}>{profileMap.get(id)||id}</option>)}</select></label>
-     {form.member_ids.length?<div className="span-2 table-wrap"><table><thead><tr><th>Thành viên</th><th>Vai trò</th></tr></thead><tbody>{form.member_ids.map(id=><tr key={id}><td>{profileMap.get(id)||id}</td><td>{id===form.leader_user_id?"Trưởng nhóm":<select value={form.member_roles[id]||"MEMBER"} onChange={e=>setForm(current=>({...current,member_roles:{...current.member_roles,[id]:e.target.value}}))}><option value="MEMBER">Thành viên</option><option value="DEPUTY">Phó nhóm</option><option value="SECRETARY">Thư ký</option></select>}</td></tr>)}</tbody></table></div>:null}
+     <label>Trưởng nhóm<select value={form.leader_user_id} onChange={e=>setLeader(e.target.value)}><option value="">— Chưa chỉ định —</option>{form.member_ids.map(id=><option key={id} value={id}>{profileMap.get(id)||id}</option>)}</select></label>
+     <label>Khoa/phòng mặc định<select value={form.lead_department_id} onChange={e=>setForm({...form,lead_department_id:e.target.value})}><option value="">— Không cố định —</option>{departments.map(d=><option key={d.id} value={d.id}>{d.short_name||d.name}</option>)}</select></label>
+     <div className="span-2 scope-note" style={{margin:0}}>Nhóm được khai báo một lần và dùng lại ở mọi nơi. Vai trò <strong>phụ trách / đầu mối / hỗ trợ</strong> do từng lần giao việc quyết định, không phải tạo nhóm mới.</div>
+     <details className="span-2">
+      <summary className="tiny muted" style={{cursor:"pointer",fontWeight:800}}>Thông tin nâng cao</summary>
+      <div className="form-grid two" style={{marginTop:10}}>
+       <label>Mã nhóm<input value={form.code} onChange={e=>setForm({...form,code:e.target.value})} placeholder="Tự chọn nếu cần"/></label>
+       <label>Loại nhóm<select value={form.group_type} onChange={e=>setForm({...form,group_type:e.target.value})}>{Object.entries(TYPE_LABELS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+       <label>Hiệu lực từ<input type="date" value={form.valid_from} onChange={e=>setForm({...form,valid_from:e.target.value})}/></label>
+       <label>Đến<input type="date" value={form.valid_to} onChange={e=>setForm({...form,valid_to:e.target.value})}/></label>
+       <label className="span-2">Mô tả<textarea rows={3} value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></label>
+      </div>
+     </details>
     </div>
    </div>
    <div className="modal-footer"><button type="button" className="button secondary" onClick={()=>setOpen(false)} disabled={busy}>Đóng</button><button className="button primary" disabled={busy}>{busy?"Đang lưu...":"Lưu nhóm"}</button></div>
@@ -106,7 +111,7 @@ export function WorkGroupsClient({canManage,groups,members,departments,profiles}
   {message?<div className={`alert ${message.tone}`}>{message.text}</div>:null}
   <section className="panel">
    <div className="toolbar"><div className="toolbar-left"><div className="search-box"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm mã, tên, loại nhóm..."/></div><label style={{display:"flex",alignItems:"center",gap:6,fontSize:12}}><input type="checkbox" checked={showInactive} onChange={e=>setShowInactive(e.target.checked)}/> Hiện nhóm đã ngưng</label></div>{canManage?<button className="button primary" onClick={()=>edit()}>+ Tạo nhóm</button>:null}</div>
-   <div className="table-wrap"><table><thead><tr><th>Nhóm</th><th>Loại</th><th>Đầu mối</th><th>Thành viên</th><th>Hiệu lực</th><th>Trạng thái</th><th></th></tr></thead><tbody>{filtered.map(g=>{const ms=members.filter(m=>m.group_id===g.id&&m.is_active);return <tr key={g.id}><td><strong>{g.name}</strong>{g.code?<span className="subline">{g.code}</span>:null}</td><td>{TYPE_LABELS[g.group_type]||g.group_type}</td><td>{g.lead_department_id?deptMap.get(g.lead_department_id)||"—":"—"}{g.leader_user_id?<span className="subline">{profileMap.get(g.leader_user_id)||"—"}</span>:null}</td><td><strong>{ms.length}</strong><span className="subline">{ms.slice(0,3).map(m=>profileMap.get(m.user_id)||m.user_id).join(", ")}{ms.length>3?` +${ms.length-3}`:""}</span></td><td>{g.valid_from||"—"}<span className="subline">đến {g.valid_to||"không giới hạn"}</span></td><td>{g.is_active?"Đang hoạt động":"Đã ngưng"}</td><td>{canManage?<div style={{display:"flex",gap:6}}><button className="button tertiary small" onClick={()=>edit(g)}>Sửa</button><button className="button secondary small" disabled={busy} onClick={()=>toggle(g)}>{g.is_active?"Ngưng":"Kích hoạt"}</button></div>:null}</td></tr>})}{!filtered.length?<tr><td colSpan={7}><div className="empty-state">Chưa có nhóm công tác phù hợp.</div></td></tr>:null}</tbody></table></div>
+   <div className="table-wrap"><table><thead><tr><th>Nhóm</th><th>Loại</th><th>Đầu mối</th><th>Thành viên</th><th>Hiệu lực</th><th>Trạng thái</th><th></th></tr></thead><tbody>{filtered.map(g=>{const ms=members.filter(m=>m.group_id===g.id&&m.is_active);return <tr key={g.id}><td><strong>{g.name}</strong>{g.code?<span className="subline">{g.code}</span>:null}</td><td>{TYPE_LABELS[g.group_type]||g.group_type}</td><td>{g.lead_department_id?deptMap.get(g.lead_department_id)||"—":"—"}{g.leader_user_id?<span className="subline">{profileMap.get(g.leader_user_id)||"—"}</span>:null}</td><td><strong>{ms.length}</strong><span className="subline">{ms.slice(0,3).map(m=>profileMap.get(m.user_id)||m.user_id).join(", ")}{ms.length>3?` +${ms.length-3}`:""}</span></td><td>{g.valid_from||"—"}<span className="subline">đến {g.valid_to||"không giới hạn"}</span></td><td>{g.is_active?"Đang hoạt động":"Đã ngưng"}</td><td>{canManage?<div style={{display:"flex",gap:6}}><button className="button tertiary small" onClick={()=>edit(g)}>Sửa</button><button className="button secondary small" disabled={busy} onClick={()=>toggle(g)}>{g.is_active?"Ngưng":"Kích hoạt"}</button></div>:null}</td></tr>})}{!filtered.length?<tr><td colSpan={7}><div className="empty-state">Chưa có nhóm phân công phù hợp.</div></td></tr>:null}</tbody></table></div>
   </section>
   {modal}
  </>;

@@ -6,7 +6,7 @@ import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 import { syncRecurringTemplateNow } from "@/lib/recurring-sync";
 
 const ALLOWED_ACTIONS = new Set(["SUBMIT", "APPROVE", "RETURN", "START", "HOLD", "RESUME", "COMPLETE"]);
-const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v8";
+const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v9";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("plans.manage");
@@ -49,12 +49,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     for (const [index, task] of tasks.entries()) {
       const taskError = validatePlanDraftAction(task, program.start_date, program.end_date);
       if (taskError) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: ${taskError}` }, { status: 409 });
-      const [{ data: taskDept }, { data: taskOwner }] = await Promise.all([
-        admin.from("departments").select("id").eq("id", task.lead_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle(),
-        admin.from("profiles").select("user_id").eq("user_id", task.assignee_user_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle(),
-      ]);
+      const { data: taskDept } = await admin.from("departments").select("id").eq("id", task.lead_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
       if (!taskDept) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: khoa/phòng phụ trách không còn hợp lệ.` }, { status: 409 });
-      if (!taskOwner) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: người phụ trách không còn hợp lệ.` }, { status: 409 });
+      if (task.assignment_target_type === "GROUP") {
+        const { data: taskGroup } = await admin.from("work_groups").select("id").eq("id", task.assignee_group_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
+        if (!taskGroup) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: nhóm phụ trách không còn hợp lệ hoặc đã ngưng.` }, { status: 409 });
+      } else {
+        const { data: taskOwner } = await admin.from("profiles").select("user_id").eq("user_id", task.assignee_user_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
+        if (!taskOwner) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: người phụ trách không còn hợp lệ.` }, { status: 409 });
+      }
       if (task.collaborating_department_ids.length) {
         const { data: collaborators } = await admin.from("departments").select("id").in("id", task.collaborating_department_ids).eq("organization_id", caller.organization_id).eq("is_active", true);
         if ((collaborators ?? []).length !== new Set(task.collaborating_department_ids).size) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: có khoa/phòng phối hợp không còn hợp lệ.` }, { status: 409 });

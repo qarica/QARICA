@@ -63,6 +63,54 @@ describe("Plan Composer V2 helpers", () => {
     expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toBeNull();
   });
 
+  it("supports primary assignment to a configured group without inventing a user assignee", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Rà soát hồ sơ theo nhóm",
+      lead_department_id: "d1",
+      assignment_target_type: "GROUP",
+      assignee_group_id: "g1",
+      due_date: "2026-12-01",
+      expected_result: "Biên bản",
+    }]);
+    expect(task.assignment_target_type).toBe("GROUP");
+    expect(task.assignee_group_id).toBe("g1");
+    expect(task.assignee_user_id).toBeNull();
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toBeNull();
+  });
+
+  it("requires the selected primary target for both individual and group assignments", () => {
+    const [groupTask] = cleanPlanDraftActions([{
+      title: "A",
+      lead_department_id: "d1",
+      assignment_target_type: "GROUP",
+      due_date: "2026-12-01",
+      expected_result: "B",
+    }]);
+    expect(validatePlanDraftAction(groupTask, null, null)).toContain("chọn nhóm phụ trách");
+
+    const [userTask] = cleanPlanDraftActions([{
+      title: "A",
+      lead_department_id: "d1",
+      assignment_target_type: "USER",
+      due_date: "2026-12-01",
+      expected_result: "B",
+    }]);
+    expect(validatePlanDraftAction(userTask, null, null)).toContain("chọn người phụ trách");
+  });
+
+  it("keeps legacy tasks assigned to a user", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "A",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-12-01",
+      expected_result: "B",
+    }]);
+    expect(task.assignment_target_type).toBe("USER");
+    expect(task.assignee_user_id).toBe("u1");
+    expect(task.assignee_group_id).toBeNull();
+  });
+
   it("validates plan and task date windows", () => {
     expect(validPlanDateWindow("2026-01-01", "2026-12-31")).toBe(true);
     expect(validPlanDateWindow("2026-12-31", "2026-01-01")).toBe(false);
