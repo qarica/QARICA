@@ -53,13 +53,21 @@ const ROADMAP_2026: RoadmapPeriod[] = [
 ];
 
 const PLAN_MILESTONES_2026: CalendarEvent[] = [
+  { id: "plan-2026-08-30", date: "2026-08-30", title: "Kiện toàn hệ thống QLCL và ban hành Quy chế", subtitle: "KH QLCL 2026 Final · Mục V.1", kind: "PLAN", tone: "neutral" },
   { id: "plan-2026-09-20", date: "2026-09-20", title: "Hoàn thành Bảng phân công 83 tiêu chí", subtitle: "KH QLCL 2026 Final · mốc tham chiếu", kind: "PLAN", tone: "neutral" },
   { id: "plan-2026-09-30", date: "2026-09-30", title: "Chốt Kỳ 1 và họp Hội đồng QLCL quý III", subtitle: "KH QLCL 2026 Final · mốc tham chiếu", kind: "PLAN", tone: "neutral" },
+  { id: "plan-2026-10-15", date: "2026-10-15", title: "Hạn đăng ký và nộp đề cương đề án cải tiến", subtitle: "KH QLCL 2026 Final · Mục V.5", kind: "PLAN", tone: "neutral" },
+  { id: "plan-2026-10-20", date: "2026-10-20", title: "Lập kế hoạch CAPA 13 tiêu chí và thẩm định đề án", subtitle: "KH QLCL 2026 Final · Mục V.2, V.5", kind: "PLAN", tone: "neutral" },
+  { id: "plan-2026-10-30", date: "2026-10-30", title: "Rà soát, trình phê duyệt đề án cải tiến", subtitle: "KH QLCL 2026 Final · Mục V.5", kind: "PLAN", tone: "neutral" },
   { id: "plan-2026-10-31", date: "2026-10-31", title: "Chốt Kỳ 2: tài liệu, quy trình và công cụ giám sát", subtitle: "KH QLCL 2026 Final · mốc tham chiếu", kind: "PLAN", tone: "neutral" },
   { id: "plan-2026-11-15", date: "2026-11-15", title: "Hạn khoa/phòng đăng ký chỉ số chất lượng", subtitle: "KH QLCL 2026 Final · Phụ lục chỉ số", kind: "PLAN", tone: "neutral" },
   { id: "plan-2026-11-30", date: "2026-11-30", title: "Chốt danh sách chỉ số đủ điều kiện vận hành", subtitle: "KH QLCL 2026 Final · Tổ QLCL thẩm định", kind: "PLAN", tone: "neutral" },
+  { id: "plan-2026-11-20", date: "2026-11-20", title: "Hoàn thành đánh giá 5S đợt 1", subtitle: "KH QLCL 2026 Final · Mục V.5", kind: "PLAN", tone: "neutral" },
+  { id: "plan-2026-12-10", date: "2026-12-10", title: "Hoàn thành khảo sát hài lòng quý IV", subtitle: "KH QLCL 2026 Final · Mục V.4", kind: "PLAN", tone: "neutral" },
   { id: "plan-2026-12-20", date: "2026-12-20", title: "Hoàn thành tự rà soát, chấm thử cuối năm", subtitle: "KH QLCL 2026 Final · 11/12–20/12", kind: "PLAN", tone: "neutral" },
+  { id: "plan-2026-12-30", date: "2026-12-30", title: "Hoàn thành đối soát dữ liệu và minh chứng", subtitle: "KH QLCL 2026 Final · Mục V.6", kind: "PLAN", tone: "neutral" },
   { id: "plan-2026-12-31", date: "2026-12-31", title: "Chốt dữ liệu chính thức năm 2026", subtitle: "KH QLCL 2026 Final · mốc kiểm soát", kind: "PLAN", tone: "neutral" },
+  { id: "plan-2027-01-15", date: "2027-01-15", title: "Hoàn thiện báo cáo kết quả bước đầu đề án cải tiến", subtitle: "KH QLCL 2026 Final · Mục V.5", kind: "PLAN", tone: "neutral" },
   { id: "plan-2027-01-31", date: "2027-01-31", title: "Báo cáo tổng kết và Kế hoạch tự kiểm tra năm 2026", subtitle: "Chu kỳ QLCL 2026 · chuyển tiếp 2027", kind: "PLAN", tone: "neutral" },
   { id: "plan-2027-02-15", date: "2027-02-15", title: "Hoàn tất đánh giá nhiệm vụ trọng điểm/đề án", subtitle: "Chu kỳ QLCL 2026 · chuyển tiếp 2027", kind: "PLAN", tone: "neutral" },
   { id: "plan-2027-03-20", date: "2027-03-20", title: "Kết thúc kỳ tự kiểm tra, đánh giá chính thức", subtitle: "Chu kỳ QLCL 2026 · 01/02–20/03/2027", kind: "PLAN", tone: "neutral" },

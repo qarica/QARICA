@@ -313,7 +313,8 @@ export function RecurringWorkClient({
   async function submit() {
     const hasAssignee = form.assignment_target_type === "GROUP" ? !!form.assignee_group_id : !!form.assignee_user_id;
     if (!form.title.trim() || !form.start_date || !form.lead_department_id || !hasAssignee || !form.expected_result.trim() || !form.evidence_requirement.trim()) {
-      setMessage({ tone: "error", text: "Vui lòng nhập đủ tên công việc, ngày bắt đầu, đơn vị, đối tượng được giao, kết quả mong đợi và minh chứng yêu cầu." });
+      const missing = [!form.title.trim() && "tên công việc", !form.start_date && "ngày bắt đầu", !form.lead_department_id && "đơn vị phụ trách", !hasAssignee && "người/nhóm được giao", !form.expected_result.trim() && "kết quả mong đợi", !form.evidence_requirement.trim() && "minh chứng yêu cầu"].filter(Boolean);
+      setMessage({ tone: "error", text: `Cần bổ sung: ${missing.join(", ")}.` });
       return;
     }
     if (form.end_date && form.end_date < form.start_date) {
@@ -468,7 +469,7 @@ export function RecurringWorkClient({
           <div className="blueprint-title">{row.title}</div>
           <div className="blueprint-meta">{row.scheduleHint}<br/>{row.department_name || row.departmentHint}{row.assignee_name ? ` · ${row.assignee_name}` : " · cần xác nhận người phụ trách"}{row.criteria.length ? ` · TC: ${row.criteria.join(", ")}` : ""}</div>
           {row.automationKind === "MONITORING" ? <div className="blueprint-note">Tự động tạo cả <strong>Action + Đợt giám sát</strong>{row.checklist_label ? ` bằng ${row.checklist_label}` : "; chưa tìm thấy bảng kiểm nguồn"}.</div> : row.automationKind === "REPORT" ? <div className="blueprint-note">Tự động tạo <strong>Action + hồ sơ Báo cáo riêng cho từng kỳ</strong>. Trường nguồn chưa quy định sẽ được hỏi đúng 1 lần.</div> : row.scheduleNeedsChoice ? <div className="blueprint-note">Nguồn chưa ấn định ngày cụ thể — chỉ cần xác nhận lịch một lần.</div> : null}
-          <div className="blueprint-actions">{row.already_configured ? <span className="blueprint-done">✓ Đã kế thừa vào hệ thống</span> : <span className="recurring-muted">{row.sourceLabel}</span>}{canManage && !row.already_configured ? <button className="button primary small" disabled={busy} onClick={() => openBlueprint(row)}>Thiết lập 1 click</button> : null}</div>
+          <div className="blueprint-actions">{row.already_configured ? <span className="blueprint-done">✓ Đã kế thừa vào hệ thống</span> : <span className="recurring-muted">{row.sourceLabel}</span>}{canManage && !row.already_configured ? <button className="button primary small" disabled={busy} onClick={() => openBlueprint(row)}>Xem và thiết lập</button> : null}</div>
         </article>)}
       </div>
     </section>
