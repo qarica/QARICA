@@ -147,11 +147,13 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
       };
     });
 
-    const routingNote = canManage
-      ? "QLCL đang xem toàn bộ phạm vi của đợt. Phân công nguồn 2026 được dùng để điều phối khoa/phòng; quyền quản lý vẫn có thể xử lý toàn bộ."
-      : user.primaryDepartmentName
-        ? "Chỉ hiển thị các tiêu chí đã được QLCL xác nhận giao cho " + user.primaryDepartmentName + "."
-        : "Tài khoản chưa có khoa/phòng chính nên chưa thể nhận tiêu chí tự đánh giá.";
+    const routingNote = Number(round.work_year || 0) < 2026
+      ? "Đợt lịch sử được hiển thị theo kết quả đã chốt; cơ chế điều phối theo phân công nguồn áp dụng từ năm 2026."
+      : canManage
+        ? "QLCL đang xem toàn bộ phạm vi của đợt. Phân công nguồn 2026 được dùng để điều phối khoa/phòng; quyền quản lý vẫn có thể xử lý toàn bộ."
+        : user.primaryDepartmentName
+          ? "Chỉ hiển thị các tiêu chí đã được QLCL xác nhận giao cho " + user.primaryDepartmentName + "."
+          : "Tài khoản chưa có khoa/phòng chính nên chưa thể nhận tiêu chí tự đánh giá.";
 
     return <>
       <AssessmentWorkflowClient
