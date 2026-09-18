@@ -279,17 +279,17 @@ export function PlanComposerClient({
       <label>Mục tiêu chung *<textarea rows={3} value={generalObjective} onChange={(e) => setGeneralObjective(e.target.value)} /></label>
 
       <div>
-        <span className="tiny muted">Mục tiêu cụ thể *</span>
+        <span className="tiny muted">Mục tiêu cụ thể (không bắt buộc)</span>
         {specifics.map((specific, i) => (
           <div key={i} style={{ display: "flex", gap: 8, marginTop: 6 }}>
-            <input style={{ flex: 1 }} value={specific} onChange={(e) => updateSpecific(i, e.target.value)} placeholder={`Mục tiêu cụ thể ${i + 1}`} />
+            <textarea rows={2} style={{ flex: 1 }} value={specific} onChange={(e) => updateSpecific(i, e.target.value)} placeholder={`Mục tiêu cụ thể ${i + 1}`} />
             <button type="button" className="button secondary small" onClick={() => removeSpecific(i)}>Xoá</button>
           </div>
         ))}
         <button type="button" className="button tertiary small" style={{ marginTop: 8 }} onClick={addSpecific}>+ Thêm mục tiêu cụ thể</button>
       </div>
 
-      <label>Yêu cầu *<textarea rows={3} value={requirements} onChange={(e) => setRequirements(e.target.value)} /></label>
+      <label>Yêu cầu (không bắt buộc)<textarea rows={3} value={requirements} onChange={(e) => setRequirements(e.target.value)} /></label>
 
       <div>
         <span className="tiny muted">Nhiệm vụ kế hoạch * · Action được tạo khi kế hoạch phê duyệt; đầu ra liên quan được tạo tự động nếu đã đủ dữ liệu.</span>
@@ -315,8 +315,8 @@ export function PlanComposerClient({
                 <label>Ngày bắt đầu<input type="date" value={task.start_date} onChange={(e) => updateTask(i, { start_date: e.target.value })} /></label>
                 <label>Hạn hoàn thành *<input type="date" value={task.due_date} onChange={(e) => updateTask(i, { due_date: e.target.value })} /></label>
                 <label>Mức ưu tiên<select value={task.priority} onChange={(e) => updateTask(i, { priority: e.target.value as DraftTask["priority"] })}><option value="LOW">Thấp</option><option value="NORMAL">Bình thường</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn</option><option value="CRITICAL">Rất khẩn</option></select></label>
-                <label className="span-2">Kết quả kỳ vọng *<input value={task.expected_result} onChange={(e) => updateTask(i, { expected_result: e.target.value })} /></label>
-                <label className="span-2">Yêu cầu minh chứng (không bắt buộc)<input value={task.verification_requirement} onChange={(e) => updateTask(i, { verification_requirement: e.target.value })} /></label>
+                <label className="span-2">Kết quả kỳ vọng *<textarea rows={2} value={task.expected_result} onChange={(e) => updateTask(i, { expected_result: e.target.value })} /></label>
+                <label className="span-2">Yêu cầu minh chứng (không bắt buộc)<textarea rows={2} value={task.verification_requirement} onChange={(e) => updateTask(i, { verification_requirement: e.target.value })} /></label>
                 <label className="span-2">Mô tả thêm (không bắt buộc)<textarea rows={2} value={task.description} onChange={(e) => updateTask(i, { description: e.target.value })} /></label>
 
                 <div className="qarica-assist">
