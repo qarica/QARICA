@@ -221,12 +221,12 @@ begin
     returning id into v_action_record_id;
 
     insert into public.actions(
-      record_id,description,priority,lead_department_id,assignee_user_id,
+      record_id,title,description,priority,lead_department_id,assignee_user_id,
       start_date,due_date,expected_result,verification_requirement,workflow_status,
       criteria_refs,collaborating_department_ids
     )
     values(
-      v_action_record_id,v_description,v_priority,v_lead_department_id,v_assignee_user_id,
+      v_action_record_id,v_title,v_description,v_priority,v_lead_department_id,v_assignee_user_id,
       v_start_date,v_due_date,v_expected_result,v_verification_requirement,'NOT_STARTED',
       v_criteria_refs,v_collaborating_department_ids
     )
