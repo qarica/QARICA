@@ -55,7 +55,23 @@ describe("Plan Composer V2 helpers", () => {
       automation_confirmed: true,
       automation_ref_id: "checklist-v1",
     }]);
-    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toContain("khoa/phòng được giám sát");
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toContain("khoa/phòng hoặc phạm vi");
+  });
+
+  it("accepts monitoring for a whole-area scope without forcing one department", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát vị trí có nguy cơ trượt, ngã",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-10-31",
+      expected_result: "Danh mục vị trí nguy cơ",
+      automation_kind: "MONITORING",
+      automation_confirmed: true,
+      automation_ref_id: "checklist-slip-fall-v1",
+      automation_target_area: "Toàn bộ Tòa A và Tòa B",
+    }]);
+    expect(task.automation_target_area).toBe("Toàn bộ Tòa A và Tòa B");
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toBeNull();
   });
 
   it("accepts a complete confirmed automation configuration", () => {
