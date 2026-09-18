@@ -13,8 +13,6 @@ type Profile={user_id:string;full_name:string|null;email:string|null;primary_dep
 const TYPE_LABELS:Record<string,string>={
  WORKING_GROUP:"Nhóm công tác",AUDIT_TEAM:"Nhóm Audit/Tracer",ASSESSMENT_TEAM:"Nhóm đánh giá",RCA_TEAM:"Nhóm RCA",IMPROVEMENT_TEAM:"Nhóm cải tiến",MONITORING_TEAM:"Nhóm giám sát",OTHER:"Khác"
 };
-const ROLE_LABELS:Record<string,string>={LEADER:"Trưởng nhóm",DEPUTY:"Phó nhóm",SECRETARY:"Thư ký",MEMBER:"Thành viên"};
-
 function emptyForm(){return {id:"",code:"",name:"",group_type:"WORKING_GROUP",description:"",lead_department_id:"",leader_user_id:"",valid_from:"",valid_to:"",is_active:true,member_ids:[] as string[],member_roles:{} as Record<string,string>};}
 
 export function WorkGroupsClient({canManage,groups,members,departments,profiles}:{canManage:boolean;groups:Group[];members:Member[];departments:Department[];profiles:Profile[]}){
