@@ -11,7 +11,7 @@ type Department={id:string;name:string;short_name:string|null};
 type Profile={user_id:string;full_name:string|null;email:string|null;primary_department_id:string|null};
 
 const TYPE_LABELS:Record<string,string>={
- WORKING_GROUP:"Nhóm công tác",AUDIT_TEAM:"Nhóm Audit/Tracer",ASSESSMENT_TEAM:"Nhóm đánh giá",RCA_TEAM:"Nhóm RCA",IMPROVEMENT_TEAM:"Nhóm cải tiến",MONITORING_TEAM:"Nhóm giám sát",OTHER:"Khác"
+ WORKING_GROUP:"Nhóm phân công",AUDIT_TEAM:"Nhóm Audit/Tracer",ASSESSMENT_TEAM:"Nhóm đánh giá",RCA_TEAM:"Nhóm RCA",IMPROVEMENT_TEAM:"Nhóm cải tiến",MONITORING_TEAM:"Nhóm giám sát",OTHER:"Khác"
 };
 function emptyForm(){return {id:"",code:"",name:"",group_type:"WORKING_GROUP",description:"",lead_department_id:"",leader_user_id:"",valid_from:"",valid_to:"",is_active:true,member_ids:[] as string[],member_roles:{} as Record<string,string>};}
 
@@ -54,7 +54,7 @@ export function WorkGroupsClient({canManage,groups,members,departments,profiles}
    };
    const res=await fetch(form.id?`/api/work-groups/${form.id}`:"/api/work-groups",{method:form.id?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
    const json=await res.json();if(!res.ok)throw new Error(json.error||"Không lưu được nhóm.");
-   setMessage({tone:"success",text:form.id?"Đã cập nhật nhóm công tác.":"Đã tạo nhóm công tác."});
+   setMessage({tone:"success",text:form.id?"Đã cập nhật nhóm phân công.":"Đã tạo nhóm phân công."});
    setOpen(false);router.refresh();
   }catch(err){setMessage({tone:"error",text:err instanceof Error?err.message:"Có lỗi xảy ra."});}
   finally{setBusy(false);}
@@ -106,7 +106,7 @@ export function WorkGroupsClient({canManage,groups,members,departments,profiles}
   {message?<div className={`alert ${message.tone}`}>{message.text}</div>:null}
   <section className="panel">
    <div className="toolbar"><div className="toolbar-left"><div className="search-box"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm mã, tên, loại nhóm..."/></div><label style={{display:"flex",alignItems:"center",gap:6,fontSize:12}}><input type="checkbox" checked={showInactive} onChange={e=>setShowInactive(e.target.checked)}/> Hiện nhóm đã ngưng</label></div>{canManage?<button className="button primary" onClick={()=>edit()}>+ Tạo nhóm</button>:null}</div>
-   <div className="table-wrap"><table><thead><tr><th>Nhóm</th><th>Loại</th><th>Đầu mối</th><th>Thành viên</th><th>Hiệu lực</th><th>Trạng thái</th><th></th></tr></thead><tbody>{filtered.map(g=>{const ms=members.filter(m=>m.group_id===g.id&&m.is_active);return <tr key={g.id}><td><strong>{g.name}</strong>{g.code?<span className="subline">{g.code}</span>:null}</td><td>{TYPE_LABELS[g.group_type]||g.group_type}</td><td>{g.lead_department_id?deptMap.get(g.lead_department_id)||"—":"—"}{g.leader_user_id?<span className="subline">{profileMap.get(g.leader_user_id)||"—"}</span>:null}</td><td><strong>{ms.length}</strong><span className="subline">{ms.slice(0,3).map(m=>profileMap.get(m.user_id)||m.user_id).join(", ")}{ms.length>3?` +${ms.length-3}`:""}</span></td><td>{g.valid_from||"—"}<span className="subline">đến {g.valid_to||"không giới hạn"}</span></td><td>{g.is_active?"Đang hoạt động":"Đã ngưng"}</td><td>{canManage?<div style={{display:"flex",gap:6}}><button className="button tertiary small" onClick={()=>edit(g)}>Sửa</button><button className="button secondary small" disabled={busy} onClick={()=>toggle(g)}>{g.is_active?"Ngưng":"Kích hoạt"}</button></div>:null}</td></tr>})}{!filtered.length?<tr><td colSpan={7}><div className="empty-state">Chưa có nhóm công tác phù hợp.</div></td></tr>:null}</tbody></table></div>
+   <div className="table-wrap"><table><thead><tr><th>Nhóm</th><th>Loại</th><th>Đầu mối</th><th>Thành viên</th><th>Hiệu lực</th><th>Trạng thái</th><th></th></tr></thead><tbody>{filtered.map(g=>{const ms=members.filter(m=>m.group_id===g.id&&m.is_active);return <tr key={g.id}><td><strong>{g.name}</strong>{g.code?<span className="subline">{g.code}</span>:null}</td><td>{TYPE_LABELS[g.group_type]||g.group_type}</td><td>{g.lead_department_id?deptMap.get(g.lead_department_id)||"—":"—"}{g.leader_user_id?<span className="subline">{profileMap.get(g.leader_user_id)||"—"}</span>:null}</td><td><strong>{ms.length}</strong><span className="subline">{ms.slice(0,3).map(m=>profileMap.get(m.user_id)||m.user_id).join(", ")}{ms.length>3?` +${ms.length-3}`:""}</span></td><td>{g.valid_from||"—"}<span className="subline">đến {g.valid_to||"không giới hạn"}</span></td><td>{g.is_active?"Đang hoạt động":"Đã ngưng"}</td><td>{canManage?<div style={{display:"flex",gap:6}}><button className="button tertiary small" onClick={()=>edit(g)}>Sửa</button><button className="button secondary small" disabled={busy} onClick={()=>toggle(g)}>{g.is_active?"Ngưng":"Kích hoạt"}</button></div>:null}</td></tr>})}{!filtered.length?<tr><td colSpan={7}><div className="empty-state">Chưa có nhóm phân công phù hợp.</div></td></tr>:null}</tbody></table></div>
   </section>
   {modal}
  </>;
