@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 const ALLOWED_PRIORITY = new Set(["LOW", "NORMAL", "HIGH", "URGENT", "CRITICAL"]);
-const CREATE_PLAN_ACTION_RPC = "qlcl_create_plan_action_v1";
+const CREATE_PLAN_ACTION_RPC = "qlcl_create_plan_action_v2";
 
 function hcmDate(iso: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
@@ -20,7 +20,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const description = body.description ? String(body.description).trim() : null;
   const priority = String(body.priority || "NORMAL").trim().toUpperCase();
   const leadDepartmentId = String(body.lead_department_id || "").trim();
+  const assignmentTargetType = String(body.assignment_target_type || (body.assignee_group_id ? "GROUP" : "USER")).trim().toUpperCase();
   const assigneeUserId = String(body.assignee_user_id || "").trim();
+  const assigneeGroupId = String(body.assignee_group_id || "").trim();
   const dueDate = body.due_date ? String(body.due_date) : null;
   const expectedResult = String(body.expected_result || "").trim();
   const verificationRequirement = body.verification_requirement ? String(body.verification_requirement).trim() : null;
@@ -29,7 +31,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (!title) return NextResponse.json({ error: "Nội dung nhiệm vụ là bắt buộc." }, { status: 400 });
   if (!leadDepartmentId) return NextResponse.json({ error: "Cần chọn khoa/phòng phụ trách." }, { status: 400 });
-  if (!assigneeUserId) return NextResponse.json({ error: "Cần chọn người phụ trách." }, { status: 400 });
+  if (!["USER","GROUP"].includes(assignmentTargetType)) return NextResponse.json({ error: "Đối tượng phân công không hợp lệ." }, { status: 400 });
+  if (assignmentTargetType === "USER" && !assigneeUserId) return NextResponse.json({ error: "Cần chọn cá nhân phụ trách." }, { status: 400 });
+  if (assignmentTargetType === "GROUP" && !assigneeGroupId) return NextResponse.json({ error: "Cần chọn nhóm phụ trách." }, { status: 400 });
   if (!dueDate) return NextResponse.json({ error: "Hạn hoàn thành là bắt buộc." }, { status: 400 });
   if (!expectedResult) return NextResponse.json({ error: "Kết quả mong đợi là bắt buộc." }, { status: 400 });
   if (!ALLOWED_PRIORITY.has(priority)) return NextResponse.json({ error: "Mức ưu tiên không hợp lệ." }, { status: 400 });
@@ -55,21 +59,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!visibleRecord || visibleRecord.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "Kế hoạch không còn hoạt động hoặc ngoài phạm vi truy cập." }, { status: 404 });
 
   const admin = createAdminClient();
-  const [{ data: caller, error: callerError }, { data: department }, { data: assignee }] = await Promise.all([
+  const [{ data: caller, error: callerError }, { data: department }] = await Promise.all([
     admin.from("profiles").select("organization_id,is_active").eq("user_id", auth.user.id).maybeSingle(),
     admin.from("departments").select("id,organization_id,is_active").eq("id", leadDepartmentId).maybeSingle(),
-    admin.from("profiles").select("user_id,organization_id,is_active").eq("user_id", assigneeUserId).maybeSingle(),
   ]);
   if (callerError || !caller?.organization_id || !caller.is_active || caller.organization_id !== visibleRecord.organization_id) return NextResponse.json({ error: callerError?.message || "Tài khoản hoặc phạm vi bệnh viện không hợp lệ." }, { status: 403 });
   if (!department?.is_active || department.organization_id !== caller.organization_id) return NextResponse.json({ error: "Khoa/phòng phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
-  if (!assignee?.is_active || assignee.organization_id !== caller.organization_id) return NextResponse.json({ error: "Người phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
+  if (assignmentTargetType === "USER") {
+    const { data: assignee } = await admin.from("profiles").select("user_id,organization_id,is_active").eq("user_id", assigneeUserId).maybeSingle();
+    if (!assignee?.is_active || assignee.organization_id !== caller.organization_id) return NextResponse.json({ error: "Cá nhân phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
+  } else {
+    const { data: group } = await admin.from("work_groups").select("id,organization_id,is_active").eq("id", assigneeGroupId).maybeSingle();
+    if (!group?.is_active || group.organization_id !== caller.organization_id) return NextResponse.json({ error: "Nhóm phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
+    const { count: activeMembers } = await admin.from("work_group_members").select("id", { count: "exact", head: true }).eq("group_id", assigneeGroupId).eq("is_active", true);
+    if (!activeMembers) return NextResponse.json({ error: "Nhóm phụ trách chưa có thành viên hoạt động." }, { status: 400 });
+  }
 
   const rpcPayload = {
     title,
     description,
     priority,
     lead_department_id: leadDepartmentId,
-    assignee_user_id: assigneeUserId,
+    assignment_target_type: assignmentTargetType,
+    assignee_user_id: assignmentTargetType === "USER" ? assigneeUserId : null,
+    assignee_group_id: assignmentTargetType === "GROUP" ? assigneeGroupId : null,
     start_date: startDate,
     due_date: dueDate,
     expected_result: expectedResult,
@@ -89,6 +102,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!isMissingRpcFunction(txError, CREATE_PLAN_ACTION_RPC)) {
     const txMessage = rpcErrorMessage(txError, "Không tạo được nhiệm vụ kế hoạch.");
     return NextResponse.json({ error: txMessage }, { status: /required|invalid|outside organization|not found|must be in_progress|must be active/i.test(txMessage) ? 409 : 400 });
+  }
+
+  if (assignmentTargetType === "GROUP") {
+    return NextResponse.json({ error: "Cơ sở dữ liệu chưa có phiên bản tạo Action hỗ trợ Nhóm. Vui lòng cập nhật migration trước khi giao việc cho Nhóm." }, { status: 503 });
   }
 
   // Backward-compatible fallback before the migration exists.
