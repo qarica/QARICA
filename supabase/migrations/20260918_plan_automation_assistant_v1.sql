@@ -202,7 +202,7 @@ begin
       end if;
     end if;
 
-    select public.next_record_code('ACTION',v_record.work_year) into v_record_code;
+    select public.next_record_code(v_actor.organization_id,'ACTION',v_record.work_year) into v_record_code;
     insert into public.records(
       organization_id,record_type,record_code,title,work_year,
       owner_department_id,owner_user_id,lifecycle_status,created_by,metadata
@@ -300,7 +300,7 @@ begin
       v_output_owner_department_id:=coalesce(v_indicator_assignment.department_id,v_lead_department_id);
       v_output_owner_user_id:=coalesce(v_indicator_assignment.collector_user_id,v_assignee_user_id);
 
-      select public.next_record_code('INDICATOR_MEASUREMENT',v_record.work_year) into v_output_code;
+      select public.next_record_code(v_actor.organization_id,'INDICATOR_MEASUREMENT',v_record.work_year) into v_output_code;
       insert into public.records(
         organization_id,record_type,record_code,title,work_year,
         owner_department_id,owner_user_id,lifecycle_status,created_by,metadata
@@ -358,7 +358,7 @@ begin
         raise exception 'Selected checklist is outside organization';
       end if;
 
-      select public.next_record_code('MONITORING',v_record.work_year) into v_output_code;
+      select public.next_record_code(v_actor.organization_id,'MONITORING',v_record.work_year) into v_output_code;
       insert into public.records(
         organization_id,record_type,record_code,title,work_year,
         owner_department_id,owner_user_id,lifecycle_status,created_by,metadata
