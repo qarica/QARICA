@@ -33,6 +33,13 @@ export async function POST(request: Request) {
   const evidenceRequirement = String(body.evidence_requirement || "").trim();
   const priority = String(body.priority || "NORMAL").trim().toUpperCase();
   const isActive = body.is_active !== false;
+  const sourceCode = body.source_code ? String(body.source_code).trim() : null;
+  const sourceLabel = body.source_label ? String(body.source_label).trim() : null;
+  const sourceCriteria = Array.isArray(body.source_criteria) ? body.source_criteria.map((x: unknown) => String(x).trim()).filter(Boolean).slice(0, 50) : [];
+  const automationKind = String(body.automation_kind || "ACTION").trim().toUpperCase();
+  const automationRefId = body.automation_ref_id ? String(body.automation_ref_id).trim() : null;
+  const automationTargetDepartmentId = body.automation_target_department_id ? String(body.automation_target_department_id).trim() : null;
+  const automationTargetArea = body.automation_target_area ? String(body.automation_target_area).trim() : null;
 
   if (!title) return NextResponse.json({ error: "Tên công việc định kỳ là bắt buộc." }, { status: 400 });
   if (!validRule(recurrenceRule)) return NextResponse.json({ error: "Chu kỳ lặp không hợp lệ hoặc chưa được engine hỗ trợ." }, { status: 400 });
@@ -44,6 +51,10 @@ export async function POST(request: Request) {
   if (!expectedResult) return NextResponse.json({ error: "Kết quả mong đợi là bắt buộc." }, { status: 400 });
   if (!evidenceRequirement) return NextResponse.json({ error: "Yêu cầu minh chứng là bắt buộc." }, { status: 400 });
   if (!PRIORITIES.has(priority)) return NextResponse.json({ error: "Mức ưu tiên không hợp lệ." }, { status: 400 });
+  if (!["ACTION","MONITORING"].includes(automationKind)) return NextResponse.json({ error: "Loại tự động hóa không hợp lệ." }, { status: 400 });
+  if (sourceCode && sourceCode.length > 80) return NextResponse.json({ error: "Mã nguồn tự động hóa quá dài." }, { status: 400 });
+  if (automationKind === "MONITORING" && !automationRefId) return NextResponse.json({ error: "Đợt giám sát tự động cần chọn bảng kiểm." }, { status: 400 });
+  if (automationKind === "MONITORING" && !automationTargetDepartmentId && !automationTargetArea) return NextResponse.json({ error: "Đợt giám sát tự động cần khoa/phòng hoặc phạm vi giám sát." }, { status: 400 });
 
   const admin = createAdminClient();
   const { data: caller, error: callerError } = await admin.from("profiles").select("organization_id").eq("user_id", auth.user.id).maybeSingle();
@@ -55,6 +66,21 @@ export async function POST(request: Request) {
   ]);
   if (departmentError || !department?.is_active) return NextResponse.json({ error: "Khoa/phòng chủ trì không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
   if (assigneeError || !assignee?.is_active) return NextResponse.json({ error: "Người phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
+
+  if (automationKind === "MONITORING") {
+    const [{ data: checklistVersion }, { data: targetDepartment }] = await Promise.all([
+      admin.from("checklist_versions").select("id,checklist_template_id,status").eq("id", automationRefId).maybeSingle(),
+      automationTargetDepartmentId
+        ? admin.from("departments").select("id,is_active").eq("id", automationTargetDepartmentId).eq("organization_id", caller.organization_id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ] as any);
+    if (!checklistVersion || checklistVersion.status !== "PUBLISHED") return NextResponse.json({ error: "Bảng kiểm tự động không hợp lệ hoặc chưa phát hành." }, { status: 400 });
+    if (automationTargetDepartmentId && !targetDepartment?.is_active) return NextResponse.json({ error: "Khoa/phòng được giám sát không hợp lệ." }, { status: 400 });
+    const { data: checklistTemplate } = await admin.from("checklist_templates").select("id,organization_id,is_active").eq("id", checklistVersion.checklist_template_id).maybeSingle();
+    if (!checklistTemplate?.is_active || (checklistTemplate.organization_id && checklistTemplate.organization_id !== caller.organization_id)) {
+      return NextResponse.json({ error: "Bảng kiểm tự động nằm ngoài phạm vi bệnh viện." }, { status: 400 });
+    }
+  }
 
   const { data: template, error } = await admin.from("recurring_work_templates").insert({
     organization_id: caller.organization_id,
@@ -70,9 +96,19 @@ export async function POST(request: Request) {
     evidence_requirement: evidenceRequirement,
     priority,
     is_active: isActive,
+    source_code: sourceCode,
+    source_label: sourceLabel,
+    source_criteria: sourceCriteria,
+    automation_kind: automationKind,
+    automation_ref_id: automationRefId,
+    automation_target_department_id: automationTargetDepartmentId,
+    automation_target_area: automationTargetArea,
     created_by: auth.user.id,
   }).select("id").single();
 
-  if (error || !template) return NextResponse.json({ error: error?.message || "Không tạo được mẫu công việc định kỳ." }, { status: 400 });
+  if (error || !template) {
+    const duplicateSource = sourceCode && String(error?.message || "").toLowerCase().includes("uq_recurring_work_templates_source_code");
+    return NextResponse.json({ error: duplicateSource ? "Gợi ý nguồn này đã được kích hoạt trước đó." : error?.message || "Không tạo được mẫu công việc định kỳ." }, { status: duplicateSource ? 409 : 400 });
+  }
   return NextResponse.json({ ok: true, id: template.id });
 }
