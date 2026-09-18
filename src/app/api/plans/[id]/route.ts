@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
+import { cleanPlanDraftActions } from "@/lib/plan-composer";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const text=(v:unknown)=>String(v??"").trim();
 const list=(v:unknown)=>Array.isArray(v)?v.map(x=>text(x)).filter(Boolean).slice(0,100):[];
-const tasks=(v:unknown)=>Array.isArray(v)?v.slice(0,300).map((x:any,i:number)=>({client_id:text(x?.client_id)||`draft-${i+1}`,title:text(x?.title),description:text(x?.description)||null,priority:text(x?.priority||"NORMAL").toUpperCase(),lead_department_id:text(x?.lead_department_id)||null,collaborating_department_ids:Array.isArray(x?.collaborating_department_ids)?x.collaborating_department_ids.filter((y:unknown)=>typeof y==="string"&&y):[],assignee_user_id:text(x?.assignee_user_id)||null,start_date:text(x?.start_date)||null,due_date:text(x?.due_date)||null,expected_result:text(x?.expected_result),verification_requirement:text(x?.verification_requirement)||null,milestone_group:text(x?.milestone_group)||null,is_required:x?.is_required!==false,criteria_refs:Array.isArray(x?.criteria_refs)?x.criteria_refs.slice(0,50):[]})):[];
 
 export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){
  const auth=await requireApiPermission("plans.manage");if(!auth.ok)return auth.response;
@@ -12,7 +12,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
  const {data:program,error}=await auth.supabase.from("work_programs").select("id,record_id,workflow_status,revision_no").eq("id",id).maybeSingle();
  if(error||!program)return NextResponse.json({error:error?.message||"Không tìm thấy kế hoạch hoặc ngoài phạm vi truy cập."},{status:404});
  if(program.workflow_status!=="DRAFT")return NextResponse.json({error:"Chỉ kế hoạch Nháp hoặc được trả lại chỉnh sửa mới được sửa nội dung."},{status:409});
- const title=text(body.title),generalObjective=text(body.general_objective),specificObjectives=list(body.specific_objectives),requirements=text(body.requirements),leadDepartmentId=text(body.lead_department_id),ownerUserId=text(body.owner_user_id)||null,startDate=text(body.start_date)||null,endDate=text(body.end_date)||null,draftActions=tasks(body.draft_actions);
+ const title=text(body.title),generalObjective=text(body.general_objective),specificObjectives=list(body.specific_objectives),requirements=text(body.requirements),leadDepartmentId=text(body.lead_department_id),ownerUserId=text(body.owner_user_id)||null,startDate=text(body.start_date)||null,endDate=text(body.end_date)||null,draftActions=cleanPlanDraftActions(body.draft_actions);
  if(!title||!leadDepartmentId)return NextResponse.json({error:"Cần có tên kế hoạch và khoa/phòng chủ trì trước khi lưu."},{status:400});
  if(startDate&&endDate&&endDate<startDate)return NextResponse.json({error:"Ngày kết thúc không được trước ngày bắt đầu."},{status:400});
  const {data:caller}=await admin.from("profiles").select("organization_id,is_active").eq("user_id",auth.user.id).maybeSingle();if(!caller?.organization_id||!caller.is_active)return NextResponse.json({error:"Tài khoản không hợp lệ."},{status:403});
