@@ -146,8 +146,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (isMissingRpcFunction(txError, APPROVE_PLAN_BUNDLE_RPC)) return NextResponse.json({ error: "Plan Automation V2 chưa được kích hoạt trên cơ sở dữ liệu. Không phê duyệt để tránh tạo Action/đầu ra không đầy đủ." }, { status: 503 });
       return NextResponse.json({ error: rpcErrorMessage(txError, "Không thể phê duyệt trọn bộ kế hoạch.") }, { status: 400 });
     }
-    const recurringTemplateIds = Array.isArray((tx as any)?.recurring_template_ids)
-      ? Array.from(new Set((tx as any).recurring_template_ids.map((value: unknown) => String(value || "").trim()).filter(Boolean)))
+    const recurringTemplateIds: string[] = Array.isArray((tx as any)?.recurring_template_ids)
+      ? Array.from(new Set<string>((tx as any).recurring_template_ids.map((value: unknown) => String(value || "").trim()).filter((value: string) => !!value)))
       : [];
     const recurringSync: Array<{ template_id: string; ok: boolean; created_monitoring_rounds: number; errors: number; error?: string }> = [];
     for (const templateId of recurringTemplateIds) {
