@@ -13,66 +13,32 @@ function fold(value: unknown) {
     .trim();
 }
 
+export function suggestPlanAutomationKinds(input: {
+  title?: unknown;
+  description?: unknown;
+  expectedResult?: unknown;
+}): PlanAutomationKind[] {
+  const text = fold([input.title, input.description, input.expectedResult].filter(Boolean).join(" "));
+  if (!text) return [];
+
+  const rules: Array<[Exclude<PlanAutomationKind, "ACTION">, RegExp[]]> = [
+    ["IMPROVEMENT", [/\bde an cai tien\b/, /\bcai tien chat luong\b/, /\bpdsa\b/, /\bpdca\b/]],
+    ["ASSESSMENT", [/\btu danh gia\b/, /\bcham tieu chi\b/, /\bbo tieu chi\b.*\bdanh gia\b/, /\bassessment\b/]],
+    ["AUDIT", [/\baudit\b/, /\btracer\b/, /\bdanh gia noi bo\b/, /\bkiem tra cheo\b/]],
+    ["REPORT", [/\bbao cao\b/, /\bnop bao cao\b/, /\bgui bao cao\b/, /\btong hop\b.*\bbao cao\b/]],
+    ["INDICATOR", [/\bchi so\b/, /\bty le\b/, /\bkpi\b/, /\bindicator\b/, /\bdo luong\b/, /\btheo doi\b.*\b(chi so|ty le)\b/]],
+    ["MONITORING", [/\bgiam sat\b/, /\bbang kiem\b/, /\bkiem tra tuan thu\b/, /\bkiem tra dinh ky\b/, /\bmonitoring\b/]],
+  ];
+
+  return rules.filter(([,patterns]) => patterns.some((pattern) => pattern.test(text))).map(([kind]) => kind);
+}
+
 export function suggestPlanAutomationKind(input: {
   title?: unknown;
   description?: unknown;
   expectedResult?: unknown;
 }): PlanAutomationKind {
-  const text = fold([input.title, input.description, input.expectedResult].filter(Boolean).join(" "));
-  if (!text) return "ACTION";
-
-  const improvementSignals = [
-    /\bde an cai tien\b/,
-    /\bcai tien chat luong\b/,
-    /\bpdsa\b/,
-    /\bpdca\b/,
-  ];
-  if (improvementSignals.some((pattern) => pattern.test(text))) return "IMPROVEMENT";
-
-  const assessmentSignals = [
-    /\btu danh gia\b/,
-    /\bcham tieu chi\b/,
-    /\bbo tieu chi\b.*\bdanh gia\b/,
-    /\bassessment\b/,
-  ];
-  if (assessmentSignals.some((pattern) => pattern.test(text))) return "ASSESSMENT";
-
-  const auditSignals = [
-    /\baudit\b/,
-    /\btracer\b/,
-    /\bdanh gia noi bo\b/,
-    /\bkiem tra cheo\b/,
-  ];
-  if (auditSignals.some((pattern) => pattern.test(text))) return "AUDIT";
-
-  const reportSignals = [
-    /\bbao cao\b/,
-    /\bnop bao cao\b/,
-    /\bgui bao cao\b/,
-    /\btong hop\b.*\bbao cao\b/,
-  ];
-  if (reportSignals.some((pattern) => pattern.test(text))) return "REPORT";
-
-  const indicatorSignals = [
-    /\bchi so\b/,
-    /\bty le\b/,
-    /\bkpi\b/,
-    /\bindicator\b/,
-    /\bdo luong\b/,
-    /\btheo doi\b.*\b(chi so|ty le)\b/,
-  ];
-  if (indicatorSignals.some((pattern) => pattern.test(text))) return "INDICATOR";
-
-  const monitoringSignals = [
-    /\bgiam sat\b/,
-    /\bbang kiem\b/,
-    /\bkiem tra tuan thu\b/,
-    /\bkiem tra dinh ky\b/,
-    /\bmonitoring\b/,
-  ];
-  if (monitoringSignals.some((pattern) => pattern.test(text))) return "MONITORING";
-
-  return "ACTION";
+  return suggestPlanAutomationKinds(input)[0] || "ACTION";
 }
 
 function tokens(value: unknown) {
