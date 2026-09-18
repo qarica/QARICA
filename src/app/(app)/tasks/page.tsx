@@ -20,10 +20,9 @@ export default async function TasksPage(){
  const isQlcl=user.roleCodes.includes("QLCL_MANAGER")||user.roleCodes.includes("HOI_DONG_QLCL");const isDepartmentHead=user.roleCodes.includes("DEPARTMENT_HEAD");const isBoard=user.roleCodes.includes("BAN_GIAM_DOC");
  const groupAssignmentRes=await supabase
   .from("work_group_assignment_snapshots")
-  .select("target_record_id,group_id")
-  .eq("assignment_role","ACTION_ASSIGNEE_GROUP")
-  .contains("member_snapshot",[{user_id:user.id}]);
- const myGroupActionRecordIds=Array.from(new Set((groupAssignmentRes.data??[]).map((row:any)=>row.target_record_id).filter(Boolean))) as string[];
+  .select("target_record_id,group_id,member_snapshot")
+  .eq("assignment_role","ACTION_ASSIGNEE_GROUP");
+ const myGroupActionRecordIds=Array.from(new Set((groupAssignmentRes.data??[]).filter((row:any)=>Array.isArray(row.member_snapshot)&&row.member_snapshot.some((member:any)=>member?.user_id===user.id)).map((row:any)=>row.target_record_id).filter(Boolean))) as string[];
  const [directActionsRes,groupActionsRes,attentionRes]=await Promise.all([
   supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).eq("assignee_user_id",user.id).order("due_date",{ascending:true,nullsFirst:false}),
   myGroupActionRecordIds.length
