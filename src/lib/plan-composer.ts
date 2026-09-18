@@ -72,7 +72,7 @@ export function validatePlanDraftAction(action: PlanDraftAction, planStart: stri
   if (action.automation_confirmed && action.automation_kind === "ASSESSMENT" && !action.automation_ref_id) return "Tự đánh giá cần chọn bộ tiêu chí đã phát hành.";
   if (action.automation_confirmed && action.automation_kind === "REPORT" && !action.automation_report_recipient) return "Báo cáo cần nơi nhận.";
   if (action.automation_confirmed && action.automation_kind === "REPORT" && !action.automation_report_method) return "Báo cáo cần phương thức gửi.";
-  if (action.automation_confirmed && action.automation_kind === "REPORT" && !action.automation_report_period) return "Báo cáo cần xác định kỳ báo cáo.";
+  if (action.automation_confirmed && action.automation_kind === "REPORT" && !action.automation_report_period) return "Báo cáo cần xác định kỳ báo cáo.";\n  if (action.automation_confirmed && action.automation_kind === "REPORT" && action.automation_report_recurrence_end_date && action.due_date && action.automation_report_recurrence_end_date < action.due_date) return "Ngày kết thúc chu kỳ báo cáo không được trước hạn báo cáo đầu tiên.";
   if (action.automation_confirmed && action.automation_kind === "AUDIT" && !action.automation_audit_type) return "Audit/Tracer cần xác định loại đánh giá.";
   return null;
 }
