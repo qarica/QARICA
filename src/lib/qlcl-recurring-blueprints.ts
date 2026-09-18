@@ -24,7 +24,11 @@ export type QlclRecurringBlueprint = {
   weekOfMonth?: number;
   startMonth?: number;
   priority?: "LOW" | "NORMAL" | "HIGH" | "URGENT" | "CRITICAL";
-  automationKind?: "ACTION" | "MONITORING";
+  automationKind?: "ACTION" | "MONITORING" | "REPORT";
+  automationReportRecipient?: string;
+  automationReportMethod?: string;
+  automationReportType?: string;
+  endDate?: string;
   automationChecklistCode?: string;
   automationTargetArea?: string;
 };
@@ -135,6 +139,7 @@ export const QLCL_RECURRING_BLUEPRINTS: QlclRecurringBlueprint[] = [
     evidenceRequirement:"Báo cáo chất lượng tháng; bằng chứng trình/nhận; kết luận chỉ đạo nếu có.",
     description:"Tổng hợp chỉ số, giám sát, sự cố, tồn tại và tiến độ cải tiến thành báo cáo tháng.",
     scheduleHint:"Trước ngày 10 tháng sau; cần chọn ngày trình nội bộ.", scheduleNeedsChoice:true, monthDay:8, priority:"HIGH",
+    automationKind:"REPORT", automationReportRecipient:"Ban Giám đốc", automationReportType:"Báo cáo chất lượng tháng",
   },
   {
     code:"HTh-06", title:"Cập nhật hồ sơ minh chứng theo mã tiêu chí", sourceLabel:SOURCE,
@@ -183,6 +188,7 @@ export const QLCL_RECURRING_BLUEPRINTS: QlclRecurringBlueprint[] = [
     evidenceRequirement:"Báo cáo chất lượng quý; bằng chứng trình/gửi; phản hồi tiếp nhận nếu có.",
     description:"Tổng hợp tình hình chất lượng quý cho Ban Giám đốc và cơ quan quản lý khi được yêu cầu.",
     scheduleHint:"Mỗi quý; cần chọn ngày chốt/trình.", scheduleNeedsChoice:true, monthDay:28, priority:"NORMAL",
+    automationKind:"REPORT", automationReportType:"Báo cáo chất lượng quý",
   },
   {
     code:"6T-01", title:"Tự kiểm tra giữa năm theo 83 tiêu chí", sourceLabel:SOURCE,
@@ -279,6 +285,15 @@ export const QLCL_RECURRING_BLUEPRINTS: QlclRecurringBlueprint[] = [
     evidenceRequirement:"Báo cáo tổng kết; số liệu đã đối soát; bằng chứng trình/duyệt.",
     description:"Tổng hợp kết quả quản lý chất lượng, chỉ số, giám sát, sự cố, cải tiến và tồn tại cuối năm.",
     scheduleHint:"Tháng 12; cần chọn ngày chốt dữ liệu/trình.", scheduleNeedsChoice:true, startMonth:12, monthDay:20, priority:"HIGH",
+  },
+  {
+    code:"KSK-H2-2026", title:"Báo cáo định kỳ kết quả KSK toàn dân về Sở Y tế", sourceLabel:"Kế hoạch tự kiểm tra, đánh giá và cải tiến chất lượng công tác KSK toàn dân 2026 · Tiêu chí H2",
+    cadence:"MONTHLY_DATE", criteria:["H2"], departmentHint:"Tổ KSK", ownerHint:"Tổ KSK",
+    expectedResult:"Báo cáo định kỳ được gửi đúng hạn; số liệu báo cáo khớp với số liệu trên phần mềm.",
+    evidenceRequirement:"Báo cáo định kỳ gần nhất; kết xuất phần mềm cùng kỳ; bằng chứng gửi/tiếp nhận.",
+    description:"Thực hiện báo cáo định kỳ về Sở Y tế và đối chiếu số liệu báo cáo với số liệu trên phần mềm.",
+    scheduleHint:"Ngày 15 hằng tháng đến 15/12/2026.", scheduleNeedsChoice:false, monthDay:15, priority:"HIGH", endDate:"2026-12-15",
+    automationKind:"REPORT", automationReportRecipient:"Sở Y tế", automationReportType:"Báo cáo KSK định kỳ",
   },
   {
     code:"GS-TRUOTNGA-2026", title:"Giám sát các vị trí có nguy cơ trượt, ngã", sourceLabel:"Kế hoạch giám sát các vị trí có nguy cơ trượt, ngã năm 2026",

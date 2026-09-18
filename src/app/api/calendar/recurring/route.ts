@@ -40,6 +40,9 @@ export async function POST(request: Request) {
   const automationRefId = body.automation_ref_id ? String(body.automation_ref_id).trim() : null;
   const automationTargetDepartmentId = body.automation_target_department_id ? String(body.automation_target_department_id).trim() : null;
   const automationTargetArea = body.automation_target_area ? String(body.automation_target_area).trim() : null;
+  const automationReportRecipient = body.automation_report_recipient ? String(body.automation_report_recipient).trim() : null;
+  const automationReportMethod = body.automation_report_method ? String(body.automation_report_method).trim() : null;
+  const automationReportType = body.automation_report_type ? String(body.automation_report_type).trim() : null;
 
   if (!title) return NextResponse.json({ error: "Tên công việc định kỳ là bắt buộc." }, { status: 400 });
   if (!validRule(recurrenceRule)) return NextResponse.json({ error: "Chu kỳ lặp không hợp lệ hoặc chưa được engine hỗ trợ." }, { status: 400 });
@@ -51,10 +54,12 @@ export async function POST(request: Request) {
   if (!expectedResult) return NextResponse.json({ error: "Kết quả mong đợi là bắt buộc." }, { status: 400 });
   if (!evidenceRequirement) return NextResponse.json({ error: "Yêu cầu minh chứng là bắt buộc." }, { status: 400 });
   if (!PRIORITIES.has(priority)) return NextResponse.json({ error: "Mức ưu tiên không hợp lệ." }, { status: 400 });
-  if (!["ACTION","MONITORING"].includes(automationKind)) return NextResponse.json({ error: "Loại tự động hóa không hợp lệ." }, { status: 400 });
+  if (!["ACTION","MONITORING","REPORT"].includes(automationKind)) return NextResponse.json({ error: "Loại tự động hóa không hợp lệ." }, { status: 400 });
   if (sourceCode && sourceCode.length > 80) return NextResponse.json({ error: "Mã nguồn tự động hóa quá dài." }, { status: 400 });
   if (automationKind === "MONITORING" && !automationRefId) return NextResponse.json({ error: "Đợt giám sát tự động cần chọn bảng kiểm." }, { status: 400 });
   if (automationKind === "MONITORING" && !automationTargetDepartmentId && !automationTargetArea) return NextResponse.json({ error: "Đợt giám sát tự động cần khoa/phòng hoặc phạm vi giám sát." }, { status: 400 });
+  if (automationKind === "REPORT" && !automationReportRecipient) return NextResponse.json({ error: "Báo cáo định kỳ cần nơi nhận." }, { status: 400 });
+  if (automationKind === "REPORT" && !automationReportMethod) return NextResponse.json({ error: "Báo cáo định kỳ cần phương thức gửi." }, { status: 400 });
 
   const admin = createAdminClient();
   const { data: caller, error: callerError } = await admin.from("profiles").select("organization_id").eq("user_id", auth.user.id).maybeSingle();
@@ -103,6 +108,9 @@ export async function POST(request: Request) {
     automation_ref_id: automationRefId,
     automation_target_department_id: automationTargetDepartmentId,
     automation_target_area: automationTargetArea,
+    automation_report_recipient: automationReportRecipient,
+    automation_report_method: automationReportMethod,
+    automation_report_type: automationReportType,
     created_by: auth.user.id,
   }).select("id").single();
 

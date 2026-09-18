@@ -14,7 +14,7 @@ export default async function RecurringWorkPage() {
   const [templatesRes, departmentsRes, profilesRes, runsRes, checklistVersionsRes] = await Promise.all([
     supabase
       .from("recurring_work_templates")
-      .select("id,title,description,recurrence_rule,start_date,end_date,due_offset_days,lead_department_id,assignee_user_id,expected_result,evidence_requirement,priority,is_active,source_code,source_label,source_criteria,automation_kind,automation_ref_id,automation_target_department_id,automation_target_area,created_at,updated_at")
+      .select("id,title,description,recurrence_rule,start_date,end_date,due_offset_days,lead_department_id,assignee_user_id,expected_result,evidence_requirement,priority,is_active,source_code,source_label,source_criteria,automation_kind,automation_ref_id,automation_target_department_id,automation_target_area,automation_report_recipient,automation_report_method,automation_report_type,created_at,updated_at")
       .order("is_active", { ascending: false })
       .order("title"),
     supabase.from("departments").select("id,name,short_name,is_active").eq("is_active", true).order("name"),
