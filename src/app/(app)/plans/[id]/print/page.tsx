@@ -4,6 +4,7 @@ import { PlanPrintActions } from "@/components/plan-print-actions";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { loadPlanExportData } from "@/lib/plan-export-data";
 
 const TYPE_LABELS: Record<string, string> = { ANNUAL_PLAN: "Kế hoạch năm", THEMATIC_PLAN: "Kế hoạch chuyên đề", DEPARTMENT_PLAN: "Kế hoạch khoa/phòng", PROGRAM: "Chương trình", OTHER: "Khác" };
 
@@ -19,6 +20,7 @@ export default async function PlanPrintPage({ params }: { params: Promise<{ id: 
     .select("id,record_id,program_type,description,general_objective,specific_objectives,requirements,draft_actions,start_date,end_date,lead_department_id,owner_user_id,workflow_status,approved_by,approved_at,revision_no")
     .eq("id", id).maybeSingle();
   if (!program) notFound();
+  const exportData = user.organizationId ? await loadPlanExportData(id, user.organizationId) : null;
 
   const [{ data: record }, { data: department }, { data: owner }, { data: approver }, { data: links }] = await Promise.all([
     supabase.from("records").select("id,record_code,title,work_year,created_at").eq("id", program.record_id).maybeSingle(),
@@ -48,6 +50,19 @@ export default async function PlanPrintPage({ params }: { params: Promise<{ id: 
   const isDraftBundle = program.workflow_status === "DRAFT" || program.workflow_status === "PENDING_APPROVAL";
   const draftTasks: any[] = isDraftBundle && Array.isArray(program.draft_actions) ? program.draft_actions : [];
   const specifics: string[] = Array.isArray(program.specific_objectives) ? program.specific_objectives : [];
+  const requirements = String(program.requirements || "").trim();
+  const references = exportData?.references || [];
+  const departmentNames = exportData?.departmentNames?.length ? exportData.departmentNames : [((department as any)?.short_name || (department as any)?.name || "—")];
+  const ownerNames = exportData?.ownerNames?.length ? exportData.ownerNames : [((owner as any)?.full_name || (owner as any)?.email || "—")];
+  let sectionNo = 1;
+  const roman = ["I","II","III","IV","V","VI","VII","VIII"];
+  const nextSection = (title: string) => `${roman[sectionNo++ - 1] || sectionNo - 1}. ${title}`;
+  const referenceHeading = references.length ? nextSection("Căn cứ lập kế hoạch") : null;
+  const objectiveHeading = nextSection("Mục tiêu chung");
+  const specificsHeading = specifics.length ? nextSection("Mục tiêu cụ thể") : null;
+  const requirementsHeading = requirements ? nextSection("Yêu cầu") : null;
+  const assignmentHeading = nextSection("Đơn vị chủ trì và phân công");
+  const taskHeading = nextSection("Danh sách nhiệm vụ / hành động");
   const generatedAt = new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
 
   return <div className="plan-print-page">
@@ -92,31 +107,39 @@ export default async function PlanPrintPage({ params }: { params: Promise<{ id: 
     </div>
     <p className="ppr-meta">{TYPE_LABELS[program.program_type] || program.program_type} · Năm {record.work_year} · Thời gian thực hiện: {formatDate(program.start_date)} – {formatDate(program.end_date)}</p>
 
+    {references.length && referenceHeading ? <section className="ppr-section">
+      <h3>{referenceHeading}</h3>
+      <ol className="ppr-list">{references.map((ref: any) => {
+        const parts = [ref.authority, ref.number, ref.title, ref.issuedDate ? `ngày ${formatDate(ref.issuedDate)}` : ""].filter(Boolean);
+        return <li key={ref.id}>{parts.join(" · ")}</li>;
+      })}</ol>
+    </section> : null}
+
     <section className="ppr-section">
-      <h3>I. Mục tiêu chung</h3>
+      <h3>{objectiveHeading}</h3>
       <p style={{ margin: 0 }}>{text(program.general_objective || program.description)}</p>
     </section>
 
-    <section className="ppr-section">
-      <h3>II. Mục tiêu cụ thể</h3>
-      {specifics.length ? <ol className="ppr-list">{specifics.map((s, i) => <li key={i}>{s}</li>)}</ol> : <p style={{ margin: 0 }}>Chưa cập nhật.</p>}
-    </section>
+    {specifics.length && specificsHeading ? <section className="ppr-section">
+      <h3>{specificsHeading}</h3>
+      <ol className="ppr-list">{specifics.map((s, i) => <li key={i}>{s}</li>)}</ol>
+    </section> : null}
+
+    {requirements && requirementsHeading ? <section className="ppr-section">
+      <h3>{requirementsHeading}</h3>
+      <p style={{ margin: 0 }}>{requirements}</p>
+    </section> : null}
 
     <section className="ppr-section">
-      <h3>III. Yêu cầu</h3>
-      <p style={{ margin: 0 }}>{text(program.requirements)}</p>
-    </section>
-
-    <section className="ppr-section">
-      <h3>IV. Đơn vị chủ trì và phân công</h3>
+      <h3>{assignmentHeading}</h3>
       <div className="ppr-grid">
-        <div className="ppr-row"><span>Khoa/phòng chủ trì</span><strong>{(department as any)?.short_name || (department as any)?.name || "—"}</strong></div>
-        <div className="ppr-row"><span>Người phụ trách</span><strong>{(owner as any)?.full_name || (owner as any)?.email || "—"}</strong></div>
+        <div className="ppr-row"><span>Khoa/phòng chủ trì & phối hợp</span><strong>{departmentNames.join("; ")}</strong></div>
+        <div className="ppr-row"><span>Người phụ trách / phối hợp</span><strong>{ownerNames.join("; ")}</strong></div>
       </div>
     </section>
 
     <section className="ppr-section">
-      <h3>V. Danh sách nhiệm vụ / hành động</h3>
+      <h3>{taskHeading}</h3>
       {printableActions.length ? <table className="ppr-table"><thead><tr><th>Mã</th><th>Nội dung</th><th>Kết quả kỳ vọng</th><th>Ngày bắt đầu</th><th>Hạn hoàn thành</th></tr></thead><tbody>
         {printableActions.map((a: any) => <tr key={a.id}><td>{a.record_code}</td><td>{a.title}</td><td>{text(a.expected_result)}</td><td>{formatDate(a.start_date)}</td><td>{formatDate(a.due_date)}</td></tr>)}
       </tbody></table> : draftTasks.length ? <table className="ppr-table"><thead><tr><th>Nội dung (nháp – chưa phê duyệt)</th><th>Kết quả kỳ vọng</th><th>Ngày bắt đầu</th><th>Hạn hoàn thành</th></tr></thead><tbody>

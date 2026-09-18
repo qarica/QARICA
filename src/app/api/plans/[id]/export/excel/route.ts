@@ -25,10 +25,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   try {
     const data = await loadPlanExportData(id, caller.organization_id);
     const rows = data.tasks.map((t:any, i:number)=>`<tr><td>${i+1}</td><td>${nl(t.title)}</td><td>${nl(t.expectedResult)}</td><td>${viDate(t.startDate)}</td><td>${viDate(t.dueDate)}</td></tr>`).join("");
+    const refs = data.references.map((ref:any) => [ref.authority, ref.number, ref.title, ref.issuedDate ? `ngày ${viDate(ref.issuedDate)}` : ""].filter(Boolean).join(" · ")).join("\n");
+    const specifics = data.specifics.join("\n");
+    const requirements = String(data.program.requirements || "").trim();
     const html = `<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><style>
       table{border-collapse:collapse;font-family:Arial;font-size:10pt}th,td{border:1px solid #777;padding:5px;vertical-align:top;white-space:pre-wrap}th{background:#e5e7eb;font-weight:bold}.meta td:first-child{font-weight:bold;background:#f3f4f6}
     </style></head><body>
-      <table class="meta"><tr><td>Mã kế hoạch</td><td>${esc(data.record.record_code)}</td></tr><tr><td>Tên kế hoạch</td><td>${esc(data.record.title)}</td></tr><tr><td>Năm</td><td>${esc(data.record.work_year)}</td></tr><tr><td>Khoa/phòng chủ trì</td><td>${esc(data.departmentName)}</td></tr><tr><td>Người phụ trách</td><td>${esc(data.ownerName)}</td></tr></table><br>
+      <table class="meta">
+        <tr><td>Mã kế hoạch</td><td>${esc(data.record.record_code)}</td></tr>
+        <tr><td>Tên kế hoạch</td><td>${esc(data.record.title)}</td></tr>
+        <tr><td>Năm</td><td>${esc(data.record.work_year)}</td></tr>
+        <tr><td>Thời gian</td><td>${viDate(data.program.start_date)} – ${viDate(data.program.end_date)}</td></tr>
+        <tr><td>Khoa/phòng chủ trì & phối hợp</td><td>${esc(data.departmentNames.join("; ") || "—")}</td></tr>
+        <tr><td>Người phụ trách / phối hợp</td><td>${esc(data.ownerNames.join("; ") || "—")}</td></tr>
+        ${refs ? `<tr><td>Căn cứ lập kế hoạch</td><td>${nl(refs)}</td></tr>` : ""}
+        <tr><td>Mục tiêu chung</td><td>${nl(data.program.general_objective || data.program.description || "")}</td></tr>
+        ${specifics ? `<tr><td>Mục tiêu cụ thể</td><td>${nl(specifics)}</td></tr>` : ""}
+        ${requirements ? `<tr><td>Yêu cầu</td><td>${nl(requirements)}</td></tr>` : ""}
+      </table><br>
       <table><thead><tr><th>STT</th><th>Nội dung nhiệm vụ</th><th>Kết quả kỳ vọng</th><th>Ngày bắt đầu</th><th>Hạn hoàn thành</th></tr></thead><tbody>${rows || '<tr><td colspan="5">Chưa có nhiệm vụ.</td></tr>'}</tbody></table>
     </body></html>`;
     const safe = String(data.record.record_code || "ke-hoach").replace(/[^A-Za-z0-9._-]+/g, "_");
