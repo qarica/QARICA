@@ -281,7 +281,7 @@ export function PlanComposerClient({
   const [planDepartmentIds, setPlanDepartmentIds] = useState<string[]>(initialDepartmentIds.length ? initialDepartmentIds : (defaultDepartmentId ? [defaultDepartmentId] : []));
   const [planOwnerUserIds, setPlanOwnerUserIds] = useState<string[]>(initialOwnerUserIds.length ? initialOwnerUserIds : (initialOwnerUserId ? [initialOwnerUserId] : []));
   const [referenceIds, setReferenceIds] = useState<string[]>(initialReferenceIds);
-  const [planAssignedGroupIds, setPlanAssignedGroupIds] = useState<string[]>(initialAssignedGroupIds);
+  const planAssignedGroupIds = initialAssignedGroupIds;
   const [tasks, setTasks] = useState<DraftTask[]>(
     Array.isArray(initialDraftActions) && initialDraftActions.length
       ? (initialDraftActions as any[]).map(toTask)
