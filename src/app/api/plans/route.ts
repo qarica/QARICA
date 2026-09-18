@@ -21,6 +21,7 @@ export async function POST(request: Request) {
   const normalizedLeadDepartmentIds = Array.from(new Set([leadDepartmentId, ...leadDepartmentIds].filter(Boolean))).slice(0, 50);
   const normalizedOwnerUserIds = Array.from(new Set([ownerUserId, ...ownerUserIds].filter(Boolean) as string[])).slice(0, 100);
   const referenceIds = cleanPlanList(body.reference_ids);
+  const assignedGroupIds = cleanPlanList(body.assigned_group_ids);
   const startDate = body.start_date ? planText(body.start_date) : null;
   const endDate = body.end_date ? planText(body.end_date) : null;
   const draftActions = cleanPlanDraftActions(body.draft_actions);
@@ -56,6 +57,11 @@ export async function POST(request: Request) {
     const { data: refRecords } = await admin.from("records").select("id").in("id", refRecordIds).eq("organization_id", caller.organization_id).eq("lifecycle_status", "ACTIVE");
     if ((refRecords ?? []).length !== refRecordIds.length) return NextResponse.json({ error: "Có căn cứ văn bản nằm ngoài bệnh viện hoặc đã lưu trữ." }, { status: 400 });
   }
+  if (assignedGroupIds.length) {
+    const { data: groups, error: groupError } = await admin.from("work_groups").select("id").in("id", assignedGroupIds).eq("organization_id", caller.organization_id).eq("is_active", true);
+    if (groupError || (groups ?? []).length !== new Set(assignedGroupIds).size) return NextResponse.json({ error: "Có nhóm công tác không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
+  }
+
 
   for (const [index, action] of draftActions.entries()) {
     const [{ data: taskDept }, { data: taskOwner }] = await Promise.all([
@@ -71,6 +77,10 @@ export async function POST(request: Request) {
     if (action.collaborating_user_ids.length) {
       const { data: collaborators } = await admin.from("profiles").select("user_id").in("user_id", action.collaborating_user_ids).eq("organization_id", caller.organization_id).eq("is_active", true);
       if ((collaborators ?? []).length !== new Set(action.collaborating_user_ids).size) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: có người phối hợp không hợp lệ.` }, { status: 400 });
+    }
+    if (action.collaborating_group_ids.length) {
+      const { data: groups } = await admin.from("work_groups").select("id").in("id", action.collaborating_group_ids).eq("organization_id", caller.organization_id).eq("is_active", true);
+      if ((groups ?? []).length !== new Set(action.collaborating_group_ids).size) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: có nhóm phối hợp không hợp lệ hoặc đã ngưng.` }, { status: 400 });
     }
     if (action.parent_client_id && !draftActions.some((candidate) => candidate.client_id === action.parent_client_id)) {
       return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: nhiệm vụ cha không còn tồn tại.` }, { status: 400 });
@@ -98,6 +108,7 @@ export async function POST(request: Request) {
     lead_department_ids: normalizedLeadDepartmentIds,
     owner_user_id: ownerUserId,
     owner_user_ids: normalizedOwnerUserIds,
+    assigned_group_ids: assignedGroupIds,
     workflow_status: "DRAFT",
   }).select("id").single();
 
@@ -123,7 +134,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: record.id, table_name: "work_programs", row_id: program.id, action_type: "CREATE_PLAN_DRAFT", new_value: { title, specific_objective_count: specificObjectives.length, draft_action_count: draftActions.length, lead_department_ids: normalizedLeadDepartmentIds, owner_user_ids: normalizedOwnerUserIds, reference_count: referenceIds.length }, request_meta: { source: "qlcl-ui", composer: "v2" } });
+  const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: record.id, table_name: "work_programs", row_id: program.id, action_type: "CREATE_PLAN_DRAFT", new_value: { title, specific_objective_count: specificObjectives.length, draft_action_count: draftActions.length, lead_department_ids: normalizedLeadDepartmentIds, owner_user_ids: normalizedOwnerUserIds, assigned_group_ids: assignedGroupIds, reference_count: referenceIds.length }, request_meta: { source: "qlcl-ui", composer: "v2" } });
   if (auditError) {
     await admin.from("work_programs").delete().eq("id", program.id);
     await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id);
