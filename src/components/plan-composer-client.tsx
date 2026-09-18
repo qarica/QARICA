@@ -8,8 +8,7 @@ import {
   automationKindLabel,
   suggestPlanAutomationKinds,
   suggestPlanAutomationResource,
-  type PlanAutomationKind,
-  type PlanAutomationResource,
+  type PlanAutomationKind
 } from "@/lib/plan-automation";
 
 type Department = { id: string; name: string; short_name: string | null };
@@ -32,6 +31,8 @@ type AutomationOutput = {
   ref_id: string;
   target_department_id: string;
   target_area: string;
+  monitoring_recurrence: "ONCE" | "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
+  monitoring_recurrence_end_date: string;
   report_recipient: string;
   report_method: string;
   report_period: string;
@@ -109,6 +110,8 @@ function emptyOutput(kind: AutomationOutputKind, refId = ""): AutomationOutput {
     ref_id: refId,
     target_department_id: "",
     target_area: "",
+    monitoring_recurrence: "ONCE",
+    monitoring_recurrence_end_date: "",
     report_recipient: "",
     report_method: "",
     report_period: "",
@@ -133,6 +136,8 @@ function toTask(raw: any): DraftTask {
         ref_id: row?.ref_id || "",
         target_department_id: row?.target_department_id || "",
         target_area: row?.target_area || "",
+        monitoring_recurrence: ["DAILY","WEEKLY","MONTHLY","QUARTERLY","YEARLY"].includes(String(row?.monitoring_recurrence || "").toUpperCase()) ? String(row.monitoring_recurrence).toUpperCase() as AutomationOutput["monitoring_recurrence"] : "ONCE",
+        monitoring_recurrence_end_date: row?.monitoring_recurrence_end_date || "",
         report_recipient: row?.report_recipient || "",
         report_method: row?.report_method || "",
         report_period: row?.report_period || "",
@@ -150,6 +155,8 @@ function toTask(raw: any): DraftTask {
       ref_id: raw?.automation_ref_id || "",
       target_department_id: raw?.automation_target_department_id || "",
       target_area: raw?.automation_target_area || "",
+      monitoring_recurrence: "ONCE",
+      monitoring_recurrence_end_date: "",
       report_recipient: raw?.automation_report_recipient || "",
       report_method: raw?.automation_report_method || "",
       report_period: raw?.automation_report_period || "",
@@ -657,6 +664,22 @@ export function PlanComposerClient({
                               <input value={output.target_area} onChange={(e) => updateAutomationOutput(i, output.kind, { target_area: e.target.value, target_department_id: e.target.value.trim() ? "" : output.target_department_id })} placeholder="Ví dụ: Toàn bộ Tòa A và Tòa B" />
                             </label>
                             {!output.target_department_id && !output.target_area.trim() ? <div className="qa-note">Cần chọn một trong hai: khoa/phòng cụ thể hoặc phạm vi/khu vực giám sát.</div> : null}
+                            <label>Lịch thực hiện
+                              <select value={output.monitoring_recurrence} onChange={(e) => updateAutomationOutput(i, output.kind, { monitoring_recurrence: e.target.value as AutomationOutput["monitoring_recurrence"] })}>
+                                <option value="ONCE">Một lần</option>
+                                <option value="DAILY">Hằng ngày</option>
+                                <option value="WEEKLY">Hằng tuần · cùng thứ với đợt đầu</option>
+                                <option value="MONTHLY">Hằng tháng · cùng ngày với đợt đầu</option>
+                                <option value="QUARTERLY">Hằng quý · cùng ngày với đợt đầu</option>
+                                <option value="YEARLY">Hằng năm · cùng ngày/tháng với đợt đầu</option>
+                              </select>
+                            </label>
+                            {output.monitoring_recurrence !== "ONCE" ? <label>Kết thúc lịch
+                              <input type="date" min={task.due_date || undefined} value={output.monitoring_recurrence_end_date} onChange={(e) => updateAutomationOutput(i, output.kind, { monitoring_recurrence_end_date: e.target.value })} />
+                              <span className="tiny muted">{output.monitoring_recurrence_end_date ? "Dùng ngày kết thúc riêng của lịch này." : planEndDate ? `Để trống = kết thúc cùng kế hoạch (${planEndDate}).` : "Kế hoạch chưa có ngày kết thúc — cần nhập ngày kết thúc lịch."}</span>
+                            </label> : null}
+                            {output.monitoring_recurrence !== "ONCE" && !task.verification_requirement.trim() ? <div className="qa-note">Giám sát lặp lại cần nhập <strong>Yêu cầu minh chứng</strong> của nhiệm vụ để mỗi kỳ sinh ra có điều kiện hoàn thành rõ ràng.</div> : null}
+                            {output.monitoring_recurrence !== "ONCE" ? <div className="qa-preview">Đợt đầu dùng hạn nhiệm vụ <strong>{task.due_date || "chưa chọn ngày"}</strong>. Các kỳ sau được đồng bộ qua Recurring Work Engine và tự hiển thị trên Lịch QLCL; hệ thống chống tạo trùng kỳ đầu.</div> : null}
                           </>
                         ) : output.kind === "ASSESSMENT" ? (
                           <>

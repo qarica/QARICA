@@ -3,9 +3,10 @@ import { requireApiPermission } from "@/lib/api-auth";
 import { cleanPlanDraftActions, planText, validatePlanDraftAction } from "@/lib/plan-composer";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
+import { syncRecurringTemplateNow } from "@/lib/recurring-sync";
 
 const ALLOWED_ACTIONS = new Set(["SUBMIT", "APPROVE", "RETURN", "START", "HOLD", "RESUME", "COMPLETE"]);
-const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v7";
+const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v8";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("plans.manage");
@@ -145,8 +146,37 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (isMissingRpcFunction(txError, APPROVE_PLAN_BUNDLE_RPC)) return NextResponse.json({ error: "Plan Automation V2 chưa được kích hoạt trên cơ sở dữ liệu. Không phê duyệt để tránh tạo Action/đầu ra không đầy đủ." }, { status: 503 });
       return NextResponse.json({ error: rpcErrorMessage(txError, "Không thể phê duyệt trọn bộ kế hoạch.") }, { status: 400 });
     }
+    const recurringTemplateIds: string[] = Array.isArray((tx as any)?.recurring_template_ids)
+      ? Array.from(new Set<string>((tx as any).recurring_template_ids.map((value: unknown) => String(value || "").trim()).filter((value: string) => !!value)))
+      : [];
+    const recurringSync: Array<{ template_id: string; ok: boolean; created_monitoring_rounds: number; errors: number; error?: string }> = [];
+    for (const templateId of recurringTemplateIds) {
+      const sync = await syncRecurringTemplateNow({
+        admin,
+        templateId,
+        organizationId: caller.organization_id,
+        actorUserId,
+        horizonDays: 90,
+      });
+      recurringSync.push({
+        template_id: templateId,
+        ok: sync.ok,
+        created_monitoring_rounds: Number(sync.createdMonitoringRounds || 0),
+        errors: Number(sync.errors || 0),
+        ...(sync.error ? { error: sync.error } : {}),
+      });
+    }
     if (program.owner_user_id && program.owner_user_id !== actorUserId) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_APPROVED", priority: "NORMAL", title: "Kế hoạch đã được phê duyệt", message: recordTitle, target_record_id: recordId, target_route: `/plans/${program.id}`, notification_event_key: `plan-approved:${program.id}:${Date.now()}` });
-    return NextResponse.json({ ok: true, workflow_status: "APPROVED", transaction: "atomic", result: tx });
+    return NextResponse.json({
+      ok: true,
+      workflow_status: "APPROVED",
+      transaction: "atomic",
+      result: tx,
+      recurring_sync: recurringSync,
+      recurring_sync_warning: recurringSync.some((item) => !item.ok)
+        ? "Kế hoạch đã phê duyệt và lưu cấu hình giám sát định kỳ, nhưng có kỳ lịch chưa đồng bộ đủ. Có thể chạy lại tại Lịch QLCL → Công việc định kỳ."
+        : null,
+    });
   }
 
   if (requestedAction === "START") return updateStatus("APPROVED", "IN_PROGRESS");

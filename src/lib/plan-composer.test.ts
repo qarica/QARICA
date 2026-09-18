@@ -107,6 +107,63 @@ describe("Plan Composer V2 helpers", () => {
     expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toContain("khoa/phòng hoặc phạm vi");
   });
 
+  it("normalizes recurring monitoring schedule and uses plan end as fallback", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát vệ sinh tay định kỳ",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-10-05",
+      expected_result: "Hoàn tất giám sát",
+      verification_requirement: "Bảng kiểm đã chấm",
+      automation_outputs: [{
+        kind: "MONITORING",
+        ref_id: "checklist-v1",
+        target_department_id: "d2",
+        monitoring_recurrence: "monthly",
+      }],
+    }]);
+    expect(task.automation_outputs[0]).toMatchObject({ kind: "MONITORING", monitoring_recurrence: "MONTHLY" });
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toBeNull();
+  });
+
+  it("requires evidence and an end boundary for recurring monitoring", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát định kỳ",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-10-05",
+      expected_result: "Hoàn tất giám sát",
+      automation_outputs: [{
+        kind: "MONITORING",
+        ref_id: "checklist-v1",
+        target_department_id: "d2",
+        monitoring_recurrence: "WEEKLY",
+      }],
+    }]);
+    expect(validatePlanDraftAction(task, "2026-01-01", null)).toContain("Yêu cầu minh chứng");
+    task.verification_requirement = "Bảng kiểm đã chấm";
+    expect(validatePlanDraftAction(task, "2026-01-01", null)).toContain("ngày kết thúc");
+  });
+
+  it("rejects recurring monitoring end before the first round", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát định kỳ",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-10-05",
+      expected_result: "Hoàn tất giám sát",
+      verification_requirement: "Bảng kiểm đã chấm",
+      automation_outputs: [{
+        kind: "MONITORING",
+        ref_id: "checklist-v1",
+        target_department_id: "d2",
+        monitoring_recurrence: "MONTHLY",
+        monitoring_recurrence_end_date: "2026-09-30",
+      }],
+    }]);
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toContain("không được trước đợt đầu tiên");
+  });
+
   it("accepts monitoring for a whole-area scope without forcing one department", () => {
     const [task] = cleanPlanDraftActions([{
       title: "Giám sát vị trí có nguy cơ trượt, ngã",
