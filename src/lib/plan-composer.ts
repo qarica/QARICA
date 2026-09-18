@@ -9,6 +9,7 @@ export type PlanDraftAction = {
   priority: string;
   lead_department_id: string | null;
   collaborating_department_ids: string[];
+  collaborating_group_ids: string[];
   collaborating_user_ids: string[];
   parent_client_id: string | null;
   assignee_user_id: string | null;
@@ -41,6 +42,7 @@ export function cleanPlanDraftActions(value: unknown): PlanDraftAction[] {
     client_id: planText(raw?.client_id) || `draft-${index + 1}`, title: planText(raw?.title), description: planText(raw?.description) || null,
     priority: planText(raw?.priority || "NORMAL").toUpperCase(), lead_department_id: planText(raw?.lead_department_id) || null,
     collaborating_department_ids: Array.isArray(raw?.collaborating_department_ids) ? Array.from(new Set(raw.collaborating_department_ids.filter((x: unknown): x is string => typeof x === "string" && !!x))).slice(0, 50) : [],
+    collaborating_group_ids: Array.isArray(raw?.collaborating_group_ids) ? Array.from(new Set(raw.collaborating_group_ids.filter((x: unknown): x is string => typeof x === "string" && !!x))).slice(0, 50) : [],
     collaborating_user_ids: Array.isArray(raw?.collaborating_user_ids) ? Array.from(new Set(raw.collaborating_user_ids.filter((x: unknown): x is string => typeof x === "string" && !!x))).slice(0, 100) : [],
     parent_client_id: planText(raw?.parent_client_id) || null,
     assignee_user_id: planText(raw?.assignee_user_id) || null, start_date: planText(raw?.start_date) || null, due_date: planText(raw?.due_date) || null,
