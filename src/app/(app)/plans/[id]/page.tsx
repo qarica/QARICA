@@ -46,12 +46,24 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   const initialReferenceIds = (referenceLinksRes.data ?? []).map((x: any) => x.directive_id);
 
   let criteriaVersion83Id: string | null = null;
+  let criteriaDebug: string | null = null;
   if (user.organizationId) {
-    const { data: criteriaSet83 } = await supabase.from("criteria_sets").select("id").eq("code", "83TC-BYT").eq("organization_id", user.organizationId).maybeSingle();
-    if (criteriaSet83?.id) {
-      const { data: version83 } = await supabase.from("criteria_set_versions").select("id").eq("criteria_set_id", criteriaSet83.id).maybeSingle();
-      criteriaVersion83Id = version83?.id ?? null;
+    const { data: criteriaSet83, error: criteriaSetError } = await supabase.from("criteria_sets").select("id").eq("code", "83TC-BYT").eq("organization_id", user.organizationId).maybeSingle();
+    if (criteriaSetError) {
+      criteriaDebug = `Lỗi tìm bộ 83TC-BYT: ${criteriaSetError.message}`;
+    } else if (criteriaSet83?.id) {
+      const { data: version83, error: version83Error } = await supabase.from("criteria_set_versions").select("id").eq("criteria_set_id", criteriaSet83.id).maybeSingle();
+      if (version83Error) {
+        criteriaDebug = `Lỗi tìm version 83TC-BYT: ${version83Error.message}`;
+      } else {
+        criteriaVersion83Id = version83?.id ?? null;
+        if (!criteriaVersion83Id) criteriaDebug = `Không tìm thấy version nào cho criteria_set_id=${criteriaSet83.id}`;
+      }
+    } else {
+      criteriaDebug = `Không tìm thấy criteria_sets với code=83TC-BYT và organization_id=${user.organizationId}`;
     }
+  } else {
+    criteriaDebug = "user.organizationId đang null/rỗng ở server — đây là nguyên nhân.";
   }
 
   const draftTasks: Array<{ automation_kind?: string; automation_confirmed?: boolean }> = Array.isArray(program.draft_actions) ? program.draft_actions : [];
@@ -165,7 +177,10 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   const requiredActions = Number(progress?.required_actions ?? 0);
   const completedActions = Number(progress?.completed_actions ?? 0);
   const canManage = user.permissions.includes("plans.manage");
-  const firstError = [recordRes, progressRes, departmentRes as any, ownerRes as any, approverRes as any, linksRes, departmentsRes, profilesRes, actionsRes as any, materializedLinksRes as any, outputRecordsRes as any].find((r: any) => r?.error)?.error;
+  const firstError = [recordRes, progressRes, departmentRes as any, ownerRes as any, approverRes as any, linksRes, departmentsRes, profilesRes, criteriaRes as any, actionsRes as any, materializedLinksRes as any, outputRecordsRes as any].find((r: any) => r?.error)?.error;
+  if (!criteriaDebug && criteriaVersion83Id && (criteriaRes.data ?? []).length === 0) {
+    criteriaDebug = `Đã tìm thấy version=${criteriaVersion83Id} nhưng criteria_items trả về 0 dòng.`;
+  }
   const deptMap = new Map((departmentsRes.data ?? []).map((d: any) => [d.id, d.short_name || d.name]));
   const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [p.user_id, p.full_name || p.email || "Người dùng"]));
 
@@ -204,6 +219,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       </div>}
     />
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
+    {criteriaDebug ? <div className="alert error"><strong>[Debug tiêu chí 83TC]</strong> {criteriaDebug}</div> : null}
     {program.returned_reason && program.workflow_status === "DRAFT" ? <div className="alert error"><strong>Kế hoạch bị trả lại chỉnh sửa:</strong> {program.returned_reason}</div> : null}
     {program.workflow_status === "DRAFT" && draftActionCount === 0 ? <div className="alert info"><strong>Kế hoạch mới có hồ sơ, chưa có nhiệm vụ thực thi.</strong> Vì chưa có nhiệm vụ nên QARICA chưa thể tạo Action, đợt giám sát/bảng kiểm hoặc đầu ra liên quan. Hãy thêm/kế thừa nhiệm vụ trong phần Soạn nội dung kế hoạch; các đầu ra chỉ được tạo thật sau khi nhiệm vụ được xác nhận và kế hoạch được phê duyệt.</div> : null}
 
