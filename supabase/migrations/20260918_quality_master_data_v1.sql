@@ -36,6 +36,13 @@ update public.checklist_templates
 set source_code=code
 where source_code is null and nullif(trim(code),'') is not null;
 
+update public.checklist_templates t
+set organization_id=d.organization_id,updated_at=now()
+from public.departments d
+where t.organization_id is null
+  and t.owner_department_id=d.id
+  and d.organization_id is not null;
+
 create index if not exists idx_criteria_items_parent on public.criteria_items(parent_criteria_item_id);
 create index if not exists idx_criteria_items_version_active on public.criteria_items(criteria_version_id,is_active);
 create index if not exists idx_checklist_templates_source_code on public.checklist_templates(source_code);
