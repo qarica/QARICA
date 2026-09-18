@@ -54,6 +54,12 @@ export function humanStatus(status?: string | null) {
     GENERATED: "Đã sinh",
     SKIPPED: "Bỏ qua",
     REOPENED: "Mở lại",
+    REPORTED: "Đã báo cáo",
+    TRIAGED: "Đã phân loại",
+    INVESTIGATION_REQUIRED: "Cần điều tra",
+    INVESTIGATING: "Đang điều tra",
+    ACTION_FOLLOW_UP: "Theo dõi khắc phục",
+    AWAITING_CLOSURE: "Chờ kết thúc",
     OVERDUE: "Quá hạn",
     LOCKED: "Đã khóa",
   };
