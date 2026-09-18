@@ -26,7 +26,23 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const data = await loadPlanExportData(id, caller.organization_id);
     const specifics = data.specifics.length ? `<ol>${data.specifics.map((x:string)=>`<li>${nl(x)}</li>`).join("")}</ol>` : "";
     const requirements = String(data.program.requirements || "").trim();
+    const departments = data.departmentNames.length ? data.departmentNames.join("; ") : "—";
+    const owners = data.ownerNames.length ? data.ownerNames.join("; ") : "—";
+    const references = data.references.length
+      ? `<ol>${data.references.map((ref:any) => {
+          const parts = [
+            ref.authority,
+            ref.number,
+            ref.title,
+            ref.issuedDate ? `ngày ${viDate(ref.issuedDate)}` : "",
+          ].filter(Boolean);
+          return `<li>${nl(parts.join(" · "))}</li>`;
+        }).join("")}</ol>`
+      : "";
     const rows = data.tasks.map((t:any, i:number)=>`<tr><td>${i+1}</td><td>${nl(t.title)}</td><td>${nl(t.expectedResult)}</td><td>${viDate(t.startDate)}</td><td>${viDate(t.dueDate)}</td></tr>`).join("");
+    let sectionNo = 0;
+    const roman = ["I","II","III","IV","V","VI","VII"];
+    const heading = (title:string) => `<h2>${roman[sectionNo++] || sectionNo}. ${title}</h2>`;
     const html = `<!doctype html><html><head><meta charset="utf-8"><style>
       body{font-family:"Times New Roman",serif;font-size:13pt;line-height:1.5;color:#111}
       h1{text-align:center;font-size:18pt;text-transform:uppercase}h2{font-size:13pt;margin-top:18px}
@@ -36,12 +52,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       <h1>KẾ HOẠCH</h1><h1>${esc(data.record.title)}</h1>
       <div class="meta"><strong>Mã:</strong> ${esc(data.record.record_code)} &nbsp; <strong>Năm:</strong> ${esc(data.record.work_year)}</div>
       <div class="meta"><strong>Thời gian:</strong> ${viDate(data.program.start_date)} – ${viDate(data.program.end_date)}</div>
-      <div class="meta"><strong>Khoa/phòng chủ trì:</strong> ${esc(data.departmentName || "—")}</div>
-      <div class="meta"><strong>Người phụ trách:</strong> ${esc(data.ownerName || "—")}</div>
-      <h2>I. Mục tiêu chung</h2><div class="pre">${nl(data.program.general_objective || data.program.description || "")}</div>
-      ${specifics ? `<h2>II. Mục tiêu cụ thể</h2>${specifics}` : ""}
-      ${requirements ? `<h2>Yêu cầu</h2><div class="pre">${nl(requirements)}</div>` : ""}
-      <h2>Danh sách nhiệm vụ</h2>
+      <div class="meta"><strong>Khoa/phòng chủ trì & phối hợp:</strong> ${esc(departments)}</div>
+      <div class="meta"><strong>Người phụ trách / phối hợp:</strong> ${esc(owners)}</div>
+      ${references ? `${heading("Căn cứ lập kế hoạch")}${references}` : ""}
+      ${heading("Mục tiêu chung")}<div class="pre">${nl(data.program.general_objective || data.program.description || "")}</div>
+      ${specifics ? `${heading("Mục tiêu cụ thể")}${specifics}` : ""}
+      ${requirements ? `${heading("Yêu cầu")}<div class="pre">${nl(requirements)}</div>` : ""}
+      ${heading("Danh sách nhiệm vụ")}
       <table><thead><tr><th>STT</th><th>Nội dung</th><th>Kết quả kỳ vọng</th><th>Ngày bắt đầu</th><th>Hạn hoàn thành</th></tr></thead><tbody>${rows || '<tr><td colspan="5">Chưa có nhiệm vụ.</td></tr>'}</tbody></table>
     </body></html>`;
     const safe = String(data.record.record_code || "ke-hoach").replace(/[^A-Za-z0-9._-]+/g, "_");
