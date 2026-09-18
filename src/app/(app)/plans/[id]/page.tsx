@@ -214,6 +214,8 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       monitoringChecklists={monitoringChecklists}
       assessmentCriteriaVersions={assessmentCriteriaVersions}
       initialTitle={recordRes.data.title}
+      initialProgramType={program.program_type}
+      initialDescription={program.description}
       initialGeneralObjective={program.general_objective}
       initialSpecificObjectives={program.specific_objectives}
       initialRequirements={program.requirements}
