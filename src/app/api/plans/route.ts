@@ -64,12 +64,15 @@ export async function POST(request: Request) {
 
 
   for (const [index, action] of draftActions.entries()) {
-    const [{ data: taskDept }, { data: taskOwner }] = await Promise.all([
-      admin.from("departments").select("id").eq("id", action.lead_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle(),
-      admin.from("profiles").select("user_id").eq("user_id", action.assignee_user_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle(),
-    ]);
+    const { data: taskDept } = await admin.from("departments").select("id").eq("id", action.lead_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
     if (!taskDept) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: khoa/phòng phụ trách không hợp lệ.` }, { status: 400 });
-    if (!taskOwner) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: người phụ trách không hợp lệ.` }, { status: 400 });
+    if (action.assignment_target_type === "GROUP") {
+      const { data: taskGroup } = await admin.from("work_groups").select("id").eq("id", action.assignee_group_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
+      if (!taskGroup) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: nhóm phụ trách không hợp lệ hoặc đã ngưng.` }, { status: 400 });
+    } else {
+      const { data: taskOwner } = await admin.from("profiles").select("user_id").eq("user_id", action.assignee_user_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
+      if (!taskOwner) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: người phụ trách không hợp lệ.` }, { status: 400 });
+    }
     if (action.collaborating_department_ids.length) {
       const { data: collaborators } = await admin.from("departments").select("id").in("id", action.collaborating_department_ids).eq("organization_id", caller.organization_id).eq("is_active", true);
       if ((collaborators ?? []).length !== new Set(action.collaborating_department_ids).size) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: có khoa/phòng phối hợp không hợp lệ.` }, { status: 400 });
