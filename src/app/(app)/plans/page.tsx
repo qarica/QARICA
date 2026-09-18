@@ -5,6 +5,7 @@ import { TQM_CHART_CSS, TqmDonut, TqmGantt, TqmHorizontalBars } from "@/componen
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { loadPlanReferenceOptions } from "@/lib/plan-reference-options";
+import { loadWorkGroupOptions } from "@/lib/work-group-options";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 
@@ -14,13 +15,14 @@ export default async function PlansPage() {
 
   const year = await getWorkYear();
   const supabase = await createClient();
-  const [programsRes, recordsRes, progressRes, departmentsRes, profilesRes, referenceOptions] = await Promise.all([
+  const [programsRes, recordsRes, progressRes, departmentsRes, profilesRes, referenceOptions, workGroupOptions] = await Promise.all([
     supabase.from("work_programs").select("id,record_id,program_type,description,objective,start_date,end_date,lead_department_id,owner_user_id,workflow_status,created_at,updated_at").order("created_at", { ascending: false }),
     supabase.from("records").select("id,record_code,title,work_year,lifecycle_status,owner_department_id,owner_user_id").eq("record_type", "PROGRAM").eq("work_year", year).order("created_at", { ascending: false }),
     supabase.from("vw_program_progress").select("program_id,record_id,record_code,title,work_year,required_actions,completed_actions,progress_pct,overdue_actions").eq("work_year", year),
     supabase.from("departments").select("id,name,short_name,is_active").eq("is_active", true).order("name"),
     supabase.from("profiles").select("user_id,full_name,email,primary_department_id,is_active").eq("is_active", true).order("full_name", { ascending: true, nullsFirst: false }),
     user.organizationId ? loadPlanReferenceOptions(user.organizationId) : Promise.resolve([]),
+    user.organizationId ? loadWorkGroupOptions(user.organizationId) : Promise.resolve([]),
   ]);
 
   const firstError = [programsRes, recordsRes, progressRes, departmentsRes, profilesRes].find((r) => r.error)?.error;
@@ -78,6 +80,6 @@ export default async function PlansPage() {
     <section className="panel"><div className="tqm-section-head"><h2>Gantt kế hoạch / đầu việc trọng tâm</h2><p>Thời gian lấy trực tiếp từ ngày bắt đầu – kết thúc của kế hoạch; màu đỏ là kế hoạch đang có Action quá hạn.</p></div>{ganttRows.length?<TqmGantt year={year} rows={ganttRows}/>:<div className="empty-state">Chưa đủ ngày bắt đầu/kết thúc để dựng Gantt.</div>}</section>
 
     <div className="plans-detail-label">CHI TIẾT KẾ HOẠCH & THAO TÁC NGHIỆP VỤ</div>
-    <PlansClient year={year} canManage={user.permissions.includes("plans.manage")} rows={rows} departments={(departmentsRes.data ?? []) as any[]} profiles={(profilesRes.data ?? []) as any[]} referenceOptions={referenceOptions} />
+    <PlansClient year={year} canManage={user.permissions.includes("plans.manage")} rows={rows} departments={(departmentsRes.data ?? []) as any[]} profiles={(profilesRes.data ?? []) as any[]} referenceOptions={referenceOptions} workGroupOptions={workGroupOptions} />
   </div>;
 }
