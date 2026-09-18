@@ -74,27 +74,99 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
   }
 
   if (recordType === "ASSESSMENT") {
-    const { data: round } = await supabase.from("assessment_rounds").select("id,workflow_status").eq("record_id", recordId).maybeSingle();
+    const { data: round } = await supabase.from("assessment_rounds")
+      .select("id,workflow_status,criteria_version_id,work_year")
+      .eq("record_id", recordId)
+      .maybeSingle();
     if (!round) return null;
-    const [{ count: scope }, { data: assessments }, { count: evidence }] = await Promise.all([
+
+    const [{ count: scope }, { data: assessments }, { count: evidence }, { data: scopeRows }] = await Promise.all([
       supabase.from("assessment_round_criteria").select("id", { count: "exact", head: true }).eq("assessment_round_id", round.id),
-      supabase.from("criterion_assessments").select("workflow_status").eq("assessment_round_id", round.id),
+      supabase.from("criterion_assessments").select("criteria_item_id,score,result,note,workflow_status,assessed_by").eq("assessment_round_id", round.id),
       supabase.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId),
+      supabase.from("assessment_round_criteria").select("criterion_id,is_required").eq("assessment_round_id", round.id),
     ]);
-    const submitted = (assessments ?? []).filter((x: any) => ["SUBMITTED", "REVIEWED", "FINALIZED", "COMPLETED", "APPROVED"].includes(String(x.workflow_status))).length;
+
+    const submitted = (assessments ?? []).filter((row: any) =>
+      ["SUBMITTED", "REVIEWED", "FINALIZED", "COMPLETED", "APPROVED"].includes(String(row.workflow_status)),
+    ).length;
     const canManage = user.permissions.includes("criteria.manage");
-    const { data: scopeRows } = await supabase.from("assessment_round_criteria").select("criterion_id,is_required").eq("assessment_round_id", round.id);
-    const criterionIds = (scopeRows ?? []).map((x: any) => x.criterion_id).filter(Boolean);
-    const [{ data: criterionRows }, { data: levelRows }, { data: assessmentRows }] = criterionIds.length ? await Promise.all([
-      supabase.from("criteria_items").select("id,criterion_code,criterion_name,sequence_no").in("id", criterionIds).order("sequence_no"),
-      supabase.from("criterion_levels").select("id,criterion_id,level_code,level_value,level_name,sequence_no").in("criterion_id", criterionIds).order("sequence_no"),
-      supabase.from("criterion_assessments").select("criterion_id,proposed_level_id,summary_comment,workflow_status,self_assessor_user_id").eq("assessment_round_id", round.id),
-    ]) : [{ data: [] }, { data: [] }, { data: [] }] as any;
-    const ownAssessments = new Map((assessmentRows ?? []).filter((x: any) => x.self_assessor_user_id === user.id).map((x: any) => [x.criterion_id, x]));
-    const scopeMap = new Map((scopeRows ?? []).map((x: any) => [x.criterion_id, x.is_required !== false]));
-    const criteria = (criterionRows ?? []).map((criterion: any) => { const saved: any = ownAssessments.get(criterion.id); return { id: criterion.id, code: criterion.criterion_code, name: criterion.criterion_name, required: scopeMap.get(criterion.id) !== false, levels: (levelRows ?? []).filter((level: any) => level.criterion_id === criterion.id).map((level: any) => ({ id: level.id, label: `${level.level_code}${level.level_name ? ` · ${level.level_name}` : ""}${level.level_value == null ? "" : ` (${level.level_value} điểm)`}` })), levelId: saved?.proposed_level_id || "", comment: saved?.summary_comment || "", status: saved?.workflow_status || "NOT_STARTED" }; });
     const canAssess = user.permissions.includes("criteria.assess") || canManage;
-    return <><AssessmentWorkflowClient recordId={recordId} status={round.workflow_status} canManage={canManage} canReview={canManage || user.permissions.includes("criteria.review")} scope={scope ?? 0} submitted={submitted} evidence={evidence ?? 0} /><AssessmentCriteriaClient recordId={recordId} editable={round.workflow_status === "IN_PROGRESS" && canAssess} criteria={criteria} /></>;
+    const criterionIds = (scopeRows ?? []).map((row: any) => row.criterion_id).filter(Boolean);
+
+    const [{ data: criterionRows }, { data: responsibilityRows }] = criterionIds.length
+      ? await Promise.all([
+          supabase.from("criteria_items")
+            .select("id,code,title,description,sequence_no")
+            .in("id", criterionIds)
+            .order("sequence_no"),
+          supabase.from("criterion_responsibilities")
+            .select("criteria_item_id,source_lead_label,lead_department_id,source_target_text,due_date,is_priority,mapping_status")
+            .eq("work_year", Number(round.work_year || 0))
+            .eq("criteria_version_id", round.criteria_version_id)
+            .in("criteria_item_id", criterionIds),
+        ])
+      : [{ data: [] }, { data: [] }] as any;
+
+    const scopeMap = new Map((scopeRows ?? []).map((row: any) => [row.criterion_id, row.is_required !== false]));
+    const assessmentMap = new Map((assessments ?? []).map((row: any) => [row.criteria_item_id, row]));
+    const responsibilityMap = new Map((responsibilityRows ?? []).map((row: any) => [row.criteria_item_id, row]));
+
+    const routedCriteria = (criterionRows ?? []).filter((criterion: any) => {
+      if (canManage) return true;
+      const responsibility: any = responsibilityMap.get(criterion.id);
+      return !!user.primaryDepartmentId
+        && responsibility?.mapping_status === "CONFIRMED"
+        && responsibility?.lead_department_id === user.primaryDepartmentId;
+    });
+
+    const criteria = routedCriteria.map((criterion: any) => {
+      const saved: any = assessmentMap.get(criterion.id);
+      const responsibility: any = responsibilityMap.get(criterion.id);
+      const result = String(saved?.result || "");
+      const scoreValue = saved?.score != null
+        ? String(Number(saved.score))
+        : result.toLowerCase().includes("không đánh giá")
+          ? "NA"
+          : "";
+      return {
+        id: criterion.id,
+        code: criterion.code || "",
+        name: criterion.title || "",
+        required: scopeMap.get(criterion.id) !== false,
+        scoreValue,
+        note: saved?.note || "",
+        status: saved?.workflow_status || "NOT_STARTED",
+        ownerLabel: responsibility?.source_lead_label || null,
+        sourceTargetText: responsibility?.source_target_text || null,
+        dueDate: responsibility?.due_date || null,
+        priority: responsibility?.is_priority === true,
+      };
+    });
+
+    const routingNote = canManage
+      ? "QLCL đang xem toàn bộ phạm vi của đợt. Phân công nguồn 2026 được dùng để điều phối khoa/phòng; quyền quản lý vẫn có thể xử lý toàn bộ."
+      : user.primaryDepartmentName
+        ? "Chỉ hiển thị các tiêu chí đã được QLCL xác nhận giao cho " + user.primaryDepartmentName + "."
+        : "Tài khoản chưa có khoa/phòng chính nên chưa thể nhận tiêu chí tự đánh giá.";
+
+    return <>
+      <AssessmentWorkflowClient
+        recordId={recordId}
+        status={round.workflow_status}
+        canManage={canManage}
+        canReview={canManage || user.permissions.includes("criteria.review")}
+        scope={scope ?? 0}
+        submitted={submitted}
+        evidence={evidence ?? 0}
+      />
+      <AssessmentCriteriaClient
+        recordId={recordId}
+        editable={round.workflow_status === "IN_PROGRESS" && canAssess}
+        criteria={criteria}
+        routingNote={routingNote}
+      />
+    </>;
   }
 
   if (recordType === "AUDIT") {
