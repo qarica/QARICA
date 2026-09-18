@@ -1,5 +1,6 @@
 export const PLAN_TYPES = new Set(["ANNUAL_PLAN", "THEMATIC_PLAN", "DEPARTMENT_PLAN", "PROGRAM", "OTHER"]);
 export const PLAN_ACTION_PRIORITIES = new Set(["LOW", "NORMAL", "HIGH", "URGENT", "CRITICAL"]);
+export const PLAN_AUTOMATION_KINDS = new Set(["ACTION", "INDICATOR", "MONITORING"]);
 
 export type PlanDraftAction = {
   client_id: string;
@@ -16,6 +17,10 @@ export type PlanDraftAction = {
   milestone_group: string | null;
   is_required: boolean;
   criteria_refs: unknown[];
+  automation_kind: "ACTION" | "INDICATOR" | "MONITORING";
+  automation_confirmed: boolean;
+  automation_ref_id: string | null;
+  automation_target_department_id: string | null;
 };
 
 export const planText = (value: unknown) => String(value ?? "").trim();
@@ -29,6 +34,10 @@ export function cleanPlanDraftActions(value: unknown): PlanDraftAction[] {
     assignee_user_id: planText(raw?.assignee_user_id) || null, start_date: planText(raw?.start_date) || null, due_date: planText(raw?.due_date) || null,
     expected_result: planText(raw?.expected_result), verification_requirement: planText(raw?.verification_requirement) || null, milestone_group: planText(raw?.milestone_group) || null,
     is_required: raw?.is_required !== false, criteria_refs: Array.isArray(raw?.criteria_refs) ? raw.criteria_refs.slice(0, 50) : [],
+    automation_kind: PLAN_AUTOMATION_KINDS.has(planText(raw?.automation_kind).toUpperCase()) ? planText(raw?.automation_kind).toUpperCase() as PlanDraftAction["automation_kind"] : "ACTION",
+    automation_confirmed: raw?.automation_confirmed === true,
+    automation_ref_id: planText(raw?.automation_ref_id) || null,
+    automation_target_department_id: planText(raw?.automation_target_department_id) || null,
   }));
 }
 export function canEditPlanContent(status: unknown) { return planText(status).toUpperCase() === "DRAFT"; }
@@ -43,6 +52,9 @@ export function validatePlanDraftAction(action: PlanDraftAction, planStart: stri
   if (action.start_date && action.due_date < action.start_date) return "Hạn nhiệm vụ không được trước ngày bắt đầu.";
   if (planStart && action.start_date && action.start_date < planStart) return "Ngày bắt đầu nhiệm vụ nằm ngoài thời gian kế hoạch.";
   if (planEnd && action.due_date > planEnd) return "Hạn nhiệm vụ nằm ngoài thời gian kế hoạch.";
+  if (action.automation_confirmed && action.automation_kind === "INDICATOR" && !action.automation_ref_id) return "Đã xác nhận tạo Chỉ số nhưng chưa chọn chỉ số hiện có.";
+  if (action.automation_confirmed && action.automation_kind === "MONITORING" && !action.automation_ref_id) return "Đã xác nhận tạo Đợt giám sát nhưng chưa chọn bảng kiểm đã phát hành.";
+  if (action.automation_confirmed && action.automation_kind === "MONITORING" && !action.automation_target_department_id) return "Đợt giám sát cần khoa/phòng được giám sát.";
   return null;
 }
 export function planComposerReady(input: { generalObjective?: unknown; specificObjectives?: unknown; requirements?: unknown; draftActions?: unknown; startDate?: string | null; endDate?: string | null }) {

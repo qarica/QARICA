@@ -13,7 +13,7 @@ type Initial = {
 };
 
 function newDraftAction(index: number, leadDepartmentId: string, ownerUserId: string, endDate: string): PlanDraftAction {
-  return { client_id: `draft-ui-${Date.now()}-${index}`, title: "", description: null, priority: "NORMAL", lead_department_id: leadDepartmentId || null, collaborating_department_ids: [], assignee_user_id: ownerUserId || null, start_date: null, due_date: endDate || null, expected_result: "", verification_requirement: null, milestone_group: null, is_required: true, criteria_refs: [] };
+  return { client_id: `draft-ui-${Date.now()}-${index}`, title: "", description: null, priority: "NORMAL", lead_department_id: leadDepartmentId || null, collaborating_department_ids: [], assignee_user_id: ownerUserId || null, start_date: null, due_date: endDate || null, expected_result: "", verification_requirement: null, milestone_group: null, is_required: true, criteria_refs: [], automation_kind: "ACTION", automation_confirmed: false, automation_ref_id: null, automation_target_department_id: null };
 }
 
 export function PlanDraftEditorClient({ planId, canManage, status, initial, departments, profiles }: { planId: string; canManage: boolean; status: string; initial: Initial; departments: Department[]; profiles: Profile[] }) {
