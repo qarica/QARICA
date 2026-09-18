@@ -206,6 +206,13 @@ export function PlanComposerClient({
       automation_confirmed: true,
       automation_ref_id: "",
       automation_target_department_id: "",
+      automation_report_recipient: "",
+      automation_report_method: "",
+      automation_report_period: "",
+      automation_report_recurrence_rule: "",
+      automation_report_recurrence_end_date: "",
+      automation_assessment_round_type: "",
+      automation_audit_type: "",
     });
   }
 
