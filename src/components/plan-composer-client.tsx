@@ -119,6 +119,8 @@ export function PlanComposerClient({
   monitoringChecklists,
   assessmentCriteriaVersions,
   initialTitle,
+  initialProgramType,
+  initialDescription,
   initialGeneralObjective,
   initialSpecificObjectives,
   initialRequirements,
@@ -140,6 +142,8 @@ export function PlanComposerClient({
   monitoringChecklists: AutomationOption[];
   assessmentCriteriaVersions: AutomationOption[];
   initialTitle: string;
+  initialProgramType: string;
+  initialDescription: string | null;
   initialGeneralObjective: string | null;
   initialSpecificObjectives: unknown;
   initialRequirements: string | null;
@@ -154,6 +158,11 @@ export function PlanComposerClient({
   initialEndDate: string | null;
 }) {
   const router = useRouter();
+  const [title, setTitle] = useState(initialTitle);
+  const [programType, setProgramType] = useState(initialProgramType || "ANNUAL_PLAN");
+  const [description, setDescription] = useState(initialDescription || "");
+  const [planStartDate, setPlanStartDate] = useState(initialStartDate || "");
+  const [planEndDate, setPlanEndDate] = useState(initialEndDate || "");
   const [generalObjective, setGeneralObjective] = useState(initialGeneralObjective || "");
   const [specifics, setSpecifics] = useState<string[]>(
     Array.isArray(initialSpecificObjectives) && initialSpecificObjectives.length
@@ -263,6 +272,23 @@ export function PlanComposerClient({
   }
 
   async function save() {
+    setMessage(null);
+    if (!title.trim()) {
+      setMessage({ tone: "error", text: "Tên kế hoạch là bắt buộc." });
+      return;
+    }
+    if (!generalObjective.trim()) {
+      setMessage({ tone: "error", text: "Mục tiêu chung là bắt buộc." });
+      return;
+    }
+    if (!planDepartmentIds.length) {
+      setMessage({ tone: "error", text: "Cần chọn ít nhất một khoa/phòng chủ trì hoặc phối hợp." });
+      return;
+    }
+    if (planStartDate && planEndDate && planEndDate < planStartDate) {
+      setMessage({ tone: "error", text: "Ngày kết thúc kế hoạch không được trước ngày bắt đầu." });
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -272,7 +298,9 @@ export function PlanComposerClient({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: initialTitle,
+          title: title.trim(),
+          program_type: programType,
+          description: description.trim() || null,
           general_objective: generalObjective,
           specific_objectives: cleanedSpecifics,
           requirements,
@@ -282,8 +310,8 @@ export function PlanComposerClient({
           owner_user_id: planOwnerUserIds[0] || initialOwnerUserId,
           owner_user_ids: planOwnerUserIds,
           reference_ids: referenceIds,
-          start_date: initialStartDate,
-          end_date: initialEndDate,
+          start_date: planStartDate || null,
+          end_date: planEndDate || null,
         }),
       });
       const data = await res.json();
@@ -320,7 +348,43 @@ export function PlanComposerClient({
         </div>
       </div>
 
-      <label>Mục tiêu chung *<textarea rows={3} value={generalObjective} onChange={(e) => setGeneralObjective(e.target.value)} /></label>
+      <section className="panel" style={{ padding: 13, background: "#fbfdfd" }}>
+        <strong>3. Phân công & căn cứ</strong>
+        <div style={{ marginBottom: 10 }}>
+          <strong>1. Thông tin kế hoạch</strong>
+          <div className="tiny muted" style={{ marginTop: 3 }}>Khi kế hoạch còn ở trạng thái Nháp, có thể sửa toàn bộ thông tin dưới đây. Sau khi Gửi duyệt, nội dung mới được khóa.</div>
+        </div>
+        <div className="form-grid two">
+          <label className="span-2">Tên kế hoạch *
+            <textarea rows={2} value={title} onChange={(e) => setTitle(e.target.value)} />
+          </label>
+          <label>Loại kế hoạch
+            <select value={programType} onChange={(e) => setProgramType(e.target.value)}>
+              <option value="ANNUAL_PLAN">Kế hoạch năm</option>
+              <option value="THEMATIC_PLAN">Kế hoạch chuyên đề</option>
+              <option value="DEPARTMENT_PLAN">Kế hoạch khoa/phòng</option>
+              <option value="PROGRAM">Chương trình</option>
+              <option value="OTHER">Khác</option>
+            </select>
+          </label>
+          <label>Mô tả / phạm vi
+            <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Phạm vi áp dụng hoặc ghi chú triển khai" />
+          </label>
+          <label>Ngày bắt đầu
+            <input type="date" value={planStartDate} onChange={(e) => setPlanStartDate(e.target.value)} />
+          </label>
+          <label>Ngày kết thúc
+            <input type="date" min={planStartDate || undefined} value={planEndDate} onChange={(e) => setPlanEndDate(e.target.value)} />
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <strong>2. Mục tiêu & yêu cầu</strong>
+        <div style={{ marginTop: 10 }}>
+          <label>Mục tiêu chung *<textarea rows={3} value={generalObjective} onChange={(e) => setGeneralObjective(e.target.value)} /></label>
+        </div>
+      </section>
 
       <div>
         <span className="tiny muted">Mục tiêu cụ thể (không bắt buộc)</span>
@@ -351,7 +415,7 @@ export function PlanComposerClient({
       </section>
 
       <div>
-        <span className="tiny muted">Nhiệm vụ kế hoạch * · Action được tạo khi kế hoạch phê duyệt; đầu ra liên quan được tạo tự động nếu đã đủ dữ liệu.</span>
+        <span className="tiny muted"><strong>4. Nhiệm vụ kế hoạch *</strong> · Action được tạo khi kế hoạch phê duyệt; đầu ra liên quan được tạo tự động nếu đã đủ dữ liệu.</span>
 
         {tasks.map((task, i) => {
           const suggestion = suggestPlanAutomationKind({ title: task.title, description: task.description, expectedResult: task.expected_result });
