@@ -324,7 +324,15 @@ export function PlanComposerClient({
                               ? `Tìm thấy 01 dữ liệu phù hợp: ${candidate.label}. Xác nhận một lần để dùng lại.`
                               : suggestion === "INDICATOR"
                                 ? "Nhiệm vụ có dấu hiệu theo dõi chỉ số. Chọn một chỉ số đã tồn tại; QARICA không tự tạo master chỉ số mới."
-                                : "Nhiệm vụ có dấu hiệu giám sát. Nếu chưa xác định được bảng kiểm, QARICA sẽ hỏi đúng phần còn thiếu."}
+                                : suggestion === "MONITORING"
+                                  ? "Nhiệm vụ có dấu hiệu giám sát. QARICA sẽ hỏi bảng kiểm và đối tượng giám sát còn thiếu."
+                                  : suggestion === "ASSESSMENT"
+                                    ? "Nhiệm vụ có dấu hiệu tự đánh giá. Chọn bộ tiêu chí đã phát hành; QARICA không tự tạo bộ tiêu chí."
+                                    : suggestion === "REPORT"
+                                      ? "Nhiệm vụ có dấu hiệu báo cáo. QARICA chỉ hỏi nơi nhận, phương thức và kỳ báo cáo."
+                                      : suggestion === "AUDIT"
+                                        ? "Nhiệm vụ có dấu hiệu Audit/Tracer. Xác nhận loại đánh giá để tạo hồ sơ đúng workflow."
+                                        : "Nhiệm vụ có dấu hiệu cải tiến. QARICA sẽ tạo đề án Nháp, không tự suy diễn baseline, SMART hoặc PDSA."}
                           </div>
                         </>
                       ) : (
