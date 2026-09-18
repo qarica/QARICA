@@ -10,8 +10,8 @@ async function ctx(id:string){
   const supabase=await createClient();
   const {data:{user}}=await supabase.auth.getUser();
   if(!user)return {ok:false as const,response:NextResponse.json({error:"Chưa đăng nhập."},{status:401})};
-  const {data:allowed}=await supabase.rpc("has_permission",{p_permission_code:"plans.manage"});
-  if(!allowed)return {ok:false as const,response:NextResponse.json({error:"Bạn không có quyền quản lý Nhóm công tác."},{status:403})};
+  const {data:allowed}=await supabase.rpc("has_permission",{p_permission_code:"users.manage"});
+  if(!allowed)return {ok:false as const,response:NextResponse.json({error:"Bạn không có quyền quản lý Nhóm phân công người dùng."},{status:403})};
   const admin=createAdminClient();
   const {data:profile}=await admin.from("profiles").select("organization_id,is_active").eq("user_id",user.id).maybeSingle();
   if(!profile?.organization_id||!profile.is_active)return {ok:false as const,response:NextResponse.json({error:"Tài khoản không hợp lệ."},{status:403})};
