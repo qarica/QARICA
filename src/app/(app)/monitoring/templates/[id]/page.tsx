@@ -174,15 +174,13 @@ export default async function ChecklistTemplatePage({ params }: { params: Promis
       sections={structure as any[]}
       canManage={canManage}
     />
-    {currentVersion?.status === "DRAFT" ? <>
-      {isFiveS ? <FiveSChecklistPreviewClient templateCode={template.source_code || template.code} sections={structure as any[]} /> : null}
-      <ChecklistPublishClient
-        templateId={template.id}
-        versionId={currentVersion?.id ?? null}
-        versionStatus={currentVersion?.status ?? null}
-        itemCount={items.length}
-        canManage={canManage}
-      />
-    </> : null}
+    {currentVersion?.status === "DRAFT" && isFiveS ? <FiveSChecklistPreviewClient templateCode={template.source_code || template.code} sections={structure as any[]} /> : null}
+    <ChecklistPublishClient
+      templateId={template.id}
+      versionId={currentVersion?.id ?? null}
+      versionStatus={currentVersion?.status ?? null}
+      itemCount={items.length}
+      canManage={canManage}
+    />
   </div>;
 }
