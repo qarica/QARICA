@@ -27,6 +27,9 @@ export async function POST(request: Request) {
   const draftActions = cleanPlanDraftActions(body.draft_actions);
 
   if (!title) return NextResponse.json({ error: "Tên kế hoạch là bắt buộc." }, { status: 400 });
+  if (!leadDepartmentId || !normalizedLeadDepartmentIds.length) return NextResponse.json({ error: "Kế hoạch cần đơn vị chủ trì." }, { status: 400 });
+  if (!normalizedOwnerUserIds.length && !assignedGroupIds.length) return NextResponse.json({ error: "Kế hoạch cần phân công người hoặc nhóm phụ trách." }, { status: 400 });
+  if (normalizedOwnerUserIds.length && assignedGroupIds.length) return NextResponse.json({ error: "Kế hoạch chỉ chọn một đầu mối phụ trách chính: cá nhân hoặc nhóm." }, { status: 400 });
   if (!generalObjective) return NextResponse.json({ error: "Mục tiêu chung là bắt buộc." }, { status: 400 });
   if (!Number.isInteger(workYear) || workYear < 2000 || workYear > 2200) return NextResponse.json({ error: "Năm kế hoạch không hợp lệ." }, { status: 400 });
   if (!PLAN_TYPES.has(programType)) return NextResponse.json({ error: "Loại kế hoạch không hợp lệ." }, { status: 400 });
