@@ -125,13 +125,26 @@ export function recurringOccurrences(template: RecurringTemplate, from: string, 
   return results;
 }
 
+export type RecurringSyncResult = {
+  ok: boolean;
+  createdActions: number;
+  createdMonitoringRounds: number;
+  createdReports: number;
+  existing?: number;
+  errors: number;
+  error?: string;
+  errorDetails?: string[];
+  horizonEnd?: string;
+  skipped?: boolean;
+};
+
 export async function syncRecurringTemplateNow(input: {
   admin: any;
   templateId: string;
   organizationId: string;
   actorUserId: string;
   horizonDays?: number;
-}) {
+}): Promise<RecurringSyncResult> {
   const { admin, templateId, organizationId, actorUserId } = input;
   const horizonDays = Math.max(1, Math.min(365, Number(input.horizonDays || 90)));
   const today = hcmToday();
