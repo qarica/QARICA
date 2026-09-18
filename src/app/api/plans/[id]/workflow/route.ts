@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 const ALLOWED_ACTIONS = new Set(["SUBMIT", "APPROVE", "RETURN", "START", "HOLD", "RESUME", "COMPLETE"]);
-const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v2";
+const APPROVE_PLAN_BUNDLE_RPC = "qlcl_approve_plan_bundle_v3";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("plans.manage");
@@ -28,7 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (programError || !program) return NextResponse.json({ error: programError?.message || "Không tìm thấy kế hoạch." }, { status: 404 });
   const currentProgram = program;
 
-  const { data: record, error: recordError } = await admin.from("records").select("id,organization_id,lifecycle_status,title").eq("id", currentProgram.record_id).maybeSingle();
+  const { data: record, error: recordError } = await admin.from("records").select("id,organization_id,lifecycle_status,title,work_year").eq("id", currentProgram.record_id).maybeSingle();
   if (recordError || !record || record.organization_id !== caller.organization_id || record.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "Kế hoạch không thuộc phạm vi bệnh viện hiện tại hoặc đã ngưng hoạt động." }, { status: 403 });
   const recordId = record.id;
   const recordTitle = record.title;
@@ -57,6 +57,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       ]);
       if (!taskDept) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: khoa/phòng phụ trách không còn hợp lệ.` }, { status: 409 });
       if (!taskOwner) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: người phụ trách không còn hợp lệ.` }, { status: 409 });
+
+      if (task.automation_confirmed && task.automation_kind === "INDICATOR") {
+        const { data: assignment } = await admin
+          .from("indicator_assignments")
+          .select("id,department_id,work_year,status")
+          .eq("id", task.automation_ref_id)
+          .maybeSingle();
+        if (!assignment || assignment.status !== "ACTIVE" || Number(assignment.work_year) !== Number(record.work_year)) {
+          return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: chỉ số đã chọn không còn hợp lệ cho năm kế hoạch.` }, { status: 409 });
+        }
+        if (assignment.department_id) {
+          const { data: indicatorDept } = await admin.from("departments").select("id").eq("id", assignment.department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
+          if (!indicatorDept) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: chỉ số đã chọn nằm ngoài phạm vi bệnh viện.` }, { status: 409 });
+        }
+      }
+
+      if (task.automation_confirmed && task.automation_kind === "MONITORING") {
+        const [{ data: checklistVersion }, { data: targetDept }] = await Promise.all([
+          admin.from("checklist_versions").select("id,checklist_template_id,status").eq("id", task.automation_ref_id).maybeSingle(),
+          admin.from("departments").select("id").eq("id", task.automation_target_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle(),
+        ]);
+        if (!checklistVersion || checklistVersion.status !== "PUBLISHED") {
+          return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bảng kiểm đã chọn chưa được phát hành hoặc không còn hợp lệ.` }, { status: 409 });
+        }
+        if (!targetDept) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: khoa/phòng được giám sát không hợp lệ.` }, { status: 409 });
+        const { data: template } = await admin.from("checklist_templates").select("id,organization_id,is_active").eq("id", checklistVersion.checklist_template_id).maybeSingle();
+        if (!template?.is_active || (template.organization_id && template.organization_id !== caller.organization_id)) {
+          return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: bảng kiểm đã chọn nằm ngoài phạm vi bệnh viện.` }, { status: 409 });
+        }
+      }
     }
     return updateStatus("DRAFT", "PENDING_APPROVAL", { submitted_at: new Date().toISOString(), returned_reason: null });
   }
@@ -76,7 +106,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (program.workflow_status !== "PENDING_APPROVAL") return NextResponse.json({ error: "Chỉ kế hoạch đang chờ phê duyệt mới được phê duyệt." }, { status: 409 });
     const { data: tx, error: txError } = await admin.rpc(APPROVE_PLAN_BUNDLE_RPC, { p_program_id: programId, p_actor_user_id: actorUserId });
     if (txError) {
-      if (isMissingRpcFunction(txError, APPROVE_PLAN_BUNDLE_RPC)) return NextResponse.json({ error: "Plan Composer V2 chưa được kích hoạt trên cơ sở dữ liệu. Không phê duyệt để tránh tạo Action không đầy đủ." }, { status: 503 });
+      if (isMissingRpcFunction(txError, APPROVE_PLAN_BUNDLE_RPC)) return NextResponse.json({ error: "Plan Automation V1 chưa được kích hoạt trên cơ sở dữ liệu. Không phê duyệt để tránh tạo Action/đầu ra không đầy đủ." }, { status: 503 });
       return NextResponse.json({ error: rpcErrorMessage(txError, "Không thể phê duyệt trọn bộ kế hoạch.") }, { status: 400 });
     }
     if (program.owner_user_id && program.owner_user_id !== actorUserId) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_APPROVED", priority: "NORMAL", title: "Kế hoạch đã được phê duyệt", message: recordTitle, target_record_id: recordId, target_route: `/plans/${program.id}`, notification_event_key: `plan-approved:${program.id}:${Date.now()}` });
