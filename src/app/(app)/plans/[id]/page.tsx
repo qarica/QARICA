@@ -64,6 +64,23 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
     : { data: [], error: null };
   const actionMap = new Map((actionsRes.data ?? []).map((a: any) => [a.action_id, a]));
   const linkedActions = (linksRes.data ?? []).map((link: any) => ({ ...link, action: actionMap.get(link.action_id) as any })).filter((x: any) => x.action);
+  const actionRecordIds = linkedActions.map((row: any) => row.action.record_id);
+  const materializedLinksRes = actionRecordIds.length
+    ? await supabase.from("record_links").select("source_record_id,target_record_id,relation_type,metadata").in("source_record_id", actionRecordIds).eq("relation_type", "MATERIALIZES")
+    : { data: [], error: null };
+  const outputRecordIds = (materializedLinksRes.data ?? []).map((row: any) => row.target_record_id);
+  const outputRecordsRes = outputRecordIds.length
+    ? await supabase.from("records").select("id,record_code,record_type,title,lifecycle_status").in("id", outputRecordIds)
+    : { data: [], error: null };
+  const outputRecordById = new Map((outputRecordsRes.data ?? []).map((row: any) => [row.id, row]));
+  const outputsByActionRecord = new Map<string, any[]>();
+  for (const link of materializedLinksRes.data ?? []) {
+    const output = outputRecordById.get((link as any).target_record_id);
+    if (!output) continue;
+    const key = String((link as any).source_record_id);
+    outputsByActionRecord.set(key, [...(outputsByActionRecord.get(key) ?? []), output]);
+  }
+
 
   const workYear = Number(recordRes.data.work_year);
   const { data: indicatorAssignmentsRaw } = await supabase
@@ -112,7 +129,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   const requiredActions = Number(progress?.required_actions ?? 0);
   const completedActions = Number(progress?.completed_actions ?? 0);
   const canManage = user.permissions.includes("plans.manage");
-  const firstError = [recordRes, progressRes, departmentRes as any, ownerRes as any, approverRes as any, linksRes, departmentsRes, profilesRes, actionsRes as any].find((r: any) => r?.error)?.error;
+  const firstError = [recordRes, progressRes, departmentRes as any, ownerRes as any, approverRes as any, linksRes, departmentsRes, profilesRes, actionsRes as any, materializedLinksRes as any, outputRecordsRes as any].find((r: any) => r?.error)?.error;
   const deptMap = new Map((departmentsRes.data ?? []).map((d: any) => [d.id, d.short_name || d.name]));
   const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [p.user_id, p.full_name || p.email || "Người dùng"]));
 
@@ -135,7 +152,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
         .plan-detail-page tbody tr{display:block!important;margin:0 0 10px!important;border:1px solid #dce6e7!important;border-radius:14px!important;background:#fff!important;overflow:hidden!important;box-shadow:0 3px 12px rgba(25,51,58,.035)}
         .plan-detail-page tbody td{display:grid!important;grid-template-columns:82px minmax(0,1fr)!important;gap:9px!important;align-items:start!important;width:auto!important;padding:8px 11px!important;border:0!important;border-bottom:1px solid #eef2f3!important;white-space:normal!important;min-width:0!important;font-size:13px!important;line-height:1.38!important}
         .plan-detail-page tbody td:last-child{border-bottom:0!important}.plan-detail-page tbody td::before{font-size:9px!important;font-weight:800!important;letter-spacing:.06em!important;color:#77868b!important;text-transform:uppercase!important;line-height:1.45!important}
-        .plan-detail-page tbody td:nth-child(1)::before{content:"Mã"}.plan-detail-page tbody td:nth-child(2)::before{content:"Nội dung"}.plan-detail-page tbody td:nth-child(3)::before{content:"Phụ trách"}.plan-detail-page tbody td:nth-child(4)::before{content:"Ưu tiên"}.plan-detail-page tbody td:nth-child(5)::before{content:"Hạn"}.plan-detail-page tbody td:nth-child(6)::before{content:"Trạng thái"}
+        .plan-detail-page tbody td:nth-child(1)::before{content:"Mã"}.plan-detail-page tbody td:nth-child(2)::before{content:"Nội dung"}.plan-detail-page tbody td:nth-child(3)::before{content:"Phụ trách"}.plan-detail-page tbody td:nth-child(4)::before{content:"Ưu tiên"}.plan-detail-page tbody td:nth-child(5)::before{content:"Hạn"}.plan-detail-page tbody td:nth-child(6)::before{content:"Tự động tạo"}.plan-detail-page tbody td:nth-child(7)::before{content:"Trạng thái"}
         .plan-detail-page tbody td:nth-child(2) strong{font-size:15px!important;line-height:1.35!important}.plan-detail-page .subline{font-size:11px!important;line-height:1.35!important;margin-top:3px!important}
         .plan-detail-page .empty-state{grid-column:1/-1!important}
       }
@@ -212,9 +229,9 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       {canManage && program.workflow_status !== "IN_PROGRESS" && program.workflow_status !== "COMPLETED" ? <div className="scope-note" style={{ margin: "0 18px 18px" }}>
         Chỉ được giao nhiệm vụ/Action chính thức khi kế hoạch đã được phê duyệt và chuyển sang <strong>Đang triển khai</strong>. Kế hoạch Nháp hoặc Chờ phê duyệt không phát sinh giao việc mới.
       </div> : null}
-      <div className="table-wrap"><table><thead><tr><th>Mã</th><th>Nội dung</th><th>Phụ trách</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th></tr></thead><tbody>
-        {linkedActions.map((x: any) => <tr key={x.action_id}><td><Link className="table-link" href={`/tasks/${x.action.record_id}`}>{x.action.record_code}</Link></td><td><strong>{x.action.title}</strong>{x.milestone_group ? <span className="subline">{x.milestone_group}</span> : null}{!x.is_required ? <span className="subline">Không tính vào tiến độ bắt buộc</span> : null}</td><td>{deptMap.get(x.action.lead_department_id) || "—"}<span className="subline">{profileMap.get(x.action.assignee_user_id) || "Chưa phân công"}</span></td><td>{x.action.priority}</td><td className={x.action.is_overdue ? "text-danger" : ""}>{formatDate(x.action.due_date)}</td><td><StatusBadge status={x.action.is_overdue ? "OVERDUE" : x.action.workflow_status} /></td></tr>)}
-        {!linkedActions.length ? <tr><td colSpan={6}><div className="empty-state">Kế hoạch chưa có nhiệm vụ/Action liên kết.</div></td></tr> : null}
+      <div className="table-wrap"><table><thead><tr><th>Mã</th><th>Nội dung</th><th>Phụ trách</th><th>Ưu tiên</th><th>Hạn</th><th>Tự động tạo</th><th>Trạng thái</th></tr></thead><tbody>
+        {linkedActions.map((x: any) => { const outputs = outputsByActionRecord.get(String(x.action.record_id)) ?? []; return <tr key={x.action_id}><td><Link className="table-link" href={`/tasks/${x.action.record_id}`}>{x.action.record_code}</Link></td><td><strong>{x.action.title}</strong>{x.milestone_group ? <span className="subline">{x.milestone_group}</span> : null}{!x.is_required ? <span className="subline">Không tính vào tiến độ bắt buộc</span> : null}</td><td>{deptMap.get(x.action.lead_department_id) || "—"}<span className="subline">{profileMap.get(x.action.assignee_user_id) || "Chưa phân công"}</span></td><td>{x.action.priority}</td><td className={x.action.is_overdue ? "text-danger" : ""}>{formatDate(x.action.due_date)}</td><td>{outputs.length ? <div style={{display:"grid",gap:4}}>{outputs.map((output:any) => { const href = output.record_type === "MONITORING" ? `/monitoring/${output.id}` : output.record_type === "INDICATOR_MEASUREMENT" ? `/indicators/measurements/${output.id}` : "#"; const label = output.record_type === "MONITORING" ? "Đợt giám sát" : output.record_type === "INDICATOR_MEASUREMENT" ? "Kỳ đo chỉ số" : output.record_type; return <Link key={output.id} className="table-link" href={href}>{label} · {output.record_code}</Link>; })}</div> : <span className="muted">Chỉ Action</span>}</td><td><StatusBadge status={x.action.is_overdue ? "OVERDUE" : x.action.workflow_status} /></td></tr>})}
+        {!linkedActions.length ? <tr><td colSpan={7}><div className="empty-state">Kế hoạch chưa có nhiệm vụ/Action liên kết.</div></td></tr> : null}
       </tbody></table></div>
     </section>
   </div>;
