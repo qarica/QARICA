@@ -25,4 +25,52 @@ describe("Plan Composer V2 helpers", () => {
     expect(planComposerReady({ generalObjective: "Mục tiêu", specificObjectives: ["MT1"], requirements: "Yêu cầu", draftActions: [{ title: "A", lead_department_id: "d1", assignee_user_id: "u1", due_date: "2026-12-01", expected_result: "B" }] })).toBe(true);
     expect(planComposerReady({ generalObjective: "Mục tiêu", specificObjectives: [], requirements: "Yêu cầu", draftActions: [] })).toBe(false);
   });
+  it("keeps legacy tasks backward compatible as ordinary actions", () => {
+    const [task] = cleanPlanDraftActions([{ title: "A", lead_department_id: "d1", assignee_user_id: "u1", due_date: "2026-12-01", expected_result: "B" }]);
+    expect(task.automation_kind).toBe("ACTION");
+    expect(task.automation_confirmed).toBe(false);
+  });
+
+  it("requires an existing indicator assignment after indicator automation is confirmed", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Theo dõi tỷ lệ",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-12-01",
+      expected_result: "B",
+      automation_kind: "INDICATOR",
+      automation_confirmed: true,
+    }]);
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toContain("chưa chọn chỉ số");
+  });
+
+  it("asks only for the missing monitoring target after a checklist is selected", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát vệ sinh tay",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-12-01",
+      expected_result: "B",
+      automation_kind: "MONITORING",
+      automation_confirmed: true,
+      automation_ref_id: "checklist-v1",
+    }]);
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toContain("khoa/phòng được giám sát");
+  });
+
+  it("accepts a complete confirmed automation configuration", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát vệ sinh tay",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-12-01",
+      expected_result: "B",
+      automation_kind: "MONITORING",
+      automation_confirmed: true,
+      automation_ref_id: "checklist-v1",
+      automation_target_department_id: "d2",
+    }]);
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toBeNull();
+  });
+
 });
