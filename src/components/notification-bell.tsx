@@ -27,7 +27,8 @@ export function NotificationBell() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<N[]>([]);\n  const [unreadTotal, setUnreadTotal] = useState(0);
+  const [rows, setRows] = useState<N[]>([]);
+  const [unreadTotal, setUnreadTotal] = useState(0);
   const [recordMap, setRecordMap] = useState<Record<string, string>>({});
   const [routeMap, setRouteMap] = useState<Record<string, string | null>>({});
   const [ringing, setRinging] = useState(false);
@@ -122,7 +123,8 @@ export function NotificationBell() {
       if (!newest.is_read && !syncedNew) triggerRing();
     }
 
-    setRows(notifications);\n    setUnreadTotal(unreadCount ?? notifications.filter((item) => !item.is_read).length);
+    setRows(notifications);
+    setUnreadTotal(unreadCount ?? notifications.filter((item) => !item.is_read).length);
 
     const ids = notifications.map((x) => x.target_record_id).filter(Boolean) as string[];
     if (ids.length) {
@@ -177,7 +179,8 @@ export function NotificationBell() {
   }, []);
 
   const unread = unreadTotal;
-  const visibleUnread = rows.filter((r) => !r.is_read).length;\n  const urgent = rows.filter((r) => !r.is_read && ["HIGH", "URGENT", "CRITICAL"].includes(String(r.priority).toUpperCase())).length;
+  const visibleUnread = rows.filter((r) => !r.is_read).length;
+  const urgent = rows.filter((r) => !r.is_read && ["HIGH", "URGENT", "CRITICAL"].includes(String(r.priority).toUpperCase())).length;
   const visibleRows = rows.filter((r) => filter === "all" || (filter === "unread" && !r.is_read) || (filter === "urgent" && !r.is_read && ["HIGH", "URGENT", "CRITICAL"].includes(String(r.priority).toUpperCase())));
 
   async function openNotification(n: N) {
@@ -186,7 +189,8 @@ export function NotificationBell() {
         .from("notifications")
         .update({ is_read: true, read_at: new Date().toISOString() })
         .eq("id", n.id);
-      setRows((curr) => curr.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));\n      setUnreadTotal((curr) => Math.max(0, curr - 1));
+      setRows((curr) => curr.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
+      setUnreadTotal((curr) => Math.max(0, curr - 1));
     }
     setOpen(false);
     if (n.target_record_id) {
@@ -210,7 +214,8 @@ export function NotificationBell() {
 
   return (
     <div className="notification-root" ref={rootRef}>
-      <style>{`\n        .notification-filters{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid #edf2f2;background:#fbfdfd}
+      <style>{`
+        .notification-filters{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid #edf2f2;background:#fbfdfd}
         .notification-filters button{border:1px solid transparent;background:transparent;color:#718286;border-radius:999px;padding:6px 9px;font-size:10px;cursor:pointer}
         .notification-filters button:hover{background:#e6eef8;color:#1d3f73}
         .notification-filters button.active{background:#dff4ef;border-color:#b8ded7;color:#0f655f;font-weight:800}
