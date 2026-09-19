@@ -4,7 +4,7 @@ create table if not exists public.department_user_roles (
   organization_id uuid not null references public.organizations(id),
   department_id uuid not null references public.departments(id),
   user_id uuid not null references public.profiles(user_id),
-  role_type text not null check (role_type in ('HEAD','DEPUTY','MEMBER')),
+  role_type text not null check (role_type in ('HEAD','DEPUTY','MEMBER','QUALITY_NETWORK_MEMBER')),
   is_primary boolean not null default false,
   is_active boolean not null default true,
   valid_from date,
@@ -33,4 +33,4 @@ create policy department_user_roles_authenticated_select
 on public.department_user_roles for select to authenticated using (true);
 
 comment on table public.department_user_roles is
-'Current and historical user roles within a department. HEAD/DEPUTY/MEMBER reference profiles; names are never duplicated.';
+'Current and historical user roles within a department. HEAD/DEPUTY/MEMBER/QUALITY_NETWORK_MEMBER reference profiles; names are never duplicated.';
