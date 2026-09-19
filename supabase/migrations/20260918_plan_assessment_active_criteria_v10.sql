@@ -28,6 +28,32 @@ begin
     check (assignment_target_type = any (array['DEPARTMENT'::text,'USER'::text,'GROUP'::text]));
 end $$;
 
+-- Per-department execution tracking for one shared Action.
+-- Keeps one source Action while allowing hospital-wide work to be followed by department.
+create table if not exists public.action_department_executions (
+  id uuid primary key default gen_random_uuid(),
+  action_id uuid not null references public.actions(id) on delete cascade,
+  department_id uuid not null references public.departments(id),
+  workflow_status text not null default 'NOT_STARTED'
+    check (workflow_status in ('NOT_STARTED','IN_PROGRESS','SUBMITTED','VERIFIED','OVERDUE','WAIVED')),
+  due_date date,
+  submitted_at timestamptz,
+  submitted_by uuid references public.profiles(user_id),
+  verified_at timestamptz,
+  verified_by uuid references public.profiles(user_id),
+  note text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(action_id, department_id)
+);
+
+create index if not exists idx_action_department_executions_department
+  on public.action_department_executions(department_id, workflow_status);
+create index if not exists idx_action_department_executions_action
+  on public.action_department_executions(action_id, workflow_status);
+
+alter table public.action_department_executions enable row level security;
+
 create or replace function public.qlcl_approve_plan_bundle_v10(
   p_program_id uuid,
   p_actor_user_id uuid
