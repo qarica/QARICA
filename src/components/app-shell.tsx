@@ -49,9 +49,6 @@ export function AppShell({ children, user, organization, nav, year }: { children
       const addActionable = (href: string | null, id: string, urgent: boolean) => { add(href, id, urgent); };
       try {
         const canVerifyTasks = user.permissions.includes("plans.manage"); const canConfirmMonitoring = user.permissions.includes("checklists.manage"); const canManageDirectives = user.permissions.includes("directives.manage"); const canManageReports = user.permissions.includes("reports.manage"); const canManageRisks = user.permissions.includes("risk.manage"); const canVerifyIndicators = user.permissions.includes("indicators.verify") || user.permissions.includes("indicators.manage"); const canManageCapa = user.permissions.includes("capa.manage"); const canManageFeedback = user.permissions.includes("feedback.manage"); const canManageInspections = user.permissions.includes("inspections.manage") || user.permissions.includes("plans.manage"); const canManageFindings = user.permissions.includes("findings.manage");
-        // member_snapshot is JSONB; avoid PostgREST contains encoding here because it can
-        // produce invalid JSON for some client/runtime combinations. Fetch the small
-        // assignment snapshot set and match members safely in application code.
         // Group assignment lookup is temporarily excluded from the sidebar attention count.
         // Direct user assignments remain authoritative; group work is still available in My Work.
         // This avoids letting malformed legacy JSON snapshots break the entire application shell.
