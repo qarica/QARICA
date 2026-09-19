@@ -39,7 +39,7 @@ create table if not exists public.action_department_executions (
   action_id uuid not null references public.actions(id) on delete cascade,
   department_id uuid not null references public.departments(id),
   workflow_status text not null default 'NOT_STARTED'
-    check (workflow_status in ('NOT_STARTED','IN_PROGRESS','SUBMITTED','VERIFIED','OVERDUE','WAIVED')),
+    check (workflow_status in ('NOT_STARTED','IN_PROGRESS','SUBMITTED','RETURNED','VERIFIED','OVERDUE','WAIVED')),
   due_date date,
   submitted_at timestamptz,
   submitted_by uuid references public.profiles(user_id),
