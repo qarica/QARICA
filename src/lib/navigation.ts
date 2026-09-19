@@ -24,6 +24,9 @@ export const NAV_SECTIONS: NavSection[] = [
   { label: "BÁO CÁO", items: [
     { label: "Báo cáo & Phân tích", href: "/analytics", icon: "trending-up", permission: "reports.analytics" },
   ]},
+  { label: "HỆ THỐNG", items: [
+    { label: "Cấu hình hệ thống", href: "/admin", icon: "settings", anyPermissions: ["users.manage", "departments.manage", "permissions.manage", "system.manage"] },
+  ]},
 ];
 
 export function visibleNav(user: UserContext) {
