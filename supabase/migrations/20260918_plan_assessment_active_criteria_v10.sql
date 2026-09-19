@@ -58,6 +58,21 @@ create index if not exists idx_action_department_executions_action
 
 alter table public.action_department_executions enable row level security;
 
+drop policy if exists action_department_executions_select on public.action_department_executions;
+create policy action_department_executions_select
+on public.action_department_executions
+for select to authenticated
+using (
+  exists (
+    select 1
+    from public.actions a
+    join public.records r on r.id=a.record_id
+    where a.id=action_department_executions.action_id
+  )
+);
+
+
+
 create or replace function public.qlcl_approve_plan_bundle_v10(
   p_program_id uuid,
   p_actor_user_id uuid
