@@ -24,8 +24,8 @@ export type PlanDraftAction = {
   description: string | null;
   priority: string;
   lead_department_id: string | null;
-  execution_scope: "LEAD_DEPARTMENT" | "SELECTED_DEPARTMENTS" | "ALL_DEPARTMENTS";
-  execution_department_ids: string[];
+  execution_scope?: "LEAD_DEPARTMENT" | "SELECTED_DEPARTMENTS" | "ALL_DEPARTMENTS";
+  execution_department_ids?: string[];
   collaborating_department_ids: string[];
   collaborating_group_ids: string[];
   collaborating_user_ids: string[];
@@ -53,8 +53,8 @@ export type PlanDraftAction = {
   automation_report_recurrence_end_date: string | null;
   automation_assessment_round_type: string | null;
   automation_audit_type: string | null;
-  needs_confirmation: boolean;
-  confirmation_reason: string | null;
+  needs_confirmation?: boolean;
+  confirmation_reason?: string | null;
 };
 
 export const planText = (value: unknown) => String(value ?? "").trim();
@@ -193,7 +193,7 @@ export function validatePlanDraftAction(action: PlanDraftAction, planStart: stri
   if (!action.title) return "Nội dung nhiệm vụ là bắt buộc.";
   if (!PLAN_ACTION_PRIORITIES.has(action.priority)) return "Mức ưu tiên nhiệm vụ không hợp lệ.";
   if (action.execution_scope === "LEAD_DEPARTMENT" && !action.lead_department_id) return "Nhiệm vụ theo đầu mối cần khoa/phòng phụ trách.";
-  if (action.execution_scope === "SELECTED_DEPARTMENTS" && !action.execution_department_ids.length) return "Cần chọn ít nhất một khoa/phòng thực hiện.";
+  if (action.execution_scope === "SELECTED_DEPARTMENTS" && !(action.execution_department_ids ?? []).length) return "Cần chọn ít nhất một khoa/phòng thực hiện.";
   if (action.execution_scope !== "ALL_DEPARTMENTS" && !action.lead_department_id && action.execution_scope !== "SELECTED_DEPARTMENTS") return "Mỗi nhiệm vụ cần phạm vi thực hiện.";
   if (action.assignment_target_type === "GROUP" && !action.assignee_group_id) return "Nếu chọn giao cho Nhóm, cần chọn nhóm phụ trách.";
   if (action.assignment_target_type === "USER" && !action.assignee_user_id) return "Nếu chọn giao cho Cá nhân, cần chọn người phụ trách.";
