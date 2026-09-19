@@ -243,7 +243,8 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       initialAssignedGroupIds={Array.isArray((program as any).assigned_group_ids) ? (program as any).assigned_group_ids : []}
       initialStartDate={program.start_date}
       initialEndDate={program.end_date}
-    /> : null}
+    />
+    </> : null}
 
     <section className="kpi-grid">
       <article className="kpi-card"><span>Trạng thái</span><div style={{ marginTop: 13 }}><StatusBadge status={program.workflow_status} /></div><small>Vòng đời kế hoạch</small></article>
