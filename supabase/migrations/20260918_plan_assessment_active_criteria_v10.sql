@@ -552,7 +552,10 @@ begin
       from public.departments d
       where d.organization_id=v_actor.organization_id
         and d.is_active
-        and d.is_operational_unit
+        -- Current departments master data has no is_operational_unit column.
+        -- Ban Giám đốc is governance, not an execution unit for ALL_DEPARTMENTS.
+        and coalesce(d.department_type,'') <> 'GOVERNANCE'
+        and coalesce(d.code,'') <> 'BAN_GIAM_DOC'
       on conflict (action_id,department_id) do nothing;
     elsif v_execution_scope='SELECTED_DEPARTMENTS' then
       insert into public.action_department_executions(action_id,department_id,due_date)
