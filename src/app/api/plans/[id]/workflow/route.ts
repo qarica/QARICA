@@ -47,7 +47,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!planText(program.general_objective)) return NextResponse.json({ error: "Cần hoàn thiện Mục tiêu chung trước khi gửi duyệt." }, { status: 409 });
     if (!tasks.length) return NextResponse.json({ error: "Kế hoạch cần có ít nhất 01 nhiệm vụ nháp trước khi gửi duyệt." }, { status: 409 });
     for (const [index, task] of tasks.entries()) {
-      if ((task as any).needs_confirmation === true) {
+      if (task.needs_confirmation === true) {
         return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: còn nội dung “Cần xác nhận”. Hãy xác nhận dữ liệu nguồn trước khi gửi duyệt.` }, { status: 409 });
       }
       if (task.execution_scope === "LEAD_DEPARTMENT" && !task.lead_department_id) {
