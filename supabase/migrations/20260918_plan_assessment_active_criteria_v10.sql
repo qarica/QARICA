@@ -192,7 +192,7 @@ begin
       nullif(trim(v_task->>'assignment_target_type'),''),
       case when nullif(trim(coalesce(v_task->>'assignee_group_id','')),'') is not null then 'GROUP' else 'USER' end
     ));
-    if v_assignment_target_type not in ('USER','GROUP') then
+    if v_assignment_target_type not in ('DEPARTMENT','USER','GROUP') then
       raise exception 'Task assignment target type is invalid';
     end if;
     v_assignee_user_id:=null;
@@ -204,7 +204,7 @@ begin
       exception when others then
         raise exception 'Task user assignee is invalid';
       end;
-    else
+    elsif v_assignment_target_type='GROUP' then
       begin
         v_assignee_group_id:=(v_task->>'assignee_group_id')::uuid;
       exception when others then
@@ -277,7 +277,7 @@ begin
         raise exception 'Task user assignee is invalid or outside organization';
       end if;
       v_operational_owner_user_id:=v_assignee_user_id;
-    else
+    elsif v_assignment_target_type='GROUP' then
       if not exists(
         select 1 from public.work_groups g
         where g.id=v_assignee_group_id
