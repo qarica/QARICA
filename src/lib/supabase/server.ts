@@ -12,6 +12,12 @@ export async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient(getPublicSupabaseUrl(), getPublicSupabaseKey(), {
+    global: {
+      // Without this, Next.js may cache the underlying fetch() calls Supabase makes,
+      // serving stale profile/session data (e.g. an outdated full_name) indefinitely
+      // across requests instead of the latest row in the database.
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, cache: "no-store" }),
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll();
