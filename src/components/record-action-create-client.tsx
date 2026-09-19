@@ -39,6 +39,7 @@ export function RecordActionCreateClient({
   const [assignmentToken, setAssignmentToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [selectedRootCauseIds, setSelectedRootCauseIds] = useState<string[]>([]);
   const [capaActionType, setCapaActionType] = useState("CORRECTIVE");
   const assignmentOptions = useMemo<AssignmentTargetOption[]>(() => {
@@ -87,18 +88,23 @@ export function RecordActionCreateClient({
       delete raw.assignee_group_id;
     }
     raw.root_cause_ids = selectedRootCauseIds;
+    // The department selector lives inside <details>. Browsers submit it normally,
+    // but keep React state authoritative so auto-filled departments are never lost.
+    raw.lead_department_id = departmentId;
     setBusy(true);
     setError("");
     try {
       const response = await fetch(`/api/records/${recordId}/actions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(raw) });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Không tạo được công việc.");
+      if (!result?.record_id || !result?.action_id) throw new Error("Máy chủ chưa trả về Action đã tạo. Vui lòng thử lại.");
       form.reset();
       setDepartmentId("");
       setAssignmentToken("");
       setSelectedRootCauseIds([]);
       setCapaActionType("CORRECTIVE");
       setOpen(false);
+      setNotice("Đã tạo và liên kết công việc với hồ sơ nguồn.");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được công việc.");
@@ -108,7 +114,8 @@ export function RecordActionCreateClient({
   }
 
   return <>
-    <button className="button" type="button" onClick={() => { setOpen(true); setError(""); }}>+ Giao công việc</button>
+    {notice ? <div className="alert success" style={{marginBottom:8}}>{notice}</div> : null}
+    <button className="button" type="button" onClick={() => { setOpen(true); setError(""); setNotice(""); }}>+ Giao công việc</button>
     {open ? <div className="modal-backdrop" role="presentation"><div className="modal-card" role="dialog" aria-modal="true" aria-label="Giao công việc từ hồ sơ">
       <div className="modal-head"><div><strong>Giao công việc</strong><div className="subline">Nguồn: {sourceTitle}</div></div><button className="icon-button" type="button" onClick={() => setOpen(false)}>×</button></div>
       <form onSubmit={submit}><div className="modal-body form-stack">
