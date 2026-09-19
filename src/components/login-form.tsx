@@ -50,27 +50,25 @@ export function LoginForm() {
       <div className="mobile-brand"><img src="/brand/qarica-logo-v2.svg" alt="QARICA" /></div>
 
       <div>
-        <div className="eyebrow">ĐĂNG NHẬP QARICA</div>
-        <h2>Chào mừng trở lại</h2>
-        <p className="muted">
-          Sử dụng tài khoản và mật khẩu do quản trị viên cấp.
-        </p>
+        <div className="eyebrow">LOGIN TO QARICA</div>
+        <h2>Welcome back</h2>
+        <p className="muted">Use your account and password provided by the administrator.</p>
       </div>
 
       <label>
-        <span>Tài khoản</span>
+        <span>Account</span>
         <input
           type="text"
           value={login}
           onChange={(e) => setLogin(e.target.value)}
-          placeholder="Ví dụ: ten.nguoidung hoặc qarica01"
+          placeholder="Account"
           autoComplete="username"
           required
         />
       </label>
 
       <label>
-        <span>Mật khẩu</span>
+        <span>Password</span>
         <div className="password-wrap">
           <input
             type={showPassword ? "text" : "password"}
@@ -99,12 +97,12 @@ export function LoginForm() {
             <LoaderCircle className="spin" size={18} /> Đang đăng nhập...
           </>
         ) : (
-          "Đăng nhập"
+          <>Sign in&nbsp;&nbsp; →</>
         )}
       </button>
 
       <p className="tiny muted center">
-        Dữ liệu truy cập được kiểm soát theo vai trò, quyền và phạm vi được&nbsp;phân&nbsp;công.<br />
+        Access to data is controlled by role, permission and intended purpose.<br />
         © 2026 Trần Trường Vinh · QARICA. All rights reserved.
       </p>
     </form>
