@@ -33,4 +33,4 @@ create policy department_user_roles_authenticated_select
 on public.department_user_roles for select to authenticated using (true);
 
 comment on table public.department_user_roles is
-'Current and historical user roles within a department. HEAD/DEPUTY/MEMBER/QUALITY_NETWORK_MEMBER reference profiles; names are never duplicated.';
+'Current and historical user roles within a department. HEAD/DEPUTY/MEMBER/QUALITY_NETWORK_MEMBER reference profiles; names are never duplicated. Active operational departments are expected to have at least one HEAD and at least one QUALITY_NETWORK_MEMBER; completeness is validated by the application/data-quality layer rather than blocking initial master-data creation.';
