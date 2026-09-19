@@ -89,10 +89,13 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   const status = isOverdue ? "OVERDUE" : action.workflow_status;
   const canVerify = canVerifyTask(user.permissions, sourceRecordTypes, !!planLinkRes.data?.program_id);
   const isGroupAssignment = action.assignment_target_type === "GROUP" && !!action.assignee_group_id;
-  const canOperate = action.assignee_user_id === user.id || (isGroupAssignment && !!groupAssignmentRes.data) || canVerify;
+  const isDepartmentAssignment = action.assignment_target_type === "DEPARTMENT";
+  const canOperate = action.assignee_user_id === user.id || (isGroupAssignment && !!groupAssignmentRes.data) || (isDepartmentAssignment && !!user.primaryDepartmentId && user.primaryDepartmentId === action.lead_department_id) || canVerify;
   const assigneeLabel = isGroupAssignment
     ? ([((assigneeGroupRes.data as any)?.code), ((assigneeGroupRes.data as any)?.name)].filter(Boolean).join(" · ") || "Nhóm được giao nhiệm vụ")
-    : ((assigneeRes.data as any)?.full_name || (assigneeRes.data as any)?.email || "Người được giao nhiệm vụ");
+    : isDepartmentAssignment
+      ? ((departmentRes.data as any)?.short_name || (departmentRes.data as any)?.name || "Khoa/Phòng được giao nhiệm vụ")
+      : ((assigneeRes.data as any)?.full_name || (assigneeRes.data as any)?.email || "Người được giao nhiệm vụ");
   const responsibility = taskStepResponsibility(action.workflow_status, assigneeLabel, sourceRecordTypes, !!planLinkRes.data?.program_id);
   const firstError = [departmentRes as any, assigneeRes as any, assigneeGroupRes as any, groupAssignmentRes as any, planLinkRes, evidenceRes, sourceLinksRes, sourceRecordsRes, { error: evidenceItemsError }].find((r: any) => r?.error)?.error;
 
@@ -123,7 +126,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
         <div className="panel-title"><div><h2>Thông tin thực hiện</h2><p>Đơn vị, người chịu trách nhiệm và mốc thời gian.</p></div></div>
         <div style={{ padding: "0 19px 20px" }} className="form-grid two">
           <div><span className="tiny muted">Khoa/Phòng phụ trách</span><div style={{ marginTop: 5 }}><strong>{(departmentRes.data as any)?.name || "—"}</strong></div></div>
-          <div><span className="tiny muted">Phân công cho</span><div style={{ marginTop: 5 }}><strong>{isGroupAssignment ? `Nhóm · ${assigneeLabel}` : `Cá nhân · ${assigneeLabel}`}</strong></div></div>
+          <div><span className="tiny muted">Phân công cho</span><div style={{ marginTop: 5 }}><strong>{isGroupAssignment ? `Nhóm · ${assigneeLabel}` : isDepartmentAssignment ? `Khoa/Phòng · ${assigneeLabel}` : `Cá nhân · ${assigneeLabel}`}</strong></div></div>
           <div><span className="tiny muted">Ngày bắt đầu</span><div style={{ marginTop: 5 }}><strong>{formatDate(action.start_date)}</strong></div></div>
           <div><span className="tiny muted">Hạn hoàn thành</span><div style={{ marginTop: 5 }}><strong>{formatDate(action.due_date)}</strong></div></div>
           {sourcePlan ? <div className="span-2"><span className="tiny muted">Kế hoạch nguồn</span><div style={{ marginTop: 5 }}><Link className="table-link" href={`/plans/${sourcePlan.id}`}>{sourcePlan.code} · {sourcePlan.title}</Link></div></div> : null}
