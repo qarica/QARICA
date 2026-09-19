@@ -60,8 +60,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         if (!taskDept) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: khoa/phòng phụ trách không còn hợp lệ.` }, { status: 409 });
       }
       if (task.execution_scope === "SELECTED_DEPARTMENTS") {
-        const { data: executionDepts } = await admin.from("departments").select("id").in("id", task.execution_department_ids).eq("organization_id", caller.organization_id).eq("is_active", true);
-        if ((executionDepts ?? []).length !== new Set(task.execution_department_ids).size) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: có khoa/phòng thực hiện không còn hợp lệ.` }, { status: 409 });
+        const { data: executionDepts } = await admin.from("departments").select("id").in("id", task.execution_department_ids ?? []).eq("organization_id", caller.organization_id).eq("is_active", true);
+        if ((executionDepts ?? []).length !== new Set(task.execution_department_ids ?? []).size) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: có khoa/phòng thực hiện không còn hợp lệ.` }, { status: 409 });
       }
       if (task.assignment_target_type === "GROUP") {
         const { data: taskGroup } = await admin.from("work_groups").select("id").eq("id", task.assignee_group_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
