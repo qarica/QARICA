@@ -126,6 +126,16 @@ begin
     raise exception 'At least one plan task is required';
   end if;
 
+  -- Defense in depth: unresolved source data must never materialize into operational Actions.
+  if exists (
+    select 1
+    from jsonb_array_elements(v_program.draft_actions) task
+    where coalesce((task->>'needs_confirmation')::boolean,false)
+       or nullif(trim(coalesce(task->>'lead_department_id','')),'') is null
+  ) then
+    raise exception 'Plan contains unresolved tasks requiring confirmation or lead department';
+  end if;
+
   if cardinality(coalesce(v_program.assigned_group_ids,'{}'::uuid[]))>0 then
     if exists(
       select 1 from unnest(v_program.assigned_group_ids) gid
