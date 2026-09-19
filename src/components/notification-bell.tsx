@@ -177,7 +177,7 @@ export function NotificationBell() {
   }, []);
 
   const unread = unreadTotal;
-  const urgent = rows.filter((r) => !r.is_read && ["HIGH", "URGENT", "CRITICAL"].includes(String(r.priority).toUpperCase())).length;
+  const visibleUnread = rows.filter((r) => !r.is_read).length;\n  const urgent = rows.filter((r) => !r.is_read && ["HIGH", "URGENT", "CRITICAL"].includes(String(r.priority).toUpperCase())).length;
   const visibleRows = rows.filter((r) => filter === "all" || (filter === "unread" && !r.is_read) || (filter === "urgent" && !r.is_read && ["HIGH", "URGENT", "CRITICAL"].includes(String(r.priority).toUpperCase())));
 
   async function openNotification(n: N) {
@@ -237,7 +237,7 @@ export function NotificationBell() {
           </div>
           <div className="notification-filters" role="tablist" aria-label="Lọc thông báo">
             <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Tất cả <b>{rows.length}</b></button>
-            <button className={filter === "unread" ? "active" : ""} onClick={() => setFilter("unread")}>Chưa đọc <b>{unread}</b></button>
+            <button className={filter === "unread" ? "active" : ""} onClick={() => setFilter("unread")}>Chưa đọc <b>{unread > rows.length ? `${visibleUnread}/${unread}` : unread}</b></button>
             <button className={filter === "urgent" ? "active" : ""} onClick={() => setFilter("urgent")}>Ưu tiên <b>{urgent}</b></button>
           </div>
           <div className="notification-list">
