@@ -207,3 +207,4 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
   .workspace-app .modal-card{width:100%!important;max-height:92dvh!important;border-radius:14px 14px 0 0!important}
 }
 @media(min-width:861px){body .workspace-app .main-shell.sidebar-collapsed .topbar{left:78px!important}}
+@media(max-width:860px){.workspace-app .main-shell{margin-left:0!important}.workspace-app .topbar{left:0!important}}
