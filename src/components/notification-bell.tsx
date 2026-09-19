@@ -27,7 +27,7 @@ export function NotificationBell() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<N[]>([]);
+  const [rows, setRows] = useState<N[]>([]);\n  const [unreadTotal, setUnreadTotal] = useState(0);
   const [recordMap, setRecordMap] = useState<Record<string, string>>({});
   const [routeMap, setRouteMap] = useState<Record<string, string | null>>({});
   const [ringing, setRinging] = useState(false);
@@ -95,11 +95,17 @@ export function NotificationBell() {
       }
     }
 
-    const { data } = await supabase
-      .from("notifications")
-      .select("id,title,message,priority,is_read,created_at,target_record_id,target_route")
-      .order("created_at", { ascending: false })
-      .limit(30);
+    const [{ data }, { count: unreadCount }] = await Promise.all([
+      supabase
+        .from("notifications")
+        .select("id,title,message,priority,is_read,created_at,target_record_id,target_route")
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("is_read", false),
+    ]);
 
     const notifications = (data ?? []) as N[];
     const newest = notifications[0] ?? null;
@@ -116,7 +122,7 @@ export function NotificationBell() {
       if (!newest.is_read && !syncedNew) triggerRing();
     }
 
-    setRows(notifications);
+    setRows(notifications);\n    setUnreadTotal(unreadCount ?? notifications.filter((item) => !item.is_read).length);
 
     const ids = notifications.map((x) => x.target_record_id).filter(Boolean) as string[];
     if (ids.length) {
@@ -170,7 +176,7 @@ export function NotificationBell() {
     return () => document.removeEventListener("mousedown", outside);
   }, []);
 
-  const unread = rows.filter((r) => !r.is_read).length;
+  const unread = unreadTotal;
   const urgent = rows.filter((r) => !r.is_read && ["HIGH", "URGENT", "CRITICAL"].includes(String(r.priority).toUpperCase())).length;
   const visibleRows = rows.filter((r) => filter === "all" || (filter === "unread" && !r.is_read) || (filter === "urgent" && !r.is_read && ["HIGH", "URGENT", "CRITICAL"].includes(String(r.priority).toUpperCase())));
 
@@ -180,7 +186,7 @@ export function NotificationBell() {
         .from("notifications")
         .update({ is_read: true, read_at: new Date().toISOString() })
         .eq("id", n.id);
-      setRows((curr) => curr.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
+      setRows((curr) => curr.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));\n      setUnreadTotal((curr) => Math.max(0, curr - 1));
     }
     setOpen(false);
     if (n.target_record_id) {
@@ -192,13 +198,13 @@ export function NotificationBell() {
   }
 
   async function markAll() {
-    const ids = rows.filter((r) => !r.is_read).map((r) => r.id);
-    if (!ids.length) return;
+    if (!unreadTotal) return;
     await supabase
       .from("notifications")
       .update({ is_read: true, read_at: new Date().toISOString() })
-      .in("id", ids);
+      .eq("is_read", false);
     setRows((curr) => curr.map((x) => ({ ...x, is_read: true })));
+    setUnreadTotal(0);
     setRinging(false);
   }
 
