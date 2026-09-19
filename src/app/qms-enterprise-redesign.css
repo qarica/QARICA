@@ -49,6 +49,7 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
   box-shadow:4px 0 18px rgba(33,37,41,.04)!important;
 }
 .workspace-app .main-shell{margin-left:276px!important}
+.workspace-app .topbar{left:276px!important}
 .workspace-app .sidebar-brand{
   min-height:78px!important;
   padding:14px 16px!important;
