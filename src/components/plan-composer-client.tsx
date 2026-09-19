@@ -540,12 +540,12 @@ export function PlanComposerClient({
         .plan-composer .qa-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px;padding-top:10px;border-top:1px solid #dce7f0}
         .plan-composer .qa-note{grid-column:1/-1;border-radius:10px;background:#fff8ea;color:#7a571e;padding:8px 10px;font-size:10px;line-height:1.45}
         .plan-composer .qa-preview{grid-column:1/-1;border-radius:10px;background:#fff;padding:9px 10px;border:1px dashed #cbd7e2;font-size:10px;color:#52677a;line-height:1.45}
-        .plan-composer .task-tree{display:grid;gap:10px;margin-top:10px}
-        .plan-composer .task-card{position:relative;padding:12px;background:#fbfdfd}
-        .plan-composer .task-card.child{margin-left:30px;background:#fff;border-color:#d9e5e8}
+        .plan-composer .task-tree{display:grid;gap:18px;margin-top:12px}
+        .plan-composer .task-card{position:relative;padding:14px;background:#fff;border:2px solid #b9cbd6;border-radius:14px;box-shadow:0 2px 8px rgba(31,55,70,.06)}
+        .plan-composer .task-card.child{margin-left:30px;background:#f8fbfd;border:1.5px solid #c7d8e2;border-left:4px solid #7c9fb3}
         .plan-composer .task-card.child:before{content:"";position:absolute;left:-18px;top:-11px;width:14px;height:31px;border-left:2px solid #c8d8dd;border-bottom:2px solid #c8d8dd;border-bottom-left-radius:8px}
         .plan-composer .task-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap}
-        .plan-composer .task-title-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .plan-composer .task-title-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.plan-composer .task-title-line input[type="checkbox"]{width:16px!important;height:16px!important;min-width:16px!important;margin:0 2px 0 4px;accent-color:#315f91}
         .plan-composer .task-index{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:24px;padding:0 7px;border-radius:999px;background:#eaf2f4;color:#24424b;font-size:10px;font-weight:900}
         .plan-composer .task-card.child .task-index{background:#f1f5f9;color:#475569}
         .plan-composer .task-parent-note{font-size:10px;color:#71828a;margin-top:3px}
