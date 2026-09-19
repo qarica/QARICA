@@ -18,68 +18,9 @@ type CalendarEvent = {
   tone: EventTone;
 };
 
-type RoadmapPeriod = {
-  label: string;
-  start: string;
-  end: string;
-  focus: string;
-};
-
 const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const MONTH_NAMES = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
 const CLOSED_ACTIONS = new Set(["COMPLETED", "CANCELLED", "NOT_APPLICABLE", "CLOSED"]);
-
-// Khung tham chiếu được lấy từ Kế hoạch QLCL 2026 Final. Đây là mốc kế hoạch,
-// không thay thế hồ sơ/Action vận hành trong hệ thống và không tự sinh dữ liệu lịch sử.
-const ROADMAP_2026: RoadmapPeriod[] = [
-  {
-    label: "Kỳ 1",
-    start: "2026-08-01",
-    end: "2026-09-30",
-    focus: "Kiện toàn tổ chức; xử lý kiến nghị pháp lý; tài liệu đợt 1; hoàn thiện công cụ giám sát; tự kiểm tra hoạt động QLCL 6 tháng đầu năm.",
-  },
-  {
-    label: "Kỳ 2",
-    start: "2026-10-01",
-    end: "2026-10-31",
-    focus: "Tài liệu đợt 2; quy trình chuyên môn; danh mục khung chỉ số; tái tập huấn; chuẩn hóa bảng kiểm và công cụ giám sát.",
-  },
-  {
-    label: "Kỳ 3",
-    start: "2026-11-01",
-    end: "2026-12-31",
-    focus: "Triển khai đề án, vận hành chỉ số, tập huấn và giám sát tuân thủ; hoàn thành CAPA; tự rà soát và chốt dữ liệu năm 2026.",
-  },
-];
-
-const PLAN_MILESTONES_2026: CalendarEvent[] = [
-  { id: "plan-2026-08-30", date: "2026-08-30", title: "Kiện toàn hệ thống QLCL và ban hành Quy chế", subtitle: "KH QLCL 2026 Final · Mục V.1", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-09-20", date: "2026-09-20", title: "Hoàn thành Bảng phân công 83 tiêu chí", subtitle: "KH QLCL 2026 Final · mốc tham chiếu", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-09-30", date: "2026-09-30", title: "Chốt Kỳ 1 và họp Hội đồng QLCL quý III", subtitle: "KH QLCL 2026 Final · mốc tham chiếu", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-10-15", date: "2026-10-15", title: "Hạn đăng ký và nộp đề cương đề án cải tiến", subtitle: "KH QLCL 2026 Final · Mục V.5", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-10-20", date: "2026-10-20", title: "Lập kế hoạch CAPA 13 tiêu chí và thẩm định đề án", subtitle: "KH QLCL 2026 Final · Mục V.2, V.5", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-10-30", date: "2026-10-30", title: "Rà soát, trình phê duyệt đề án cải tiến", subtitle: "KH QLCL 2026 Final · Mục V.5", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-10-31", date: "2026-10-31", title: "Chốt Kỳ 2: tài liệu, quy trình và công cụ giám sát", subtitle: "KH QLCL 2026 Final · mốc tham chiếu", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-11-15", date: "2026-11-15", title: "Hạn khoa/phòng đăng ký chỉ số chất lượng", subtitle: "KH QLCL 2026 Final · Phụ lục chỉ số", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-11-30", date: "2026-11-30", title: "Chốt danh sách chỉ số đủ điều kiện vận hành", subtitle: "KH QLCL 2026 Final · Tổ QLCL thẩm định", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-11-20", date: "2026-11-20", title: "Hoàn thành đánh giá 5S đợt 1", subtitle: "KH QLCL 2026 Final · Mục V.5", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-12-10", date: "2026-12-10", title: "Hoàn thành khảo sát hài lòng quý IV", subtitle: "KH QLCL 2026 Final · Mục V.4", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-12-20", date: "2026-12-20", title: "Hoàn thành tự rà soát, chấm thử cuối năm", subtitle: "KH QLCL 2026 Final · 11/12–20/12", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-12-30", date: "2026-12-30", title: "Hoàn thành đối soát dữ liệu và minh chứng", subtitle: "KH QLCL 2026 Final · Mục V.6", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2026-12-31", date: "2026-12-31", title: "Chốt dữ liệu chính thức năm 2026", subtitle: "KH QLCL 2026 Final · mốc kiểm soát", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2027-01-15", date: "2027-01-15", title: "Hoàn thiện báo cáo kết quả bước đầu đề án cải tiến", subtitle: "KH QLCL 2026 Final · Mục V.5", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2027-01-31", date: "2027-01-31", title: "Báo cáo tổng kết và Kế hoạch tự kiểm tra năm 2026", subtitle: "Chu kỳ QLCL 2026 · chuyển tiếp 2027", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2027-02-15", date: "2027-02-15", title: "Hoàn tất đánh giá nhiệm vụ trọng điểm/đề án", subtitle: "Chu kỳ QLCL 2026 · chuyển tiếp 2027", kind: "PLAN", tone: "neutral" },
-  { id: "plan-2027-03-20", date: "2027-03-20", title: "Kết thúc kỳ tự kiểm tra, đánh giá chính thức", subtitle: "Chu kỳ QLCL 2026 · 01/02–20/03/2027", kind: "PLAN", tone: "neutral" },
-];
-
-const RECURRING_REFERENCE_2026 = [
-  { cadence: "Tuần 1 hằng tháng · từ 10/2026", title: "Giám sát tuân thủ vệ sinh tay", owner: "Kiểm soát nhiễm khuẩn · Tổ QLCL phối hợp" },
-  { cadence: "Tuần 2 hằng tháng · từ 10/2026", title: "Giám sát xác định đúng người bệnh và vòng nhận diện", owner: "Phòng Điều dưỡng · Tổ QLCL phối hợp" },
-  { cadence: "Tuần 3 hằng tháng · từ 10/2026", title: "Giám sát an toàn sử dụng thuốc và tủ thuốc trực", owner: "Khoa Dược · Tổ QLCL phối hợp" },
-  { cadence: "Tuần 4 hằng tháng · từ 11/2026", title: "Giám sát quy trình kỹ thuật, chăm sóc và hướng dẫn chẩn đoán/điều trị", owner: "Tổ QLCL · các khoa chuyên môn" },
-  { cadence: "Tối thiểu 01 lần/quý", title: "Sinh hoạt Mạng lưới Quản lý chất lượng", owner: "Tổ QLCL · Mạng lưới QLCL" },
-];
 
 function pad(value: number) {
   return String(value).padStart(2, "0");
@@ -304,7 +245,6 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     });
   }
 
-  if (workYear === 2026) events.push(...PLAN_MILESTONES_2026);
   events.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title, "vi"));
 
   const monthEvents = events.filter((event) => event.date.startsWith(selectedPrefix));
@@ -335,7 +275,6 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
   const firstError = [actionsRes, programsRes, monitoringRes, reportingRes, inspectionsRes, recurringRunsRes, recurringTemplatesRes]
     .find((result: any) => result.error)?.error || recordsError;
   const activeTemplates = (recurringTemplatesRes.data ?? []) as any[];
-  const roadmap = workYear === 2026 ? ROADMAP_2026 : [];
 
   const renderEvent = (event: CalendarEvent, mobile = false) => {
     const className = `${mobile ? "calendar-agenda-item" : "calendar-event"} ${kindClass(event.kind)} ${event.tone}`;
@@ -369,21 +308,15 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     <PageHeader
       eyebrow={`KẾ HOẠCH & ĐIỀU HÀNH · CHU KỲ ${workYear}`}
       title="Lịch công tác QLCL"
-      description="Một lịch chung cho hạn Action, kế hoạch, báo cáo, giám sát, tiếp đoàn và công việc định kỳ; mốc kế hoạch năm chỉ dùng làm khung tham chiếu, không tạo dữ liệu hoàn thành giả."
+      description="Một lịch chung lấy trực tiếp từ dữ liệu vận hành: hạn Action, kế hoạch, báo cáo, giám sát, tiếp đoàn và công việc định kỳ. Không hiển thị mốc tĩnh ngoài dữ liệu đã cấu hình trên hệ thống."
     />
 
-    {workYear === 2026 ? <div className="calendar-source-note"><strong>Nguồn kế hoạch:</strong><span>Khung lộ trình và nhịp giám sát bên dưới bám theo <b>Kế hoạch QLCL 2026 Final</b>. Hồ sơ phát sinh thực tế trên hệ thống vẫn là nguồn trạng thái/hoàn thành chính thức.</span></div> : null}
     {firstError ? <div className="alert error">Một phần dữ liệu lịch chưa tải được: {firstError.message}</div> : null}
 
-    {roadmap.length ? <section className="calendar-roadmap">{roadmap.map((period) => {
-      const state = today > period.end ? "done" : today >= period.start && today <= period.end ? "active" : "";
-      return <article key={period.label} className={`calendar-roadmap-card ${state}`}><strong>{period.label}<span>{formatShortDate(period.start)} → {formatShortDate(period.end)}</span></strong><p>{period.focus}</p></article>;
-    })}</section> : null}
-
     <section className="kpi-grid">
-      <article className="kpi-card warning"><span>Cần xử lý hôm nay</span><strong>{todayCount}</strong><small>Không tính mốc tham chiếu</small></article>
+      <article className="kpi-card warning"><span>Cần xử lý hôm nay</span><strong>{todayCount}</strong><small>Từ dữ liệu vận hành</small></article>
       <article className="kpi-card danger"><span>Đang quá hạn</span><strong>{overdueOpen}</strong><small>Action/hồ sơ vận hành</small></article>
-      <article className="kpi-card info"><span>Mốc trong tháng</span><strong>{monthEvents.length}</strong><small>Gồm dữ liệu hệ thống + KH tham chiếu</small></article>
+      <article className="kpi-card info"><span>Mốc trong tháng</span><strong>{monthEvents.length}</strong><small>Từ dữ liệu hệ thống</small></article>
       <article className="kpi-card success"><span>Giám sát/định kỳ</span><strong>{recurringMonthCount}</strong><small>Đợt đã lập hoặc run định kỳ</small></article>
     </section>
 
@@ -400,7 +333,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
         </div>
       </div>
       <div className="calendar-legend">
-        <span><i className="calendar-dot action" />Action</span><span><i className="calendar-dot program" />Kế hoạch</span><span><i className="calendar-dot report" />Báo cáo</span><span><i className="calendar-dot monitoring" />Giám sát</span><span><i className="calendar-dot inspection" />Tiếp đoàn</span><span><i className="calendar-dot recurring" />Định kỳ</span><span><i className="calendar-dot plan" />Mốc KH tham chiếu</span><span><i className="calendar-dot attention" />Quá hạn/cần chú ý</span>
+        <span><i className="calendar-dot action" />Action</span><span><i className="calendar-dot program" />Kế hoạch</span><span><i className="calendar-dot report" />Báo cáo</span><span><i className="calendar-dot monitoring" />Giám sát</span><span><i className="calendar-dot inspection" />Tiếp đoàn</span><span><i className="calendar-dot recurring" />Định kỳ</span><span><i className="calendar-dot attention" />Quá hạn/cần chú ý</span>
       </div>
 
       <div className="calendar-grid">
@@ -427,9 +360,8 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     </section>
 
     <section className="panel">
-      <div className="calendar-section-head"><div><strong>Nhịp công việc định kỳ</strong><div><span>Tham chiếu kế hoạch + template đang vận hành trong Recurring Work Engine</span></div></div><span>{activeTemplates.length} template đang bật</span></div>
-      {workYear === 2026 ? <div className="calendar-recurrence-grid">{RECURRING_REFERENCE_2026.map((item) => <article className="calendar-recurrence-card" key={`${item.cadence}-${item.title}`}><div className="cadence">{item.cadence}</div><strong>{item.title}</strong><small>{item.owner}</small></article>)}</div> : null}
-      {activeTemplates.length ? <div className="calendar-recurrence-grid">{activeTemplates.map((template: any) => <article className="calendar-recurrence-card" key={template.id}><div className="cadence">{template.recurrence_rule}</div><strong>{template.title}</strong><small>{template.start_date || "Không giới hạn bắt đầu"}{template.end_date ? ` → ${template.end_date}` : ""} · Ưu tiên ${template.priority || "NORMAL"}</small></article>)}</div> : <div className="empty-state compact"><strong>Chưa có template định kỳ được kích hoạt.</strong><p>Khung kế hoạch vẫn hiển thị để tham chiếu; hệ thống không tự giả lập run khi chưa có template/run thật.</p></div>}
+      <div className="calendar-section-head"><div><strong>Nhịp công việc định kỳ</strong><div><span>Template đang vận hành trong Recurring Work Engine</span></div></div><span>{activeTemplates.length} template đang bật</span></div>
+      {activeTemplates.length ? <div className="calendar-recurrence-grid">{activeTemplates.map((template: any) => <article className="calendar-recurrence-card" key={template.id}><div className="cadence">{template.recurrence_rule}</div><strong>{template.title}</strong><small>{template.start_date || "Không giới hạn bắt đầu"}{template.end_date ? ` → ${template.end_date}` : ""} · Ưu tiên ${template.priority || "NORMAL"}</small></article>)}</div> : <div className="empty-state compact"><strong>Chưa có template định kỳ được kích hoạt.</strong><p>Hệ thống không tự giả lập run khi chưa có template/run thật.</p></div>}
     </section>
   </div>;
 }
