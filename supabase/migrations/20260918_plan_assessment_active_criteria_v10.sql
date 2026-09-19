@@ -28,6 +28,10 @@ begin
     check (assignment_target_type = any (array['DEPARTMENT'::text,'USER'::text,'GROUP'::text]));
 end $$;
 
+-- Distinguish operational units that participate in hospital-wide execution from executive-only units.
+alter table public.departments add column if not exists is_operational_unit boolean not null default true;
+update public.departments set is_operational_unit=false where code='BAN_GIAM_DOC';
+
 -- Per-department execution tracking for one shared Action.
 -- Keeps one source Action while allowing hospital-wide work to be followed by department.
 create table if not exists public.action_department_executions (
@@ -529,7 +533,7 @@ begin
       from public.departments d
       where d.organization_id=v_actor.organization_id
         and d.is_active
-        and d.department_type<>'MANAGEMENT'
+        and d.is_operational_unit
       on conflict (action_id,department_id) do nothing;
     elsif v_execution_scope='SELECTED_DEPARTMENTS' then
       insert into public.action_department_executions(action_id,department_id,due_date)
