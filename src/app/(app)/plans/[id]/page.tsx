@@ -215,7 +215,8 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
     {program.returned_reason && program.workflow_status === "DRAFT" ? <div className="alert error"><strong>Kế hoạch bị trả lại chỉnh sửa:</strong> {program.returned_reason}</div> : null}
     {program.workflow_status === "DRAFT" && draftActionCount === 0 ? <div className="alert info"><strong>Kế hoạch mới có hồ sơ, chưa có nhiệm vụ thực thi.</strong> Vì chưa có nhiệm vụ nên QARICA chưa thể tạo Action, đợt giám sát/bảng kiểm hoặc đầu ra liên quan. Hãy thêm/kế thừa nhiệm vụ trong phần Soạn nội dung kế hoạch; các đầu ra chỉ được tạo thật sau khi nhiệm vụ được xác nhận và kế hoạch được phê duyệt.</div> : null}
 
-    {canManage && program.workflow_status === "DRAFT" ? {draftNeedsConfirmationCount > 0 ? <div className="alert warning"><strong>Cần xác nhận: {draftNeedsConfirmationCount} nhiệm vụ.</strong> Đây là các nội dung nguồn chưa xác định duy nhất đầu mối hoặc cần người dùng xác nhận trước khi hệ thống tự liên kết nghiệp vụ.</div> : null}
+    {canManage && program.workflow_status === "DRAFT" ? <>
+    {draftNeedsConfirmationCount > 0 ? <div className="alert warning"><strong>Cần xác nhận: {draftNeedsConfirmationCount} nhiệm vụ.</strong> Đây là các nội dung nguồn chưa xác định duy nhất đầu mối hoặc cần người dùng xác nhận trước khi hệ thống tự liên kết nghiệp vụ.</div> : null}
 
     <PlanComposerClient
       planId={id}
