@@ -52,7 +52,7 @@ export function LoginForm() {
       <div>
         <div className="eyebrow">LOGIN TO QARICA</div>
         <h2>Welcome back</h2>
-        <p className="muted">Use your account and password provided by the administrator.</p>
+        <p className="muted">Sử dụng tài khoản và mật khẩu do quản trị viên cấp.</p>
       </div>
 
       <label>
@@ -68,7 +68,7 @@ export function LoginForm() {
       </label>
 
       <label>
-        <span>Password</span>
+        <span>Mật khẩu</span>
         <div className="password-wrap">
           <input
             type={showPassword ? "text" : "password"}
@@ -102,7 +102,7 @@ export function LoginForm() {
       </button>
 
       <p className="tiny muted center">
-        Access to data is controlled by role, permission and intended purpose.<br />
+        Dữ liệu truy cập được kiểm soát theo vai trò, quyền và phạm vi được&nbsp;phân&nbsp;công.<br />
         © 2026 Trần Trường Vinh · QARICA. All rights reserved.
       </p>
     </form>
