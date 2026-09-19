@@ -40,11 +40,13 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   if (actionError) return <div className="alert error">Không tải được nội dung công việc: {actionError.message}</div>;
   if (!action) notFound();
 
-  const [departmentRes, assigneeRes, assigneeGroupRes, groupAssignmentRes, planLinkRes, evidenceRes, sourceLinksRes] = await Promise.all([
+  const [departmentRes, assigneeRes, assigneeGroupRes, groupAssignmentRes, departmentExecutionRes, departmentRoleRes, planLinkRes, evidenceRes, sourceLinksRes] = await Promise.all([
     action.lead_department_id ? supabase.from("departments").select("id,name,short_name").eq("id", action.lead_department_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_user_id ? supabase.from("profiles").select("user_id,full_name,email,job_title").eq("user_id", action.assignee_user_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_group_id ? supabase.from("work_groups").select("id,code,name,leader_user_id").eq("id", action.assignee_group_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_group_id ? supabase.from("work_group_assignment_snapshots").select("id").eq("target_record_id", recordId).eq("group_id", action.assignee_group_id).eq("assignment_role", "ACTION_ASSIGNEE_GROUP").contains("member_snapshot", [{ user_id: user.id }]).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    user.primaryDepartmentId ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("department_id",user.primaryDepartmentId).maybeSingle() : Promise.resolve({data:null,error:null}),
+    user.primaryDepartmentId ? supabase.from("department_user_roles").select("role_type").eq("department_id",user.primaryDepartmentId).eq("user_id",user.id).eq("is_active",true).in("role_type",["HEAD","QUALITY_NETWORK_MEMBER"]) : Promise.resolve({data:[],error:null}),
     supabase.from("program_action_links").select("program_id,milestone_group,is_required").eq("action_id", action.id).maybeSingle(),
     supabase.from("evidence_links").select("id,evidence_id,evidence_role").eq("record_id", recordId),
     supabase.from("record_links").select("source_record_id").eq("target_record_id", recordId).eq("relation_type", "HAS_ACTION"),
@@ -90,14 +92,15 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   const canVerify = canVerifyTask(user.permissions, sourceRecordTypes, !!planLinkRes.data?.program_id);
   const isGroupAssignment = action.assignment_target_type === "GROUP" && !!action.assignee_group_id;
   const isDepartmentAssignment = action.assignment_target_type === "DEPARTMENT";
-  const canOperate = action.assignee_user_id === user.id || (isGroupAssignment && !!groupAssignmentRes.data) || (isDepartmentAssignment && !!user.primaryDepartmentId && user.primaryDepartmentId === action.lead_department_id) || canVerify;
+  const isAuthorizedDepartmentMember = !!departmentExecutionRes.data && (departmentRoleRes.data ?? []).length > 0;
+  const canOperate = action.assignee_user_id === user.id || (isGroupAssignment && !!groupAssignmentRes.data) || (isDepartmentAssignment && isAuthorizedDepartmentMember) || canVerify;
   const assigneeLabel = isGroupAssignment
     ? ([((assigneeGroupRes.data as any)?.code), ((assigneeGroupRes.data as any)?.name)].filter(Boolean).join(" · ") || "Nhóm được giao nhiệm vụ")
     : isDepartmentAssignment
       ? ((departmentRes.data as any)?.short_name || (departmentRes.data as any)?.name || "Khoa/Phòng được giao nhiệm vụ")
       : ((assigneeRes.data as any)?.full_name || (assigneeRes.data as any)?.email || "Người được giao nhiệm vụ");
   const responsibility = taskStepResponsibility(action.workflow_status, assigneeLabel, sourceRecordTypes, !!planLinkRes.data?.program_id);
-  const firstError = [departmentRes as any, assigneeRes as any, assigneeGroupRes as any, groupAssignmentRes as any, planLinkRes, evidenceRes, sourceLinksRes, sourceRecordsRes, { error: evidenceItemsError }].find((r: any) => r?.error)?.error;
+  const firstError = [departmentRes as any, assigneeRes as any, assigneeGroupRes as any, groupAssignmentRes as any, departmentExecutionRes as any, departmentRoleRes as any, planLinkRes, evidenceRes, sourceLinksRes, sourceRecordsRes, { error: evidenceItemsError }].find((r: any) => r?.error)?.error;
 
   return <div className="page-stack">
     <PageHeader
