@@ -66,14 +66,22 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
     criteriaDebug = "user.organizationId đang null/rỗng ở server — đây là nguyên nhân.";
   }
 
-  const draftTasks: Array<{ automation_kind?: string; automation_confirmed?: boolean }> = Array.isArray(program.draft_actions) ? program.draft_actions : [];
+  const draftTasks: Array<{ automation_kind?: string; automation_confirmed?: boolean; automation_outputs?: Array<{ kind?: string; monitoring_recurrence?: string }> }> = Array.isArray(program.draft_actions) ? program.draft_actions : [];
   const draftActionCount = draftTasks.length;
-  const draftIndicatorCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "INDICATOR" && t?.automation_confirmed).length;
-  const draftMonitoringCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "MONITORING" && t?.automation_confirmed).length;
-  const draftReportCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "REPORT" && t?.automation_confirmed).length;
-  const draftAssessmentCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "ASSESSMENT" && t?.automation_confirmed).length;
-  const draftAuditCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "AUDIT" && t?.automation_confirmed).length;
-  const draftImprovementCount = draftTasks.filter((t) => String(t?.automation_kind).toUpperCase() === "IMPROVEMENT" && t?.automation_confirmed).length;
+  const draftNeedsConfirmationCount = (Array.isArray(program.draft_actions) ? program.draft_actions : []).filter((task: any) => task?.needs_confirmation === true).length;
+  const outputsOf = (task: typeof draftTasks[number]): Array<{ kind?: string; monitoring_recurrence?: string }> => Array.isArray(task.automation_outputs) && task.automation_outputs.length
+    ? task.automation_outputs
+    : (task.automation_confirmed && task.automation_kind ? [{ kind: task.automation_kind }] : []);
+  const countOutput = (kind: string) => draftTasks.reduce((sum, task) => sum + outputsOf(task).filter((output) => String(output?.kind || "").toUpperCase() === kind).length, 0);
+  const draftIndicatorCount = countOutput("INDICATOR");
+  const draftMonitoringCount = countOutput("MONITORING");
+  const draftReportCount = countOutput("REPORT");
+  const draftAssessmentCount = countOutput("ASSESSMENT");
+  const draftAuditCount = countOutput("AUDIT");
+  const draftImprovementCount = countOutput("IMPROVEMENT");
+  const draftRecurringMonitoringCount = draftTasks.reduce((sum, task) => sum + outputsOf(task).filter((output) =>
+    String(output?.kind || "").toUpperCase() === "MONITORING" && !["", "ONCE"].includes(String(output?.monitoring_recurrence || "ONCE").toUpperCase())
+  ).length, 0);
 
   const [recordRes, progressRes, departmentRes, ownerRes, approverRes, linksRes, departmentsRes, profilesRes, criteriaRes] = await Promise.all([
     supabase.from("records").select("id,record_code,title,work_year,lifecycle_status,created_by,created_at,updated_at").eq("id", program.record_id).maybeSingle(),
@@ -215,7 +223,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       actions={<div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
         <Link className="button secondary" href="/plans">← Danh sách kế hoạch</Link>
         <PlanPrintActions planId={id} compact />
-        <PlanWorkflowClient planId={id} currentStatus={program.workflow_status} canManage={canManage} requiredActions={requiredActions} completedActions={completedActions} draftActionCount={draftActionCount} draftIndicatorCount={draftIndicatorCount} draftMonitoringCount={draftMonitoringCount} draftReportCount={draftReportCount} draftAssessmentCount={draftAssessmentCount} draftAuditCount={draftAuditCount} draftImprovementCount={draftImprovementCount} />
+        <PlanWorkflowClient planId={id} currentStatus={program.workflow_status} canManage={canManage} requiredActions={requiredActions} completedActions={completedActions} draftActionCount={draftActionCount} draftIndicatorCount={draftIndicatorCount} draftMonitoringCount={draftMonitoringCount} draftRecurringMonitoringCount={draftRecurringMonitoringCount} draftReportCount={draftReportCount} draftAssessmentCount={draftAssessmentCount} draftAuditCount={draftAuditCount} draftImprovementCount={draftImprovementCount} />
       </div>}
     />
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
@@ -223,7 +231,10 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
     {program.returned_reason && program.workflow_status === "DRAFT" ? <div className="alert error"><strong>Kế hoạch bị trả lại chỉnh sửa:</strong> {program.returned_reason}</div> : null}
     {program.workflow_status === "DRAFT" && draftActionCount === 0 ? <div className="alert info"><strong>Kế hoạch mới có hồ sơ, chưa có nhiệm vụ thực thi.</strong> Vì chưa có nhiệm vụ nên QARICA chưa thể tạo Action, đợt giám sát/bảng kiểm hoặc đầu ra liên quan. Hãy thêm/kế thừa nhiệm vụ trong phần Soạn nội dung kế hoạch; các đầu ra chỉ được tạo thật sau khi nhiệm vụ được xác nhận và kế hoạch được phê duyệt.</div> : null}
 
-    {canManage && program.workflow_status === "DRAFT" ? <PlanComposerClient
+    {canManage && program.workflow_status === "DRAFT" ? <>
+    {draftNeedsConfirmationCount > 0 ? <div className="alert warning"><strong>Cần xác nhận: {draftNeedsConfirmationCount} nhiệm vụ.</strong> Đây là các nội dung nguồn chưa xác định duy nhất đầu mối hoặc cần người dùng xác nhận trước khi hệ thống tự liên kết nghiệp vụ.</div> : null}
+
+    <PlanComposerClient
       planId={id}
       departments={(departmentsRes.data ?? []) as any[]}
       profiles={(profilesRes.data ?? []) as any[]}
@@ -248,7 +259,8 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       initialAssignedGroupIds={Array.isArray((program as any).assigned_group_ids) ? (program as any).assigned_group_ids : []}
       initialStartDate={program.start_date}
       initialEndDate={program.end_date}
-    /> : null}
+    />
+    </> : null}
 
     <section className="kpi-grid">
       <article className="kpi-card"><span>Trạng thái</span><div style={{ marginTop: 13 }}><StatusBadge status={program.workflow_status} /></div><small>Vòng đời kế hoạch</small></article>

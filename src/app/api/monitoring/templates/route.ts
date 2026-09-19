@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,6 +11,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const name = String(body.name || "").trim();
   const description = body.description ? String(body.description).trim() : null;
+  const sourceCode = body.source_code ? String(body.source_code).trim().toUpperCase() : null;
   const ownerDepartmentId = String(body.owner_department_id || "").trim();
   const scoringMethod = String(body.scoring_method || "COMPLIANCE_PERCENTAGE").trim();
 
@@ -41,11 +41,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Khoa/phòng quản lý mẫu không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
   }
 
-  const code = `BKT-${new Date().getFullYear()}-${randomUUID().slice(0, 6).toUpperCase()}`;
+  const { data: code, error: codeError } = await admin.rpc("qlcl_next_master_code_v1", {
+    p_org: caller.organization_id,
+    p_kind: "CHECKLIST",
+    p_work_year: new Date().getFullYear(),
+  });
+  if (codeError || !code) {
+    return NextResponse.json({ error: codeError?.message || "Không sinh được mã bảng kiểm." }, { status: 400 });
+  }
+
   const { data: template, error: templateError } = await admin
     .from("checklist_templates")
     .insert({
+      organization_id: caller.organization_id,
       code,
+      source_code: sourceCode,
+      code_scheme_version: 2,
       name,
       description,
       owner_department_id: ownerDepartmentId,

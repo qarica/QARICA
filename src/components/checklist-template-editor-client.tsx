@@ -43,6 +43,8 @@ export function ChecklistTemplateEditorClient({ template, version, versions, sec
   const router = useRouter();
   const [sectionOpen, setSectionOpen] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
+  const [editingSectionId, setEditingSectionId] = useState("");
+  const [editingItemId, setEditingItemId] = useState("");
   const [sectionTitle, setSectionTitle] = useState("");
   const [sectionDescription, setSectionDescription] = useState("");
   const [itemForm, setItemForm] = useState<ItemForm>(emptyItem());
@@ -59,18 +61,47 @@ export function ChecklistTemplateEditorClient({ template, version, versions, sec
     setBusy(true); setMessage(null);
     try {
       const res = await fetch(`/api/monitoring/templates/${template.id}/sections`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version_id: version.id, title: sectionTitle.trim(), description: sectionDescription.trim() || null }),
+        method: editingSectionId ? "PATCH" : "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version_id: version.id, section_id: editingSectionId || undefined, title: sectionTitle.trim(), description: sectionDescription.trim() || null }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Không tạo được nhóm mục.");
-      setSectionTitle(""); setSectionDescription(""); setSectionOpen(false); router.refresh();
+      if (!res.ok) throw new Error(data.error || (editingSectionId ? "Không cập nhật được nhóm mục." : "Không tạo được nhóm mục."));
+      setSectionTitle(""); setSectionDescription(""); setEditingSectionId(""); setSectionOpen(false); router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Có lỗi xảy ra."); }
     finally { setBusy(false); }
   }
 
+  function openSection(section?: Section) {
+    setMessage(null);
+    setEditingSectionId(section?.id || "");
+    setSectionTitle(section?.title || "");
+    setSectionDescription(section?.description || "");
+    setSectionOpen(true);
+  }
+
   function openItem(sectionId: string) {
-    setMessage(null); setItemForm(emptyItem(sectionId)); setItemOpen(true);
+    setMessage(null); setEditingItemId(""); setItemForm(emptyItem(sectionId)); setItemOpen(true);
+  }
+
+  function editItem(sectionId: string, item: Item) {
+    setMessage(null);
+    setEditingItemId(item.id);
+    setItemForm({
+      sectionId,
+      content: item.content,
+      answerType: item.answer_type,
+      isRequired: item.is_required,
+      allowNa: item.allow_na,
+      naReasonRequired: item.na_reason_required,
+      isCritical: item.is_critical,
+      scoringEnabled: item.scoring_enabled,
+      scoreValue: item.score_value == null ? "" : String(item.score_value),
+      weight: item.weight == null ? "" : String(item.weight),
+      findingOnFail: item.finding_on_fail,
+      evidenceRequiredOnFail: item.evidence_required_on_fail,
+      optionsText: item.options.map((o) => o.option_label).join("\n"),
+    });
+    setItemOpen(true);
   }
 
   async function createItem(e: FormEvent) {
@@ -82,31 +113,31 @@ export function ChecklistTemplateEditorClient({ template, version, versions, sec
     setBusy(true); setMessage(null);
     try {
       const res = await fetch(`/api/monitoring/templates/${template.id}/items`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: editingItemId ? "PATCH" : "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          version_id: version.id, section_id: itemForm.sectionId, content: itemForm.content.trim(), answer_type: itemForm.answerType,
+          version_id: version.id, item_id: editingItemId || undefined, section_id: itemForm.sectionId, content: itemForm.content.trim(), answer_type: itemForm.answerType,
           is_required: itemForm.isRequired, allow_na: itemForm.allowNa, na_reason_required: itemForm.naReasonRequired, is_critical: itemForm.isCritical,
           scoring_enabled: itemForm.scoringEnabled, score_value: itemForm.scoreValue, weight: itemForm.weight,
           finding_on_fail: itemForm.findingOnFail, evidence_required_on_fail: itemForm.evidenceRequiredOnFail, options,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Không tạo được tiêu chí.");
-      setItemOpen(false); setItemForm(emptyItem()); router.refresh();
+      if (!res.ok) throw new Error(data.error || (editingItemId ? "Không cập nhật được tiêu chí." : "Không tạo được tiêu chí."));
+      setItemOpen(false); setEditingItemId(""); setItemForm(emptyItem()); router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Có lỗi xảy ra."); }
     finally { setBusy(false); }
   }
 
   const sectionModal = sectionOpen && typeof document !== "undefined" ? createPortal(
     <div className="modal-backdrop"><form className="modal-card" onSubmit={createSection} style={{ width: "min(760px, calc(100vw - 32px))" }}>
-      <div className="modal-head"><div><div className="eyebrow">NHÓM MỤC</div><h2>Thêm nhóm mục</h2><p className="muted tiny">Dùng để gom các tiêu chí có cùng chủ đề.</p></div><button type="button" className="icon-button" onClick={() => !busy && setSectionOpen(false)}><Icon name="x" size={22} /></button></div>
+      <div className="modal-head"><div><div className="eyebrow">NHÓM MỤC</div><h2>{editingSectionId ? "Cập nhật nhóm mục" : "Thêm nhóm mục"}</h2><p className="muted tiny">Dùng để gom các tiêu chí có cùng chủ đề.</p></div><button type="button" className="icon-button" onClick={() => !busy && setSectionOpen(false)}><Icon name="x" size={22} /></button></div>
       <div className="modal-body"><div className="form-stack"><label><span>Tên nhóm mục *</span><input value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} placeholder="Ví dụ: 1. Thời điểm vệ sinh tay" /></label><label><span>Mô tả / hướng dẫn</span><textarea rows={4} value={sectionDescription} onChange={(e) => setSectionDescription(e.target.value)} /></label></div></div>
-      <div className="modal-footer"><button type="button" className="button secondary" disabled={busy} onClick={() => setSectionOpen(false)}>Hủy</button><button className="button primary" disabled={busy}><Icon name="plus" size={17} /> {busy ? "Đang tạo..." : "Thêm nhóm mục"}</button></div>
+      <div className="modal-footer"><button type="button" className="button secondary" disabled={busy} onClick={() => { setSectionOpen(false); setEditingSectionId(""); }}>Hủy</button><button className="button primary" disabled={busy}><Icon name={editingSectionId ? "save" : "plus"} size={17} /> {busy ? "Đang lưu..." : editingSectionId ? "Lưu thay đổi" : "Thêm nhóm mục"}</button></div>
     </form></div>, document.body) : null;
 
   const itemModal = itemOpen && typeof document !== "undefined" ? createPortal(
     <div className="modal-backdrop" style={{ padding: 16 }}><form className="modal-card" onSubmit={createItem} style={{ width: "min(1100px, calc(100vw - 32px))", maxHeight: "calc(100dvh - 32px)" }}>
-      <div className="modal-head"><div><div className="eyebrow">TIÊU CHÍ BẢNG KIỂM</div><h2>Thêm tiêu chí</h2><p className="muted tiny">Cấu hình cách trả lời, N/A, mức trọng yếu và xử lý khi không đạt.</p></div><button type="button" className="icon-button" onClick={() => !busy && setItemOpen(false)}><Icon name="x" size={22} /></button></div>
+      <div className="modal-head"><div><div className="eyebrow">TIÊU CHÍ BẢNG KIỂM</div><h2>{editingItemId ? "Cập nhật tiêu chí" : "Thêm tiêu chí"}</h2><p className="muted tiny">Cấu hình cách trả lời, N/A, mức trọng yếu và xử lý khi không đạt.</p></div><button type="button" className="icon-button" onClick={() => !busy && setItemOpen(false)}><Icon name="x" size={22} /></button></div>
       <div className="modal-body">
         <div className="form-stack">
           <label><span>Nội dung tiêu chí *</span><textarea rows={3} value={itemForm.content} onChange={(e) => setItemForm({ ...itemForm, content: e.target.value })} placeholder="Ví dụ: Nhân viên thực hiện vệ sinh tay trước khi tiếp xúc người bệnh." /></label>
@@ -126,7 +157,7 @@ export function ChecklistTemplateEditorClient({ template, version, versions, sec
           <fieldset><legend>Chấm điểm</legend><label className="inline-check"><input type="checkbox" checked={itemForm.scoringEnabled} onChange={(e) => setItemForm({ ...itemForm, scoringEnabled: e.target.checked })} /> Tính điểm cho tiêu chí này</label>{itemForm.scoringEnabled ? <div style={{ marginTop: 12, maxWidth: 280 }}><label><span>Điểm tối đa / giá trị điểm</span><input type="number" step="0.01" value={itemForm.scoreValue} onChange={(e) => setItemForm({ ...itemForm, scoreValue: e.target.value })} /></label></div> : null}</fieldset>
         </div>
       </div>
-      <div className="modal-footer"><button type="button" className="button secondary" disabled={busy} onClick={() => setItemOpen(false)}>Hủy</button><button className="button primary" disabled={busy}><Icon name="plus" size={17} /> {busy ? "Đang tạo..." : "Thêm tiêu chí"}</button></div>
+      <div className="modal-footer"><button type="button" className="button secondary" disabled={busy} onClick={() => { setItemOpen(false); setEditingItemId(""); }}>Hủy</button><button className="button primary" disabled={busy}><Icon name={editingItemId ? "save" : "plus"} size={17} /> {busy ? "Đang lưu..." : editingItemId ? "Lưu thay đổi" : "Thêm tiêu chí"}</button></div>
     </form></div>, document.body) : null;
 
   return <>
@@ -139,19 +170,19 @@ export function ChecklistTemplateEditorClient({ template, version, versions, sec
     </section>
 
     <section className="panel">
-      <div className="panel-title"><div><h2>Thông tin mẫu</h2><p>{template.description || "Chưa có mô tả phạm vi sử dụng."}</p></div><div style={{ display: "flex", gap: 8, alignItems: "center" }}>{version ? <VersionBadge status={version.status} /> : null}{editable ? <button className="button primary" onClick={() => { setMessage(null); setSectionOpen(true); }}><Icon name="plus" size={17} /> Thêm nhóm mục</button> : null}</div></div>
+      <div className="panel-title"><div><h2>Thông tin mẫu</h2><p>{template.description || "Chưa có mô tả phạm vi sử dụng."}</p></div><div style={{ display: "flex", gap: 8, alignItems: "center" }}>{version ? <VersionBadge status={version.status} /> : null}{editable ? <button className="button primary" onClick={() => openSection()}><Icon name="plus" size={17} /> Thêm nhóm mục</button> : null}</div></div>
       {!editable ? <div className="scope-note" style={{ margin: "0 18px 18px" }}>{version?.status === "PUBLISHED" ? "Phiên bản đã phát hành được khóa nội dung để bảo toàn dữ liệu lịch sử." : "Bạn không có quyền chỉnh sửa phiên bản này."}</div> : null}
     </section>
 
     {sections.map((section, index) => <section className="panel" key={section.id}>
-      <div className="panel-title"><div><div className="eyebrow">NHÓM {index + 1}</div><h2>{section.title}</h2>{section.description ? <p>{section.description}</p> : null}</div>{editable ? <button className="button secondary" onClick={() => openItem(section.id)}><Icon name="plus" size={16} /> Thêm tiêu chí</button> : null}</div>
+      <div className="panel-title"><div><div className="eyebrow">NHÓM {index + 1}</div><h2>{section.title}</h2>{section.description ? <p>{section.description}</p> : null}</div>{editable ? <div style={{display:"flex",gap:6,flexWrap:"wrap"}}><button className="button tertiary small" onClick={() => openSection(section)}>Sửa nhóm</button><button className="button secondary" onClick={() => openItem(section.id)}><Icon name="plus" size={16} /> Thêm tiêu chí</button></div> : null}</div>
       <div className="table-wrap"><table><thead><tr><th>#</th><th>Tiêu chí</th><th>Kiểu trả lời</th><th>Thiết lập</th></tr></thead><tbody>
-        {section.items.map((item, itemIndex) => <tr key={item.id}><td>{itemIndex + 1}</td><td><strong>{item.content}</strong>{item.options.length ? <span className="subline">Phương án: {item.options.map((o) => o.option_label).join(" · ")}</span> : null}</td><td>{ANSWER_LABELS[item.answer_type] || item.answer_type}</td><td><div className="chip-row">{item.is_required ? <span className="chip">Bắt buộc</span> : null}{item.allow_na ? <span className="chip">Có N/A</span> : null}{item.is_critical ? <span className="chip">Trọng yếu</span> : null}{item.finding_on_fail ? <span className="chip">Finding khi FAIL</span> : null}{item.evidence_required_on_fail ? <span className="chip">FAIL cần minh chứng</span> : null}</div></td></tr>)}
+        {section.items.map((item, itemIndex) => <tr key={item.id}><td>{itemIndex + 1}</td><td><strong>{item.content}</strong>{item.options.length ? <span className="subline">Phương án: {item.options.map((o) => o.option_label).join(" · ")}</span> : null}</td><td>{ANSWER_LABELS[item.answer_type] || item.answer_type}</td><td><div className="chip-row">{item.is_required ? <span className="chip">Bắt buộc</span> : null}{item.allow_na ? <span className="chip">Có N/A</span> : null}{item.is_critical ? <span className="chip">Trọng yếu</span> : null}{item.finding_on_fail ? <span className="chip">Finding khi FAIL</span> : null}{item.evidence_required_on_fail ? <span className="chip">FAIL cần minh chứng</span> : null}{editable ? <button type="button" className="button tertiary small" onClick={() => editItem(section.id, item)}>Sửa</button> : null}</div></td></tr>)}
         {!section.items.length ? <tr><td colSpan={4}><div className="empty-state compact">Nhóm này chưa có tiêu chí. Chọn <strong>Thêm tiêu chí</strong> để bắt đầu.</div></td></tr> : null}
       </tbody></table></div>
     </section>)}
 
-    {!sections.length ? <section className="panel empty-state"><strong>Phiên bản chưa có nhóm mục.</strong><div style={{ marginTop: 8 }}>Tạo nhóm mục đầu tiên để bắt đầu xây nội dung bảng kiểm.</div>{editable ? <button className="button primary" style={{ marginTop: 16 }} onClick={() => setSectionOpen(true)}><Icon name="plus" size={17} /> Tạo nhóm mục đầu tiên</button> : null}</section> : null}
+    {!sections.length ? <section className="panel empty-state"><strong>Phiên bản chưa có nhóm mục.</strong><div style={{ marginTop: 8 }}>Tạo nhóm mục đầu tiên để bắt đầu xây nội dung bảng kiểm.</div>{editable ? <button className="button primary" style={{ marginTop: 16 }} onClick={() => openSection()}><Icon name="plus" size={17} /> Tạo nhóm mục đầu tiên</button> : null}</section> : null}
 
     {versions.length > 1 ? <section className="panel"><div className="panel-title"><div><h2>Lịch sử phiên bản</h2><p>Các phiên bản được giữ lại để truy vết dữ liệu giám sát cũ.</p></div></div><div className="table-wrap"><table><thead><tr><th>Phiên bản</th><th>Trạng thái</th><th>Hiệu lực</th></tr></thead><tbody>{versions.map((v) => <tr key={v.id}><td><strong>v{v.version_no}</strong></td><td><VersionBadge status={v.status} /></td><td>{v.effective_from || "—"}{v.effective_to ? ` → ${v.effective_to}` : ""}</td></tr>)}</tbody></table></div></section> : null}
 

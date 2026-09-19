@@ -16,9 +16,9 @@ export async function POST(request: Request) {
   const programType = planText(body.program_type || "ANNUAL_PLAN");
   const leadDepartmentIds = cleanPlanList(body.lead_department_ids);
   const ownerUserIds = cleanPlanList(body.owner_user_ids);
-  const leadDepartmentId = leadDepartmentIds[0] || planText(body.lead_department_id);
+  const leadDepartmentId = leadDepartmentIds[0] || (body.lead_department_id ? planText(body.lead_department_id) : null);
   const ownerUserId = ownerUserIds[0] || (body.owner_user_id ? planText(body.owner_user_id) : null);
-  const normalizedLeadDepartmentIds = Array.from(new Set([leadDepartmentId, ...leadDepartmentIds].filter(Boolean))).slice(0, 50);
+  const normalizedLeadDepartmentIds = Array.from(new Set([leadDepartmentId, ...leadDepartmentIds].filter(Boolean) as string[])).slice(0, 50);
   const normalizedOwnerUserIds = Array.from(new Set([ownerUserId, ...ownerUserIds].filter(Boolean) as string[])).slice(0, 100);
   const referenceIds = cleanPlanList(body.reference_ids);
   const assignedGroupIds = cleanPlanList(body.assigned_group_ids);
@@ -30,7 +30,6 @@ export async function POST(request: Request) {
   if (!generalObjective) return NextResponse.json({ error: "Mục tiêu chung là bắt buộc." }, { status: 400 });
   if (!Number.isInteger(workYear) || workYear < 2000 || workYear > 2200) return NextResponse.json({ error: "Năm kế hoạch không hợp lệ." }, { status: 400 });
   if (!PLAN_TYPES.has(programType)) return NextResponse.json({ error: "Loại kế hoạch không hợp lệ." }, { status: 400 });
-  if (!leadDepartmentId || !normalizedLeadDepartmentIds.length) return NextResponse.json({ error: "Cần chọn ít nhất một khoa/phòng chủ trì hoặc phối hợp." }, { status: 400 });
   if (!validPlanDateWindow(startDate, endDate)) return NextResponse.json({ error: "Ngày kết thúc không được trước ngày bắt đầu." }, { status: 400 });
   for (const [index, action] of draftActions.entries()) {
     const taskError = validatePlanDraftAction(action, startDate, endDate);
@@ -42,13 +41,15 @@ export async function POST(request: Request) {
   if (callerError || !caller?.organization_id || !caller.is_active) return NextResponse.json({ error: callerError?.message || "Tài khoản chưa gắn bệnh viện." }, { status: 400 });
 
   const [{ data: validDepartments, error: deptError }, { data: validOwners, error: ownerError }] = await Promise.all([
-    admin.from("departments").select("id").in("id", normalizedLeadDepartmentIds).eq("organization_id", caller.organization_id).eq("is_active", true),
+    normalizedLeadDepartmentIds.length
+      ? admin.from("departments").select("id").in("id", normalizedLeadDepartmentIds).eq("organization_id", caller.organization_id).eq("is_active", true)
+      : Promise.resolve({ data: [], error: null }),
     normalizedOwnerUserIds.length
       ? admin.from("profiles").select("user_id").in("user_id", normalizedOwnerUserIds).eq("organization_id", caller.organization_id).eq("is_active", true)
       : Promise.resolve({ data: [], error: null }),
   ]);
-  if (deptError || (validDepartments ?? []).length !== normalizedLeadDepartmentIds.length) return NextResponse.json({ error: "Có khoa/phòng chủ trì hoặc phối hợp không hợp lệ." }, { status: 400 });
-  if (ownerError || (validOwners ?? []).length !== normalizedOwnerUserIds.length) return NextResponse.json({ error: "Có người phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
+  if (deptError || (validDepartments ?? []).length !== normalizedLeadDepartmentIds.length) return NextResponse.json({ error: "Có khoa/phòng cấp kế hoạch không hợp lệ." }, { status: 400 });
+  if (ownerError || (validOwners ?? []).length !== normalizedOwnerUserIds.length) return NextResponse.json({ error: "Có người phụ trách cấp kế hoạch không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
 
   if (referenceIds.length) {
     const { data: refs, error: refError } = await admin.from("external_directives").select("id,record_id").in("id", referenceIds);
@@ -64,12 +65,15 @@ export async function POST(request: Request) {
 
 
   for (const [index, action] of draftActions.entries()) {
-    const [{ data: taskDept }, { data: taskOwner }] = await Promise.all([
-      admin.from("departments").select("id").eq("id", action.lead_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle(),
-      admin.from("profiles").select("user_id").eq("user_id", action.assignee_user_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle(),
-    ]);
+    const { data: taskDept } = await admin.from("departments").select("id").eq("id", action.lead_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
     if (!taskDept) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: khoa/phòng phụ trách không hợp lệ.` }, { status: 400 });
-    if (!taskOwner) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: người phụ trách không hợp lệ.` }, { status: 400 });
+    if (action.assignment_target_type === "GROUP") {
+      const { data: taskGroup } = await admin.from("work_groups").select("id").eq("id", action.assignee_group_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
+      if (!taskGroup) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: nhóm phụ trách không hợp lệ hoặc đã ngưng.` }, { status: 400 });
+    } else if (action.assignment_target_type === "USER") {
+      const { data: taskOwner } = await admin.from("profiles").select("user_id").eq("user_id", action.assignee_user_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
+      if (!taskOwner) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: người phụ trách không hợp lệ.` }, { status: 400 });
+    }
     if (action.collaborating_department_ids.length) {
       const { data: collaborators } = await admin.from("departments").select("id").in("id", action.collaborating_department_ids).eq("organization_id", caller.organization_id).eq("is_active", true);
       if ((collaborators ?? []).length !== new Set(action.collaborating_department_ids).size) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: có khoa/phòng phối hợp không hợp lệ.` }, { status: 400 });
@@ -90,7 +94,7 @@ export async function POST(request: Request) {
   const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_org: caller.organization_id, p_record_type: "PROGRAM", p_work_year: workYear });
   if (codeError || !recordCode) return NextResponse.json({ error: codeError?.message || "Không tạo được mã kế hoạch." }, { status: 400 });
 
-  const { data: record, error: recordError } = await admin.from("records").insert({ organization_id: caller.organization_id, record_type: "PROGRAM", record_code: recordCode, title, work_year: workYear, owner_department_id: leadDepartmentId, owner_user_id: ownerUserId, lifecycle_status: "ACTIVE", created_by: auth.user.id }).select("id,record_code").single();
+  const { data: record, error: recordError } = await admin.from("records").insert({ organization_id: caller.organization_id, record_type: "PROGRAM", record_code: recordCode, title, work_year: workYear, owner_department_id: leadDepartmentId || null, owner_user_id: ownerUserId || null, lifecycle_status: "ACTIVE", created_by: auth.user.id }).select("id,record_code").single();
   if (recordError || !record) return NextResponse.json({ error: recordError?.message || "Không tạo được hồ sơ kế hoạch." }, { status: 400 });
 
   const { data: program, error: programError } = await admin.from("work_programs").insert({
@@ -104,7 +108,7 @@ export async function POST(request: Request) {
     draft_actions: draftActions,
     start_date: startDate,
     end_date: endDate,
-    lead_department_id: leadDepartmentId,
+    lead_department_id: leadDepartmentId || null,
     lead_department_ids: normalizedLeadDepartmentIds,
     owner_user_id: ownerUserId,
     owner_user_ids: normalizedOwnerUserIds,

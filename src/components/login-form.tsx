@@ -50,11 +50,9 @@ export function LoginForm() {
       <div className="mobile-brand"><img src="/brand/qarica-logo-v2.svg" alt="QARICA" /></div>
 
       <div>
-        <div className="eyebrow">ĐĂNG NHẬP QARICA</div>
-        <h2>Chào mừng trở lại</h2>
-        <p className="muted">
-          Sử dụng tài khoản và mật khẩu do quản trị viên cấp.
-        </p>
+        <div className="eyebrow">LOGIN TO QARICA</div>
+        <h2>Welcome back</h2>
+        <p className="muted">Sử dụng tài khoản và mật khẩu do quản trị viên cấp.</p>
       </div>
 
       <label>
@@ -63,7 +61,7 @@ export function LoginForm() {
           type="text"
           value={login}
           onChange={(e) => setLogin(e.target.value)}
-          placeholder="Ví dụ: ten.nguoidung hoặc qarica01"
+          placeholder="Account"
           autoComplete="username"
           required
         />
@@ -99,7 +97,7 @@ export function LoginForm() {
             <LoaderCircle className="spin" size={18} /> Đang đăng nhập...
           </>
         ) : (
-          "Đăng nhập"
+          <>Đăng nhập&nbsp;&nbsp; →</>
         )}
       </button>
 

@@ -28,6 +28,7 @@ export function NotificationBell() {
   const supabase = useMemo(() => createClient(), []);
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<N[]>([]);
+  const [unreadTotal, setUnreadTotal] = useState(0);
   const [recordMap, setRecordMap] = useState<Record<string, string>>({});
   const [routeMap, setRouteMap] = useState<Record<string, string | null>>({});
   const [ringing, setRinging] = useState(false);
@@ -95,11 +96,17 @@ export function NotificationBell() {
       }
     }
 
-    const { data } = await supabase
-      .from("notifications")
-      .select("id,title,message,priority,is_read,created_at,target_record_id,target_route")
-      .order("created_at", { ascending: false })
-      .limit(30);
+    const [{ data }, { count: unreadCount }] = await Promise.all([
+      supabase
+        .from("notifications")
+        .select("id,title,message,priority,is_read,created_at,target_record_id,target_route")
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("is_read", false),
+    ]);
 
     const notifications = (data ?? []) as N[];
     const newest = notifications[0] ?? null;
@@ -117,6 +124,7 @@ export function NotificationBell() {
     }
 
     setRows(notifications);
+    setUnreadTotal(unreadCount ?? notifications.filter((item) => !item.is_read).length);
 
     const ids = notifications.map((x) => x.target_record_id).filter(Boolean) as string[];
     if (ids.length) {
@@ -170,7 +178,8 @@ export function NotificationBell() {
     return () => document.removeEventListener("mousedown", outside);
   }, []);
 
-  const unread = rows.filter((r) => !r.is_read).length;
+  const unread = unreadTotal;
+  const visibleUnread = rows.filter((r) => !r.is_read).length;
   const urgent = rows.filter((r) => !r.is_read && ["HIGH", "URGENT", "CRITICAL"].includes(String(r.priority).toUpperCase())).length;
   const visibleRows = rows.filter((r) => filter === "all" || (filter === "unread" && !r.is_read) || (filter === "urgent" && !r.is_read && ["HIGH", "URGENT", "CRITICAL"].includes(String(r.priority).toUpperCase())));
 
@@ -181,6 +190,7 @@ export function NotificationBell() {
         .update({ is_read: true, read_at: new Date().toISOString() })
         .eq("id", n.id);
       setRows((curr) => curr.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
+      setUnreadTotal((curr) => Math.max(0, curr - 1));
     }
     setOpen(false);
     if (n.target_record_id) {
@@ -192,19 +202,20 @@ export function NotificationBell() {
   }
 
   async function markAll() {
-    const ids = rows.filter((r) => !r.is_read).map((r) => r.id);
-    if (!ids.length) return;
+    if (!unreadTotal) return;
     await supabase
       .from("notifications")
       .update({ is_read: true, read_at: new Date().toISOString() })
-      .in("id", ids);
+      .eq("is_read", false);
     setRows((curr) => curr.map((x) => ({ ...x, is_read: true })));
+    setUnreadTotal(0);
     setRinging(false);
   }
 
   return (
     <div className="notification-root" ref={rootRef}>
-      <style>{`\n        .notification-filters{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid #edf2f2;background:#fbfdfd}
+      <style>{`
+        .notification-filters{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid #edf2f2;background:#fbfdfd}
         .notification-filters button{border:1px solid transparent;background:transparent;color:#718286;border-radius:999px;padding:6px 9px;font-size:10px;cursor:pointer}
         .notification-filters button:hover{background:#e6eef8;color:#1d3f73}
         .notification-filters button.active{background:#dff4ef;border-color:#b8ded7;color:#0f655f;font-weight:800}
@@ -231,7 +242,7 @@ export function NotificationBell() {
           </div>
           <div className="notification-filters" role="tablist" aria-label="Lọc thông báo">
             <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Tất cả <b>{rows.length}</b></button>
-            <button className={filter === "unread" ? "active" : ""} onClick={() => setFilter("unread")}>Chưa đọc <b>{unread}</b></button>
+            <button className={filter === "unread" ? "active" : ""} onClick={() => setFilter("unread")}>Chưa đọc <b>{unread > rows.length ? `${visibleUnread}/${unread}` : unread}</b></button>
             <button className={filter === "urgent" ? "active" : ""} onClick={() => setFilter("urgent")}>Ưu tiên <b>{urgent}</b></button>
           </div>
           <div className="notification-list">

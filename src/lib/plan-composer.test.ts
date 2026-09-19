@@ -26,6 +26,91 @@ describe("Plan Composer V2 helpers", () => {
     expect(task.collaborating_group_ids).toEqual(["g1", "g2"]);
   });
 
+  it("migrates one legacy automation output without losing configuration", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát vệ sinh tay",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-12-01",
+      expected_result: "B",
+      automation_kind: "MONITORING",
+      automation_confirmed: true,
+      automation_ref_id: "checklist-v1",
+      automation_target_department_id: "d2",
+    }]);
+    expect(task.automation_outputs).toEqual([expect.objectContaining({
+      kind: "MONITORING",
+      ref_id: "checklist-v1",
+      target_department_id: "d2",
+    })]);
+  });
+
+  it("keeps independent configuration for multiple outputs", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát và báo cáo",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-12-01",
+      expected_result: "B",
+      automation_outputs: [
+        { kind: "MONITORING", ref_id: "checklist-v1", target_department_id: "d2" },
+        { kind: "REPORT", report_recipient: "BGĐ", report_method: "Email", report_period: "Tháng 12/2026" },
+      ],
+    }]);
+    expect(task.automation_outputs).toHaveLength(2);
+    expect(task.automation_outputs[0]).toMatchObject({ kind: "MONITORING", ref_id: "checklist-v1" });
+    expect(task.automation_outputs[1]).toMatchObject({ kind: "REPORT", report_recipient: "BGĐ" });
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toBeNull();
+  });
+
+  it("supports primary assignment to a configured group without inventing a user assignee", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Rà soát hồ sơ theo nhóm",
+      lead_department_id: "d1",
+      assignment_target_type: "GROUP",
+      assignee_group_id: "g1",
+      due_date: "2026-12-01",
+      expected_result: "Biên bản",
+    }]);
+    expect(task.assignment_target_type).toBe("GROUP");
+    expect(task.assignee_group_id).toBe("g1");
+    expect(task.assignee_user_id).toBeNull();
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toBeNull();
+  });
+
+  it("requires the selected primary target for both individual and group assignments", () => {
+    const [groupTask] = cleanPlanDraftActions([{
+      title: "A",
+      lead_department_id: "d1",
+      assignment_target_type: "GROUP",
+      due_date: "2026-12-01",
+      expected_result: "B",
+    }]);
+    expect(validatePlanDraftAction(groupTask, null, null)).toContain("chọn nhóm phụ trách");
+
+    const [userTask] = cleanPlanDraftActions([{
+      title: "A",
+      lead_department_id: "d1",
+      assignment_target_type: "USER",
+      due_date: "2026-12-01",
+      expected_result: "B",
+    }]);
+    expect(validatePlanDraftAction(userTask, null, null)).toContain("chọn người phụ trách");
+  });
+
+  it("keeps legacy tasks assigned to a user", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "A",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-12-01",
+      expected_result: "B",
+    }]);
+    expect(task.assignment_target_type).toBe("USER");
+    expect(task.assignee_user_id).toBe("u1");
+    expect(task.assignee_group_id).toBeNull();
+  });
+
   it("validates plan and task date windows", () => {
     expect(validPlanDateWindow("2026-01-01", "2026-12-31")).toBe(true);
     expect(validPlanDateWindow("2026-12-31", "2026-01-01")).toBe(false);
@@ -53,7 +138,7 @@ describe("Plan Composer V2 helpers", () => {
       automation_kind: "INDICATOR",
       automation_confirmed: true,
     }]);
-    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toContain("chưa chọn chỉ số");
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toContain("Chỉ số cần chọn");
   });
 
   it("asks only for the missing monitoring target after a checklist is selected", () => {
@@ -68,6 +153,63 @@ describe("Plan Composer V2 helpers", () => {
       automation_ref_id: "checklist-v1",
     }]);
     expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toContain("khoa/phòng hoặc phạm vi");
+  });
+
+  it("normalizes recurring monitoring schedule and uses plan end as fallback", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát vệ sinh tay định kỳ",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-10-05",
+      expected_result: "Hoàn tất giám sát",
+      verification_requirement: "Bảng kiểm đã chấm",
+      automation_outputs: [{
+        kind: "MONITORING",
+        ref_id: "checklist-v1",
+        target_department_id: "d2",
+        monitoring_recurrence: "monthly",
+      }],
+    }]);
+    expect(task.automation_outputs[0]).toMatchObject({ kind: "MONITORING", monitoring_recurrence: "MONTHLY" });
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toBeNull();
+  });
+
+  it("requires evidence and an end boundary for recurring monitoring", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát định kỳ",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-10-05",
+      expected_result: "Hoàn tất giám sát",
+      automation_outputs: [{
+        kind: "MONITORING",
+        ref_id: "checklist-v1",
+        target_department_id: "d2",
+        monitoring_recurrence: "WEEKLY",
+      }],
+    }]);
+    expect(validatePlanDraftAction(task, "2026-01-01", null)).toContain("Yêu cầu minh chứng");
+    task.verification_requirement = "Bảng kiểm đã chấm";
+    expect(validatePlanDraftAction(task, "2026-01-01", null)).toContain("ngày kết thúc");
+  });
+
+  it("rejects recurring monitoring end before the first round", () => {
+    const [task] = cleanPlanDraftActions([{
+      title: "Giám sát định kỳ",
+      lead_department_id: "d1",
+      assignee_user_id: "u1",
+      due_date: "2026-10-05",
+      expected_result: "Hoàn tất giám sát",
+      verification_requirement: "Bảng kiểm đã chấm",
+      automation_outputs: [{
+        kind: "MONITORING",
+        ref_id: "checklist-v1",
+        target_department_id: "d2",
+        monitoring_recurrence: "MONTHLY",
+        monitoring_recurrence_end_date: "2026-09-30",
+      }],
+    }]);
+    expect(validatePlanDraftAction(task, "2026-01-01", "2026-12-31")).toContain("không được trước đợt đầu tiên");
   });
 
   it("accepts monitoring for a whole-area scope without forcing one department", () => {

@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: action, error: actionError } = await admin
     .from("actions")
-    .select("id,assignee_user_id,workflow_status")
+    .select("id,assignment_target_type,assignee_user_id,assignee_group_id,workflow_status")
     .eq("record_id", recordId)
     .maybeSingle();
   if (actionError || !action) {
@@ -58,13 +58,46 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const verifierPermissions = taskVerificationPermissions(sourceRecordTypes, (planLinks ?? []).length > 0);
   const permissionResults = await Promise.all(verifierPermissions.map((permission) => auth.supabase.rpc("has_permission", { p_permission_code: permission })));
   const canManage = permissionResults.some((result) => result.data === true);
-  const isAssignee = action.assignee_user_id === auth.user.id;
+  let isAssignee = action.assignee_user_id === auth.user.id;
+  let groupRecipientIds: string[] = [];
+  if (action.assignment_target_type === "GROUP" && action.assignee_group_id) {
+    const { data: assignmentSnapshot, error: snapshotError } = await admin
+      .from("work_group_assignment_snapshots")
+      .select("member_snapshot")
+      .eq("target_record_id", recordId)
+      .eq("group_id", action.assignee_group_id)
+      .eq("assignment_role", "ACTION_ASSIGNEE_GROUP")
+      .maybeSingle();
+    if (snapshotError) return NextResponse.json({ error: snapshotError.message }, { status: 400 });
+
+    const snapshotIds = Array.from(new Set(
+      (Array.isArray(assignmentSnapshot?.member_snapshot) ? assignmentSnapshot.member_snapshot : [])
+        .map((row: any) => String(row?.user_id || "").trim())
+        .filter(Boolean),
+    ));
+    isAssignee = snapshotIds.includes(auth.user.id);
+
+    if (snapshotIds.length) {
+      const { data: activeProfiles, error: activeProfilesError } = await admin
+        .from("profiles")
+        .select("user_id")
+        .in("user_id", snapshotIds)
+        .eq("organization_id", caller.organization_id)
+        .eq("is_active", true);
+      if (activeProfilesError) return NextResponse.json({ error: activeProfilesError.message }, { status: 400 });
+      groupRecipientIds = Array.from(new Set((activeProfiles ?? []).map((row) => row.user_id).filter(Boolean))) as string[];
+    }
+  }
+
+  const executionRecipientIds = action.assignment_target_type === "GROUP"
+    ? groupRecipientIds
+    : (action.assignee_user_id ? [action.assignee_user_id] : []);
 
   if (VERIFIER_ACTIONS.has(requestedAction) && !canManage) {
     return NextResponse.json({ error: "Bạn không có quyền xác minh công việc này." }, { status: 403 });
   }
   if (!VERIFIER_ACTIONS.has(requestedAction) && !isAssignee && !canManage) {
-    return NextResponse.json({ error: "Chỉ người được giao việc hoặc người quản lý kế hoạch mới được cập nhật công việc này." }, { status: 403 });
+    return NextResponse.json({ error: "Chỉ cá nhân hoặc thành viên nhóm được giao việc tại thời điểm phân công, hoặc người có quyền xác minh, mới được cập nhật công việc này." }, { status: 403 });
   }
 
   // Công việc gắn với kế hoạch chỉ được bắt đầu/tiếp tục/gửi xác minh khi
@@ -146,17 +179,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .eq("workflow_status", "VERIFYING");
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-    if (action.assignee_user_id) {
-      await admin.from("notifications").insert({
-        recipient_user_id: action.assignee_user_id,
+    if (executionRecipientIds.length) {
+      const eventStamp = Date.now();
+      await admin.from("notifications").insert(executionRecipientIds.map((recipientUserId) => ({
+        recipient_user_id: recipientUserId,
         notification_type: "ACTION_RETURNED",
         priority: "HIGH",
         title: "Công việc cần bổ sung",
         message: `${record.title}: ${note}`,
         target_record_id: recordId,
         target_route: `/tasks/${recordId}`,
-        notification_event_key: `action-returned:${action.id}:${Date.now()}`,
-      });
+        notification_event_key: `action-returned:${action.id}:${recipientUserId}:${eventStamp}`,
+      })));
     }
     return NextResponse.json({ ok: true, workflow_status: "RETURNED" });
   }
@@ -205,17 +239,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }
     }
 
-    if (action.assignee_user_id) {
-      await admin.from("notifications").insert({
-        recipient_user_id: action.assignee_user_id,
+    if (executionRecipientIds.length) {
+      const eventStamp = Date.now();
+      await admin.from("notifications").insert(executionRecipientIds.map((recipientUserId) => ({
+        recipient_user_id: recipientUserId,
         notification_type: "ACTION_VERIFIED",
         priority: "NORMAL",
         title: "Công việc đã được xác minh hoàn thành",
         message: record.title,
         target_record_id: recordId,
         target_route: `/tasks/${recordId}`,
-        notification_event_key: `action-verified:${action.id}:${Date.now()}`,
-      });
+        notification_event_key: `action-verified:${action.id}:${recipientUserId}:${eventStamp}`,
+      })));
     }
     return NextResponse.json({ ok: true, workflow_status: "COMPLETED", verified_at: verifiedAt });
   }

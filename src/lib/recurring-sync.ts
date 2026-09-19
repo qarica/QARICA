@@ -214,7 +214,7 @@ export async function syncRecurringTemplateNow(input: {
       continue;
     }
 
-    const materialized = await admin.rpc("qlcl_materialize_recurring_run_v3", {
+    const materialized = await admin.rpc("qlcl_materialize_recurring_run_v4", {
       p_run_id: run.id,
       p_actor_user_id: actorUserId,
     });
