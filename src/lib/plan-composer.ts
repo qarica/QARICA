@@ -53,6 +53,8 @@ export type PlanDraftAction = {
   automation_report_recurrence_end_date: string | null;
   automation_assessment_round_type: string | null;
   automation_audit_type: string | null;
+  needs_confirmation: boolean;
+  confirmation_reason: string | null;
 };
 
 export const planText = (value: unknown) => String(value ?? "").trim();
@@ -163,6 +165,8 @@ export function cleanPlanDraftActions(value: unknown): PlanDraftAction[] {
       automation_report_recurrence_end_date: firstOutput?.report_recurrence_end_date ?? (planText(raw?.automation_report_recurrence_end_date) || null),
       automation_assessment_round_type: firstOutput?.assessment_round_type ?? (planText(raw?.automation_assessment_round_type) || null),
       automation_audit_type: firstOutput?.audit_type ?? (planText(raw?.automation_audit_type) || null),
+      needs_confirmation: raw?.needs_confirmation === true,
+      confirmation_reason: planText(raw?.confirmation_reason) || null,
     };
   });
 }
