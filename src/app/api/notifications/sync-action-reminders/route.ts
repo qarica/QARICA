@@ -74,7 +74,9 @@ export async function POST() {
       message: reminderMessage(days, row.record_code, row.title),
       target_record_id: row.record_id,
       target_route: row.record_id ? `/tasks/${row.record_id}` : "/tasks",
-      // One business reminder per Action + due date. The phase/title may evolve as the due date approaches,\n      // but a notification the user already read must never be recreated as a new unread item.\n      notification_event_key: `action:${userId}:${row.action_id}:due:${dueKey}`,
+      // One business reminder per Action + due date; stable across reminder phases.
+      // Read state must survive subsequent syncs.
+      notification_event_key: `action:${userId}:${row.action_id}:due:${dueKey}`,
       is_read: false,
     });
   }
