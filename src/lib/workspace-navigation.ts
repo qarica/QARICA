@@ -37,7 +37,7 @@ export const WORKSPACES: WorkspaceDefinition[] = [
     tabs: [
       { label: "Chỉ số chất lượng", href: "/indicators", icon: "chart-no-axes-column-increasing", anyPermissions: ["indicators.view", "indicators.manage", "indicators.enter", "indicators.verify"] },
       { label: "Danh mục chỉ số", href: "/indicators/catalog", icon: "list-tree", anyPermissions: ["indicators.view", "indicators.manage"] },
-      { label: "Giám sát & Bảng kiểm", href: "/monitoring", icon: "list-checks", anyPermissions: ["monitoring.view", "monitoring.perform", "checklists.manage"] },
+      { label: "Giám sát & Bảng kiểm", href: "/monitoring", icon: "list-checks", anyPermissions: ["monitoring.view", "monitoring.perform", "checklists.view", "checklists.manage"] },
     ],
   },
   {
