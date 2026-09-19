@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     if (action.assignment_target_type === "GROUP") {
       const { data: taskGroup } = await admin.from("work_groups").select("id").eq("id", action.assignee_group_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
       if (!taskGroup) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: nhóm phụ trách không hợp lệ hoặc đã ngưng.` }, { status: 400 });
-    } else {
+    } else if (action.assignment_target_type === "USER") {
       const { data: taskOwner } = await admin.from("profiles").select("user_id").eq("user_id", action.assignee_user_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
       if (!taskOwner) return NextResponse.json({ error: `Nhiệm vụ nháp #${index + 1}: người phụ trách không hợp lệ.` }, { status: 400 });
     }
