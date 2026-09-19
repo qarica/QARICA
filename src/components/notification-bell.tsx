@@ -185,12 +185,17 @@ export function NotificationBell() {
 
   async function openNotification(n: N) {
     if (!n.is_read) {
-      await supabase
+      const { data: updated, error } = await supabase
         .from("notifications")
         .update({ is_read: true, read_at: new Date().toISOString() })
-        .eq("id", n.id);
-      setRows((curr) => curr.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
-      setUnreadTotal((curr) => Math.max(0, curr - 1));
+        .eq("id", n.id)
+        .select("id");
+      if (error || !updated?.length) {
+        window.alert(`Không đánh dấu đã đọc được: ${error?.message || "Máy chủ từ chối cập nhật (có thể do phân quyền)."}`);
+      } else {
+        setRows((curr) => curr.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
+        setUnreadTotal((curr) => Math.max(0, curr - 1));
+      }
     }
     setOpen(false);
     if (n.target_record_id) {
@@ -203,10 +208,15 @@ export function NotificationBell() {
 
   async function markAll() {
     if (!unreadTotal) return;
-    await supabase
+    const { data: updated, error } = await supabase
       .from("notifications")
       .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq("is_read", false);
+      .eq("is_read", false)
+      .select("id");
+    if (error || !updated?.length) {
+      window.alert(`Không đánh dấu đã đọc được: ${error?.message || "Máy chủ từ chối cập nhật (có thể do phân quyền)."}`);
+      return;
+    }
     setRows((curr) => curr.map((x) => ({ ...x, is_read: true })));
     setUnreadTotal(0);
     setRinging(false);
