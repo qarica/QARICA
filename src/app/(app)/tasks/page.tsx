@@ -23,16 +23,23 @@ export default async function TasksPage(){
   .select("target_record_id,group_id,member_snapshot")
   .eq("assignment_role","ACTION_ASSIGNEE_GROUP");
  const myGroupActionRecordIds=Array.from(new Set((groupAssignmentRes.data??[]).filter((row:any)=>Array.isArray(row.member_snapshot)&&row.member_snapshot.some((member:any)=>member?.user_id===user.id)).map((row:any)=>row.target_record_id).filter(Boolean))) as string[];
- const [directActionsRes,groupActionsRes,attentionRes]=await Promise.all([
+ const departmentRoleRes=user.primaryDepartmentId?await supabase.from("department_user_roles").select("role_type").eq("department_id",user.primaryDepartmentId).eq("user_id",user.id).eq("is_active",true).in("role_type",["HEAD","QUALITY_NETWORK_MEMBER"]):{data:[],error:null};
+ const canOperateDepartment=!!user.primaryDepartmentId&&(departmentRoleRes.data??[]).length>0;
+ const departmentExecutionRes=canOperateDepartment?await supabase.from("action_department_executions").select("action_id,workflow_status").eq("department_id",user.primaryDepartmentId):{data:[],error:null};
+ const departmentActionIds=Array.from(new Set((departmentExecutionRes.data??[]).map((x:any)=>x.action_id).filter(Boolean))) as string[];
+ const [directActionsRes,groupActionsRes,departmentActionsRes,attentionRes]=await Promise.all([
   supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).eq("assignee_user_id",user.id).order("due_date",{ascending:true,nullsFirst:false}),
   myGroupActionRecordIds.length
    ? supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).in("record_id",myGroupActionRecordIds).order("due_date",{ascending:true,nullsFirst:false})
    : Promise.resolve({data:[] as any[],error:null}),
+  departmentActionIds.length
+   ? supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).in("action_id",departmentActionIds).order("due_date",{ascending:true,nullsFirst:false})
+   : Promise.resolve({data:[] as any[],error:null}),
   supabase.from("notifications").select("id,title,message,priority,target_route,target_record_id,created_at,is_read").eq("recipient_user_id",user.id).eq("is_read",false).order("created_at",{ascending:false}).limit(20),
  ]);
  const actionRowsById=new Map<string,any>();
- for(const row of [...(directActionsRes.data??[]),...(groupActionsRes.data??[])])actionRowsById.set((row as any).action_id,row);
- const actionsRes={data:Array.from(actionRowsById.values()),error:directActionsRes.error||groupActionsRes.error||groupAssignmentRes.error};
+ for(const row of [...(directActionsRes.data??[]),...(groupActionsRes.data??[]),...(departmentActionsRes.data??[])])actionRowsById.set((row as any).action_id,row);
+ const actionsRes={data:Array.from(actionRowsById.values()),error:directActionsRes.error||groupActionsRes.error||departmentActionsRes.error||groupAssignmentRes.error||departmentRoleRes.error||departmentExecutionRes.error};
  let scopeActionsRes:any={data:[] as any[],error:null};
  if(isQlcl){scopeActionsRes=await supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).order("due_date",{ascending:true,nullsFirst:false});}
  else if(isDepartmentHead&&user.primaryDepartmentId){scopeActionsRes=await supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).eq("lead_department_id",user.primaryDepartmentId).order("due_date",{ascending:true,nullsFirst:false});}
