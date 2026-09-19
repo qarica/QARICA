@@ -32,20 +32,10 @@ export default function LoginPage(){
       .login-feature-row span{display:grid;grid-template-columns:54px max-content;align-items:center;gap:14px;color:#e3f0f6;font-size:14px}
       .login-feature-row i{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:24px;color:#38e1e8;background:radial-gradient(circle at 50% 35%,rgba(35,213,226,.25),rgba(6,58,92,.82));border:1px solid rgba(61,218,229,.18);box-shadow:0 0 22px rgba(20,184,210,.16)}
       .login-feature-row b{font-weight:500;line-height:1.45}
-      @media(max-width:760px){
-        .login-page{min-height:100dvh}
-        .login-hero-orbits{overflow:hidden}
-        .orbit-a{width:300px;height:300px;left:-155px;top:-135px}
-        .orbit-b{width:390px;height:390px;left:-210px;top:-180px}
-        .orbit-c{width:330px;height:330px;right:-230px;bottom:-220px}
-        .login-hero{display:block;padding:22px 20px 18px;min-height:auto}
-        .login-hero-inner{max-width:none}
-        .login-brand-logo{max-width:190px}
-        .login-accent{margin:16px 0 12px;width:46px}
-        .login-feature-row{display:none}
-        .login-hero .eyebrow{margin-top:16px;font-size:10px;letter-spacing:.16em}
-        .login-brand-expansion{margin:10px 0 0;font-size:clamp(25px,8vw,38px);line-height:1.08}
-        .login-panel{padding:18px 14px 28px}
+      @media(max-width:1100px){
+        .login-hero{display:none!important}
+        .login-panel{min-height:100dvh;padding:18px!important}
+        .login-card{width:min(430px,100%)}
       }
     `}</style>
   </main>;
