@@ -47,6 +47,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!planText(program.general_objective)) return NextResponse.json({ error: "Cần hoàn thiện Mục tiêu chung trước khi gửi duyệt." }, { status: 409 });
     if (!tasks.length) return NextResponse.json({ error: "Kế hoạch cần có ít nhất 01 nhiệm vụ nháp trước khi gửi duyệt." }, { status: 409 });
     for (const [index, task] of tasks.entries()) {
+      if ((task as any).needs_confirmation === true) {
+        return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: còn nội dung “Cần xác nhận”. Hãy xác nhận dữ liệu nguồn trước khi gửi duyệt.` }, { status: 409 });
+      }
+      if (!task.lead_department_id) {
+        return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: chưa xác định khoa/phòng đầu mối.` }, { status: 409 });
+      }
       const taskError = validatePlanDraftAction(task, program.start_date, program.end_date);
       if (taskError) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: ${taskError}` }, { status: 409 });
       const { data: taskDept } = await admin.from("departments").select("id").eq("id", task.lead_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
