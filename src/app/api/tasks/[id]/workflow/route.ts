@@ -197,6 +197,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (note.length < 5) {
       return NextResponse.json({ error: "Vui lòng ghi rõ nội dung cần bổ sung." }, { status: 400 });
     }
+    if (action.assignment_target_type === "DEPARTMENT") {
+      const {data:submittedExecutions,error:submittedExecutionsError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).eq("workflow_status","SUBMITTED");
+      if (submittedExecutionsError) return NextResponse.json({error:submittedExecutionsError.message},{status:400});
+      if (!(submittedExecutions??[]).length) return NextResponse.json({error:"Không có khoa/phòng nào đang chờ bổ sung."},{status:409});
+      const returnedAt=new Date().toISOString();
+      const {error:returnExecutionError}=await admin.from("action_department_executions").update({workflow_status:"RETURNED",note,verified_at:null,verified_by:null,completed_at:null,completed_by:null,updated_at:returnedAt}).in("id",(submittedExecutions??[]).map((x:any)=>x.id));
+      if (returnExecutionError) return NextResponse.json({error:returnExecutionError.message},{status:400});
+    }
     const { error } = await admin
       .from("actions")
       .update({ workflow_status: "RETURNED", completion_note: note, verified_at: null, verified_by: null })
