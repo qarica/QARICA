@@ -205,3 +205,18 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
   .workspace-app .modal-backdrop{padding:10px!important;align-items:flex-end!important}
   .workspace-app .modal-card{width:100%!important;max-height:92dvh!important;border-radius:14px 14px 0 0!important}
 }
+
+
+/* QARICA shell alignment: topbar is the navy bar containing the English expansion,
+   work year, notification, settings and account controls. Keep it aligned with
+   the content column on desktop and full viewport on mobile. */
+@media (min-width:861px){
+  body .workspace-app .main-shell{margin-left:276px!important}
+  body .workspace-app .main-shell .topbar{left:276px!important;right:0!important;width:auto!important}
+  body .workspace-app .main-shell.sidebar-collapsed{margin-left:78px!important}
+  body .workspace-app .main-shell.sidebar-collapsed .topbar{left:78px!important;right:0!important;width:auto!important}
+}
+@media (max-width:860px){
+  body .workspace-app .main-shell{margin-left:0!important;width:100%!important}
+  body .workspace-app .main-shell .topbar{left:0!important;right:0!important;width:100%!important;max-width:none!important}
+}
