@@ -275,7 +275,11 @@ begin
     end;
     v_assignment_target_type:=upper(coalesce(
       nullif(trim(v_task->>'assignment_target_type'),''),
-      case when nullif(trim(coalesce(v_task->>'assignee_group_id','')),'') is not null then 'GROUP' else 'USER' end
+      case
+        when nullif(trim(coalesce(v_task->>'assignee_group_id','')),'') is not null then 'GROUP'
+        when nullif(trim(coalesce(v_task->>'assignee_user_id','')),'') is not null then 'USER'
+        else 'DEPARTMENT'
+      end
     ));
     if v_assignment_target_type not in ('DEPARTMENT','USER','GROUP') then
       raise exception 'Task assignment target type is invalid';
