@@ -476,7 +476,7 @@ begin
         v_title,v_action_record_id,'/tasks/'||v_action_record_id::text,
         'action-assigned:'||v_action_id::text||':'||v_assignee_user_id::text,false
       );
-    else
+    elsif v_assignment_target_type='GROUP' then
       insert into public.notifications(
         recipient_user_id,notification_type,priority,title,message,target_record_id,target_route,
         notification_event_key,is_read
