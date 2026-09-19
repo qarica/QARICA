@@ -77,6 +77,8 @@ declare
   v_title text;
   v_client_id text;
   v_lead_department_id uuid;
+  v_execution_scope text;
+  v_execution_department_ids uuid[];
   v_assignment_target_type text;
   v_assignee_user_id uuid;
   v_assignee_group_id uuid;
@@ -178,7 +180,10 @@ begin
     select 1
     from jsonb_array_elements(v_program.draft_actions) task
     where coalesce((task->>'needs_confirmation')::boolean,false)
-       or nullif(trim(coalesce(task->>'lead_department_id','')),'') is null
+       or (
+         upper(coalesce(nullif(trim(task->>'execution_scope'),''),'LEAD_DEPARTMENT'))='LEAD_DEPARTMENT'
+         and nullif(trim(coalesce(task->>'lead_department_id','')),'') is null
+       )
   ) then
     raise exception 'Plan contains unresolved tasks requiring confirmation or lead department';
   end if;
@@ -230,10 +235,24 @@ begin
     v_title:=trim(coalesce(v_task->>'title',''));
     if v_title='' then raise exception 'Task title is required'; end if;
 
+    v_lead_department_id:=null;
+    if nullif(trim(coalesce(v_task->>'lead_department_id','')),'') is not null then
+      begin
+        v_lead_department_id:=(v_task->>'lead_department_id')::uuid;
+      exception when others then
+        raise exception 'Task lead department is invalid';
+      end;
+    end if;
+    v_execution_scope:=upper(coalesce(nullif(trim(v_task->>'execution_scope'),''),'LEAD_DEPARTMENT'));
+    if v_execution_scope not in ('LEAD_DEPARTMENT','SELECTED_DEPARTMENTS','ALL_DEPARTMENTS') then
+      raise exception 'Task execution scope is invalid';
+    end if;
     begin
-      v_lead_department_id:=(v_task->>'lead_department_id')::uuid;
+      select coalesce(array_agg(value::uuid),'{}'::uuid[])
+      into v_execution_department_ids
+      from jsonb_array_elements_text(coalesce(v_task->'execution_department_ids','[]'::jsonb));
     exception when others then
-      raise exception 'Task lead department is invalid';
+      raise exception 'Task execution departments contain invalid ids';
     end;
     v_assignment_target_type:=upper(coalesce(
       nullif(trim(v_task->>'assignment_target_type'),''),
@@ -305,13 +324,28 @@ begin
     end;
     v_parent_client_id:=nullif(trim(coalesce(v_task->>'parent_client_id','')),'');
 
-    if not exists(
+    if v_execution_scope='LEAD_DEPARTMENT' and v_lead_department_id is null then
+      raise exception 'Task lead department is required';
+    end if;
+    if v_lead_department_id is not null and not exists(
       select 1 from public.departments d
       where d.id=v_lead_department_id
         and d.organization_id=v_actor.organization_id
         and d.is_active
     ) then
       raise exception 'Task lead department is invalid or outside organization';
+    end if;
+    if v_execution_scope='SELECTED_DEPARTMENTS' and cardinality(v_execution_department_ids)=0 then
+      raise exception 'Task selected execution departments are required';
+    end if;
+    if cardinality(v_execution_department_ids)>0 and exists(
+      select 1 from unnest(v_execution_department_ids) x
+      where not exists(
+        select 1 from public.departments d
+        where d.id=x and d.organization_id=v_actor.organization_id and d.is_active
+      )
+    ) then
+      raise exception 'One or more execution departments are invalid';
     end if;
 
     if v_assignment_target_type='USER' then
@@ -488,6 +522,21 @@ begin
       v_criteria_refs,v_collaborating_department_ids,v_collaborating_user_ids,v_collaborating_group_ids
     )
     returning id into v_action_id;
+
+    if v_execution_scope='ALL_DEPARTMENTS' then
+      insert into public.action_department_executions(action_id,department_id,due_date)
+      select v_action_id,d.id,v_due_date
+      from public.departments d
+      where d.organization_id=v_actor.organization_id
+        and d.is_active
+        and d.department_type<>'MANAGEMENT'
+      on conflict (action_id,department_id) do nothing;
+    elsif v_execution_scope='SELECTED_DEPARTMENTS' then
+      insert into public.action_department_executions(action_id,department_id,due_date)
+      select v_action_id,x,v_due_date
+      from unnest(v_execution_department_ids) x
+      on conflict (action_id,department_id) do nothing;
+    end if;
 
     insert into public.program_action_links(
       program_id,action_id,relation_type,milestone_group,is_required,sequence_no
