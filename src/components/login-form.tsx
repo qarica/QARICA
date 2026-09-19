@@ -56,7 +56,7 @@ export function LoginForm() {
       </div>
 
       <label>
-        <span>Account</span>
+        <span>Tài khoản</span>
         <input
           type="text"
           value={login}
@@ -97,7 +97,7 @@ export function LoginForm() {
             <LoaderCircle className="spin" size={18} /> Đang đăng nhập...
           </>
         ) : (
-          <>Sign in&nbsp;&nbsp; →</>
+          <>Đăng nhập&nbsp;&nbsp; →</>
         )}
       </button>
 
