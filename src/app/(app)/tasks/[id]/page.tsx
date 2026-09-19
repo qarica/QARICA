@@ -52,9 +52,15 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
 
   const sourceRecordIds = Array.from(new Set((sourceLinksRes.data ?? []).map((row: any) => row.source_record_id).filter(Boolean))) as string[];
   const sourceRecordsRes = sourceRecordIds.length
-    ? await supabase.from("records").select("id,record_type").in("id", sourceRecordIds)
+    ? await supabase.from("records").select("id,record_type,record_code,title").in("id", sourceRecordIds)
     : { data: [], error: null };
   const sourceRecordTypes = Array.from(new Set((sourceRecordsRes.data ?? []).map((row: any) => String(row.record_type || "")).filter(Boolean)));
+  const sourceRecords = (sourceRecordsRes.data ?? []) as Array<{ id: string; record_type: string; record_code: string; title: string }>;
+  const sourceRoute = (source: { id: string; record_type: string }) => {
+    if (source.record_type === "INCIDENT") return `/incidents/${source.id}`;
+    if (source.record_type === "ACTION") return `/tasks/${source.id}`;
+    return `/records/${source.id}`;
+  };
 
   const evidenceIds = (evidenceRes.data ?? []).map((row: any) => row.evidence_id).filter(Boolean) as string[];
   let evidenceItems: any[] = [];
