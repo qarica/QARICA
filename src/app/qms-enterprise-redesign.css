@@ -49,7 +49,6 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
   box-shadow:4px 0 18px rgba(33,37,41,.04)!important;
 }
 .workspace-app .main-shell{margin-left:276px!important}
-.workspace-app .topbar{left:276px!important}
 .workspace-app .sidebar-brand{
   min-height:78px!important;
   padding:14px 16px!important;
@@ -206,5 +205,3 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
   .workspace-app .modal-backdrop{padding:10px!important;align-items:flex-end!important}
   .workspace-app .modal-card{width:100%!important;max-height:92dvh!important;border-radius:14px 14px 0 0!important}
 }
-@media(min-width:861px){body .workspace-app .main-shell.sidebar-collapsed .topbar{left:78px!important}}
-@media(max-width:860px){.workspace-app .main-shell{margin-left:0!important}.workspace-app .topbar{left:0!important}}
