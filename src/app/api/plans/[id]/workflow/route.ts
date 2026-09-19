@@ -50,13 +50,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if ((task as any).needs_confirmation === true) {
         return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: còn nội dung “Cần xác nhận”. Hãy xác nhận dữ liệu nguồn trước khi gửi duyệt.` }, { status: 409 });
       }
-      if (!task.lead_department_id) {
+      if (task.execution_scope === "LEAD_DEPARTMENT" && !task.lead_department_id) {
         return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: chưa xác định khoa/phòng đầu mối.` }, { status: 409 });
       }
       const taskError = validatePlanDraftAction(task, program.start_date, program.end_date);
       if (taskError) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: ${taskError}` }, { status: 409 });
-      const { data: taskDept } = await admin.from("departments").select("id").eq("id", task.lead_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
-      if (!taskDept) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: khoa/phòng phụ trách không còn hợp lệ.` }, { status: 409 });
+      if (task.lead_department_id) {
+        const { data: taskDept } = await admin.from("departments").select("id").eq("id", task.lead_department_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
+        if (!taskDept) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: khoa/phòng phụ trách không còn hợp lệ.` }, { status: 409 });
+      }
+      if (task.execution_scope === "SELECTED_DEPARTMENTS") {
+        const { data: executionDepts } = await admin.from("departments").select("id").in("id", task.execution_department_ids).eq("organization_id", caller.organization_id).eq("is_active", true);
+        if ((executionDepts ?? []).length !== new Set(task.execution_department_ids).size) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: có khoa/phòng thực hiện không còn hợp lệ.` }, { status: 409 });
+      }
       if (task.assignment_target_type === "GROUP") {
         const { data: taskGroup } = await admin.from("work_groups").select("id").eq("id", task.assignee_group_id).eq("organization_id", caller.organization_id).eq("is_active", true).maybeSingle();
         if (!taskGroup) return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: nhóm phụ trách không còn hợp lệ hoặc đã ngưng.` }, { status: 409 });
