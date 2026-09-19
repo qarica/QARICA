@@ -283,7 +283,7 @@ export function PlanComposerClient({
       ? (initialDraftActions as any[]).map(toTask)
       : [{ ...EMPTY_TASK, client_id: "draft-1", lead_department_id: defaultDepartmentId || "", assignee_user_id: initialOwnerUserId || "" }],
   );
-  const [childEnabledIds, setChildEnabledIds] = useState<string[]>([]);
+  const [childEnabledIds, setChildEnabledIds] = useState<string[]>([]);\n  const [supportOpenIds, setSupportOpenIds] = useState<string[]>([]);\n  const [outputOpenIds, setOutputOpenIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
@@ -678,7 +678,10 @@ export function PlanComposerClient({
                   />
                   <span className="tiny muted">Chọn cá nhân hoặc nhóm trong cùng một ô. QARICA tự nhận biết loại và tự lấy đơn vị mặc định.</span>
                 </label>
-                <label className="span-2">Thêm hỗ trợ <span className="tiny muted">(không bắt buộc)</span>
+                <div className="span-2">
+                  {(supportOpenIds.includes(task.client_id) || task.collaborating_user_ids.length > 0 || task.collaborating_group_ids.length > 0) ? (
+                    <div>
+                      <div className="tiny muted" style={{ marginBottom: 5 }}>Hỗ trợ (không bắt buộc)</div>
                   <AssignmentTargetsMultiSelect
                     options={assignmentOptions.filter((item) => assignmentTargetToken(item.kind, item.id) !== assignmentTargetToken(task.assignment_target_type, task.assignment_target_type === "GROUP" ? task.assignee_group_id : task.assignee_user_id))}
                     value={[
@@ -698,7 +701,10 @@ export function PlanComposerClient({
                     }}
                     placeholder="Thêm cá nhân hoặc nhóm hỗ trợ"
                   />
-                </label>
+                      {!task.collaborating_user_ids.length && !task.collaborating_group_ids.length ? <button type="button" className="button tertiary small" style={{ marginTop: 6 }} onClick={() => setSupportOpenIds((ids) => ids.filter((id) => id !== task.client_id))}>Ẩn hỗ trợ</button> : null}
+                    </div>
+                  ) : <button type="button" className="button tertiary small" onClick={() => setSupportOpenIds((ids) => Array.from(new Set([...ids, task.client_id])))}>+ Thêm hỗ trợ <span className="tiny muted">(không bắt buộc)</span></button>}
+                </div>
                 <details className="span-2">
                   <summary className="tiny muted" style={{ cursor: "pointer", fontWeight: 700 }}>Điều chỉnh đơn vị phụ trách</summary>
                   <label style={{ marginTop: 8 }}>Khoa/phòng đầu mối *
@@ -715,6 +721,9 @@ export function PlanComposerClient({
                 <label className="span-2">Yêu cầu minh chứng (không bắt buộc)<textarea rows={2} value={task.verification_requirement} onChange={(e) => updateTask(i, { verification_requirement: e.target.value })} /></label>
                 <label className="span-2">Mô tả thêm (không bắt buộc)<textarea rows={2} value={task.description} onChange={(e) => updateTask(i, { description: e.target.value })} /></label>
 
+                <div className="span-2">
+                  {(outputOpenIds.includes(task.client_id) || task.automation_outputs.length > 0) ? (
+                    <>
                 <div className="qarica-assist">
                   <div className="qa-head">
                     <div>
@@ -866,6 +875,12 @@ export function PlanComposerClient({
                       </div>
                     );
                   })}
+                </div>
+
+
+                      {!task.automation_outputs.length ? <button type="button" className="button tertiary small" style={{ marginTop: 6 }} onClick={() => setOutputOpenIds((ids) => ids.filter((id) => id !== task.client_id))}>Ẩn đầu ra</button> : null}
+                    </>
+                  ) : <button type="button" className="button tertiary small" onClick={() => setOutputOpenIds((ids) => Array.from(new Set([...ids, task.client_id])))}>+ Thêm đầu ra <span className="tiny muted">(không bắt buộc)</span></button>}
                 </div>
 
                 {criteriaItems.length ? <div className="span-2">
