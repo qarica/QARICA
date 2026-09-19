@@ -220,3 +220,21 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
   body .workspace-app .main-shell{margin-left:0!important;width:100%!important}
   body .workspace-app .main-shell .topbar{left:0!important;right:0!important;width:100%!important;max-width:none!important}
 }
+
+
+/* Keep the QARICA topbar pinned while the page content scrolls. */
+body .workspace-app .main-shell .topbar{
+  position:fixed!important;
+  top:env(safe-area-inset-top, 0px)!important;
+  z-index:60!important;
+  transform:none!important;
+}
+@media (min-width:861px){
+  body .workspace-app .main-shell{padding-top:104px!important}
+}
+@media (max-width:860px){
+  body .workspace-app .main-shell{padding-top:84px!important}
+}
+@media (max-width:620px){
+  body .workspace-app .main-shell{padding-top:72px!important}
+}
