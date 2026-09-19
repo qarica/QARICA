@@ -130,6 +130,13 @@ function matchesPath(pathname: string, href: string) {
 }
 
 export function workspaceForPath(pathname: string) {
+  const path = normalizePath(pathname);
+  // Admin is a real workspace even when a child page is the landing route.
+  // Resolve it by root first so every authorized admin tab remains visible.
+  const rootedWorkspace = WORKSPACES
+    .filter((workspace) => path === normalizePath(workspace.root) || path.startsWith(`${normalizePath(workspace.root)}/`))
+    .sort((a, b) => normalizePath(b.root).length - normalizePath(a.root).length)[0];
+  if (rootedWorkspace) return rootedWorkspace;
   const candidates = WORKSPACES.flatMap((workspace) => workspace.tabs.map((tab) => ({ workspace, tab })));
   return candidates
     .filter(({ tab }) => matchesPath(pathname, tab.href))
