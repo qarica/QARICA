@@ -7,6 +7,27 @@
 -- Extend Plan Automation V2 monitoring outputs to support whole-area monitoring.
 -- Replaces the same v4 RPC signature so existing API callers stay compatible.
 
+-- Action ownership V3: allow a plan-generated Action to be owned by a department before a specific user/group is assigned.
+do $$
+declare
+  v_constraint_name text;
+begin
+  select conname into v_constraint_name
+  from pg_constraint
+  where conrelid='public.actions'::regclass
+    and contype='c'
+    and pg_get_constraintdef(oid) ilike '%assignment_target_type%'
+  limit 1;
+
+  if v_constraint_name is not null then
+    execute format('alter table public.actions drop constraint %I', v_constraint_name);
+  end if;
+
+  alter table public.actions
+    add constraint actions_assignment_target_type_check
+    check (assignment_target_type = any (array['DEPARTMENT'::text,'USER'::text,'GROUP'::text]));
+end $$;
+
 create or replace function public.qlcl_approve_plan_bundle_v10(
   p_program_id uuid,
   p_actor_user_id uuid
