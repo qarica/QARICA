@@ -46,6 +46,8 @@ create table if not exists public.action_department_executions (
   verified_at timestamptz,
   verified_by uuid references public.profiles(user_id),
   note text,
+  completed_by uuid references public.profiles(user_id),
+  completed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique(action_id, department_id)
@@ -55,6 +57,9 @@ create index if not exists idx_action_department_executions_department
   on public.action_department_executions(department_id, workflow_status);
 create index if not exists idx_action_department_executions_action
   on public.action_department_executions(action_id, workflow_status);
+
+comment on table public.action_department_executions is
+'One execution obligation per assigned department. Any authorized member of the department may complete the department execution; completion is not per-person and does not require every member to act.';
 
 alter table public.action_department_executions enable row level security;
 
