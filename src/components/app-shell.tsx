@@ -52,19 +52,13 @@ export function AppShell({ children, user, organization, nav, year }: { children
         // member_snapshot is JSONB; avoid PostgREST contains encoding here because it can
         // produce invalid JSON for some client/runtime combinations. Fetch the small
         // assignment snapshot set and match members safely in application code.
-        const groupAssignmentRes = await supabase
-          .from("work_group_assignment_snapshots")
-          .select("target_record_id,member_snapshot")
-          .eq("assignment_role", "ACTION_ASSIGNEE_GROUP");
-        const myGroupActionRecordIds = new Set(
-          (groupAssignmentRes.data ?? [])
-            .filter((row: any) => Array.isArray(row.member_snapshot) && row.member_snapshot.some((member: any) => member?.user_id === user.id))
-            .map((row: any) => row.target_record_id)
-            .filter(Boolean)
-        );
+        // Group assignment lookup is temporarily excluded from the sidebar attention count.
+        // Direct user assignments remain authoritative; group work is still available in My Work.
+        // This avoids letting malformed legacy JSON snapshots break the entire application shell.
+        const myGroupActionRecordIds = new Set<string>();
         const [recordsRes, noticesRes, tasksRes, monitoringRes, directivesRes, reportsRes, risksRes, indicatorsRes, capasRes, feedbackRes, inspectionsRes, findingsRes] = await Promise.all([
           supabase.from("records").select("id").eq("work_year", year).eq("lifecycle_status", "ACTIVE"), supabase.from("notifications").select("id,priority,target_record_id,target_route").eq("is_read", false).order("created_at", { ascending: false }).limit(100), supabase.from("vw_actions_dashboard").select("action_id,record_id,workflow_status,is_overdue,days_to_due,assignee_user_id,assignment_target_type,assignee_group_id").eq("work_year", year), supabase.from("monitoring_rounds").select("id,record_id,workflow_status,scheduled_date,lead_assessor_id").in("workflow_status", ["SCHEDULED", "IN_PROGRESS", "AWAITING_CONFIRMATION"]), supabase.from("external_directives").select("id,record_id,workflow_status,implementation_due_date,report_due_date,lead_department_id,owner_user_id"), supabase.from("reporting_obligations").select("id,record_id,workflow_status,due_date,preparing_department_id,preparer_user_id"), supabase.from("risks").select("id,record_id,workflow_status,next_review_date,owner_user_id"), supabase.from("indicator_measurements").select("id,record_id,workflow_status,result_level,period_end"), supabase.from("capas").select("id,record_id,workflow_status,effectiveness_due_date"), supabase.from("feedback_records").select("id,record_id,workflow_status,response_due_at"), supabase.from("inspection_events").select("id,record_id,workflow_status,visit_date"), supabase.from("findings").select("id,record_id,workflow_status,due_date,owner_user_id")]);
-        const results = { groupAssignmentRes, recordsRes, noticesRes, tasksRes, monitoringRes, directivesRes, reportsRes, risksRes, indicatorsRes, capasRes, feedbackRes, inspectionsRes, findingsRes } as Record<string, { error?: { message: string } | null }>;
+        const results = { recordsRes, noticesRes, tasksRes, monitoringRes, directivesRes, reportsRes, risksRes, indicatorsRes, capasRes, feedbackRes, inspectionsRes, findingsRes } as Record<string, { error?: { message: string } | null }>;
         const failedQuery = Object.entries(results).find(([, r]) => r?.error);
         if (failedQuery) throw new Error(`Truy vấn "${failedQuery[0]}" lỗi: ${failedQuery[1]?.error?.message}`);
         const currentRecordIds = new Set((recordsRes.data ?? []).map((x: any) => x.id)); const inCurrentYear = (recordId: string | null | undefined) => !!recordId && currentRecordIds.has(recordId); const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()); const todayMs = Date.parse(`${today}T00:00:00+07:00`); const daysTo = (value: string | null | undefined) => { if (!value) return null; const date = String(value).slice(0, 10); const targetMs = Date.parse(`${date}T00:00:00+07:00`); if (!Number.isFinite(targetMs) || !Number.isFinite(todayMs)) return null; return Math.round((targetMs - todayMs) / 86400000); }; const mine = (ownerUserId?: string | null, departmentId?: string | null) => ownerUserId === user.id || (!!user.primaryDepartmentId && departmentId === user.primaryDepartmentId);
