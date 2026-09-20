@@ -190,9 +190,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   if (requestedAction === "RETURN") {
-    if (action.workflow_status !== "VERIFYING") {
-      return NextResponse.json({ error: "Chỉ công việc đang xác minh mới được trả lại bổ sung." }, { status: 409 });
-    }
     if (note.length < 5) {
       return NextResponse.json({ error: "Vui lòng ghi rõ nội dung cần bổ sung." }, { status: 400 });
     }
@@ -205,7 +202,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const returnedAt=new Date().toISOString();
       const {error:returnExecutionError}=await admin.from("action_department_executions").update({workflow_status:"RETURNED",note,verified_at:null,verified_by:null,completed_at:null,completed_by:null,updated_at:returnedAt}).in("id",(submittedExecutions??[]).map((x:any)=>x.id));
       if (returnExecutionError) return NextResponse.json({error:returnExecutionError.message},{status:400});
+      return NextResponse.json({ok:true,workflow_status:action.workflow_status,department_execution_status:"RETURNED"});
     }
+    if (action.workflow_status !== "VERIFYING") return NextResponse.json({ error: "Chỉ công việc đang xác minh mới được trả lại bổ sung." }, { status: 409 });
     const { error } = await admin
       .from("actions")
       .update({ workflow_status: "RETURNED", completion_note: note, verified_at: null, verified_by: null })
@@ -230,14 +229,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   if (requestedAction === "APPROVE") {
-    if (action.workflow_status !== "VERIFYING") {
+    let evidenceLinksQuery = admin.from("evidence_links").select("evidence_id").eq("record_id", recordId);
+    const targetExecutionId = action.assignment_target_type === "DEPARTMENT" && body.department_execution_id ? String(body.department_execution_id).trim() : "";
+    if (action.assignment_target_type === "DEPARTMENT") {
+      if (!targetExecutionId) return NextResponse.json({error:"Cần chọn đúng khoa/phòng cần xác minh."},{status:400});
+      evidenceLinksQuery = evidenceLinksQuery.eq("action_department_execution_id",targetExecutionId);
+    } else if (action.workflow_status !== "VERIFYING") {
       return NextResponse.json({ error: "Chỉ công việc đang xác minh mới được xác nhận hoàn thành." }, { status: 409 });
     }
-
-    const { data: evidenceLinks, error: evidenceLinksError } = await admin
-      .from("evidence_links")
-      .select("evidence_id")
-      .eq("record_id", recordId);
+    const { data: evidenceLinks, error: evidenceLinksError } = await evidenceLinksQuery;
     if (evidenceLinksError) {
       return NextResponse.json({ error: evidenceLinksError.message }, { status: 400 });
     }
@@ -246,8 +246,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const verifiedAt = new Date().toISOString();
 
     if (action.assignment_target_type === "DEPARTMENT") {
-      const targetExecutionId = body.department_execution_id ? String(body.department_execution_id).trim() : "";
-      if (!targetExecutionId) return NextResponse.json({error:"Cần chọn đúng khoa/phòng cần xác minh."},{status:400});
       const {data:submittedExecutions,error:submittedExecutionsError}=await admin.from("action_department_executions").select("id,department_id").eq("action_id",action.id).eq("id",targetExecutionId).eq("workflow_status","SUBMITTED");
       if (submittedExecutionsError) return NextResponse.json({error:submittedExecutionsError.message},{status:400});
       if (!(submittedExecutions??[]).length) return NextResponse.json({error:"Không có khoa/phòng nào đang chờ xác minh."},{status:409});
@@ -258,10 +256,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const {data:remainingExecutions,error:remainingExecutionsError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).not("workflow_status","in","(VERIFIED,WAIVED)").limit(1);
       if (remainingExecutionsError) return NextResponse.json({error:remainingExecutionsError.message},{status:400});
       if ((remainingExecutions??[]).length) {
-        const {error:resumeAggregateError}=await admin.from("actions").update({workflow_status:"IN_PROGRESS",verified_at:null,verified_by:null,completion_note:null}).eq("id",action.id).eq("workflow_status","VERIFYING");
-        if (resumeAggregateError) return NextResponse.json({error:resumeAggregateError.message},{status:400});
-        return NextResponse.json({ok:true,workflow_status:"IN_PROGRESS",department_execution_status:"VERIFIED",aggregate_complete:false});
+        if (evidenceIds.length) {
+          const {error:evidenceUpdateError}=await admin.from("evidence").update({validity_status:"VALID"}).in("id",evidenceIds).eq("validity_status","PENDING");
+          if (evidenceUpdateError) return NextResponse.json({error:evidenceUpdateError.message},{status:400});
+        }
+        return NextResponse.json({ok:true,workflow_status:action.workflow_status,department_execution_status:"VERIFIED",aggregate_complete:false});
       }
+      const {error:aggregateCompleteError}=await admin.from("actions").update({workflow_status:"COMPLETED",verified_at:verifiedAt,verified_by:auth.user.id,completion_note:note||null}).eq("id",action.id).in("workflow_status",["IN_PROGRESS","EVIDENCE_SUBMITTED","VERIFYING"]);
+      if (aggregateCompleteError) return NextResponse.json({error:aggregateCompleteError.message},{status:400});
+      if (evidenceIds.length) {
+        const {error:evidenceUpdateError}=await admin.from("evidence").update({validity_status:"VALID"}).in("id",evidenceIds).eq("validity_status","PENDING");
+        if (evidenceUpdateError) return NextResponse.json({error:evidenceUpdateError.message},{status:400});
+      }
+      return NextResponse.json({ok:true,workflow_status:"COMPLETED",department_execution_status:"VERIFIED",aggregate_complete:true,verified_at:verifiedAt});
     }
 
     const { error } = await admin
