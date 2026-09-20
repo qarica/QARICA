@@ -197,7 +197,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Vui lòng ghi rõ nội dung cần bổ sung." }, { status: 400 });
     }
     if (action.assignment_target_type === "DEPARTMENT") {
-      const {data:submittedExecutions,error:submittedExecutionsError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).eq("workflow_status","SUBMITTED");
+      const targetExecutionId = body.department_execution_id ? String(body.department_execution_id).trim() : "";
+      if (!targetExecutionId) return NextResponse.json({error:"Cần chọn đúng khoa/phòng cần trả lại bổ sung."},{status:400});
+      const {data:submittedExecutions,error:submittedExecutionsError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).eq("id",targetExecutionId).eq("workflow_status","SUBMITTED");
       if (submittedExecutionsError) return NextResponse.json({error:submittedExecutionsError.message},{status:400});
       if (!(submittedExecutions??[]).length) return NextResponse.json({error:"Không có khoa/phòng nào đang chờ bổ sung."},{status:409});
       const returnedAt=new Date().toISOString();
@@ -244,7 +246,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const verifiedAt = new Date().toISOString();
 
     if (action.assignment_target_type === "DEPARTMENT") {
-      const {data:submittedExecutions,error:submittedExecutionsError}=await admin.from("action_department_executions").select("id,department_id").eq("action_id",action.id).eq("workflow_status","SUBMITTED");
+      const targetExecutionId = body.department_execution_id ? String(body.department_execution_id).trim() : "";
+      if (!targetExecutionId) return NextResponse.json({error:"Cần chọn đúng khoa/phòng cần xác minh."},{status:400});
+      const {data:submittedExecutions,error:submittedExecutionsError}=await admin.from("action_department_executions").select("id,department_id").eq("action_id",action.id).eq("id",targetExecutionId).eq("workflow_status","SUBMITTED");
       if (submittedExecutionsError) return NextResponse.json({error:submittedExecutionsError.message},{status:400});
       if (!(submittedExecutions??[]).length) return NextResponse.json({error:"Không có khoa/phòng nào đang chờ xác minh."},{status:409});
       // Xác minh Action tại thời điểm này áp dụng cho các execution đã gửi; mỗi đơn vị chỉ cần một người hợp lệ thực hiện.
