@@ -161,7 +161,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (pendingError) return NextResponse.json({error:pendingError.message},{status:400});
       if ((pendingExecutions??[]).length) return NextResponse.json({ok:true,department_execution_status:"SUBMITTED",workflow_status:"IN_PROGRESS"});
 
-      const { error: aggregateSubmitError } = await admin
+      const { data: aggregateSubmitted, error: aggregateSubmitError } = await admin
         .from("actions")
         .update({
           workflow_status: "EVIDENCE_SUBMITTED",
@@ -171,8 +171,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           completion_note: null,
         })
         .eq("id", action.id)
-        .eq("workflow_status", "IN_PROGRESS");
-      if (aggregateSubmitError) return NextResponse.json({ error: aggregateSubmitError.message }, { status: 400 });
+        .eq("workflow_status", "IN_PROGRESS")
+        .select("id")
+        .maybeSingle();
+      if (aggregateSubmitError || !aggregateSubmitted) {
+        // Không để execution cuối bị kẹt ở SUBMITTED nếu Action cha không chuyển được.
+        await admin.from("action_department_executions")
+          .update({ workflow_status: "IN_PROGRESS", submitted_at: null, submitted_by: null, updated_at: submittedAt })
+          .eq("id", departmentExecution.id)
+          .eq("workflow_status", "SUBMITTED");
+        return NextResponse.json({ error: aggregateSubmitError?.message || "Trạng thái Action đã thay đổi. Vui lòng tải lại và thử lại." }, { status: 409 });
+      }
       return NextResponse.json({ ok: true, department_execution_status: "SUBMITTED", workflow_status: "EVIDENCE_SUBMITTED" });
     }
 
