@@ -305,6 +305,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         await admin.from("evidence").update({validity_status:"PENDING"}).in("id",evidenceIds).eq("validity_status","VALID");
         return NextResponse.json({error:verifyExecutionsError.message},{status:400});
       }
+      const targetDepartmentId = (submittedExecutions??[])[0]?.department_id;
+      if (targetDepartmentId) {
+        const { data: recipientRoles } = await admin.from("department_user_roles").select("user_id").eq("department_id", targetDepartmentId).eq("is_active", true).in("role_type", ["HEAD","QUALITY_NETWORK_MEMBER"]);
+        const recipientIds = Array.from(new Set((recipientRoles ?? []).map((row:any)=>row.user_id).filter(Boolean))) as string[];
+        if (recipientIds.length) {
+          const eventStamp = Date.now();
+          await admin.from("notifications").insert(recipientIds.map((recipientUserId)=>({
+            recipient_user_id: recipientUserId,
+            notification_type: "ACTION_VERIFIED",
+            priority: "NORMAL",
+            title: "Công việc đã được xác minh hoàn thành",
+            message: record.title,
+            target_record_id: recordId,
+            target_route: `/tasks/${recordId}`,
+            notification_event_key: `action-verified:${action.id}:${targetExecutionId}:${recipientUserId}:${eventStamp}`,
+          })));
+        }
+      }
       const {data:remainingExecutions,error:remainingExecutionsError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).not("workflow_status","in","(VERIFIED,WAIVED)").limit(1);
       if (remainingExecutionsError) return NextResponse.json({error:remainingExecutionsError.message},{status:400});
       if ((remainingExecutions??[]).length) {
