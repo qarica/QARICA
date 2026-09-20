@@ -69,8 +69,14 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   const draftTasks: Array<{ automation_kind?: string; automation_confirmed?: boolean; automation_outputs?: Array<{ kind?: string; monitoring_recurrence?: string }> }> = Array.isArray(program.draft_actions) ? program.draft_actions : [];
   const draftActionCount = draftTasks.length;
   const draftNeedsConfirmationCount = (Array.isArray(program.draft_actions) ? program.draft_actions : []).filter((task: any) => task?.needs_confirmation === true).length;
-  const draftMissingLeadCount = (Array.isArray(program.draft_actions) ? program.draft_actions : []).filter((task: any) => !task?.lead_department_id).length;
-  const draftUnassignedCount = (Array.isArray(program.draft_actions) ? program.draft_actions : []).filter((task: any) => !task?.assignee_user_id && !task?.assignee_group_id).length;
+  const draftMissingLeadCount = (Array.isArray(program.draft_actions) ? program.draft_actions : []).filter((task: any) => {
+    const scope = String(task?.execution_scope || "LEAD_DEPARTMENT").toUpperCase();
+    return scope === "LEAD_DEPARTMENT" && !task?.lead_department_id;
+  }).length;
+  const draftUnassignedCount = (Array.isArray(program.draft_actions) ? program.draft_actions : []).filter((task: any) => {
+    const assignmentType = String(task?.assignment_target_type || "").toUpperCase();
+    return assignmentType !== "DEPARTMENT" && !task?.assignee_user_id && !task?.assignee_group_id;
+  }).length;
   const planHealthReady = draftActionCount > 0 && draftNeedsConfirmationCount === 0 && draftMissingLeadCount === 0;
   const outputsOf = (task: typeof draftTasks[number]): Array<{ kind?: string; monitoring_recurrence?: string }> => Array.isArray(task.automation_outputs) && task.automation_outputs.length
     ? task.automation_outputs
