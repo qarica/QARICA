@@ -49,6 +49,7 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
   box-shadow:4px 0 18px rgba(33,37,41,.04)!important;
 }
 .workspace-app .main-shell{margin-left:276px!important}
+.workspace-app .topbar{left:276px!important}
 .workspace-app .sidebar-brand{
   min-height:78px!important;
   padding:14px 16px!important;
@@ -207,36 +208,3 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
 }
 @media(min-width:861px){body .workspace-app .main-shell.sidebar-collapsed .topbar{left:78px!important}}
 @media(max-width:860px){.workspace-app .main-shell{margin-left:0!important}.workspace-app .topbar{left:0!important}}
-
-
-/* QARICA shell alignment: topbar is the navy bar containing the English expansion,
-   work year, notification, settings and account controls. Keep it aligned with
-   the content column on desktop and full viewport on mobile. */
-@media (min-width:861px){
-  body .workspace-app .main-shell{margin-left:276px!important}
-  body .workspace-app .main-shell .topbar{left:276px!important;right:0!important;width:auto!important}
-  body .workspace-app .main-shell.sidebar-collapsed{margin-left:78px!important}
-  body .workspace-app .main-shell.sidebar-collapsed .topbar{left:78px!important;right:0!important;width:auto!important}
-}
-@media (max-width:860px){
-  body .workspace-app .main-shell{margin-left:0!important;width:100%!important}
-  body .workspace-app .main-shell .topbar{left:0!important;right:0!important;width:100%!important;max-width:none!important}
-}
-
-
-/* Keep the QARICA topbar pinned while the page content scrolls. */
-body .workspace-app .main-shell .topbar{
-  position:fixed!important;
-  top:env(safe-area-inset-top, 0px)!important;
-  z-index:60!important;
-  transform:none!important;
-}
-@media (min-width:861px){
-  body .workspace-app .main-shell{padding-top:104px!important}
-}
-@media (max-width:860px){
-  body .workspace-app .main-shell{padding-top:84px!important}
-}
-@media (max-width:620px){
-  body .workspace-app .main-shell{padding-top:72px!important}
-}
