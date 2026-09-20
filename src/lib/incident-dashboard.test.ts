@@ -8,6 +8,7 @@ describe("incident dashboard helpers", () => {
     expect(incidentAttentionRank({ workflow_status: "INVESTIGATING", serious_event_flag: false })).toBe(30);
     expect(incidentAttentionRank({ workflow_status: "REPORTED", serious_event_flag: false })).toBe(20);
     expect(incidentAttentionRank({ workflow_status: "CLOSED", serious_event_flag: true })).toBe(10);
+    expect(incidentAttentionRank({ workflow_status: "REJECTED", serious_event_flag: true })).toBe(10);
   });
 
   it("buckets incident timestamps by Ho Chi Minh City month", () => {
