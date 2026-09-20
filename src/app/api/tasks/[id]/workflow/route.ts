@@ -332,15 +332,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: true, workflow_status: "COMPLETED", verified_at: verifiedAt });
   }
 
+  if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) {
+    const executionFrom = requestedAction === "START" ? "NOT_STARTED" : "RETURNED";
+    if (departmentExecution.workflow_status !== executionFrom) {
+      return NextResponse.json({ error: "Trạng thái thực hiện của khoa/phòng hiện không phù hợp với thao tác này. Vui lòng tải lại trang." }, { status: 409 });
+    }
+    const updatedAt = new Date().toISOString();
+    const { error: executionStartError } = await admin.from("action_department_executions")
+      .update({ workflow_status: "IN_PROGRESS", updated_at: updatedAt })
+      .eq("id", departmentExecution.id)
+      .eq("workflow_status", executionFrom);
+    if (executionStartError) return NextResponse.json({ error: executionStartError.message }, { status: 400 });
+
+    // Action cha là trạng thái tổng hợp. Một khoa bắt đầu/tiếp tục không được
+    // chặn khoa khác chỉ vì Action cha đã IN_PROGRESS.
+    if (action.workflow_status === "NOT_STARTED" || action.workflow_status === "RETURNED") {
+      const { error: aggregateStartError } = await admin.from("actions")
+        .update({ workflow_status: "IN_PROGRESS", completion_note: null, verified_at: null, verified_by: null })
+        .eq("id", action.id)
+        .eq("workflow_status", action.workflow_status);
+      if (aggregateStartError) {
+        await admin.from("action_department_executions").update({ workflow_status: executionFrom, updated_at: updatedAt }).eq("id", departmentExecution.id).eq("workflow_status", "IN_PROGRESS");
+        return NextResponse.json({ error: aggregateStartError.message }, { status: 400 });
+      }
+    } else if (action.workflow_status !== "IN_PROGRESS") {
+      await admin.from("action_department_executions").update({ workflow_status: executionFrom, updated_at: updatedAt }).eq("id", departmentExecution.id).eq("workflow_status", "IN_PROGRESS");
+      return NextResponse.json({ error: "Action cha hiện không ở trạng thái cho phép khoa/phòng thực hiện." }, { status: 409 });
+    }
+
+    return NextResponse.json({ ok: true, workflow_status: "IN_PROGRESS", department_execution_status: "IN_PROGRESS" });
+  }
+
   const allowedFrom = requestedAction === "START" ? "NOT_STARTED" : "RETURNED";
   if (action.workflow_status !== allowedFrom) {
     return NextResponse.json({ error: "Trạng thái hiện tại không phù hợp với thao tác này. Vui lòng tải lại trang." }, { status: 409 });
-  }
-
-  if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) {
-    const executionFrom=requestedAction==="START"?"NOT_STARTED":"RETURNED";
-    const {error:executionStartError}=await admin.from("action_department_executions").update({workflow_status:"IN_PROGRESS",updated_at:new Date().toISOString()}).eq("id",departmentExecution.id).eq("workflow_status",executionFrom);
-    if (executionStartError) return NextResponse.json({error:executionStartError.message},{status:400});
   }
 
   const { error: updateError } = await admin
