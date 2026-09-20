@@ -154,30 +154,31 @@ export function TaskWorkflowClient({
   ) : null;
 
   let controls: React.ReactNode = null;
+  const operationalStatus = departmentExecutionId && departmentExecutionStatus ? departmentExecutionStatus : currentStatus;
   if (canVerify && departmentExecutionId && departmentExecutionStatus === "SUBMITTED") {
     controls = <>
       <button type="button" className="button secondary" onClick={() => { setMessage(null); setReviewNote(""); setReviewOpen("RETURN"); }} disabled={busy}>Trả lại bổ sung</button>
       <button type="button" className="button primary" onClick={() => { setMessage(null); setReviewNote(""); setReviewOpen("APPROVE"); }} disabled={busy}><Icon name="shield-check" size={17} /> Xác minh đạt</button>
     </>;
-  } else if (currentStatus === "NOT_STARTED" && canOperate) {
+  } else if (operationalStatus === "NOT_STARTED" && canOperate) {
     controls = <button type="button" className="button primary" onClick={() => runWorkflow("START")} disabled={busy}>{busy ? "Đang cập nhật..." : "Bắt đầu thực hiện"}</button>;
-  } else if (currentStatus === "RETURNED" && canOperate) {
+  } else if (operationalStatus === "RETURNED" && canOperate) {
     controls = <button type="button" className="button primary" onClick={() => runWorkflow("RESUME")} disabled={busy}>{busy ? "Đang cập nhật..." : "Tiếp tục thực hiện"}</button>;
-  } else if (currentStatus === "IN_PROGRESS" && canOperate) {
+  } else if (operationalStatus === "IN_PROGRESS" && canOperate) {
     controls = <>
       <button type="button" className="button secondary" onClick={() => { setMessage(null); setUploadOpen(true); }} disabled={busy}><Icon name="file-input" size={17} /> Nộp minh chứng</button>
       <button type="button" className="button primary" onClick={() => runWorkflow("SUBMIT")} disabled={busy || evidenceCount < 1}><Icon name="send" size={17} /> {busy ? "Đang gửi..." : "Gửi xác minh"}</button>
     </>;
-  } else if (currentStatus === "EVIDENCE_SUBMITTED") {
+  } else if (operationalStatus === "EVIDENCE_SUBMITTED") {
     controls = canVerify
       ? <button type="button" className="button primary" onClick={() => runWorkflow("BEGIN_VERIFY")} disabled={busy}>{busy ? "Đang cập nhật..." : "Bắt đầu xác minh"}</button>
       : <span className="code-pill">Đã gửi xác minh</span>;
-  } else if (currentStatus === "VERIFYING") {
+  } else if (operationalStatus === "VERIFYING") {
     controls = canVerify ? <>
       <button type="button" className="button secondary" onClick={() => { setMessage(null); setReviewNote(""); setReviewOpen("RETURN"); }} disabled={busy}>Trả lại bổ sung</button>
       <button type="button" className="button primary" onClick={() => { setMessage(null); setReviewNote(""); setReviewOpen("APPROVE"); }} disabled={busy}><Icon name="shield-check" size={17} /> Xác minh đạt</button>
     </> : <span className="code-pill">Đang xác minh</span>;
-  } else if (currentStatus === "COMPLETED") {
+  } else if (operationalStatus === "COMPLETED" || operationalStatus === "VERIFIED") {
     controls = (
       <div
         role="status"
