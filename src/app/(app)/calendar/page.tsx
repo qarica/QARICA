@@ -111,7 +111,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
       .from("recurring_work_templates")
       .select("id,title,recurrence_rule,start_date,end_date,priority,is_active,lead_department_id,assignee_user_id")
       .eq("is_active", true),
-    supabase.from("work_calendar_holidays").select("id,name,start_date,end_date,holiday_type").eq("organization_id",user.organizationId).eq("is_active",true).lte("start_date",cycleEnd).gte("end_date",cycleStart),
+    user.organizationId ? supabase.from("work_calendar_holidays").select("id,name,start_date,end_date,holiday_type").eq("organization_id",user.organizationId).eq("is_active",true).lte("start_date",cycleEnd).gte("end_date",cycleStart) : Promise.resolve({ data: [] as any[], error: null }),
   ]);
 
   const linkedRecordIds = Array.from(new Set([
