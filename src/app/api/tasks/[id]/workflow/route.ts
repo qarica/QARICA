@@ -329,7 +329,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return NextResponse.json({ok:true,workflow_status:action.workflow_status,department_execution_status:"VERIFIED",aggregate_complete:false});
       }
       const {error:aggregateCompleteError}=await admin.from("actions").update({workflow_status:"COMPLETED",verified_at:verifiedAt,verified_by:auth.user.id,completion_note:note||null}).eq("id",action.id).in("workflow_status",["IN_PROGRESS","EVIDENCE_SUBMITTED","VERIFYING"]);
-      if (aggregateCompleteError) return NextResponse.json({error:aggregateCompleteError.message},{status:400});
+      if (aggregateCompleteError) {
+        // Giữ workflow nhất quán nếu bước aggregate cuối thất bại: trả execution cuối
+        // và minh chứng của execution đó về trạng thái trước xác minh để có thể thử lại.
+        await admin.from("action_department_executions").update({workflow_status:"SUBMITTED",verified_at:null,verified_by:null,completed_at:null,completed_by:null,updated_at:verifiedAt}).in("id",submittedIds).eq("workflow_status","VERIFIED");
+        await admin.from("evidence").update({validity_status:"PENDING"}).in("id",evidenceIds).eq("validity_status","VALID");
+        return NextResponse.json({error:aggregateCompleteError.message},{status:400});
+      }
       return NextResponse.json({ok:true,workflow_status:"COMPLETED",department_execution_status:"VERIFIED",aggregate_complete:true,verified_at:verifiedAt});
     }
 
