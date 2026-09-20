@@ -20,3 +20,13 @@ where p.email ilike '%@qlcl-ttsg.com'
     select 1 from public.profiles x
     where x.email = regexp_replace(p.email, '@qlcl-ttsg\.com$', '@qarica.com')
   );
+
+-- auth.users alone was not enough: Supabase Auth also keeps a copy of the email inside
+-- auth.identities.identity_data (per sign-in provider), which stayed on the old domain
+-- and caused every migrated account to still fail to authenticate.
+update auth.identities
+set identity_data = jsonb_set(
+  identity_data, '{email}',
+  to_jsonb(regexp_replace(identity_data->>'email', '@qlcl-ttsg\.com$', '@qarica.com'))
+)
+where identity_data->>'email' ilike '%@qlcl-ttsg.com';
