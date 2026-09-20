@@ -13,12 +13,14 @@ export function TaskWorkflowClient({
   canOperate,
   canVerify,
   evidenceCount,
+  departmentExecutionId,
 }: {
   recordId: string;
   currentStatus: string;
   canOperate: boolean;
   canVerify: boolean;
   evidenceCount: number;
+  departmentExecutionId?: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -44,7 +46,7 @@ export function TaskWorkflowClient({
       const res = await fetch(`/api/tasks/${recordId}/workflow`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, note: note?.trim() || null }),
+        body: JSON.stringify({ action, note: note?.trim() || null, department_execution_id: departmentExecutionId || null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Không cập nhật được trạng thái công việc.");
