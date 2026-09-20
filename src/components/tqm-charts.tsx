@@ -26,8 +26,8 @@ export function TqmTrend({points,unit="%"}:{points:{label:string;value:number}[]
 }
 
 export function TqmGantt({year,rows}:{year:number;rows:{label:string;start:string|null;end:string|null;progress?:number;tone?:Tone}[]}){
-  const months=Array.from({length:12},(_,i)=>i+1);
-  function monthPos(date:string|null){if(!date)return null;const d=new Date(`${date}T00:00:00`);if(Number.isNaN(d.getTime())||d.getFullYear()!==year)return null;return d.getMonth();}
+  const months=Array.from({length:15},(_,i)=>({year:year+Math.floor(i/12),month:i%12+1}));
+  function monthPos(date:string|null){if(!date)return null;const d=new Date(`${date}T00:00:00Z`);if(Number.isNaN(d.getTime()))return null;const pos=(d.getUTCFullYear()-year)*12+d.getUTCMonth();return pos>=0&&pos<15?pos:null;}
   return <div className="tqm-gantt"><div className="tqm-gantt-head"><div>Công việc / đề án</div>{months.map((m,i)=><span key={`${m.year}-${m.month}`}>{m.month===1&&i>0?`T1/${String(m.year).slice(-2)}`:`T${m.month}`}</span>)}</div>{rows.map((r,i)=>{const s=monthPos(r.start),e=monthPos(r.end);return <div className="tqm-gantt-row" key={`${r.label}-${i}`}><div className="tqm-gantt-name"><strong>{r.label}</strong><small>{r.start||"—"} → {r.end||"—"}</small></div><div className="tqm-gantt-grid">{months.map((m,i)=><i key={`${m.year}-${m.month}-${i}`}/>)}{s!==null&&e!==null?<span className="tqm-gantt-bar" style={{left:`${s/15*100}%`,width:`${(Math.max(s,e)-s+1)/15*100}%`,background:COLORS[r.tone||"brand"]}}><em style={{width:`${Math.max(0,Math.min(100,r.progress??0))}%`}}/></span>:null}</div></div>})}</div>
 }
 
