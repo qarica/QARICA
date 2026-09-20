@@ -155,9 +155,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const submittedAt=new Date().toISOString();
       const {error:executionSubmitError}=await admin.from("action_department_executions").update({workflow_status:"SUBMITTED",submitted_at:submittedAt,submitted_by:auth.user.id,updated_at:submittedAt}).eq("id",departmentExecution.id).in("workflow_status",["NOT_STARTED","IN_PROGRESS"]);
       if (executionSubmitError) return NextResponse.json({error:executionSubmitError.message},{status:400});
-      const {data:pendingExecutions,error:pendingError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).neq("workflow_status","SUBMITTED").neq("workflow_status","VERIFIED").neq("workflow_status","WAIVED").limit(1);
+      // Execution của từng khoa là nguồn trạng thái thật. Action cha chỉ tổng hợp:
+      // còn khoa chưa nộp => IN_PROGRESS; tất cả đã nộp/xác minh/waive => EVIDENCE_SUBMITTED.
+      const {data:pendingExecutions,error:pendingError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).not("workflow_status","in","(SUBMITTED,VERIFIED,WAIVED)").limit(1);
       if (pendingError) return NextResponse.json({error:pendingError.message},{status:400});
-      if ((pendingExecutions??[]).length) return NextResponse.json({ok:true,department_execution_status:"SUBMITTED",workflow_status:action.workflow_status});
+      if ((pendingExecutions??[]).length) return NextResponse.json({ok:true,department_execution_status:"SUBMITTED",workflow_status:"IN_PROGRESS"});
+
+      const { error: aggregateSubmitError } = await admin
+        .from("actions")
+        .update({
+          workflow_status: "EVIDENCE_SUBMITTED",
+          submitted_at: submittedAt,
+          verified_at: null,
+          verified_by: null,
+          completion_note: null,
+        })
+        .eq("id", action.id)
+        .eq("workflow_status", "IN_PROGRESS");
+      if (aggregateSubmitError) return NextResponse.json({ error: aggregateSubmitError.message }, { status: 400 });
+      return NextResponse.json({ ok: true, department_execution_status: "SUBMITTED", workflow_status: "EVIDENCE_SUBMITTED" });
     }
 
     const { error: submitError } = await admin
