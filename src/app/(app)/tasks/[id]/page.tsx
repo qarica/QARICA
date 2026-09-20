@@ -45,7 +45,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
     action.assignee_user_id ? supabase.from("profiles").select("user_id,full_name,email,job_title").eq("user_id", action.assignee_user_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_group_id ? supabase.from("work_groups").select("id,code,name,leader_user_id").eq("id", action.assignee_group_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_group_id ? supabase.from("work_group_assignment_snapshots").select("id").eq("target_record_id", recordId).eq("group_id", action.assignee_group_id).eq("assignment_role", "ACTION_ASSIGNEE_GROUP").contains("member_snapshot", [{ user_id: user.id }]).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    user.primaryDepartmentId ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("department_id",user.primaryDepartmentId).maybeSingle() : Promise.resolve({data:null,error:null}),
+    isVerifierCandidate(user.permissions) ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("workflow_status","SUBMITTED").limit(1).maybeSingle() : user.primaryDepartmentId ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("department_id",user.primaryDepartmentId).maybeSingle() : Promise.resolve({data:null,error:null}),
     user.primaryDepartmentId ? supabase.from("department_user_roles").select("role_type").eq("department_id",user.primaryDepartmentId).eq("user_id",user.id).eq("is_active",true).in("role_type",["HEAD","QUALITY_NETWORK_MEMBER"]) : Promise.resolve({data:[],error:null}),
     supabase.from("program_action_links").select("program_id,milestone_group,is_required").eq("action_id", action.id).maybeSingle(),
     supabase.from("evidence_links").select("id,evidence_id,evidence_role").eq("record_id", recordId),
@@ -109,7 +109,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
       description={`Năm ${record.work_year}${sourcePlan ? ` · Thuộc ${sourcePlan.code}` : ""}`}
       actions={<div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
         {sourcePlan ? <Link className="button secondary" href={`/plans/${sourcePlan.id}`}>← Kế hoạch nguồn</Link> : <Link className="button secondary" href="/tasks">← Việc của tôi</Link>}
-        <TaskWorkflowClient recordId={recordId} currentStatus={action.workflow_status} canOperate={canOperate} canVerify={canVerify} evidenceCount={evidenceItems.length} />
+        <TaskWorkflowClient recordId={recordId} currentStatus={action.workflow_status} canOperate={canOperate} canVerify={canVerify} evidenceCount={evidenceItems.length} departmentExecutionId={isDepartmentAssignment ? ((departmentExecutionRes.data as any)?.id || null) : null} />
       </div>}
     />
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
@@ -193,3 +193,5 @@ function formatBytes(value?: number | null) {
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${(size / 1024 / 1024).toFixed(2)} MB`;
 }
+
+function isVerifierCandidate(permissions: string[]) { return permissions.some((p) => ["plans.manage","quality.manage","incidents.manage","tasks.verify"].includes(p)); }
