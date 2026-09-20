@@ -3,6 +3,9 @@ import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { taskVerificationPermissions } from "@/lib/task-verification-policy";
 import { actionSubmitGate } from "@/lib/quality-gates";
+import { isMissingRpcFunction } from "@/lib/rpc-compat";
+
+const VERIFY_EXECUTION_RPC = "qlcl_verify_action_department_execution_v1";
 
 const WORKFLOW_ACTIONS = new Set(["START", "RESUME", "SUBMIT", "BEGIN_VERIFY", "APPROVE", "RETURN"]);
 const VERIFIER_ACTIONS = new Set(["BEGIN_VERIFY", "APPROVE", "RETURN"]);
@@ -246,6 +249,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const verifiedAt = new Date().toISOString();
 
     if (action.assignment_target_type === "DEPARTMENT") {
+      const { data: tx, error: txError } = await admin.rpc(VERIFY_EXECUTION_RPC, {
+        p_execution_id: targetExecutionId,
+        p_actor_user_id: auth.user.id,
+        p_note: note || null,
+      });
+      if (!txError) {
+        return NextResponse.json({
+          ok: true,
+          workflow_status: tx?.aggregate_complete ? "COMPLETED" : action.workflow_status,
+          department_execution_status: tx?.department_execution_status ?? "VERIFIED",
+          aggregate_complete: !!tx?.aggregate_complete,
+          verified_at: tx?.verified_at ?? verifiedAt,
+        });
+      }
+      if (!isMissingRpcFunction(txError, VERIFY_EXECUTION_RPC)) {
+        return NextResponse.json({ error: txError.message }, { status: 409 });
+      }
+      // Fallback path (RPC not deployed yet) - kept only for compatibility during rollout.
+      // Not race-safe: see the RPC's migration comment for why the atomic version exists.
       const {data:submittedExecutions,error:submittedExecutionsError}=await admin.from("action_department_executions").select("id,department_id").eq("action_id",action.id).eq("id",targetExecutionId).eq("workflow_status","SUBMITTED");
       if (submittedExecutionsError) return NextResponse.json({error:submittedExecutionsError.message},{status:400});
       if (!(submittedExecutions??[]).length) return NextResponse.json({error:"Không có khoa/phòng nào đang chờ xác minh."},{status:409});

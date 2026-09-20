@@ -30,9 +30,8 @@ export function LoginForm() {
 
       if (!response.ok || !payload?.ok) {
         setError(
-          (payload?.error ||
-            "Tài khoản hoặc mật khẩu không đúng, hoặc tài khoản chưa được kích hoạt.") +
-            (payload?.debug ? ` [Debug: ${payload.debug}]` : ""),
+          payload?.error ||
+            "Tài khoản hoặc mật khẩu không đúng, hoặc tài khoản chưa được kích hoạt.",
         );
         setLoading(false);
         return;

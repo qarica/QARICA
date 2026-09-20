@@ -14,7 +14,11 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   const {data:set}=await admin.from("criteria_sets").select("id,organization_id").eq("id",version.criteria_set_id).maybeSingle();
   const {data:caller}=await admin.from("profiles").select("organization_id,is_active").eq("user_id",auth.user.id).maybeSingle();
   if(!caller?.organization_id||!caller.is_active||!set||set.organization_id!==caller.organization_id)return NextResponse.json({error:"Không có quyền cập nhật tiêu chí này."},{status:403});
-  if(version.status!=="DRAFT")return NextResponse.json({error:"Phiên bản đã phát hành không được sửa trực tiếp. Hãy tạo bản cập nhật mới."},{status:409});
+  const bodyKeys=Object.keys(body).filter((key)=>key!=="is_active");
+  const isActiveOnlyToggle=Object.prototype.hasOwnProperty.call(body,"is_active")&&bodyKeys.length===0;
+  // Bật/ngưng sử dụng một tiêu chí lẻ không làm thay đổi nội dung/lịch sử đánh giá đã có, nên
+  // được phép ngay cả khi phiên bản đã xuất bản; mọi thay đổi nội dung khác vẫn bắt buộc bản nháp mới.
+  if(version.status!=="DRAFT"&&!isActiveOnlyToggle)return NextResponse.json({error:"Phiên bản đã phát hành không được sửa trực tiếp. Hãy tạo bản cập nhật mới."},{status:409});
   const patch:any={updated_at:new Date().toISOString()};
   if(Object.prototype.hasOwnProperty.call(body,"title")){const title=clean(body.title);if(!title)return NextResponse.json({error:"Tên tiêu chí không được để trống."},{status:400});patch.title=title;}
   if(Object.prototype.hasOwnProperty.call(body,"description"))patch.description=clean(body.description)||null;

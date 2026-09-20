@@ -48,11 +48,11 @@ export async function POST(request: Request) {
   });
 
   if (error || !data.user || !data.session) {
+    if (error) console.error("[login] signInWithPassword failed", error.status, error.code, error.message);
     return NextResponse.json(
       {
         ok: false,
         error: "Tài khoản hoặc mật khẩu không đúng, hoặc tài khoản chưa được kích hoạt.",
-        debug: error ? `${error.status ?? ""} ${error.code ?? ""} ${error.message}`.trim() : "Không có lỗi nhưng thiếu user/session.",
       },
       { status: 401 },
     );
