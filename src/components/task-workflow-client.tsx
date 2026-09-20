@@ -13,12 +13,16 @@ export function TaskWorkflowClient({
   canOperate,
   canVerify,
   evidenceCount,
+  departmentExecutionId,
+  departmentExecutionStatus,
 }: {
   recordId: string;
   currentStatus: string;
   canOperate: boolean;
   canVerify: boolean;
   evidenceCount: number;
+  departmentExecutionId?: string | null;
+  departmentExecutionStatus?: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -44,7 +48,7 @@ export function TaskWorkflowClient({
       const res = await fetch(`/api/tasks/${recordId}/workflow`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, note: note?.trim() || null }),
+        body: JSON.stringify({ action, note: note?.trim() || null, department_execution_id: departmentExecutionId || null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Không cập nhật được trạng thái công việc.");
@@ -150,7 +154,12 @@ export function TaskWorkflowClient({
   ) : null;
 
   let controls: React.ReactNode = null;
-  if (currentStatus === "NOT_STARTED" && canOperate) {
+  if (canVerify && departmentExecutionId && departmentExecutionStatus === "SUBMITTED") {
+    controls = <>
+      <button type="button" className="button secondary" onClick={() => { setMessage(null); setReviewNote(""); setReviewOpen("RETURN"); }} disabled={busy}>Trả lại bổ sung</button>
+      <button type="button" className="button primary" onClick={() => { setMessage(null); setReviewNote(""); setReviewOpen("APPROVE"); }} disabled={busy}><Icon name="shield-check" size={17} /> Xác minh đạt</button>
+    </>;
+  } else if (currentStatus === "NOT_STARTED" && canOperate) {
     controls = <button type="button" className="button primary" onClick={() => runWorkflow("START")} disabled={busy}>{busy ? "Đang cập nhật..." : "Bắt đầu thực hiện"}</button>;
   } else if (currentStatus === "RETURNED" && canOperate) {
     controls = <button type="button" className="button primary" onClick={() => runWorkflow("RESUME")} disabled={busy}>{busy ? "Đang cập nhật..." : "Tiếp tục thực hiện"}</button>;

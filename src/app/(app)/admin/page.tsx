@@ -1,0 +1,2 @@
+import { redirect } from "next/navigation";import { requireUserContext } from "@/lib/auth";import { adminLandingHref } from "@/lib/workspace-navigation";
+export default async function AdminPage(){const {user}=await requireUserContext();redirect(adminLandingHref(user)||"/dashboard?forbidden=1")}

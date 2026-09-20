@@ -185,12 +185,8 @@ export function NotificationBell() {
 
   async function openNotification(n: N) {
     if (!n.is_read) {
-      const { data: updated, error } = await supabase
-        .from("notifications")
-        .update({ is_read: true, read_at: new Date().toISOString() })
-        .eq("id", n.id)
-        .select("id");
-      if (error || !updated?.length) {
+      const { data: updatedCount, error } = await supabase.rpc("mark_own_notifications_read", { p_notification_id: n.id });
+      if (error || Number(updatedCount ?? 0) < 1) {
         window.alert(`Không đánh dấu đã đọc được: ${error?.message || "Máy chủ từ chối cập nhật (có thể do phân quyền)."}`);
       } else {
         setRows((curr) => curr.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
@@ -208,12 +204,8 @@ export function NotificationBell() {
 
   async function markAll() {
     if (!unreadTotal) return;
-    const { data: updated, error } = await supabase
-      .from("notifications")
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq("is_read", false)
-      .select("id");
-    if (error || !updated?.length) {
+    const { data: updatedCount, error } = await supabase.rpc("mark_own_notifications_read", { p_notification_id: null });
+    if (error || Number(updatedCount ?? 0) < 1) {
       window.alert(`Không đánh dấu đã đọc được: ${error?.message || "Máy chủ từ chối cập nhật (có thể do phân quyền)."}`);
       return;
     }

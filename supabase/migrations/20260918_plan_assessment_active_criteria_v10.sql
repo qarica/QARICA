@@ -7,6 +7,77 @@
 -- Extend Plan Automation V2 monitoring outputs to support whole-area monitoring.
 -- Replaces the same v4 RPC signature so existing API callers stay compatible.
 
+-- Action ownership V3: allow a plan-generated Action to be owned by a department before a specific user/group is assigned.
+do $$
+declare
+  v_constraint_name text;
+begin
+  select conname into v_constraint_name
+  from pg_constraint
+  where conrelid='public.actions'::regclass
+    and contype='c'
+    and pg_get_constraintdef(oid) ilike '%assignment_target_type%'
+  limit 1;
+
+  if v_constraint_name is not null then
+    execute format('alter table public.actions drop constraint %I', v_constraint_name);
+  end if;
+
+  alter table public.actions
+    add constraint actions_assignment_target_type_check
+    check (assignment_target_type = any (array['DEPARTMENT'::text,'USER'::text,'GROUP'::text]));
+end $$;
+
+-- Distinguish operational units that participate in hospital-wide execution from executive-only units.
+alter table public.departments add column if not exists is_operational_unit boolean not null default true;
+update public.departments set is_operational_unit=false where code='BAN_GIAM_DOC';
+
+-- Per-department execution tracking for one shared Action.
+-- Keeps one source Action while allowing hospital-wide work to be followed by department.
+create table if not exists public.action_department_executions (
+  id uuid primary key default gen_random_uuid(),
+  action_id uuid not null references public.actions(id) on delete cascade,
+  department_id uuid not null references public.departments(id),
+  workflow_status text not null default 'NOT_STARTED'
+    check (workflow_status in ('NOT_STARTED','IN_PROGRESS','SUBMITTED','RETURNED','VERIFIED','OVERDUE','WAIVED')),
+  due_date date,
+  submitted_at timestamptz,
+  submitted_by uuid references public.profiles(user_id),
+  verified_at timestamptz,
+  verified_by uuid references public.profiles(user_id),
+  note text,
+  completed_by uuid references public.profiles(user_id),
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(action_id, department_id)
+);
+
+create index if not exists idx_action_department_executions_department
+  on public.action_department_executions(department_id, workflow_status);
+create index if not exists idx_action_department_executions_action
+  on public.action_department_executions(action_id, workflow_status);
+
+comment on table public.action_department_executions is
+'One execution obligation per assigned department. Any authorized member of the department may complete the department execution; completion is not per-person and does not require every member to act.';
+
+alter table public.action_department_executions enable row level security;
+
+drop policy if exists action_department_executions_select on public.action_department_executions;
+create policy action_department_executions_select
+on public.action_department_executions
+for select to authenticated
+using (
+  exists (
+    select 1
+    from public.actions a
+    join public.records r on r.id=a.record_id
+    where a.id=action_department_executions.action_id
+  )
+);
+
+
+
 create or replace function public.qlcl_approve_plan_bundle_v10(
   p_program_id uuid,
   p_actor_user_id uuid
@@ -30,6 +101,8 @@ declare
   v_title text;
   v_client_id text;
   v_lead_department_id uuid;
+  v_execution_scope text;
+  v_execution_department_ids uuid[];
   v_assignment_target_type text;
   v_assignee_user_id uuid;
   v_assignee_group_id uuid;
@@ -126,6 +199,19 @@ begin
     raise exception 'At least one plan task is required';
   end if;
 
+  -- Defense in depth: unresolved source data must never materialize into operational Actions.
+  if exists (
+    select 1
+    from jsonb_array_elements(v_program.draft_actions) task
+    where coalesce((task->>'needs_confirmation')::boolean,false)
+       or (
+         upper(coalesce(nullif(trim(task->>'execution_scope'),''),'LEAD_DEPARTMENT'))='LEAD_DEPARTMENT'
+         and nullif(trim(coalesce(task->>'lead_department_id','')),'') is null
+       )
+  ) then
+    raise exception 'Plan contains unresolved tasks requiring confirmation or lead department';
+  end if;
+
   if cardinality(coalesce(v_program.assigned_group_ids,'{}'::uuid[]))>0 then
     if exists(
       select 1 from unnest(v_program.assigned_group_ids) gid
@@ -173,16 +259,34 @@ begin
     v_title:=trim(coalesce(v_task->>'title',''));
     if v_title='' then raise exception 'Task title is required'; end if;
 
+    v_lead_department_id:=null;
+    if nullif(trim(coalesce(v_task->>'lead_department_id','')),'') is not null then
+      begin
+        v_lead_department_id:=(v_task->>'lead_department_id')::uuid;
+      exception when others then
+        raise exception 'Task lead department is invalid';
+      end;
+    end if;
+    v_execution_scope:=upper(coalesce(nullif(trim(v_task->>'execution_scope'),''),'LEAD_DEPARTMENT'));
+    if v_execution_scope not in ('LEAD_DEPARTMENT','SELECTED_DEPARTMENTS','ALL_DEPARTMENTS') then
+      raise exception 'Task execution scope is invalid';
+    end if;
     begin
-      v_lead_department_id:=(v_task->>'lead_department_id')::uuid;
+      select coalesce(array_agg(value::uuid),'{}'::uuid[])
+      into v_execution_department_ids
+      from jsonb_array_elements_text(coalesce(v_task->'execution_department_ids','[]'::jsonb));
     exception when others then
-      raise exception 'Task lead department is invalid';
+      raise exception 'Task execution departments contain invalid ids';
     end;
     v_assignment_target_type:=upper(coalesce(
       nullif(trim(v_task->>'assignment_target_type'),''),
-      case when nullif(trim(coalesce(v_task->>'assignee_group_id','')),'') is not null then 'GROUP' else 'USER' end
+      case
+        when nullif(trim(coalesce(v_task->>'assignee_group_id','')),'') is not null then 'GROUP'
+        when nullif(trim(coalesce(v_task->>'assignee_user_id','')),'') is not null then 'USER'
+        else 'DEPARTMENT'
+      end
     ));
-    if v_assignment_target_type not in ('USER','GROUP') then
+    if v_assignment_target_type not in ('DEPARTMENT','USER','GROUP') then
       raise exception 'Task assignment target type is invalid';
     end if;
     v_assignee_user_id:=null;
@@ -194,7 +298,7 @@ begin
       exception when others then
         raise exception 'Task user assignee is invalid';
       end;
-    else
+    elsif v_assignment_target_type='GROUP' then
       begin
         v_assignee_group_id:=(v_task->>'assignee_group_id')::uuid;
       exception when others then
@@ -202,7 +306,8 @@ begin
       end;
     end if;
 
-    v_start_date:=nullif(v_task->>'start_date','')::date;
+    -- A task may omit its own start date. In that case it inherits the plan start date.
+    v_start_date:=coalesce(nullif(v_task->>'start_date','')::date,v_program.start_date);
     v_due_date:=nullif(v_task->>'due_date','')::date;
     if v_due_date is null then raise exception 'Task due date is required'; end if;
     if v_start_date is not null and v_due_date<v_start_date then
@@ -248,13 +353,28 @@ begin
     end;
     v_parent_client_id:=nullif(trim(coalesce(v_task->>'parent_client_id','')),'');
 
-    if not exists(
+    if v_execution_scope='LEAD_DEPARTMENT' and v_lead_department_id is null then
+      raise exception 'Task lead department is required';
+    end if;
+    if v_lead_department_id is not null and not exists(
       select 1 from public.departments d
       where d.id=v_lead_department_id
         and d.organization_id=v_actor.organization_id
         and d.is_active
     ) then
       raise exception 'Task lead department is invalid or outside organization';
+    end if;
+    if v_execution_scope='SELECTED_DEPARTMENTS' and cardinality(v_execution_department_ids)=0 then
+      raise exception 'Task selected execution departments are required';
+    end if;
+    if cardinality(v_execution_department_ids)>0 and exists(
+      select 1 from unnest(v_execution_department_ids) x
+      where not exists(
+        select 1 from public.departments d
+        where d.id=x and d.organization_id=v_actor.organization_id and d.is_active
+      )
+    ) then
+      raise exception 'One or more execution departments are invalid';
     end if;
 
     if v_assignment_target_type='USER' then
@@ -267,7 +387,7 @@ begin
         raise exception 'Task user assignee is invalid or outside organization';
       end if;
       v_operational_owner_user_id:=v_assignee_user_id;
-    else
+    elsif v_assignment_target_type='GROUP' then
       if not exists(
         select 1 from public.work_groups g
         where g.id=v_assignee_group_id
@@ -432,6 +552,24 @@ begin
     )
     returning id into v_action_id;
 
+    if v_execution_scope='ALL_DEPARTMENTS' then
+      insert into public.action_department_executions(action_id,department_id,due_date)
+      select v_action_id,d.id,v_due_date
+      from public.departments d
+      where d.organization_id=v_actor.organization_id
+        and d.is_active
+        -- Current departments master data has no is_operational_unit column.
+        -- Ban Giám đốc is governance, not an execution unit for ALL_DEPARTMENTS.
+        and coalesce(d.department_type,'') <> 'GOVERNANCE'
+        and coalesce(d.code,'') <> 'BAN_GIAM_DOC'
+      on conflict (action_id,department_id) do nothing;
+    elsif v_execution_scope='SELECTED_DEPARTMENTS' then
+      insert into public.action_department_executions(action_id,department_id,due_date)
+      select v_action_id,x,v_due_date
+      from unnest(v_execution_department_ids) x
+      on conflict (action_id,department_id) do nothing;
+    end if;
+
     insert into public.program_action_links(
       program_id,action_id,relation_type,milestone_group,is_required,sequence_no
     )
@@ -466,7 +604,7 @@ begin
         v_title,v_action_record_id,'/tasks/'||v_action_record_id::text,
         'action-assigned:'||v_action_id::text||':'||v_assignee_user_id::text,false
       );
-    else
+    elsif v_assignment_target_type='GROUP' then
       insert into public.notifications(
         recipient_user_id,notification_type,priority,title,message,target_record_id,target_route,
         notification_event_key,is_read
@@ -1065,7 +1203,7 @@ begin
   end loop;
 
   update public.work_programs
-  set workflow_status='APPROVED',
+  set workflow_status='IN_PROGRESS',
       approved_by=p_actor_user_id,
       approved_at=now(),
       returned_reason=null
@@ -1075,7 +1213,7 @@ begin
     actor_user_id,record_id,table_name,row_id,action_type,new_value,request_meta
   )
   values(
-    p_actor_user_id,v_record.id,'work_programs',p_program_id,'APPROVE_PLAN_BUNDLE_V10',
+    p_actor_user_id,v_record.id,'work_programs',p_program_id,'ACTIVATE_ISSUED_PLAN_BUNDLE_V10',
     jsonb_build_object(
       'program_id',p_program_id,
       'materialized_actions',v_count,
@@ -1103,7 +1241,7 @@ begin
     'improvement_projects',v_improvement_count,
     'recurring_monitoring_templates',v_recurring_monitoring_count,
     'recurring_template_ids',v_recurring_template_ids,
-    'approved_at',now()
+    'activated_at',now()
   );
 end;
 $function$;

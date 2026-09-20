@@ -46,29 +46,38 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   const initialReferenceIds = (referenceLinksRes.data ?? []).map((x: any) => x.directive_id);
 
   let criteriaVersion83Id: string | null = null;
-  let criteriaDebug: string | null = null;
   if (user.organizationId) {
-    const { data: criteriaSet83, error: criteriaSetError } = await supabase.from("criteria_sets").select("id").eq("code", "83TC-BYT").eq("organization_id", user.organizationId).maybeSingle();
-    if (criteriaSetError) {
-      criteriaDebug = `Lỗi tìm bộ 83TC-BYT: ${criteriaSetError.message}`;
-    } else if (criteriaSet83?.id) {
-      const { data: version83, error: version83Error } = await supabase.from("criteria_set_versions").select("id").eq("criteria_set_id", criteriaSet83.id).maybeSingle();
-      if (version83Error) {
-        criteriaDebug = `Lỗi tìm version 83TC-BYT: ${version83Error.message}`;
-      } else {
-        criteriaVersion83Id = version83?.id ?? null;
-        if (!criteriaVersion83Id) criteriaDebug = `Không tìm thấy version nào cho criteria_set_id=${criteriaSet83.id}`;
-      }
-    } else {
-      criteriaDebug = `Không tìm thấy criteria_sets với code=83TC-BYT và organization_id=${user.organizationId}`;
+    const { data: criteriaSet83 } = await supabase
+      .from("criteria_sets")
+      .select("id")
+      .eq("code", "83TC-BYT")
+      .eq("organization_id", user.organizationId)
+      .maybeSingle();
+    if (criteriaSet83?.id) {
+      const { data: version83 } = await supabase
+        .from("criteria_set_versions")
+        .select("id")
+        .eq("criteria_set_id", criteriaSet83.id)
+        .eq("status", "PUBLISHED")
+        .order("version_no", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      criteriaVersion83Id = version83?.id ?? null;
     }
-  } else {
-    criteriaDebug = "user.organizationId đang null/rỗng ở server — đây là nguyên nhân.";
   }
 
   const draftTasks: Array<{ automation_kind?: string; automation_confirmed?: boolean; automation_outputs?: Array<{ kind?: string; monitoring_recurrence?: string }> }> = Array.isArray(program.draft_actions) ? program.draft_actions : [];
   const draftActionCount = draftTasks.length;
   const draftNeedsConfirmationCount = (Array.isArray(program.draft_actions) ? program.draft_actions : []).filter((task: any) => task?.needs_confirmation === true).length;
+  const draftMissingLeadCount = (Array.isArray(program.draft_actions) ? program.draft_actions : []).filter((task: any) => {
+    const scope = String(task?.execution_scope || "LEAD_DEPARTMENT").toUpperCase();
+    return scope === "LEAD_DEPARTMENT" && !task?.lead_department_id;
+  }).length;
+  const draftUnassignedCount = (Array.isArray(program.draft_actions) ? program.draft_actions : []).filter((task: any) => {
+    const assignmentType = String(task?.assignment_target_type || "").toUpperCase();
+    return assignmentType !== "DEPARTMENT" && !task?.assignee_user_id && !task?.assignee_group_id;
+  }).length;
+  const planHealthReady = draftActionCount > 0 && draftNeedsConfirmationCount === 0 && draftMissingLeadCount === 0;
   const outputsOf = (task: typeof draftTasks[number]): Array<{ kind?: string; monitoring_recurrence?: string }> => Array.isArray(task.automation_outputs) && task.automation_outputs.length
     ? task.automation_outputs
     : (task.automation_confirmed && task.automation_kind ? [{ kind: task.automation_kind }] : []);
@@ -101,7 +110,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
 
   const actionIds = (linksRes.data ?? []).map((x: any) => x.action_id);
   const actionsRes = actionIds.length
-    ? await supabase.from("vw_actions_dashboard").select("action_id,record_id,record_code,title,workflow_status,priority,due_date,is_overdue,days_to_due,lead_department_id,assignee_user_id").in("action_id", actionIds)
+    ? await supabase.from("vw_actions_dashboard").select("action_id,record_id,record_code,title,workflow_status,priority,start_date,due_date,is_overdue,days_to_due,lead_department_id,assignee_user_id").in("action_id", actionIds)
     : { data: [], error: null };
   const actionMap = new Map((actionsRes.data ?? []).map((a: any) => [a.action_id, a]));
   const linkedActions = (linksRes.data ?? []).map((link: any) => ({ ...link, action: actionMap.get(link.action_id) as any })).filter((x: any) => x.action);
@@ -186,11 +195,20 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   const completedActions = Number(progress?.completed_actions ?? 0);
   const canManage = user.permissions.includes("plans.manage");
   const firstError = [recordRes, progressRes, departmentRes as any, ownerRes as any, approverRes as any, linksRes, departmentsRes, profilesRes, criteriaRes as any, actionsRes as any, materializedLinksRes as any, outputRecordsRes as any].find((r: any) => r?.error)?.error;
-  if (!criteriaDebug && criteriaVersion83Id && (criteriaRes.data ?? []).length === 0) {
-    criteriaDebug = `Đã tìm thấy version=${criteriaVersion83Id} nhưng criteria_items trả về 0 dòng.`;
-  }
   const deptMap = new Map((departmentsRes.data ?? []).map((d: any) => [d.id, d.short_name || d.name]));
   const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [p.user_id, p.full_name || p.email || "Người dùng"]));
+  const ganttStart = new Date(`${program.start_date}T00:00:00Z`);
+  const ganttEnd = new Date(`${program.end_date}T00:00:00Z`);
+  const ganttSpan = Math.max(1, ganttEnd.getTime() - ganttStart.getTime());
+  const ganttRows = linkedActions.map((row: any) => {
+    const start = new Date(`${row.action.start_date || program.start_date}T00:00:00Z`);
+    const end = new Date(`${row.action.due_date || row.action.start_date || program.end_date}T00:00:00Z`);
+    const left = Math.max(0, Math.min(100, ((start.getTime() - ganttStart.getTime()) / ganttSpan) * 100));
+    const clippedStart = Math.max(ganttStart.getTime(), start.getTime());
+    const clippedEnd = Math.max(clippedStart, Math.min(ganttEnd.getTime(), end.getTime()));
+    const width = Math.max(1.5, Math.min(100 - left, ((clippedEnd - clippedStart) / ganttSpan) * 100));
+    return { ...row, ganttLeft: left, ganttWidth: width };
+  });
 
   return <div className="page-stack plan-detail-page">
     <style>{`
@@ -223,13 +241,22 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       actions={<div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
         <Link className="button secondary" href="/plans">← Danh sách kế hoạch</Link>
         <PlanPrintActions planId={id} compact />
-        <PlanWorkflowClient planId={id} currentStatus={program.workflow_status} canManage={canManage} requiredActions={requiredActions} completedActions={completedActions} draftActionCount={draftActionCount} draftIndicatorCount={draftIndicatorCount} draftMonitoringCount={draftMonitoringCount} draftRecurringMonitoringCount={draftRecurringMonitoringCount} draftReportCount={draftReportCount} draftAssessmentCount={draftAssessmentCount} draftAuditCount={draftAuditCount} draftImprovementCount={draftImprovementCount} />
+        <PlanWorkflowClient planId={id} currentStatus={program.workflow_status} canManage={canManage} requiredActions={requiredActions} completedActions={completedActions} composerReady={planHealthReady} draftActionCount={draftActionCount} draftIndicatorCount={draftIndicatorCount} draftMonitoringCount={draftMonitoringCount} draftRecurringMonitoringCount={draftRecurringMonitoringCount} draftReportCount={draftReportCount} draftAssessmentCount={draftAssessmentCount} draftAuditCount={draftAuditCount} draftImprovementCount={draftImprovementCount} />
       </div>}
     />
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
-    {criteriaDebug ? <div className="alert error"><strong>[Debug tiêu chí 83TC]</strong> {criteriaDebug}</div> : null}
     {program.returned_reason && program.workflow_status === "DRAFT" ? <div className="alert error"><strong>Kế hoạch bị trả lại chỉnh sửa:</strong> {program.returned_reason}</div> : null}
-    {program.workflow_status === "DRAFT" && draftActionCount === 0 ? <div className="alert info"><strong>Kế hoạch mới có hồ sơ, chưa có nhiệm vụ thực thi.</strong> Vì chưa có nhiệm vụ nên QARICA chưa thể tạo Action, đợt giám sát/bảng kiểm hoặc đầu ra liên quan. Hãy thêm/kế thừa nhiệm vụ trong phần Soạn nội dung kế hoạch; các đầu ra chỉ được tạo thật sau khi nhiệm vụ được xác nhận và kế hoạch được phê duyệt.</div> : null}
+    {program.workflow_status === "DRAFT" && draftActionCount === 0 ? <div className="alert info"><strong>Kế hoạch mới có hồ sơ, chưa có nhiệm vụ thực thi.</strong> Vì chưa có nhiệm vụ nên QARICA chưa thể tạo Action, đợt giám sát/bảng kiểm hoặc đầu ra liên quan. Hãy thêm/kế thừa nhiệm vụ trong phần Soạn nội dung kế hoạch; các đầu ra chỉ được tạo thật sau khi dữ liệu nguồn được xác nhận và kế hoạch đã ban hành được đưa vào triển khai.</div> : null}
+
+    {program.workflow_status === "DRAFT" && draftActionCount > 0 ? <section className="panel" style={{borderColor: planHealthReady ? "#b8d8c5" : "#e8cf9d"}}>
+      <div className="panel-title"><div><h2>Kiểm tra trước khi triển khai</h2><p>QARICA kiểm tra dữ liệu nguồn trước khi sinh Action và đưa mốc lên lịch.</p></div><span className={planHealthReady ? "status-badge success" : "status-badge warning"}>{planHealthReady ? "Sẵn sàng" : "Cần hoàn thiện"}</span></div>
+      <div style={{padding:"0 19px 20px"}} className="form-grid two">
+        <div><span className="tiny muted">Nhiệm vụ nguồn</span><div style={{marginTop:5}}><strong>{draftActionCount}</strong></div></div>
+        <div><span className="tiny muted">Cần xác nhận</span><div style={{marginTop:5}}><strong>{draftNeedsConfirmationCount}</strong></div></div>
+        <div><span className="tiny muted">Thiếu khoa/phòng đầu mối</span><div style={{marginTop:5}}><strong>{draftMissingLeadCount}</strong></div></div>
+        <div><span className="tiny muted">Chưa gán cá nhân/nhóm</span><div style={{marginTop:5}}><strong>{draftUnassignedCount}</strong><div className="subline">Không chặn lưu kế hoạch; cần hoàn tất trước khi giao việc cá nhân/nhóm.</div></div></div>
+      </div>
+    </section> : null}
 
     {canManage && program.workflow_status === "DRAFT" ? <>
     {draftNeedsConfirmationCount > 0 ? <div className="alert warning"><strong>Cần xác nhận: {draftNeedsConfirmationCount} nhiệm vụ.</strong> Đây là các nội dung nguồn chưa xác định duy nhất đầu mối hoặc cần người dùng xác nhận trước khi hệ thống tự liên kết nghiệp vụ.</div> : null}
@@ -278,7 +305,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
             <div><span className="tiny muted">Thời gian</span><div style={{ marginTop: 5 }}><strong>{formatDate(program.start_date)} – {formatDate(program.end_date)}</strong></div></div>
             <div className="span-2"><span className="tiny muted">Mục tiêu</span><div style={{ marginTop: 5, lineHeight: 1.6 }}>{program.objective || "Chưa cập nhật mục tiêu."}</div></div>
             <div className="span-2"><span className="tiny muted">Mô tả / phạm vi</span><div style={{ marginTop: 5, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{program.description || "Chưa cập nhật mô tả."}</div></div>
-            {program.approved_at ? <div className="span-2"><span className="tiny muted">Phê duyệt</span><div style={{ marginTop: 5 }}><strong>{(approverRes.data as any)?.full_name || (approverRes.data as any)?.email || "Người có thẩm quyền"}</strong> · {formatDateTime(program.approved_at)}</div></div> : null}
+            {program.approved_at ? <div className="span-2"><span className="tiny muted">Xác nhận ban hành</span><div style={{ marginTop: 5 }}><strong>{(approverRes.data as any)?.full_name || (approverRes.data as any)?.email || "Người có thẩm quyền"}</strong> · {formatDateTime(program.approved_at)}</div></div> : null}
           </div>
         </div>
       </article>
@@ -295,7 +322,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       </article>
     </section>
 
-    <section className="panel">
+    <section className="panel">\n      <div className="panel-title"><div><h2>Sơ đồ Gantt kế hoạch</h2><p>Mốc thời gian lấy trực tiếp từ Action; nhiệm vụ không có ngày bắt đầu kế thừa ngày bắt đầu kế hoạch.</p></div><span className="status-badge">{formatDate(program.start_date)} – {formatDate(program.end_date)}</span></div>\n      <div style={{ padding: "0 18px 20px", overflowX: "auto" }}>\n        <div style={{ minWidth: 720, display: "grid", gap: 8 }}>\n          <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 12 }}><strong className="tiny">NHIỆM VỤ</strong><div style={{ display: "flex", justifyContent: "space-between" }}><span className="tiny muted">{formatDate(program.start_date)}</span><span className="tiny muted">{formatDate(program.end_date)}</span></div></div>\n          {ganttRows.map((x: any) => <div key={`gantt-${x.action_id}`} style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 12, alignItems: "center" }}><div style={{ minWidth: 0 }}><Link className="table-link" href={`/tasks/${x.action.record_id}`}>{x.action.title}</Link><div className="subline">{formatDate(x.action.start_date || program.start_date)} – {formatDate(x.action.due_date || x.action.start_date || program.end_date)}</div></div><div style={{ position: "relative", height: 24, borderRadius: 8, background: "#eef3f4", overflow: "hidden" }}><span style={{ position: "absolute", left: `${x.ganttLeft}%`, width: `${x.ganttWidth}%`, top: 4, bottom: 4, borderRadius: 6, background: x.action.is_overdue ? "#b42318" : x.action.workflow_status === "COMPLETED" ? "#15803d" : "#0f5b78" }} /></div></div>)}\n          {!ganttRows.length ? <div className="empty-state">Chưa có Action để hiển thị trên Gantt.</div> : null}\n        </div>\n      </div>\n    </section>\n\n    <section className="panel">
       <div className="panel-title">
         <div><h2>Nhiệm vụ / Action của kế hoạch</h2><p>Mỗi nhiệm vụ là một Action dùng chung, có người phụ trách, hạn xử lý, minh chứng và xác minh.</p></div>
         {canManage && program.workflow_status === "IN_PROGRESS" ? <PlanActionCreateClient planId={id} departments={(departmentsRes.data ?? []) as any[]} profiles={(profilesRes.data ?? []) as any[]} defaultDepartmentId={program.lead_department_id} defaultStartDate={program.start_date} defaultDueDate={program.end_date} /> : null}

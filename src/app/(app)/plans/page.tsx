@@ -75,7 +75,7 @@ export default async function PlansPage() {
       <article className="panel"><div className="tqm-section-head"><h2>Tiến độ theo từng kế hoạch</h2><p>Nhìn nhanh kế hoạch nào đang chạy tốt và kế hoạch nào cần QLCL can thiệp.</p></div><TqmHorizontalBars rows={barRows} max={100}/></article>
     </section>
 
-    <section className="panel"><div className="tqm-section-head"><h2>Gantt kế hoạch / đầu việc trọng tâm</h2><p>Thời gian lấy trực tiếp từ ngày bắt đầu – kết thúc của kế hoạch; màu đỏ là kế hoạch đang có Action quá hạn.</p></div>{ganttRows.length?<TqmGantt year={year} rows={ganttRows}/>:<div className="empty-state">Chưa đủ ngày bắt đầu/kết thúc để dựng Gantt.</div>}</section>
+    <section className="panel"><div className="tqm-section-head"><h2>Gantt kế hoạch</h2><p>Mỗi dòng là một kế hoạch trong năm công tác; thời gian lấy trực tiếp từ ngày bắt đầu – kết thúc của kế hoạch.</p></div>{ganttRows.length?<TqmGantt year={year} rows={ganttRows}/>:<div className="empty-state">Chưa đủ ngày bắt đầu/kết thúc để dựng Gantt.</div>}</section>
 
     <div className="plans-detail-label">CHI TIẾT KẾ HOẠCH & THAO TÁC NGHIỆP VỤ</div>
     <PlansClient year={year} canManage={user.permissions.includes("plans.manage")} rows={rows} departments={(departmentsRes.data ?? []) as any[]} profiles={(profilesRes.data ?? []) as any[]} referenceOptions={referenceOptions} />

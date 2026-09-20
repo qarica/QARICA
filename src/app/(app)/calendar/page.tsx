@@ -79,7 +79,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
   const cycleEnd = `${workYear + 1}-03-31`;
   const supabase = await createClient();
 
-  const [actionsRes, programsRes, monitoringRes, reportingRes, inspectionsRes, recurringRunsRes, recurringTemplatesRes] = await Promise.all([
+  const [actionsRes, programsRes, monitoringRes, reportingRes, inspectionsRes, recurringRunsRes, recurringTemplatesRes, holidaysRes] = await Promise.all([
     supabase
       .from("vw_actions_dashboard")
       .select("action_id,record_id,record_code,title,work_year,workflow_status,priority,due_date,is_overdue,days_to_due")
@@ -111,6 +111,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
       .from("recurring_work_templates")
       .select("id,title,recurrence_rule,start_date,end_date,priority,is_active,lead_department_id,assignee_user_id")
       .eq("is_active", true),
+    user.organizationId ? supabase.from("work_calendar_holidays").select("id,name,start_date,end_date,holiday_type").eq("organization_id",user.organizationId).eq("is_active",true).lte("start_date",cycleEnd).gte("end_date",cycleStart) : Promise.resolve({ data: [] as any[], error: null }),
   ]);
 
   const linkedRecordIds = Array.from(new Set([
@@ -126,8 +127,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     const recordsRes = await supabase
       .from("records")
       .select("id,record_code,title,work_year,lifecycle_status,record_type")
-      .in("id", linkedRecordIds)
-      .eq("work_year", workYear);
+      .in("id", linkedRecordIds);
     recordsError = recordsRes.error;
     for (const record of recordsRes.data ?? []) recordMap.set((record as any).id, record);
   }
@@ -255,6 +255,9 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     eventsByDate.set(event.date, list);
   }
 
+  const holidayForDate=(date:string)=>(holidaysRes.data??[]).find((h:any)=>h.start_date<=date&&h.end_date>=date) as any|undefined;
+  const isSunday=(date:string)=>new Date(`${date}T00:00:00Z`).getUTCDay()===0;
+
   const firstWeekdaySundayZero = new Date(Date.UTC(selected.year, selected.month - 1, 1)).getUTCDay();
   const leadingBlanks = (firstWeekdaySundayZero + 6) % 7;
   const daysInMonth = new Date(Date.UTC(selected.year, selected.month, 0)).getUTCDate();
@@ -272,7 +275,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
   const overdueOpen = events.filter((event) => event.tone === "danger" && event.kind !== "PLAN").length;
   const todayCount = events.filter((event) => event.date === today && !["success"].includes(event.tone) && event.kind !== "PLAN").length;
   const recurringMonthCount = monthEvents.filter((event) => event.kind === "RECURRING" || event.kind === "MONITORING").length;
-  const firstError = [actionsRes, programsRes, monitoringRes, reportingRes, inspectionsRes, recurringRunsRes, recurringTemplatesRes]
+  const firstError = [actionsRes, programsRes, monitoringRes, reportingRes, inspectionsRes, recurringRunsRes, recurringTemplatesRes, holidaysRes]
     .find((result: any) => result.error)?.error || recordsError;
   const activeTemplates = (recurringTemplatesRes.data ?? []) as any[];
 
@@ -294,10 +297,10 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
       .calendar-roadmap-card.active{border-left-color:#d69a24;background:#fffdf7}.calendar-roadmap-card.done{border-left-color:#2b8b5b;opacity:.8}
       .calendar-roadmap-card strong{display:flex;justify-content:space-between;gap:8px;color:#1e293b;font-size:12px}.calendar-roadmap-card strong span{font-size:10px;color:#64748b;font-weight:700;white-space:nowrap}.calendar-roadmap-card p{margin:7px 0 0;color:#64748b;font-size:10.5px;line-height:1.45}
       .calendar-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px}
-      .calendar-toolbar-left,.calendar-toolbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.calendar-month-title{font-size:18px;font-weight:850;color:#1e293b;min-width:170px;text-align:center}
+      .calendar-toolbar-left,.calendar-toolbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.calendar-month-title{font-size:16px;font-weight:850;color:#1e293b;min-width:190px;text-align:center;cursor:pointer;list-style:none}.calendar-month-picker{position:relative}.calendar-month-picker summary::-webkit-details-marker{display:none}.calendar-month-popover{position:absolute;z-index:20;top:38px;left:50%;transform:translateX(-50%);width:300px;padding:12px;border:1px solid #dbe5ec;border-radius:12px;background:#fff;box-shadow:0 12px 30px #0f172a20}.calendar-picker-year{text-align:center;margin-bottom:9px}.calendar-picker-months{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
       .calendar-legend{display:flex;gap:12px;flex-wrap:wrap;padding:0 15px 14px;color:#64748b;font-size:10.5px}.calendar-legend span{display:inline-flex;align-items:center;gap:5px}.calendar-dot{width:8px;height:8px;border-radius:50%;display:inline-block}.calendar-dot.action{background:#2563eb}.calendar-dot.program{background:#7c3aed}.calendar-dot.monitoring{background:#2b8b5b}.calendar-dot.report{background:#0891b2}.calendar-dot.inspection{background:#ea580c}.calendar-dot.recurring{background:#0f766e}.calendar-dot.plan{background:#64748b}.calendar-dot.attention{background:#ce4b4b}
       .calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid #e2e8f0;border-left:1px solid #e2e8f0}.calendar-weekday{padding:9px;text-align:center;font-size:10px;font-weight:850;color:#64748b;background:#f8fafc;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0}
-      .calendar-cell{min-height:142px;padding:7px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#fff;overflow:hidden}.calendar-cell.blank{background:#f8fafc}.calendar-cell.today{background:#fffdf4;box-shadow:inset 0 0 0 2px #f2c94c}.calendar-day-number{font-size:12px;font-weight:850;color:#334155;margin-bottom:6px}.calendar-cell.today .calendar-day-number{color:#9a5b00}
+      .calendar-cell{min-height:142px;padding:7px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#fff;overflow:hidden}.calendar-cell.blank{background:#f8fafc}.calendar-cell.sunday{background:#f5f7f9}.calendar-cell.holiday{background:#eef6f3}.calendar-holiday-name{font-size:8.5px;font-weight:800;color:#28705a;margin:-2px 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calendar-cell.today{box-shadow:inset 0 0 0 2px #f2c94c}.calendar-day-number{font-size:12px;font-weight:850;color:#334155;margin-bottom:6px}.calendar-cell.today .calendar-day-number{color:#9a5b00}
       .calendar-event{display:block;margin-top:4px;padding:5px 6px;border-radius:7px;border-left:3px solid #2563eb;background:#eff6ff;color:#1e3a8a;font-size:9.3px;line-height:1.25;overflow:hidden}.calendar-event strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calendar-event small{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit;opacity:.76}.calendar-event.program{border-left-color:#7c3aed;background:#f5f3ff;color:#5b21b6}.calendar-event.monitoring{border-left-color:#2b8b5b;background:#ecfdf5;color:#166534}.calendar-event.report{border-left-color:#0891b2;background:#ecfeff;color:#155e75}.calendar-event.inspection{border-left-color:#ea580c;background:#fff7ed;color:#9a3412}.calendar-event.recurring{border-left-color:#0f766e;background:#f0fdfa;color:#115e59}.calendar-event.plan{border-left-color:#64748b;background:#f8fafc;color:#475569}.calendar-event.danger{border-left-color:#ce4b4b;background:#fff1f2;color:#b42318}.calendar-event.warning{border-left-color:#d69a24;background:#fff8e8;color:#8a5a00}.calendar-event.success{opacity:.62}.calendar-more{font-size:9px;color:#64748b;margin-top:5px;font-weight:750}
       .calendar-mobile-agenda{display:none}.calendar-agenda-row{display:grid;grid-template-columns:72px 1fr;gap:10px;padding:11px 12px;border-bottom:1px solid #eef2f3}.calendar-agenda-row:last-child{border-bottom:0}.calendar-agenda-date{font-size:10.5px;font-weight:850;color:#475569}.calendar-agenda-items{display:grid;gap:7px}.calendar-agenda-item{display:block;border:1px solid #e2e8f0;border-left:4px solid #2563eb;border-radius:11px;padding:9px 10px;background:#fff}.calendar-agenda-item.program{border-left-color:#7c3aed}.calendar-agenda-item.monitoring{border-left-color:#2b8b5b}.calendar-agenda-item.report{border-left-color:#0891b2}.calendar-agenda-item.inspection{border-left-color:#ea580c}.calendar-agenda-item.recurring{border-left-color:#0f766e}.calendar-agenda-item.plan{border-left-color:#64748b}.calendar-agenda-item.danger{border-left-color:#ce4b4b;background:#fffafa}.calendar-agenda-item.warning{border-left-color:#d69a24;background:#fffdf6}.calendar-agenda-item.success{opacity:.68}.calendar-agenda-item strong{display:block;font-size:12px;line-height:1.35;color:#27364a}.calendar-agenda-item small{display:block;margin-top:3px;color:#64748b;font-size:9.5px}
       .calendar-recurrence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 14px 14px}.calendar-recurrence-card{border:1px solid #e2e8f0;border-left:4px solid #0f766e;border-radius:11px;padding:10px 11px;background:#fff}.calendar-recurrence-card .cadence{font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.04em;color:#0f766e}.calendar-recurrence-card strong{display:block;margin-top:4px;font-size:11.5px;color:#27364a}.calendar-recurrence-card small{display:block;margin-top:3px;font-size:9.5px;color:#64748b}.calendar-section-head{padding:13px 14px 9px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px}.calendar-section-head strong{font-size:13px;color:#243247}.calendar-section-head span{font-size:9.5px;color:#64748b}
@@ -323,12 +326,12 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     <section className="panel">
       <div className="calendar-toolbar">
         <div className="calendar-toolbar-left">
+          {isVisibleCycleMonth(workYear, currentTodayYear, currentTodayMonth) ? <Link className="button tertiary small" href={`/calendar?month=${monthParam(currentTodayYear, currentTodayMonth)}`}>Hôm nay</Link> : null}
           {isVisibleCycleMonth(workYear, previous.year, previous.month) ? <Link className="button secondary small" href={`/calendar?month=${monthParam(previous.year, previous.month)}`}>←</Link> : <span className="button secondary small" style={{ opacity: .35 }}>←</span>}
-          <div className="calendar-month-title">{MONTH_NAMES[selected.month - 1]} / {selected.year}</div>
+          <details className="calendar-month-picker"><summary className="calendar-month-title">{MONTH_NAMES[selected.month - 1]} năm {selected.year} ▾</summary><div className="calendar-month-popover"><div className="calendar-picker-year"><strong>{selected.year}</strong></div><div className="calendar-picker-months">{Array.from({length:12},(_,i)=>i+1).map(m=><Link key={m} className={`button small ${m===selected.month?"primary":"secondary"}`} href={`/calendar?month=${monthParam(selected.year,m)}`}>Th{m}</Link>)}</div></div></details>
           {isVisibleCycleMonth(workYear, next.year, next.month) ? <Link className="button secondary small" href={`/calendar?month=${monthParam(next.year, next.month)}`}>→</Link> : <span className="button secondary small" style={{ opacity: .35 }}>→</span>}
         </div>
         <div className="calendar-toolbar-right">
-          {isVisibleCycleMonth(workYear, currentTodayYear, currentTodayMonth) ? <Link className="button tertiary small" href={`/calendar?month=${monthParam(currentTodayYear, currentTodayMonth)}`}>Hôm nay</Link> : <span />}
           <Link className="button secondary small" href="/tasks">Việc của tôi</Link>
         </div>
       </div>
@@ -341,8 +344,9 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
         {cells.map((date, index) => {
           if (!date) return <div className="calendar-cell blank" key={`blank-${index}`} />;
           const dayEvents = eventsByDate.get(date) ?? [];
-          return <div className={`calendar-cell ${date === today ? "today" : ""}`} key={date}>
-            <div className="calendar-day-number">{Number(date.slice(-2))}</div>
+          const holiday=holidayForDate(date); const nonWorking=holiday?"holiday":isSunday(date)?"sunday":"";
+          return <div className={`calendar-cell ${nonWorking} ${date === today ? "today" : ""}`} key={date}>
+            <div className="calendar-day-number">{Number(date.slice(-2))}</div>{holiday?<div className="calendar-holiday-name" title={holiday.name}>{holiday.name}</div>:null}
             {dayEvents.slice(0, 4).map((event) => renderEvent(event))}
             {dayEvents.length > 4 ? <div className="calendar-more">+{dayEvents.length - 4} mốc khác</div> : null}
           </div>;
