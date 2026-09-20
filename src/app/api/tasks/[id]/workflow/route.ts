@@ -310,6 +310,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         p_note: note || null,
       });
       if (!txError) {
+        const { data: targetExecution } = await admin.from("action_department_executions").select("department_id").eq("id", targetExecutionId).maybeSingle();
+        if (targetExecution?.department_id) {
+          const { data: recipientRoles } = await admin.from("department_user_roles").select("user_id").eq("department_id", targetExecution.department_id).eq("is_active", true).in("role_type", ["HEAD","QUALITY_NETWORK_MEMBER"]);
+          const recipientIds = Array.from(new Set((recipientRoles ?? []).map((row: any) => row.user_id).filter(Boolean))) as string[];
+          if (recipientIds.length) {
+            const eventStamp = Date.now();
+            await admin.from("notifications").insert(recipientIds.map((recipientUserId) => ({
+              recipient_user_id: recipientUserId,
+              notification_type: "ACTION_VERIFIED",
+              priority: "NORMAL",
+              title: "Công việc đã được xác minh hoàn thành",
+              message: record.title,
+              target_record_id: recordId,
+              target_route: `/tasks/${recordId}`,
+              notification_event_key: `action-verified:${action.id}:${targetExecutionId}:${recipientUserId}:${eventStamp}`,
+            })));
+          }
+        }
         return NextResponse.json({
           ok: true,
           workflow_status: tx?.aggregate_complete ? "COMPLETED" : action.workflow_status,
