@@ -40,11 +40,13 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   if (actionError) return <div className="alert error">Không tải được nội dung công việc: {actionError.message}</div>;
   if (!action) notFound();
 
-  const [departmentRes, assigneeRes, assigneeGroupRes, groupAssignmentRes, planLinkRes, evidenceRes, sourceLinksRes] = await Promise.all([
+  const [departmentRes, assigneeRes, assigneeGroupRes, groupAssignmentRes, departmentExecutionRes, departmentRoleRes, planLinkRes, evidenceRes, sourceLinksRes] = await Promise.all([
     action.lead_department_id ? supabase.from("departments").select("id,name,short_name").eq("id", action.lead_department_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_user_id ? supabase.from("profiles").select("user_id,full_name,email,job_title").eq("user_id", action.assignee_user_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_group_id ? supabase.from("work_groups").select("id,code,name,leader_user_id").eq("id", action.assignee_group_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_group_id ? supabase.from("work_group_assignment_snapshots").select("id").eq("target_record_id", recordId).eq("group_id", action.assignee_group_id).eq("assignment_role", "ACTION_ASSIGNEE_GROUP").contains("member_snapshot", [{ user_id: user.id }]).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    user.primaryDepartmentId ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("department_id",user.primaryDepartmentId).maybeSingle() : Promise.resolve({data:null,error:null}),
+    user.primaryDepartmentId ? supabase.from("department_user_roles").select("role_type").eq("department_id",user.primaryDepartmentId).eq("user_id",user.id).eq("is_active",true).in("role_type",["HEAD","QUALITY_NETWORK_MEMBER"]) : Promise.resolve({data:[],error:null}),
     supabase.from("program_action_links").select("program_id,milestone_group,is_required").eq("action_id", action.id).maybeSingle(),
     supabase.from("evidence_links").select("id,evidence_id,evidence_role").eq("record_id", recordId),
     supabase.from("record_links").select("source_record_id").eq("target_record_id", recordId).eq("relation_type", "HAS_ACTION"),
@@ -52,9 +54,15 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
 
   const sourceRecordIds = Array.from(new Set((sourceLinksRes.data ?? []).map((row: any) => row.source_record_id).filter(Boolean))) as string[];
   const sourceRecordsRes = sourceRecordIds.length
-    ? await supabase.from("records").select("id,record_type").in("id", sourceRecordIds)
+    ? await supabase.from("records").select("id,record_type,record_code,title").in("id", sourceRecordIds)
     : { data: [], error: null };
   const sourceRecordTypes = Array.from(new Set((sourceRecordsRes.data ?? []).map((row: any) => String(row.record_type || "")).filter(Boolean)));
+  const sourceRecords = (sourceRecordsRes.data ?? []) as Array<{ id: string; record_type: string; record_code: string; title: string }>;
+  const sourceRoute = (source: { id: string; record_type: string }) => {
+    if (source.record_type === "INCIDENT") return `/incidents/${source.id}`;
+    if (source.record_type === "ACTION") return `/tasks/${source.id}`;
+    return `/records/${source.id}`;
+  };
 
   const evidenceIds = (evidenceRes.data ?? []).map((row: any) => row.evidence_id).filter(Boolean) as string[];
   let evidenceItems: any[] = [];
@@ -83,12 +91,16 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   const status = isOverdue ? "OVERDUE" : action.workflow_status;
   const canVerify = canVerifyTask(user.permissions, sourceRecordTypes, !!planLinkRes.data?.program_id);
   const isGroupAssignment = action.assignment_target_type === "GROUP" && !!action.assignee_group_id;
-  const canOperate = action.assignee_user_id === user.id || (isGroupAssignment && !!groupAssignmentRes.data) || canVerify;
+  const isDepartmentAssignment = action.assignment_target_type === "DEPARTMENT";
+  const isAuthorizedDepartmentMember = !!departmentExecutionRes.data && (departmentRoleRes.data ?? []).length > 0;
+  const canOperate = action.assignee_user_id === user.id || (isGroupAssignment && !!groupAssignmentRes.data) || (isDepartmentAssignment && isAuthorizedDepartmentMember) || canVerify;
   const assigneeLabel = isGroupAssignment
     ? ([((assigneeGroupRes.data as any)?.code), ((assigneeGroupRes.data as any)?.name)].filter(Boolean).join(" · ") || "Nhóm được giao nhiệm vụ")
-    : ((assigneeRes.data as any)?.full_name || (assigneeRes.data as any)?.email || "Người được giao nhiệm vụ");
+    : isDepartmentAssignment
+      ? ((departmentRes.data as any)?.short_name || (departmentRes.data as any)?.name || "Khoa/Phòng được giao nhiệm vụ")
+      : ((assigneeRes.data as any)?.full_name || (assigneeRes.data as any)?.email || "Người được giao nhiệm vụ");
   const responsibility = taskStepResponsibility(action.workflow_status, assigneeLabel, sourceRecordTypes, !!planLinkRes.data?.program_id);
-  const firstError = [departmentRes as any, assigneeRes as any, assigneeGroupRes as any, groupAssignmentRes as any, planLinkRes, evidenceRes, sourceLinksRes, sourceRecordsRes, { error: evidenceItemsError }].find((r: any) => r?.error)?.error;
+  const firstError = [departmentRes as any, assigneeRes as any, assigneeGroupRes as any, groupAssignmentRes as any, departmentExecutionRes as any, departmentRoleRes as any, planLinkRes, evidenceRes, sourceLinksRes, sourceRecordsRes, { error: evidenceItemsError }].find((r: any) => r?.error)?.error;
 
   return <div className="page-stack">
     <PageHeader
@@ -117,7 +129,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
         <div className="panel-title"><div><h2>Thông tin thực hiện</h2><p>Đơn vị, người chịu trách nhiệm và mốc thời gian.</p></div></div>
         <div style={{ padding: "0 19px 20px" }} className="form-grid two">
           <div><span className="tiny muted">Khoa/Phòng phụ trách</span><div style={{ marginTop: 5 }}><strong>{(departmentRes.data as any)?.name || "—"}</strong></div></div>
-          <div><span className="tiny muted">Phân công cho</span><div style={{ marginTop: 5 }}><strong>{isGroupAssignment ? `Nhóm · ${assigneeLabel}` : `Cá nhân · ${assigneeLabel}`}</strong></div></div>
+          <div><span className="tiny muted">Phân công cho</span><div style={{ marginTop: 5 }}><strong>{isGroupAssignment ? `Nhóm · ${assigneeLabel}` : isDepartmentAssignment ? `Khoa/Phòng · ${assigneeLabel}` : `Cá nhân · ${assigneeLabel}`}</strong></div></div>
           <div><span className="tiny muted">Ngày bắt đầu</span><div style={{ marginTop: 5 }}><strong>{formatDate(action.start_date)}</strong></div></div>
           <div><span className="tiny muted">Hạn hoàn thành</span><div style={{ marginTop: 5 }}><strong>{formatDate(action.due_date)}</strong></div></div>
           {sourcePlan ? <div className="span-2"><span className="tiny muted">Kế hoạch nguồn</span><div style={{ marginTop: 5 }}><Link className="table-link" href={`/plans/${sourcePlan.id}`}>{sourcePlan.code} · {sourcePlan.title}</Link></div></div> : null}

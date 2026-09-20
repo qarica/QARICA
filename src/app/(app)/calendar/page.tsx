@@ -126,8 +126,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     const recordsRes = await supabase
       .from("records")
       .select("id,record_code,title,work_year,lifecycle_status,record_type")
-      .in("id", linkedRecordIds)
-      .eq("work_year", workYear);
+      .in("id", linkedRecordIds);
     recordsError = recordsRes.error;
     for (const record of recordsRes.data ?? []) recordMap.set((record as any).id, record);
   }

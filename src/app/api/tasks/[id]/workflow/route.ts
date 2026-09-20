@@ -21,7 +21,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const admin = createAdminClient();
   const [{ data: caller, error: callerError }, { data: record, error: recordError }] = await Promise.all([
-    admin.from("profiles").select("user_id,organization_id,is_active").eq("user_id", auth.user.id).maybeSingle(),
+    admin.from("profiles").select("user_id,organization_id,primary_department_id,is_active").eq("user_id", auth.user.id).maybeSingle(),
     admin.from("records").select("id,organization_id,record_type,lifecycle_status,title").eq("id", recordId).maybeSingle(),
   ]);
 
@@ -89,15 +89,31 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
   }
 
+  let departmentExecution: any = null;
+  let departmentRecipientIds: string[] = [];
+  if (action.assignment_target_type === "DEPARTMENT" && caller.primary_department_id) {
+    const { data: execution, error: executionError } = await admin.from("action_department_executions").select("id,department_id,workflow_status").eq("action_id",action.id).eq("department_id",caller.primary_department_id).maybeSingle();
+    if (executionError) return NextResponse.json({error:executionError.message},{status:400});
+    departmentExecution=execution;
+    if (execution) {
+      const {data: roles,error:rolesError}=await admin.from("department_user_roles").select("user_id").eq("department_id",caller.primary_department_id).eq("is_active",true).in("role_type",["HEAD","QUALITY_NETWORK_MEMBER"]);
+      if (rolesError) return NextResponse.json({error:rolesError.message},{status:400});
+      departmentRecipientIds=Array.from(new Set((roles??[]).map((x:any)=>x.user_id).filter(Boolean))) as string[];
+      isAssignee=departmentRecipientIds.includes(auth.user.id);
+    }
+  }
+
   const executionRecipientIds = action.assignment_target_type === "GROUP"
     ? groupRecipientIds
-    : (action.assignee_user_id ? [action.assignee_user_id] : []);
+    : action.assignment_target_type === "DEPARTMENT"
+      ? departmentRecipientIds
+      : (action.assignee_user_id ? [action.assignee_user_id] : []);
 
   if (VERIFIER_ACTIONS.has(requestedAction) && !canManage) {
     return NextResponse.json({ error: "Bạn không có quyền xác minh công việc này." }, { status: 403 });
   }
   if (!VERIFIER_ACTIONS.has(requestedAction) && !isAssignee && !canManage) {
-    return NextResponse.json({ error: "Chỉ cá nhân hoặc thành viên nhóm được giao việc tại thời điểm phân công, hoặc người có quyền xác minh, mới được cập nhật công việc này." }, { status: 403 });
+    return NextResponse.json({ error: "Chỉ cá nhân, thành viên nhóm, hoặc Trưởng/Phụ trách và thành viên Mạng lưới QLCL của khoa/phòng được giao mới được cập nhật công việc này." }, { status: 403 });
   }
 
   // Công việc gắn với kế hoạch chỉ được bắt đầu/tiếp tục/gửi xác minh khi
@@ -127,13 +143,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Chỉ công việc đang thực hiện mới được gửi xác minh." }, { status: 409 });
     }
 
-    const { count: evidenceCount, error: evidenceError } = await admin
-      .from("evidence_links")
-      .select("id", { count: "exact", head: true })
-      .eq("record_id", recordId);
+    let evidenceCountQuery = admin.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId);
+    if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) evidenceCountQuery = evidenceCountQuery.eq("action_department_execution_id", departmentExecution.id);
+    const { count: evidenceCount, error: evidenceError } = await evidenceCountQuery;
     if (evidenceError) return NextResponse.json({ error: evidenceError.message }, { status: 400 });
     if (!evidenceCount) {
       return NextResponse.json({ error: "Cần nộp ít nhất 01 minh chứng trước khi gửi xác minh." }, { status: 400 });
+    }
+
+    if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) {
+      const submittedAt=new Date().toISOString();
+      const {error:executionSubmitError}=await admin.from("action_department_executions").update({workflow_status:"SUBMITTED",submitted_at:submittedAt,submitted_by:auth.user.id,updated_at:submittedAt}).eq("id",departmentExecution.id).in("workflow_status",["NOT_STARTED","IN_PROGRESS"]);
+      if (executionSubmitError) return NextResponse.json({error:executionSubmitError.message},{status:400});
+      const {data:pendingExecutions,error:pendingError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).neq("workflow_status","SUBMITTED").neq("workflow_status","VERIFIED").neq("workflow_status","WAIVED").limit(1);
+      if (pendingError) return NextResponse.json({error:pendingError.message},{status:400});
+      if ((pendingExecutions??[]).length) return NextResponse.json({ok:true,department_execution_status:"SUBMITTED",workflow_status:action.workflow_status});
     }
 
     const { error: submitError } = await admin
@@ -171,6 +195,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     if (note.length < 5) {
       return NextResponse.json({ error: "Vui lòng ghi rõ nội dung cần bổ sung." }, { status: 400 });
+    }
+    if (action.assignment_target_type === "DEPARTMENT") {
+      const {data:submittedExecutions,error:submittedExecutionsError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).eq("workflow_status","SUBMITTED");
+      if (submittedExecutionsError) return NextResponse.json({error:submittedExecutionsError.message},{status:400});
+      if (!(submittedExecutions??[]).length) return NextResponse.json({error:"Không có khoa/phòng nào đang chờ bổ sung."},{status:409});
+      const returnedAt=new Date().toISOString();
+      const {error:returnExecutionError}=await admin.from("action_department_executions").update({workflow_status:"RETURNED",note,verified_at:null,verified_by:null,completed_at:null,completed_by:null,updated_at:returnedAt}).in("id",(submittedExecutions??[]).map((x:any)=>x.id));
+      if (returnExecutionError) return NextResponse.json({error:returnExecutionError.message},{status:400});
     }
     const { error } = await admin
       .from("actions")
@@ -210,6 +242,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const evidenceIds = (evidenceLinks ?? []).map((row) => row.evidence_id).filter(Boolean);
 
     const verifiedAt = new Date().toISOString();
+
+    if (action.assignment_target_type === "DEPARTMENT") {
+      const {data:submittedExecutions,error:submittedExecutionsError}=await admin.from("action_department_executions").select("id,department_id").eq("action_id",action.id).eq("workflow_status","SUBMITTED");
+      if (submittedExecutionsError) return NextResponse.json({error:submittedExecutionsError.message},{status:400});
+      if (!(submittedExecutions??[]).length) return NextResponse.json({error:"Không có khoa/phòng nào đang chờ xác minh."},{status:409});
+      // Xác minh Action tại thời điểm này áp dụng cho các execution đã gửi; mỗi đơn vị chỉ cần một người hợp lệ thực hiện.
+      const submittedIds=(submittedExecutions??[]).map((x:any)=>x.id);
+      const {error:verifyExecutionsError}=await admin.from("action_department_executions").update({workflow_status:"VERIFIED",verified_at:verifiedAt,verified_by:auth.user.id,completed_at:verifiedAt,completed_by:auth.user.id,note:note||null,updated_at:verifiedAt}).in("id",submittedIds);
+      if (verifyExecutionsError) return NextResponse.json({error:verifyExecutionsError.message},{status:400});
+      const {data:remainingExecutions,error:remainingExecutionsError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).not("workflow_status","in","(VERIFIED,WAIVED)").limit(1);
+      if (remainingExecutionsError) return NextResponse.json({error:remainingExecutionsError.message},{status:400});
+      if ((remainingExecutions??[]).length) {
+        const {error:resumeAggregateError}=await admin.from("actions").update({workflow_status:"IN_PROGRESS",verified_at:null,verified_by:null,completion_note:null}).eq("id",action.id).eq("workflow_status","VERIFYING");
+        if (resumeAggregateError) return NextResponse.json({error:resumeAggregateError.message},{status:400});
+        return NextResponse.json({ok:true,workflow_status:"IN_PROGRESS",department_execution_status:"VERIFIED",aggregate_complete:false});
+      }
+    }
+
     const { error } = await admin
       .from("actions")
       .update({
@@ -258,6 +308,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const allowedFrom = requestedAction === "START" ? "NOT_STARTED" : "RETURNED";
   if (action.workflow_status !== allowedFrom) {
     return NextResponse.json({ error: "Trạng thái hiện tại không phù hợp với thao tác này. Vui lòng tải lại trang." }, { status: 409 });
+  }
+
+  if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) {
+    const executionFrom=requestedAction==="START"?"NOT_STARTED":"RETURNED";
+    const {error:executionStartError}=await admin.from("action_department_executions").update({workflow_status:"IN_PROGRESS",updated_at:new Date().toISOString()}).eq("id",departmentExecution.id).eq("workflow_status",executionFrom);
+    if (executionStartError) return NextResponse.json({error:executionStartError.message},{status:400});
   }
 
   const { error: updateError } = await admin
