@@ -30,3 +30,10 @@ set identity_data = jsonb_set(
   to_jsonb(regexp_replace(identity_data->>'email', '@qlcl-ttsg\.com$', '@qarica.com'))
 )
 where identity_data->>'email' ilike '%@qlcl-ttsg.com';
+
+-- auth.identities.identity_data.email alone was still not enough: for the "email" provider,
+-- Supabase Auth also keys identities by provider_id (= the email itself), which stayed on
+-- the old domain and caused signInWithPassword to fail with "Database error querying schema".
+update auth.identities
+set provider_id = regexp_replace(provider_id, '@qlcl-ttsg\.com$', '@qarica.com')
+where provider = 'email' and provider_id ilike '%@qlcl-ttsg.com';
