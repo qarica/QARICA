@@ -143,10 +143,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Chỉ công việc đang thực hiện mới được gửi xác minh." }, { status: 409 });
     }
 
-    const { count: evidenceCount, error: evidenceError } = await admin
-      .from("evidence_links")
-      .select("id", { count: "exact", head: true })
-      .eq("record_id", recordId);
+    let evidenceCountQuery = admin.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId);
+    if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) evidenceCountQuery = evidenceCountQuery.eq("action_department_execution_id", departmentExecution.id);
+    const { count: evidenceCount, error: evidenceError } = await evidenceCountQuery;
     if (evidenceError) return NextResponse.json({ error: evidenceError.message }, { status: 400 });
     if (!evidenceCount) {
       return NextResponse.json({ error: "Cần nộp ít nhất 01 minh chứng trước khi gửi xác minh." }, { status: 400 });
