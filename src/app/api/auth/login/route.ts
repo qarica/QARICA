@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
-const INTERNAL_LOGIN_DOMAIN = "qlcl-ttsg.com";
+const INTERNAL_LOGIN_DOMAIN = "qarica.com";
 
 // Tối đa 8 lần thử sai trong 5 phút, tính theo IP + tài khoản đang thử.
 // Sau khi vượt, phải chờ đủ cửa sổ thời gian mới được thử lại.
