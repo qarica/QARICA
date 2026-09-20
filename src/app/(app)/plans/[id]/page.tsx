@@ -287,7 +287,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
             <div><span className="tiny muted">Thời gian</span><div style={{ marginTop: 5 }}><strong>{formatDate(program.start_date)} – {formatDate(program.end_date)}</strong></div></div>
             <div className="span-2"><span className="tiny muted">Mục tiêu</span><div style={{ marginTop: 5, lineHeight: 1.6 }}>{program.objective || "Chưa cập nhật mục tiêu."}</div></div>
             <div className="span-2"><span className="tiny muted">Mô tả / phạm vi</span><div style={{ marginTop: 5, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{program.description || "Chưa cập nhật mô tả."}</div></div>
-            {program.approved_at ? <div className="span-2"><span className="tiny muted">Phê duyệt</span><div style={{ marginTop: 5 }}><strong>{(approverRes.data as any)?.full_name || (approverRes.data as any)?.email || "Người có thẩm quyền"}</strong> · {formatDateTime(program.approved_at)}</div></div> : null}
+            {program.approved_at ? <div className="span-2"><span className="tiny muted">Xác nhận ban hành</span><div style={{ marginTop: 5 }}><strong>{(approverRes.data as any)?.full_name || (approverRes.data as any)?.email || "Người có thẩm quyền"}</strong> · {formatDateTime(program.approved_at)}</div></div> : null}
           </div>
         </div>
       </article>
