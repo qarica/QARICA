@@ -1203,7 +1203,7 @@ begin
   end loop;
 
   update public.work_programs
-  set workflow_status='APPROVED',
+  set workflow_status='IN_PROGRESS',
       approved_by=p_actor_user_id,
       approved_at=now(),
       returned_reason=null
@@ -1213,7 +1213,7 @@ begin
     actor_user_id,record_id,table_name,row_id,action_type,new_value,request_meta
   )
   values(
-    p_actor_user_id,v_record.id,'work_programs',p_program_id,'APPROVE_PLAN_BUNDLE_V10',
+    p_actor_user_id,v_record.id,'work_programs',p_program_id,'ACTIVATE_ISSUED_PLAN_BUNDLE_V10',
     jsonb_build_object(
       'program_id',p_program_id,
       'materialized_actions',v_count,
@@ -1241,7 +1241,7 @@ begin
     'improvement_projects',v_improvement_count,
     'recurring_monitoring_templates',v_recurring_monitoring_count,
     'recurring_template_ids',v_recurring_template_ids,
-    'approved_at',now()
+    'activated_at',now()
   );
 end;
 $function$;
