@@ -16,11 +16,12 @@ const PRIORITY_LABELS: Record<string, string> = {
   CRITICAL: "Rất khẩn / trọng yếu",
 };
 
-export default async function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TaskDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ execution?: string }> }) {
   const { user } = await requireUserContext();
   if (!hasAnyPermission(user, ["tasks.view", "plans.manage"])) redirect("/dashboard?forbidden=1");
 
   const { id: recordId } = await params;
+  const { execution: requestedExecutionId } = await searchParams;
   const supabase = await createClient();
   const { data: record, error: recordError } = await supabase
     .from("records")
@@ -44,15 +45,29 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
     action.lead_department_id ? supabase.from("departments").select("id,name,short_name").eq("id", action.lead_department_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_user_id ? supabase.from("profiles").select("user_id,full_name,email,job_title").eq("user_id", action.assignee_user_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_group_id ? supabase.from("work_groups").select("id,code,name,leader_user_id").eq("id", action.assignee_group_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    // member_snapshot is JSONB; avoid PostgREST .contains() encoding here since it can
-    // produce invalid JSON for some client/runtime combinations. Fetch and filter in JS.
+    // member_snapshot is JSONB; fetch and filter in JS to avoid PostgREST JSON encoding issues.
     action.assignee_group_id ? supabase.from("work_group_assignment_snapshots").select("member_snapshot").eq("target_record_id", recordId).eq("group_id", action.assignee_group_id).eq("assignment_role", "ACTION_ASSIGNEE_GROUP").maybeSingle() : Promise.resolve({ data: null, error: null }),
-    isVerifierCandidate(user.permissions) ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("workflow_status","SUBMITTED").limit(1).maybeSingle() : user.primaryDepartmentId ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("department_id",user.primaryDepartmentId).maybeSingle() : Promise.resolve({data:null,error:null}),
+    isVerifierCandidate(user.permissions) ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("workflow_status","SUBMITTED").order("updated_at",{ascending:true}) : user.primaryDepartmentId ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("department_id",user.primaryDepartmentId).maybeSingle() : Promise.resolve({data:null,error:null}),
     user.primaryDepartmentId ? supabase.from("department_user_roles").select("role_type").eq("department_id",user.primaryDepartmentId).eq("user_id",user.id).eq("is_active",true).in("role_type",["HEAD","QUALITY_NETWORK_MEMBER"]) : Promise.resolve({data:[],error:null}),
     supabase.from("program_action_links").select("program_id,milestone_group,is_required").eq("action_id", action.id).maybeSingle(),
     supabase.from("evidence_links").select("id,evidence_id,evidence_role,action_department_execution_id").eq("record_id", recordId),
     supabase.from("record_links").select("source_record_id").eq("target_record_id", recordId).eq("relation_type", "HAS_ACTION"),
   ]);
+
+  const verifierSubmittedExecutions = isVerifierCandidate(user.permissions) ? ((departmentExecutionRes.data ?? []) as any[]) : [];
+  const selectedVerifierExecution = isVerifierCandidate(user.permissions)
+    ? (verifierSubmittedExecutions.find((row: any) => row.id === requestedExecutionId) || verifierSubmittedExecutions[0] || null)
+    : null;
+  const departmentExecution = isVerifierCandidate(user.permissions) ? selectedVerifierExecution : departmentExecutionRes.data;
+
+  const submittedExecutionQueue = isVerifierCandidate(user.permissions) && action.assignment_target_type === "DEPARTMENT"
+    ? await supabase.from("action_department_executions").select("id,department_id,workflow_status,updated_at").eq("action_id", action.id).eq("workflow_status", "SUBMITTED").order("updated_at", { ascending: true })
+    : { data: [], error: null } as any;
+  const submittedDepartmentIds = Array.from(new Set((submittedExecutionQueue.data ?? []).map((row: any) => row.department_id).filter(Boolean))) as string[];
+  const submittedDepartments = submittedDepartmentIds.length
+    ? await supabase.from("departments").select("id,name,short_name").in("id", submittedDepartmentIds)
+    : { data: [], error: null } as any;
+  const submittedDepartmentMap = new Map((submittedDepartments.data ?? []).map((row: any) => [row.id, row.short_name || row.name || row.id]));
 
   const sourceRecordIds = Array.from(new Set((sourceLinksRes.data ?? []).map((row: any) => row.source_record_id).filter(Boolean))) as string[];
   const sourceRecordsRes = sourceRecordIds.length
@@ -66,8 +81,8 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
     return `/records/${source.id}`;
   };
 
-  const visibleEvidenceLinks = action.assignment_target_type === "DEPARTMENT" && (departmentExecutionRes.data as any)?.id
-    ? (evidenceRes.data ?? []).filter((row: any) => row.action_department_execution_id === (departmentExecutionRes.data as any).id)
+  const visibleEvidenceLinks = action.assignment_target_type === "DEPARTMENT" && (departmentExecution as any)?.id
+    ? (evidenceRes.data ?? []).filter((row: any) => row.action_department_execution_id === (departmentExecution as any).id)
     : (evidenceRes.data ?? []);
   const evidenceIds = visibleEvidenceLinks.map((row: any) => row.evidence_id).filter(Boolean) as string[];
   let evidenceItems: any[] = [];
@@ -97,7 +112,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   const canVerify = canVerifyTask(user.permissions, sourceRecordTypes, !!planLinkRes.data?.program_id);
   const isGroupAssignment = action.assignment_target_type === "GROUP" && !!action.assignee_group_id;
   const isDepartmentAssignment = action.assignment_target_type === "DEPARTMENT";
-  const isAuthorizedDepartmentMember = !!departmentExecutionRes.data && (departmentRoleRes.data ?? []).length > 0;
+  const isAuthorizedDepartmentMember = !!departmentExecution && (departmentRoleRes.data ?? []).length > 0;
   const isCurrentUserInGroupSnapshot = Array.isArray(groupAssignmentRes.data?.member_snapshot)
     ? groupAssignmentRes.data.member_snapshot.some((member: any) => String(member?.user_id || "").trim() === user.id)
     : false;
@@ -108,7 +123,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
       ? ((departmentRes.data as any)?.short_name || (departmentRes.data as any)?.name || "Khoa/Phòng được giao nhiệm vụ")
       : ((assigneeRes.data as any)?.full_name || (assigneeRes.data as any)?.email || "Người được giao nhiệm vụ");
   const responsibility = taskStepResponsibility(action.workflow_status, assigneeLabel, sourceRecordTypes, !!planLinkRes.data?.program_id);
-  const firstError = [departmentRes as any, assigneeRes as any, assigneeGroupRes as any, groupAssignmentRes as any, departmentExecutionRes as any, departmentRoleRes as any, planLinkRes, evidenceRes, sourceLinksRes, sourceRecordsRes, { error: evidenceItemsError }].find((r: any) => r?.error)?.error;
+  const firstError = [departmentRes as any, assigneeRes as any, assigneeGroupRes as any, groupAssignmentRes as any, departmentExecutionRes as any, departmentRoleRes as any, planLinkRes, evidenceRes, sourceLinksRes, submittedExecutionQueue as any, submittedDepartments as any, sourceRecordsRes, { error: evidenceItemsError }].find((r: any) => r?.error)?.error;
 
   return <div className="page-stack">
     <PageHeader
@@ -117,10 +132,17 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
       description={`Năm ${record.work_year}${sourcePlan ? ` · Thuộc ${sourcePlan.code}` : ""}`}
       actions={<div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
         {sourcePlan ? <Link className="button secondary" href={`/plans/${sourcePlan.id}`}>← Kế hoạch nguồn</Link> : <Link className="button secondary" href="/tasks">← Việc của tôi</Link>}
-        <TaskWorkflowClient recordId={recordId} currentStatus={action.workflow_status} canOperate={canOperate} canVerify={canVerify} evidenceCount={evidenceItems.length} departmentExecutionId={isDepartmentAssignment ? ((departmentExecutionRes.data as any)?.id || null) : null} departmentExecutionStatus={isDepartmentAssignment ? ((departmentExecutionRes.data as any)?.workflow_status || null) : null} />
+        <TaskWorkflowClient recordId={recordId} currentStatus={action.workflow_status} canOperate={canOperate} canVerify={canVerify} evidenceCount={evidenceItems.length} departmentExecutionId={isDepartmentAssignment ? ((departmentExecution as any)?.id || null) : null} departmentExecutionStatus={isDepartmentAssignment ? ((departmentExecution as any)?.workflow_status || null) : null} />
       </div>}
     />
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
+    {isDepartmentAssignment && canVerify && (submittedExecutionQueue.data ?? []).length > 1 ? <section className="panel" style={{padding:14}}>
+      <div className="tiny muted" style={{marginBottom:8}}>KHOA/PHÒNG ĐANG CHỜ XÁC MINH · {(submittedExecutionQueue.data ?? []).length}</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        {(submittedExecutionQueue.data ?? []).map((row:any)=><Link key={row.id} href={`/tasks/${recordId}?execution=${row.id}`} className={row.id === (departmentExecution as any)?.id ? "button primary small" : "button secondary small"}>{String(submittedDepartmentMap.get(row.department_id) || "Khoa/Phòng")}</Link>)}
+      </div>
+    </section> : null}
+
     <div className="scope-note" role="status">
       <strong>Bước hiện tại: {responsibility.step}</strong> · Chờ <strong>{responsibility.responsible}</strong> · Việc tiếp theo: <strong>{responsibility.nextAction}</strong>
     </div>
