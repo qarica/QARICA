@@ -306,7 +306,8 @@ begin
       end;
     end if;
 
-    v_start_date:=nullif(v_task->>'start_date','')::date;
+    -- A task may omit its own start date. In that case it inherits the plan start date.
+    v_start_date:=coalesce(nullif(v_task->>'start_date','')::date,v_program.start_date);
     v_due_date:=nullif(v_task->>'due_date','')::date;
     if v_due_date is null then raise exception 'Task due date is required'; end if;
     if v_start_date is not null and v_due_date<v_start_date then
