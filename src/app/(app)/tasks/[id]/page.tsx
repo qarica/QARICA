@@ -48,7 +48,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
     isVerifierCandidate(user.permissions) ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("workflow_status","SUBMITTED").limit(1).maybeSingle() : user.primaryDepartmentId ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("department_id",user.primaryDepartmentId).maybeSingle() : Promise.resolve({data:null,error:null}),
     user.primaryDepartmentId ? supabase.from("department_user_roles").select("role_type").eq("department_id",user.primaryDepartmentId).eq("user_id",user.id).eq("is_active",true).in("role_type",["HEAD","QUALITY_NETWORK_MEMBER"]) : Promise.resolve({data:[],error:null}),
     supabase.from("program_action_links").select("program_id,milestone_group,is_required").eq("action_id", action.id).maybeSingle(),
-    supabase.from("evidence_links").select("id,evidence_id,evidence_role").eq("record_id", recordId),
+    supabase.from("evidence_links").select("id,evidence_id,evidence_role,action_department_execution_id").eq("record_id", recordId),
     supabase.from("record_links").select("source_record_id").eq("target_record_id", recordId).eq("relation_type", "HAS_ACTION"),
   ]);
 
@@ -64,7 +64,10 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
     return `/records/${source.id}`;
   };
 
-  const evidenceIds = (evidenceRes.data ?? []).map((row: any) => row.evidence_id).filter(Boolean) as string[];
+  const visibleEvidenceLinks = action.assignment_target_type === "DEPARTMENT" && (departmentExecutionRes.data as any)?.id
+    ? (evidenceRes.data ?? []).filter((row: any) => row.action_department_execution_id === (departmentExecutionRes.data as any).id)
+    : (evidenceRes.data ?? []);
+  const evidenceIds = visibleEvidenceLinks.map((row: any) => row.evidence_id).filter(Boolean) as string[];
   let evidenceItems: any[] = [];
   let evidenceItemsError: any = null;
   if (evidenceIds.length) {
