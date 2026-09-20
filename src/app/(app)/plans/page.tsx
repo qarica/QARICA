@@ -52,7 +52,14 @@ export default async function PlansPage() {
   const onTrack = rows.filter((x) => x.progress_pct >= 75 && x.overdue_actions === 0).length;
   const needAttention = rows.filter((x) => x.overdue_actions > 0 || x.progress_pct < 50).length;
   const barRows = [...rows].sort((a,b)=>b.progress_pct-a.progress_pct).slice(0,10).map((x) => ({ label:x.title, value:Math.round(x.progress_pct), tone:x.overdue_actions>0?"red" as const:x.progress_pct>=75?"green" as const:"blue" as const, caption:x.record_code }));
-  const ganttRows = rows.filter((x)=>x.start_date&&x.end_date).sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date))).slice(0,12).map((x)=>({ label:x.title, start:x.start_date, end:x.end_date, progress:Math.round(x.progress_pct), tone:x.overdue_actions>0?"red" as const:x.progress_pct>=75?"green" as const:"blue" as const }));
+  const kh50 = rows.find((x) => x.record_code === "PROGRAM-2026-0001");
+  const kh50LinksRes = kh50 ? await supabase.from("program_action_links").select("action_id").eq("program_id", kh50.id) : { data: [] as any[], error: null };
+  const kh50ActionIds = ((kh50LinksRes.data ?? []) as any[]).map((x:any)=>x.action_id).filter(Boolean);
+  const kh50ActionsRes = kh50ActionIds.length ? await supabase.from("vw_actions_dashboard").select("action_id,title,start_date,due_date,workflow_status,is_overdue").in("action_id", kh50ActionIds) : { data: [] as any[], error: null };
+  const kh50Actions = ((kh50ActionsRes.data ?? []) as any[]).filter((x:any)=>!["CANCELLED","NOT_APPLICABLE"].includes(String(x.workflow_status)));
+  const ganttRows = kh50Actions.length
+    ? kh50Actions.sort((a:any,b:any)=>String(a.start_date||kh50?.start_date||"").localeCompare(String(b.start_date||kh50?.start_date||"")) || String(a.due_date||"").localeCompare(String(b.due_date||""))).map((x:any)=>({label:x.title,start:x.start_date||kh50?.start_date||null,end:x.due_date||x.start_date||kh50?.end_date||null,progress:x.workflow_status==="COMPLETED"?100:0,tone:x.is_overdue?"red" as const:x.workflow_status==="COMPLETED"?"green" as const:"blue" as const}))
+    : rows.filter((x)=>x.start_date&&x.end_date).sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date))).slice(0,12).map((x)=>({ label:x.title, start:x.start_date, end:x.end_date, progress:Math.round(x.progress_pct), tone:x.overdue_actions>0?"red" as const:x.progress_pct>=75?"green" as const:"blue" as const }));
 
   return <div className="page-stack plans-page tqm-workspace">
     <style>{TQM_CHART_CSS + `
@@ -75,7 +82,7 @@ export default async function PlansPage() {
       <article className="panel"><div className="tqm-section-head"><h2>Tiến độ theo từng kế hoạch</h2><p>Nhìn nhanh kế hoạch nào đang chạy tốt và kế hoạch nào cần QLCL can thiệp.</p></div><TqmHorizontalBars rows={barRows} max={100}/></article>
     </section>
 
-    <section className="panel"><div className="tqm-section-head"><h2>Gantt kế hoạch / đầu việc trọng tâm</h2><p>Thời gian lấy trực tiếp từ ngày bắt đầu – kết thúc của kế hoạch; màu đỏ là kế hoạch đang có Action quá hạn.</p></div>{ganttRows.length?<TqmGantt year={year} rows={ganttRows}/>:<div className="empty-state">Chưa đủ ngày bắt đầu/kết thúc để dựng Gantt.</div>}</section>
+    <section className="panel"><div className="tqm-section-head"><h2>Gantt kế hoạch / đầu việc trọng tâm</h2><p>{kh50Actions.length ? `Đang hiển thị ${kh50Actions.length} Action thực tế của KH50; mốc lấy từ ngày bắt đầu – hạn hoàn thành của từng Action.` : "Thời gian lấy trực tiếp từ ngày bắt đầu – kết thúc của kế hoạch."}</p></div>{ganttRows.length?<TqmGantt year={year} rows={ganttRows}/>:<div className="empty-state">Chưa đủ ngày bắt đầu/kết thúc để dựng Gantt.</div>}</section>
 
     <div className="plans-detail-label">CHI TIẾT KẾ HOẠCH & THAO TÁC NGHIỆP VỤ</div>
     <PlansClient year={year} canManage={user.permissions.includes("plans.manage")} rows={rows} departments={(departmentsRes.data ?? []) as any[]} profiles={(profilesRes.data ?? []) as any[]} referenceOptions={referenceOptions} />
