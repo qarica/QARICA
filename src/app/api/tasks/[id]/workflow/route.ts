@@ -202,6 +202,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const returnedAt=new Date().toISOString();
       const {error:returnExecutionError}=await admin.from("action_department_executions").update({workflow_status:"RETURNED",note,verified_at:null,verified_by:null,completed_at:null,completed_by:null,updated_at:returnedAt}).in("id",(submittedExecutions??[]).map((x:any)=>x.id));
       if (returnExecutionError) return NextResponse.json({error:returnExecutionError.message},{status:400});
+      const { data: targetDepartment } = await admin.from("action_department_executions").select("department_id").eq("id", targetExecutionId).maybeSingle();
+      if (targetDepartment?.department_id) {
+        const { data: recipientRoles } = await admin.from("department_user_roles").select("user_id").eq("department_id", targetDepartment.department_id).eq("is_active", true).in("role_type", ["HEAD","QUALITY_NETWORK_MEMBER"]);
+        const recipientIds = Array.from(new Set((recipientRoles ?? []).map((row: any) => row.user_id).filter(Boolean))) as string[];
+        if (recipientIds.length) {
+          const eventStamp = Date.now();
+          await admin.from("notifications").insert(recipientIds.map((recipientUserId) => ({
+            recipient_user_id: recipientUserId,
+            notification_type: "ACTION_RETURNED",
+            priority: "HIGH",
+            title: "Công việc cần bổ sung",
+            message: `${record.title}: ${note}`,
+            target_record_id: recordId,
+            target_route: `/tasks/${recordId}`,
+            notification_event_key: `action-returned:${action.id}:${targetExecutionId}:${recipientUserId}:${eventStamp}`,
+          })));
+        }
+      }
       return NextResponse.json({ok:true,workflow_status:action.workflow_status,department_execution_status:"RETURNED"});
     }
     if (action.workflow_status !== "VERIFYING") return NextResponse.json({ error: "Chỉ công việc đang xác minh mới được trả lại bổ sung." }, { status: 409 });
