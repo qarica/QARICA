@@ -110,7 +110,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
 
   const actionIds = (linksRes.data ?? []).map((x: any) => x.action_id);
   const actionsRes = actionIds.length
-    ? await supabase.from("vw_actions_dashboard").select("action_id,record_id,record_code,title,workflow_status,priority,due_date,is_overdue,days_to_due,lead_department_id,assignee_user_id").in("action_id", actionIds)
+    ? await supabase.from("vw_actions_dashboard").select("action_id,record_id,record_code,title,workflow_status,priority,start_date,due_date,is_overdue,days_to_due,lead_department_id,assignee_user_id").in("action_id", actionIds)
     : { data: [], error: null };
   const actionMap = new Map((actionsRes.data ?? []).map((a: any) => [a.action_id, a]));
   const linkedActions = (linksRes.data ?? []).map((link: any) => ({ ...link, action: actionMap.get(link.action_id) as any })).filter((x: any) => x.action);
@@ -197,6 +197,18 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   const firstError = [recordRes, progressRes, departmentRes as any, ownerRes as any, approverRes as any, linksRes, departmentsRes, profilesRes, criteriaRes as any, actionsRes as any, materializedLinksRes as any, outputRecordsRes as any].find((r: any) => r?.error)?.error;
   const deptMap = new Map((departmentsRes.data ?? []).map((d: any) => [d.id, d.short_name || d.name]));
   const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [p.user_id, p.full_name || p.email || "Người dùng"]));
+  const ganttStart = new Date(`${program.start_date}T00:00:00Z`);
+  const ganttEnd = new Date(`${program.end_date}T00:00:00Z`);
+  const ganttSpan = Math.max(1, ganttEnd.getTime() - ganttStart.getTime());
+  const ganttRows = linkedActions.map((row: any) => {
+    const start = new Date(`${row.action.start_date || program.start_date}T00:00:00Z`);
+    const end = new Date(`${row.action.due_date || row.action.start_date || program.end_date}T00:00:00Z`);
+    const left = Math.max(0, Math.min(100, ((start.getTime() - ganttStart.getTime()) / ganttSpan) * 100));
+    const clippedStart = Math.max(ganttStart.getTime(), start.getTime());
+    const clippedEnd = Math.max(clippedStart, Math.min(ganttEnd.getTime(), end.getTime()));
+    const width = Math.max(1.5, Math.min(100 - left, ((clippedEnd - clippedStart) / ganttSpan) * 100));
+    return { ...row, ganttLeft: left, ganttWidth: width };
+  });
 
   return <div className="page-stack plan-detail-page">
     <style>{`
@@ -310,7 +322,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       </article>
     </section>
 
-    <section className="panel">
+    <section className="panel">\n      <div className="panel-title"><div><h2>Sơ đồ Gantt kế hoạch</h2><p>Mốc thời gian lấy trực tiếp từ Action; nhiệm vụ không có ngày bắt đầu kế thừa ngày bắt đầu kế hoạch.</p></div><span className="status-badge">{formatDate(program.start_date)} – {formatDate(program.end_date)}</span></div>\n      <div style={{ padding: "0 18px 20px", overflowX: "auto" }}>\n        <div style={{ minWidth: 720, display: "grid", gap: 8 }}>\n          <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 12 }}><strong className="tiny">NHIỆM VỤ</strong><div style={{ display: "flex", justifyContent: "space-between" }}><span className="tiny muted">{formatDate(program.start_date)}</span><span className="tiny muted">{formatDate(program.end_date)}</span></div></div>\n          {ganttRows.map((x: any) => <div key={`gantt-${x.action_id}`} style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 12, alignItems: "center" }}><div style={{ minWidth: 0 }}><Link className="table-link" href={`/tasks/${x.action.record_id}`}>{x.action.title}</Link><div className="subline">{formatDate(x.action.start_date || program.start_date)} – {formatDate(x.action.due_date || x.action.start_date || program.end_date)}</div></div><div style={{ position: "relative", height: 24, borderRadius: 8, background: "#eef3f4", overflow: "hidden" }}><span style={{ position: "absolute", left: `${x.ganttLeft}%`, width: `${x.ganttWidth}%`, top: 4, bottom: 4, borderRadius: 6, background: x.action.is_overdue ? "#b42318" : x.action.workflow_status === "COMPLETED" ? "#15803d" : "#0f5b78" }} /></div></div>)}\n          {!ganttRows.length ? <div className="empty-state">Chưa có Action để hiển thị trên Gantt.</div> : null}\n        </div>\n      </div>\n    </section>\n\n    <section className="panel">
       <div className="panel-title">
         <div><h2>Nhiệm vụ / Action của kế hoạch</h2><p>Mỗi nhiệm vụ là một Action dùng chung, có người phụ trách, hạn xử lý, minh chứng và xác minh.</p></div>
         {canManage && program.workflow_status === "IN_PROGRESS" ? <PlanActionCreateClient planId={id} departments={(departmentsRes.data ?? []) as any[]} profiles={(profilesRes.data ?? []) as any[]} defaultDepartmentId={program.lead_department_id} defaultStartDate={program.start_date} defaultDueDate={program.end_date} /> : null}
