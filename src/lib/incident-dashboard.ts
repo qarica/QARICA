@@ -1,6 +1,6 @@
 import { hcmMonthNumber } from "./hcm-date";
 
-const CLOSED_INCIDENT = new Set(["CLOSED", "CANCELLED"]);
+const CLOSED_INCIDENT = new Set(["CLOSED", "CANCELLED", "REJECTED"]);
 const INVESTIGATION_PHASE = new Set(["INVESTIGATION_REQUIRED", "INVESTIGATING", "ACTION_FOLLOW_UP", "AWAITING_CLOSURE"]);
 
 export type IncidentAttentionLike = {
