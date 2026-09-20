@@ -153,7 +153,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) {
       const submittedAt=new Date().toISOString();
-      const {error:executionSubmitError}=await admin.from("action_department_executions").update({workflow_status:"SUBMITTED",submitted_at:submittedAt,submitted_by:auth.user.id,updated_at:submittedAt}).eq("id",departmentExecution.id).in("workflow_status",["NOT_STARTED","IN_PROGRESS"]);
+      const {error:executionSubmitError}=await admin.from("action_department_executions").update({workflow_status:"SUBMITTED",submitted_at:submittedAt,submitted_by:auth.user.id,updated_at:submittedAt}).eq("id",departmentExecution.id).eq("workflow_status","IN_PROGRESS");
       if (executionSubmitError) return NextResponse.json({error:executionSubmitError.message},{status:400});
       // Execution của từng khoa là nguồn trạng thái thật. Action cha chỉ tổng hợp:
       // còn khoa chưa nộp => IN_PROGRESS; tất cả đã nộp/xác minh/waive => EVIDENCE_SUBMITTED.
@@ -218,6 +218,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const returnedAt=new Date().toISOString();
       const {error:returnExecutionError}=await admin.from("action_department_executions").update({workflow_status:"RETURNED",note,verified_at:null,verified_by:null,completed_at:null,completed_by:null,updated_at:returnedAt}).in("id",(submittedExecutions??[]).map((x:any)=>x.id));
       if (returnExecutionError) return NextResponse.json({error:returnExecutionError.message},{status:400});
+      // Khi một khoa bị trả lại, Action cha phải quay về IN_PROGRESS để khoa đó
+      // có thể tiếp tục nộp minh chứng/gửi lại, dù các khoa khác đã SUBMITTED/VERIFIED.
+      if (["EVIDENCE_SUBMITTED","VERIFYING"].includes(String(action.workflow_status))) {
+        const { error: aggregateReturnError } = await admin.from("actions")
+          .update({ workflow_status: "IN_PROGRESS", submitted_at: null, verified_at: null, verified_by: null, completion_note: null })
+          .eq("id", action.id)
+          .in("workflow_status", ["EVIDENCE_SUBMITTED","VERIFYING"]);
+        if (aggregateReturnError) {
+          await admin.from("action_department_executions").update({ workflow_status: "SUBMITTED", note: null, updated_at: returnedAt }).eq("id", targetExecutionId).eq("workflow_status", "RETURNED");
+          return NextResponse.json({ error: aggregateReturnError.message }, { status: 400 });
+        }
+      }
       const { data: targetDepartment } = await admin.from("action_department_executions").select("department_id").eq("id", targetExecutionId).maybeSingle();
       if (targetDepartment?.department_id) {
         const { data: recipientRoles } = await admin.from("department_user_roles").select("user_id").eq("department_id", targetDepartment.department_id).eq("is_active", true).in("role_type", ["HEAD","QUALITY_NETWORK_MEMBER"]);
