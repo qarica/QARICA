@@ -52,6 +52,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         error: "Tài khoản hoặc mật khẩu không đúng, hoặc tài khoản chưa được kích hoạt.",
+        debug: error ? `${error.status ?? ""} ${error.code ?? ""} ${error.message}`.trim() : "Không có lỗi nhưng thiếu user/session.",
       },
       { status: 401 },
     );
