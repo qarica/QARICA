@@ -109,7 +109,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
       description={`Năm ${record.work_year}${sourcePlan ? ` · Thuộc ${sourcePlan.code}` : ""}`}
       actions={<div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
         {sourcePlan ? <Link className="button secondary" href={`/plans/${sourcePlan.id}`}>← Kế hoạch nguồn</Link> : <Link className="button secondary" href="/tasks">← Việc của tôi</Link>}
-        <TaskWorkflowClient recordId={recordId} currentStatus={action.workflow_status} canOperate={canOperate} canVerify={canVerify} evidenceCount={evidenceItems.length} departmentExecutionId={isDepartmentAssignment ? ((departmentExecutionRes.data as any)?.id || null) : null} />
+        <TaskWorkflowClient recordId={recordId} currentStatus={action.workflow_status} canOperate={canOperate} canVerify={canVerify} evidenceCount={evidenceItems.length} departmentExecutionId={isDepartmentAssignment ? ((departmentExecutionRes.data as any)?.id || null) : null} departmentExecutionStatus={isDepartmentAssignment ? ((departmentExecutionRes.data as any)?.workflow_status || null) : null} />
       </div>}
     />
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
