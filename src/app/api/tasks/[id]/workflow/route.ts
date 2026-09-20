@@ -251,23 +251,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!(submittedExecutions??[]).length) return NextResponse.json({error:"Không có khoa/phòng nào đang chờ xác minh."},{status:409});
       // Xác minh Action tại thời điểm này áp dụng cho các execution đã gửi; mỗi đơn vị chỉ cần một người hợp lệ thực hiện.
       const submittedIds=(submittedExecutions??[]).map((x:any)=>x.id);
+      if (!evidenceIds.length) return NextResponse.json({error:"Khoa/Phòng chưa có minh chứng để xác minh."},{status:409});
+      const {error:evidenceUpdateError}=await admin.from("evidence").update({validity_status:"VALID"}).in("id",evidenceIds).eq("validity_status","PENDING");
+      if (evidenceUpdateError) return NextResponse.json({error:evidenceUpdateError.message},{status:400});
       const {error:verifyExecutionsError}=await admin.from("action_department_executions").update({workflow_status:"VERIFIED",verified_at:verifiedAt,verified_by:auth.user.id,completed_at:verifiedAt,completed_by:auth.user.id,note:note||null,updated_at:verifiedAt}).in("id",submittedIds);
-      if (verifyExecutionsError) return NextResponse.json({error:verifyExecutionsError.message},{status:400});
+      if (verifyExecutionsError) {
+        await admin.from("evidence").update({validity_status:"PENDING"}).in("id",evidenceIds).eq("validity_status","VALID");
+        return NextResponse.json({error:verifyExecutionsError.message},{status:400});
+      }
       const {data:remainingExecutions,error:remainingExecutionsError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).not("workflow_status","in","(VERIFIED,WAIVED)").limit(1);
       if (remainingExecutionsError) return NextResponse.json({error:remainingExecutionsError.message},{status:400});
       if ((remainingExecutions??[]).length) {
-        if (evidenceIds.length) {
-          const {error:evidenceUpdateError}=await admin.from("evidence").update({validity_status:"VALID"}).in("id",evidenceIds).eq("validity_status","PENDING");
-          if (evidenceUpdateError) return NextResponse.json({error:evidenceUpdateError.message},{status:400});
-        }
         return NextResponse.json({ok:true,workflow_status:action.workflow_status,department_execution_status:"VERIFIED",aggregate_complete:false});
       }
       const {error:aggregateCompleteError}=await admin.from("actions").update({workflow_status:"COMPLETED",verified_at:verifiedAt,verified_by:auth.user.id,completion_note:note||null}).eq("id",action.id).in("workflow_status",["IN_PROGRESS","EVIDENCE_SUBMITTED","VERIFYING"]);
       if (aggregateCompleteError) return NextResponse.json({error:aggregateCompleteError.message},{status:400});
-      if (evidenceIds.length) {
-        const {error:evidenceUpdateError}=await admin.from("evidence").update({validity_status:"VALID"}).in("id",evidenceIds).eq("validity_status","PENDING");
-        if (evidenceUpdateError) return NextResponse.json({error:evidenceUpdateError.message},{status:400});
-      }
       return NextResponse.json({ok:true,workflow_status:"COMPLETED",department_execution_status:"VERIFIED",aggregate_complete:true,verified_at:verifiedAt});
     }
 
