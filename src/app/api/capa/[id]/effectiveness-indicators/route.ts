@@ -19,8 +19,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .select("id,record_code,title,updated_at")
     .eq("record_type", "INDICATOR_MEASUREMENT")
     .in("lifecycle_status", ["ACTIVE", "CLOSED"])
-    .order("updated_at", { ascending: false })
-    .limit(80);
+    .order("updated_at", { ascending: false });
   if (recordError) return NextResponse.json({ error: recordError.message }, { status: 400 });
   const ids = (records ?? []).map((x: any) => x.id);
   if (!ids.length) return NextResponse.json({ items: [] });
