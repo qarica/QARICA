@@ -52,7 +52,7 @@ export default async function PlansPage() {
   const onTrack = rows.filter((x) => x.progress_pct >= 75 && x.overdue_actions === 0).length;
   const needAttention = rows.filter((x) => x.overdue_actions > 0 || x.progress_pct < 50).length;
   const barRows = [...rows].sort((a,b)=>b.progress_pct-a.progress_pct).slice(0,10).map((x) => ({ label:x.title, value:Math.round(x.progress_pct), tone:x.overdue_actions>0?"red" as const:x.progress_pct>=75?"green" as const:"blue" as const, caption:x.record_code }));
-  const ganttRows = rows.filter((x)=>x.start_date&&x.end_date).sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date))).slice(0,12).map((x)=>({ label:x.title, start:x.start_date, end:x.end_date, progress:Math.round(x.progress_pct), tone:x.overdue_actions>0?"red" as const:x.progress_pct>=75?"green" as const:"blue" as const }));
+  const ganttRows = rows.filter((x)=>x.start_date&&x.end_date).sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date))).map((x)=>({ label:x.title, start:x.start_date, end:x.end_date, progress:Math.round(x.progress_pct), tone:x.overdue_actions>0?"red" as const:x.progress_pct>=75?"green" as const:"blue" as const }));
 
   return <div className="page-stack plans-page tqm-workspace">
     <style>{TQM_CHART_CSS + `
