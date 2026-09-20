@@ -182,7 +182,7 @@ export function TaskWorkflowClient({
     controls = (
       <div
         role="status"
-        aria-label="Nhiệm vụ đã hoàn thành"
+        aria-label={departmentExecutionId ? "Phần việc của khoa/phòng đã hoàn thành" : "Nhiệm vụ đã hoàn thành"}
         style={{
           display: "flex",
           alignItems: "center",
@@ -212,7 +212,7 @@ export function TaskWorkflowClient({
           <Icon name="badge-check" size={20} />
         </span>
         <span style={{ display: "flex", flexDirection: "column", gap: 1, lineHeight: 1.25 }}>
-          <strong style={{ fontSize: 13, letterSpacing: ".01em" }}>NHIỆM VỤ ĐÃ HOÀN THÀNH</strong>
+          <strong style={{ fontSize: 13, letterSpacing: ".01em" }}>{departmentExecutionId ? "PHẦN VIỆC CỦA KHOA/PHÒNG ĐÃ HOÀN THÀNH" : "NHIỆM VỤ ĐÃ HOÀN THÀNH"}</strong>
           <span style={{ fontSize: 11.5, fontWeight: 600, color: "#15803d" }}>
             Đã xác minh · {evidenceCount} minh chứng
           </span>
