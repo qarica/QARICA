@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capaEffectivenessGate, externalComparisonCloseGate, findingSubmitGate, incidentReadyToCloseGate, inspectionCloseGate } from "./quality-gates";
+import { actionSubmitGate, capaEffectivenessGate, externalComparisonCloseGate, findingSubmitGate, incidentReadyToCloseGate, inspectionCloseGate } from "./quality-gates";
 
 describe("quality workflow gates", () => {
   it("blocks Finding submit without actions", () => {
@@ -56,5 +56,15 @@ describe("quality workflow gates", () => {
 
   it("allows serious incident closure readiness once a CAPA is linked", () => {
     expect(incidentReadyToCloseGate({ actionCount: 1, incompleteActionCount: 0, evidenceCount: 1, isSerious: true, hasCapa: true })).toEqual({ ok: true });
+  });
+});
+
+describe("actionSubmitGate", () => {
+  it("blocks submitting an action with no evidence", () => {
+    expect(actionSubmitGate({ evidenceCount: 0 }).ok).toBe(false);
+  });
+
+  it("allows submitting an action with at least one evidence", () => {
+    expect(actionSubmitGate({ evidenceCount: 1 })).toEqual({ ok: true });
   });
 });

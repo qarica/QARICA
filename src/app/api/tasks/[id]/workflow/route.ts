@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { taskVerificationPermissions } from "@/lib/task-verification-policy";
+import { actionSubmitGate } from "@/lib/quality-gates";
 
 const WORKFLOW_ACTIONS = new Set(["START", "RESUME", "SUBMIT", "BEGIN_VERIFY", "APPROVE", "RETURN"]);
 const VERIFIER_ACTIONS = new Set(["BEGIN_VERIFY", "APPROVE", "RETURN"]);
@@ -147,9 +148,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) evidenceCountQuery = evidenceCountQuery.eq("action_department_execution_id", departmentExecution.id);
     const { count: evidenceCount, error: evidenceError } = await evidenceCountQuery;
     if (evidenceError) return NextResponse.json({ error: evidenceError.message }, { status: 400 });
-    if (!evidenceCount) {
-      return NextResponse.json({ error: "Cần nộp ít nhất 01 minh chứng trước khi gửi xác minh." }, { status: 400 });
-    }
+    const submitGate = actionSubmitGate({ evidenceCount: evidenceCount ?? 0 });
+    if (!submitGate.ok) return NextResponse.json({ error: submitGate.error }, { status: 400 });
 
     if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) {
       const submittedAt=new Date().toISOString();

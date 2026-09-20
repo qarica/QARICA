@@ -34,3 +34,8 @@ export function incidentReadyToCloseGate(input: { actionCount: number; incomplet
   if (input.isSerious && !input.hasCapa) return { ok: false, error: "Sự cố nghiêm trọng (NC3) phải có CAPA gắn kèm (không chỉ Action thường) trước khi đóng." };
   return { ok: true };
 }
+
+export function actionSubmitGate(input: { evidenceCount: number }): GateResult {
+  if (input.evidenceCount < 1) return { ok: false, error: "Cần nộp ít nhất 01 minh chứng trước khi gửi xác minh." };
+  return { ok: true };
+}
