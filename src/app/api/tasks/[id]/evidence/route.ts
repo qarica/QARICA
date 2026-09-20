@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const admin = createAdminClient();
   const [{ data: caller, error: callerError }, { data: record, error: recordError }] = await Promise.all([
-    admin.from("profiles").select("user_id,organization_id,is_active").eq("user_id", auth.user.id).maybeSingle(),
+    admin.from("profiles").select("user_id,organization_id,primary_department_id,is_active").eq("user_id", auth.user.id).maybeSingle(),
     admin.from("records").select("id,organization_id,record_type,lifecycle_status,title").eq("id", recordId).maybeSingle(),
   ]);
 
@@ -84,6 +84,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .maybeSingle();
     if (snapshotError) return NextResponse.json({ error: snapshotError.message }, { status: 400 });
     isAssignee = !!assignmentSnapshot;
+  }
+  let departmentExecutionId: string | null = null;
+  if (action.assignment_target_type === "DEPARTMENT" && caller.primary_department_id) {
+    const { data: execution, error: executionError } = await admin.from("action_department_executions").select("id,workflow_status").eq("action_id", action.id).eq("department_id", caller.primary_department_id).maybeSingle();
+    if (executionError) return NextResponse.json({ error: executionError.message }, { status: 400 });
+    if (execution) {
+      const { data: roleRows, error: roleError } = await admin.from("department_user_roles").select("id").eq("department_id", caller.primary_department_id).eq("user_id", auth.user.id).eq("is_active", true).in("role_type", ["HEAD","QUALITY_NETWORK_MEMBER"]);
+      if (roleError) return NextResponse.json({ error: roleError.message }, { status: 400 });
+      isAssignee = (roleRows ?? []).length > 0;
+      departmentExecutionId = execution.id;
+      if (!["IN_PROGRESS","RETURNED"].includes(String(execution.workflow_status))) return NextResponse.json({ error: "Khoa/Phòng chưa ở trạng thái thực hiện hoặc bổ sung minh chứng." }, { status: 409 });
+    }
   }
   if (!isAssignee && !canManage) {
     return NextResponse.json({ error: "Chỉ cá nhân/nhóm được giao việc hoặc người quản lý kế hoạch mới được nộp minh chứng." }, { status: 403 });
@@ -135,7 +147,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     file_size: fileValue.size,
     storage_bucket: storageBucket,
     storage_path: storagePath,
-    owner_department_id: action.lead_department_id,
+    owner_department_id: action.assignment_target_type === "DEPARTMENT" ? caller.primary_department_id : action.lead_department_id,
     validity_status: "PENDING",
     uploaded_by: auth.user.id,
   });
@@ -156,6 +168,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     record_id: recordId,
     evidence_role: "ACTION_RESULT",
     linked_by: auth.user.id,
+    action_department_execution_id: departmentExecutionId,
   });
   if (linkError) {
     await admin.storage.from(storageBucket).remove([storagePath]);
