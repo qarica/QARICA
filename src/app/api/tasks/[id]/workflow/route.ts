@@ -156,11 +156,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) {
       const submittedAt=new Date().toISOString();
-      const {error:executionSubmitError}=await admin.from("action_department_executions").update({workflow_status:"SUBMITTED",submitted_at:submittedAt,submitted_by:auth.user.id,updated_at:submittedAt}).eq("id",departmentExecution.id).in("workflow_status",["NOT_STARTED","IN_PROGRESS"]);
+      const {error:executionSubmitError}=await admin.from("action_department_executions").update({workflow_status:"SUBMITTED",submitted_at:submittedAt,submitted_by:auth.user.id,updated_at:submittedAt}).eq("id",departmentExecution.id).eq("workflow_status","IN_PROGRESS");
       if (executionSubmitError) return NextResponse.json({error:executionSubmitError.message},{status:400});
-      const {data:pendingExecutions,error:pendingError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).neq("workflow_status","SUBMITTED").neq("workflow_status","VERIFIED").neq("workflow_status","WAIVED").limit(1);
+      // Execution của từng khoa là nguồn trạng thái thật. Action cha chỉ tổng hợp:
+      // còn khoa chưa nộp => IN_PROGRESS; tất cả đã nộp/xác minh/waive => EVIDENCE_SUBMITTED.
+      const {data:pendingExecutions,error:pendingError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).not("workflow_status","in","(SUBMITTED,VERIFIED,WAIVED)").limit(1);
       if (pendingError) return NextResponse.json({error:pendingError.message},{status:400});
-      if ((pendingExecutions??[]).length) return NextResponse.json({ok:true,department_execution_status:"SUBMITTED",workflow_status:action.workflow_status});
+      if ((pendingExecutions??[]).length) return NextResponse.json({ok:true,department_execution_status:"SUBMITTED",workflow_status:"IN_PROGRESS"});
+
+      const { data: aggregateSubmitted, error: aggregateSubmitError } = await admin
+        .from("actions")
+        .update({
+          workflow_status: "EVIDENCE_SUBMITTED",
+          submitted_at: submittedAt,
+          verified_at: null,
+          verified_by: null,
+          completion_note: null,
+        })
+        .eq("id", action.id)
+        .eq("workflow_status", "IN_PROGRESS")
+        .select("id")
+        .maybeSingle();
+      if (aggregateSubmitError || !aggregateSubmitted) {
+        // Không để execution cuối bị kẹt ở SUBMITTED nếu Action cha không chuyển được.
+        await admin.from("action_department_executions")
+          .update({ workflow_status: "IN_PROGRESS", submitted_at: null, submitted_by: null, updated_at: submittedAt })
+          .eq("id", departmentExecution.id)
+          .eq("workflow_status", "SUBMITTED");
+        return NextResponse.json({ error: aggregateSubmitError?.message || "Trạng thái Action đã thay đổi. Vui lòng tải lại và thử lại." }, { status: 409 });
+      }
+      return NextResponse.json({ ok: true, department_execution_status: "SUBMITTED", workflow_status: "EVIDENCE_SUBMITTED" });
     }
 
     const { error: submitError } = await admin
@@ -205,6 +230,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const returnedAt=new Date().toISOString();
       const {error:returnExecutionError}=await admin.from("action_department_executions").update({workflow_status:"RETURNED",note,verified_at:null,verified_by:null,completed_at:null,completed_by:null,updated_at:returnedAt}).in("id",(submittedExecutions??[]).map((x:any)=>x.id));
       if (returnExecutionError) return NextResponse.json({error:returnExecutionError.message},{status:400});
+      // Khi một khoa bị trả lại, Action cha phải quay về IN_PROGRESS để khoa đó
+      // có thể tiếp tục nộp minh chứng/gửi lại, dù các khoa khác đã SUBMITTED/VERIFIED.
+      if (["EVIDENCE_SUBMITTED","VERIFYING"].includes(String(action.workflow_status))) {
+        const { error: aggregateReturnError } = await admin.from("actions")
+          .update({ workflow_status: "IN_PROGRESS", submitted_at: null, verified_at: null, verified_by: null, completion_note: null })
+          .eq("id", action.id)
+          .in("workflow_status", ["EVIDENCE_SUBMITTED","VERIFYING"]);
+        if (aggregateReturnError) {
+          await admin.from("action_department_executions").update({ workflow_status: "SUBMITTED", note: null, updated_at: returnedAt }).eq("id", targetExecutionId).eq("workflow_status", "RETURNED");
+          return NextResponse.json({ error: aggregateReturnError.message }, { status: 400 });
+        }
+      }
+      const { data: targetDepartment } = await admin.from("action_department_executions").select("department_id").eq("id", targetExecutionId).maybeSingle();
+      if (targetDepartment?.department_id) {
+        const { data: recipientRoles } = await admin.from("department_user_roles").select("user_id").eq("department_id", targetDepartment.department_id).eq("is_active", true).in("role_type", ["HEAD","QUALITY_NETWORK_MEMBER"]);
+        const recipientIds = Array.from(new Set((recipientRoles ?? []).map((row: any) => row.user_id).filter(Boolean))) as string[];
+        if (recipientIds.length) {
+          const eventStamp = Date.now();
+          await admin.from("notifications").insert(recipientIds.map((recipientUserId) => ({
+            recipient_user_id: recipientUserId,
+            notification_type: "ACTION_RETURNED",
+            priority: "HIGH",
+            title: "Công việc cần bổ sung",
+            message: `${record.title}: ${note}`,
+            target_record_id: recordId,
+            target_route: `/tasks/${recordId}`,
+            notification_event_key: `action-returned:${action.id}:${targetExecutionId}:${recipientUserId}:${eventStamp}`,
+          })));
+        }
+      }
       return NextResponse.json({ok:true,workflow_status:action.workflow_status,department_execution_status:"RETURNED"});
     }
     if (action.workflow_status !== "VERIFYING") return NextResponse.json({ error: "Chỉ công việc đang xác minh mới được trả lại bổ sung." }, { status: 409 });
@@ -336,6 +391,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: true, workflow_status: "COMPLETED", verified_at: verifiedAt });
   }
 
+  if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) {
+    const executionFrom = requestedAction === "START" ? "NOT_STARTED" : "RETURNED";
+    if (departmentExecution.workflow_status !== executionFrom) {
+      return NextResponse.json({ error: "Trạng thái thực hiện của khoa/phòng hiện không phù hợp với thao tác này. Vui lòng tải lại trang." }, { status: 409 });
+    }
+    const updatedAt = new Date().toISOString();
+    const { error: executionStartError } = await admin.from("action_department_executions")
+      .update({ workflow_status: "IN_PROGRESS", updated_at: updatedAt })
+      .eq("id", departmentExecution.id)
+      .eq("workflow_status", executionFrom);
+    if (executionStartError) return NextResponse.json({ error: executionStartError.message }, { status: 400 });
+
+    // Action cha là trạng thái tổng hợp. Một khoa bắt đầu/tiếp tục không được
+    // chặn khoa khác chỉ vì Action cha đã IN_PROGRESS.
+    if (action.workflow_status === "NOT_STARTED" || action.workflow_status === "RETURNED") {
+      const { error: aggregateStartError } = await admin.from("actions")
+        .update({ workflow_status: "IN_PROGRESS", completion_note: null, verified_at: null, verified_by: null })
+        .eq("id", action.id)
+        .eq("workflow_status", action.workflow_status);
+      if (aggregateStartError) {
+        await admin.from("action_department_executions").update({ workflow_status: executionFrom, updated_at: updatedAt }).eq("id", departmentExecution.id).eq("workflow_status", "IN_PROGRESS");
+        return NextResponse.json({ error: aggregateStartError.message }, { status: 400 });
+      }
+    } else if (action.workflow_status !== "IN_PROGRESS") {
+      await admin.from("action_department_executions").update({ workflow_status: executionFrom, updated_at: updatedAt }).eq("id", departmentExecution.id).eq("workflow_status", "IN_PROGRESS");
+      return NextResponse.json({ error: "Action cha hiện không ở trạng thái cho phép khoa/phòng thực hiện." }, { status: 409 });
+    }
+
+    return NextResponse.json({ ok: true, workflow_status: "IN_PROGRESS", department_execution_status: "IN_PROGRESS" });
+  }
   const allowedFrom = requestedAction === "START" ? "NOT_STARTED" : "RETURNED";
   if (action.workflow_status !== allowedFrom) {
     return NextResponse.json({ error: "Trạng thái hiện tại không phù hợp với thao tác này. Vui lòng tải lại trang." }, { status: 409 });
