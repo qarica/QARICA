@@ -59,7 +59,6 @@ export function PlanWorkflowClient({
       const summary = parts.join(", ");
       if (!window.confirm(`Xác nhận triển khai kế hoạch đã ban hành sẽ TẠO NGAY công việc thật:\n\n${summary}.\n\nChỉ tiếp tục khi dữ liệu đã đối chiếu đúng văn bản ban hành. Xác nhận triển khai?`)) return;
     }
-    if (action === "START" && !window.confirm("Bắt đầu triển khai kế hoạch và các Action đã được tạo khi phê duyệt?")) return;
     if (action === "HOLD" && !window.confirm("Tạm dừng triển khai kế hoạch này?")) return;
     if (action === "RESUME" && !window.confirm("Tiếp tục triển khai kế hoạch này?")) return;
     if (action === "COMPLETE" && allRequiredDone && !window.confirm("Xác nhận hoàn thành kế hoạch? Kế hoạch sẽ được khóa ở trạng thái Hoàn thành.")) return;
@@ -91,8 +90,6 @@ export function PlanWorkflowClient({
     controls = <button type="button" className="button primary" disabled={busy || !composerReady} title={!composerReady ? "Hoàn thiện dữ liệu nguồn và ít nhất 01 nhiệm vụ trước khi xác nhận ban hành." : undefined} onClick={() => run("SUBMIT")}><Icon name="check" size={17} /> {busy ? "Đang kiểm tra..." : "Xác nhận đã ban hành"}</button>;
   } else if (currentStatus === "PENDING_APPROVAL") {
     controls = <><button type="button" className="button secondary" disabled={busy} onClick={() => run("RETURN")}>Trả lại chỉnh sửa</button><button type="button" className="button primary" disabled={busy} onClick={() => run("APPROVE")}><Icon name="play" size={17} /> {busy ? "Đang xử lý..." : "Tạo công việc & triển khai"}</button></>;
-  } else if (currentStatus === "APPROVED") {
-    controls = <button type="button" className="button primary" disabled={busy} onClick={() => run("START")}><Icon name="play" size={17} /> {busy ? "Đang cập nhật..." : "Bắt đầu triển khai"}</button>;
   } else if (currentStatus === "IN_PROGRESS") {
     controls = <><button type="button" className="button secondary" disabled={busy} onClick={() => run("HOLD")}>Tạm dừng</button><button type="button" className="button primary" disabled={busy || !allRequiredDone} title={!allRequiredDone ? `Chưa đủ điều kiện: mới hoàn thành ${completedActions}/${requiredActions} nhiệm vụ bắt buộc.` : undefined} onClick={() => run("COMPLETE")}><Icon name="check" size={17} /> {busy ? "Đang kiểm tra..." : "Hoàn thành kế hoạch"}</button></>;
   } else if (currentStatus === "ON_HOLD") {
