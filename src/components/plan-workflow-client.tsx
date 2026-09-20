@@ -45,8 +45,8 @@ export function PlanWorkflowClient({
 
   async function run(action: "SUBMIT" | "APPROVE" | "RETURN" | "START" | "HOLD" | "RESUME" | "COMPLETE") {
     let note = "";
-    if (action === "SUBMIT" && !composerReady) { setMessage("Chưa đủ điều kiện gửi duyệt: cần mục tiêu chung, mục tiêu cụ thể, yêu cầu và ít nhất 01 nhiệm vụ dự kiến đầy đủ."); return; }
-    if (action === "SUBMIT" && !window.confirm(`Gửi kế hoạch cùng ${draftActionCount} nhiệm vụ dự kiến sang bước phê duyệt?`)) return;
+    if (action === "SUBMIT" && !composerReady) { setMessage("Chưa đủ điều kiện xác nhận ban hành: cần hoàn thiện dữ liệu nguồn và ít nhất 01 nhiệm vụ đầy đủ."); return; }
+    if (action === "SUBMIT" && !window.confirm(`Xác nhận kế hoạch đã được ký/đóng dấu ban hành và chuẩn bị tạo ${draftActionCount} nhiệm vụ triển khai?`)) return;
     if (action === "APPROVE") {
       const parts = [`${draftActionCount} Action`];
       if (draftIndicatorCount > 0) parts.push(`${draftIndicatorCount} kỳ đo chỉ số`);
@@ -57,7 +57,7 @@ export function PlanWorkflowClient({
       if (draftAuditCount > 0) parts.push(`${draftAuditCount} Audit/Tracer`);
       if (draftImprovementCount > 0) parts.push(`${draftImprovementCount} đề án cải tiến nháp`);
       const summary = parts.join(", ");
-      if (!window.confirm(`Phê duyệt kế hoạch này sẽ TẠO NGAY và giao việc thật cho người phụ trách:\n\n${summary}.\n\nKhông có thao tác hoàn tác gọn — chỉ tiếp tục nếu đã kiểm tra đúng danh sách nhiệm vụ. Xác nhận phê duyệt?`)) return;
+      if (!window.confirm(`Xác nhận triển khai kế hoạch đã ban hành sẽ TẠO NGAY công việc thật:\n\n${summary}.\n\nChỉ tiếp tục khi dữ liệu đã đối chiếu đúng văn bản ban hành. Xác nhận triển khai?`)) return;
     }
     if (action === "START" && !window.confirm("Bắt đầu triển khai kế hoạch và các Action đã được tạo khi phê duyệt?")) return;
     if (action === "HOLD" && !window.confirm("Tạm dừng triển khai kế hoạch này?")) return;
@@ -65,7 +65,7 @@ export function PlanWorkflowClient({
     if (action === "COMPLETE" && allRequiredDone && !window.confirm("Xác nhận hoàn thành kế hoạch? Kế hoạch sẽ được khóa ở trạng thái Hoàn thành.")) return;
 
     if (action === "RETURN") {
-      const value = window.prompt("Nội dung cần chỉnh sửa trước khi phê duyệt:", "");
+      const value = window.prompt("Nội dung cần chỉnh sửa trước khi xác nhận ban hành:", "");
       if (value === null) return;
       note = value.trim();
       if (note.length < 5) { setMessage("Vui lòng ghi rõ nội dung cần chỉnh sửa."); return; }
@@ -79,7 +79,7 @@ export function PlanWorkflowClient({
       if (action === "APPROVE" && data.recurring_sync_warning) setNotice(data.recurring_sync_warning);
       else if (action === "APPROVE" && Array.isArray(data.recurring_sync) && data.recurring_sync.length) {
         const created = data.recurring_sync.reduce((sum: number, item: any) => sum + Number(item?.created_monitoring_rounds || 0), 0);
-        setNotice(`Đã phê duyệt kế hoạch và đồng bộ lịch giám sát định kỳ${created ? `: tạo thêm ${created} đợt trong 90 ngày tới` : ""}.`);
+        setNotice(`Đã xác nhận kế hoạch ban hành và đồng bộ lịch giám sát định kỳ${created ? `: tạo thêm ${created} đợt trong 90 ngày tới` : ""}.`);
       }
       router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Có lỗi xảy ra."); }
@@ -88,9 +88,9 @@ export function PlanWorkflowClient({
 
   let controls: React.ReactNode = null;
   if (currentStatus === "DRAFT") {
-    controls = <button type="button" className="button primary" disabled={busy || !composerReady} title={!composerReady ? "Hoàn thiện Plan Composer và ít nhất 01 nhiệm vụ dự kiến trước khi gửi duyệt." : undefined} onClick={() => run("SUBMIT")}><Icon name="send" size={17} /> {busy ? "Đang gửi..." : "Gửi phê duyệt"}</button>;
+    controls = <button type="button" className="button primary" disabled={busy || !composerReady} title={!composerReady ? "Hoàn thiện dữ liệu nguồn và ít nhất 01 nhiệm vụ trước khi xác nhận ban hành." : undefined} onClick={() => run("SUBMIT")}><Icon name="check" size={17} /> {busy ? "Đang kiểm tra..." : "Xác nhận đã ban hành"}</button>;
   } else if (currentStatus === "PENDING_APPROVAL") {
-    controls = <><button type="button" className="button secondary" disabled={busy} onClick={() => run("RETURN")}>Trả lại chỉnh sửa</button><button type="button" className="button primary" disabled={busy} onClick={() => run("APPROVE")}><Icon name="check" size={17} /> {busy ? "Đang xử lý..." : "Phê duyệt"}</button></>;
+    controls = <><button type="button" className="button secondary" disabled={busy} onClick={() => run("RETURN")}>Trả lại chỉnh sửa</button><button type="button" className="button primary" disabled={busy} onClick={() => run("APPROVE")}><Icon name="play" size={17} /> {busy ? "Đang xử lý..." : "Tạo công việc & triển khai"}</button></>;
   } else if (currentStatus === "APPROVED") {
     controls = <button type="button" className="button primary" disabled={busy} onClick={() => run("START")}><Icon name="play" size={17} /> {busy ? "Đang cập nhật..." : "Bắt đầu triển khai"}</button>;
   } else if (currentStatus === "IN_PROGRESS") {
