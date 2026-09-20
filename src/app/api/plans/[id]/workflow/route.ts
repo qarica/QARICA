@@ -184,7 +184,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (program.owner_user_id && program.owner_user_id !== actorUserId) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_APPROVED", priority: "NORMAL", title: "Kế hoạch đã ban hành được đưa vào triển khai", message: recordTitle, target_record_id: recordId, target_route: `/plans/${program.id}`, notification_event_key: `plan-approved:${program.id}:${Date.now()}` });
     return NextResponse.json({
       ok: true,
-      workflow_status: "APPROVED",
+      workflow_status: "IN_PROGRESS",
       transaction: "atomic",
       result: tx,
       recurring_sync: recurringSync,
@@ -194,7 +194,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
   }
 
-  if (requestedAction === "START") return updateStatus("APPROVED", "IN_PROGRESS");
+  if (requestedAction === "START") return NextResponse.json({ error: "Kế hoạch đã ban hành được đưa vào triển khai ngay khi tạo công việc; không cần bước bắt đầu riêng." }, { status: 409 });
   if (requestedAction === "HOLD") return updateStatus("IN_PROGRESS", "ON_HOLD");
   if (requestedAction === "RESUME") return updateStatus("ON_HOLD", "IN_PROGRESS");
 
