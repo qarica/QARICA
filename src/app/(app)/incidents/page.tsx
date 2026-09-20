@@ -18,7 +18,7 @@ export default async function IncidentsPage(){
  const {user}=await requireUserContext();if(!hasAnyPermission(user,["incident.report","incident.view_summary","incident.view_case","incident.triage"]))redirect("/dashboard?forbidden=1");const year=await getWorkYear();const supabase=await createClient();
  const [recordsRes,incidentsRes,depsRes]=await Promise.all([
   supabase.from("records").select("id,record_code,title,lifecycle_status,owner_department_id").eq("record_type","INCIDENT").eq("work_year",year).order("created_at",{ascending:false}),
-  supabase.from("incidents").select("id,record_id,workflow_status,harm_status,serious_event_flag,reported_at,incident_location_department_id,incident_location_type,incident_location_text,lead_department_id"),
+  supabase.from("incidents").select("id,record_id,workflow_status,harm_status,serious_event_flag,reported_at,incident_location_department_id,incident_location_type,incident_location_text,lead_department_id,occurred_at"),
   supabase.from("departments").select("id,name,short_name").eq("is_active",true)
  ]);
  const records=((recordsRes.data??[]) as any[]).filter(r=>!isOperationallyHiddenStatus(r.lifecycle_status));const recordMap=new Map(records.map(r=>[r.id,r]));const depMap=new Map((depsRes.data??[]).map((d:any)=>[d.id,d.short_name||d.name]));
