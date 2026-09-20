@@ -44,11 +44,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (requestedAction === "SUBMIT") {
     const tasks = cleanPlanDraftActions(program.draft_actions);
-    if (!planText(program.general_objective)) return NextResponse.json({ error: "Cần hoàn thiện Mục tiêu chung trước khi gửi duyệt." }, { status: 409 });
-    if (!tasks.length) return NextResponse.json({ error: "Kế hoạch cần có ít nhất 01 nhiệm vụ nháp trước khi gửi duyệt." }, { status: 409 });
+    if (!planText(program.general_objective)) return NextResponse.json({ error: "Cần hoàn thiện Mục tiêu chung trước khi xác nhận văn bản đã ban hành." }, { status: 409 });
+    if (!tasks.length) return NextResponse.json({ error: "Kế hoạch cần có ít nhất 01 nhiệm vụ trước khi xác nhận văn bản đã ban hành." }, { status: 409 });
     for (const [index, task] of tasks.entries()) {
       if (task.needs_confirmation === true) {
-        return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: còn nội dung “Cần xác nhận”. Hãy xác nhận dữ liệu nguồn trước khi gửi duyệt.` }, { status: 409 });
+        return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: còn nội dung “Cần xác nhận”. Hãy xác nhận dữ liệu nguồn trước khi xác nhận ban hành.` }, { status: 409 });
       }
       if (task.execution_scope === "LEAD_DEPARTMENT" && !task.lead_department_id) {
         return NextResponse.json({ error: `Nhiệm vụ #${index + 1}: chưa xác định khoa/phòng đầu mối.` }, { status: 409 });
@@ -145,7 +145,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (requestedAction === "RETURN") {
     if (note.length < 5) return NextResponse.json({ error: "Vui lòng ghi rõ nội dung cần chỉnh sửa." }, { status: 400 });
-    if (program.workflow_status !== "PENDING_APPROVAL") return NextResponse.json({ error: "Chỉ kế hoạch đang chờ phê duyệt mới được trả lại chỉnh sửa." }, { status: 409 });
+    if (program.workflow_status !== "PENDING_APPROVAL") return NextResponse.json({ error: "Chỉ kế hoạch đang chờ xác nhận triển khai mới được trả lại chỉnh sửa." }, { status: 409 });
     const nextRevision = Number(program.revision_no || 1) + 1;
     const { error } = await admin.from("work_programs").update({ workflow_status: "DRAFT", approved_by: null, approved_at: null, returned_reason: note, returned_at: new Date().toISOString(), revision_no: nextRevision }).eq("id", program.id).eq("workflow_status", "PENDING_APPROVAL");
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -155,11 +155,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   if (requestedAction === "APPROVE") {
-    if (program.workflow_status !== "PENDING_APPROVAL") return NextResponse.json({ error: "Chỉ kế hoạch đang chờ phê duyệt mới được phê duyệt." }, { status: 409 });
+    if (program.workflow_status !== "PENDING_APPROVAL") return NextResponse.json({ error: "Chỉ kế hoạch đã xác nhận ban hành và đang chờ tạo công việc mới được triển khai." }, { status: 409 });
     const { data: tx, error: txError } = await admin.rpc(APPROVE_PLAN_BUNDLE_RPC, { p_program_id: programId, p_actor_user_id: actorUserId });
     if (txError) {
-      if (isMissingRpcFunction(txError, APPROVE_PLAN_BUNDLE_RPC)) return NextResponse.json({ error: "Plan Automation V2 chưa được kích hoạt trên cơ sở dữ liệu. Không phê duyệt để tránh tạo Action/đầu ra không đầy đủ." }, { status: 503 });
-      return NextResponse.json({ error: rpcErrorMessage(txError, "Không thể phê duyệt trọn bộ kế hoạch.") }, { status: 400 });
+      if (isMissingRpcFunction(txError, APPROVE_PLAN_BUNDLE_RPC)) return NextResponse.json({ error: "Plan Automation V2 chưa được kích hoạt trên cơ sở dữ liệu. Không triển khai để tránh tạo Action/đầu ra không đầy đủ." }, { status: 503 });
+      return NextResponse.json({ error: rpcErrorMessage(txError, "Không thể tạo trọn bộ công việc triển khai kế hoạch.") }, { status: 400 });
     }
     const recurringTemplateIds: string[] = Array.isArray((tx as any)?.recurring_template_ids)
       ? Array.from(new Set<string>((tx as any).recurring_template_ids.map((value: unknown) => String(value || "").trim()).filter((value: string) => !!value)))
@@ -181,7 +181,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         ...(sync.error ? { error: sync.error } : {}),
       });
     }
-    if (program.owner_user_id && program.owner_user_id !== actorUserId) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_APPROVED", priority: "NORMAL", title: "Kế hoạch đã được phê duyệt", message: recordTitle, target_record_id: recordId, target_route: `/plans/${program.id}`, notification_event_key: `plan-approved:${program.id}:${Date.now()}` });
+    if (program.owner_user_id && program.owner_user_id !== actorUserId) await admin.from("notifications").insert({ recipient_user_id: program.owner_user_id, notification_type: "PLAN_APPROVED", priority: "NORMAL", title: "Kế hoạch đã ban hành được đưa vào triển khai", message: recordTitle, target_record_id: recordId, target_route: `/plans/${program.id}`, notification_event_key: `plan-approved:${program.id}:${Date.now()}` });
     return NextResponse.json({
       ok: true,
       workflow_status: "APPROVED",
@@ -189,7 +189,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       result: tx,
       recurring_sync: recurringSync,
       recurring_sync_warning: recurringSync.some((item) => !item.ok)
-        ? "Kế hoạch đã phê duyệt và lưu cấu hình giám sát định kỳ, nhưng có kỳ lịch chưa đồng bộ đủ. Có thể chạy lại tại Lịch QLCL → Công việc định kỳ."
+        ? "Kế hoạch đã được đưa vào triển khai và lưu cấu hình giám sát định kỳ, nhưng có kỳ lịch chưa đồng bộ đủ. Có thể chạy lại tại Lịch QLCL → Công việc định kỳ."
         : null,
     });
   }
