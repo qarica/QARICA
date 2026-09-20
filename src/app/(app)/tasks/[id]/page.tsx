@@ -44,7 +44,9 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
     action.lead_department_id ? supabase.from("departments").select("id,name,short_name").eq("id", action.lead_department_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_user_id ? supabase.from("profiles").select("user_id,full_name,email,job_title").eq("user_id", action.assignee_user_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     action.assignee_group_id ? supabase.from("work_groups").select("id,code,name,leader_user_id").eq("id", action.assignee_group_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    action.assignee_group_id ? supabase.from("work_group_assignment_snapshots").select("id").eq("target_record_id", recordId).eq("group_id", action.assignee_group_id).eq("assignment_role", "ACTION_ASSIGNEE_GROUP").contains("member_snapshot", [{ user_id: user.id }]).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    // member_snapshot is JSONB; avoid PostgREST .contains() encoding here since it can
+    // produce invalid JSON for some client/runtime combinations. Fetch and filter in JS.
+    action.assignee_group_id ? supabase.from("work_group_assignment_snapshots").select("member_snapshot").eq("target_record_id", recordId).eq("group_id", action.assignee_group_id).eq("assignment_role", "ACTION_ASSIGNEE_GROUP").maybeSingle() : Promise.resolve({ data: null, error: null }),
     isVerifierCandidate(user.permissions) ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("workflow_status","SUBMITTED").limit(1).maybeSingle() : user.primaryDepartmentId ? supabase.from("action_department_executions").select("id,department_id,workflow_status,completed_by,completed_at").eq("action_id",action.id).eq("department_id",user.primaryDepartmentId).maybeSingle() : Promise.resolve({data:null,error:null}),
     user.primaryDepartmentId ? supabase.from("department_user_roles").select("role_type").eq("department_id",user.primaryDepartmentId).eq("user_id",user.id).eq("is_active",true).in("role_type",["HEAD","QUALITY_NETWORK_MEMBER"]) : Promise.resolve({data:[],error:null}),
     supabase.from("program_action_links").select("program_id,milestone_group,is_required").eq("action_id", action.id).maybeSingle(),
@@ -96,7 +98,10 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   const isGroupAssignment = action.assignment_target_type === "GROUP" && !!action.assignee_group_id;
   const isDepartmentAssignment = action.assignment_target_type === "DEPARTMENT";
   const isAuthorizedDepartmentMember = !!departmentExecutionRes.data && (departmentRoleRes.data ?? []).length > 0;
-  const canOperate = action.assignee_user_id === user.id || (isGroupAssignment && !!groupAssignmentRes.data) || (isDepartmentAssignment && isAuthorizedDepartmentMember) || canVerify;
+  const isCurrentUserInGroupSnapshot = Array.isArray(groupAssignmentRes.data?.member_snapshot)
+    ? groupAssignmentRes.data.member_snapshot.some((member: any) => String(member?.user_id || "").trim() === user.id)
+    : false;
+  const canOperate = action.assignee_user_id === user.id || (isGroupAssignment && isCurrentUserInGroupSnapshot) || (isDepartmentAssignment && isAuthorizedDepartmentMember) || canVerify;
   const assigneeLabel = isGroupAssignment
     ? ([((assigneeGroupRes.data as any)?.code), ((assigneeGroupRes.data as any)?.name)].filter(Boolean).join(" · ") || "Nhóm được giao nhiệm vụ")
     : isDepartmentAssignment

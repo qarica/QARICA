@@ -74,16 +74,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: canManage } = await auth.supabase.rpc("has_permission", { p_permission_code: "plans.manage" });
   let isAssignee = action.assignee_user_id === auth.user.id;
   if (action.assignment_target_type === "GROUP" && action.assignee_group_id) {
+    // member_snapshot is JSONB; avoid PostgREST .contains() encoding here since it can
+    // produce invalid JSON for some client/runtime combinations. Fetch and filter in JS.
     const { data: assignmentSnapshot, error: snapshotError } = await admin
       .from("work_group_assignment_snapshots")
-      .select("id")
+      .select("member_snapshot")
       .eq("target_record_id", recordId)
       .eq("group_id", action.assignee_group_id)
       .eq("assignment_role", "ACTION_ASSIGNEE_GROUP")
-      .contains("member_snapshot", [{ user_id: auth.user.id }])
       .maybeSingle();
     if (snapshotError) return NextResponse.json({ error: snapshotError.message }, { status: 400 });
-    isAssignee = !!assignmentSnapshot;
+    isAssignee = (Array.isArray(assignmentSnapshot?.member_snapshot) ? assignmentSnapshot.member_snapshot : [])
+      .some((member: any) => String(member?.user_id || "").trim() === auth.user.id);
   }
   let departmentExecutionId: string | null = null;
   if (action.assignment_target_type === "DEPARTMENT" && caller.primary_department_id) {
