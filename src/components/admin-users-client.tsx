@@ -6,7 +6,7 @@ import { Icon } from "@/components/icon";
 type Profile={user_id:string;email:string|null;full_name:string|null;phone:string|null;job_title:string|null;primary_department_id:string|null;is_active:boolean};
 type Department={id:string;name:string;is_active:boolean};type Role={id:string;code:string;name:string;description:string|null};type Permission={id:string;code:string;name:string;module:string|null};type RP={role_id:string;permission_id:string};type UR={user_id:string;role_id:string};type Scope={user_id:string;scope_type:string;department_id:string|null};type UP={user_id:string;permission_id:string;is_allowed:boolean};
 type Form={userId?:string;login:string;password:string;fullName:string;phone:string;jobTitle:string;primaryDepartmentId:string;roleIds:string[];scopeMode:"HOSPITAL"|"DEPARTMENT";scopeDepartmentIds:string[];effectivePermissionIds:string[];isActive:boolean};
-const INTERNAL_LOGIN_DOMAIN="qlcl-ttsg.com";
+const INTERNAL_LOGIN_DOMAIN="qarica.com";
 const EMPTY:Form={login:"",password:"",fullName:"",phone:"",jobTitle:"",primaryDepartmentId:"",roleIds:[],scopeMode:"DEPARTMENT",scopeDepartmentIds:[],effectivePermissionIds:[],isActive:true};
 function displayLogin(email:string|null){if(!email)return"";const suffix=`@${INTERNAL_LOGIN_DOMAIN}`;return email.endsWith(suffix)?email.slice(0,-suffix.length):email}
 
