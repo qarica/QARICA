@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 type Level = { id: string; label: string };
 type Criterion = { id: string; code: string; name: string; required: boolean; levels: Level[]; levelId: string; comment: string; status: string };
+const STATUS:Record<string,string>={NOT_STARTED:"Chưa thực hiện",DRAFT:"Đang làm",SUBMITTED:"Đã gửi",REVIEWED:"Đã rà soát",FINALIZED:"Đã chốt",COMPLETED:"Hoàn tất",APPROVED:"Đã duyệt"};
 
 export function AssessmentCriteriaClient({ recordId, editable, criteria }: { recordId: string; editable: boolean; criteria: Criterion[] }) {
   const router = useRouter();
@@ -27,7 +28,7 @@ export function AssessmentCriteriaClient({ recordId, editable, criteria }: { rec
   }
 
   return <section className="panel">
-    <div className="panel-title"><div><h2>Phiếu tự đánh giá từng tiêu chí</h2><p>Chọn mức đạt, ghi nhận xét và gửi từng tiêu chí. Có thể lưu nháp trước khi gửi.</p></div><strong>{rows.filter((x) => x.status === "SUBMITTED").length}/{rows.length} đã gửi</strong></div>
+    <div className="panel-title"><div><h2>Tự đánh giá theo tiêu chí</h2><p>Chọn mức đạt và ghi giải trình khi cần. Có thể lưu để làm tiếp hoặc gửi khi đã hoàn tất tiêu chí.</p></div><strong>{rows.filter((x) => x.status === "SUBMITTED").length}/{rows.length} đã gửi</strong></div>
     <div style={{ padding: "0 18px 18px", display: "grid", gap: 12 }}>
       {error ? <div className="alert error">{error}</div> : null}{message ? <div className="alert success">{message}</div> : null}
       {rows.length === 0 ? <div className="empty-state">Đợt này chưa có tiêu chí trong phạm vi.</div> : rows.map((row) => <article key={row.id} className="operating-spec-card" style={{ display: "grid", gap: 10 }}>
@@ -36,7 +37,7 @@ export function AssessmentCriteriaClient({ recordId, editable, criteria }: { rec
           <label><span>Mức tự đánh giá *</span><select disabled={!editable || busyId === row.id} value={row.levelId} onChange={(e) => change(row.id, { levelId: e.target.value })}><option value="">Chọn mức...</option>{row.levels.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}</select></label>
           <label className="wide"><span>Nhận xét / giải trình</span><textarea disabled={!editable || busyId === row.id} rows={2} value={row.comment} onChange={(e) => change(row.id, { comment: e.target.value })} /></label>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}><span>Trạng thái: <strong>{row.status || "NOT_STARTED"}</strong></span>{editable ? <><button className="button secondary small" disabled={busyId === row.id || !row.levelId} onClick={() => save(row, "SAVE_DRAFT")}>Lưu nháp</button><button className="button primary small" disabled={busyId === row.id || !row.levelId} onClick={() => save(row, "SUBMIT")}>Gửi tiêu chí</button></> : null}</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}><span>Trạng thái: <strong>{STATUS[row.status] || row.status || "Chưa thực hiện"}</strong></span>{editable ? <><button className="button secondary small" disabled={busyId === row.id || !row.levelId} onClick={() => save(row, "SAVE_DRAFT")}>Lưu để làm tiếp</button><button className="button primary small" disabled={busyId === row.id || !row.levelId} onClick={() => save(row, "SUBMIT")}>Hoàn tất & gửi</button></> : null}</div>
       </article>)}
     </div>
   </section>;
