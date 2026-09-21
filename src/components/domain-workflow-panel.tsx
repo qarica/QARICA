@@ -54,23 +54,21 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     const { data: event } = await supabase.from("external_assessment_events").select("id,criteria_version_id").eq("record_id", recordId).maybeSingle();
     const { data: record } = await supabase.from("records").select("lifecycle_status").eq("id", recordId).maybeSingle();
     if (!event || !record) return null;
-    const [{ data: links }, { count: evidence }, { data: rounds }] = await Promise.all([
-      supabase.from("record_links").select("id,target_record_id,relation_type,metadata").eq("source_record_id", recordId).in("relation_type", ["COMPARED_WITH_SELF", "GENERATED_FINDING"]),
+    const [{ data: links }, { count: evidence }, { data: rounds }, { data: scoreRows }] = await Promise.all([
+      supabase.from("record_links").select("id,target_record_id,relation_type,metadata").eq("source_record_id", recordId).eq("relation_type", "COMPARED_WITH_SELF"),
       supabase.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId),
       supabase.from("assessment_rounds").select("record_id,workflow_status,criteria_version_id").eq("criteria_version_id", event.criteria_version_id).eq("workflow_status", "FINALIZED"),
+      supabase.from("external_assessment_scores").select("id,criteria_item_id,self_score,external_score,note").eq("external_assessment_event_id", event.id),
     ]);
-    const selfIds = (rounds ?? []).map((x: any) => x.record_id).filter(Boolean);
-    const findingLinks = (links ?? []).filter((x: any) => x.relation_type === "GENERATED_FINDING");
-    const findingRecordIds = findingLinks.map((x: any) => x.target_record_id).filter(Boolean);
-    const allIds = Array.from(new Set([...selfIds, ...findingRecordIds]));
-    const { data: linkedRecords } = allIds.length ? await supabase.from("records").select("id,record_code,title,record_type").in("id", allIds) : { data: [] as any[] };
-    const recordMap = new Map((linkedRecords ?? []).map((x: any) => [x.id, x]));
-    const { data: findings } = findingRecordIds.length ? await supabase.from("findings").select("record_id,workflow_status").in("record_id", findingRecordIds) : { data: [] as any[] };
-    const findingMap = new Map((findings ?? []).map((x: any) => [x.record_id, x.workflow_status]));
-    const comparison = (links ?? []).find((x: any) => x.relation_type === "COMPARED_WITH_SELF");
-    const linkedSelfRecord: any = comparison ? recordMap.get(comparison.target_record_id) : null;
-    const canManage = user.permissions.includes("criteria.manage");
-    return <ExternalAssessmentWorkflowClient recordId={recordId} lifecycleStatus={record.lifecycle_status} canManage={canManage} canReview={canManage || user.permissions.includes("criteria.review")} selfOptions={selfIds.map((id: string) => { const x: any = recordMap.get(id); return { id, label: x ? `${x.record_code} · ${x.title}` : id }; })} linkedSelf={linkedSelfRecord ? { id: linkedSelfRecord.id, label: `${linkedSelfRecord.record_code} · ${linkedSelfRecord.title}` } : null} gaps={findingLinks.map((x: any) => ({ id: x.id, criterionRef: String(x.metadata?.criterion_ref || "—"), selfScore: String(x.metadata?.self_score || "—"), externalScore: String(x.metadata?.external_score || "—"), status: String(findingMap.get(x.target_record_id) || "OPEN"), href: `/findings/${x.target_record_id}` }))} evidence={evidence ?? 0} />;
+    const selfIds=(rounds??[]).map((x:any)=>x.record_id).filter(Boolean);
+    const {data:linkedRecords}=selfIds.length?await supabase.from("records").select("id,record_code,title").in("id",selfIds):{data:[] as any[]};
+    const recordMap=new Map((linkedRecords??[]).map((x:any)=>[x.id,x]));
+    const comparison=(links??[])[0],linkedSelfRecord:any=comparison?recordMap.get(comparison.target_record_id):null;
+    const itemIds=(scoreRows??[]).map((x:any)=>x.criteria_item_id).filter(Boolean);
+    const {data:items}=itemIds.length?await supabase.from("criteria_items").select("id,code,title").in("id",itemIds):{data:[] as any[]};
+    const itemMap=new Map((items??[]).map((x:any)=>[x.id,x]));
+    const canManage=user.permissions.includes("criteria.manage");
+    return <ExternalAssessmentWorkflowClient recordId={recordId} lifecycleStatus={record.lifecycle_status} canManage={canManage} canReview={canManage||user.permissions.includes("criteria.review")} selfOptions={selfIds.map((id:string)=>{const x:any=recordMap.get(id);return{id,label:x?`${x.record_code} · ${x.title}`:id}})} linkedSelf={linkedSelfRecord?{id:linkedSelfRecord.id,label:`${linkedSelfRecord.record_code} · ${linkedSelfRecord.title}`}:null} gaps={(scoreRows??[]).map((x:any)=>{const item:any=itemMap.get(x.criteria_item_id);return{id:x.id,criterionRef:item?`${item.code||""} · ${item.title}`.trim():x.criteria_item_id,selfScore:x.self_score==null?"":String(x.self_score),externalScore:String(x.external_score),status:"SCORED",href:""}})} evidence={evidence??0}/>;
   }
 
   if (recordType === "ASSESSMENT") {
