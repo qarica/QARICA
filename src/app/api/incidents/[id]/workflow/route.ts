@@ -170,12 +170,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const incomplete = (actions || []).filter((x: any) => !["COMPLETED", "CANCELLED", "NOT_APPLICABLE"].includes(String(x.workflow_status))).length;
     const { count } = await admin.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId);
     const { count: capaLinkCount } = await admin.from("record_links").select("id", { count: "exact", head: true }).eq("source_record_id", recordId).eq("relation_type", "GENERATED_CAPA");
-    const noActionRequired = !!body.no_action_required;\n    const noActionReason = String(body.no_action_reason || "").trim();\n    const gate = incidentReadyToCloseGate({ actionCount: ids.length, incompleteActionCount: incomplete, evidenceCount: count ?? 0, isSerious: !!incident.serious_event_flag, hasCapa: (capaLinkCount ?? 0) > 0, noActionRequired, noActionReason });
+    const noActionRequired = !!body.no_action_required;
+    const noActionReason = String(body.no_action_reason || "").trim();
+    const gate = incidentReadyToCloseGate({ actionCount: ids.length, incompleteActionCount: incomplete, evidenceCount: count ?? 0, isSerious: !!incident.serious_event_flag, hasCapa: (capaLinkCount ?? 0) > 0, noActionRequired, noActionReason });
     if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: 409 });
     newStatus = "AWAITING_CLOSURE";
     const { error: updateError } = await admin.from("incidents").update({ workflow_status: newStatus, updated_at: now }).eq("id", incident.id);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
-    reason = reason || (noActionRequired ? `Không cần Action bổ sung: ${noActionReason}` : null);\n    message = "Hồ sơ đã đủ gate và chờ xác nhận đóng.";
+    reason = reason || (noActionRequired ? `Không cần Action bổ sung: ${noActionReason}` : null);
+    message = "Hồ sơ đã đủ gate và chờ xác nhận đóng.";
   } else if (command === "CLOSE") {
     if (oldStatus !== "AWAITING_CLOSURE") return NextResponse.json({ error: "Sự cố chưa đủ gate để đóng." }, { status: 409 });
     if (!reason) return NextResponse.json({ error: "Kết luận đóng sự cố là bắt buộc." }, { status: 400 });
