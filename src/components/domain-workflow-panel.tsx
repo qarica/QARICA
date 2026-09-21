@@ -83,7 +83,7 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     ]);
     const submitted = (assessments ?? []).filter((x: any) => ["SUBMITTED", "REVIEWED", "FINALIZED", "COMPLETED", "APPROVED"].includes(String(x.workflow_status))).length;
     const canManage = user.permissions.includes("criteria.manage");
-    const { data: scopeRows } = await supabase.from("assessment_round_criteria").select("criteria_item_id,criterion_id,is_required").eq("assessment_round_id", round.id);
+    const { data: scopeRows } = await supabase.from("assessment_round_criteria").select("criteria_item_id,criterion_id,is_required,applicability_status,not_applicable_reason,lead_department_id").eq("assessment_round_id", round.id);
     const criterionIds = Array.from(new Set((scopeRows ?? []).map((x: any) => x.criteria_item_id || x.criterion_id).filter(Boolean)));
     const [{ data: criterionRows }, { data: assessmentRows }] = criterionIds.length ? await Promise.all([
       supabase.from("criteria_items").select("id,code,title,sequence_no,parent_criteria_item_id,item_type,max_score").in("id", criterionIds).order("sequence_no"),
@@ -91,7 +91,8 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     ]) : [{ data: [] }, { data: [] }] as any;
     const savedByCriterion = new Map((assessmentRows ?? []).map((x: any) => [x.criteria_item_id, x]));
     const scopeMap = new Map((scopeRows ?? []).map((x: any) => [x.criteria_item_id || x.criterion_id, x.is_required !== false]));
-    const criteria = (criterionRows ?? []).map((criterion: any) => { const saved: any = savedByCriterion.get(criterion.id); return { id: criterion.id, code: criterion.code || "", name: criterion.title || "Chưa đặt tên", required: scopeMap.get(criterion.id) !== false, levels: [], levelId: "", comment: saved?.note || "", status: saved?.workflow_status || "NOT_STARTED" }; });
+    const scopeById = new Map((scopeRows ?? []).map((x:any)=>[x.criteria_item_id||x.criterion_id,x]));
+    const criteria = (criterionRows ?? []).map((criterion: any) => { const saved: any = savedByCriterion.get(criterion.id); const scoped:any=scopeById.get(criterion.id); return { id: criterion.id, code: criterion.code || "", name: criterion.title || "Chưa đặt tên", required: scopeMap.get(criterion.id) !== false, applicability: scoped?.applicability_status || "APPLICABLE", notApplicableReason: scoped?.not_applicable_reason || "", leadDepartmentId: scoped?.lead_department_id || null, score: saved?.score ?? null, result: saved?.result || "", levels: [], levelId: "", comment: saved?.note || "", status: saved?.workflow_status || "NOT_STARTED" }; });
     const canAssess = user.permissions.includes("criteria.assess") || canManage;
     return <><AssessmentWorkflowClient recordId={recordId} status={round.workflow_status} canManage={canManage} canReview={canManage || user.permissions.includes("criteria.review")} scope={scope ?? 0} submitted={submitted} evidence={evidence ?? 0} /><AssessmentCriteriaClient recordId={recordId} editable={round.workflow_status === "IN_PROGRESS" && canAssess} criteria={criteria} /></>;
   }
