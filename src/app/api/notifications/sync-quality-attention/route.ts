@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { routeForRecord } from "@/lib/record-route";
 import { getWorkYear } from "@/lib/work-year";
 
+const ATTENTION_WINDOW_DAYS = { directive: 7, report: 7, risk: 7, capa: 7, feedback: 3, inspection: 14, finding: 7 } as const;
+
 function hcmToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
 }
@@ -129,7 +131,7 @@ export async function POST() {
     if (["COMPLETED", "CANCELLED"].includes(String(row.workflow_status))) continue;
     if (!canManageDirectives && !mine(row.record_id, row.owner_user_id, row.lead_department_id)) continue;
     const due = row.report_due_date || row.implementation_due_date;
-    const phase = phaseFor(due, today, 1);
+    const phase = phaseFor(due, today, ATTENTION_WINDOW_DAYS.directive);
     if (!phase) continue;
     add(row.record_id, `DIRECTIVE_${phase.phase}`, phase.priority, phase.phase === "OVERDUE" ? "Chỉ đạo/Yêu cầu quá hạn" : "Chỉ đạo/Yêu cầu sắp đến hạn", dueMessage(phase.phase, due, "Chỉ đạo/Yêu cầu"), `quality:directive:${row.id}:${phase.phase}:${String(due).slice(0,10)}`);
   }
@@ -137,7 +139,7 @@ export async function POST() {
   for (const row of (reportsRes.data ?? []) as any[]) {
     if (["COMPLETED", "CANCELLED"].includes(String(row.workflow_status))) continue;
     if (!canManageReports && !mine(row.record_id, row.preparer_user_id, row.preparing_department_id)) continue;
-    const phase = phaseFor(row.due_date, today, 1);
+    const phase = phaseFor(row.due_date, today, ATTENTION_WINDOW_DAYS.report);
     if (!phase) continue;
     const recipient = row.recipient_name ? ` Nơi nhận: ${row.recipient_name}.` : "";
     add(row.record_id, `REPORT_${phase.phase}`, phase.priority, phase.phase === "OVERDUE" ? "Báo cáo quá hạn" : "Báo cáo sắp đến hạn", `${dueMessage(phase.phase, row.due_date, "Báo cáo")}${recipient}`, `quality:report:${row.id}:${phase.phase}:${String(row.due_date).slice(0,10)}`);
@@ -146,7 +148,7 @@ export async function POST() {
   for (const row of (risksRes.data ?? []) as any[]) {
     if (row.workflow_status === "RETIRED") continue;
     if (!canManageRisks && !mine(row.record_id, row.owner_user_id, null)) continue;
-    const phase = phaseFor(row.next_review_date, today, 1);
+    const phase = phaseFor(row.next_review_date, today, ATTENTION_WINDOW_DAYS.risk);
     if (!phase) continue;
     add(row.record_id, `RISK_REVIEW_${phase.phase}`, phase.priority, phase.phase === "OVERDUE" ? "Rủi ro quá hạn rà soát" : "Rủi ro đến kỳ rà soát", dueMessage(phase.phase, row.next_review_date, "Kỳ rà soát rủi ro"), `quality:risk:${row.id}:${phase.phase}:${String(row.next_review_date).slice(0,10)}`);
   }
@@ -167,10 +169,10 @@ export async function POST() {
     for (const row of (capasRes.data ?? []) as any[]) {
       if (["CLOSED", "CANCELLED"].includes(String(row.workflow_status))) continue;
       if (row.workflow_status === "EFFECTIVENESS_REVIEW") {
-        const phase = phaseFor(row.effectiveness_due_date, today, 1);
+        const phase = phaseFor(row.effectiveness_due_date, today, ATTENTION_WINDOW_DAYS.capa);
         add(row.record_id, "CAPA_EFFECTIVENESS_REVIEW", phase?.priority || "HIGH", "CAPA chờ đánh giá hiệu lực", row.effectiveness_due_date ? dueMessage(phase?.phase || "DUE_SOON", row.effectiveness_due_date, "Đánh giá hiệu lực CAPA") : "CAPA đã đến bước đánh giá hiệu lực; không đóng nếu chưa chứng minh kết quả thực tế.", `quality:capa:${row.id}:EFFECTIVENESS_REVIEW:${row.effectiveness_due_date || "none"}`);
       } else {
-        const phase = phaseFor(row.effectiveness_due_date, today, 1);
+        const phase = phaseFor(row.effectiveness_due_date, today, ATTENTION_WINDOW_DAYS.capa);
         if (phase) add(row.record_id, `CAPA_EFFECTIVENESS_${phase.phase}`, phase.priority, "CAPA gần hạn đánh giá hiệu lực", dueMessage(phase.phase, row.effectiveness_due_date, "Đánh giá hiệu lực CAPA"), `quality:capa:${row.id}:${phase.phase}:${String(row.effectiveness_due_date).slice(0,10)}`);
       }
     }
@@ -179,7 +181,7 @@ export async function POST() {
   if (canManageFeedback) {
     for (const row of (feedbackRes.data ?? []) as any[]) {
       if (["CLOSED", "CANCELLED"].includes(String(row.workflow_status))) continue;
-      const phase = phaseFor(row.response_due_at, today, 1);
+      const phase = phaseFor(row.response_due_at, today, ATTENTION_WINDOW_DAYS.feedback);
       if (!phase) continue;
       add(row.record_id, `FEEDBACK_RESPONSE_${phase.phase}`, phase.priority, phase.phase === "OVERDUE" ? "Phản ánh quá hạn phản hồi" : "Phản ánh cần phản hồi", dueMessage(phase.phase, row.response_due_at, "Hạn phản hồi"), `quality:feedback:${row.id}:${phase.phase}:${String(row.response_due_at).slice(0,10)}`);
     }
@@ -188,7 +190,7 @@ export async function POST() {
   if (canManageInspections) {
     for (const row of (inspectionsRes.data ?? []) as any[]) {
       if (["COMPLETED", "CANCELLED"].includes(String(row.workflow_status))) continue;
-      const phase = phaseFor(row.visit_date, today, 1);
+      const phase = phaseFor(row.visit_date, today, ATTENTION_WINDOW_DAYS.inspection);
       if (!phase) continue;
       const authority = row.authority ? ` Đoàn/cơ quan: ${row.authority}.` : "";
       add(row.record_id, `INSPECTION_${phase.phase}`, phase.priority, phase.phase === "OVERDUE" ? "Đợt kiểm tra chưa hoàn tất sau ngày đoàn" : "Tiếp đoàn sắp tới", `${dueMessage(phase.phase, row.visit_date, "Ngày đoàn đến")}${authority}`, `quality:inspection:${row.id}:${phase.phase}:${String(row.visit_date).slice(0,10)}`);
@@ -198,7 +200,7 @@ export async function POST() {
   for (const row of (findingsRes.data ?? []) as any[]) {
     if (["CLOSED", "CANCELLED"].includes(String(row.workflow_status))) continue;
     if (!canManageFindings && !mine(row.record_id, row.owner_user_id, null)) continue;
-    const phase = phaseFor(row.due_date, today, 1);
+    const phase = phaseFor(row.due_date, today, ATTENTION_WINDOW_DAYS.finding);
     if (!phase) continue;
     const severity = row.severity ? ` Mức: ${row.severity}.` : "";
     add(row.record_id, `FINDING_${phase.phase}`, phase.priority, phase.phase === "OVERDUE" ? "Finding quá hạn" : "Finding sắp đến hạn", `${dueMessage(phase.phase, row.due_date, "Finding")}${severity}`, `quality:finding:${row.id}:${phase.phase}:${String(row.due_date).slice(0,10)}`);
