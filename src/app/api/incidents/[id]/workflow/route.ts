@@ -30,7 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (record.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "Hồ sơ sự cố không còn hoạt động." }, { status: 409 });
 
   const admin: any = createAdminClient();
-  const { data: incident, error } = await admin.from("incidents").select("id,workflow_status,investigation_required,rca_required,verified_initial_response").eq("record_id", recordId).maybeSingle();
+  const { data: incident, error } = await admin.from("incidents").select("id,workflow_status,investigation_required,rca_required,serious_event_flag,verified_initial_response").eq("record_id", recordId).maybeSingle();
   if (error || !incident) return NextResponse.json({ error: error?.message || "Không tìm thấy dữ liệu sự cố." }, { status: 404 });
 
   const oldStatus = String(incident.workflow_status || "REPORTED");
