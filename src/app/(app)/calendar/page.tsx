@@ -104,12 +104,12 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
       .lte("visit_date", cycleEnd),
     supabase
       .from("recurring_work_runs")
-      .select("id,template_id,period_key,planned_date,generated_action_id,status")
+      .select("id,template_id,period_key,planned_date,generated_action_id,status,completion_note,completed_at")
       .gte("planned_date", cycleStart)
       .lte("planned_date", cycleEnd),
     supabase
       .from("recurring_work_templates")
-      .select("id,title,recurrence_rule,start_date,end_date,priority,is_active,lead_department_id,assignee_user_id")
+      .select("id,title,recurrence_rule,start_date,end_date,priority,is_active,lead_department_id,assignee_user_id,automation_kind")
       .eq("is_active", true),
     user.organizationId ? supabase.from("work_calendar_holidays").select("id,name,start_date,end_date,holiday_type,note").eq("organization_id",user.organizationId).eq("is_active",true).lte("start_date",cycleEnd).gte("end_date",cycleStart) : Promise.resolve({ data: [] as any[], error: null }),
     supabase.from("personal_reminders").select("id,title,due_at,priority,status").eq("owner_user_id",user.id).neq("status","CANCELLED").not("due_at","is",null).gte("due_at",`${cycleStart}T00:00:00+07:00`).lte("due_at",`${cycleEnd}T23:59:59+07:00`),
@@ -230,19 +230,19 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     });
   }
 
-  // Chỉ hiển thị run chưa sinh Action để tránh lặp cùng một công việc hai lần trên lịch.
+  // Sổ tay QLCL là reminder vận hành độc lập; không dùng Action làm wrapper.
   for (const run of (recurringRunsRes.data ?? []) as any[]) {
-    if (!run.planned_date || run.generated_action_id) continue;
+    if (!run.planned_date) continue;
     const template = templateMap.get(run.template_id);
-    if (!template) continue;
+    if (!template || template.automation_kind !== "REMINDER") continue;
     const overdue = run.planned_date < today && !["COMPLETED", "SKIPPED", "CANCELLED"].includes(String(run.status || "").toUpperCase());
     events.push({
       id: `recurring:${run.id}`,
       date: run.planned_date,
       title: template.title,
-      subtitle: `Công việc định kỳ · ${run.period_key || template.recurrence_rule}`,
+      subtitle: `Sổ tay QLCL · ${run.period_key || template.recurrence_rule}${run.completion_note ? ` · ${run.completion_note}` : ""}`,
       kind: "RECURRING",
-      tone: overdue ? "danger" : run.planned_date === today ? "warning" : "info",
+      tone: run.completed_at || String(run.status || "").toUpperCase() === "COMPLETED" ? "success" : overdue ? "danger" : run.planned_date === today ? "warning" : "info",
     });
   }
 
@@ -280,7 +280,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
   const recurringMonthCount = monthEvents.filter((event) => event.kind === "RECURRING" || event.kind === "MONITORING").length;
   const firstError = [actionsRes, programsRes, monitoringRes, reportingRes, inspectionsRes, recurringRunsRes, recurringTemplatesRes, holidaysRes, remindersRes]
     .find((result: any) => result.error)?.error || recordsError;
-  const activeTemplates = (recurringTemplatesRes.data ?? []) as any[];
+  const activeTemplates = ((recurringTemplatesRes.data ?? []) as any[]).filter((template) => template.automation_kind === "REMINDER");
 
   const renderEvent = (event: CalendarEvent, mobile = false) => {
     const className = `${mobile ? "calendar-agenda-item" : "calendar-event"} ${kindClass(event.kind)} ${event.tone}`;
@@ -331,7 +331,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
         <div className="calendar-toolbar-left">
           {isVisibleCycleMonth(workYear, currentTodayYear, currentTodayMonth) ? <Link className="button tertiary small" href={`/calendar?month=${monthParam(currentTodayYear, currentTodayMonth)}`}>Hôm nay</Link> : null}
           {isVisibleCycleMonth(workYear, previous.year, previous.month) ? <Link className="button secondary small" href={`/calendar?month=${monthParam(previous.year, previous.month)}`}>←</Link> : <span className="button secondary small" style={{ opacity: .35 }}>←</span>}
-          <details className="calendar-month-picker"><summary className="calendar-month-title">{MONTH_NAMES[selected.month - 1]} năm {selected.year} ▾</summary><div className="calendar-month-popover"><div className="calendar-picker-year"><strong>{selected.year}</strong></div><div className="calendar-picker-months">{Array.from({length:12},(_,i)=>i+1).map(m=><Link key={m} className={`button small ${m===selected.month?"primary":"secondary"}`} href={`/calendar?month=${monthParam(selected.year,m)}`}>Th{m}</Link>)}</div></div></details>
+          <details className="calendar-month-picker"><summary className="calendar-month-title">{MONTH_NAMES[selected.month - 1]} năm {selected.year} ▾</summary><div className="calendar-month-popover"><div className="calendar-picker-year"><strong>{selected.year}</strong></div><div className="calendar-picker-months">{Array.from({length:12},(_,i)=>i+1).filter(m=>isVisibleCycleMonth(workYear,selected.year,m)).map(m=><Link key={m} className={`button small ${m===selected.month?"primary":"secondary"}`} href={`/calendar?month=${monthParam(selected.year,m)}`}>Th{m}</Link>)}</div></div></details>
           {isVisibleCycleMonth(workYear, next.year, next.month) ? <Link className="button secondary small" href={`/calendar?month=${monthParam(next.year, next.month)}`}>→</Link> : <span className="button secondary small" style={{ opacity: .35 }}>→</span>}
         </div>
         <div className="calendar-toolbar-right">
@@ -339,7 +339,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
         </div>
       </div>
       <div className="calendar-legend">
-        <span><i className="calendar-dot action" />Action</span><span><i className="calendar-dot reminder" />Nhắc việc cá nhân</span><span><i className="calendar-dot program" />Kế hoạch</span><span><i className="calendar-dot report" />Báo cáo</span><span><i className="calendar-dot monitoring" />Giám sát</span><span><i className="calendar-dot inspection" />Tiếp đoàn</span><span><i className="calendar-dot recurring" />Định kỳ</span><span><i className="calendar-dot attention" />Quá hạn/cần chú ý</span>
+        <span><i className="calendar-dot action" />Action</span><span><i className="calendar-dot reminder" />Nhắc việc cá nhân</span><span><i className="calendar-dot program" />Kế hoạch</span><span><i className="calendar-dot report" />Báo cáo</span><span><i className="calendar-dot monitoring" />Giám sát</span><span><i className="calendar-dot inspection" />Tiếp đoàn</span><span><i className="calendar-dot recurring" />Sổ tay QLCL</span><span><i className="calendar-dot attention" />Quá hạn/cần chú ý</span>
       </div>
 
       <div className="calendar-grid">
