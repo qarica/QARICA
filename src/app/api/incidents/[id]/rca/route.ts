@@ -115,7 +115,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const fiveWhys = whyRes.data ?? [];
   const fishbone = fishboneRes.data ?? [];
   const rootCauses = rootRes.data ?? [];
-  const ready = timeline.length >= 1 && fiveWhys.length >= 3 && fishbone.length >= 1 && rootCauses.length >= 1;
+  const deepAnalysisUsed = fiveWhys.length > 0;
+  const ready = timeline.length >= 1 && fishbone.length >= 1 && rootCauses.length >= 1 && (!deepAnalysisUsed || fiveWhys.length >= 3);
 
   let traceState: Record<string, unknown> | null = null;
   const admin = createAdminClient();
@@ -137,6 +138,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     fishbone,
     root_causes: rootCauses,
     trace_state: traceState,
+    deep_analysis_used: deepAnalysisUsed,
     counts: { timeline: timeline.length, five_whys: fiveWhys.length, fishbone: fishbone.length, root_causes: rootCauses.length },
   });
 }
