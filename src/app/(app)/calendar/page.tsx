@@ -57,6 +57,27 @@ function formatShortDate(value: string) {
   return `${day}/${month}/${year}`;
 }
 
+function cadenceLabel(rule?: string | null) {
+  const value = String(rule || "");
+  if (value.includes("FREQ=DAILY")) return "Hằng ngày";
+  const dayMap: Record<string,string> = { MO:"thứ Hai", TU:"thứ Ba", WE:"thứ Tư", TH:"thứ Năm", FR:"thứ Sáu", SA:"thứ Bảy", SU:"Chủ nhật" };
+  const byDay = value.match(/BYDAY=([A-Z]{2})/);
+  const byMonthDay = value.match(/BYMONTHDAY=(\d+)/);
+  const interval = Number(value.match(/INTERVAL=(\d+)/)?.[1] || 1);
+  if (value.includes("FREQ=WEEKLY")) return `${interval > 1 ? `Mỗi ${interval} tuần` : "Hằng tuần"}${byDay ? `, ${dayMap[byDay[1]] || byDay[1]}` : ""}`;
+  if (value.includes("FREQ=MONTHLY")) return `${interval > 1 ? `Mỗi ${interval} tháng` : "Hằng tháng"}${byMonthDay ? `, ngày ${byMonthDay[1]}` : ""}`;
+  if (value.includes("FREQ=YEARLY")) return "Hằng năm";
+  return "Theo lịch định kỳ";
+}
+
+function priorityText(value?: string | null) {
+  if (value === "CRITICAL") return "Rất khẩn";
+  if (value === "URGENT") return "Khẩn";
+  if (value === "HIGH") return "Cao";
+  if (value === "LOW") return "Thấp";
+  return "Bình thường";
+}
+
 function kindClass(kind: EventKind) {
   return kind.toLowerCase();
 }
@@ -147,7 +168,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
       id: `action:${action.action_id}`,
       date: action.due_date,
       title: action.title,
-      subtitle: `${action.record_code} · Hạn Action`,
+      subtitle: `${action.record_code} · ${open ? (overdue ? "Quá hạn thực hiện" : dueToday ? "Đến hạn thực hiện" : "Đang thực hiện") : "Đã hoàn tất"}`,
       href: `/tasks/${action.record_id}`,
       kind: "ACTION",
       tone: overdue ? "danger" : dueToday ? "warning" : action.workflow_status === "COMPLETED" ? "success" : "info",
@@ -300,10 +321,10 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
       .calendar-roadmap-card.active{border-left-color:#d69a24;background:#fffdf7}.calendar-roadmap-card.done{border-left-color:#2b8b5b;opacity:.8}
       .calendar-roadmap-card strong{display:flex;justify-content:space-between;gap:8px;color:#1e293b;font-size:12px}.calendar-roadmap-card strong span{font-size:10px;color:#64748b;font-weight:700;white-space:nowrap}.calendar-roadmap-card p{margin:7px 0 0;color:#64748b;font-size:10.5px;line-height:1.45}
       .calendar-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px}
-      .calendar-toolbar-left,.calendar-toolbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.calendar-month-title{font-size:16px;font-weight:850;color:#1e293b;min-width:190px;text-align:center;cursor:pointer;list-style:none}.calendar-month-picker{position:relative}.calendar-month-picker summary::-webkit-details-marker{display:none}.calendar-month-popover{position:absolute;z-index:20;top:38px;left:50%;transform:translateX(-50%);width:300px;padding:12px;border:1px solid #dbe5ec;border-radius:12px;background:#fff;box-shadow:0 12px 30px #0f172a20}.calendar-picker-year{text-align:center;margin-bottom:9px}.calendar-picker-months{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+      .calendar-toolbar-left,.calendar-toolbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.calendar-month-title{font-size:16px;font-weight:850;color:#1e293b;min-width:190px;text-align:center;cursor:pointer;list-style:none}.calendar-month-picker{position:relative}.calendar-month-picker summary::-webkit-details-marker{display:none}.calendar-month-popover{position:absolute;z-index:20;top:38px;left:50%;transform:translateX(-50%);width:300px;padding:12px;border:1px solid #dbe5ec;border-radius:12px;background:#fff;box-shadow:0 12px 30px #0f172a20}.calendar-picker-year{text-align:center;margin-bottom:9px}.calendar-picker-months{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
       .calendar-legend{display:flex;gap:12px;flex-wrap:wrap;padding:0 15px 14px;color:#64748b;font-size:10.5px}.calendar-legend span{display:inline-flex;align-items:center;gap:5px}.calendar-dot{width:8px;height:8px;border-radius:50%;display:inline-block}.calendar-dot.action{background:#2563eb}.calendar-dot.program{background:#7c3aed}.calendar-dot.monitoring{background:#2b8b5b}.calendar-dot.report{background:#0891b2}.calendar-dot.inspection{background:#ea580c}.calendar-dot.recurring{background:#0f766e}.calendar-dot.plan{background:#64748b}.calendar-dot.reminder{background:#a855f7}.calendar-dot.attention{background:#ce4b4b}
       .calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid #e2e8f0;border-left:1px solid #e2e8f0}.calendar-weekday{padding:9px;text-align:center;font-size:10px;font-weight:850;color:#64748b;background:#f8fafc;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0}
-      .calendar-cell{min-height:142px;padding:7px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#fff;overflow:hidden}.calendar-cell.blank{background:#f8fafc}.calendar-cell.sunday{background:#f5f7f9}.calendar-cell.holiday{background:#eef6f3}.calendar-holiday-name{font-size:8.5px;font-weight:800;color:#28705a;margin:-2px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calendar-holiday-note{font-size:8px;line-height:1.25;color:#52766b;margin-bottom:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.calendar-cell.today{box-shadow:inset 0 0 0 2px #f2c94c}.calendar-day-number{font-size:12px;font-weight:850;color:#334155;margin-bottom:6px}.calendar-cell.today .calendar-day-number{color:#9a5b00}
+      .calendar-cell{min-height:142px;padding:7px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#fff;overflow:hidden}.calendar-cell.blank{background:#f8fafc}.calendar-cell.sunday{background:#fff7ed;box-shadow:inset 0 3px 0 #f59e0b}.calendar-cell.holiday{background:#fef2f2;box-shadow:inset 0 3px 0 #dc2626}.calendar-cell.holiday.sunday{background:#fff1f2;box-shadow:inset 0 3px 0 #dc2626}.calendar-holiday-name{font-size:8.5px;font-weight:850;color:#b42318;margin:-2px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calendar-holiday-note{font-size:8px;line-height:1.25;color:#52766b;margin-bottom:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.calendar-cell.today{box-shadow:inset 0 0 0 2px #f2c94c}.calendar-day-number{font-size:12px;font-weight:850;color:#334155;margin-bottom:6px}.calendar-cell.today .calendar-day-number{color:#9a5b00}
       .calendar-event{display:block;margin-top:4px;padding:5px 6px;border-radius:7px;border-left:3px solid #2563eb;background:#eff6ff;color:#1e3a8a;font-size:9.3px;line-height:1.25;overflow:hidden}.calendar-event strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calendar-event small{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit;opacity:.76}.calendar-event.program{border-left-color:#7c3aed;background:#f5f3ff;color:#5b21b6}.calendar-event.monitoring{border-left-color:#2b8b5b;background:#ecfdf5;color:#166534}.calendar-event.report{border-left-color:#0891b2;background:#ecfeff;color:#155e75}.calendar-event.inspection{border-left-color:#ea580c;background:#fff7ed;color:#9a3412}.calendar-event.recurring{border-left-color:#0f766e;background:#f0fdfa;color:#115e59}.calendar-event.plan{border-left-color:#64748b;background:#f8fafc;color:#475569}.calendar-event.reminder{border-left-color:#a855f7;background:#faf5ff;color:#7e22ce}.calendar-event.danger{border-left-color:#ce4b4b;background:#fff1f2;color:#b42318}.calendar-event.warning{border-left-color:#d69a24;background:#fff8e8;color:#8a5a00}.calendar-event.success{opacity:.62}.calendar-more{font-size:9px;color:#64748b;margin-top:5px;font-weight:750}
       .calendar-mobile-agenda{display:none}.calendar-agenda-row{display:grid;grid-template-columns:72px 1fr;gap:10px;padding:11px 12px;border-bottom:1px solid #eef2f3}.calendar-agenda-row:last-child{border-bottom:0}.calendar-agenda-date{font-size:10.5px;font-weight:850;color:#475569}.calendar-agenda-items{display:grid;gap:7px}.calendar-agenda-item{display:block;border:1px solid #e2e8f0;border-left:4px solid #2563eb;border-radius:11px;padding:9px 10px;background:#fff}.calendar-agenda-item.program{border-left-color:#7c3aed}.calendar-agenda-item.monitoring{border-left-color:#2b8b5b}.calendar-agenda-item.report{border-left-color:#0891b2}.calendar-agenda-item.inspection{border-left-color:#ea580c}.calendar-agenda-item.recurring{border-left-color:#0f766e}.calendar-agenda-item.plan{border-left-color:#64748b}.calendar-agenda-item.reminder{border-left-color:#a855f7}.calendar-agenda-item.danger{border-left-color:#ce4b4b;background:#fffafa}.calendar-agenda-item.warning{border-left-color:#d69a24;background:#fffdf6}.calendar-agenda-item.success{opacity:.68}.calendar-agenda-item strong{display:block;font-size:12px;line-height:1.35;color:#27364a}.calendar-agenda-item small{display:block;margin-top:3px;color:#64748b;font-size:9.5px}
       .calendar-recurrence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 14px 14px}.calendar-recurrence-card{border:1px solid #e2e8f0;border-left:4px solid #0f766e;border-radius:11px;padding:10px 11px;background:#fff}.calendar-recurrence-card .cadence{font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.04em;color:#0f766e}.calendar-recurrence-card strong{display:block;margin-top:4px;font-size:11.5px;color:#27364a}.calendar-recurrence-card small{display:block;margin-top:3px;font-size:9.5px;color:#64748b}.calendar-section-head{padding:13px 14px 9px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px}.calendar-section-head strong{font-size:13px;color:#243247}.calendar-section-head span{font-size:9.5px;color:#64748b}
@@ -331,7 +352,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
         <div className="calendar-toolbar-left">
           {isVisibleCycleMonth(workYear, currentTodayYear, currentTodayMonth) ? <Link className="button tertiary small" href={`/calendar?month=${monthParam(currentTodayYear, currentTodayMonth)}`}>Hôm nay</Link> : null}
           {isVisibleCycleMonth(workYear, previous.year, previous.month) ? <Link className="button secondary small" href={`/calendar?month=${monthParam(previous.year, previous.month)}`}>←</Link> : <span className="button secondary small" style={{ opacity: .35 }}>←</span>}
-          <details className="calendar-month-picker"><summary className="calendar-month-title">{MONTH_NAMES[selected.month - 1]} năm {selected.year} ▾</summary><div className="calendar-month-popover"><div className="calendar-picker-year"><strong>{selected.year}</strong></div><div className="calendar-picker-months">{Array.from({length:12},(_,i)=>i+1).filter(m=>isVisibleCycleMonth(workYear,selected.year,m)).map(m=><Link key={m} className={`button small ${m===selected.month?"primary":"secondary"}`} href={`/calendar?month=${monthParam(selected.year,m)}`}>Th{m}</Link>)}</div></div></details>
+          <details className="calendar-month-picker"><summary className="calendar-month-title">{MONTH_NAMES[selected.month - 1]} năm {selected.year} ▾</summary><div className="calendar-month-popover"><div className="calendar-picker-year"><strong>Chọn tháng · Chu kỳ {workYear}</strong></div><div className="calendar-picker-months">{Array.from({length:15},(_,i)=>{const d=shiftMonth(workYear,1,i);return d;}).map(({year,month})=><Link key={`${year}-${month}`} className={`button small ${year===selected.year&&month===selected.month?"primary":"secondary"}`} href={`/calendar?month=${monthParam(year,month)}`}>{month <= 12 ? `T${month}` : `T${month}`} {year !== workYear ? `/${String(year).slice(-2)}` : ""}</Link>)}</div></div></details>
           {isVisibleCycleMonth(workYear, next.year, next.month) ? <Link className="button secondary small" href={`/calendar?month=${monthParam(next.year, next.month)}`}>→</Link> : <span className="button secondary small" style={{ opacity: .35 }}>→</span>}
         </div>
         <div className="calendar-toolbar-right">
@@ -347,7 +368,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
         {cells.map((date, index) => {
           if (!date) return <div className="calendar-cell blank" key={`blank-${index}`} />;
           const dayEvents = eventsByDate.get(date) ?? [];
-          const holiday=holidayForDate(date); const nonWorking=holiday?"holiday":isSunday(date)?"sunday":"";
+          const holiday=holidayForDate(date); const nonWorking=`${holiday?"holiday":""} ${isSunday(date)?"sunday":""}`.trim();
           return <div className={`calendar-cell ${nonWorking} ${date === today ? "today" : ""}`} key={date}>
             <div className="calendar-day-number">{Number(date.slice(-2))}</div>{holiday?<><div className="calendar-holiday-name" title={holiday.note?`${holiday.name} · ${holiday.note}`:holiday.name}>{holiday.name}</div>{holiday.note?<div className="calendar-holiday-note">{holiday.note}</div>:null}</>:null}
             {dayEvents.slice(0, 4).map((event) => renderEvent(event))}
@@ -367,8 +388,8 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     </section>
 
     <section className="panel">
-      <div className="calendar-section-head"><div><strong>Nhịp công việc định kỳ</strong><div><span>Template đang vận hành trong Recurring Work Engine</span></div></div><span>{activeTemplates.length} template đang bật</span></div>
-      {activeTemplates.length ? <div className="calendar-recurrence-grid">{activeTemplates.map((template: any) => <article className="calendar-recurrence-card" key={template.id}><div className="cadence">{template.recurrence_rule}</div><strong>{template.title}</strong><small>{template.start_date || "Không giới hạn bắt đầu"}{template.end_date ? ` → ${template.end_date}` : ""} · Ưu tiên ${template.priority || "NORMAL"}</small></article>)}</div> : <div className="empty-state compact"><strong>Chưa có template định kỳ được kích hoạt.</strong><p>Hệ thống không tự giả lập run khi chưa có template/run thật.</p></div>}
+      <div className="calendar-section-head"><div><strong>Sổ tay QLCL · Công việc định kỳ</strong><div><span>Lịch nhắc vận hành; không phải Action/CAPA.</span></div></div><span>{activeTemplates.length} công việc đang bật</span></div>
+      {activeTemplates.length ? <div className="calendar-recurrence-grid">{activeTemplates.map((template: any) => <article className="calendar-recurrence-card" key={template.id}><div className="cadence">{cadenceLabel(template.recurrence_rule)}</div><strong>{template.title}</strong><small>Ưu tiên {priorityText(template.priority)}{template.end_date ? ` · đến ${formatShortDate(template.end_date)}` : ""}</small></article>)}</div> : <div className="empty-state compact"><strong>Chưa có công việc định kỳ được kích hoạt.</strong><p>Khi cấu hình Sổ tay QLCL, lịch sẽ tự tổng hợp ở đây.</p></div>}
     </section>
   </div>;
 }
