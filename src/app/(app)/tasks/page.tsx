@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MyWorkSyncClient } from "@/components/my-work-sync-client";
 import { PageHeader } from "@/components/page-header";
+import { PersonalReminders } from "@/components/personal-reminders";
 import { StatusBadge } from "@/components/status-badge";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars } from "@/components/tqm-charts";
 import { requirePermission, requireUserContext } from "@/lib/auth";
@@ -27,7 +28,7 @@ export default async function TasksPage(){
  const canOperateDepartment=!!user.primaryDepartmentId&&(departmentRoleRes.data??[]).length>0;
  const departmentExecutionRes=canOperateDepartment?await supabase.from("action_department_executions").select("action_id,workflow_status").eq("department_id",user.primaryDepartmentId):{data:[],error:null};
  const departmentActionIds=Array.from(new Set((departmentExecutionRes.data??[]).map((x:any)=>x.action_id).filter(Boolean))) as string[];
- const [directActionsRes,groupActionsRes,departmentActionsRes,attentionRes]=await Promise.all([
+ const [directActionsRes,groupActionsRes,departmentActionsRes,attentionRes,personalRemindersRes]=await Promise.all([
   supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).eq("assignee_user_id",user.id).order("due_date",{ascending:true,nullsFirst:false}),
   myGroupActionRecordIds.length
    ? supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).in("record_id",myGroupActionRecordIds).order("due_date",{ascending:true,nullsFirst:false})
@@ -36,6 +37,7 @@ export default async function TasksPage(){
    ? supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).in("action_id",departmentActionIds).order("due_date",{ascending:true,nullsFirst:false})
    : Promise.resolve({data:[] as any[],error:null}),
   supabase.from("notifications").select("id,title,message,priority,target_route,target_record_id,created_at,is_read").eq("recipient_user_id",user.id).eq("is_read",false).order("created_at",{ascending:false}).limit(20),
+  supabase.from("personal_reminders").select("id,title,note,due_at,priority,status").eq("owner_user_id",user.id).neq("status","CANCELLED").order("due_at",{ascending:true,nullsFirst:false}),
  ]);
  const actionRowsById=new Map<string,any>();
  for(const row of [...(directActionsRes.data??[]),...(groupActionsRes.data??[]),...(departmentActionsRes.data??[])])actionRowsById.set((row as any).action_id,row);
@@ -46,7 +48,7 @@ export default async function TasksPage(){
  const sourceRows=(actionsRes.data??[]) as any[];const scopeSourceRows=(scopeActionsRes.data??[]) as any[];const recordIds=Array.from(new Set([...sourceRows,...scopeSourceRows].map(r=>r.record_id).filter(Boolean)));const recordRes=recordIds.length?await supabase.from("records").select("id,lifecycle_status").in("id",recordIds):{data:[],error:null};const hidden=new Set((recordRes.data??[]).filter((r:any)=>isOperationallyHiddenStatus(r.lifecycle_status)).map((r:any)=>r.id));
  const roleDepartmentIds=Array.from(new Set([...scopeSourceRows.map(r=>r.lead_department_id),user.primaryDepartmentId].filter(Boolean)));const roleDepartmentsRes=roleDepartmentIds.length?await supabase.from("departments").select("id,name,short_name").in("id",roleDepartmentIds):{data:[],error:null};const roleDepartmentMap=new Map((roleDepartmentsRes.data??[]).map((d:any)=>[d.id,d.short_name||d.name]));
  const assignedGroupIds=Array.from(new Set([...sourceRows,...scopeSourceRows].map((r:any)=>r.assignee_group_id).filter(Boolean))) as string[];const assignedGroupsRes=assignedGroupIds.length?await supabase.from("work_groups").select("id,name,code").in("id",assignedGroupIds):{data:[],error:null};const assignedGroupMap=new Map((assignedGroupsRes.data??[]).map((g:any)=>[g.id,[g.code,g.name].filter(Boolean).join(" · ")]));
- const rows=sourceRows.filter(r=>r.workflow_status!=="CANCELLED"&&!hidden.has(r.record_id));const attention=(attentionRes.data??[]) as any[];const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id));const firstError=actionsRes.error||attentionRes.error||scopeActionsRes.error||recordRes.error||roleDepartmentsRes.error||assignedGroupsRes.error;
+ const rows=sourceRows.filter(r=>r.workflow_status!=="CANCELLED"&&!hidden.has(r.record_id));const attention=(attentionRes.data??[]) as any[];const personalReminders=(personalRemindersRes.data??[]) as any[];const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id));const firstError=actionsRes.error||attentionRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||roleDepartmentsRes.error||assignedGroupsRes.error;
  const overdue=rows.filter(r=>r.is_overdue).length,dueToday=rows.filter(r=>!r.is_overdue&&Number(r.days_to_due)===0).length,dueSoon=rows.filter(r=>!r.is_overdue&&Number(r.days_to_due)>0&&Number(r.days_to_due)<=7).length,open=rows.filter(r=>!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status)).length,completed=rows.filter(r=>r.workflow_status==="COMPLETED").length;
  const overdue7=rows.filter(r=>r.is_overdue&&Math.abs(Number(r.days_to_due||0))>=7).length,overdue3to6=rows.filter(r=>r.is_overdue&&Math.abs(Number(r.days_to_due||0))>=3&&Math.abs(Number(r.days_to_due||0))<7).length;
  const deadlineSegments=[{label:"Quá hạn",value:overdue,tone:"red" as const},{label:"Hôm nay",value:dueToday,tone:"amber" as const},{label:"7 ngày tới",value:dueSoon,tone:"blue" as const},{label:"Còn lại",value:Math.max(0,open-overdue-dueToday-dueSoon),tone:"slate" as const}];
@@ -67,6 +69,7 @@ export default async function TasksPage(){
     <span className="summary-chip">7 ngày tới: {dueSoon}</span>
     <span className="summary-chip">Đang mở: {open}</span>
   </div>
+  <PersonalReminders initialRows={personalReminders} organizationId={user.organizationId} userId={user.id}/>
   <section className="work-section primary">
     <div className="section-head"><div><h2>Việc cần làm trước</h2><p>{secretaryHeadline} Hệ thống đã xếp theo hạn, trạng thái chờ xử lý và mức ưu tiên.</p></div></div>
     <div className="work-list">{secretaryQueue.map(r=><div className={`work-row ${r.is_overdue||r.workflow_status==="RETURNED"?"danger":""}`} key={r.action_id}><div className="work-main"><strong>{r.title}</strong><small>{r.record_code} · {workCue(r)}{r.assignment_target_type==="GROUP"?` · ${assignedGroupMap.get(r.assignee_group_id)||"Nhóm phân công"}`:""}</small></div><div><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></div><div><StatusBadge status={r.is_overdue?"OVERDUE":r.workflow_status}/></div><Link className="button primary small" href={`/tasks/${r.record_id}`}>Làm ngay</Link></div>)}{!secretaryQueue.length?<div className="empty-state">Không có việc khẩn hoặc sát hạn cần xử lý.</div>:null}</div>
