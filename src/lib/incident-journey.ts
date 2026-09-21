@@ -54,9 +54,9 @@ export function getIncidentJourneyState(
   if (normalized === "TRIAGED") {
     return {
       step: 4,
-      title: "Làm ngay: chuyển sang hành động phòng ngừa",
-      instruction: "Sự cố đã xác minh và không cần điều tra. Chuyển hồ sơ sang theo dõi Action/CAPA.",
-      next: "Tạo Action có người phụ trách, hạn hoàn thành và minh chứng trước khi xin đóng.",
+      title: "Làm ngay: quyết định hành động sau xác minh",
+      instruction: "Sự cố đã xác minh và không cần điều tra sâu. Chỉ tạo Action/CAPA khi thực sự cần biện pháp phòng ngừa; không tạo công việc chỉ để vượt gate.",
+      next: "Nếu cần hành động → tạo Action/CAPA. Nếu không cần → ghi lý do và chuyển gate đóng.",
       targetId: "incident-follow-up-transition",
       skippedInvestigation: true,
     };
@@ -66,8 +66,8 @@ export function getIncidentJourneyState(
     return {
       step: 3,
       title: options.canInvestigate ? "Làm ngay: mở điều tra" : "Chờ người có quyền mở điều tra",
-      instruction: "Chọn loại điều tra phù hợp. Nếu là sự cố nghiêm trọng/RCA bắt buộc, hệ thống sẽ giữ gate RCA.",
-      next: "Sau khi mở điều tra: ghi yếu tố góp phần → RCA (nếu yêu cầu) → kết luận điều tra.",
+      instruction: "Quyết định điều tra đã được xác lập ở bước xác minh. Hệ thống mở workspace phân tích phù hợp, không yêu cầu phân loại lại nếu không cần.",
+      next: "Phân tích theo PLIV; mở RCA/London khi cần phân tích sâu, sau đó chốt nguyên nhân gốc.",
       targetId: options.canInvestigate ? "incident-start-investigation" : null,
       waitForQlcl: !options.canInvestigate,
     };
@@ -78,8 +78,8 @@ export function getIncidentJourneyState(
       step: 3,
       title: options.rcaRequired ? "Làm ngay: hoàn tất điều tra và RCA" : "Làm ngay: hoàn tất điều tra",
       instruction: options.rcaRequired
-        ? "Theo đúng thứ tự: yếu tố góp phần → Timeline → Five Why → Fishbone → nguyên nhân gốc → kết luận điều tra."
-        : "Ghi yếu tố góp phần, sự kiện đã xác minh, kết luận tổn hại và kết luận điều tra.",
+        ? "Hoàn thiện PLIV và RCA: dùng dữ kiện đã xác minh làm Timeline; Fishbone/Five Why là công cụ hỗ trợ khi cần, sau đó chốt nguyên nhân gốc có căn cứ."
+        : "Hoàn thiện PLIV từ dữ kiện đã xác minh và chốt kết luận điều tra; không nhập lại thông tin đã có.",
       next: "Khi điều tra đủ gate, hồ sơ chuyển sang Action/CAPA.",
       targetId: options.canInvestigate ? "incident-investigation" : null,
       waitForQlcl: !options.canInvestigate,
@@ -90,8 +90,8 @@ export function getIncidentJourneyState(
     return {
       step: 4,
       title: "Làm ngay: tạo và theo dõi Action/CAPA",
-      instruction: "Tạo Action cho việc cụ thể; dùng CAPA khi cần xử lý nguyên nhân hệ thống/lặp lại/nghiêm trọng và phải đánh giá hiệu lực.",
-      next: "Hoàn thành Action áp dụng + bổ sung minh chứng → xác nhận đủ điều kiện đóng.",
+      instruction: "Tạo Action cho việc cụ thể; CAPA dùng cho nguyên nhân hệ thống/lặp lại/nghiêm trọng. Dữ liệu nguyên nhân gốc phải được mang sang, không nhập lại.",
+      next: "Nếu có Action/CAPA: hoàn thành, bổ sung minh chứng và đánh giá hiệu lực. Nếu không cần: lưu lý do được duyệt → gate đóng.",
       targetId: "incident-actions",
     };
   }

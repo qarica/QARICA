@@ -245,8 +245,8 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
         </div>
 
         <div className="rca-section">
-          <h4>2. Five Why</h4>
-          <p>Đi sâu theo chuỗi “tại sao”. Không bắt buộc đủ 5 nếu đã đạt nguyên nhân hệ thống; gate tối thiểu 3 cấp để tránh kết luận quá sớm.</p>
+          <h4>2. Five Why · Phân tích sâu (tùy chọn)</h4>
+          <p>Chỉ sử dụng khi cần đào sâu chuỗi nguyên nhân. Nếu bắt đầu dùng Five Why, cần tối thiểu 3 cấp; không bắt buộc dùng cho mọi RCA.</p>
           <div className="why-grid">
             {whys.map((row) => <div className="why-card" key={row.why_level}>
               <div className="why-level">Why {row.why_level}</div>
