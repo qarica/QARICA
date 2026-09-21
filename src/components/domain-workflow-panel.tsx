@@ -63,7 +63,12 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     const selfIds=(rounds??[]).map((x:any)=>x.record_id).filter(Boolean);
     const {data:linkedRecords}=selfIds.length?await supabase.from("records").select("id,record_code,title").in("id",selfIds):{data:[] as any[]};
     const recordMap=new Map((linkedRecords??[]).map((x:any)=>[x.id,x]));
-    const comparison=(links??[])[0],linkedSelfRecord:any=comparison?recordMap.get(comparison.target_record_id):null;\n    const linkedRound=(rounds??[]).find((x:any)=>x.record_id===comparison?.target_record_id);\n    const {data:scopeRows}=linkedRound?await supabase.from("assessment_round_criteria").select("criteria_item_id,criterion_id,applicability_status").eq("assessment_round_id",(await supabase.from("assessment_rounds").select("id").eq("record_id",linkedRound.record_id).maybeSingle()).data?.id||"00000000-0000-0000-0000-000000000000"):{data:[] as any[]};\n    const scopeItemIds=(scopeRows??[]).filter((x:any)=>String(x.applicability_status||"APPLICABLE")==="APPLICABLE").map((x:any)=>x.criteria_item_id||x.criterion_id).filter(Boolean);\n    const {data:scopeItems}=scopeItemIds.length?await supabase.from("criteria_items").select("id,code,title,sequence_no").in("id",scopeItemIds).order("sequence_no"):{data:[] as any[]};\n    const itemIds=(scoreRows??[]).map((x:any)=>x.criteria_item_id).filter(Boolean);
+    const comparison=(links??[])[0],linkedSelfRecord:any=comparison?recordMap.get(comparison.target_record_id):null;
+    const linkedRound=(rounds??[]).find((x:any)=>x.record_id===comparison?.target_record_id);
+    const {data:scopeRows}=linkedRound?await supabase.from("assessment_round_criteria").select("criteria_item_id,criterion_id,applicability_status").eq("assessment_round_id",(await supabase.from("assessment_rounds").select("id").eq("record_id",linkedRound.record_id).maybeSingle()).data?.id||"00000000-0000-0000-0000-000000000000"):{data:[] as any[]};
+    const scopeItemIds=(scopeRows??[]).filter((x:any)=>String(x.applicability_status||"APPLICABLE")==="APPLICABLE").map((x:any)=>x.criteria_item_id||x.criterion_id).filter(Boolean);
+    const {data:scopeItems}=scopeItemIds.length?await supabase.from("criteria_items").select("id,code,title,sequence_no").in("id",scopeItemIds).order("sequence_no"):{data:[] as any[]};
+    const itemIds=(scoreRows??[]).map((x:any)=>x.criteria_item_id).filter(Boolean);
     const {data:items}=itemIds.length?await supabase.from("criteria_items").select("id,code,title").in("id",itemIds):{data:[] as any[]};
     const itemMap=new Map((items??[]).map((x:any)=>[x.id,x]));
     const canManage=user.permissions.includes("criteria.manage");
