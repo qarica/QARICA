@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { externalComparisonCloseGate } from "@/lib/quality-gates";
-import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 const text = (value: unknown) => String(value ?? "").trim();
-const GAP_RPC = "qlcl_external_assessment_create_gap_finding_v1";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
@@ -45,82 +42,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: true, message: "Đã khóa đợt tự đánh giá dùng để đối chiếu." });
   }
 
-  if (command === "CREATE_GAP_FINDING") {
-    const [{ data: comparison }, { data: existingLinks }] = await Promise.all([
-      admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "COMPARED_WITH_SELF").maybeSingle(),
-      admin.from("record_links").select("metadata").eq("source_record_id", recordId).eq("relation_type", "GENERATED_FINDING"),
-    ]);
+  if (command === "SAVE_EXTERNAL_SCORE") {
+    const { data: comparison } = await admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "COMPARED_WITH_SELF").maybeSingle();
     if (!comparison) return NextResponse.json({ error: "Cần khóa đợt tự đánh giá đối chiếu trước." }, { status: 409 });
-    const criterionRef = text(body.criterion_ref);
-    const description = text(body.description);
-    const selfScore = text(body.self_score);
-    const externalScore = text(body.external_score);
-    const dueDate = text(body.due_date);
-    const severity = text(body.severity) || "MAJOR";
-    if (!criterionRef || !description || !selfScore || !externalScore || !dueDate) return NextResponse.json({ error: "Cần đủ mã tiêu chí, hai mức đánh giá, mô tả chênh lệch và hạn xử lý." }, { status: 400 });
-    const duplicate = (existingLinks ?? []).some((x: any) => String(x.metadata?.criterion_ref || "").toLowerCase() === criterionRef.toLowerCase());
-    if (duplicate) return NextResponse.json({ error: "Tiêu chí này đã sinh Finding; hãy xử lý trên Finding hiện có." }, { status: 409 });
-
-    const { data: tx, error: txError } = await admin.rpc(GAP_RPC, {
-      p_external_record_id: recordId,
-      p_actor_user_id: auth.user.id,
-      p_criterion_ref: criterionRef,
-      p_self_score: selfScore,
-      p_external_score: externalScore,
-      p_description: description,
-      p_severity: severity,
-      p_due_date: dueDate,
-    });
-    if (!txError) {
-      const findingCode = typeof tx === "object" && tx && "finding_code" in tx ? String((tx as Record<string, unknown>).finding_code || "") : "";
-      return NextResponse.json({ ok: true, transaction: "atomic", result: tx, message: findingCode ? `Đã tạo Finding ${findingCode}; kết quả tự đánh giá gốc không bị thay đổi.` : "Đã tạo Finding từ chênh lệch đánh giá ngoài." });
-    }
-    if (!isMissingRpcFunction(txError, GAP_RPC)) {
-      const message = rpcErrorMessage(txError, "Không thể tạo Finding từ đánh giá ngoài.");
-      return NextResponse.json({ error: message }, { status: /already|duplicate|not active|must be locked/i.test(message) ? 409 : 400 });
-    }
-
-    const { data: code, error: codeError } = await admin.rpc("next_record_code", { p_org: record.organization_id, p_record_type: "FINDING", p_work_year: record.work_year });
-    if (codeError || !code) return NextResponse.json({ error: codeError?.message || "Không cấp được mã Finding." }, { status: 400 });
-    const title = `Chênh lệch ${criterionRef} từ ${record.record_code}`;
-    const { data: findingRecord, error: recordError } = await admin.from("records").insert({ organization_id: record.organization_id, record_type: "FINDING", record_code: code, title, work_year: record.work_year, owner_department_id: record.owner_department_id, owner_user_id: record.owner_user_id, lifecycle_status: "ACTIVE", created_by: auth.user.id }).select("id").single();
-    if (recordError || !findingRecord) return NextResponse.json({ error: recordError?.message || "Không tạo được Finding." }, { status: 400 });
-    const findingDescription = `${description}\nTự đánh giá: ${selfScore}. Đánh giá ngoài: ${externalScore}.`;
-    const { data: finding, error: findingError } = await admin.from("findings").insert({ record_id: findingRecord.id, finding_type: "EXTERNAL_ASSESSMENT_GAP", description: findingDescription, severity, lead_department_id: record.owner_department_id, owner_user_id: record.owner_user_id, identified_at: event.assessment_date ? `${event.assessment_date}T00:00:00+07:00` : now, due_date: dueDate, workflow_status: "OPEN" }).select("id").single();
-    if (findingError || !finding) {
-      await admin.from("records").update({ lifecycle_status: "ARCHIVED", updated_at: now }).eq("id", findingRecord.id);
-      return NextResponse.json({ error: findingError?.message || "Không tạo được dữ liệu Finding." }, { status: 400 });
-    }
-    const metadata = { criterion_ref: criterionRef, self_score: selfScore, external_score: externalScore, finding_id: finding.id, self_record_id: comparison.target_record_id };
-    const { error: linkError } = await admin.from("record_links").insert({ source_record_id: recordId, target_record_id: findingRecord.id, relation_type: "GENERATED_FINDING", metadata, created_by: auth.user.id });
-    if (linkError) {
-      await admin.from("findings").delete().eq("id", finding.id);
-      await admin.from("records").update({ lifecycle_status: "ARCHIVED", updated_at: now }).eq("id", findingRecord.id);
-      return NextResponse.json({ error: `Không tạo được liên kết Đánh giá ngoài → Finding: ${linkError.message}` }, { status: 400 });
-    }
-    await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "external_assessment_events", row_id: event.id, action_type: "EXTERNAL_ASSESSMENT_CREATE_GAP_FINDING", new_value: metadata, reason: description, request_meta: { source: "qlcl-ui", transaction: "legacy-fallback" } });
-    return NextResponse.json({ ok: true, transaction: "legacy-fallback", message: `Đã tạo Finding ${code}; kết quả tự đánh giá gốc không bị thay đổi.` });
+    const criterionId = text(body.criteria_item_id);
+    const externalRaw = body.external_score;
+    const externalScore = externalRaw === "" || externalRaw == null ? null : Number(externalRaw);
+    const note = text(body.note);
+    if (!criterionId || externalScore == null || !Number.isFinite(externalScore)) return NextResponse.json({ error: "Cần chọn tiêu chí và nhập điểm đoàn Sở Y tế hợp lệ." }, { status: 400 });
+    const { data: selfRound } = await admin.from("assessment_rounds").select("id,criteria_version_id").eq("record_id", comparison.target_record_id).maybeSingle();
+    if (!selfRound || (event.criteria_version_id && selfRound.criteria_version_id !== event.criteria_version_id)) return NextResponse.json({ error: "Đợt tự đánh giá không cùng phiên bản bộ tiêu chí." }, { status: 409 });
+    const { data: selfAssessment } = await admin.from("criterion_assessments").select("score").eq("assessment_round_id", selfRound.id).eq("criteria_item_id", criterionId).maybeSingle();
+    const { data: item } = await admin.from("criteria_items").select("id").eq("id", criterionId).eq("criteria_version_id", selfRound.criteria_version_id).maybeSingle();
+    if (!item) return NextResponse.json({ error: "Tiêu chí không thuộc bộ tiêu chí đang đối chiếu." }, { status: 409 });
+    const values = { external_assessment_event_id: event.id, criteria_item_id: criterionId, self_score: selfAssessment?.score ?? null, external_score: externalScore, note: note || null, entered_by: auth.user.id, updated_at: now };
+    const { data: existing } = await admin.from("external_assessment_scores").select("id").eq("external_assessment_event_id", event.id).eq("criteria_item_id", criterionId).maybeSingle();
+    const saved = existing ? await admin.from("external_assessment_scores").update(values).eq("id", existing.id) : await admin.from("external_assessment_scores").insert(values);
+    if (saved.error) return NextResponse.json({ error: saved.error.message }, { status: 400 });
+    await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "external_assessment_scores", row_id: existing?.id ?? null, action_type: "SAVE_EXTERNAL_ASSESSMENT_SCORE", new_value: { criteria_item_id: criterionId, self_score: values.self_score, external_score: externalScore }, reason: note || null, request_meta: { source: "qlcl-ui" } });
+    return NextResponse.json({ ok: true, message: "Đã lưu điểm đoàn Sở Y tế để đối chiếu." });
   }
 
   if (command === "CLOSE_COMPARISON") {
     if (!manage) return NextResponse.json({ error: "Chỉ người quản lý bộ tiêu chí được chốt đối chiếu." }, { status: 403 });
     const reason = text(body.comment);
     if (!reason) return NextResponse.json({ error: "Kết luận đối chiếu là bắt buộc." }, { status: 400 });
-    const [{ data: comparison }, { data: links }, { count: evidence }] = await Promise.all([
-      admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "COMPARED_WITH_SELF").maybeSingle(),
-      admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "GENERATED_FINDING"),
-      admin.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId),
-    ]);
-    const ids = (links ?? []).map((x: any) => x.target_record_id).filter(Boolean);
-    const { data: findings } = ids.length ? await admin.from("findings").select("workflow_status").in("record_id", ids) : { data: [] as any[] };
-    const open = (findings ?? []).filter((x: any) => !["CLOSED", "CANCELLED"].includes(String(x.workflow_status))).length;
-    const gate = externalComparisonCloseGate({ hasComparison: !!comparison, evidenceCount: evidence ?? 0, openFindingCount: open });
-    if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: 409 });
+    const { data: comparison } = await admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "COMPARED_WITH_SELF").maybeSingle();
+    if (!comparison) return NextResponse.json({ error: "Chưa chọn đợt tự đánh giá để đối chiếu." }, { status: 409 });
+    const { count: scores } = await admin.from("external_assessment_scores").select("id", { count: "exact", head: true }).eq("external_assessment_event_id", event.id);
+    if (!scores) return NextResponse.json({ error: "Chưa nhập điểm đánh giá ngoài." }, { status: 409 });
     const { error } = await admin.from("records").update({ lifecycle_status: "CLOSED", closed_at: now, updated_at: now }).eq("id", recordId);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     await admin.from("record_status_history").insert({ record_id: recordId, old_status: record.lifecycle_status, new_status: "CLOSED", changed_by: auth.user.id, reason });
-    await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "external_assessment_events", row_id: event.id, action_type: "EXTERNAL_ASSESSMENT_CLOSE_COMPARISON", old_value: { lifecycle_status: record.lifecycle_status }, new_value: { lifecycle_status: "CLOSED" }, reason, request_meta: { source: "qlcl-ui" } });
-    return NextResponse.json({ ok: true, message: "Đã chốt đối chiếu sau khi hoàn tất Finding và minh chứng." });
+    await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "external_assessment_events", row_id: event.id, action_type: "EXTERNAL_ASSESSMENT_CLOSE_COMPARISON", old_value: { lifecycle_status: record.lifecycle_status }, new_value: { lifecycle_status: "CLOSED", compared_scores: scores }, reason, request_meta: { source: "qlcl-ui" } });
+    return NextResponse.json({ ok: true, message: "Đã chốt kết quả đối chiếu đánh giá ngoài." });
   }
 
   return NextResponse.json({ error: "Thao tác đánh giá ngoài không hợp lệ." }, { status: 400 });
