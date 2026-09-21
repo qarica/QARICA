@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { capaEffectivenessGate } from "@/lib/quality-gates";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
+import { notifyWorkflowEvent } from "@/lib/workflow-notifications";
 
 const validReview = new Set(["EFFECTIVE", "PARTIALLY_EFFECTIVE", "INEFFECTIVE"]);
 const CLOSE_RPC = "qlcl_close_capa_v1";
@@ -16,7 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id: recordId } = await params;
   const body: any = await request.json().catch(() => ({}));
   const command = String(body.action || "").toUpperCase();
-  const { data: visible } = await supabase.from("records").select("id,lifecycle_status").eq("id", recordId).eq("record_type", "CAPA").maybeSingle();
+  const { data: visible } = await supabase.from("records").select("id,lifecycle_status,owner_user_id").eq("id", recordId).eq("record_type", "CAPA").maybeSingle();
   if (!visible) return NextResponse.json({ error: "Không tìm thấy CAPA hoặc ngoài phạm vi truy cập." }, { status: 404 });
   if (visible.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "CAPA không còn hoạt động." }, { status: 409 });
 
@@ -83,6 +84,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { error: updateError } = await admin.from("capas").update({ workflow_status:newStatus, updated_at:now }).eq("id",capa.id);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
     message="Đã chuyển sang đánh giá hiệu lực.";
+    await notifyWorkflowEvent({ admin, recordId, recipientUserIds: [visible.owner_user_id], eventKey: `capa:${capa.id}:EFFECTIVENESS_REVIEW`, notificationType: "CAPA_EFFECTIVENESS_REVIEW", priority: "HIGH", title: "CAPA chờ đánh giá hiệu lực", message: "CAPA đã đủ điều kiện và chuyển sang bước đánh giá hiệu lực." });
   } else if (command === "REVIEW_EFFECTIVENESS") {
     if (oldStatus !== "EFFECTIVENESS_REVIEW") return NextResponse.json({ error: "CAPA chưa đến bước đánh giá hiệu lực." }, { status: 409 });
     const result=String(body.result||"").toUpperCase(); const method=String(body.evaluation_method||"").trim(); const target=String(body.target_description||"").trim(); const actual=String(body.actual_result||"").trim();
