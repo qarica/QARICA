@@ -5,9 +5,18 @@ const {data:scopeRows}=await a.from("assessment_round_criteria").select("id,crit
 const applicable=(scopeRows||[]).filter((x:any)=>String(x.applicability_status||"APPLICABLE")==="APPLICABLE");
 const invalidNa=(scopeRows||[]).filter((x:any)=>String(x.applicability_status)==="NOT_APPLICABLE"&&!String(x.not_applicable_reason||"").trim());
 if(invalidNa.length)return NextResponse.json({error:`${invalidNa.length} tiêu chí Không áp dụng chưa có lý do.`,gate:{scope:scope||0,applicable:applicable.length,notApplicable:(scope||0)-applicable.length,invalidNa:invalidNa.length}},{status:409});
-const missingLead=applicable.filter((x:any)=>!x.lead_department_id);
+const missingSnapshot=applicable.filter((x:any)=>!x.lead_department_id);
+if(missingSnapshot.length&&round.criteria_version_id){
+ const effectiveDate=round.start_date||`${round.work_year}-01-01`;
+ const ids=missingSnapshot.map((x:any)=>x.criteria_item_id||x.criterion_id).filter(Boolean);
+ const {data:maps}=await a.from("criterion_responsibilities").select("id,criteria_item_id,lead_department_id,support_department_ids,effective_from,effective_to").eq("criteria_version_id",round.criteria_version_id).in("criteria_item_id",ids).lte("effective_from",effectiveDate).or(`effective_to.is.null,effective_to.gte.${effectiveDate}`);
+ const byItem=new Map((maps||[]).map((m:any)=>[m.criteria_item_id,m]));
+ for(const row of missingSnapshot){const id=row.criteria_item_id||row.criterion_id,m:any=byItem.get(id);if(m?.lead_department_id)await a.from("assessment_round_criteria").update({lead_department_id:m.lead_department_id,support_department_ids:m.support_department_ids||[],responsibility_source_id:m.id,responsibility_snapshot_at:now}).eq("id",row.id);}
+}
+const {data:checkedScope}=await a.from("assessment_round_criteria").select("id,criteria_item_id,criterion_id,applicability_status,lead_department_id").eq("assessment_round_id",round.id);
+const missingLead=(checkedScope||[]).filter((x:any)=>String(x.applicability_status||"APPLICABLE")==="APPLICABLE"&&!x.lead_department_id);
 if(missingLead.length)return NextResponse.json({error:`${missingLead.length} tiêu chí áp dụng chưa có đơn vị phụ trách.`,gate:{scope:scope||0,applicable:applicable.length,notApplicable:(scope||0)-applicable.length,missingLead:missingLead.length}},{status:409});
-next="IN_PROGRESS";message="Đã mở đợt tự đánh giá.";
+next="IN_PROGRESS";message="Đã mở đợt tự đánh giá.";}
 else if(cmd==="SUBMIT_REVIEW"){if(old!=="IN_PROGRESS")return NextResponse.json({error:"Đợt chưa ở giai đoạn đơn vị đánh giá."},{status:409});const {data:requiredRows}=await a.from("assessment_round_criteria").select("criteria_item_id,criterion_id,applicability_status").eq("assessment_round_id",round.id);
 const requiredIds=new Set((requiredRows||[]).filter((x:any)=>String(x.applicability_status||"APPLICABLE")==="APPLICABLE").map((x:any)=>x.criteria_item_id||x.criterion_id).filter(Boolean));
 const {data:doneRows}=await a.from("criterion_assessments").select("criteria_item_id,workflow_status").eq("assessment_round_id",round.id);
