@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: action, error: actionError } = await admin
     .from("actions")
-    .select("id,assignment_target_type,assignee_user_id,assignee_group_id,workflow_status")
+    .select("id,assignment_target_type,assignee_user_id,assignee_group_id,workflow_status,evidence_required")
     .eq("record_id", recordId)
     .maybeSingle();
   if (actionError || !action) {
@@ -151,8 +151,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) evidenceCountQuery = evidenceCountQuery.eq("action_department_execution_id", departmentExecution.id);
     const { count: evidenceCount, error: evidenceError } = await evidenceCountQuery;
     if (evidenceError) return NextResponse.json({ error: evidenceError.message }, { status: 400 });
-    const submitGate = actionSubmitGate({ evidenceCount: evidenceCount ?? 0 });
-    if (!submitGate.ok) return NextResponse.json({ error: submitGate.error }, { status: 400 });
+    if (action.evidence_required !== false) {
+      const submitGate = actionSubmitGate({ evidenceCount: evidenceCount ?? 0 });
+      if (!submitGate.ok) return NextResponse.json({ error: submitGate.error }, { status: 400 });
+    }
 
     if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) {
       const submittedAt=new Date().toISOString();
