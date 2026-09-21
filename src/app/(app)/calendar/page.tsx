@@ -57,6 +57,27 @@ function formatShortDate(value: string) {
   return `${day}/${month}/${year}`;
 }
 
+function cadenceLabel(rule?: string | null) {
+  const value = String(rule || "");
+  if (value.includes("FREQ=DAILY")) return "Hằng ngày";
+  const dayMap: Record<string,string> = { MO:"thứ Hai", TU:"thứ Ba", WE:"thứ Tư", TH:"thứ Năm", FR:"thứ Sáu", SA:"thứ Bảy", SU:"Chủ nhật" };
+  const byDay = value.match(/BYDAY=([A-Z]{2})/);
+  const byMonthDay = value.match(/BYMONTHDAY=(\d+)/);
+  const interval = Number(value.match(/INTERVAL=(\d+)/)?.[1] || 1);
+  if (value.includes("FREQ=WEEKLY")) return `${interval > 1 ? `Mỗi ${interval} tuần` : "Hằng tuần"}${byDay ? `, ${dayMap[byDay[1]] || byDay[1]}` : ""}`;
+  if (value.includes("FREQ=MONTHLY")) return `${interval > 1 ? `Mỗi ${interval} tháng` : "Hằng tháng"}${byMonthDay ? `, ngày ${byMonthDay[1]}` : ""}`;
+  if (value.includes("FREQ=YEARLY")) return "Hằng năm";
+  return "Theo lịch định kỳ";
+}
+
+function priorityText(value?: string | null) {
+  if (value === "CRITICAL") return "Rất khẩn";
+  if (value === "URGENT") return "Khẩn";
+  if (value === "HIGH") return "Cao";
+  if (value === "LOW") return "Thấp";
+  return "Bình thường";
+}
+
 function kindClass(kind: EventKind) {
   return kind.toLowerCase();
 }
@@ -367,8 +388,8 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     </section>
 
     <section className="panel">
-      <div className="calendar-section-head"><div><strong>Nhịp công việc định kỳ</strong><div><span>Template đang vận hành trong Recurring Work Engine</span></div></div><span>{activeTemplates.length} template đang bật</span></div>
-      {activeTemplates.length ? <div className="calendar-recurrence-grid">{activeTemplates.map((template: any) => <article className="calendar-recurrence-card" key={template.id}><div className="cadence">{template.recurrence_rule}</div><strong>{template.title}</strong><small>{template.start_date || "Không giới hạn bắt đầu"}{template.end_date ? ` → ${template.end_date}` : ""} · Ưu tiên ${template.priority || "NORMAL"}</small></article>)}</div> : <div className="empty-state compact"><strong>Chưa có template định kỳ được kích hoạt.</strong><p>Hệ thống không tự giả lập run khi chưa có template/run thật.</p></div>}
+      <div className="calendar-section-head"><div><strong>Sổ tay QLCL · Công việc định kỳ</strong><div><span>Lịch nhắc vận hành; không phải Action/CAPA.</span></div></div><span>{activeTemplates.length} công việc đang bật</span></div>
+      {activeTemplates.length ? <div className="calendar-recurrence-grid">{activeTemplates.map((template: any) => <article className="calendar-recurrence-card" key={template.id}><div className="cadence">{cadenceLabel(template.recurrence_rule)}</div><strong>{template.title}</strong><small>Ưu tiên {priorityText(template.priority)}{template.end_date ? ` · đến ${formatShortDate(template.end_date)}` : ""}</small></article>)}</div> : <div className="empty-state compact"><strong>Chưa có công việc định kỳ được kích hoạt.</strong><p>Khi cấu hình Sổ tay QLCL, lịch sẽ tự tổng hợp ở đây.</p></div>}
     </section>
   </div>;
 }
