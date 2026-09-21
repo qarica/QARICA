@@ -30,6 +30,9 @@ type ActionRow = {
   workflow_status: string;
   days_to_due: number | null;
   due_date: string | null;
+  assignment_target_type: string | null;
+  assignee_user_id: string | null;
+  assignee_group_id: string | null;
 };
 
 type NotificationPayload = {
@@ -51,16 +54,30 @@ export async function POST() {
 
   const year = await getWorkYear();
   const userId = auth.user.id;
-  const { data, error } = await supabase
-    .from("vw_actions_dashboard")
-    .select("action_id,record_id,record_code,title,workflow_status,days_to_due,due_date")
-    .eq("work_year", year)
-    .eq("assignee_user_id", userId);
+  const [{ data, error }, { data: profile, error: profileError }, { data: groupSnapshots, error: groupError }] = await Promise.all([
+    supabase.from("vw_actions_dashboard").select("action_id,record_id,record_code,title,workflow_status,days_to_due,due_date,assignment_target_type,assignee_user_id,assignee_group_id").eq("work_year", year),
+    supabase.from("profiles").select("primary_department_id").eq("user_id", userId).maybeSingle(),
+    supabase.from("work_group_assignment_snapshots").select("target_record_id,member_snapshot").eq("assignment_role", "ACTION_ASSIGNEE_GROUP"),
+  ]);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error || profileError || groupError) return NextResponse.json({ error: error?.message || profileError?.message || groupError?.message }, { status: 400 });
+
+  const myGroupRecordIds = new Set((groupSnapshots ?? []).filter((row: any) => Array.isArray(row.member_snapshot) && row.member_snapshot.some((member: any) => String(member?.user_id || "").trim() === userId)).map((row: any) => row.target_record_id).filter(Boolean));
+  const primaryDepartmentId = profile?.primary_department_id || null;
+  let departmentActionIds = new Set<string>();
+  if (primaryDepartmentId) {
+    const [{ data: roles, error: rolesError }, { data: executions, error: executionsError }] = await Promise.all([
+      supabase.from("department_user_roles").select("role_type").eq("department_id", primaryDepartmentId).eq("user_id", userId).eq("is_active", true).in("role_type", ["HEAD", "QUALITY_NETWORK_MEMBER"]),
+      supabase.from("action_department_executions").select("action_id").eq("department_id", primaryDepartmentId),
+    ]);
+    if (rolesError || executionsError) return NextResponse.json({ error: rolesError?.message || executionsError?.message }, { status: 400 });
+    if ((roles ?? []).length) departmentActionIds = new Set((executions ?? []).map((row: any) => row.action_id).filter(Boolean));
+  }
+
+  const assignedRows = ((data ?? []) as ActionRow[]).filter((row) => row.assignee_user_id === userId || (row.assignment_target_type === "GROUP" && !!row.record_id && myGroupRecordIds.has(row.record_id)) || (row.assignment_target_type === "DEPARTMENT" && departmentActionIds.has(row.action_id)));
 
   const payload: NotificationPayload[] = [];
-  for (const row of (data ?? []) as ActionRow[]) {
+  for (const row of assignedRows) {
     if (["COMPLETED", "CANCELLED", "NOT_APPLICABLE", "CLOSED"].includes(String(row.workflow_status))) continue;
     const days = row.days_to_due === null || row.days_to_due === undefined ? null : Number(row.days_to_due);
     const phase = reminderPhase(days);
