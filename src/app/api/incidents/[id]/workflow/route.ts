@@ -125,8 +125,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     message = "Đã bắt đầu điều tra sự cố.";
   } else if (command === "COMPLETE_INVESTIGATION") {
     if (oldStatus !== "INVESTIGATING") return NextResponse.json({ error: "Sự cố không ở bước điều tra." }, { status: 409 });
-    const summary = String(body.verified_event_summary || "").trim();
-    const harmConclusion = String(body.harm_conclusion || "").trim();
+    const summary = String(body.verified_event_summary || incident.verified_description || "").trim();
+    const harmConclusion = String(body.harm_conclusion || incident.harm_status || "").trim();
     const conclusion = String(body.conclusion || "").trim();
     if (!summary || !harmConclusion || !conclusion) return NextResponse.json({ error: "Cần đủ sự kiện xác minh, kết luận tổn hại và kết luận điều tra." }, { status: 400 });
 
