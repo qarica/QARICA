@@ -28,7 +28,9 @@ export default async function TasksPage(){
  const canOperateDepartment=!!user.primaryDepartmentId&&(departmentRoleRes.data??[]).length>0;
  const departmentExecutionRes=canOperateDepartment?await supabase.from("action_department_executions").select("action_id,workflow_status").eq("department_id",user.primaryDepartmentId):{data:[],error:null};
  const departmentActionIds=Array.from(new Set((departmentExecutionRes.data??[]).map((x:any)=>x.action_id).filter(Boolean))) as string[];
- const recurringLegacyRes=await supabase.from("recurring_work_runs").select("generated_action_id,recurring_work_templates!inner(automation_kind)").not("generated_action_id","is",null).eq("recurring_work_templates.automation_kind","REMINDER");\n const legacyReminderActionIds=new Set((recurringLegacyRes.data??[]).map((x:any)=>x.generated_action_id).filter(Boolean));\n const [directActionsRes,groupActionsRes,departmentActionsRes,attentionRes,personalRemindersRes]=await Promise.all([
+ const recurringLegacyRes=await supabase.from("recurring_work_runs").select("generated_action_id,recurring_work_templates!inner(automation_kind)").not("generated_action_id","is",null).eq("recurring_work_templates.automation_kind","REMINDER");
+ const legacyReminderActionIds=new Set((recurringLegacyRes.data??[]).map((x:any)=>x.generated_action_id).filter(Boolean));
+ const [directActionsRes,groupActionsRes,departmentActionsRes,attentionRes,personalRemindersRes]=await Promise.all([
   supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).eq("assignee_user_id",user.id).order("due_date",{ascending:true,nullsFirst:false}),
   myGroupActionRecordIds.length
    ? supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).in("record_id",myGroupActionRecordIds).order("due_date",{ascending:true,nullsFirst:false})
