@@ -8,7 +8,7 @@ const numberOrNull=(value:unknown)=>{const raw=String(value??"").trim();if(!raw)
 export async function POST(request:Request,{params}:{params:Promise<{id:string}>}){
   const auth=await requireApiPermission("criteria.manage");if(!auth.ok)return auth.response;
   const {id}=await params;const body=await request.json().catch(()=>({}));const admin=createAdminClient();
-  const title=clean(body.title),code=clean(body.code).toUpperCase()||null,parentId=clean(body.parent_criteria_item_id)||null;
+  const title=clean(body.title),code=clean(body.code).toUpperCase()||null,parentId=clean(body.parent_criteria_item_id)||null;\n  const requestedType=clean(body.item_type).toUpperCase(); const itemType=parentId?"SUBITEM":(["CRITERION","TOPIC","GROUP"].includes(requestedType)?requestedType:"CRITERION");
   if(!title)return NextResponse.json({error:"Tên tiêu chí/tiểu mục là bắt buộc."},{status:400});
   const {data:caller}=await admin.from("profiles").select("organization_id,is_active").eq("user_id",auth.user.id).maybeSingle();
   if(!caller?.organization_id||!caller.is_active)return NextResponse.json({error:"Tài khoản không hợp lệ."},{status:403});
@@ -34,7 +34,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     criteria_version_id:version.id,code,title,description:clean(body.description)||null,sequence_no:sequenceNo,
     chapter_code:clean(body.chapter_code)||null,chapter_name:clean(body.chapter_name)||null,
     score_weight:Math.max(1,Number(body.score_weight)||1),is_core:body.is_core===true,is_mandatory:body.is_mandatory===true,
-    max_score:numberOrNull(body.max_score),parent_criteria_item_id:parentId,item_type:parentId?"SUBITEM":"CRITERION",is_active:true,updated_at:new Date().toISOString()
+    max_score:numberOrNull(body.max_score),parent_criteria_item_id:parentId,item_type:itemType,is_active:true,updated_at:new Date().toISOString()
   }).select("id,code,title,parent_criteria_item_id,item_type,sequence_no").single();
   if(error||!item)return NextResponse.json({error:error?.message||"Không tạo được tiêu chí."},{status:400});
   return NextResponse.json({ok:true,item});
