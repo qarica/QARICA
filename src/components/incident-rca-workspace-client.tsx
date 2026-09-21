@@ -235,9 +235,9 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
           {timeline.map((row, index) => <div className="timeline-card" key={index}>
             <div className="timeline-grid">
               <label>Thời điểm<input type="datetime-local" disabled={!editable} value={row.event_time} onChange={(e) => patchTimeline(index, { event_time: e.target.value })} /></label>
-              <label>Sự kiện / mốc chính *<input disabled={!editable} value={row.event_title} onChange={(e) => patchTimeline(index, { event_title: e.target.value })} placeholder="Ví dụ: phát hiện dấu hiệu bất thường" /></label>
-              <label className="wide">Mô tả dữ kiện<textarea rows={2} disabled={!editable} value={row.event_description} onChange={(e) => patchTimeline(index, { event_description: e.target.value })} /></label>
-              <label className="wide">Nguồn / minh chứng<input disabled={!editable} value={row.source_reference} onChange={(e) => patchTimeline(index, { source_reference: e.target.value })} placeholder="HSBA, HIS, biên bản, lời khai đã xác minh..." /></label>
+              <label>Sự kiện / mốc chính *<input disabled={!editable} value={row.event_title} onChange={(e) => patchTimeline(index, { event_title: e.target.value })} placeholder="Ghi ngắn gọn một mốc đã được xác minh, ví dụ: Điều dưỡng phát hiện người bệnh té ngã." /></label>
+              <label className="wide">Dữ kiện xác minh<textarea rows={2} placeholder="Ghi điều đã xác nhận từ hồ sơ, hệ thống hoặc phỏng vấn; chỉ ghi sự kiện thực tế, chưa kết luận nguyên nhân." disabled={!editable} value={row.event_description} onChange={(e) => patchTimeline(index, { event_description: e.target.value })} /></label>
+              <label className="wide">Nguồn / minh chứng<input disabled={!editable} value={row.source_reference} onChange={(e) => patchTimeline(index, { source_reference: e.target.value })} placeholder="Ghi nơi kiểm chứng dữ kiện, ví dụ: HSBA ngày..., HIS, biên bản, phỏng vấn BS/ĐD..." /></label>
             </div>
             {editable && timeline.length > 1 ? <div className="row-actions"><button type="button" className="button tertiary small" onClick={() => setTimeline((current) => current.filter((_, i) => i !== index))}>Xóa mốc</button></div> : null}
           </div>)}
@@ -251,7 +251,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
             {whys.map((row) => <div className="why-card" key={row.why_level}>
               <div className="why-level">Why {row.why_level}</div>
               <label>Trả lời<textarea rows={2} disabled={!editable} value={row.answer} onChange={(e) => patchWhy(row.why_level, { answer: e.target.value })} placeholder={`Tại sao ${row.why_level}?`} /></label>
-              <label>Căn cứ / dữ kiện<textarea rows={2} disabled={!editable} value={row.evidence_note} onChange={(e) => patchWhy(row.why_level, { evidence_note: e.target.value })} placeholder="Dữ liệu nào hỗ trợ nhận định này?" /></label>
+              <label>Căn cứ / dữ kiện<textarea rows={2} disabled={!editable} value={row.evidence_note} onChange={(e) => patchWhy(row.why_level, { evidence_note: e.target.value })} placeholder="Ghi dữ kiện chứng minh cho câu trả lời phía trên; không ghi suy đoán nếu chưa có căn cứ." /></label>
             </div>)}
           </div>
         </div>
@@ -262,7 +262,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
           <div className="fishbone-grid">
             {CATEGORIES.map((category) => <div className="fishbone-card" key={category.code}>
               <strong>{category.label}</strong>
-              <textarea rows={4} disabled={!editable} value={fishbone[category.code] || ""} onChange={(e) => setFishbone((current) => ({ ...current, [category.code]: e.target.value }))} placeholder="Mỗi dòng = 1 yếu tố" />
+              <textarea rows={4} disabled={!editable} value={fishbone[category.code] || ""} onChange={(e) => setFishbone((current) => ({ ...current, [category.code]: e.target.value }))} placeholder="Mỗi dòng ghi 1 yếu tố góp phần thuộc đúng nhóm này. Ví dụ: Nhóm làm việc — bàn giao ca chưa đầy đủ." />
               <small>Không ghi tên cá nhân; mô tả điều kiện/hệ thống tạo ra nguy cơ.</small>
             </div>)}
           </div>
@@ -274,8 +274,8 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
           {roots.map((row, index) => <div className="root-card" key={index}>
             <div className="root-grid">
               <label>Nhóm<select disabled={!editable} value={row.category_code} onChange={(e) => patchRoot(index, { category_code: e.target.value })}><option value="">Chưa phân nhóm</option>{CATEGORIES.map((category) => <option key={category.code} value={category.code}>{category.label}</option>)}</select></label>
-              <label>Nguyên nhân gốc *<textarea rows={2} disabled={!editable} value={row.cause_statement} onChange={(e) => patchRoot(index, { cause_statement: e.target.value })} /></label>
-              <label className="wide">Căn cứ chứng minh<textarea rows={2} disabled={!editable} value={row.evidence_basis} onChange={(e) => patchRoot(index, { evidence_basis: e.target.value })} placeholder="Timeline, Five Why, Fishbone, hồ sơ, dữ liệu..." /></label>
+              <label>Nguyên nhân gốc *<textarea rows={2} disabled={!editable} value={row.cause_statement} onChange={(e) => patchRoot(index, { cause_statement: e.target.value })} placeholder="Nêu vấn đề hệ thống có thể can thiệp để giảm tái diễn; tránh chỉ ghi tên hoặc lỗi của một cá nhân."/></label>
+              <label className="wide">Căn cứ chứng minh<textarea rows={2} disabled={!editable} value={row.evidence_basis} onChange={(e) => patchRoot(index, { evidence_basis: e.target.value })} placeholder="Nêu căn cứ dẫn đến kết luận nguyên nhân gốc: mốc Timeline, yếu tố Fishbone, Five Why (nếu dùng), HSBA hoặc dữ liệu liên quan." /></label>
               <label className="root-check wide"><input type="checkbox" disabled={!editable} checked={row.action_required} onChange={(e) => patchRoot(index, { action_required: e.target.checked })} /> Cần Action/CAPA để kiểm soát nguyên nhân này</label>
             </div>
             {editable && roots.length > 1 ? <div className="row-actions"><button type="button" className="button tertiary small" onClick={() => setRoots((current) => current.filter((_, i) => i !== index))}>Xóa nguyên nhân</button></div> : null}
