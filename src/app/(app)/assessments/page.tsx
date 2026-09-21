@@ -2,10 +2,11 @@ import { RegistryModulePage } from "@/components/registry-module-page";
 
 export default function AssessmentsPage() {
   return <RegistryModulePage config={{
-    eyebrow: "ĐÁNH GIÁ & TIẾP ĐOÀN",
+    eyebrow: "ĐÁNH GIÁ CHẤT LƯỢNG",
     title: "Tự đánh giá chất lượng",
-    description: "Theo dõi các đợt tự đánh giá, kết quả tiêu chí, tiến độ hoàn thiện và minh chứng theo bộ tiêu chí áp dụng.",
+    description: "Tạo đợt từ bộ tiêu chí đã phát hành, phân công thực hiện, theo dõi tiến độ và chốt kết quả mà không làm mất lịch sử.",
     permissions: ["criteria.view", "criteria.assess", "criteria.review", "criteria.manage"],
     recordTypes: ["ASSESSMENT"],
+    tabs: [{label:"Quản lý bộ tiêu chí",href:"/assessments/catalog"}],
   }} />;
 }
