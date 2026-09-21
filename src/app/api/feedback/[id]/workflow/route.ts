@@ -50,9 +50,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: true, message: `Đã tạo Finding ${code}; phản ánh gốc vẫn được giữ nguyên.` });
   } else if (command === "MARK_RESPONDED") {
     if (!["TRIAGED", "COORDINATING"].includes(oldStatus) || !reason) return NextResponse.json({ error: "Cần hoàn tất xác minh/phối hợp và ghi nội dung phản hồi đã gửi." }, { status: 409 });
-    const { count: evidence } = await admin.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId);
-    if (!evidence) return NextResponse.json({ error: "Cần có minh chứng phản hồi/xác minh trước khi ghi nhận đã phản hồi." }, { status: 409 });
-    next = "RESPONDED"; message = "Đã ghi nhận phản hồi được gửi; luồng Finding vẫn tiếp tục độc lập.";
+    next = "RESPONDED"; message = "Đã ghi nhận phản hồi được gửi; minh chứng chỉ bắt buộc khi quy trình cụ thể yêu cầu. Finding/Action/CAPA liên quan vẫn tiếp tục độc lập.";
   } else if (command === "CLOSE") {
     if (oldStatus !== "RESPONDED" || !reason) return NextResponse.json({ error: "Chỉ đóng sau khi đã phản hồi và có kết luận." }, { status: 409 });
     next = "CLOSED";
