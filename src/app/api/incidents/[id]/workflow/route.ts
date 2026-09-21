@@ -30,7 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (record.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "Hồ sơ sự cố không còn hoạt động." }, { status: 409 });
 
   const admin: any = createAdminClient();
-  const { data: incident, error } = await admin.from("incidents").select("id,workflow_status,investigation_required,rca_required,verified_initial_response").eq("record_id", recordId).maybeSingle();
+  const { data: incident, error } = await admin.from("incidents").select("id,workflow_status,investigation_required,rca_required,serious_event_flag,verified_initial_response").eq("record_id", recordId).maybeSingle();
   if (error || !incident) return NextResponse.json({ error: error?.message || "Không tìm thấy dữ liệu sự cố." }, { status: 404 });
 
   const oldStatus = String(incident.workflow_status || "REPORTED");
@@ -170,11 +170,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const incomplete = (actions || []).filter((x: any) => !["COMPLETED", "CANCELLED", "NOT_APPLICABLE"].includes(String(x.workflow_status))).length;
     const { count } = await admin.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId);
     const { count: capaLinkCount } = await admin.from("record_links").select("id", { count: "exact", head: true }).eq("source_record_id", recordId).eq("relation_type", "GENERATED_CAPA");
-    const gate = incidentReadyToCloseGate({ actionCount: ids.length, incompleteActionCount: incomplete, evidenceCount: count ?? 0, isSerious: !!incident.serious_event_flag, hasCapa: (capaLinkCount ?? 0) > 0 });
+    const noActionRequired = !!body.no_action_required;
+    const noActionReason = String(body.no_action_reason || "").trim();
+    const gate = incidentReadyToCloseGate({ actionCount: ids.length, incompleteActionCount: incomplete, evidenceCount: count ?? 0, isSerious: !!incident.serious_event_flag, hasCapa: (capaLinkCount ?? 0) > 0, noActionRequired, noActionReason });
     if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: 409 });
     newStatus = "AWAITING_CLOSURE";
     const { error: updateError } = await admin.from("incidents").update({ workflow_status: newStatus, updated_at: now }).eq("id", incident.id);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
+    reason = reason || (noActionRequired ? `Không cần Action bổ sung: ${noActionReason}` : null);
     message = "Hồ sơ đã đủ gate và chờ xác nhận đóng.";
   } else if (command === "CLOSE") {
     if (oldStatus !== "AWAITING_CLOSURE") return NextResponse.json({ error: "Sự cố chưa đủ gate để đóng." }, { status: 409 });
