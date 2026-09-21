@@ -69,7 +69,7 @@ export default async function TasksPage(){
     <span className="summary-chip">7 ngày tới: {dueSoon}</span>
     <span className="summary-chip">Đang mở: {open}</span>
   </div>
-  <PersonalReminders initialRows={personalReminders} organizationId={user.organizationId} userId={user.id}/>
+  <PersonalReminders initialRows={personalReminders} organizationId={user.organizationId!} userId={user.id}/>
   <section className="work-section primary">
     <div className="section-head"><div><h2>Việc cần làm trước</h2><p>{secretaryHeadline} Hệ thống đã xếp theo hạn, trạng thái chờ xử lý và mức ưu tiên.</p></div></div>
     <div className="work-list">{secretaryQueue.map(r=><div className={`work-row ${r.is_overdue||r.workflow_status==="RETURNED"?"danger":""}`} key={r.action_id}><div className="work-main"><strong>{r.title}</strong><small>{r.record_code} · {workCue(r)}{r.assignment_target_type==="GROUP"?` · ${assignedGroupMap.get(r.assignee_group_id)||"Nhóm phân công"}`:""}</small></div><div><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></div><div><StatusBadge status={r.is_overdue?"OVERDUE":r.workflow_status}/></div><Link className="button primary small" href={`/tasks/${r.record_id}`}>Làm ngay</Link></div>)}{!secretaryQueue.length?<div className="empty-state">Không có việc khẩn hoặc sát hạn cần xử lý.</div>:null}</div>
