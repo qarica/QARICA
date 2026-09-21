@@ -20,7 +20,7 @@ export default async function IncidentPrintPage({ params }: { params: Promise<{ 
   const supabase = await createClient();
   const { data: record } = await supabase.from("records").select("id,record_code,title,work_year,lifecycle_status,owner_department_id,created_at,updated_at,closed_at").eq("id", recordId).eq("record_type", "INCIDENT").maybeSingle();
   if (!record) notFound();
-  const { data: incident } = await supabase.from("incidents").select("id,occurred_at,detected_at,reported_at,incident_location_department_id,incident_location_text,summary,verified_description,harm_status,serious_event_flag,workflow_status,investigation_required,rca_required,closed_at").eq("record_id", recordId).maybeSingle();
+  const { data: incident } = await supabase.from("incidents").select("id,occurred_at,detected_at,reported_at,incident_location_department_id,incident_location_text,summary,verified_description,verified_initial_response,verified_initial_response_at,harm_status,serious_event_flag,workflow_status,investigation_required,rca_required,closed_at").eq("record_id", recordId).maybeSingle();
   if (!incident) notFound();
 
   const [{ data: report }, { data: investigation }, { data: department }, { data: actions }, { count: evidenceCount }] = await Promise.all([
@@ -77,14 +77,14 @@ export default async function IncidentPrintPage({ params }: { params: Promise<{ 
     <section className="ipr-section"><h2>3. Kết quả xác minh và phân loại của QLCL</h2><div className="ipr-grid">
       <Row label="Mức tổn hại" value={HARM[incident.harm_status] || text(incident.harm_status)}/><Row label="Sự cố nghiêm trọng" value={yesNo(incident.serious_event_flag)}/>
       <Row label="Cần điều tra" value={yesNo(incident.investigation_required)}/><Row label="Cần RCA" value={yesNo(incident.rca_required)}/>
-      <Row label="Mô tả đã xác minh" value={text(incident.verified_description)} wide/>
+      <Row label="Mô tả đã xác minh" value={text(incident.verified_description)} wide/><Row label="Xử trí tức thời sau xác minh" value={text(incident.verified_initial_response || report?.initial_response_description)} wide/>
     </div></section>
 
     <section className="ipr-section"><h2>4. Điều tra / RCA gần nhất</h2><div className="ipr-grid">
       <Row label="Loại điều tra" value={text(investigation?.investigation_type)}/><Row label="Trạng thái điều tra" value={text(investigation?.status)}/>
       <Row label="Bắt đầu" value={investigation?.started_at ? formatDateTime(investigation.started_at) : "—"}/><Row label="Hoàn tất" value={investigation?.completed_at ? formatDateTime(investigation.completed_at) : "—"}/>
       <Row label="RCA yêu cầu" value={yesNo(investigation?.rca_required)}/><Row label="Minh chứng liên kết" value={String(evidenceCount ?? 0)}/>
-      <Row label="Sự kiện đã xác minh" value={text(investigation?.verified_event_summary)} wide/><Row label="Kết luận tổn hại" value={text(investigation?.harm_conclusion)} wide/><Row label="Kết luận điều tra/RCA" value={text(investigation?.conclusion)} wide/>
+      <Row label="Sự kiện đã xác minh" value={text(investigation?.verified_event_summary || incident.verified_description)} wide/><Row label="Kết luận tổn hại" value={text(investigation?.harm_conclusion || (incident.harm_status ? (HARM[incident.harm_status] || incident.harm_status) : null))} wide/><Row label="Kết luận điều tra/RCA" value={text(investigation?.conclusion)} wide/>
     </div></section>
 
     <section className="ipr-section"><h2>5. Hành động khắc phục / phòng ngừa liên kết</h2>{printableActions.length ? <table className="ipr-table"><thead><tr><th>Mã</th><th>Hành động</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th></tr></thead><tbody>{printableActions.map((action:any)=><tr key={action.id}><td>{action.record_code}</td><td>{action.title}</td><td>{text(action.priority)}</td><td>{text(action.due_date)}</td><td>{text(action.workflow_status)}</td></tr>)}</tbody></table> : <div className="ipr-grid"><Row label="Hành động" value="Chưa có Action liên kết" wide/></div>}</section>
