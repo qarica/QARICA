@@ -8,7 +8,8 @@ const numberOrNull=(value:unknown)=>{const raw=String(value??"").trim();if(!raw)
 export async function POST(request:Request,{params}:{params:Promise<{id:string}>}){
   const auth=await requireApiPermission("criteria.manage");if(!auth.ok)return auth.response;
   const {id}=await params;const body=await request.json().catch(()=>({}));const admin=createAdminClient();
-  const title=clean(body.title),code=clean(body.code).toUpperCase()||null,parentId=clean(body.parent_criteria_item_id)||null;\n  const requestedType=clean(body.item_type).toUpperCase(); const itemType=parentId?"SUBITEM":(["CRITERION","GROUP"].includes(requestedType)?requestedType:"CRITERION");
+  const title=clean(body.title),code=clean(body.code).toUpperCase()||null,parentId=clean(body.parent_criteria_item_id)||null;
+  const requestedType=clean(body.item_type).toUpperCase(); const itemType=parentId?"SUBITEM":(["CRITERION","GROUP"].includes(requestedType)?requestedType:"CRITERION");
   if(!title)return NextResponse.json({error:"Tên tiêu chí/tiểu mục là bắt buộc."},{status:400});
   const {data:caller}=await admin.from("profiles").select("organization_id,is_active").eq("user_id",auth.user.id).maybeSingle();
   if(!caller?.organization_id||!caller.is_active)return NextResponse.json({error:"Tài khoản không hợp lệ."},{status:403});
