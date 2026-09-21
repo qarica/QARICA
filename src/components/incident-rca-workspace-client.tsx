@@ -75,7 +75,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
     return { timeline: timelineCount, whys: whyCount, fishbone: fishboneCount, roots: rootCount };
   }, [timeline, whys, fishbone, roots]);
 
-  const ready = counts.timeline >= 1 && counts.whys >= 3 && counts.fishbone >= 1 && counts.roots >= 1;
+  const ready = counts.timeline >= 1 && counts.fishbone >= 1 && counts.roots >= 1 && (counts.whys === 0 || counts.whys >= 3);
 
   useEffect(() => {
     onReadyChange?.(ready);
