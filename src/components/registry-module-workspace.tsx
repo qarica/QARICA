@@ -19,7 +19,6 @@ export function RegistryModuleWorkspace(p:{year:number;rows:Row[];recordType:str
  const initialStatus=searchParams.get("status")||"ALL";const initialQuery=searchParams.get("q")||"";
  const [q,setQ]=useState(initialQuery);const [status,setStatus]=useState(initialStatus);
  function syncUrl(nextQ:string,nextStatus:string){const params=new URLSearchParams(searchParams.toString());if(nextQ.trim())params.set("q",nextQ.trim());else params.delete("q");if(nextStatus!=="ALL")params.set("status",nextStatus);else params.delete("status");const query=params.toString();router.replace(query?`${pathname}?${query}`:pathname,{scroll:false})}
- const isAssessment=p.recordType==="ASSESSMENT";
  const rows=useMemo(()=>{const needle=q.trim().toLowerCase();return p.rows.filter(r=>(!needle||`${r.record_code} ${r.title} ${r.department_name} ${r.owner_name}`.toLowerCase().includes(needle))&&(status==="ALL"||r.lifecycle_status===status))},[p.rows,q,status]);
  function exportCsv(){
   const csv=buildRegistryCsv({recordType:p.recordType,year:p.year,query:q,status,rows});
