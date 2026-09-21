@@ -67,21 +67,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!manage) return NextResponse.json({ error: "Chỉ người quản lý bộ tiêu chí được chốt đối chiếu." }, { status: 403 });
     const reason = text(body.comment);
     if (!reason) return NextResponse.json({ error: "Kết luận đối chiếu là bắt buộc." }, { status: 400 });
-    const [{ data: comparison }, { data: links }, { count: evidence }] = await Promise.all([
-      admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "COMPARED_WITH_SELF").maybeSingle(),
-      admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "GENERATED_FINDING"),
-      admin.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId),
-    ]);
-    const ids = (links ?? []).map((x: any) => x.target_record_id).filter(Boolean);
-    const { data: findings } = ids.length ? await admin.from("findings").select("workflow_status").in("record_id", ids) : { data: [] as any[] };
-    const open = (findings ?? []).filter((x: any) => !["CLOSED", "CANCELLED"].includes(String(x.workflow_status))).length;
-    const gate = externalComparisonCloseGate({ hasComparison: !!comparison, evidenceCount: evidence ?? 0, openFindingCount: open });
-    if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: 409 });
+    const { data: comparison } = await admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "COMPARED_WITH_SELF").maybeSingle();
+    if (!comparison) return NextResponse.json({ error: "Chưa chọn đợt tự đánh giá để đối chiếu." }, { status: 409 });
+    const { count: scores } = await admin.from("external_assessment_scores").select("id", { count: "exact", head: true }).eq("external_assessment_event_id", event.id);
+    if (!scores) return NextResponse.json({ error: "Chưa nhập điểm đánh giá ngoài." }, { status: 409 });
     const { error } = await admin.from("records").update({ lifecycle_status: "CLOSED", closed_at: now, updated_at: now }).eq("id", recordId);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     await admin.from("record_status_history").insert({ record_id: recordId, old_status: record.lifecycle_status, new_status: "CLOSED", changed_by: auth.user.id, reason });
-    await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "external_assessment_events", row_id: event.id, action_type: "EXTERNAL_ASSESSMENT_CLOSE_COMPARISON", old_value: { lifecycle_status: record.lifecycle_status }, new_value: { lifecycle_status: "CLOSED" }, reason, request_meta: { source: "qlcl-ui" } });
-    return NextResponse.json({ ok: true, message: "Đã chốt đối chiếu sau khi hoàn tất Finding và minh chứng." });
+    await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "external_assessment_events", row_id: event.id, action_type: "EXTERNAL_ASSESSMENT_CLOSE_COMPARISON", old_value: { lifecycle_status: record.lifecycle_status }, new_value: { lifecycle_status: "CLOSED", compared_scores: scores }, reason, request_meta: { source: "qlcl-ui" } });
+    return NextResponse.json({ ok: true, message: "Đã chốt kết quả đối chiếu đánh giá ngoài." });
   }
 
   return NextResponse.json({ error: "Thao tác đánh giá ngoài không hợp lệ." }, { status: 400 });
