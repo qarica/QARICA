@@ -5,7 +5,7 @@ import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 
-type EventKind = "ACTION" | "PROGRAM" | "MONITORING" | "REPORT" | "INSPECTION" | "RECURRING" | "PLAN" | "REMINDER";
+type EventKind = "ACTION" | "PROGRAM" | "MONITORING" | "ASSESSMENT" | "REPORT" | "INSPECTION" | "RECURRING" | "PLAN" | "REMINDER";
 type EventTone = "danger" | "warning" | "info" | "success" | "neutral";
 
 type CalendarEvent = {
@@ -100,7 +100,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
   const cycleEnd = `${workYear + 1}-03-31`;
   const supabase = await createClient();
 
-  const [actionsRes, programsRes, monitoringRes, reportingRes, inspectionsRes, recurringRunsRes, recurringTemplatesRes, holidaysRes, remindersRes] = await Promise.all([
+  const [actionsRes, programsRes, monitoringRes, assessmentsRes, reportingRes, inspectionsRes, recurringRunsRes, recurringTemplatesRes, holidaysRes, remindersRes] = await Promise.all([
     supabase
       .from("vw_actions_dashboard")
       .select("action_id,record_id,record_code,title,work_year,workflow_status,priority,due_date,is_overdue,days_to_due")
@@ -114,6 +114,10 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
       .select("id,record_id,work_year,scheduled_date,workflow_status")
       .eq("work_year", workYear)
       .not("scheduled_date", "is", null),
+    supabase
+      .from("assessment_rounds")
+      .select("id,record_id,work_year,start_date,end_date,workflow_status")
+      .eq("work_year", workYear),
     supabase
       .from("reporting_obligations")
       .select("id,record_id,due_date,workflow_status")
@@ -139,6 +143,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
   const linkedRecordIds = Array.from(new Set([
     ...(programsRes.data ?? []).map((row: any) => row.record_id),
     ...(monitoringRes.data ?? []).map((row: any) => row.record_id),
+    ...(assessmentsRes.data ?? []).map((row: any) => row.record_id),
     ...(reportingRes.data ?? []).map((row: any) => row.record_id),
     ...(inspectionsRes.data ?? []).map((row: any) => row.record_id),
   ].filter(Boolean))) as string[];
@@ -218,6 +223,34 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
       kind: "MONITORING",
       tone: overdue ? "danger" : dueToday ? "warning" : ["CONFIRMED", "CLOSED"].includes(round.workflow_status) ? "success" : "info",
     });
+  }
+
+  for (const round of (assessmentsRes.data ?? []) as any[]) {
+    const record = recordMap.get(round.record_id);
+    if (!record || round.workflow_status === "CANCELLED") continue;
+    if (round.start_date) {
+      events.push({
+        id: `assessment-start:${round.id}`,
+        date: round.start_date,
+        title: record.title,
+        subtitle: `${record.record_code} · Bắt đầu tự đánh giá`,
+        href: `/assessments/${round.record_id}`,
+        kind: "ASSESSMENT",
+        tone: round.start_date === today ? "warning" : "info",
+      });
+    }
+    if (round.end_date && round.end_date !== round.start_date) {
+      const closed = ["FINALIZED", "CLOSED", "COMPLETED"].includes(round.workflow_status);
+      events.push({
+        id: `assessment-end:${round.id}`,
+        date: round.end_date,
+        title: record.title,
+        subtitle: `${record.record_code} · Hạn chốt tự đánh giá`,
+        href: `/assessments/${round.record_id}`,
+        kind: "ASSESSMENT",
+        tone: !closed && round.end_date < today ? "danger" : closed ? "success" : "info",
+      });
+    }
   }
 
   for (const report of (reportingRes.data ?? []) as any[]) {
