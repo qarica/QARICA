@@ -12,7 +12,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 
 const HARM_LABEL:Record<string,string>={NO_HARM:"Không tổn hại",NEAR_MISS:"Suýt xảy ra",MILD:"Nhẹ",MODERATE:"Trung bình",SEVERE:"Nặng",DEATH:"Tử vong"};
-function harmTone(v:string){if(["DEATH","SEVERE"].includes(v))return"red" as const;if(v==="MODERATE")return"amber" as const;if(["MILD","NO_HARM"].includes(v))return"blue" as const;return"slate" as const}\nfunction reportDelayHours(occurred?:string|null,reported?:string|null){if(!occurred||!reported)return null;return Math.max(0,(new Date(reported).getTime()-new Date(occurred).getTime())/3600000)}
+function harmTone(v:string){if(["DEATH","SEVERE"].includes(v))return"red" as const;if(v==="MODERATE")return"amber" as const;if(["MILD","NO_HARM"].includes(v))return"blue" as const;return"slate" as const}
+function reportDelayHours(occurred?:string|null,reported?:string|null){if(!occurred||!reported)return null;return Math.max(0,(new Date(reported).getTime()-new Date(occurred).getTime())/3600000)}
 
 export default async function IncidentsPage(){
  const {user}=await requireUserContext();if(!hasAnyPermission(user,["incident.report","incident.view_summary","incident.view_case","incident.triage"]))redirect("/dashboard?forbidden=1");const year=await getWorkYear();const supabase=await createClient();
