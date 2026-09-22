@@ -137,42 +137,34 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     p_responses: rpcResponses,
   });
 
-  if (!txError) {
-    return NextResponse.json({ ok: true, round_id: round.id, record_id: record.id, record_code: record.record_code, status: nextStatus, fail_count: failCount, image_count: uploadedArtifacts.length, checklist_saved_at: savedAtIso, recheck_due_at: failCount > 0 ? recheckDueAtIso : null, transaction: "atomic", result: tx });
-  }
-
-  if (!isMissingRpcFunction(txError, SAVE_RESULTS_RPC)) {
+  if (txError) {
     await cleanupArtifacts(admin, uploadedArtifacts);
+    if (isMissingRpcFunction(txError, SAVE_RESULTS_RPC)) {
+      return NextResponse.json({ error: "Chức năng lưu kết quả giám sát chưa sẵn sàng trên cơ sở dữ liệu." }, { status: 503 });
+    }
     const txMessage = rpcErrorMessage(txError, "Không lưu được kết quả bảng kiểm.");
-    return NextResponse.json({ error: txMessage }, { status: /already exist|must be in_progress|count mismatch|invalid|duplicate/i.test(txMessage) ? 409 : 400 });
+    return NextResponse.json({ error: txMessage }, { status: /already exist|must be in_progress|count mismatch|invalid|duplicate|does not allow|outside current organization/i.test(txMessage) ? 409 : 400 });
   }
 
-  // Backward-compatible fallback before the migration exists.
-  const responsePayload = rpcResponses.map((row) => ({
-    monitoring_round_id: round.id,
-    checklist_item_id: row.item_id,
-    answer_value: row.answer_value,
-    result_status: row.result,
-    score: row.result === "PASS" ? 1 : row.result === "FAIL" ? 0 : null,
-    note: row.note,
-    na_reason: null,
-    answered_by: auth.user.id,
-    answered_at: savedAtIso,
-    followup_disposition: row.result === "FAIL" ? "IMMEDIATE_CORRECTION" : "NONE",
-  }));
-  const { data: savedResponses, error: responseError } = await admin.from("checklist_responses").insert(responsePayload).select("id");
-  if (responseError || !savedResponses || savedResponses.length !== responses.length) {
-    if (savedResponses?.length) await admin.from("checklist_responses").delete().in("id", savedResponses.map((x) => x.id));
+  const result = tx && typeof tx === "object" ? tx as Record<string, unknown> : {};
+  const status = typeof result.status === "string" ? result.status : null;
+  const persistedFailCount = typeof result.fail_count === "number" ? result.fail_count : failCount;
+  if (!status || !["IN_PROGRESS", "AWAITING_CONFIRMATION"].includes(status)) {
     await cleanupArtifacts(admin, uploadedArtifacts);
-    return NextResponse.json({ error: responseError?.message || "Không lưu được kết quả bảng kiểm." }, { status: 400 });
+    return NextResponse.json({ error: "Trạng thái đợt giám sát sau khi lưu không hợp lệ." }, { status: 409 });
   }
 
-  const { data: updatedRound, error: roundUpdateError } = await admin.from("monitoring_rounds").update({ target_area: targetArea, completed_at: failCount > 0 ? null : savedAtIso, workflow_status: nextStatus }).eq("id", round.id).eq("workflow_status", "IN_PROGRESS").select("id,workflow_status").maybeSingle();
-  if (roundUpdateError || !updatedRound) {
-    await admin.from("checklist_responses").delete().in("id", savedResponses.map((x) => x.id));
-    await cleanupArtifacts(admin, uploadedArtifacts);
-    return NextResponse.json({ error: roundUpdateError?.message || "Không thể cập nhật trạng thái đợt giám sát." }, { status: 400 });
-  }
-
-  return NextResponse.json({ ok: true, round_id: round.id, record_id: record.id, record_code: record.record_code, status: updatedRound.workflow_status, fail_count: failCount, image_count: uploadedArtifacts.length, checklist_saved_at: savedAtIso, recheck_due_at: failCount > 0 ? recheckDueAtIso : null, transaction: "legacy-fallback" });
+  return NextResponse.json({
+    ok: true,
+    round_id: round.id,
+    record_id: record.id,
+    record_code: record.record_code,
+    status,
+    fail_count: persistedFailCount,
+    image_count: uploadedArtifacts.length,
+    checklist_saved_at: savedAtIso,
+    recheck_due_at: persistedFailCount > 0 ? recheckDueAtIso : null,
+    transaction: "atomic",
+    result: tx,
+  });
 }
