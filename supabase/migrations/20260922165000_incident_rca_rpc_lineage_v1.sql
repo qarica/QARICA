@@ -44,7 +44,7 @@ begin
       jsonb_build_object('workflow_status',v_incident.workflow_status),jsonb_build_object('workflow_status','CLOSED','trace_state',v_trace),
       trim(p_reason),jsonb_build_object('source','qlcl-ui','sensitive',true,'transaction','qlcl_close_incident_v1'));
   return jsonb_build_object('ok',true,'status','CLOSED','action_count',v_action_count,'evidence_count',v_evidence,'trace_state',v_trace);
-end;$function$
+end;$function$;
 
 CREATE OR REPLACE FUNCTION public.qlcl_complete_incident_investigation_v1(p_incident_record_id uuid, p_actor_user_id uuid, p_verified_event_summary text, p_harm_conclusion text, p_conclusion text, p_reason text DEFAULT NULL::text)
  RETURNS jsonb
@@ -97,7 +97,7 @@ begin
   return jsonb_build_object('ok',true,'status','ACTION_FOLLOW_UP','investigation_id',v_inv.id,'rca_required',coalesce(v_incident.rca_required,false),
     'contributing_factor_count',v_factor_count,'rca_timeline_count',v_timeline_count,'rca_five_why_count',v_why_count,
     'rca_fishbone_count',v_fishbone_count,'rca_root_cause_count',v_root_count);
-end;$function$
+end;$function$;
 
 CREATE OR REPLACE FUNCTION public.qlcl_guard_incident_ready_to_close_v1()
  RETURNS trigger
@@ -143,7 +143,7 @@ begin
   end if;
   return new;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.qlcl_incident_action_trace_state_v1(p_incident_record_id uuid)
  RETURNS jsonb
@@ -247,7 +247,7 @@ begin
     'ineffective_capa_count',v_ineffective_capa_count
   );
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.qlcl_save_incident_contributing_factors_v1(p_incident_record_id uuid, p_actor_user_id uuid, p_factor_codes text[])
  RETURNS jsonb
@@ -326,7 +326,7 @@ begin
 
   return jsonb_build_object('ok', true, 'factors', v_new);
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.qlcl_save_incident_lesson_v1(p_incident_record_id uuid, p_actor_user_id uuid, p_payload jsonb, p_publish boolean DEFAULT false)
  RETURNS jsonb
@@ -449,7 +449,7 @@ begin
     'deidentified_confirmed',v_lesson.deidentified_confirmed
   );
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.qlcl_save_incident_rca_structure_v1(p_incident_record_id uuid, p_actor_user_id uuid, p_timeline jsonb DEFAULT '[]'::jsonb, p_five_whys jsonb DEFAULT '[]'::jsonb, p_fishbone jsonb DEFAULT '[]'::jsonb, p_root_causes jsonb DEFAULT '[]'::jsonb)
  RETURNS jsonb
@@ -556,7 +556,7 @@ begin
     'ready', (v_timeline_count >= 1 and v_why_count >= 3 and v_fishbone_count >= 1 and v_root_count >= 1)
   );
 end;
-$function$
+$function$;
 
 revoke execute on function public.qlcl_close_incident_v1(uuid, uuid, text) from public, anon, authenticated;
 grant execute on function public.qlcl_close_incident_v1(uuid, uuid, text) to postgres, service_role;
