@@ -1,4 +1,4 @@
-import { RegistryModulePage } from "@/components/registry-module-page";
+import Link from "next/link";\nimport { RegistryModulePage } from "@/components/registry-module-page";
 
 export default function IndicatorsPage() {
   return (
