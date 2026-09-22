@@ -1,25 +1,164 @@
-import {NextResponse} from "next/server";import {createAdminClient} from "@/lib/supabase/admin";import {createClient} from "@/lib/supabase/server";
-export async function POST(request:Request,{params}:{params:Promise<{id:string}>}){const s=await createClient();const{data:auth}=await s.auth.getUser();if(!auth.user)return NextResponse.json({error:"Chưa đăng nhập."},{status:401});const[{data:manage},{data:review}]=await Promise.all([s.rpc("has_permission",{p_permission_code:"criteria.manage"}),s.rpc("has_permission",{p_permission_code:"criteria.review"})]);if(!manage&&!review)return NextResponse.json({error:"Bạn chưa có quyền xử lý đợt tự đánh giá."},{status:403});const{id:recordId}=await params,b:any=await request.json().catch(()=>({})),cmd=String(b.action||"").toUpperCase();const a:any=createAdminClient();const[{data:caller},{data:record}]=await Promise.all([a.from("profiles").select("organization_id,is_active").eq("user_id",auth.user.id).maybeSingle(),a.from("records").select("id,organization_id,lifecycle_status").eq("id",recordId).eq("record_type","ASSESSMENT").maybeSingle()]);if(!caller?.is_active||!caller.organization_id||!record||record.organization_id!==caller.organization_id)return NextResponse.json({error:"Không tìm thấy đợt tự đánh giá trong phạm vi đơn vị hiện tại."},{status:404});const{data:round}=await a.from("assessment_rounds").select("id,workflow_status,criteria_version_id,start_date,work_year").eq("record_id",recordId).maybeSingle();if(!round)return NextResponse.json({error:"Không tìm thấy dữ liệu đợt đánh giá."},{status:404});const old=String(round.workflow_status||"DRAFT"),now=new Date().toISOString(),reason=String(b.comment||"").trim()||null;let next=old,message="Đã cập nhật đợt đánh giá.";const[{count:scope},{data:assessments},{count:evidence}]=await Promise.all([a.from("assessment_round_criteria").select("id",{count:"exact",head:true}).eq("assessment_round_id",round.id),a.from("criterion_assessments").select("workflow_status").eq("assessment_round_id",round.id),a.from("evidence_links").select("id",{count:"exact",head:true}).eq("record_id",recordId)]);
-if(cmd==="START"){if(old!=="DRAFT")return NextResponse.json({error:"Chỉ đợt nháp mới được bắt đầu."},{status:409});if(!scope)return NextResponse.json({error:"Đợt đánh giá chưa có tiêu chí trong phạm vi."},{status:409});
-const {data:scopeRows}=await a.from("assessment_round_criteria").select("id,criteria_item_id,criterion_id,applicability_status,not_applicable_reason,lead_department_id").eq("assessment_round_id",round.id);
-const applicable=(scopeRows||[]).filter((x:any)=>String(x.applicability_status||"APPLICABLE")==="APPLICABLE");
-const invalidNa=(scopeRows||[]).filter((x:any)=>String(x.applicability_status)==="NOT_APPLICABLE"&&!String(x.not_applicable_reason||"").trim());
-if(invalidNa.length)return NextResponse.json({error:`${invalidNa.length} tiêu chí Không áp dụng chưa có lý do.`,gate:{scope:scope||0,applicable:applicable.length,notApplicable:(scope||0)-applicable.length,invalidNa:invalidNa.length}},{status:409});
-const missingSnapshot=applicable.filter((x:any)=>!x.lead_department_id);
-if(missingSnapshot.length&&round.criteria_version_id){
- const effectiveDate=round.start_date||`${round.work_year}-01-01`;
- const ids=missingSnapshot.map((x:any)=>x.criteria_item_id||x.criterion_id).filter(Boolean);
- const {data:maps}=await a.from("criterion_responsibilities").select("id,criteria_item_id,lead_department_id,support_department_ids,effective_from,effective_to").eq("criteria_version_id",round.criteria_version_id).in("criteria_item_id",ids).or(`effective_from.is.null,effective_from.lte.${effectiveDate}`).or(`effective_to.is.null,effective_to.gte.${effectiveDate}`);
- const byItem=new Map((maps||[]).map((m:any)=>[m.criteria_item_id,m]));
- for(const row of missingSnapshot){const id=row.criteria_item_id||row.criterion_id,m:any=byItem.get(id);if(m?.lead_department_id)await a.from("assessment_round_criteria").update({lead_department_id:m.lead_department_id,support_department_ids:m.support_department_ids||[],responsibility_source_id:m.id,responsibility_snapshot_at:now}).eq("id",row.id);}
+import {NextResponse} from "next/server";
+import {createAdminClient} from "@/lib/supabase/admin";
+import {createClient} from "@/lib/supabase/server";
+
+export async function POST(request:Request,{params}:{params:Promise<{id:string}>}){
+  const s=await createClient();
+  const{data:auth}=await s.auth.getUser();
+  if(!auth.user)return NextResponse.json({error:"Chưa đăng nhập."},{status:401});
+
+  const[{data:manage},{data:review}]=await Promise.all([
+    s.rpc("has_permission",{p_permission_code:"criteria.manage"}),
+    s.rpc("has_permission",{p_permission_code:"criteria.review"})
+  ]);
+  if(!manage&&!review)return NextResponse.json({error:"Bạn chưa có quyền xử lý đợt tự đánh giá."},{status:403});
+
+  const{id:recordId}=await params;
+  const b:any=await request.json().catch(()=>({}));
+  const cmd=String(b.action||"").toUpperCase();
+  const a:any=createAdminClient();
+
+  const[{data:caller},{data:record}]=await Promise.all([
+    a.from("profiles").select("organization_id,is_active").eq("user_id",auth.user.id).maybeSingle(),
+    a.from("records").select("id,organization_id,lifecycle_status").eq("id",recordId).eq("record_type","ASSESSMENT").maybeSingle()
+  ]);
+  if(!caller?.is_active||!caller.organization_id||!record||record.organization_id!==caller.organization_id){
+    return NextResponse.json({error:"Không tìm thấy đợt tự đánh giá trong phạm vi đơn vị hiện tại."},{status:404});
+  }
+  if(record.lifecycle_status!=="ACTIVE"){
+    return NextResponse.json({error:"Đợt tự đánh giá đã đóng hoặc không còn ở trạng thái hoạt động."},{status:409});
+  }
+
+  const{data:round}=await a.from("assessment_rounds")
+    .select("id,workflow_status,criteria_version_id,start_date,work_year")
+    .eq("record_id",recordId).maybeSingle();
+  if(!round)return NextResponse.json({error:"Không tìm thấy dữ liệu đợt đánh giá."},{status:404});
+
+  const old=String(round.workflow_status||"DRAFT");
+  const now=new Date().toISOString();
+  const reason=String(b.comment||"").trim()||null;
+  let next=old;
+  let message="Đã cập nhật đợt đánh giá.";
+
+  const{count:scope}=await a.from("assessment_round_criteria")
+    .select("id",{count:"exact",head:true})
+    .eq("assessment_round_id",round.id);
+
+  if(cmd==="START"){
+    if(old!=="DRAFT")return NextResponse.json({error:"Chỉ đợt nháp mới được bắt đầu."},{status:409});
+    if(!scope)return NextResponse.json({error:"Đợt đánh giá chưa có tiêu chí trong phạm vi."},{status:409});
+
+    const {data:scopeRows}=await a.from("assessment_round_criteria")
+      .select("id,criteria_item_id,criterion_id,applicability_status,not_applicable_reason,lead_department_id")
+      .eq("assessment_round_id",round.id);
+    const applicable=(scopeRows||[]).filter((x:any)=>String(x.applicability_status||"APPLICABLE")==="APPLICABLE");
+    const invalidNa=(scopeRows||[]).filter((x:any)=>String(x.applicability_status)==="NOT_APPLICABLE"&&!String(x.not_applicable_reason||"").trim());
+    if(invalidNa.length){
+      return NextResponse.json({
+        error:`${invalidNa.length} tiêu chí Không áp dụng chưa có lý do.`,
+        gate:{scope:scope||0,applicable:applicable.length,notApplicable:(scope||0)-applicable.length,invalidNa:invalidNa.length}
+      },{status:409});
+    }
+
+    const missingSnapshot=applicable.filter((x:any)=>!x.lead_department_id);
+    if(missingSnapshot.length&&round.criteria_version_id){
+      const effectiveDate=round.start_date||`${round.work_year}-01-01`;
+      const ids=missingSnapshot.map((x:any)=>x.criteria_item_id||x.criterion_id).filter(Boolean);
+      const {data:maps}=await a.from("criterion_responsibilities")
+        .select("id,criteria_item_id,lead_department_id,support_department_ids,effective_from,effective_to")
+        .eq("organization_id",caller.organization_id)
+        .eq("criteria_version_id",round.criteria_version_id)
+        .in("criteria_item_id",ids)
+        .or(`effective_from.is.null,effective_from.lte.${effectiveDate}`)
+        .or(`effective_to.is.null,effective_to.gte.${effectiveDate}`);
+      const byItem=new Map((maps||[]).map((m:any)=>[m.criteria_item_id,m]));
+      for(const row of missingSnapshot){
+        const id=row.criteria_item_id||row.criterion_id;
+        const m:any=byItem.get(id);
+        if(m?.lead_department_id){
+          await a.from("assessment_round_criteria").update({
+            lead_department_id:m.lead_department_id,
+            support_department_ids:m.support_department_ids||[],
+            responsibility_source_id:m.id,
+            responsibility_snapshot_at:now
+          }).eq("id",row.id);
+        }
+      }
+    }
+
+    const {data:checkedScope}=await a.from("assessment_round_criteria")
+      .select("id,criteria_item_id,criterion_id,applicability_status,lead_department_id")
+      .eq("assessment_round_id",round.id);
+    const missingLead=(checkedScope||[]).filter((x:any)=>String(x.applicability_status||"APPLICABLE")==="APPLICABLE"&&!x.lead_department_id);
+    if(missingLead.length){
+      return NextResponse.json({
+        error:`${missingLead.length} tiêu chí áp dụng chưa có đơn vị phụ trách.`,
+        gate:{scope:scope||0,applicable:applicable.length,notApplicable:(scope||0)-applicable.length,missingLead:missingLead.length}
+      },{status:409});
+    }
+    next="IN_PROGRESS";
+    message="Đã mở đợt tự đánh giá.";
+  }else if(cmd==="SUBMIT_REVIEW"){
+    if(old!=="IN_PROGRESS")return NextResponse.json({error:"Đợt chưa ở giai đoạn đơn vị đánh giá."},{status:409});
+
+    const {data:requiredRows}=await a.from("assessment_round_criteria")
+      .select("criteria_item_id,criterion_id,applicability_status")
+      .eq("assessment_round_id",round.id);
+    const requiredIds=new Set((requiredRows||[])
+      .filter((x:any)=>String(x.applicability_status||"APPLICABLE")==="APPLICABLE")
+      .map((x:any)=>x.criteria_item_id||x.criterion_id)
+      .filter(Boolean));
+    const {data:doneRows}=await a.from("criterion_assessments")
+      .select("criteria_item_id,workflow_status")
+      .eq("assessment_round_id",round.id);
+    const doneIds=new Set((doneRows||[])
+      .filter((x:any)=>["SUBMITTED","REVIEWED","FINALIZED","COMPLETED","APPROVED"].includes(String(x.workflow_status)))
+      .map((x:any)=>x.criteria_item_id)
+      .filter((id:any)=>requiredIds.has(id)));
+    if(doneIds.size<requiredIds.size){
+      return NextResponse.json({error:`Mới có ${doneIds.size}/${requiredIds.size} tiêu chí áp dụng được gửi; chưa đủ để rà soát.`},{status:409});
+    }
+    next="REVIEWING";
+    message="Đã chuyển đợt sang kiểm tra chéo/rà soát.";
+  }else if(cmd==="FINALIZE"){
+    if(!manage||old!=="REVIEWING"){
+      return NextResponse.json({error:"Đợt chưa đủ điều kiện hoặc bạn không có quyền chốt."},{status:409});
+    }
+    if(!reason)return NextResponse.json({error:"Kết luận chốt đợt là bắt buộc."},{status:400});
+
+    const{data:finalized,error:finalizeError}=await a.rpc("qlcl_finalize_assessment_round_v1",{
+      p_round_id:round.id,
+      p_record_id:recordId,
+      p_organization_id:caller.organization_id,
+      p_actor_user_id:auth.user.id,
+      p_reason:reason
+    });
+    if(finalizeError)return NextResponse.json({error:finalizeError.message},{status:409});
+    return NextResponse.json({
+      ok:true,
+      status:"FINALIZED",
+      message:"Đã chốt đợt tự đánh giá; lịch sử điểm được giữ nguyên.",
+      gate:finalized||null
+    });
+  }else{
+    return NextResponse.json({error:"Thao tác tự đánh giá không hợp lệ."},{status:400});
+  }
+
+  const{error}=await a.from("assessment_rounds")
+    .update({workflow_status:next,updated_at:now})
+    .eq("id",round.id);
+  if(error)return NextResponse.json({error:error.message},{status:400});
+
+  await a.from("audit_logs").insert({
+    actor_user_id:auth.user.id,
+    record_id:recordId,
+    table_name:"assessment_rounds",
+    row_id:round.id,
+    action_type:`ASSESSMENT_${cmd}`,
+    old_value:{workflow_status:old},
+    new_value:{workflow_status:next},
+    reason,
+    request_meta:{source:"qlcl-ui"}
+  });
+  return NextResponse.json({ok:true,status:next,message});
 }
-const {data:checkedScope}=await a.from("assessment_round_criteria").select("id,criteria_item_id,criterion_id,applicability_status,lead_department_id").eq("assessment_round_id",round.id);
-const missingLead=(checkedScope||[]).filter((x:any)=>String(x.applicability_status||"APPLICABLE")==="APPLICABLE"&&!x.lead_department_id);
-if(missingLead.length)return NextResponse.json({error:`${missingLead.length} tiêu chí áp dụng chưa có đơn vị phụ trách.`,gate:{scope:scope||0,applicable:applicable.length,notApplicable:(scope||0)-applicable.length,missingLead:missingLead.length}},{status:409});
-next="IN_PROGRESS";message="Đã mở đợt tự đánh giá.";}
-else if(cmd==="SUBMIT_REVIEW"){if(old!=="IN_PROGRESS")return NextResponse.json({error:"Đợt chưa ở giai đoạn đơn vị đánh giá."},{status:409});const {data:requiredRows}=await a.from("assessment_round_criteria").select("criteria_item_id,criterion_id,applicability_status").eq("assessment_round_id",round.id);
-const requiredIds=new Set((requiredRows||[]).filter((x:any)=>String(x.applicability_status||"APPLICABLE")==="APPLICABLE").map((x:any)=>x.criteria_item_id||x.criterion_id).filter(Boolean));
-const {data:doneRows}=await a.from("criterion_assessments").select("criteria_item_id,workflow_status").eq("assessment_round_id",round.id);
-const doneIds=new Set((doneRows||[]).filter((x:any)=>["SUBMITTED","REVIEWED","FINALIZED","COMPLETED","APPROVED"].includes(String(x.workflow_status))).map((x:any)=>x.criteria_item_id).filter((id:any)=>requiredIds.has(id)));
-if(doneIds.size<requiredIds.size)return NextResponse.json({error:`Mới có ${doneIds.size}/${requiredIds.size} tiêu chí áp dụng được gửi; chưa đủ để rà soát.`},{status:409});next="REVIEWING";message="Đã chuyển đợt sang kiểm tra chéo/rà soát."}
-else if(cmd==="FINALIZE"){if(!manage||old!=="REVIEWING")return NextResponse.json({error:"Đợt chưa đủ điều kiện hoặc bạn không có quyền chốt."},{status:409});if(!reason)return NextResponse.json({error:"Kết luận chốt đợt là bắt buộc."},{status:400});const {data:requiredRows}=await a.from("assessment_round_criteria").select("criteria_item_id,criterion_id,applicability_status").eq("assessment_round_id",round.id);const requiredIds=new Set((requiredRows||[]).filter((x:any)=>String(x.applicability_status||"APPLICABLE")==="APPLICABLE").map((x:any)=>x.criteria_item_id||x.criterion_id).filter(Boolean));const {data:finalRows}=await a.from("criterion_assessments").select("criteria_item_id,workflow_status").eq("assessment_round_id",round.id);const finalIds=new Set((finalRows||[]).filter((x:any)=>["REVIEWED","FINALIZED","COMPLETED","APPROVED"].includes(String(x.workflow_status))).map((x:any)=>x.criteria_item_id).filter((id:any)=>requiredIds.has(id)));if(finalIds.size<requiredIds.size)return NextResponse.json({error:`Mới có ${finalIds.size}/${requiredIds.size} tiêu chí áp dụng được rà soát; chưa đủ để chốt đợt.`},{status:409});next="FINALIZED";await a.from("criterion_assessments").update({workflow_status:"FINALIZED",updated_at:now}).eq("assessment_round_id",round.id).in("criteria_item_id",Array.from(requiredIds));await a.from("records").update({lifecycle_status:"CLOSED",closed_at:now,updated_at:now}).eq("id",recordId).eq("organization_id",caller.organization_id);await a.from("record_status_history").insert({record_id:recordId,old_status:record.lifecycle_status,new_status:"CLOSED",changed_by:auth.user.id,reason});message="Đã chốt đợt tự đánh giá; lịch sử điểm được giữ nguyên."}else return NextResponse.json({error:"Thao tác tự đánh giá không hợp lệ."},{status:400});const{error}=await a.from("assessment_rounds").update({workflow_status:next,updated_at:now}).eq("id",round.id);if(error)return NextResponse.json({error:error.message},{status:400});await a.from("audit_logs").insert({actor_user_id:auth.user.id,record_id:recordId,table_name:"assessment_rounds",row_id:round.id,action_type:`ASSESSMENT_${cmd}`,old_value:{workflow_status:old},new_value:{workflow_status:next},reason,request_meta:{source:"qlcl-ui"}});return NextResponse.json({ok:true,status:next,message})}
