@@ -95,7 +95,7 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
   const phaseLabel = scheduled ? "Cần kiểm" : activeScoring ? "Đang kiểm" : waitingRecheck ? "Chờ kiểm lại" : round.workflow_status === "AWAITING_CONFIRMATION" ? "Chờ QLCL xác nhận" : round.workflow_status === "CONFIRMED" ? "Đã xác nhận" : round.workflow_status === "CLOSED" ? "Đã đóng" : round.workflow_status === "CANCELLED" ? "Đã hủy" : round.workflow_status;
   const phaseTone = scheduled ? "warning" : activeScoring ? "info" : waitingRecheck ? "danger" : round.workflow_status === "AWAITING_CONFIRMATION" ? "warning" : isConfirmed ? "success" : "muted";
 
-  const recheckRows = rows.filter((x: any) => x.response?.result_status === "FAIL").map((x: any) => ({
+  const recheckRows = rows.filter((x: any) => x.response?.result_status === "FAIL" && x.response?.answer_value?.followup?.status === "PENDING_RECHECK").map((x: any) => ({
     responseId: x.response.id,
     itemContent: x.item.content,
     sectionTitle: x.section?.title || "—",
