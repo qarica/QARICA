@@ -62,7 +62,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const description = String(body.verified_description || "").trim();
     const harm = String(body.harm_status || "").toUpperCase();
     if (!description || !HARM.has(harm)) return NextResponse.json({ error: "Cần mô tả đã xác minh và mức tổn hại hợp lệ." }, { status: 400 });
-    const serious = !!body.serious_event_flag;
+    const harmRequiresSerious = harm === "SEVERE" || harm === "DEATH";
+    const serious = !!body.serious_event_flag || harmRequiresSerious;
     const investigate = !!body.investigation_required || serious;
     const rca = !!body.rca_required || serious;
     const verifiedInitialResponse = String(body.verified_initial_response || "").trim();
