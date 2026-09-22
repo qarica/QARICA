@@ -43,7 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: record } = await admin.from("records").select("organization_id,owner_department_id").eq("id", round.record_id).maybeSingle();
   if (!record || record.organization_id !== caller.organization_id) return NextResponse.json({ error: "Đợt giám sát không thuộc bệnh viện hiện tại." }, { status: 403 });
-  const { data: failResponses, error: failError } = await admin.from("checklist_responses").select("id,checklist_item_id,answer_value,result_status").eq("monitoring_round_id", roundId).eq("result_status", "FAIL");
+  const { data: failResponses, error: failError } = await admin.from("checklist_responses").select("id,checklist_item_id,answer_value,result_status").eq("monitoring_round_id", roundId).eq("result_status", "FAIL").contains("answer_value", { followup: { status: "PENDING_RECHECK" } });
   if (failError) return NextResponse.json({ error: failError.message }, { status: 400 });
   if (!failResponses?.length) return NextResponse.json({ error: "Đợt giám sát không có nội dung Không đạt cần kiểm tra lại." }, { status: 409 });
   const failIds = new Set(failResponses.map((x) => x.id));
@@ -93,47 +93,34 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     p_rechecked_at: nowIso,
     p_rows: rpcRows,
   });
-  if (!txError) return NextResponse.json({ ok: true, status: "AWAITING_CONFIRMATION", rechecked_at: nowIso, image_count: uploadedArtifacts.length, transaction: "atomic", result: tx });
 
-  if (!isMissingRpcFunction(txError, RECHECK_RPC)) {
+  if (txError) {
     await cleanupArtifacts(admin, uploadedArtifacts);
+    if (isMissingRpcFunction(txError, RECHECK_RPC)) {
+      return NextResponse.json({ error: "Chức năng kiểm tra lại chưa sẵn sàng trên cơ sở dữ liệu." }, { status: 503 });
+    }
     const txMessage = rpcErrorMessage(txError, "Không thể hoàn tất kiểm tra lại.");
-    return NextResponse.json({ error: txMessage }, { status: /must be in_progress|count mismatch|duplicate|invalid|required/i.test(txMessage) ? 409 : 400 });
+    return NextResponse.json({ error: txMessage }, { status: /must be in_progress|count mismatch|duplicate|invalid|required|already completed/i.test(txMessage) ? 409 : 400 });
   }
 
-  // Backward-compatible fallback with explicit compensation if any row fails.
-  const snapshots = new Map(failResponses.map((x) => [x.id, x.answer_value]));
-  const insertedCorrections: string[] = [];
-  const touchedResponses: string[] = [];
-  for (const row of rpcRows) {
-    const original = failResponses.find((x) => x.id === row.response_id)!;
-    const answerValue = typeof original.answer_value === "object" && original.answer_value !== null ? original.answer_value as Record<string, any> : {};
-    const followup = typeof answerValue.followup === "object" && answerValue.followup !== null ? answerValue.followup as Record<string, any> : {};
-    const { error: updateError } = await admin.from("checklist_responses").update({ answer_value: { ...answerValue, followup: { ...followup, status: "RECHECKED", rechecked_at: nowIso }, correction: row.correction } }).eq("id", row.response_id);
-    if (updateError) {
-      for (const responseId of touchedResponses) await admin.from("checklist_responses").update({ answer_value: snapshots.get(responseId) }).eq("id", responseId);
-      if (insertedCorrections.length) await admin.from("response_corrections").delete().in("id", insertedCorrections);
-      await cleanupArtifacts(admin, uploadedArtifacts);
-      return NextResponse.json({ error: updateError.message }, { status: 400 });
-    }
-    touchedResponses.push(row.response_id);
-    const { data: correctionRow, error: correctionError } = await admin.from("response_corrections").insert({ response_id: row.response_id, correction_description: row.description, corrected_by: auth.user.id, corrected_at: nowIso, verified_by: auth.user.id, verified_at: nowIso, result: row.result }).select("id").single();
-    if (correctionError || !correctionRow) {
-      for (const responseId of touchedResponses) await admin.from("checklist_responses").update({ answer_value: snapshots.get(responseId) }).eq("id", responseId);
-      if (insertedCorrections.length) await admin.from("response_corrections").delete().in("id", insertedCorrections);
-      await cleanupArtifacts(admin, uploadedArtifacts);
-      return NextResponse.json({ error: correctionError?.message || "Không lưu được kết quả kiểm tra lại." }, { status: 400 });
-    }
-    insertedCorrections.push(correctionRow.id);
-  }
+  const result = tx && typeof tx === "object" ? tx as Record<string, unknown> : {};
+  const status = typeof result.status === "string" ? result.status : null;
+  const stillFailCount = typeof result.still_fail_count === "number"
+    ? result.still_fail_count
+    : rows.filter((row) => row.result === "FAIL").length;
 
-  const { data: updated, error: roundError } = await admin.from("monitoring_rounds").update({ workflow_status: "AWAITING_CONFIRMATION", completed_at: nowIso }).eq("id", roundId).eq("workflow_status", "IN_PROGRESS").select("id,workflow_status").maybeSingle();
-  if (roundError || !updated) {
-    for (const responseId of touchedResponses) await admin.from("checklist_responses").update({ answer_value: snapshots.get(responseId) }).eq("id", responseId);
-    if (insertedCorrections.length) await admin.from("response_corrections").delete().in("id", insertedCorrections);
+  if (!status || !["IN_PROGRESS", "AWAITING_CONFIRMATION"].includes(status)) {
     await cleanupArtifacts(admin, uploadedArtifacts);
-    return NextResponse.json({ error: roundError?.message || "Không thể hoàn tất bước kiểm tra lại." }, { status: 400 });
+    return NextResponse.json({ error: "Trạng thái sau kiểm tra lại không hợp lệ." }, { status: 409 });
   }
 
-  return NextResponse.json({ ok: true, status: updated.workflow_status, rechecked_at: nowIso, image_count: uploadedArtifacts.length, transaction: "legacy-fallback" });
+  return NextResponse.json({
+    ok: true,
+    status,
+    still_fail_count: stillFailCount,
+    rechecked_at: nowIso,
+    image_count: uploadedArtifacts.length,
+    transaction: "atomic",
+    result: tx,
+  });
 }
