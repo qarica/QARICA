@@ -1,35 +1,86 @@
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const clean=(value:unknown)=>String(value??"").trim();
-const DIRECTIONS=new Set(["HIGHER_IS_BETTER","LOWER_IS_BETTER","TARGET_RANGE","NEUTRAL"]);
-const CALC_TYPES=new Set(["RAW","PERCENTAGE","RATIO","RATE","AVERAGE","COUNT"]);
-const FREQUENCIES=new Set(["DAILY","WEEKLY","MONTHLY","QUARTERLY","SEMIANNUAL","ANNUAL"]);
+const CREATE_RPC = "qlcl_create_indicator_definition_v1";
+const clean = (value: unknown) => String(value ?? "").trim();
+const DIRECTIONS = new Set(["HIGHER_IS_BETTER", "LOWER_IS_BETTER", "TARGET_RANGE", "NEUTRAL"]);
+const CALC_TYPES = new Set(["RAW", "PERCENTAGE", "RATIO", "RATE", "AVERAGE", "COUNT"]);
+const FREQUENCIES = new Set(["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"]);
 
-export async function POST(request:Request){
- const auth=await requireApiPermission("indicators.manage");if(!auth.ok)return auth.response;
- const body=await request.json().catch(()=>({}));const admin=createAdminClient();
- const name=clean(body.name),purpose=clean(body.purpose)||null,qualityDimension=clean(body.quality_dimension)||null;
- const calculationType=clean(body.calculation_type||"RAW").toUpperCase(),direction=clean(body.desired_direction||"NEUTRAL").toUpperCase(),frequency=clean(body.frequency||"MONTHLY").toUpperCase(),unit=clean(body.unit)||null;
- let code=clean(body.code).toUpperCase();
- if(!name)return NextResponse.json({error:"Tên chỉ số là bắt buộc."},{status:400});
- if(!CALC_TYPES.has(calculationType))return NextResponse.json({error:"Loại tính chỉ số không hợp lệ."},{status:400});
- if(!DIRECTIONS.has(direction))return NextResponse.json({error:"Chiều mong muốn không hợp lệ."},{status:400});
- if(!FREQUENCIES.has(frequency))return NextResponse.json({error:"Tần suất không hợp lệ."},{status:400});
- const {data:caller}=await admin.from("profiles").select("organization_id,is_active").eq("user_id",auth.user.id).maybeSingle();
- if(!caller?.organization_id||!caller.is_active)return NextResponse.json({error:"Tài khoản không hợp lệ hoặc chưa gắn bệnh viện."},{status:403});
- if(!code){
-   const {data:generated,error:codeError}=await admin.rpc("qlcl_next_master_code_v1",{p_org:caller.organization_id,p_kind:"INDICATOR",p_work_year:new Date().getFullYear()});
-   if(codeError||!generated)return NextResponse.json({error:codeError?.message||"Không sinh được mã chỉ số."},{status:400});
-   code=String(generated);
- }
- const {data:dup}=await admin.from("indicator_definitions").select("id").eq("organization_id",caller.organization_id).eq("code",code).maybeSingle();
- if(dup)return NextResponse.json({error:"Mã chỉ số đã tồn tại."},{status:409});
- const {data:def,error:defError}=await admin.from("indicator_definitions").insert({organization_id:caller.organization_id,code,name,purpose,quality_dimension:qualityDimension,is_active:true,updated_at:new Date().toISOString()}).select("id,code,name").single();
- if(defError||!def)return NextResponse.json({error:defError?.message||"Không tạo được chỉ số."},{status:400});
- const multiplier=body.multiplier===null||body.multiplier===undefined||String(body.multiplier).trim()===""?null:Number(body.multiplier);
- const {data:version,error:versionError}=await admin.from("indicator_definition_versions").insert({indicator_definition_id:def.id,version_no:1,status:"DRAFT",calculation_type:calculationType,desired_direction:direction,frequency,unit,multiplier:Number.isFinite(multiplier as number)?multiplier:null,effective_from:clean(body.effective_from)||null}).select("id,version_no,status").single();
- if(versionError||!version){await admin.from("indicator_definitions").delete().eq("id",def.id);return NextResponse.json({error:versionError?.message||"Không tạo được phiên bản chỉ số."},{status:400});}
- return NextResponse.json({ok:true,id:def.id,code:def.code,name:def.name,version_id:version.id,version_no:version.version_no,status:version.status});
+export async function POST(request: Request) {
+  const auth = await requireApiPermission("indicators.manage");
+  if (!auth.ok) return auth.response;
+
+  const body = await request.json().catch(() => ({}));
+  const name = clean(body.name);
+  const code = clean(body.code).toUpperCase() || null;
+  const purpose = clean(body.purpose) || null;
+  const qualityDimension = clean(body.quality_dimension) || null;
+  const calculationType = clean(body.calculation_type || "RAW").toUpperCase();
+  const direction = clean(body.desired_direction || "NEUTRAL").toUpperCase();
+  const frequency = clean(body.frequency || "MONTHLY").toUpperCase();
+  const unit = clean(body.unit) || null;
+  const effectiveFrom = clean(body.effective_from) || null;
+
+  if (!name) return NextResponse.json({ error: "Tên chỉ số là bắt buộc." }, { status: 400 });
+  if (!CALC_TYPES.has(calculationType)) return NextResponse.json({ error: "Loại tính chỉ số không hợp lệ." }, { status: 400 });
+  if (!DIRECTIONS.has(direction)) return NextResponse.json({ error: "Chiều mong muốn không hợp lệ." }, { status: 400 });
+  if (!FREQUENCIES.has(frequency)) return NextResponse.json({ error: "Tần suất không hợp lệ." }, { status: 400 });
+
+  const multiplier =
+    body.multiplier === null || body.multiplier === undefined || String(body.multiplier).trim() === ""
+      ? null
+      : Number(body.multiplier);
+  if (multiplier !== null && !Number.isFinite(multiplier)) {
+    return NextResponse.json({ error: "Hệ số nhân không hợp lệ." }, { status: 400 });
+  }
+  if (effectiveFrom && !/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) {
+    return NextResponse.json({ error: "Ngày hiệu lực không hợp lệ." }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+  const { data: tx, error } = await admin.rpc(CREATE_RPC, {
+    p_actor_user_id: auth.user.id,
+    p_code: code,
+    p_name: name,
+    p_purpose: purpose,
+    p_quality_dimension: qualityDimension,
+    p_calculation_type: calculationType,
+    p_desired_direction: direction,
+    p_frequency: frequency,
+    p_unit: unit,
+    p_multiplier: multiplier,
+    p_effective_from: effectiveFrom,
+  });
+
+  if (error) {
+    const message = rpcErrorMessage(error, "Không tạo được chỉ số.");
+    const status =
+      /not active/i.test(message) ? 403 :
+      /already exists|required|invalid/i.test(message) ? 409 :
+      400;
+    return NextResponse.json({ error: message }, { status });
+  }
+
+  const result = tx && typeof tx === "object" ? tx as Record<string, unknown> : {};
+  const id = typeof result.id === "string" ? result.id : null;
+  const versionId = typeof result.version_id === "string" ? result.version_id : null;
+  const persistedCode = typeof result.code === "string" ? result.code : null;
+
+  if (!id || !versionId || !persistedCode) {
+    return NextResponse.json({ error: "Kết quả tạo chỉ số không hợp lệ." }, { status: 409 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    id,
+    code: persistedCode,
+    name: typeof result.name === "string" ? result.name : name,
+    version_id: versionId,
+    version_no: 1,
+    status: "DRAFT",
+    transaction: "atomic",
+  });
 }
