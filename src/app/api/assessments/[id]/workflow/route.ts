@@ -9,7 +9,7 @@ const missingSnapshot=applicable.filter((x:any)=>!x.lead_department_id);
 if(missingSnapshot.length&&round.criteria_version_id){
  const effectiveDate=round.start_date||`${round.work_year}-01-01`;
  const ids=missingSnapshot.map((x:any)=>x.criteria_item_id||x.criterion_id).filter(Boolean);
- const {data:maps}=await a.from("criterion_responsibilities").select("id,criteria_item_id,lead_department_id,support_department_ids,effective_from,effective_to").eq("criteria_version_id",round.criteria_version_id).in("criteria_item_id",ids).lte("effective_from",effectiveDate).or(`effective_to.is.null,effective_to.gte.${effectiveDate}`);
+ const {data:maps}=await a.from("criterion_responsibilities").select("id,criteria_item_id,lead_department_id,support_department_ids,effective_from,effective_to").eq("criteria_version_id",round.criteria_version_id).in("criteria_item_id",ids).or(`effective_from.is.null,effective_from.lte.${effectiveDate}`).or(`effective_to.is.null,effective_to.gte.${effectiveDate}`);
  const byItem=new Map((maps||[]).map((m:any)=>[m.criteria_item_id,m]));
  for(const row of missingSnapshot){const id=row.criteria_item_id||row.criterion_id,m:any=byItem.get(id);if(m?.lead_department_id)await a.from("assessment_round_criteria").update({lead_department_id:m.lead_department_id,support_department_ids:m.support_department_ids||[],responsibility_source_id:m.id,responsibility_snapshot_at:now}).eq("id",row.id);}
 }
