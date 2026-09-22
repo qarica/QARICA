@@ -18,11 +18,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body: any = await request.json().catch(() => ({}));
   const command = String(body.action || "").toUpperCase();
   const permission = command === "CLOSE" ? "incident.close" : command === "TRIAGE" || command === "REJECT" ? "incident.triage" : "incident.investigate";
-  const [{ data: allowed }, { data: canTriage }] = await Promise.all([
-    supabase.rpc("has_permission", { p_permission_code: permission }),
-    supabase.rpc("has_permission", { p_permission_code: "incident.triage" }),
-  ]);
-  if (!allowed && !canTriage) return NextResponse.json({ error: "Bạn chưa có quyền xử lý bước này." }, { status: 403 });
+  const { data: allowed } = await supabase.rpc("has_permission", { p_permission_code: permission });
+  if (!allowed) return NextResponse.json({ error: "Bạn chưa có quyền xử lý bước này." }, { status: 403 });
 
   const { id: recordId } = await params;
   const { data: record } = await supabase.from("records").select("id,lifecycle_status").eq("id", recordId).eq("record_type", "INCIDENT").maybeSingle();
