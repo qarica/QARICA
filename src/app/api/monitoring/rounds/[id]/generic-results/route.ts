@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 
 export const runtime = "nodejs";
 
+const SAVE_RESULTS_RPC = "qlcl_monitoring_save_initial_results_v1";
 const FIVE_S_FAMILY_CODES = new Set([
   "BK01.V1_QLCL.QĐ.06",
   "BK02.V1_QLCL.QĐ.06",
@@ -14,7 +16,13 @@ const FIVE_S_FAMILY_CODES = new Set([
 ]);
 const ALLOWED_RESULTS = new Set(["PASS", "FAIL", "NA", "PARTIAL"]);
 
-type InputResponse = { item_id: string; result: string; score: number | null; chosen_option?: string | null; note?: string | null };
+type InputResponse = {
+  item_id: string;
+  result: string;
+  score: number | null;
+  chosen_option?: string | null;
+  note?: string | null;
+};
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("monitoring.perform");
@@ -65,7 +73,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const seen = new Set<string>();
   for (const row of responses) {
-    if (!itemIds.has(row.item_id) || seen.has(row.item_id) || !ALLOWED_RESULTS.has(row.result)) return NextResponse.json({ error: "Dữ liệu đánh giá không hợp lệ." }, { status: 400 });
+    if (!itemIds.has(row.item_id) || seen.has(row.item_id) || !ALLOWED_RESULTS.has(row.result)) {
+      return NextResponse.json({ error: "Dữ liệu đánh giá không hợp lệ." }, { status: 400 });
+    }
+    if (row.score != null && (typeof row.score !== "number" || !Number.isFinite(row.score))) {
+      return NextResponse.json({ error: "Điểm đánh giá không hợp lệ." }, { status: 400 });
+    }
     seen.add(row.item_id);
     if (row.result === "NA") {
       const item = (items ?? []).find((x) => x.id === row.item_id);
@@ -76,40 +89,64 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const savedAt = new Date();
   const savedAtIso = savedAt.toISOString();
   const recheckDueAtIso = new Date(savedAt.getTime() + 5 * 60 * 1000).toISOString();
-  const failCount = responses.filter((row) => row.result === "FAIL").length;
-  const nextStatus = failCount > 0 ? "IN_PROGRESS" : "AWAITING_CONFIRMATION";
-  const context = { source_code: template.code, template_id: template.id, version_id: version.id, monitoring_date: monitoringDate, subject, staff_name: staffName, assessor_user_id: auth.user.id, assessor_name: caller.full_name || null, checklist_saved_at: savedAtIso };
+  const context = {
+    source_code: template.code,
+    template_id: template.id,
+    version_id: version.id,
+    monitoring_date: monitoringDate,
+    subject,
+    staff_name: staffName,
+    assessor_user_id: auth.user.id,
+    assessor_name: caller.full_name || null,
+    checklist_saved_at: savedAtIso,
+  };
 
-  const responsePayload = responses.map((row) => ({
-    monitoring_round_id: round.id,
-    checklist_item_id: row.item_id,
-    answer_value: { result: row.result, chosen_option: row.chosen_option || null, form_context: context, followup: row.result === "FAIL" ? { reported_at: savedAtIso, recheck_due_at: recheckDueAtIso, status: "PENDING_RECHECK" } : null },
-    result_status: row.result,
+  const rpcResponses = responses.map((row) => ({
+    item_id: row.item_id,
+    result: row.result,
     score: row.score,
     note: row.note || null,
-    na_reason: null,
-    answered_by: auth.user.id,
-    answered_at: savedAtIso,
-    followup_disposition: row.result === "FAIL" ? "IMMEDIATE_CORRECTION" : "NONE",
+    answer_value: {
+      result: row.result,
+      chosen_option: row.chosen_option || null,
+      form_context: context,
+      followup: row.result === "FAIL"
+        ? { reported_at: savedAtIso, recheck_due_at: recheckDueAtIso, status: "PENDING_RECHECK" }
+        : null,
+    },
   }));
 
-  const { data: savedResponses, error: responseError } = await admin.from("checklist_responses").insert(responsePayload).select("id");
-  if (responseError || !savedResponses || savedResponses.length !== responses.length) {
-    if (savedResponses?.length) await admin.from("checklist_responses").delete().in("id", savedResponses.map((x) => x.id));
-    return NextResponse.json({ error: responseError?.message || "Không lưu được kết quả bảng kiểm." }, { status: 400 });
+  const { data: tx, error: txError } = await admin.rpc(SAVE_RESULTS_RPC, {
+    p_round_id: round.id,
+    p_actor_user_id: auth.user.id,
+    p_target_area: subject,
+    p_saved_at: savedAtIso,
+    p_recheck_due_at: recheckDueAtIso,
+    p_responses: rpcResponses,
+  });
+
+  if (txError) {
+    const message = rpcErrorMessage(txError, "Không lưu được kết quả bảng kiểm.");
+    const status = /already exist|in_progress|count mismatch|invalid|duplicate|does not allow|outside/i.test(message) ? 409 : 400;
+    return NextResponse.json({ error: message }, { status });
   }
 
-  const { data: updatedRound, error: roundUpdateError } = await admin
-    .from("monitoring_rounds")
-    .update({ target_area: subject, completed_at: failCount > 0 ? null : savedAtIso, workflow_status: nextStatus })
-    .eq("id", round.id)
-    .eq("workflow_status", "IN_PROGRESS")
-    .select("id,workflow_status")
-    .maybeSingle();
-  if (roundUpdateError || !updatedRound) {
-    await admin.from("checklist_responses").delete().in("id", savedResponses.map((x) => x.id));
-    return NextResponse.json({ error: roundUpdateError?.message || "Không thể cập nhật trạng thái đợt giám sát." }, { status: 400 });
+  const result = tx && typeof tx === "object" ? tx as Record<string, unknown> : {};
+  const status = typeof result.status === "string" ? result.status : null;
+  const failCount = typeof result.fail_count === "number" ? result.fail_count : responses.filter((row) => row.result === "FAIL").length;
+  if (!status || !["IN_PROGRESS", "AWAITING_CONFIRMATION"].includes(status)) {
+    return NextResponse.json({ error: "Trạng thái đợt giám sát sau khi lưu không hợp lệ." }, { status: 409 });
   }
 
-  return NextResponse.json({ ok: true, round_id: round.id, record_id: record.id, record_code: record.record_code, status: updatedRound.workflow_status, fail_count: failCount, checklist_saved_at: savedAtIso, recheck_due_at: failCount > 0 ? recheckDueAtIso : null });
+  return NextResponse.json({
+    ok: true,
+    round_id: round.id,
+    record_id: record.id,
+    record_code: record.record_code,
+    status,
+    fail_count: failCount,
+    checklist_saved_at: savedAtIso,
+    recheck_due_at: failCount > 0 ? recheckDueAtIso : null,
+    transaction: "atomic",
+  });
 }
