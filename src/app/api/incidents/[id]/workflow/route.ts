@@ -172,6 +172,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const noActionReason = String(body.no_action_reason || "").trim();
     const gate = incidentReadyToCloseGate({ actionCount: ids.length, incompleteActionCount: incomplete, evidenceCount: count ?? 0, isSerious: !!incident.serious_event_flag, hasCapa: (capaLinkCount ?? 0) > 0, noActionRequired, noActionReason });
     if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: 409 });
+
+    // RCA incidents use the same traceability source of truth as the database close gate.
+    if (incident.rca_required) {
+      const { data: trace, error: traceError } = await admin.rpc("qlcl_incident_action_trace_state_v1", { p_incident_record_id: recordId });
+      if (traceError) return NextResponse.json({ error: rpcErrorMessage(traceError, "Không kiểm tra được liên kết RCA/Action/CAPA.") }, { status: 409 });
+      const requiredRoots = Number(trace?.required_root_count || 0);
+      const uncoveredRoots = Number(trace?.uncovered_root_count || 0);
+      const tracedActions = Number(trace?.action_count || 0);
+      const tracedIncomplete = Number(trace?.incomplete_action_count || 0);
+      const ineffectiveCapas = Number(trace?.ineffective_capa_count || 0);
+      if (!trace?.rca_analysis_id || requiredRoots < 1) return NextResponse.json({ error: "RCA phải hoàn tất và xác định ít nhất một nguyên nhân gốc cần hành động." }, { status: 409 });
+      if (uncoveredRoots > 0) return NextResponse.json({ error: `Còn ${uncoveredRoots} nguyên nhân gốc chưa liên kết Action đang hoạt động.` }, { status: 409 });
+      if (tracedActions < 1 || tracedIncomplete > 0) return NextResponse.json({ error: "Action từ RCA chưa đầy đủ hoặc chưa hoàn tất." }, { status: 409 });
+      if (ineffectiveCapas > 0) return NextResponse.json({ error: "CAPA liên kết phải được đánh giá EFFECTIVE hoặc CLOSED trước khi chờ đóng." }, { status: 409 });
+    }
     newStatus = "AWAITING_CLOSURE";
     const { error: updateError } = await admin.from("incidents").update({ workflow_status: newStatus, updated_at: now }).eq("id", incident.id);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
