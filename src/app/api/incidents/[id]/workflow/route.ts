@@ -120,7 +120,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await admin.from("incident_investigations").delete().eq("id", inv.id);
       return NextResponse.json({ error: statusError.message }, { status: 400 });
     }
-    message = "Đã bắt đầu điều tra sự cố.";
+    reason = reason || `Bắt đầu điều tra sự cố; loại điều tra: ${type}.`;\n    message = "Đã bắt đầu điều tra sự cố.";
   } else if (command === "COMPLETE_INVESTIGATION") {
     if (oldStatus !== "INVESTIGATING") return NextResponse.json({ error: "Sự cố không ở bước điều tra." }, { status: 409 });
     const summary = String(body.verified_event_summary || incident.verified_description || "").trim();
@@ -159,7 +159,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     newStatus = "ACTION_FOLLOW_UP";
     const { error: updateError } = await admin.from("incidents").update({ workflow_status: newStatus, updated_at: now }).eq("id", incident.id);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
-    message = "Đã chuyển sang theo dõi hành động.";
+    reason = reason || "Chuyển sang theo dõi hành động sau xác minh sự cố.";\n    message = "Đã chuyển sang theo dõi hành động.";
   } else if (command === "READY_TO_CLOSE") {
     if (oldStatus !== "ACTION_FOLLOW_UP") return NextResponse.json({ error: "Sự cố chưa ở bước theo dõi hành động." }, { status: 409 });
     const { data: links } = await admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "HAS_ACTION");
