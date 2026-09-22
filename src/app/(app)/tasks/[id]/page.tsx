@@ -195,7 +195,7 @@ export default async function TaskDetailPage({ params, searchParams }: { params:
             <td>{formatBytes(item.file_size)}</td>
             <td>{formatDateTime(item.uploaded_at)}</td>
             <td><span className={`status-badge ${evidenceStatus.tone}`}>{evidenceStatus.label}</span></td>
-            <td style={{ textAlign: "right" }}><a className="button secondary" href={`/api/evidence/${item.id}/download`} target="_blank" rel="noreferrer">Mở file</a></td>
+            <td style={{ textAlign: "right" }}><div style={{display:"flex",gap:6,justifyContent:"flex-end",flexWrap:"wrap"}}><a className="button secondary" href={`/api/evidence/${item.id}/download`} target="_blank" rel="noreferrer">Xem</a><a className="button secondary" href={`/api/evidence/${item.id}/download?download=1`}>Tải về</a></div></td>
           </tr>;
         })}
       </tbody></table></div> : <div className="empty-state">Chưa có minh chứng. Khi công việc đang thực hiện, chọn <strong>Nộp minh chứng</strong> ở phía trên để tải file kết quả lên hệ thống.</div>}

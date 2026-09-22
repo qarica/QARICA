@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("tasks.view");
   if (!auth.ok) return auth.response;
 
@@ -24,11 +24,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const admin = createAdminClient();
+  const forceDownload = new URL(request.url).searchParams.get("download") === "1";
   const { data, error: signedError } = await admin.storage
     .from(evidence.storage_bucket)
-    .createSignedUrl(evidence.storage_path, 60, {
+    .createSignedUrl(evidence.storage_path, 60, forceDownload ? {
       download: evidence.original_file_name || evidence.title || true,
-    });
+    } : undefined);
 
   if (signedError || !data?.signedUrl) {
     return NextResponse.json({ error: signedError?.message || "Không tạo được đường dẫn tải minh chứng." }, { status: 400 });
