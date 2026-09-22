@@ -44,8 +44,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
   const confirmedAt = new Date().toISOString();
   const confirmation = { user_id: auth.user.id, full_name: caller.full_name || null, confirmed_at: confirmedAt };
-  let transaction: "atomic" | "legacy-fallback" = "atomic";
-
   const { data: tx, error: txError } = await admin.rpc(CONFIRM_RPC, {
     p_round_id: roundId,
     p_actor_user_id: auth.user.id,
@@ -54,22 +52,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   });
 
   if (txError) {
-    if (!isMissingRpcFunction(txError, CONFIRM_RPC)) {
-      const txMessage = rpcErrorMessage(txError, "Không thể xác nhận đợt giám sát.");
-      return NextResponse.json({ error: txMessage }, { status: /awaiting_confirmation|required|not found/i.test(txMessage) ? 409 : 400 });
+    if (isMissingRpcFunction(txError, CONFIRM_RPC)) {
+      return NextResponse.json({ error: "Chức năng xác nhận giám sát chưa sẵn sàng trên cơ sở dữ liệu." }, { status: 503 });
     }
-
-    transaction = "legacy-fallback";
-    const firstResponse = responses[0];
-    const answerValue = typeof firstResponse.answer_value === "object" && firstResponse.answer_value !== null ? firstResponse.answer_value as Record<string, unknown> : {};
-    const { error: markerError } = await admin.from("checklist_responses").update({ answer_value: { ...answerValue, qlcl_confirmation: confirmation } }).eq("id", firstResponse.id);
-    if (markerError) return NextResponse.json({ error: markerError.message }, { status: 400 });
-
-    const { data: updated, error: roundError } = await admin.from("monitoring_rounds").update({ workflow_status: "CONFIRMED" }).eq("id", roundId).eq("workflow_status", "AWAITING_CONFIRMATION").select("id,workflow_status").maybeSingle();
-    if (roundError || !updated) {
-      await admin.from("checklist_responses").update({ answer_value: answerValue }).eq("id", firstResponse.id);
-      return NextResponse.json({ error: roundError?.message || "Không thể xác nhận đợt giám sát." }, { status: 400 });
-    }
+    const txMessage = rpcErrorMessage(txError, "Không thể xác nhận đợt giám sát.");
+    return NextResponse.json({ error: txMessage }, { status: /awaiting_confirmation|required|not found|must pass recheck|outside current organization/i.test(txMessage) ? 409 : 400 });
   }
 
   // Validation of storage evidence is intentionally supplemental. Core confirmation above is atomic.
@@ -81,5 +68,5 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     evidenceValidated = validated?.length ?? 0;
   }
 
-  return NextResponse.json({ ok: true, status: "CONFIRMED", confirmation, evidence_validated: evidenceValidated, transaction, result: tx ?? null });
+  return NextResponse.json({ ok: true, status: "CONFIRMED", confirmation, evidence_validated: evidenceValidated, transaction: "atomic", result: tx ?? null });
 }
