@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Nunito_Sans } from "next/font/google";
 import "./globals.css";
 import "./transitions.css";
 import "./qlvb-font.css";
@@ -16,7 +15,6 @@ import "./qarica-copy.css";
 import "./qarica-direct-navigation.css";
 import "./qms-enterprise-redesign.css";
 
-const appFont = Nunito_Sans({ subsets:["latin","vietnamese"],weight:["400","500","600","700","800"],display:"swap",variable:"--font-app" });
 const criticalCss=`
   html,body,body *{font-family:var(--font-app),"Nunito Sans","Segoe UI",Arial,sans-serif!important}
   .brand-logo-wrap{width:42px!important;height:42px!important;min-width:42px!important;max-width:42px!important;overflow:hidden!important;flex:0 0 42px!important}
@@ -28,4 +26,4 @@ const criticalCss=`
 `;
 export const metadata:Metadata={title:"QARICA",description:"Nền tảng Quản trị Chất lượng & Cải tiến",icons:{icon:"/icon.svg",apple:"/apple-icon.svg"}};
 export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#071f3b"};
-export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="vi"><body className={`${appFont.className} ${appFont.variable}`}>{children}<style>{criticalCss}</style></body></html>}
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="vi"><body>{children}<style>{criticalCss}</style></body></html>}
