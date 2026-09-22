@@ -76,7 +76,22 @@ export function IndicatorSourceReconciliationClient({
     setBusy(true);
     setMessage({ tone: "info", text: `Đang áp dụng cấu hình nguồn cho “${row.name}”…` });
     try {
+      const selectedCandidate = row.candidates.find((item) => item.assignment_id === assignmentId);
       await configure(row, assignmentId);
+      if (selectedCandidate) {
+        const aliasResponse = await fetch("/api/indicators/source-aliases", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            source_system: "QLCL_2026",
+            source_code: row.source_code,
+            source_label: row.name,
+            indicator_definition_id: selectedCandidate.definition_id,
+          }),
+        });
+        const aliasJson = await aliasResponse.json();
+        if (!aliasResponse.ok) throw new Error(aliasJson.error || "Không lưu được ánh xạ mã nguồn.");
+      }
       setMessage({ tone: "success", text: `Đã cấu hình “${row.name}”. QARICA sẽ tự tạo kỳ đo từ ${row.active_from.split("-").reverse().join("/")}.` });
       router.refresh();
     } catch (error) {
