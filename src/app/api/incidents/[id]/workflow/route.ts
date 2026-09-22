@@ -120,6 +120,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await admin.from("incident_investigations").delete().eq("id", inv.id);
       return NextResponse.json({ error: statusError.message }, { status: 400 });
     }
+    reason = reason || `Bắt đầu điều tra sự cố; loại điều tra: ${type}.`;
     message = "Đã bắt đầu điều tra sự cố.";
   } else if (command === "COMPLETE_INVESTIGATION") {
     if (oldStatus !== "INVESTIGATING") return NextResponse.json({ error: "Sự cố không ở bước điều tra." }, { status: 409 });
@@ -159,6 +160,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     newStatus = "ACTION_FOLLOW_UP";
     const { error: updateError } = await admin.from("incidents").update({ workflow_status: newStatus, updated_at: now }).eq("id", incident.id);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
+    reason = reason || "Chuyển sang theo dõi hành động sau xác minh sự cố.";
     message = "Đã chuyển sang theo dõi hành động.";
   } else if (command === "READY_TO_CLOSE") {
     if (oldStatus !== "ACTION_FOLLOW_UP") return NextResponse.json({ error: "Sự cố chưa ở bước theo dõi hành động." }, { status: 409 });
