@@ -29,7 +29,7 @@ export function TaskWorkflowClient({
   const [message, setMessage] = useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [evidenceTitle, setEvidenceTitle] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [reviewOpen, setReviewOpen] = useState<"APPROVE" | "RETURN" | null>(null);
   const [reviewNote, setReviewNote] = useState("");
 
@@ -64,19 +64,21 @@ export function TaskWorkflowClient({
 
   async function uploadEvidence(e: FormEvent) {
     e.preventDefault();
-    if (!file) return setMessage("Vui lòng chọn file minh chứng.");
+    if (!files.length) return setMessage("Vui lòng chọn ít nhất 01 file minh chứng.");
 
     setBusy(true);
     setMessage(null);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      body.append("title", evidenceTitle.trim());
-      const res = await fetch(`/api/tasks/${recordId}/evidence`, { method: "POST", body });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Không thể tải minh chứng.");
+      for (const [index, file] of files.entries()) {
+        const body = new FormData();
+        body.append("file", file);
+        body.append("title", files.length === 1 ? evidenceTitle.trim() : (evidenceTitle.trim() ? `${evidenceTitle.trim()} · ${file.name}` : file.name));
+        const res = await fetch(`/api/tasks/${recordId}/evidence`, { method: "POST", body });
+        const data = await res.json();
+        if (!res.ok) throw new Error(`File ${index + 1}/${files.length}: ${data.error || "Không thể tải minh chứng."}`);
+      }
       setEvidenceTitle("");
-      setFile(null);
+      setFiles([]);
       setUploadOpen(false);
       router.refresh();
     } catch (error) {
@@ -112,10 +114,10 @@ export function TaskWorkflowClient({
             <label><span>Tên minh chứng</span><input value={evidenceTitle} onChange={(e) => setEvidenceTitle(e.target.value)} placeholder="Có thể để trống, hệ thống sẽ dùng tên file" /></label>
             <label>
               <span>Chọn file *</span>
-              <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.webp,.zip" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.webp,.zip" onChange={(e) => setFiles(Array.from(e.target.files || []))} />
               <small>Hỗ trợ tài liệu, bảng tính, ảnh và ZIP; tối đa 25 MB/file.</small>
             </label>
-            {file ? <div className="scope-note"><strong>Đã chọn:</strong> {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</div> : null}
+            {files.length ? <div className="scope-note"><strong>Đã chọn {files.length} file:</strong> {files.map((file) => file.name).join(" · ")}</div> : null}
           </div>
         </div>
         <div className="modal-footer" style={{ padding: "14px 24px" }}>
