@@ -155,7 +155,12 @@ export function MonitoringRecheckClient({ roundId, status, canPerform, rows, are
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Không thể lưu kết quả kiểm tra lại.");
       await clearDraft();
-      setMessage({ tone: "success", text: "Đã ghi nhận một lần kiểm tra lại chung. Hồ sơ chuyển Phòng QLCL xác nhận." });
+      setMessage({
+        tone: "success",
+        text: data.status === "IN_PROGRESS"
+          ? "Đã ghi nhận kiểm tra lại. Nội dung vẫn không đạt tiếp tục được giữ để khắc phục và kiểm tra lại."
+          : "Đã ghi nhận kiểm tra lại. Tất cả nội dung không đạt đã đạt sau khắc phục; hồ sơ chuyển Phòng QLCL xác nhận.",
+      });
       router.refresh();
     } catch (error) {
       setMessage({ tone: "error", text: error instanceof Error ? error.message : "Có lỗi xảy ra." });
@@ -189,7 +194,7 @@ export function MonitoringRecheckClient({ roundId, status, canPerform, rows, are
     `}</style>
     {validationModal}
     <section className="panel recheck-panel">
-      <div className="panel-title"><div><div className="eyebrow">BƯỚC 2 · 01 LẦN KIỂM TRA LẠI CHUNG</div><h2>{rows.length} tiêu chí Không đạt</h2><p>Chỉ kiểm tra lại các tiêu chí Không đạt. Thời điểm báo và hạn +05 phút dùng chung cho toàn bộ lần kiểm tra lại.</p></div><span className={`status-badge ${overdue ? "danger" : "warning"}`}>{overdue ? "Đã quá hạn 05 phút" : "Trong thời gian xử lý"}</span></div>
+      <div className="panel-title"><div><div className="eyebrow">BƯỚC 2 · KIỂM TRA LẠI</div><h2>{rows.length} tiêu chí Không đạt</h2><p>Chỉ kiểm tra lại các tiêu chí còn Không đạt. Nếu vẫn chưa đạt, hệ thống tiếp tục mở vòng khắc phục và kiểm tra lại với hạn +05 phút mới.</p></div><span className={`status-badge ${overdue ? "danger" : "warning"}`}>{overdue ? "Đã quá hạn 05 phút" : "Trong thời gian xử lý"}</span></div>
       <div style={{ padding: "0 18px 18px", display: "grid", gap: 14 }}>
         {message ? <div className={`alert ${message.tone}`}>{message.text}</div> : null}
         <div className="scope-note"><div className="form-grid two"><div><div className="eyebrow">THỜI ĐIỂM BÁO · TỰ ĐỘNG</div><strong>{formatDateTime(sharedReportedAt)}</strong></div><div><div className="eyebrow">HẠN KIỂM TRA LẠI · +05 PHÚT</div><strong>{formatDateTime(sharedDueAt)}</strong> <span className={`status-badge ${overdue ? "danger" : "success"}`}>{overdue ? "Quá hạn" : "Đúng hạn"}</span></div></div><small className="muted">Thời điểm kiểm tra thực tế được hệ thống tự ghi khi bấm “Ghi nhận kiểm tra lại”.</small></div>
