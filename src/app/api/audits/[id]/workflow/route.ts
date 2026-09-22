@@ -5,6 +5,7 @@ import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 const CLOSE_RPC = "qlcl_close_audit_v1";
 const CREATE_FINDING_RPC = "qlcl_audit_create_finding_v1";
+const TRANSITION_RPC = "qlcl_audit_transition_v1";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await createClient();
@@ -116,10 +117,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: true, status: next, message: "Đã đóng Audit sau khi theo dõi Finding.", transaction: "legacy-fallback" });
   } else return NextResponse.json({ error: "Thao tác Audit không hợp lệ." }, { status: 400 });
 
-  const update: any = { workflow_status: next, updated_at: now };
-  if (cmd === "SUBMIT_REPORT") update.report_finalized_at = now;
-  const { error: updateError } = await a.from("audits").update(update).eq("id", audit.id);
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
-  await a.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "audits", row_id: audit.id, action_type: `AUDIT_${cmd}`, old_value: { workflow_status: old }, new_value: { workflow_status: next }, reason, request_meta: { source: "qlcl-ui" } });
-  return NextResponse.json({ ok: true, status: next, message, transaction: "direct" });
+  const { data: tx, error: txError } = await a.rpc(TRANSITION_RPC, {
+    p_audit_record_id: recordId,
+    p_actor_user_id: auth.user.id,
+    p_action: cmd,
+    p_at: now,
+  });
+  if (txError) {
+    if (isMissingRpcFunction(txError, TRANSITION_RPC)) {
+      return NextResponse.json({ error: "Chức năng chuyển trạng thái Audit chưa sẵn sàng trên cơ sở dữ liệu." }, { status: 503 });
+    }
+    const txMessage = rpcErrorMessage(txError, "Không thể chuyển trạng thái Audit.");
+    return NextResponse.json({ error: txMessage }, { status: /required|must be|outside current organization|not active|not found|under review|unsupported/i.test(txMessage) ? 409 : 400 });
+  }
+
+  const result = tx && typeof tx === "object" ? tx as Record<string, unknown> : {};
+  const persistedStatus = typeof result.status === "string" ? result.status : null;
+  if (!persistedStatus || persistedStatus !== next) {
+    return NextResponse.json({ error: "Trạng thái Audit sau giao dịch không hợp lệ." }, { status: 409 });
+  }
+
+  return NextResponse.json({ ok: true, status: persistedStatus, message, transaction: "atomic", result: tx });
 }
