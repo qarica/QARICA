@@ -40,14 +40,13 @@ export function IndicatorSourceReconciliationClient({
   const [message, setMessage] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
 
   const ready = useMemo(() => rows.filter((row) => row.status === "MATCHED" && row.candidates[0]), [rows]);
-  const configuredCount = rows.filter((row) => {
-    const candidate = row.candidates[0];
-    return row.status === "MATCHED"
-      && candidate
-      && candidate.auto_create_periods
-      && candidate.current_frequency === row.frequency
-      && candidate.current_active_from === row.active_from;
-  }).length;
+  const isConfigured = (row: BlueprintRow, candidate?: Candidate | null) => !!candidate
+    && candidate.auto_create_periods
+    && candidate.current_frequency === row.frequency
+    && candidate.current_active_from === row.active_from;
+  const configuredCount = rows.filter((row) =>
+    row.candidates.some((candidate) => isConfigured(row, candidate)),
+  ).length;
 
   async function configure(row: BlueprintRow, assignmentId: string) {
     const response = await fetch(`/api/indicators/assignments/${assignmentId}/automation`, {
@@ -77,7 +76,22 @@ export function IndicatorSourceReconciliationClient({
     setBusy(true);
     setMessage({ tone: "info", text: `Đang áp dụng cấu hình nguồn cho “${row.name}”…` });
     try {
+      const selectedCandidate = row.candidates.find((item) => item.assignment_id === assignmentId);
       await configure(row, assignmentId);
+      if (selectedCandidate) {
+        const aliasResponse = await fetch("/api/indicators/source-aliases", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            source_system: "QLCL_2026",
+            source_code: row.source_code,
+            source_label: row.name,
+            indicator_definition_id: selectedCandidate.definition_id,
+          }),
+        });
+        const aliasJson = await aliasResponse.json();
+        if (!aliasResponse.ok) throw new Error(aliasJson.error || "Không lưu được ánh xạ mã nguồn.");
+      }
       setMessage({ tone: "success", text: `Đã cấu hình “${row.name}”. QARICA sẽ tự tạo kỳ đo từ ${row.active_from.split("-").reverse().join("/")}.` });
       router.refresh();
     } catch (error) {
@@ -141,16 +155,14 @@ export function IndicatorSourceReconciliationClient({
 
     <div className="isr-list">
       {rows.map((row) => {
-        const candidate = row.status === "MATCHED" ? row.candidates[0] : null;
-        const configured = !!candidate
-          && candidate.auto_create_periods
-          && candidate.current_frequency === row.frequency
-          && candidate.current_active_from === row.active_from;
+        const selectedCandidate = row.candidates.find((item) => item.assignment_id === selection[row.key]) || null;
+        const candidate = row.status === "MATCHED" ? row.candidates[0] : selectedCandidate;
+        const configured = isConfigured(row, candidate);
         const className = row.status === "MISSING" ? "missing" : row.status === "AMBIGUOUS" ? "needs" : "";
         return <div className={`isr-row ${className}`} key={row.key}>
           <div className="isr-title">
-            <strong>{row.source_code} · {row.name}</strong>
-            <small>{row.owner} · {row.note}</small>
+            <strong>{candidate?.code ? `${candidate.code} · ` : ""}{row.name}</strong>
+            <small>{row.source_code ? `Mã nguồn: ${row.source_code} · ` : ""}{row.owner} · {row.note}</small>
           </div>
           <div className="isr-meta"><strong>{FREQ_LABEL[row.frequency]}</strong><small>Từ 01/10/2026</small></div>
           <div>
