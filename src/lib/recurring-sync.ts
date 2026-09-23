@@ -5,7 +5,9 @@ type RecurringTemplate = {
   start_date: string | null;
   end_date: string | null;
   lead_department_id: string | null;
+  assignment_target_type?: string | null;
   assignee_user_id: string | null;
+  assignee_group_id?: string | null;
   expected_result: string | null;
   evidence_requirement: string | null;
 };
@@ -152,14 +154,19 @@ export async function syncRecurringTemplateNow(input: {
 
   const { data: template, error: templateError } = await admin
     .from("recurring_work_templates")
-    .select("id,title,recurrence_rule,start_date,end_date,lead_department_id,assignee_user_id,expected_result,evidence_requirement,is_active,automation_kind")
+    .select("id,title,recurrence_rule,start_date,end_date,lead_department_id,assignment_target_type,assignee_user_id,assignee_group_id,expected_result,evidence_requirement,is_active,automation_kind")
     .eq("id", templateId)
     .eq("organization_id", organizationId)
     .maybeSingle();
   if (templateError || !template) return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, errors: 1, error: templateError?.message || "Không tìm thấy mẫu định kỳ." };
   if (!template.is_active) return { ok: true, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, errors: 0, skipped: true };
-  if (!template.start_date || !template.lead_department_id || !template.assignee_user_id || !template.expected_result || !template.evidence_requirement) {
+  const assignmentTargetType = String(template.assignment_target_type || "USER").toUpperCase();
+  const hasAssignee = assignmentTargetType === "GROUP" ? !!template.assignee_group_id : !!template.assignee_user_id;
+  if (!["USER","GROUP"].includes(assignmentTargetType) || !template.start_date || !template.lead_department_id || !hasAssignee || !template.expected_result || !template.evidence_requirement) {
     return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, errors: 1, error: "Mẫu định kỳ chưa đủ dữ liệu để đồng bộ lịch." };
+  }
+  if (!["ACTION","MONITORING","REPORT"].includes(String(template.automation_kind || "").toUpperCase())) {
+    return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, errors: 1, error: "Loại đầu ra định kỳ không thuộc engine nghiệp vụ chính thức." };
   }
 
   const dates = recurringOccurrences(template as RecurringTemplate, today, horizonEnd);
@@ -214,7 +221,7 @@ export async function syncRecurringTemplateNow(input: {
       continue;
     }
 
-    const materialized = await admin.rpc("qlcl_materialize_recurring_run_v4", {
+    const materialized = await admin.rpc("qlcl_materialize_recurring_run_v5", {
       p_run_id: run.id,
       p_actor_user_id: actorUserId,
     });
