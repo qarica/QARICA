@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { actionCreatePermissions } from "@/lib/source-action-policy";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 
 const ALLOWED_PRIORITY = new Set(["LOW", "NORMAL", "HIGH", "URGENT", "CRITICAL"]);
 const CAPA_TYPES = new Set(["CORRECTION", "CORRECTIVE", "PREVENTIVE", "VERIFICATION"]);
@@ -137,43 +137,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const result = (tx || {}) as Record<string, unknown>;
     return NextResponse.json({ ok: true, action_id: result.action_id, record_id: result.record_id, record_code: result.record_code, transaction: "atomic", result: tx });
   }
-  if (isMissingRpcFunction(txError, CREATE_LINKED_ACTION_RPC) && assignmentTargetType === "GROUP") {
-    return NextResponse.json({ error: "Cơ sở dữ liệu chưa có phiên bản tạo Action hỗ trợ Nhóm. Vui lòng cập nhật migration trước khi giao việc cho Nhóm." }, { status: 503 });
-  }
-    if (!isMissingRpcFunction(txError, CREATE_LINKED_ACTION_RPC)) {
-    const txMessage = rpcErrorMessage(txError, "Không tạo được Action liên kết.");
-    return NextResponse.json({ error: txMessage }, { status: /required|invalid|outside organization|not found|must be active|does not support|failure mode|root cause|rca/i.test(txMessage) ? 409 : 400 });
-  }
-
-  const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", { p_org: caller.organization_id, p_record_type: "ACTION", p_work_year: source.work_year });
-  if (codeError || !recordCode) return NextResponse.json({ error: codeError?.message || "Không tạo được mã Action." }, { status: 400 });
-  const { data: record, error: recordError } = await admin.from("records").insert({ organization_id: caller.organization_id, record_type: "ACTION", record_code: recordCode, title, work_year: source.work_year, owner_department_id: leadDepartmentId, owner_user_id: assigneeUserId, lifecycle_status: "ACTIVE", created_by: user.id }).select("id,record_code").single();
-  if (recordError || !record) return NextResponse.json({ error: recordError?.message || "Không tạo được hồ sơ Action." }, { status: 400 });
-  const { data: action, error: actionError } = await admin.from("actions").insert({ record_id: record.id, title, description, priority, lead_department_id: leadDepartmentId, assignee_user_id: assigneeUserId, start_date: startDate, due_date: dueDate, expected_result: expectedResult, verification_requirement: verificationRequirement, workflow_status: "NOT_STARTED" }).select("id").single();
-  if (actionError || !action) { await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id); return NextResponse.json({ error: actionError?.message || "Không tạo được nội dung Action." }, { status: 400 }); }
-
-  const { error: linkError } = await admin.from("record_links").insert({ source_record_id: source.id, target_record_id: record.id, relation_type: "HAS_ACTION", metadata: { source_record_type: source.record_type, source_record_code: source.record_code, failure_mode_id: failureModeId || null, root_cause_ids: rootCauseIds }, created_by: user.id });
-  if (linkError) { await admin.from("actions").update({ workflow_status: "CANCELLED" }).eq("id", action.id); await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id); return NextResponse.json({ error: `Không liên kết được Action với hồ sơ nguồn: ${linkError.message}` }, { status: 400 }); }
-
-  const specialized = await addSpecializedLink(admin, source, action.id, record.id, user.id, { ...body, capa_action_type: capaActionType, risk_treatment_type: riskTreatmentType, failure_mode_id: failureModeId });
-  if (specialized?.error) {
-    if (source.record_type === "FMEA") await admin.from("fmea_failure_mode_action_links").delete().eq("action_record_id", record.id);
-    await admin.from("record_links").delete().eq("source_record_id", source.id).eq("target_record_id", record.id).eq("relation_type", "HAS_ACTION");
-    await admin.from("actions").update({ workflow_status: "CANCELLED" }).eq("id", action.id);
-    await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id);
-    return NextResponse.json({ error: `Không liên kết được Action với workflow chuyên biệt: ${specialized.error.message}` }, { status: 400 });
-  }
-
-  if (rootCauseIds.length) {
-    const { error: rootLinkError } = await admin.rpc("qlcl_attach_action_root_causes_v1", { p_source_record_id: source.id, p_action_id: action.id, p_actor_user_id: user.id, p_root_cause_ids: rootCauseIds });
-    if (rootLinkError) {
-      await admin.from("actions").update({ workflow_status: "CANCELLED" }).eq("id", action.id);
-      await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id);
-      return NextResponse.json({ error: `Không liên kết được Action với nguyên nhân gốc RCA: ${rootLinkError.message}` }, { status: 409 });
-    }
-  }
-
-  await admin.from("notifications").upsert({ recipient_user_id: assigneeUserId, notification_type: "ACTION_ASSIGNED", priority, title: "Bạn được giao công việc mới", message: `${title} · nguồn ${source.record_code}`, target_record_id: record.id, target_route: `/tasks/${record.id}`, notification_event_key: `record-action:${source.id}:${action.id}:${assigneeUserId}`, is_read: false }, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true });
-  await admin.from("audit_logs").insert({ actor_user_id: user.id, record_id: source.id, table_name: "record_links", row_id: record.id, action_type: "CREATE_LINKED_ACTION", new_value: { action_record_id: record.id, action_id: action.id, title, due_date: dueDate, assignee_user_id: assigneeUserId, failure_mode_id: failureModeId || null, root_cause_ids: rootCauseIds }, request_meta: { source: "qlcl-ui", source_record_type: source.record_type, transaction: "legacy-fallback" } });
-  return NextResponse.json({ ok: true, action_id: action.id, record_id: record.id, record_code: record.record_code, transaction: "legacy-fallback" });
+  const txMessage = rpcErrorMessage(txError, "Không tạo được Action liên kết.");
+  return NextResponse.json(
+    { error: txMessage },
+    { status: /required|invalid|outside organization|not found|must be active|does not support|failure mode|root cause|rca/i.test(txMessage) ? 409 : 400 },
+  );
 }
