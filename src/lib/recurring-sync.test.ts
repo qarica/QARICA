@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { recurringOccurrences } from "./recurring-sync";
 
@@ -47,5 +48,22 @@ describe("recurringOccurrences", () => {
       end_date: "2026-10-10",
     }, "2026-10-01", "2026-11-30");
     expect(dates).toEqual(["2026-10-02", "2026-10-09"]);
+  });
+});
+
+
+describe("recurring sync canonical materializer", () => {
+  it("keeps group assignment fields and uses formal v5", () => {
+    const source = readFileSync("src/lib/recurring-sync.ts", "utf8");
+    expect(source).toContain("assignment_target_type,assignee_user_id,assignee_group_id");
+    expect(source).toContain('"qlcl_materialize_recurring_run_v5"');
+    expect(source).toContain('assignmentTargetType === "GROUP" ? !!template.assignee_group_id');
+  });
+
+  it("keeps the sync route on the shared helper instead of duplicate RRULE/materializer logic", () => {
+    const source = readFileSync("src/app/api/calendar/recurring/sync/route.ts", "utf8");
+    expect(source).toContain("syncRecurringTemplateNow");
+    expect(source).not.toContain("qlcl_materialize_recurring_run_v3");
+    expect(source).not.toContain("recurringOccurrences");
   });
 });
