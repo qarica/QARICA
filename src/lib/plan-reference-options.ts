@@ -12,20 +12,23 @@ export type PlanReferenceOption = {
 
 export async function loadPlanReferenceOptions(organizationId: string): Promise<PlanReferenceOption[]> {
   const admin = createAdminClient();
+  const { data: records, error: recordError } = await admin
+    .from("records")
+    .select("id,title,organization_id,lifecycle_status")
+    .eq("organization_id", organizationId)
+    .eq("record_type", "DIRECTIVE")
+    .eq("lifecycle_status", "ACTIVE")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (recordError || !records?.length) return [];
+
+  const recordIds = records.map((x: any) => x.id).filter(Boolean);
   const { data: directives, error } = await admin
     .from("external_directives")
     .select("id,record_id,source_authority,directive_type,document_number,issued_date,effective_date,document_url,summary,workflow_status")
-    .order("issued_date", { ascending: false, nullsFirst: false })
-    .limit(500);
+    .in("record_id", recordIds)
+    .order("issued_date", { ascending: false, nullsFirst: false });
   if (error || !directives?.length) return [];
-
-  const recordIds = directives.map((x: any) => x.record_id).filter(Boolean);
-  const { data: records } = await admin
-    .from("records")
-    .select("id,title,organization_id,lifecycle_status")
-    .in("id", recordIds)
-    .eq("organization_id", organizationId)
-    .eq("lifecycle_status", "ACTIVE");
   const recordMap = new Map((records ?? []).map((x: any) => [x.id, x]));
 
   return directives.flatMap((row: any) => {
