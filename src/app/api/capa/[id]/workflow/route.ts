@@ -10,6 +10,7 @@ const REQUEST_EFFECTIVENESS_RPC = "qlcl_request_capa_effectiveness_v1";
 const REVIEW_EFFECTIVENESS_RPC = "qlcl_review_capa_effectiveness_v1";
 const SAVE_RCA_RPC = "qlcl_save_capa_rca_v1";
 const START_ACTIONS_RPC = "qlcl_start_capa_actions_v1";
+const CORE_TRANSITION_RPC = "qlcl_transition_capa_v1";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
@@ -28,21 +29,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: capa, error } = await admin.from("capas").select("id,workflow_status,approval_required,rca_analysis_id,effectiveness_due_date,required_resources").eq("record_id", recordId).maybeSingle();
   if (error || !capa) return NextResponse.json({ error: error?.message || "Không tìm thấy dữ liệu CAPA." }, { status: 404 });
   const oldStatus = String(capa.workflow_status || "DRAFT");
-  const now = new Date().toISOString();
-  let newStatus = oldStatus; let reason = String(body.comment || "").trim() || null; let message = "Đã cập nhật CAPA.";
+  const reason = String(body.comment || "").trim() || null;
 
-  if (command === "START") {
-    if (oldStatus !== "DRAFT") return NextResponse.json({ error: "Chỉ CAPA nháp mới được bắt đầu." }, { status: 409 });
-    newStatus = capa.approval_required ? "PENDING_APPROVAL" : "ROOT_CAUSE_ANALYSIS";
-    const { error: updateError } = await admin.from("capas").update({ workflow_status: newStatus, updated_at: now }).eq("id", capa.id);
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
-    message = capa.approval_required ? "Đã gửi CAPA chờ phê duyệt." : "Đã chuyển sang phân tích nguyên nhân gốc.";
-  } else if (command === "APPROVE") {
-    if (oldStatus !== "PENDING_APPROVAL") return NextResponse.json({ error: "CAPA không ở trạng thái chờ phê duyệt." }, { status: 409 });
-    newStatus = "ROOT_CAUSE_ANALYSIS";
-    const { error: updateError } = await admin.from("capas").update({ workflow_status: newStatus, approved_at: now, approved_by: auth.user.id, updated_at: now }).eq("id", capa.id);
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
-    reason = reason || "CAPA được phê duyệt để phân tích nguyên nhân và triển khai."; message = "Đã phê duyệt CAPA.";
+  if (command === "START" || command === "APPROVE") {
+    const { data: tx, error: txError } = await admin.rpc(CORE_TRANSITION_RPC, {
+      p_capa_record_id: recordId,
+      p_actor_user_id: auth.user.id,
+      p_command: command,
+      p_required_resources: null,
+      p_reason: reason,
+    });
+    if (txError) {
+      const txMessage = rpcErrorMessage(txError, command === "START" ? "Không thể bắt đầu CAPA." : "Không thể phê duyệt CAPA.");
+      return NextResponse.json({ error: txMessage }, { status: 409 });
+    }
+    const workflowStatus = tx?.workflow_status ?? (command === "START"
+      ? (capa.approval_required ? "PENDING_APPROVAL" : "ROOT_CAUSE_ANALYSIS")
+      : "ROOT_CAUSE_ANALYSIS");
+    return NextResponse.json({
+      ok: true,
+      status: workflowStatus,
+      message: command === "START"
+        ? (workflowStatus === "PENDING_APPROVAL" ? "Đã gửi CAPA chờ phê duyệt." : "Đã chuyển sang phân tích nguyên nhân gốc.")
+        : "Đã phê duyệt CAPA.",
+      transaction: "atomic",
+      result: tx,
+    });
   } else if (command === "SAVE_RCA") {
     const method = String(body.method || "").trim();
     const conclusion = String(body.conclusion || "").trim();
@@ -138,19 +150,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       result: tx,
     });
   } else if (command === "SET_RESOURCES") {
-    if (oldStatus === "CLOSED") return NextResponse.json({ error: "CAPA đã đóng, không thể sửa nguồn lực cần." }, { status: 409 });
     const resources = String(body.required_resources || "").trim();
     if (!resources) return NextResponse.json({ error: "Cần mô tả nguồn lực cần (nhân lực, kinh phí, thiết bị...)." }, { status: 400 });
-    const { error: updateError } = await admin.from("capas").update({ required_resources: resources, updated_at: now }).eq("id", capa.id);
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
-    reason = reason || "Cập nhật nguồn lực cần cho CAPA."; message = "Đã lưu nguồn lực cần.";
+    const { data: tx, error: txError } = await admin.rpc(CORE_TRANSITION_RPC, {
+      p_capa_record_id: recordId,
+      p_actor_user_id: auth.user.id,
+      p_command: "SET_RESOURCES",
+      p_required_resources: resources,
+      p_reason: reason,
+    });
+    if (txError) {
+      const txMessage = rpcErrorMessage(txError, "Không thể cập nhật nguồn lực cần cho CAPA.");
+      return NextResponse.json({ error: txMessage }, { status: 409 });
+    }
+    return NextResponse.json({
+      ok: true,
+      status: tx?.workflow_status ?? oldStatus,
+      message: "Đã lưu nguồn lực cần.",
+      transaction: "atomic",
+      result: tx,
+    });
   } else if (command === "CLOSE") {
     if(oldStatus!=="EFFECTIVE")return NextResponse.json({error:"Chỉ CAPA đã xác nhận có hiệu lực mới được đóng."},{status:409});
-    reason = reason || "CAPA đã được xác nhận hiệu lực.";
+    const closeReason = reason || "CAPA đã được xác nhận hiệu lực.";
     const { data: tx, error: txError } = await admin.rpc(CLOSE_RPC, {
       p_capa_record_id: recordId,
       p_actor_user_id: auth.user.id,
-      p_reason: reason,
+      p_reason: closeReason,
     });
     if (txError) {
       const txMessage = rpcErrorMessage(txError, "Không thể đóng CAPA.");
@@ -158,7 +184,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     return NextResponse.json({ ok: true, status: "CLOSED", message: "Đã đóng CAPA sau xác minh hiệu lực.", transaction: "atomic", result: tx });
   } else return NextResponse.json({ error: "Thao tác CAPA không hợp lệ." }, { status: 400 });
-
-  await admin.from("audit_logs").insert({ actor_user_id:auth.user.id,record_id:recordId,table_name:"capas",row_id:capa.id,action_type:`CAPA_${command}`,old_value:{workflow_status:oldStatus},new_value:{workflow_status:newStatus},reason,request_meta:{source:"qlcl-ui"} });
-  return NextResponse.json({ok:true,status:newStatus,message,transaction:"direct"});
 }
