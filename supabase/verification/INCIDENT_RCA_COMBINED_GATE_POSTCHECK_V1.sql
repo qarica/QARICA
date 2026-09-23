@@ -20,9 +20,9 @@ with fn as (
 )
 select
   case when body like '%incident_contributing_factors%' then 'PASS' else 'FAIL' end as factor_gate_present,
-  case when body like '%rca_timeline_events%' and body like '%v_timeline_count < 1%' then 'PASS' else 'FAIL' end as timeline_gate_present,
-  case when body like '%rca_five_whys%' and (body like '%v_why_count>0 and v_why_count<3%' or body like '%v_why_count > 0 and v_why_count < 3%') then 'PASS' else 'FAIL' end as optional_five_why_gate_present,
-  case when body like '%rca_fishbone_factors%' and body like '%v_fishbone_count < 1%' then 'PASS' else 'FAIL' end as fishbone_gate_present,
-  case when body like '%rca_root_causes%' and body like '%v_root_count < 1%' then 'PASS' else 'FAIL' end as root_cause_gate_present,
-  case when body like '%set status=''completed''%' then 'PASS' else 'FAIL' end as rca_completion_atomic
+  case when body like '%rca_timeline_events%' and body ~ 'v_timeline_count[[:space:]]*<[[:space:]]*1' then 'PASS' else 'FAIL' end as timeline_gate_present,
+  case when body like '%rca_five_whys%' and body ~ 'v_why_count[[:space:]]*>[[:space:]]*0[[:space:]]+and[[:space:]]+v_why_count[[:space:]]*<[[:space:]]*3' then 'PASS' else 'FAIL' end as optional_five_why_gate_present,
+  case when body like '%rca_fishbone_factors%' and body ~ 'v_fishbone_count[[:space:]]*<[[:space:]]*1' then 'PASS' else 'FAIL' end as fishbone_gate_present,
+  case when body like '%rca_root_causes%' and body ~ 'v_root_count[[:space:]]*<[[:space:]]*1' then 'PASS' else 'FAIL' end as root_cause_gate_present,
+  case when body ~ 'set[[:space:]]+status[[:space:]]*=[[:space:]]*''completed''' then 'PASS' else 'FAIL' end as rca_completion_atomic
 from fn;
