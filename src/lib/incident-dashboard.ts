@@ -1,4 +1,4 @@
-import { hcmMonthNumber } from "./hcm-date";
+import { hcmDateKey, hcmMonthNumber } from "./hcm-date";
 
 const CLOSED_INCIDENT = new Set(["CLOSED", "CANCELLED", "REJECTED"]);
 const INVESTIGATION_PHASE = new Set(["INVESTIGATION_REQUIRED", "INVESTIGATING", "ACTION_FOLLOW_UP", "AWAITING_CLOSURE"]);
@@ -37,7 +37,7 @@ export function incidentAttentionRank(row: IncidentAttentionLike) {
   return 0;
 }
 
-export { hcmMonthNumber };
+export { hcmDateKey, hcmMonthNumber };
 
 
 export type IncidentDomainLinkLike = {
@@ -87,4 +87,11 @@ export function incidentDomainDistribution(
     linkedRecordCount: linkedRecords.size,
     unclassifiedCount: Math.max(0, visible.size - linkedRecords.size),
   };
+}
+
+
+export function incidentReportedSameHcmDay(occurredAt?: string | null, reportedAt?: string | null) {
+  const occurred = hcmDateKey(occurredAt);
+  const reported = hcmDateKey(reportedAt);
+  return Boolean(occurred && reported && occurred === reported);
 }
