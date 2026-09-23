@@ -155,7 +155,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { data: linkedActions } = actionIds.length
       ? await admin.from("actions").select("id,workflow_status").in("id", actionIds)
       : { data: [] as any[] };
-    const unfinished = (linkedActions ?? []).filter((row: any) => row.workflow_status !== "COMPLETED").length;
+    const terminalActionStatuses = new Set(["COMPLETED", "CANCELLED", "NOT_APPLICABLE"]);
+    const unfinished = (linkedActions ?? []).filter((row: any) => !terminalActionStatuses.has(String(row.workflow_status))).length;
     const { count } = await admin.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId);
     const gate = findingSubmitGate({ actionCount: actionIds.length, unfinishedActionCount: unfinished, evidenceCount: count ?? 0 });
     if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: 409 });
