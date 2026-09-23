@@ -209,7 +209,7 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
   }
 
   if (recordType === "INCIDENT") {
-    const { data: incident } = await supabase.from("incidents").select("id,workflow_status,investigation_required,rca_required,verified_initial_response").eq("record_id", recordId).maybeSingle();
+    const { data: incident } = await supabase.from("incidents").select("id,workflow_status,investigation_required,rca_required,verified_initial_response,harm_status,serious_event_flag").eq("record_id", recordId).maybeSingle();
     if (!incident) return null;
     const [{ data: report }, { data: links }, { count: evidenceCount }] = await Promise.all([
       supabase.from("incident_reports").select("initial_response_description").eq("incident_id", incident.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
@@ -220,7 +220,7 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     const { data: actions } = actionRecordIds.length ? await supabase.from("actions").select("record_id,workflow_status").in("record_id", actionRecordIds) : { data: [] as any[] };
     const activeActions = (actions ?? []).filter((row: any) => !["CANCELLED", "NOT_APPLICABLE"].includes(String(row.workflow_status)));
     const incomplete = activeActions.filter((row: any) => row.workflow_status !== "COMPLETED").length;
-    return <IncidentWorkflowClient recordId={recordId} status={incident.workflow_status} canTriage={user.permissions.includes("incident.triage")} canInvestigate={user.permissions.includes("incident.investigate") || user.permissions.includes("incident.triage")} canClose={user.permissions.includes("incident.close")} initialSafetyRecorded={!!String(report?.initial_response_description || incident.verified_initial_response || "").trim()} investigationRequired={!!incident.investigation_required} rcaRequired={!!incident.rca_required} actionCount={activeActions.length} incompleteActionCount={incomplete} evidenceCount={evidenceCount ?? 0} />;
+    return <IncidentWorkflowClient recordId={recordId} status={incident.workflow_status} canTriage={user.permissions.includes("incident.triage")} canInvestigate={user.permissions.includes("incident.investigate") || user.permissions.includes("incident.triage")} canClose={user.permissions.includes("incident.close")} initialSafetyRecorded={!!String(report?.initial_response_description || incident.verified_initial_response || "").trim()} initialHarmStatus={String(incident.harm_status || "NO_HARM")} seriousEvent={!!incident.serious_event_flag} investigationRequired={!!incident.investigation_required} rcaRequired={!!incident.rca_required} actionCount={activeActions.length} incompleteActionCount={incomplete} evidenceCount={evidenceCount ?? 0} />;
   }
 
   if (recordType === "CAPA") {
