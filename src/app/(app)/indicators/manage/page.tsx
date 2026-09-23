@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -9,6 +10,7 @@ const frequencyLabel=(v:string)=>({DAILY:"Hằng ngày",WEEKLY:"Hằng tuần",M
 
 export default async function IndicatorManagementPage(){
   const user:any=await requireUserContext();
+  if (!user.organizationId) redirect("/dashboard?forbidden=1");
   const supabase=await createClient();
   const {data:defs,error}=await supabase.from("indicator_definitions").select("id,code,name,purpose,quality_dimension,is_active").eq("organization_id",user.organizationId).order("code");
   const ids=(defs??[]).map((x:any)=>x.id);
