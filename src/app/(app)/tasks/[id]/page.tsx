@@ -74,13 +74,6 @@ export default async function TaskDetailPage({ params, searchParams }: { params:
     ? await supabase.from("records").select("id,record_type,record_code,title").in("id", sourceRecordIds)
     : { data: [], error: null };
   const sourceRecordTypes = Array.from(new Set((sourceRecordsRes.data ?? []).map((row: any) => String(row.record_type || "")).filter(Boolean)));
-  const sourceRecords = (sourceRecordsRes.data ?? []) as Array<{ id: string; record_type: string; record_code: string; title: string }>;
-  const sourceRoute = (source: { id: string; record_type: string }) => {
-    if (source.record_type === "INCIDENT") return `/incidents/${source.id}`;
-    if (source.record_type === "ACTION") return `/tasks/${source.id}`;
-    return `/records/${source.id}`;
-  };
-
   const visibleEvidenceLinks = action.assignment_target_type === "DEPARTMENT" && (departmentExecution as any)?.id
     ? (evidenceRes.data ?? []).filter((row: any) => row.action_department_execution_id === (departmentExecution as any).id)
     : (evidenceRes.data ?? []);
