@@ -6,7 +6,7 @@ const INVESTIGATION_PHASE = new Set(["INVESTIGATION_REQUIRED", "INVESTIGATING", 
 export const INCIDENT_HARM = {
   NEAR_MISS: { label: "Suýt xảy ra", classCode: "NC0", classLabel: "Suýt xảy ra / chưa đến người bệnh", serious: false },
   NO_HARM: { label: "Không tổn hại", classCode: "NC1", classLabel: "Sự cố đã xảy ra nhưng chưa gây tổn hại", serious: false },
-  MILD: { label: "Nhẹ", classCode: "NC2", classLabel: "Có tổn hại mức nhẹ", serious: false },
+  MILD: { label: "Nhẹ", classCode: "NC1", classLabel: "Tổn thương nhẹ", serious: false },
   MODERATE: { label: "Trung bình", classCode: "NC2", classLabel: "Có tổn hại mức trung bình", serious: false },
   SEVERE: { label: "Nặng", classCode: "NC3", classLabel: "Tổn hại nặng", serious: true },
   DEATH: { label: "Tử vong", classCode: "NC3", classLabel: "Tử vong", serious: true },
