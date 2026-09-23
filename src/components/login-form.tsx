@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
@@ -47,7 +48,7 @@ export function LoginForm() {
 
   return (
     <form className="login-card" onSubmit={submit}>
-      <div className="mobile-brand"><img src="/brand/qarica-logo.svg" alt="QARICA" /></div>
+      <div className="mobile-brand"><Image src="/brand/qarica-logo.svg" alt="QARICA" width={190} height={58} priority /></div>
 
       <div>
         <div className="eyebrow">ĐĂNG NHẬP QARICA</div>
