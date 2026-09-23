@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DictationTextarea } from "@/components/dictation-textarea";
 
 const LABEL: Record<string, string> = { DRAFT: "Nháp", REVIEWING: "Đang rà soát", PUBLISHED: "Đã phát hành", ARCHIVED: "Hết hiệu lực" };
 
@@ -88,9 +89,9 @@ export function SafetyAlertWorkflowClient({ recordId, status, canInvestigate, ca
 
       {status === "DRAFT" && canInvestigate ? <form onSubmit={saveDraft} className="domain-detail-grid">
         <div className="wide alert" style={{ fontSize: 12 }}>Bản Nháp — kể cả nội dung vừa bị trả lại — được phép chỉnh sửa. Khi đã gửi rà soát hoặc phát hành, nội dung được khóa để bảo toàn dấu vết.</div>
-        <label className="wide">Tóm tắt sự việc / nguy cơ *<textarea rows={3} value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Mô tả ngắn, không định danh người bệnh nếu không cần thiết." /></label>
-        <label className="wide">Bài học an toàn *<textarea rows={4} value={lesson} onChange={(e) => setLesson(e.target.value)} placeholder="Điều hệ thống cần ghi nhớ từ sự việc hoặc nguy cơ." /></label>
-        <label className="wide">Khuyến nghị áp dụng *<textarea rows={4} value={recommendation} onChange={(e) => setRecommendation(e.target.value)} placeholder="Hành động/biện pháp phòng ngừa cụ thể cho các đơn vị liên quan." /></label>
+        <label className="wide">Tóm tắt sự việc / nguy cơ *<DictationTextarea rows={3} value={summary} onValueChange={setSummary} placeholder="Mô tả ngắn, không định danh người bệnh nếu không cần thiết." /></label>
+        <label className="wide">Bài học an toàn *<DictationTextarea rows={4} value={lesson} onValueChange={setLesson} placeholder="Điều hệ thống cần ghi nhớ từ sự việc hoặc nguy cơ." /></label>
+        <label className="wide">Khuyến nghị áp dụng *<DictationTextarea rows={4} value={recommendation} onValueChange={setRecommendation} placeholder="Hành động/biện pháp phòng ngừa cụ thể cho các đơn vị liên quan." /></label>
         <label>Hết hiệu lực / rà soát lại<input type="datetime-local" value={expires} onChange={(e) => setExpires(e.target.value)} /></label>
         <button className="button secondary" disabled={busy || loading}>Lưu nội dung nháp</button>
       </form> : null}
