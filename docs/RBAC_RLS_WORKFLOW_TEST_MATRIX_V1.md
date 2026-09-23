@@ -1,4 +1,4 @@
-# QLCL-TTSG — RBAC / RLS / Workflow Test Matrix V1
+# QARICA — RBAC / RLS / Workflow Test Matrix V1
 
 ## Mục tiêu
 
@@ -43,7 +43,7 @@
 | SEC-04 | ACTION_OWNER xem Action được giao | Được phép |
 | SEC-05 | ACTION_OWNER tự đóng CAPA | Bị chặn nếu không có `capa.manage` |
 | SEC-06 | ADMIN kỹ thuật không có business permission mở module nghiệp vụ | Không tự động được cấp quyền |
-| SEC-07 | EXECUTIVE xem dashboard cấp bệnh viện | Được phép theo permission, không tự sửa nghiệp vụ |
+| SEC-07 | EXECUTIVE xem dashboard cấp tổ chức | Được phép theo permission, không tự sửa nghiệp vụ |
 | SEC-08 | User gọi POST API workflow với record UUID ngoài scope | 403/404 |
 | SEC-09 | User giả payload owner_department_id ngoài organization | Bị chặn |
 | SEC-10 | User giả assignee_user_id ngoài organization | Bị chặn |
@@ -202,7 +202,7 @@ Mỗi test case phải có:
 
 Riêng TX test cần lưu thêm:
 - số row trước/sau ở các bảng liên quan;
-- transaction path (`atomic` hay `legacy-fallback`; với Admin PATCH chỉ chấp nhận `atomic` hoặc fail-closed);
+- transaction path (`atomic`; nếu canonical RPC thiếu hoặc lỗi phải fail-closed, không chấp nhận legacy fallback);
 - business key/record id dùng để retry;
 - bằng chứng không có duplicate/orphan.
 
