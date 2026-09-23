@@ -1,4 +1,4 @@
--- QLCL-TTSG Transaction Hardening Preflight V1
+-- QARICA Transaction Hardening Preflight V1
 -- Run BEFORE transaction hardening migrations.
 -- Read-only: raises on blockers and ends with ROLLBACK.
 
@@ -29,9 +29,8 @@ end $$;
 -- Existing infrastructure RPC required by several transaction functions.
 do $$
 begin
-  if to_regprocedure('public.next_record_code(text,integer)') is null
-     and to_regprocedure('public.next_record_code(text,bigint)') is null then
-    raise exception 'next_record_code(record_type, work_year) function not found; inspect actual signature before migration';
+  if to_regprocedure('public.next_record_code(uuid,text,integer)') is null then
+    raise exception 'next_record_code(organization_id, record_type, work_year) function not found; schema lineage is incomplete';
   end if;
 end $$;
 
