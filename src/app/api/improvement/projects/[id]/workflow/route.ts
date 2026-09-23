@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { arePdsaMilestonesComplete, normalizeProjectMilestone } from "@/lib/improvement-project-setup";
-import { improvementProjectRollbackPatch, improvementRecordRollbackPatch } from "@/lib/improvement-workflow-audit";
+import { improvementProjectRollbackPatch } from "@/lib/improvement-workflow-audit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 
 const CLOSE_PROJECT_RPC = "qlcl_close_improvement_project_v1";
 
@@ -36,17 +36,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const oldStatus = String(project.workflow_status || "DRAFT");
   const now = new Date().toISOString();
-  const today = now.slice(0, 10);
   const reason = String(body.comment || "").trim() || null;
   const projectRollback = improvementProjectRollbackPatch(project);
-  const recordRollback = improvementRecordRollbackPatch(record);
   let newStatus = oldStatus;
   let message = "Đã cập nhật đề án.";
-  let transaction: "direct" | "legacy-fallback" = "direct";
+  const transaction = "direct" as const;
   let createdReviewId: string | null = null;
-  let createdHistoryId: string | null = null;
   let projectChanged = false;
-  let recordChanged = false;
   let auditDetails: Record<string, unknown> = {};
 
   const [{ count: objectives }, { count: milestones }, { data: links }, { count: evidence }] = await Promise.all([
@@ -119,40 +115,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       p_actor_user_id: auth.user.id,
       p_reason: reason,
     });
-    if (!txError) return NextResponse.json({ ok: true, status: "CLOSED", message: "Đã đóng đề án và giữ quyết định duy trì/nhân rộng.", transaction: "atomic", result: tx });
-    if (!isMissingRpcFunction(txError, CLOSE_PROJECT_RPC)) {
+    if (txError) {
       const txMessage = rpcErrorMessage(txError, "Không thể đóng đề án cải tiến.");
       return NextResponse.json({ error: txMessage }, { status: /not active|evaluated|achieved|incomplete|required/i.test(txMessage) ? 409 : 400 });
     }
-
-    transaction = "legacy-fallback";
-    const ids = (links || []).map((x: any) => x.target_record_id).filter(Boolean);
-    const { data: actions } = ids.length ? await admin.from("actions").select("workflow_status").in("record_id", ids) : { data: [] };
-    const incomplete = (actions || []).filter((x: any) => !["COMPLETED", "CANCELLED", "NOT_APPLICABLE"].includes(String(x.workflow_status))).length;
-    if (incomplete) return NextResponse.json({ error: `Còn ${incomplete} Action chưa hoàn thành.` }, { status: 409 });
-    if (!evidence) return NextResponse.json({ error: "Cần minh chứng kết quả trước khi đóng đề án." }, { status: 409 });
-    const { data: latestReview } = await admin.from("project_closure_reviews").select("overall_result").eq("project_id", project.id).order("reviewed_at", { ascending: false }).limit(1).maybeSingle();
-    if (latestReview?.overall_result !== "ACHIEVED") return NextResponse.json({ error: "Đánh giá đóng gần nhất phải xác nhận ACHIEVED." }, { status: 409 });
-
-    newStatus = "CLOSED";
-    const { error: projectError } = await admin.from("improvement_projects").update({ workflow_status: newStatus, actual_end_date: today, updated_at: now }).eq("id", project.id);
-    if (projectError) return NextResponse.json({ error: projectError.message }, { status: 400 });
-    projectChanged = true;
-    const { error: recordError } = await admin.from("records").update({ lifecycle_status: "CLOSED", closed_at: now, updated_at: now }).eq("id", recordId);
-    if (recordError) {
-      await admin.from("improvement_projects").update(projectRollback).eq("id", project.id);
-      return NextResponse.json({ error: recordError.message }, { status: 400 });
-    }
-    recordChanged = true;
-    const { data: history, error: historyError } = await admin.from("record_status_history").insert({ record_id: recordId, old_status: record.lifecycle_status, new_status: "CLOSED", changed_by: auth.user.id, reason }).select("id").single();
-    if (historyError || !history) {
-      await admin.from("records").update(recordRollback).eq("id", recordId);
-      await admin.from("improvement_projects").update(projectRollback).eq("id", project.id);
-      return NextResponse.json({ error: historyError?.message || "Không ghi được lịch sử trạng thái đề án." }, { status: 400 });
-    }
-    createdHistoryId = String(history.id);
-    auditDetails = { actual_end_date: today };
-    message = "Đã đóng đề án và giữ quyết định duy trì/nhân rộng.";
+    return NextResponse.json({
+      ok: true,
+      status: "CLOSED",
+      message: "Đã đóng đề án và giữ quyết định duy trì/nhân rộng.",
+      transaction: "atomic",
+      result: tx,
+    });
   } else {
     return NextResponse.json({ error: "Thao tác đề án không hợp lệ." }, { status: 400 });
   }
@@ -178,14 +151,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (createdReviewId) {
       const { error: reviewRollbackError } = await admin.from("project_closure_reviews").delete().eq("id", createdReviewId);
       if (reviewRollbackError) rollbackErrors.push(`review: ${reviewRollbackError.message}`);
-    }
-    if (createdHistoryId) {
-      const { error: historyRollbackError } = await admin.from("record_status_history").delete().eq("id", createdHistoryId);
-      if (historyRollbackError) rollbackErrors.push(`history: ${historyRollbackError.message}`);
-    }
-    if (recordChanged) {
-      const { error: recordRollbackError } = await admin.from("records").update(recordRollback).eq("id", recordId);
-      if (recordRollbackError) rollbackErrors.push(`record: ${recordRollbackError.message}`);
     }
     if (projectChanged) {
       const { error: projectRollbackError } = await admin.from("improvement_projects").update(projectRollback).eq("id", project.id);
