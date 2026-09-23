@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { hcmMonthNumber } from "@/lib/hcm-date";
 
 type Row={record_type:string;lifecycle_status:string;department_name:string;owner_name:string;created_at:string;updated_at:string};
 
@@ -21,7 +22,7 @@ const LABELS:Record<string,{total:string;active:string;closed:string;unassigned:
  REPORT:{total:"Nghĩa vụ báo cáo",active:"Đang chuẩn bị",closed:"Đã hoàn tất",unassigned:"Thiếu owner",trend:"Nghĩa vụ báo cáo được ghi nhận",dept:"Báo cáo theo đơn vị"},
 };
 
-function monthKey(value:string){const d=new Date(value);return Number.isNaN(d.getTime())?null:d.getMonth();}
+function monthKey(value:string){const month=hcmMonthNumber(value);return month===null?null:month-1;}
 
 export function TqmRegistryOverview({rows,recordType}:{rows:Row[];recordType:string}){
  const copy=LABELS[recordType]||{total:"Hồ sơ",active:"Đang hoạt động",closed:"Đã đóng",unassigned:"Thiếu phân công",trend:"Hồ sơ được ghi nhận theo tháng",dept:"Phân bố theo đơn vị"};
