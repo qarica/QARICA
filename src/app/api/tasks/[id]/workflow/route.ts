@@ -5,6 +5,7 @@ import { taskVerificationPermissions } from "@/lib/task-verification-policy";
 import { actionSubmitGate } from "@/lib/quality-gates";
 
 const VERIFY_EXECUTION_RPC = "qlcl_verify_action_department_execution_v1";
+const SUBMIT_EXECUTION_RPC = "qlcl_submit_action_department_execution_v1";
 
 const WORKFLOW_ACTIONS = new Set(["START", "RESUME", "SUBMIT", "BEGIN_VERIFY", "APPROVE", "RETURN"]);
 const VERIFIER_ACTIONS = new Set(["BEGIN_VERIFY", "APPROVE", "RETURN"]);
@@ -156,37 +157,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) {
-      const submittedAt=new Date().toISOString();
-      const {error:executionSubmitError}=await admin.from("action_department_executions").update({workflow_status:"SUBMITTED",submitted_at:submittedAt,submitted_by:auth.user.id,updated_at:submittedAt}).eq("id",departmentExecution.id).eq("workflow_status","IN_PROGRESS");
-      if (executionSubmitError) return NextResponse.json({error:executionSubmitError.message},{status:400});
-      // Execution của từng khoa là nguồn trạng thái thật. Action cha chỉ tổng hợp:
-      // còn khoa chưa nộp => IN_PROGRESS; tất cả đã nộp/xác minh/waive => EVIDENCE_SUBMITTED.
-      const {data:pendingExecutions,error:pendingError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).not("workflow_status","in","(SUBMITTED,VERIFIED,WAIVED)").limit(1);
-      if (pendingError) return NextResponse.json({error:pendingError.message},{status:400});
-      if ((pendingExecutions??[]).length) return NextResponse.json({ok:true,department_execution_status:"SUBMITTED",workflow_status:"IN_PROGRESS"});
-
-      const { data: aggregateSubmitted, error: aggregateSubmitError } = await admin
-        .from("actions")
-        .update({
-          workflow_status: "EVIDENCE_SUBMITTED",
-          submitted_at: submittedAt,
-          verified_at: null,
-          verified_by: null,
-          completion_note: null,
-        })
-        .eq("id", action.id)
-        .eq("workflow_status", "IN_PROGRESS")
-        .select("id")
-        .maybeSingle();
-      if (aggregateSubmitError || !aggregateSubmitted) {
-        // Không để execution cuối bị kẹt ở SUBMITTED nếu Action cha không chuyển được.
-        await admin.from("action_department_executions")
-          .update({ workflow_status: "IN_PROGRESS", submitted_at: null, submitted_by: null, updated_at: submittedAt })
-          .eq("id", departmentExecution.id)
-          .eq("workflow_status", "SUBMITTED");
-        return NextResponse.json({ error: aggregateSubmitError?.message || "Trạng thái Action đã thay đổi. Vui lòng tải lại và thử lại." }, { status: 409 });
+      const { data: tx, error: txError } = await admin.rpc(SUBMIT_EXECUTION_RPC, {
+        p_execution_id: departmentExecution.id,
+        p_actor_user_id: auth.user.id,
+      });
+      if (txError) {
+        return NextResponse.json(
+          { error: txError.message || "Không gửi được phần việc của khoa/phòng sang bước xác minh." },
+          { status: 409 },
+        );
       }
-      return NextResponse.json({ ok: true, department_execution_status: "SUBMITTED", workflow_status: "EVIDENCE_SUBMITTED" });
+      return NextResponse.json({
+        ok: true,
+        department_execution_status: tx?.department_execution_status ?? "SUBMITTED",
+        workflow_status: tx?.workflow_status ?? (tx?.aggregate_submitted ? "EVIDENCE_SUBMITTED" : "IN_PROGRESS"),
+        aggregate_submitted: !!tx?.aggregate_submitted,
+        submitted_at: tx?.submitted_at ?? null,
+      });
     }
 
     const { error: submitError } = await admin
