@@ -14,7 +14,7 @@ select
 with fn as (
   select
     lower(pg_get_functiondef(p.oid)) as body,
-    regexp_replace(lower(pg_get_functiondef(p.oid)), '\\s+', '', 'g') as compact_body
+    translate(lower(pg_get_functiondef(p.oid)), E' \\n\\r\\t', '') as compact_body
   from pg_proc p
   join pg_namespace n on n.oid=p.pronamespace
   where n.nspname='public' and p.proname='qlcl_complete_incident_investigation_v1'
