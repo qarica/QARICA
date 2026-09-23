@@ -8,6 +8,7 @@ const validReview = new Set(["EFFECTIVE", "PARTIALLY_EFFECTIVE", "INEFFECTIVE"])
 const CLOSE_RPC = "qlcl_close_capa_v1";
 const REQUEST_EFFECTIVENESS_RPC = "qlcl_request_capa_effectiveness_v1";
 const REVIEW_EFFECTIVENESS_RPC = "qlcl_review_capa_effectiveness_v1";
+const SAVE_RCA_RPC = "qlcl_save_capa_rca_v1";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
@@ -42,24 +43,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
     reason = reason || "CAPA được phê duyệt để phân tích nguyên nhân và triển khai."; message = "Đã phê duyệt CAPA.";
   } else if (command === "SAVE_RCA") {
-    if (oldStatus !== "ROOT_CAUSE_ANALYSIS") return NextResponse.json({ error: "CAPA không ở bước phân tích nguyên nhân." }, { status: 409 });
-    const method = String(body.method || "").trim(); const conclusion = String(body.conclusion || "").trim();
-    if (!method || !conclusion) return NextResponse.json({ error: "Phương pháp và kết luận nguyên nhân gốc là bắt buộc." }, { status: 400 });
-    let rcaId = capa.rca_analysis_id;
-    if (rcaId) {
-      const { error: rcaError } = await admin.from("rca_analyses").update({ method, status: "COMPLETED", completed_at: now, conclusion }).eq("id", rcaId);
-      if (rcaError) return NextResponse.json({ error: rcaError.message }, { status: 400 });
-    } else {
-      const { data: rca, error: rcaError } = await admin.from("rca_analyses").insert({ method, status: "COMPLETED", started_at: now, completed_at: now, conclusion }).select("id").single();
-      if (rcaError || !rca) return NextResponse.json({ error: rcaError?.message || "Không lưu được RCA." }, { status: 400 });
-      rcaId = rca.id;
-      const { error: linkError } = await admin.from("capas").update({ rca_analysis_id: rcaId, updated_at: now }).eq("id", capa.id);
-      if (linkError) {
-        await admin.from("rca_analyses").delete().eq("id", rcaId);
-        return NextResponse.json({ error: linkError.message }, { status: 400 });
-      }
+    const method = String(body.method || "").trim();
+    const conclusion = String(body.conclusion || "").trim();
+    if (!method || !conclusion) {
+      return NextResponse.json({ error: "Phương pháp và kết luận nguyên nhân gốc là bắt buộc." }, { status: 400 });
     }
-    reason = `Hoàn tất RCA bằng ${method}.`; message = "Đã lưu phân tích nguyên nhân gốc.";
+    const { data: tx, error: txError } = await admin.rpc(SAVE_RCA_RPC, {
+      p_capa_record_id: recordId,
+      p_actor_user_id: auth.user.id,
+      p_method: method,
+      p_conclusion: conclusion,
+    });
+    if (txError) {
+      const txMessage = rpcErrorMessage(txError, "Không thể lưu phân tích nguyên nhân gốc.");
+      return NextResponse.json({ error: txMessage }, { status: 409 });
+    }
+    return NextResponse.json({
+      ok: true,
+      status: tx?.workflow_status ?? "ROOT_CAUSE_ANALYSIS",
+      message: "Đã lưu phân tích nguyên nhân gốc.",
+      transaction: "atomic",
+      result: tx,
+    });
   } else if (command === "START_ACTIONS") {
     if (oldStatus !== "ROOT_CAUSE_ANALYSIS") return NextResponse.json({ error: "CAPA chưa ở bước lập hành động." }, { status: 409 });
     if (!capa.rca_analysis_id) return NextResponse.json({ error: "Phải hoàn tất phân tích nguyên nhân gốc trước." }, { status: 409 });
