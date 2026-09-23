@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hcmMonthNumber, incidentAttentionRank, incidentDomainDistribution, incidentHarmClassification } from "./incident-dashboard";
+import { hcmMonthNumber, incidentAttentionRank, incidentDomainDistribution, incidentHarmClassification, incidentReportedSameHcmDay } from "./incident-dashboard";
 
 describe("incident dashboard helpers", () => {
   it("prioritizes open serious and investigation cases above closed cases", () => {
@@ -18,6 +18,12 @@ describe("incident dashboard helpers", () => {
     expect(incidentHarmClassification("MODERATE")?.classCode).toBe("NC2");
     expect(incidentHarmClassification("SEVERE")?.classCode).toBe("NC3");
     expect(incidentHarmClassification("DEATH")?.classCode).toBe("NC3");
+  });
+
+  it("classifies same-day reporting by Ho Chi Minh City calendar date", () => {
+    expect(incidentReportedSameHcmDay("2026-09-23T00:30:00+07:00", "2026-09-23T23:30:00+07:00")).toBe(true);
+    expect(incidentReportedSameHcmDay("2026-09-23T23:30:00+07:00", "2026-09-24T00:10:00+07:00")).toBe(false);
+    expect(incidentReportedSameHcmDay(null, "2026-09-23T10:00:00+07:00")).toBe(false);
   });
 
   it("buckets incident timestamps by Ho Chi Minh City month", () => {
