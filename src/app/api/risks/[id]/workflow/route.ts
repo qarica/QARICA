@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 
 const TERMINAL = ["CANCELLED", "ARCHIVED", "INACTIVE", "RETIRED"];
 const ACCEPT_DECISIONS = ["ACCEPT", "ACCEPT_WITH_MONITORING", "NOT_ACCEPTED", "ESCALATE"];
@@ -47,7 +47,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let newStatus = oldStatus;
   let reason = String(body.comment || "").trim() || null;
   let message = "Đã cập nhật Risk Register.";
-  let transaction: "direct" | "legacy-fallback" = "direct";
   const now = new Date().toISOString();
   const today = hcmDate();
 
@@ -152,30 +151,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       p_acceptance_reason: acceptanceReason,
       p_next_review_date: nextReviewDate,
     });
-    if (!txError) {
-      const status = typeof tx === "object" && tx && "status" in tx ? String((tx as Record<string, unknown>).status || "") : decision === "ACCEPT" ? "RISK_ACCEPTED" : decision === "ACCEPT_WITH_MONITORING" ? "MONITORING" : "TREATMENT_REQUIRED";
-      return NextResponse.json({ ok: true, status, message: decision === "ACCEPT" ? "Đã chấp nhận rủi ro." : decision === "ACCEPT_WITH_MONITORING" ? "Đã chấp nhận có theo dõi." : "Đã chuyển lại bước xử lý.", transaction: "atomic", result: tx });
-    }
-    if (!isMissingRpcFunction(txError, ACCEPT_RISK_RPC)) {
+    if (txError) {
       const txMessage = rpcErrorMessage(txError, "Không thể ghi nhận quyết định rủi ro.");
       return NextResponse.json({ error: txMessage }, { status: /not active|decision gate|required|past|invalid/i.test(txMessage) ? 409 : 400 });
     }
-
-    transaction = "legacy-fallback";
-    const { data: assessment, error: assessmentError } = await admin.from("risk_assessments").select("id").eq("risk_id", risk.id).order("assessment_date", { ascending: false }).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (assessmentError) return NextResponse.json({ error: assessmentError.message }, { status: 400 });
-    if (!assessment) return NextResponse.json({ error: "Chưa có đánh giá rủi ro làm căn cứ quyết định." }, { status: 409 });
-    const { data: acceptance, error: acceptError } = await admin.from("risk_acceptances").insert({ risk_id: risk.id, risk_assessment_id: assessment.id, decision, accepted_by: auth.user.id, acceptance_reason: acceptanceReason, next_review_date: nextReviewDate }).select("id").single();
-    if (acceptError || !acceptance) return NextResponse.json({ error: acceptError?.message || "Không lưu được quyết định rủi ro." }, { status: 400 });
-
-    newStatus = decision === "ACCEPT" ? "RISK_ACCEPTED" : decision === "ACCEPT_WITH_MONITORING" ? "MONITORING" : "TREATMENT_REQUIRED";
-    const { error } = await admin.from("risks").update({ workflow_status: newStatus, next_review_date: nextReviewDate || risk.next_review_date, updated_at: now }).eq("id", risk.id);
-    if (error) {
-      await admin.from("risk_acceptances").delete().eq("id", acceptance.id);
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-    reason = acceptanceReason;
-    message = decision === "ACCEPT" ? "Đã chấp nhận rủi ro." : decision === "ACCEPT_WITH_MONITORING" ? "Đã chấp nhận có theo dõi." : "Đã chuyển lại bước xử lý.";
+    const status = typeof tx === "object" && tx && "status" in tx ? String((tx as Record<string, unknown>).status || "") : decision === "ACCEPT" ? "RISK_ACCEPTED" : decision === "ACCEPT_WITH_MONITORING" ? "MONITORING" : "TREATMENT_REQUIRED";
+    return NextResponse.json({ ok: true, status, message: decision === "ACCEPT" ? "Đã chấp nhận rủi ro." : decision === "ACCEPT_WITH_MONITORING" ? "Đã chấp nhận có theo dõi." : "Đã chuyển lại bước xử lý.", transaction: "atomic", result: tx });
   } else if (command === "RETIRE") {
     if (!["RISK_ACCEPTED", "MONITORING"].includes(oldStatus)) return NextResponse.json({ error: "Chỉ rủi ro đã chấp nhận hoặc đang theo dõi mới được retire." }, { status: 409 });
     if (!reason) return NextResponse.json({ error: "Lý do retire là bắt buộc." }, { status: 400 });
@@ -185,33 +166,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       p_actor_user_id: auth.user.id,
       p_reason: reason,
     });
-    if (!txError) return NextResponse.json({ ok: true, status: "RETIRED", message: "Đã retire rủi ro; lịch sử vẫn được giữ để truy vết.", transaction: "atomic", result: tx });
-    if (!isMissingRpcFunction(txError, RETIRE_RISK_RPC)) {
+    if (txError) {
       const txMessage = rpcErrorMessage(txError, "Không thể retire rủi ro.");
       return NextResponse.json({ error: txMessage }, { status: /not active|not eligible|required/i.test(txMessage) ? 409 : 400 });
     }
-
-    transaction = "legacy-fallback";
-    newStatus = "RETIRED";
-    const { error: riskUpdateError } = await admin.from("risks").update({ workflow_status: newStatus, retired_at: now, retired_reason: reason, updated_at: now }).eq("id", risk.id);
-    if (riskUpdateError) return NextResponse.json({ error: riskUpdateError.message }, { status: 400 });
-    const { error: recordUpdateError } = await admin.from("records").update({ lifecycle_status: "RETIRED", closed_at: now, updated_at: now }).eq("id", recordId);
-    if (recordUpdateError) {
-      await admin.from("risks").update({ workflow_status: oldStatus, retired_at: null, retired_reason: null, updated_at: now }).eq("id", risk.id);
-      return NextResponse.json({ error: recordUpdateError.message }, { status: 400 });
-    }
-    const { error: historyError } = await admin.from("record_status_history").insert({ record_id: recordId, old_status: record.lifecycle_status, new_status: "RETIRED", changed_by: auth.user.id, reason });
-    if (historyError) {
-      await admin.from("records").update({ lifecycle_status: record.lifecycle_status, closed_at: null, updated_at: now }).eq("id", recordId);
-      await admin.from("risks").update({ workflow_status: oldStatus, retired_at: null, retired_reason: null, updated_at: now }).eq("id", risk.id);
-      return NextResponse.json({ error: historyError.message }, { status: 400 });
-    }
-    message = "Đã retire rủi ro; lịch sử vẫn được giữ để truy vết.";
+    return NextResponse.json({ ok: true, status: "RETIRED", message: "Đã retire rủi ro; lịch sử vẫn được giữ để truy vết.", transaction: "atomic", result: tx });
   } else {
     return NextResponse.json({ error: "Thao tác Risk Register không hợp lệ." }, { status: 400 });
   }
 
-  await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "risks", row_id: risk.id, action_type: `RISK_${command}`, old_value: { workflow_status: oldStatus }, new_value: { workflow_status: newStatus }, reason, request_meta: { source: "qlcl-ui", transaction } });
+  await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "risks", row_id: risk.id, action_type: `RISK_${command}`, old_value: { workflow_status: oldStatus }, new_value: { workflow_status: newStatus }, reason, request_meta: { source: "qlcl-ui", transaction: "direct" } });
 
-  return NextResponse.json({ ok: true, status: newStatus, message, transaction });
+  return NextResponse.json({ ok: true, status: newStatus, message, transaction: "direct" });
 }
