@@ -33,6 +33,7 @@ export function NotificationBell() {
   const [routeMap, setRouteMap] = useState<Record<string, string | null>>({});
   const [ringing, setRinging] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread" | "urgent">("all");
+  const [actionError, setActionError] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
   const latestCreatedAtRef = useRef<string | null>(null);
@@ -187,8 +188,9 @@ export function NotificationBell() {
     if (!n.is_read) {
       const { data: updatedCount, error } = await supabase.rpc("mark_own_notifications_read", { p_notification_id: n.id });
       if (error || Number(updatedCount ?? 0) < 1) {
-        window.alert(`Không đánh dấu đã đọc được: ${error?.message || "Máy chủ từ chối cập nhật (có thể do phân quyền)."}`);
+        setActionError(`Không đánh dấu đã đọc được: ${error?.message || "Máy chủ từ chối cập nhật (có thể do phân quyền)."}`);
       } else {
+        setActionError("");
         setRows((curr) => curr.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
         setUnreadTotal((curr) => Math.max(0, curr - 1));
       }
@@ -206,9 +208,10 @@ export function NotificationBell() {
     if (!unreadTotal) return;
     const { data: updatedCount, error } = await supabase.rpc("mark_own_notifications_read", { p_notification_id: null });
     if (error || Number(updatedCount ?? 0) < 1) {
-      window.alert(`Không đánh dấu đã đọc được: ${error?.message || "Máy chủ từ chối cập nhật (có thể do phân quyền)."}`);
+      setActionError(`Không đánh dấu đã đọc được: ${error?.message || "Máy chủ từ chối cập nhật (có thể do phân quyền)."}`);
       return;
     }
+    setActionError("");
     setRows((curr) => curr.map((x) => ({ ...x, is_read: true })));
     setUnreadTotal(0);
     setRinging(false);
@@ -242,6 +245,7 @@ export function NotificationBell() {
             </div>
             <button className="link-button" onClick={markAll}>Đánh dấu tất cả đã đọc</button>
           </div>
+          {actionError ? <div className="alert error" style={{ margin: "10px 14px 0" }}>{actionError}</div> : null}
           <div className="notification-filters" role="tablist" aria-label="Lọc thông báo">
             <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Tất cả <b>{rows.length}</b></button>
             <button className={filter === "unread" ? "active" : ""} onClick={() => setFilter("unread")}>Chưa đọc <b>{unread > rows.length ? `${visibleUnread}/${unread}` : unread}</b></button>
