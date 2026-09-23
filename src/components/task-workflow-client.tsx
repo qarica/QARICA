@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { DictationTextarea } from "@/components/dictation-textarea";
 
 type WorkflowAction = "START" | "RESUME" | "SUBMIT" | "BEGIN_VERIFY" | "APPROVE" | "RETURN";
 
@@ -143,7 +144,7 @@ export function TaskWorkflowClient({
         <div className="modal-body" style={{ padding: "24px 28px 30px" }}>
           <label>
             <span>{reviewOpen === "RETURN" ? "Nội dung cần bổ sung *" : "Nhận xét xác minh"}</span>
-            <textarea rows={5} value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} placeholder={reviewOpen === "RETURN" ? "Ví dụ: Bổ sung bản đã ký phê duyệt và cập nhật ngày hiệu lực..." : "Có thể ghi nhận xét ngắn hoặc để trống"} />
+            <DictationTextarea rows={5} value={reviewNote} onValueChange={setReviewNote} disabled={busy} placeholder={reviewOpen === "RETURN" ? "Ví dụ: Bổ sung bản đã ký phê duyệt và cập nhật ngày hiệu lực..." : "Có thể ghi nhận xét ngắn hoặc để trống"} />
           </label>
         </div>
         <div className="modal-footer" style={{ padding: "14px 24px" }}>
