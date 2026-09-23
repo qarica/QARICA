@@ -116,7 +116,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
       .not("scheduled_date", "is", null),
     supabase
       .from("assessment_rounds")
-      .select("id,record_id,work_year,start_date,end_date,workflow_status")
+      .select("id,record_id,work_year,start_date,submission_deadline,review_deadline,finalization_date,workflow_status")
       .eq("work_year", workYear),
     supabase
       .from("reporting_obligations")
@@ -239,16 +239,41 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
         tone: round.start_date === today ? "warning" : "info",
       });
     }
-    if (round.end_date && round.end_date !== round.start_date) {
-      const closed = ["FINALIZED", "CLOSED", "COMPLETED"].includes(round.workflow_status);
+    const finalized = ["FINALIZED", "CLOSED", "COMPLETED"].includes(round.workflow_status);
+    if (round.submission_deadline) {
+      const overdue = !finalized && round.submission_deadline < today;
       events.push({
-        id: `assessment-end:${round.id}`,
-        date: round.end_date,
+        id: `assessment-submit:${round.id}`,
+        date: round.submission_deadline,
         title: record.title,
-        subtitle: `${record.record_code} · Hạn chốt tự đánh giá`,
+        subtitle: `${record.record_code} · Hạn nộp tự đánh giá`,
         href: `/assessments/${round.record_id}`,
         kind: "ASSESSMENT",
-        tone: !closed && round.end_date < today ? "danger" : closed ? "success" : "info",
+        tone: overdue ? "danger" : round.submission_deadline === today ? "warning" : finalized ? "success" : "info",
+      });
+    }
+    if (round.review_deadline) {
+      const reviewDone = ["FINALIZED", "CLOSED", "COMPLETED"].includes(round.workflow_status);
+      const overdue = !reviewDone && round.review_deadline < today;
+      events.push({
+        id: `assessment-review:${round.id}`,
+        date: round.review_deadline,
+        title: record.title,
+        subtitle: `${record.record_code} · Hạn rà soát đánh giá`,
+        href: `/assessments/${round.record_id}`,
+        kind: "ASSESSMENT",
+        tone: overdue ? "danger" : round.review_deadline === today ? "warning" : reviewDone ? "success" : "info",
+      });
+    }
+    if (round.finalization_date) {
+      events.push({
+        id: `assessment-finalize:${round.id}`,
+        date: round.finalization_date,
+        title: record.title,
+        subtitle: `${record.record_code} · Ngày chốt đánh giá`,
+        href: `/assessments/${round.record_id}`,
+        kind: "ASSESSMENT",
+        tone: finalized ? "success" : round.finalization_date < today ? "danger" : "info",
       });
     }
   }
