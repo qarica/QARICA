@@ -98,7 +98,7 @@ export function DictationTextarea({
         const result = event.results[i];
         if (result?.isFinal) finalText += ` ${result[0]?.transcript || ""}`;
       }
-      if (finalText.trim()) onValueChange(appendTranscript(value, finalText));
+      if (finalText.trim()) {\n        const nextValue = appendTranscript(valueRef.current, finalText);\n        valueRef.current = nextValue;\n        onValueChange(nextValue);\n      }
     };
     recognition.onerror = () => {
       setError("Không nhận được giọng nói. Kiểm tra quyền micro rồi thử lại.");
