@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evidenceFilePolicy, evidenceInlineSafe } from "@/lib/evidence-file-policy";
+import { evidenceFilePolicy, evidenceInlineSafe } from "./evidence-file-policy";
 
 describe("evidence file policy", () => {
   it("rejects active-content file extensions", () => {
