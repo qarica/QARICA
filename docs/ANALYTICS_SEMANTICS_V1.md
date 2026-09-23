@@ -1,4 +1,4 @@
-# QLCL-TTSG — Analytics Semantics V1
+# QARICA — Analytics Semantics V1
 
 ## Mục tiêu
 

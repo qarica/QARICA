@@ -1,15 +1,15 @@
-# QLCL-TTSG — TQM Product Blueprint V1
+# QARICA — TQM Product Blueprint V1
 
 ## Mục tiêu
-QLCL-TTSG vận hành theo Total Quality Management (TQM), không phải phần mềm quản lý hồ sơ đơn thuần. Mỗi workspace phải giúp người dùng nhìn được: **Mục tiêu → Quá trình → Đo lường → Vấn đề → Cải tiến/Kết quả**.
+QARICA vận hành theo Total Quality Management (TQM), không phải phần mềm quản lý hồ sơ đơn thuần. Mỗi workspace phải giúp người dùng nhìn được: **Mục tiêu → Quá trình → Đo lường → Vấn đề → Cải tiến/Kết quả**.
 
 ## 6 trụ cột TQM khóa chính thức
 1. **Customer focus** — người bệnh/khách hàng là trung tâm: trải nghiệm, phản ánh, hài lòng, thời gian chờ, sự cố ảnh hưởng người bệnh.
 2. **Process approach** — quản lý theo quá trình: nhìn chất lượng theo chuỗi công việc/quy trình, không chỉ theo module dữ liệu.
 3. **Continuous improvement** — cải tiến liên tục: Finding → CAPA → Action → Evidence → Recheck → Improvement/PDSA → Sustain/Spread.
 4. **Data-driven management** — quyết định dựa trên dữ liệu: trend, tỷ lệ, Pareto, so sánh khoa/phòng, heatmap, baseline-target-current.
-5. **Total participation** — toàn viện tham gia: owner, khoa/phòng, tiến độ, điểm nghẽn, mức độ tham gia và hoàn thành.
-6. **Leadership & strategic alignment** — gắn mục tiêu bệnh viện: kế hoạch năm, mục tiêu chiến lược, đề án cải tiến, chỉ số, báo cáo và kết quả.
+5. **Total participation** — toàn tổ chức tham gia: owner, khoa/phòng, tiến độ, điểm nghẽn, mức độ tham gia và hoàn thành.
+6. **Leadership & strategic alignment** — gắn mục tiêu tổ chức: kế hoạch năm, mục tiêu chiến lược, đề án cải tiến, chỉ số, báo cáo và kết quả.
 
 ## Nguyên tắc dashboard
 - **Dashboard chính = TQM Executive Dashboard**, không dùng task count làm nội dung trung tâm.

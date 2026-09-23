@@ -1,4 +1,4 @@
-# QLCL-TTSG — Go-Live Quality Gate V1
+# QARICA — Go-Live Quality Gate V1
 
 ## Nguyên tắc
 Không dùng cụm từ `PASS / sẵn sàng Go-Live` chỉ vì code build được hoặc preview deploy thành công.
