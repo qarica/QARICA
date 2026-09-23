@@ -56,3 +56,32 @@ where n.nspname='public'
     'qlcl_sync_record_link_traceability_v1'
   )
 order by p.proname;
+
+
+select
+  p.proname,
+  case
+    when p.proname in (
+      'next_record_code',
+      'qlcl_ensure_department_action_execution_v1',
+      'qlcl_handle_new_auth_user',
+      'qlcl_materialize_recurring_run_v4',
+      'qlcl_sync_record_link_traceability_v1'
+    )
+    then case when not has_function_privilege('authenticated',p.oid,'EXECUTE') then 'PASS' else 'FAIL' end
+    else case when has_function_privilege('authenticated',p.oid,'EXECUTE') then 'PASS' else 'FAIL' end
+  end as authenticated_execute_contract
+from pg_proc p
+join pg_namespace n on n.oid=p.pronamespace
+where n.nspname='public'
+  and p.proname in (
+    'can_create_record_type',
+    'has_permission',
+    'mark_own_notifications_read',
+    'next_record_code',
+    'qlcl_ensure_department_action_execution_v1',
+    'qlcl_handle_new_auth_user',
+    'qlcl_materialize_recurring_run_v4',
+    'qlcl_sync_record_link_traceability_v1'
+  )
+order by p.proname;
