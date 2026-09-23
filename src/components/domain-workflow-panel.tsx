@@ -78,14 +78,21 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
   if (recordType === "ASSESSMENT") {
     const { data: round } = await supabase.from("assessment_rounds").select("id,workflow_status").eq("record_id", recordId).maybeSingle();
     if (!round) return null;
-    const [{ count: scope }, { data: assessments }, { count: evidence }] = await Promise.all([
-      supabase.from("assessment_round_criteria").select("id", { count: "exact", head: true }).eq("assessment_round_id", round.id),
-      supabase.from("criterion_assessments").select("workflow_status").eq("assessment_round_id", round.id),
+    const [{ data: scopeRows }, { data: assessments }, { count: evidence }] = await Promise.all([
+      supabase.from("assessment_round_criteria").select("criteria_item_id,criterion_id,is_required,applicability_status,not_applicable_reason,lead_department_id").eq("assessment_round_id", round.id),
+      supabase.from("criterion_assessments").select("criteria_item_id,workflow_status").eq("assessment_round_id", round.id),
       supabase.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId),
     ]);
-    const submitted = (assessments ?? []).filter((x: any) => ["SUBMITTED", "REVIEWED", "FINALIZED", "COMPLETED", "APPROVED"].includes(String(x.workflow_status))).length;
+    const applicableIds = new Set((scopeRows ?? [])
+      .filter((x: any) => String(x.applicability_status || "APPLICABLE") !== "NOT_APPLICABLE")
+      .map((x: any) => x.criteria_item_id || x.criterion_id)
+      .filter(Boolean));
+    const scope = applicableIds.size;
+    const submitted = (assessments ?? []).filter((x: any) =>
+      applicableIds.has(x.criteria_item_id)
+      && ["SUBMITTED", "REVIEWED", "FINALIZED", "COMPLETED", "APPROVED"].includes(String(x.workflow_status))
+    ).length;
     const canManage = user.permissions.includes("criteria.manage");
-    const { data: scopeRows } = await supabase.from("assessment_round_criteria").select("criteria_item_id,criterion_id,is_required,applicability_status,not_applicable_reason,lead_department_id").eq("assessment_round_id", round.id);
     const criterionIds = Array.from(new Set((scopeRows ?? []).map((x: any) => x.criteria_item_id || x.criterion_id).filter(Boolean)));
     const [{ data: criterionRows }, { data: assessmentRows }] = criterionIds.length ? await Promise.all([
       supabase.from("criteria_items").select("id,code,title,sequence_no,parent_criteria_item_id,item_type,max_score").in("id", criterionIds).order("sequence_no"),
@@ -96,7 +103,7 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     const scopeById = new Map((scopeRows ?? []).map((x:any)=>[x.criteria_item_id||x.criterion_id,x]));
     const criteria = (criterionRows ?? []).map((criterion: any) => { const saved: any = savedByCriterion.get(criterion.id); const scoped:any=scopeById.get(criterion.id); return { id: criterion.id, code: criterion.code || "", name: criterion.title || "Chưa đặt tên", required: scopeMap.get(criterion.id) !== false, applicability: scoped?.applicability_status || "APPLICABLE", notApplicableReason: scoped?.not_applicable_reason || "", leadDepartmentId: scoped?.lead_department_id || null, score: saved?.score ?? null, result: saved?.result || "", levels: [], levelId: "", comment: saved?.note || "", status: saved?.workflow_status || "NOT_STARTED" }; });
     const canAssess = user.permissions.includes("criteria.assess") || canManage;
-    return <><AssessmentWorkflowClient recordId={recordId} status={round.workflow_status} canManage={canManage} canReview={canManage || user.permissions.includes("criteria.review")} scope={scope ?? 0} submitted={submitted} evidence={evidence ?? 0} /><AssessmentCriteriaClient recordId={recordId} editable={round.workflow_status === "IN_PROGRESS" && canAssess} criteria={criteria} /></>;
+    return <><AssessmentWorkflowClient recordId={recordId} status={round.workflow_status} canManage={canManage} canReview={canManage || user.permissions.includes("criteria.review")} scope={scope} submitted={submitted} evidence={evidence ?? 0} /><AssessmentCriteriaClient recordId={recordId} editable={round.workflow_status === "IN_PROGRESS" && canAssess} criteria={criteria} /></>;
   }
 
   if (recordType === "AUDIT") {
@@ -209,7 +216,7 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
   }
 
   if (recordType === "INCIDENT") {
-    const { data: incident } = await supabase.from("incidents").select("id,workflow_status,investigation_required,rca_required,verified_initial_response,harm_status,serious_event_flag").eq("record_id", recordId).maybeSingle();
+    const { data: incident } = await supabase.from("incidents").select("id,workflow_status,investigation_required,rca_required,verified_initial_response").eq("record_id", recordId).maybeSingle();
     if (!incident) return null;
     const [{ data: report }, { data: links }, { count: evidenceCount }] = await Promise.all([
       supabase.from("incident_reports").select("initial_response_description").eq("incident_id", incident.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
@@ -220,7 +227,7 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     const { data: actions } = actionRecordIds.length ? await supabase.from("actions").select("record_id,workflow_status").in("record_id", actionRecordIds) : { data: [] as any[] };
     const activeActions = (actions ?? []).filter((row: any) => !["CANCELLED", "NOT_APPLICABLE"].includes(String(row.workflow_status)));
     const incomplete = activeActions.filter((row: any) => row.workflow_status !== "COMPLETED").length;
-    return <IncidentWorkflowClient recordId={recordId} status={incident.workflow_status} canTriage={user.permissions.includes("incident.triage")} canInvestigate={user.permissions.includes("incident.investigate") || user.permissions.includes("incident.triage")} canClose={user.permissions.includes("incident.close")} initialSafetyRecorded={!!String(report?.initial_response_description || incident.verified_initial_response || "").trim()} initialHarmStatus={String(incident.harm_status || "NO_HARM")} seriousEvent={!!incident.serious_event_flag} investigationRequired={!!incident.investigation_required} rcaRequired={!!incident.rca_required} actionCount={activeActions.length} incompleteActionCount={incomplete} evidenceCount={evidenceCount ?? 0} />;
+    return <IncidentWorkflowClient recordId={recordId} status={incident.workflow_status} canTriage={user.permissions.includes("incident.triage")} canInvestigate={user.permissions.includes("incident.investigate") || user.permissions.includes("incident.triage")} canClose={user.permissions.includes("incident.close")} initialSafetyRecorded={!!String(report?.initial_response_description || incident.verified_initial_response || "").trim()} investigationRequired={!!incident.investigation_required} rcaRequired={!!incident.rca_required} actionCount={activeActions.length} incompleteActionCount={incomplete} evidenceCount={evidenceCount ?? 0} />;
   }
 
   if (recordType === "CAPA") {
