@@ -1,4 +1,4 @@
-# QLCL-TTSG — Transaction Hardening Deploy V1
+# QARICA — Transaction Hardening Deploy V1
 
 ## Mục tiêu
 Đưa các workflow đa bảng rủi ro cao sang PostgreSQL transaction/RPC để toàn bộ thay đổi **commit cùng nhau hoặc rollback cùng nhau**. Tài liệu này là runbook triển khai; nó **không phải bằng chứng migration đã được áp**.
@@ -121,14 +121,15 @@ Kết quả hợp lệ phải có:
 
 Nếu postcheck không PASS: migration **không được đánh dấu hoàn tất** và không tiếp tục production smoke test.
 
-## Cơ chế tương thích app
-Các API workflow dùng chiến lược **atomic-first**:
-1. gọi transaction RPC;
-2. nếu RPC thành công → trả `transaction: "atomic"`;
-3. chỉ khi PostgreSQL/PostgREST xác nhận function chưa tồn tại (`42883`/`PGRST202`) mới dùng legacy fallback ở những workflow đã được thiết kế cho phép fallback;
-4. mọi lỗi transaction khác được trả thẳng ra ngoài, **không fallback**, tránh che giấu lỗi và tránh double-write.
+## Cơ chế thực thi app
+Các workflow đa bảng trọng yếu dùng **canonical atomic RPC + fail-closed**:
+1. API gọi transaction RPC chuẩn;
+2. RPC thành công → trả `transaction: "atomic"`;
+3. nếu RPC chưa được triển khai, thiếu function hoặc transaction lỗi → API từ chối mutation; không chạy chuỗi write rời rạc thay thế;
+4. legacy fallback đa bảng đã được loại khỏi các workflow Production đã harden;
+5. ngoại lệ duy nhất là tài nguyên ngoài PostgreSQL như Storage object: DB vẫn atomic, còn file mới upload được cleanup best-effort nếu transaction thất bại.
 
-Riêng PATCH phân quyền người dùng **không có legacy fallback**; thiếu RPC là lỗi triển khai và API phải từ chối mutation.
+Mục tiêu là không che giấu lỗi triển khai, không double-write và không tạo trạng thái Registry/domain/link/history lệch nhau.
 
 ## Smoke test sau migration
 Không dùng dữ liệu production quan trọng để thử phá gate. Dùng hồ sơ test/pilot có kiểm soát và kiểm tra tối thiểu:
