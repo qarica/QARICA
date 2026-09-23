@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 
 const text = (value: unknown) => String(value ?? "").trim();
+const CREATE_FINDING_RPC = "qlcl_create_feedback_finding_v1";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
@@ -34,20 +36,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!record.owner_department_id && !feedback.related_department_id) return NextResponse.json({ error: "Cần gán khoa/phòng phối hợp trước." }, { status: 409 });
     next = "COORDINATING"; message = "Đã chuyển phối hợp xác minh/xử lý.";
   } else if (command === "CREATE_FINDING") {
-    if (!["TRIAGED", "COORDINATING"].includes(oldStatus)) return NextResponse.json({ error: "Chỉ sinh Finding sau khi đã phân loại phản ánh." }, { status: 409 });
-    const { data: existing } = await admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "GENERATED_FINDING").maybeSingle();
-    if (existing) return NextResponse.json({ error: "Phản ánh này đã có Finding liên kết." }, { status: 409 });
     const dueDate = text(body.due_date);
     if (!dueDate || !reason) return NextResponse.json({ error: "Cần mô tả vấn đề hệ thống và hạn khắc phục." }, { status: 400 });
-    const { data: code, error: codeError } = await admin.rpc("next_record_code", { p_org: record.organization_id, p_record_type: "FINDING", p_work_year: record.work_year });
-    if (codeError || !code) return NextResponse.json({ error: codeError?.message || "Không cấp được mã Finding." }, { status: 400 });
-    const { data: findingRecord, error: recordError } = await admin.from("records").insert({ organization_id: record.organization_id, record_type: "FINDING", record_code: code, title: `Finding từ ${record.record_code}: ${record.title}`, work_year: record.work_year, owner_department_id: record.owner_department_id || feedback.related_department_id, owner_user_id: record.owner_user_id || feedback.owner_user_id, lifecycle_status: "ACTIVE", created_by: auth.user.id }).select("id").single();
-    if (recordError || !findingRecord) return NextResponse.json({ error: recordError?.message || "Không tạo được hồ sơ Finding." }, { status: 400 });
-    const { data: finding, error: findingError } = await admin.from("findings").insert({ record_id: findingRecord.id, finding_type: "FEEDBACK_SYSTEM_ISSUE", description: `${reason}\nNguồn phản ánh: ${feedback.description}`, severity: text(body.severity) || "MAJOR", lead_department_id: record.owner_department_id || feedback.related_department_id, owner_user_id: record.owner_user_id || feedback.owner_user_id, identified_at: now, due_date: dueDate, workflow_status: "OPEN" }).select("id").single();
-    if (findingError || !finding) { await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", findingRecord.id); return NextResponse.json({ error: findingError?.message || "Không tạo được Finding." }, { status: 400 }); }
-    await admin.from("record_links").insert({ source_record_id: recordId, target_record_id: findingRecord.id, relation_type: "GENERATED_FINDING", metadata: { finding_id: finding.id, source: "FEEDBACK" }, created_by: auth.user.id });
-    await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "feedback_records", row_id: feedback.id, action_type: "FEEDBACK_CREATE_FINDING", new_value: { finding_record_id: findingRecord.id, finding_id: finding.id }, reason, request_meta: { source: "qlcl-ui" } });
-    return NextResponse.json({ ok: true, message: `Đã tạo Finding ${code}; phản ánh gốc vẫn được giữ nguyên.` });
+    const { data: tx, error: txError } = await admin.rpc(CREATE_FINDING_RPC, {
+      p_feedback_record_id: recordId,
+      p_actor_user_id: auth.user.id,
+      p_reason: reason,
+      p_due_date: dueDate,
+      p_severity: text(body.severity) || "MAJOR",
+    });
+    if (txError) {
+      const txMessage = rpcErrorMessage(txError, "Không tạo được Finding từ phản ánh.");
+      return NextResponse.json({ error: txMessage }, { status: /đã có finding|chỉ sinh finding|không tìm thấy|bắt buộc|hạn khắc phục/i.test(txMessage) ? 409 : 400 });
+    }
+    const findingCode = tx && typeof tx === "object" && "finding_code" in tx ? String((tx as Record<string, unknown>).finding_code || "") : "";
+    return NextResponse.json({
+      ok: true,
+      message: findingCode ? `Đã tạo Finding ${findingCode}; phản ánh gốc vẫn được giữ nguyên.` : "Đã tạo Finding; phản ánh gốc vẫn được giữ nguyên.",
+      transaction: "atomic",
+      result: tx,
+    });
   } else if (command === "MARK_RESPONDED") {
     if (!["TRIAGED", "COORDINATING"].includes(oldStatus) || !reason) return NextResponse.json({ error: "Cần hoàn tất xác minh/phối hợp và ghi nội dung phản hồi đã gửi." }, { status: 409 });
     const { count: evidence } = await admin.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId);
