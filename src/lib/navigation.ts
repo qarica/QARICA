@@ -36,7 +36,7 @@ export function visibleNav(user: UserContext) {
     items: section.items.map((item) => {
       if (PRIMARY_WORKSPACES.some((workspace) => workspace.root === item.href)) {
         const landing = workspaceLandingHref(item.href, user);
-        return landing ? { ...item, href: landing } : null;
+        return landing ? { ...item, href: landing, workspaceRoot: item.href } : null;
       }
       return item;
     }).filter((item): item is NonNullable<typeof item> => {
