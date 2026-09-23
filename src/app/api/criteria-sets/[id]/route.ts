@@ -22,5 +22,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   if(Object.prototype.hasOwnProperty.call(body,"is_active"))patch.is_active=body.is_active===true;
   const {error}=await admin.from("criteria_sets").update(patch).eq("id",id);
   if(error)return NextResponse.json({error:error.message},{status:400});
+  const {error:auditError}=await admin.from("audit_logs").insert({actor_user_id:auth.user.id,table_name:"criteria_sets",row_id:id,action_type:"CRITERIA_SET_UPDATE",old_value:{code:row.code,name:row.name,description:row.description,is_active:row.is_active},new_value:patch,request_meta:{source:"qlcl-ui"}});
+  if(auditError)return NextResponse.json({error:`Đã cập nhật nhưng không ghi được audit trail: ${auditError.message}`},{status:500});
   return NextResponse.json({ok:true});
 }
