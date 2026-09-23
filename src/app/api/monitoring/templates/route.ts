@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const SCORING_METHODS = new Set(["NO_SCORE", "COMPLIANCE_PERCENTAGE", "WEIGHTED_SCORE"]);
+const CREATE_RPC = "qlcl_create_checklist_template_v1";
 
 export async function POST(request: Request) {
   const auth = await requireApiPermission("checklists.manage");
@@ -20,79 +22,41 @@ export async function POST(request: Request) {
   if (!SCORING_METHODS.has(scoringMethod)) return NextResponse.json({ error: "Phương pháp tính kết quả không hợp lệ." }, { status: 400 });
 
   const admin = createAdminClient();
-  const { data: caller, error: callerError } = await admin
-    .from("profiles")
-    .select("organization_id,is_active")
-    .eq("user_id", auth.user.id)
-    .maybeSingle();
-
-  if (callerError || !caller?.organization_id || !caller.is_active) {
-    return NextResponse.json({ error: callerError?.message || "Tài khoản không hợp lệ hoặc chưa gắn bệnh viện." }, { status: 403 });
-  }
-
-  const { data: department, error: departmentError } = await admin
-    .from("departments")
-    .select("id,organization_id,is_active")
-    .eq("id", ownerDepartmentId)
-    .eq("organization_id", caller.organization_id)
-    .maybeSingle();
-
-  if (departmentError || !department?.is_active) {
-    return NextResponse.json({ error: "Khoa/phòng quản lý mẫu không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
-  }
-
-  const { data: code, error: codeError } = await admin.rpc("qlcl_next_master_code_v1", {
-    p_org: caller.organization_id,
-    p_kind: "CHECKLIST",
-    p_work_year: new Date().getFullYear(),
+  const { data: tx, error } = await admin.rpc(CREATE_RPC, {
+    p_actor_user_id: auth.user.id,
+    p_name: name,
+    p_description: description,
+    p_source_code: sourceCode,
+    p_owner_department_id: ownerDepartmentId,
+    p_scoring_method: scoringMethod,
   });
-  if (codeError || !code) {
-    return NextResponse.json({ error: codeError?.message || "Không sinh được mã bảng kiểm." }, { status: 400 });
+
+  if (error) {
+    const message = rpcErrorMessage(error, "Không tạo được mẫu bảng kiểm.");
+    const status =
+      /not active|chưa gắn|không hợp lệ.*tổ chức/i.test(message) ? 403 :
+      /bắt buộc|không hợp lệ|đã ngưng/i.test(message) ? 409 :
+      400;
+    return NextResponse.json({ error: message }, { status });
   }
 
-  const { data: template, error: templateError } = await admin
-    .from("checklist_templates")
-    .insert({
-      organization_id: caller.organization_id,
-      code,
-      source_code: sourceCode,
-      code_scheme_version: 2,
-      name,
-      description,
-      owner_department_id: ownerDepartmentId,
-      is_active: true,
-      created_by: auth.user.id,
-    })
-    .select("id,code,name")
-    .single();
+  const result = tx && typeof tx === "object" ? tx as Record<string, unknown> : {};
+  const id = typeof result.id === "string" ? result.id : null;
+  const code = typeof result.code === "string" ? result.code : null;
+  const versionId = typeof result.version_id === "string" ? result.version_id : null;
 
-  if (templateError || !template) {
-    return NextResponse.json({ error: templateError?.message || "Không tạo được mẫu bảng kiểm." }, { status: 400 });
-  }
-
-  const { data: version, error: versionError } = await admin
-    .from("checklist_versions")
-    .insert({
-      checklist_template_id: template.id,
-      version_no: 1,
-      status: "DRAFT",
-      scoring_method: scoringMethod,
-    })
-    .select("id,version_no,status")
-    .single();
-
-  if (versionError || !version) {
-    await admin.from("checklist_templates").delete().eq("id", template.id);
-    return NextResponse.json({ error: versionError?.message || "Không tạo được phiên bản đầu tiên của bảng kiểm." }, { status: 400 });
+  if (!id || !code || !versionId) {
+    return NextResponse.json({ error: "Kết quả tạo mẫu bảng kiểm không hợp lệ." }, { status: 409 });
   }
 
   return NextResponse.json({
     ok: true,
-    id: template.id,
-    code: template.code,
-    name: template.name,
-    version_id: version.id,
-    version_no: version.version_no,
-    status: version.status,
+    id,
+    code,
+    name: typeof result.name === "string" ? result.name : name,
+    version_id: versionId,
+    version_no: 1,
+    status: "DRAFT",
+    transaction: "atomic",
   });
 }
