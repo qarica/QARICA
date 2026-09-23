@@ -9,7 +9,7 @@ const guards: Record<string,string[]> = {
  E:["src/lib/checklist-template-create-atomic.test.ts","src/lib/monitoring-export.test.ts"],
  F:["src/lib/indicator-runtime-generic.test.ts","src/lib/indicator-periods.test.ts"],
  G:["src/lib/incident-journey.test.ts","src/lib/incident-atomic-route.test.ts"],
- H:["src/lib/capa-effectiveness-atomic.test.ts","src/lib/finding-workflow-rollback.test.ts"],
+ H:["src/lib/capa-effectiveness-atomic.test.ts","src/lib/finding-review-atomic.test.ts"],
  I:["src/lib/feedback-transition-atomic.test.ts","src/lib/feedback-finding-atomic.test.ts"],
  J:["src/lib/risk-nonterminal-atomic.test.ts"],
  K:["src/lib/fmea-transition-atomic.test.ts","src/lib/fmea-setup.test.ts"],
