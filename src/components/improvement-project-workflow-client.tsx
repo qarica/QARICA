@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DictationTextarea } from "@/components/dictation-textarea";
 
 const L: Record<string, string> = {
   DRAFT: "Nháp",
@@ -44,6 +45,9 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
   const [milestoneRows, setMilestoneRows] = useState<Milestone[]>([]);
   const [projectStart, setProjectStart] = useState("");
   const [projectEnd, setProjectEnd] = useState("");
+  const [pendingReason, setPendingReason] = useState<{ kind: "MILESTONE_STATUS" | "OBJECTIVE_DELETE" | "MILESTONE_DELETE"; id: string; title: string; action?: "RESET" | "REOPEN" } | null>(null);
+  const [pendingReasonText, setPendingReasonText] = useState("");
+  const [closeNote, setCloseNote] = useState("");
 
   const [editingObjectiveId, setEditingObjectiveId] = useState<string | null>(null);
   const [objectiveStatement, setObjectiveStatement] = useState("");
@@ -119,15 +123,9 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
     } finally { setBusy(false); }
   }
 
-  async function milestoneStatusCmd(item: Milestone, action: "START" | "COMPLETE" | "RESET" | "REOPEN") {
-    if (busy) return;
-    let reason = "";
-    if (action === "RESET" || action === "REOPEN") {
-      const answer = window.prompt(action === "RESET" ? `Lý do hoàn milestone “${item.title}” về Dự kiến:` : `Lý do mở lại milestone “${item.title}”:`);
-      if (!answer?.trim()) return;
-      reason = answer.trim();
-    } else if (action === "COMPLETE" && !window.confirm(`Xác nhận milestone “${item.title}” đã hoàn thành?`)) return;
-
+  async function executeMilestoneStatus(item: Milestone, action: "START" | "COMPLETE" | "RESET" | "REOPEN", reason = "") {
+    if (busy) return false;
+    if (action === "COMPLETE" && !window.confirm(`Xác nhận milestone “${item.title}” đã hoàn thành?`)) return false;
     setBusy(true); setError(""); setNotice("");
     try {
       const response = await fetch(`/api/improvement/projects/${recordId}/milestones/status`, {
@@ -141,9 +139,20 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
       if ((action === "RESET" || action === "REOPEN") && editingMilestoneId === item.id) resetMilestoneForm();
       await loadSetup();
       router.refresh();
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không cập nhật được trạng thái milestone PDSA.");
+      return false;
     } finally { setBusy(false); }
+  }
+
+  async function milestoneStatusCmd(item: Milestone, action: "START" | "COMPLETE" | "RESET" | "REOPEN") {
+    if (action === "RESET" || action === "REOPEN") {
+      setPendingReason({ kind: "MILESTONE_STATUS", id: item.id, title: item.title, action });
+      setPendingReasonText("");
+      return;
+    }
+    await executeMilestoneStatus(item, action);
   }
 
   function resetObjectiveForm() {
@@ -176,12 +185,9 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
     if (ok) resetObjectiveForm();
   }
 
-  async function deleteObjective(item: Objective) {
-    const reason = window.prompt(`Lý do xóa mục tiêu SMART #${item.order}:`);
-    if (!reason?.trim()) return;
-    if (!window.confirm("Xóa mục tiêu SMART nháp này? Thao tác sẽ được ghi audit trail.")) return;
-    const ok = await setupCmd("DELETE_OBJECTIVE", { objective_id: item.id, reason: reason.trim() });
-    if (ok && editingObjectiveId === item.id) resetObjectiveForm();
+  function deleteObjective(item: Objective) {
+    setPendingReason({ kind: "OBJECTIVE_DELETE", id: item.id, title: `Mục tiêu SMART #${item.order}` });
+    setPendingReasonText("");
   }
 
   function resetMilestoneForm() {
@@ -212,12 +218,28 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
     if (ok) resetMilestoneForm();
   }
 
-  async function deleteMilestone(item: Milestone) {
-    const reason = window.prompt(`Lý do xóa milestone “${item.title}”:`);
-    if (!reason?.trim()) return;
-    if (!window.confirm("Xóa milestone PDSA nháp này? Thao tác sẽ được ghi audit trail.")) return;
-    const ok = await setupCmd("DELETE_MILESTONE", { milestone_id: item.id, reason: reason.trim() });
-    if (ok && editingMilestoneId === item.id) resetMilestoneForm();
+  function deleteMilestone(item: Milestone) {
+    setPendingReason({ kind: "MILESTONE_DELETE", id: item.id, title: item.title });
+    setPendingReasonText("");
+  }
+
+  async function confirmPendingReason() {
+    if (!pendingReason || !pendingReasonText.trim()) return;
+    let ok = false;
+    if (pendingReason.kind === "OBJECTIVE_DELETE") {
+      ok = await setupCmd("DELETE_OBJECTIVE", { objective_id: pendingReason.id, reason: pendingReasonText.trim() });
+      if (ok && editingObjectiveId === pendingReason.id) resetObjectiveForm();
+    } else if (pendingReason.kind === "MILESTONE_DELETE") {
+      ok = await setupCmd("DELETE_MILESTONE", { milestone_id: pendingReason.id, reason: pendingReasonText.trim() });
+      if (ok && editingMilestoneId === pendingReason.id) resetMilestoneForm();
+    } else {
+      const item = milestoneRows.find((row) => row.id === pendingReason.id);
+      if (item && pendingReason.action) ok = await executeMilestoneStatus(item, pendingReason.action, pendingReasonText.trim());
+    }
+    if (ok) {
+      setPendingReason(null);
+      setPendingReasonText("");
+    }
   }
 
   function evaluate(e: FormEvent) {
@@ -253,7 +275,7 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
       {status === "DRAFT" && canManage ? <section style={{ display: "grid", gap: 10 }}>
         <h3 style={{ margin: 0, fontSize: 15 }}>1. Mục tiêu SMART</h3>
         <form onSubmit={submitObjective} className="domain-detail-grid">
-          <label className="wide">Mục tiêu cụ thể *<textarea rows={3} value={objectiveStatement} onChange={(e) => setObjectiveStatement(e.target.value)} placeholder="Ví dụ: Giảm tỷ lệ hồ sơ bàn giao trễ từ 18% xuống ≤8% trước 31/12/2026." required /></label>
+          <label className="wide">Mục tiêu cụ thể *<DictationTextarea rows={3} value={objectiveStatement} onValueChange={setObjectiveStatement} disabled={busy} placeholder="Mô tả mục tiêu cụ thể, đo lường được và có hạn hoàn thành." /></label>
           <label className="wide">Chỉ số đo lường *<input value={indicator} onChange={(e) => setIndicator(e.target.value)} placeholder="Tên chỉ số / cách đo" required /></label>
           <label>Baseline *<input value={baseline} onChange={(e) => setBaseline(e.target.value)} placeholder="18" required /></label>
           <label>Target *<input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="8" required /></label>
@@ -277,7 +299,7 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
         <form onSubmit={submitMilestone} className="domain-detail-grid">
           <label className="wide">Milestone / việc cần đạt *<input value={milestoneTitle} onChange={(e) => setMilestoneTitle(e.target.value)} placeholder="Ví dụ: Pilot biểu mẫu mới tại Khoa A" required /></label>
           <label>Pha PDSA *<select value={phase} onChange={(e) => setPhase(e.target.value)}><option value="PLAN">Plan</option><option value="DO">Do</option><option value="STUDY">Study</option><option value="ACT">Act</option></select></label>
-          <label className="wide">Mô tả<textarea rows={2} value={milestoneDescription} onChange={(e) => setMilestoneDescription(e.target.value)} placeholder="Đầu ra hoặc tiêu chí hoàn thành" /></label>
+          <label className="wide">Mô tả<DictationTextarea rows={2} value={milestoneDescription} onValueChange={setMilestoneDescription} disabled={busy} placeholder="Đầu ra hoặc tiêu chí hoàn thành" /></label>
           <label>Bắt đầu<input type="date" min={projectStart || undefined} max={projectEnd || undefined} value={milestoneStart} onChange={(e) => setMilestoneStart(e.target.value)} /></label>
           <label>Kết thúc<input type="date" min={projectStart || undefined} max={projectEnd || undefined} value={milestoneEnd} onChange={(e) => setMilestoneEnd(e.target.value)} /></label>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -314,6 +336,12 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
         </div>
       </> : null}
 
+      {pendingReason ? <div className="page-stack" style={{ border: "1px solid #dfe8ea", borderRadius: 12, padding: 12 }}>
+        <strong>{pendingReason.kind === "MILESTONE_STATUS" ? `${pendingReason.action === "RESET" ? "Hoàn về dự kiến" : "Mở lại"} · ${pendingReason.title}` : `Xác nhận xóa · ${pendingReason.title}`}</strong>
+        <label>Lý do *<DictationTextarea rows={3} value={pendingReasonText} onValueChange={setPendingReasonText} disabled={busy} placeholder="Nêu lý do để lưu audit trail." /></label>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button type="button" className="button secondary" disabled={busy} onClick={() => { setPendingReason(null); setPendingReasonText(""); }}>Hủy</button><button type="button" className="button primary" disabled={busy || !pendingReasonText.trim()} onClick={() => void confirmPendingReason()}>Xác nhận</button></div>
+      </div> : null}
+
       {status === "DRAFT" && canManage ? <button className="button primary" disabled={busy || liveObjectives < 1 || liveMilestones < 1} onClick={() => void cmd("SUBMIT")}>Gửi phê duyệt</button> : null}
       {status === "DRAFT" && canManage && (liveObjectives < 1 || liveMilestones < 1) ? <div className="alert">Cần ít nhất 01 mục tiêu SMART và 01 milestone/PDSA trước khi gửi phê duyệt.</div> : null}
       {status === "PENDING_APPROVAL" && canManage ? <button className="button primary" disabled={busy} onClick={() => void cmd("APPROVE")}>Phê duyệt đề án</button> : null}
@@ -321,14 +349,14 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
       {status === "IN_PROGRESS" && canManage ? <>
         {incompleteMilestones > 0 ? <div className="alert">Còn <strong>{incompleteMilestones}</strong> milestone PDSA chưa hoàn thành. Hoàn tất toàn bộ milestone trước khi đánh giá kết quả đề án.</div> : null}
         <form onSubmit={evaluate} className="domain-detail-grid">
-          <label className="wide">Đánh giá mức đạt mục tiêu *<textarea rows={4} value={summary} onChange={(e) => setSummary(e.target.value)} required /></label>
+          <label className="wide">Đánh giá mức đạt mục tiêu *<DictationTextarea rows={4} value={summary} onValueChange={setSummary} disabled={busy} /></label>
           <label>Kết quả<select value={result} onChange={(e) => setResult(e.target.value)}><option value="ACHIEVED">Đạt</option><option value="PARTIAL">Đạt một phần</option><option value="NOT_ACHIEVED">Chưa đạt</option></select></label>
           <label><input type="checkbox" checked={sustain} onChange={(e) => setSustain(e.target.checked)} /> Cần kế hoạch duy trì</label>
           <label><input type="checkbox" checked={scale} onChange={(e) => setScale(e.target.checked)} /> Đề xuất nhân rộng</label>
           <button className="button primary" disabled={busy || incompleteMilestones > 0 || actions < 1 || incomplete > 0 || evidence < 1}>Đánh giá kết quả</button>
         </form>
       </> : null}
-      {status === "EVALUATED" && canManage ? <button className="button primary" disabled={busy} onClick={() => { const x = window.prompt("Kết luận duy trì/nhân rộng:"); if (x?.trim()) void cmd("CLOSE", { comment: x.trim() }); }}>Đóng đề án</button> : null}
+      {status === "EVALUATED" && canManage ? <div className="page-stack"><label>Kết luận duy trì/nhân rộng *<DictationTextarea rows={3} value={closeNote} onValueChange={setCloseNote} disabled={busy} placeholder="Tóm tắt kết quả, kế hoạch duy trì và quyết định nhân rộng nếu có." /></label><button className="button primary" disabled={busy || !closeNote.trim()} onClick={() => void cmd("CLOSE", { comment: closeNote.trim() })}>Đóng đề án</button></div> : null}
     </div>
   </section>;
 }
