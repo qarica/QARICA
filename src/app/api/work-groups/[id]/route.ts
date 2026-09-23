@@ -25,8 +25,9 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   const b=await request.json();
   if(String(b.command||"").toUpperCase()==="TOGGLE_ACTIVE"){
     const {data:current}=await c.admin.from("work_groups").select("is_active").eq("id",id).maybeSingle();
-    const {error}=await c.admin.from("work_groups").update({is_active:!current?.is_active,updated_at:new Date().toISOString()}).eq("id",id);
+    const {data:updated,error}=await c.admin.from("work_groups").update({is_active:!current?.is_active,updated_at:new Date().toISOString()}).eq("id",id).eq("is_active",!!current?.is_active).select("id").maybeSingle();
     if(error)return NextResponse.json({error:error.message},{status:400});
+    if(!updated)return NextResponse.json({error:"Trạng thái nhóm vừa thay đổi ở phiên khác. Vui lòng tải lại trước khi thao tác."},{status:409});
     return NextResponse.json({ok:true});
   }
 
