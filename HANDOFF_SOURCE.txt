@@ -1,4 +1,9 @@
-QLCL-TTSG clean source handoff
-Source branch: ux/tqm-smart-ops-v5
-Source commit: ed9f9e658e7858fa09ed07a556fc0fca480e6483
-No Git history, node_modules, build output, Vercel metadata, or local secrets included.
+QARICA source handoff (historical import record)
+Original source branch: ux/tqm-smart-ops-v5
+Original source commit: ed9f9e658e7858fa09ed07a556fc0fca480e6483
+
+This file records repository provenance only. The former QLCL-TTSG product label is historical and must not be used as the current product scope, organization baseline, architecture baseline, or implementation roadmap.
+
+Current product direction: QARICA is generic, multi-organization and multi-year. Annual plans and organization-specific workflows are data/configuration instances.
+
+No Git history, node_modules, build output, Vercel metadata, or local secrets were included in the original clean-source handoff.
