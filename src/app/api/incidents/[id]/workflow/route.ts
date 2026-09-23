@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { incidentReadyToCloseGate } from "@/lib/quality-gates";
-import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 
 const HARM = new Set(["NO_HARM", "MILD", "MODERATE", "SEVERE", "DEATH", "NEAR_MISS"]);
 const REJECT_REASONS = new Set(["DUPLICATE", "INSUFFICIENT_INFO", "NOT_A_MEDICAL_INCIDENT", "OTHER"]);
@@ -106,22 +106,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       p_actor_user_id: auth.user.id,
       p_investigation_type: type,
     });
-    if (!txError) return NextResponse.json({ ok: true, status: "INVESTIGATING", message: "Đã bắt đầu điều tra sự cố.", transaction: "atomic", result: tx });
-    if (!isMissingRpcFunction(txError, START_INV_RPC)) {
+    if (txError) {
       const txMessage = rpcErrorMessage(txError, "Không thể bắt đầu điều tra sự cố.");
-      return NextResponse.json({ error: txMessage }, { status: /not active|must be investigation_required|already has|required|not found/i.test(txMessage) ? 409 : 400 });
+      return NextResponse.json({ error: txMessage }, { status: /not active|investigation_required|already has|required|not found/i.test(txMessage) ? 409 : 400 });
     }
-
-    const { data: inv, error: invError } = await admin.from("incident_investigations").insert({ incident_id: incident.id, investigation_type: type, started_at: now, rca_required: !!incident.rca_required, status: "IN_PROGRESS" }).select("id").single();
-    if (invError || !inv) return NextResponse.json({ error: invError?.message || "Không tạo được hồ sơ điều tra." }, { status: 400 });
-    newStatus = "INVESTIGATING";
-    const { error: statusError } = await admin.from("incidents").update({ workflow_status: newStatus, updated_at: now }).eq("id", incident.id);
-    if (statusError) {
-      await admin.from("incident_investigations").delete().eq("id", inv.id);
-      return NextResponse.json({ error: statusError.message }, { status: 400 });
-    }
-    reason = reason || `Bắt đầu điều tra sự cố; loại điều tra: ${type}.`;
-    message = "Đã bắt đầu điều tra sự cố.";
+    return NextResponse.json({
+      ok: true,
+      status: "INVESTIGATING",
+      message: "Đã bắt đầu điều tra sự cố.",
+      transaction: "atomic",
+      result: tx,
+    });
   } else if (command === "COMPLETE_INVESTIGATION") {
     if (oldStatus !== "INVESTIGATING") return NextResponse.json({ error: "Sự cố không ở bước điều tra." }, { status: 409 });
     const summary = String(body.verified_event_summary || incident.verified_description || "").trim();
@@ -137,24 +132,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       p_conclusion: conclusion,
       p_reason: reason,
     });
-    if (!txError) return NextResponse.json({ ok: true, status: "ACTION_FOLLOW_UP", message: "Đã hoàn tất điều tra sự cố.", transaction: "atomic", result: tx });
-    if (!isMissingRpcFunction(txError, COMPLETE_INV_RPC)) {
+    if (txError) {
       const txMessage = rpcErrorMessage(txError, "Không thể hoàn tất điều tra sự cố.");
-      return NextResponse.json({ error: txMessage }, { status: /not active|must be investigating|no active|required|not found/i.test(txMessage) ? 409 : 400 });
+      return NextResponse.json({ error: txMessage }, { status: /not active|investigating|no active|required|not found/i.test(txMessage) ? 409 : 400 });
     }
-
-    const { data: inv } = await admin.from("incident_investigations").select("id,rca_required").eq("incident_id", incident.id).eq("status", "IN_PROGRESS").order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (!inv) return NextResponse.json({ error: "Không tìm thấy hồ sơ điều tra đang thực hiện." }, { status: 409 });
-    const { error: invError } = await admin.from("incident_investigations").update({ verified_event_summary: summary, harm_conclusion: harmConclusion, conclusion, status: "COMPLETED", completed_at: now }).eq("id", inv.id);
-    if (invError) return NextResponse.json({ error: invError.message }, { status: 400 });
-    newStatus = "ACTION_FOLLOW_UP";
-    const { error: statusError } = await admin.from("incidents").update({ workflow_status: newStatus, updated_at: now }).eq("id", incident.id);
-    if (statusError) {
-      await admin.from("incident_investigations").update({ verified_event_summary: null, harm_conclusion: null, conclusion: null, status: "IN_PROGRESS", completed_at: null }).eq("id", inv.id);
-      return NextResponse.json({ error: statusError.message }, { status: 400 });
-    }
-    reason = reason || "Hoàn tất điều tra và chuyển theo dõi hành động phòng ngừa tái diễn.";
-    message = "Đã hoàn tất điều tra sự cố.";
+    return NextResponse.json({
+      ok: true,
+      status: "ACTION_FOLLOW_UP",
+      message: "Đã hoàn tất điều tra sự cố.",
+      transaction: "atomic",
+      result: tx,
+    });
   } else if (command === "START_FOLLOW_UP") {
     if (oldStatus !== "TRIAGED") return NextResponse.json({ error: "Sự cố chưa ở bước có thể theo dõi hành động." }, { status: 409 });
     newStatus = "ACTION_FOLLOW_UP";
@@ -203,34 +191,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       p_actor_user_id: auth.user.id,
       p_reason: reason,
     });
-    if (!txError) return NextResponse.json({ ok: true, status: "CLOSED", message: "Đã đóng sự cố; toàn bộ báo cáo và lịch sử xử lý được giữ nguyên.", transaction: "atomic", result: tx });
-    if (!isMissingRpcFunction(txError, CLOSE_RPC)) {
+    if (txError) {
       const txMessage = rpcErrorMessage(txError, "Không thể đóng sự cố.");
-      return NextResponse.json({ error: txMessage }, { status: /not active|must be awaiting_closure|required|incomplete|evidence|not found/i.test(txMessage) ? 409 : 400 });
+      return NextResponse.json({ error: txMessage }, { status: /not active|awaiting_closure|required|incomplete|evidence|not found/i.test(txMessage) ? 409 : 400 });
     }
-
-    const { data: links } = await admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "HAS_ACTION");
-    const ids = (links || []).map((x: any) => x.target_record_id).filter(Boolean);
-    const { data: actions } = ids.length ? await admin.from("actions").select("workflow_status").in("record_id", ids) : { data: [] };
-    const incomplete = (actions || []).filter((x: any) => !["COMPLETED", "CANCELLED", "NOT_APPLICABLE"].includes(String(x.workflow_status))).length;
-    const { count } = await admin.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId);
-    const { count: capaLinkCount } = await admin.from("record_links").select("id", { count: "exact", head: true }).eq("source_record_id", recordId).eq("relation_type", "GENERATED_CAPA");
-    const gate = incidentReadyToCloseGate({ actionCount: ids.length, incompleteActionCount: incomplete, evidenceCount: count ?? 0, isSerious: !!incident.serious_event_flag, hasCapa: (capaLinkCount ?? 0) > 0 });
-    if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: 409 });
-
-    newStatus = "CLOSED";
-    const { error: incidentError } = await admin.from("incidents").update({ workflow_status: newStatus, closed_at: now, updated_at: now }).eq("id", incident.id);
-    if (incidentError) return NextResponse.json({ error: incidentError.message }, { status: 400 });
-    const { error: recordError } = await admin.from("records").update({ lifecycle_status: "CLOSED", closed_at: now, updated_at: now }).eq("id", recordId);
-    if (recordError) {
-      await admin.from("incidents").update({ workflow_status: "AWAITING_CLOSURE", closed_at: null, updated_at: now }).eq("id", incident.id);
-      return NextResponse.json({ error: recordError.message }, { status: 400 });
-    }
-    await admin.from("record_status_history").insert({ record_id: recordId, old_status: "ACTIVE", new_status: "CLOSED", changed_by: auth.user.id, reason });
-    message = "Đã đóng sự cố; toàn bộ báo cáo và lịch sử xử lý được giữ nguyên.";
+    return NextResponse.json({
+      ok: true,
+      status: "CLOSED",
+      message: "Đã đóng sự cố; toàn bộ báo cáo và lịch sử xử lý được giữ nguyên.",
+      transaction: "atomic",
+      result: tx,
+    });
   } else return NextResponse.json({ error: "Thao tác sự cố không hợp lệ." }, { status: 400 });
 
-  const legacyAtomicCommand = ["START_INVESTIGATION", "COMPLETE_INVESTIGATION", "CLOSE"].includes(command);
-  await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "incidents", row_id: incident.id, action_type: `INCIDENT_${command}`, old_value: { workflow_status: oldStatus }, new_value: { workflow_status: newStatus }, reason, request_meta: { source: "qlcl-ui", sensitive: true, transaction: legacyAtomicCommand ? "legacy-fallback" : undefined } });
-  return NextResponse.json({ ok: true, status: newStatus, message, transaction: legacyAtomicCommand ? "legacy-fallback" : "direct" });
+  await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "incidents", row_id: incident.id, action_type: `INCIDENT_${command}`, old_value: { workflow_status: oldStatus }, new_value: { workflow_status: newStatus }, reason, request_meta: { source: "qlcl-ui", sensitive: true } });
+  return NextResponse.json({ ok: true, status: newStatus, message, transaction: "direct" });
 }
