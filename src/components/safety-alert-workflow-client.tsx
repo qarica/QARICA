@@ -24,6 +24,8 @@ export function SafetyAlertWorkflowClient({ recordId, status, canInvestigate, ca
   const [lesson, setLesson] = useState("");
   const [recommendation, setRecommendation] = useState("");
   const [expires, setExpires] = useState(localDateTimeValue(expiresAt));
+  const [reviewAction, setReviewAction] = useState<"PUBLISH" | "RETURN" | "ARCHIVE" | null>(null);
+  const [reviewNote, setReviewNote] = useState("");
 
   const loadContent = useCallback(async () => {
     if (!canInvestigate) return;
@@ -73,7 +75,7 @@ export function SafetyAlertWorkflowClient({ recordId, status, canInvestigate, ca
     } finally { setBusy(false); }
   }
 
-  const ask = (action: string, prompt: string) => { const comment = window.prompt(prompt); if (comment?.trim()) void run(action, comment.trim()); };
+  const openReview = (action: "PUBLISH" | "RETURN" | "ARCHIVE") => { setReviewAction(action); setReviewNote(""); };
   const draftReady = !!summary.trim() && !!lesson.trim() && !!recommendation.trim();
 
   return <section className="panel">
@@ -97,8 +99,9 @@ export function SafetyAlertWorkflowClient({ recordId, status, canInvestigate, ca
       </form> : null}
 
       {status === "DRAFT" && canInvestigate ? <button className="button primary" disabled={busy || loading || !draftReady} onClick={() => void run("SUBMIT_REVIEW")}>Gửi rà soát nội dung</button> : null}
-      {status === "REVIEWING" && canApprove ? <><button className="button primary" disabled={busy || evidence < 1} onClick={() => ask("PUBLISH", "Kết luận phê duyệt phát hành:")}>Phát hành cảnh báo</button><button className="button secondary" disabled={busy} onClick={() => ask("RETURN", "Lý do trả lại chỉnh sửa:")}>Trả lại chỉnh sửa</button></> : null}
-      {status === "PUBLISHED" && canApprove ? <button className="button secondary" disabled={busy} onClick={() => ask("ARCHIVE", "Lý do lưu hết hiệu lực/thay thế:")}>Lưu hết hiệu lực</button> : null}
+      {status === "REVIEWING" && canApprove ? <><button className="button primary" disabled={busy || evidence < 1} onClick={() => openReview("PUBLISH")}>Phát hành cảnh báo</button><button className="button secondary" disabled={busy} onClick={() => openReview("RETURN")}>Trả lại chỉnh sửa</button></> : null}
+      {status === "PUBLISHED" && canApprove ? <button className="button secondary" disabled={busy} onClick={() => openReview("ARCHIVE")}>Lưu hết hiệu lực</button> : null}
+      {reviewAction ? <div className="page-stack"><label>{reviewAction === "PUBLISH" ? "Kết luận phê duyệt phát hành" : reviewAction === "RETURN" ? "Lý do trả lại chỉnh sửa" : "Lý do lưu hết hiệu lực/thay thế"} *<DictationTextarea rows={3} value={reviewNote} onValueChange={setReviewNote} disabled={busy} /></label><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button type="button" className="button secondary" disabled={busy} onClick={() => { setReviewAction(null); setReviewNote(""); }}>Hủy</button><button type="button" className="button primary" disabled={busy || !reviewNote.trim()} onClick={() => void run(reviewAction, reviewNote.trim())}>Xác nhận</button></div></div> : null}
     </div>
   </section>;
 }
