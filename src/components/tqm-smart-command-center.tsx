@@ -49,7 +49,7 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
   const supabase = await createClient();
   const today = hcmToday();
 
-  const [recordsRes, departmentsRes, plansRes, actionsRes, indicatorsRes, monitoringRes, findingsRes, capasRes, incidentsRes, feedbackRes] =
+  const [recordsRes, departmentsRes, plansRes, actionsRes, indicatorsRes, monitoringRes, findingsRes, capasRes, incidentsRes, feedbackRes, risksRes, reportsRes] =
     await Promise.all([
       supabase
         .from("records")
@@ -83,6 +83,12 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
       supabase
         .from("feedback_records")
         .select("id,record_id,workflow_status,response_due_at"),
+      supabase
+        .from("risks")
+        .select("id,record_id,workflow_status,next_review_date"),
+      supabase
+        .from("reporting_obligations")
+        .select("id,record_id,workflow_status,due_date"),
     ]);
 
   const errors = [
@@ -96,6 +102,8 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
     capasRes,
     incidentsRes,
     feedbackRes,
+    risksRes,
+    reportsRes,
   ]
     .map((x: any) => x.error?.message)
     .filter(Boolean);
@@ -197,6 +205,22 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
   const customerScore =
     feedback.length > 0 ? clamp(100 - (feedbackOverdue / feedback.length) * 100) : null;
 
+  const risks = ((risksRes.data ?? []) as any[]).filter(
+    (row) =>
+      recordIds.has(row.record_id) &&
+      String(row.workflow_status) !== "RETIRED",
+  );
+  const riskReviewDue = risks.filter((row) =>
+    row.next_review_date && String(row.next_review_date).slice(0, 10) <= today,
+  ).length;
+
+  const reports = ((reportsRes.data ?? []) as any[]).filter(
+    (row) =>
+      recordIds.has(row.record_id) &&
+      !["COMPLETED", "CANCELLED"].includes(String(row.workflow_status)),
+  );
+  const reportOverdue = reports.filter((row) => dueBeforeToday(row.due_date, today)).length;
+
   const totalDepartments = (departmentsRes.data ?? []).length;
   const activeDepartmentIds = new Set(
     records.map((row) => row.owner_department_id).filter(Boolean),
@@ -273,6 +297,8 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
       capaEffectivenessDue * 7 +
       outOfTarget * 5 +
       feedbackOverdue * 5 +
+      riskReviewDue * 4 +
+      reportOverdue * 5 +
       Math.min(overdueActions, 10) * 3,
   );
 
@@ -342,6 +368,28 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
       href: "/feedback",
       severity: "warning",
       rank: 80,
+    });
+  }
+  if (riskReviewDue > 0) {
+    recommendations.push({
+      key: "risk",
+      title: `${riskReviewDue} rủi ro đến hạn rà soát`,
+      detail:
+        "Đánh giá lại mức rủi ro và residual risk theo dữ liệu hiện có; chỉ tạo/điều chỉnh Action khi có căn cứ.",
+      href: "/risks",
+      severity: "warning",
+      rank: 78,
+    });
+  }
+  if (reportOverdue > 0) {
+    recommendations.push({
+      key: "report",
+      title: `${reportOverdue} nghĩa vụ báo cáo quá hạn`,
+      detail:
+        "Rà hạn, người chuẩn bị, minh chứng gửi/tiếp nhận và hoàn tất đúng workflow báo cáo.",
+      href: "/reports",
+      severity: "warning",
+      rank: 76,
     });
   }
   if (processScore !== null && processScore < 80) {
@@ -428,7 +476,8 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
           <div className="tqm-priority-number">{priorityIndex}/100</div>
           <p>
             Chỉ số ưu tiên vận hành từ tín hiệu thực tế: sự cố nghiêm trọng, Finding/CAPA,
-            chỉ số lệch mục tiêu, phản ánh và Action quá hạn. Đây không phải điểm rủi ro lâm sàng.
+            chỉ số lệch mục tiêu, phản ánh, rủi ro đến hạn, nghĩa vụ báo cáo và Action quá hạn.
+            Đây không phải điểm rủi ro lâm sàng.
           </p>
         </article>
       </div>
