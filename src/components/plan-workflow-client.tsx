@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { DictationTextarea } from "@/components/dictation-textarea";
 
 export function PlanWorkflowClient({
   planId,
@@ -39,12 +40,14 @@ export function PlanWorkflowClient({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [returnNote, setReturnNote] = useState("");
   const allRequiredDone = requiredActions > 0 && completedActions >= requiredActions;
 
   if (!canManage && currentStatus !== "COMPLETED") return null;
 
-  async function run(action: "SUBMIT" | "APPROVE" | "RETURN" | "START" | "HOLD" | "RESUME" | "COMPLETE") {
-    let note = "";
+  async function run(action: "SUBMIT" | "APPROVE" | "RETURN" | "START" | "HOLD" | "RESUME" | "COMPLETE", providedNote = "") {
+    let note = providedNote;
     if (action === "SUBMIT" && !composerReady) { setMessage("Chưa đủ điều kiện xác nhận ban hành: cần hoàn thiện dữ liệu nguồn và ít nhất 01 nhiệm vụ đầy đủ."); return; }
     if (action === "SUBMIT" && !window.confirm(`Xác nhận kế hoạch đã được ký/đóng dấu ban hành và chuẩn bị tạo ${draftActionCount} nhiệm vụ triển khai?`)) return;
     if (action === "APPROVE") {
@@ -64,9 +67,7 @@ export function PlanWorkflowClient({
     if (action === "COMPLETE" && allRequiredDone && !window.confirm("Xác nhận hoàn thành kế hoạch? Kế hoạch sẽ được khóa ở trạng thái Hoàn thành.")) return;
 
     if (action === "RETURN") {
-      const value = window.prompt("Nội dung cần chỉnh sửa trước khi xác nhận ban hành:", "");
-      if (value === null) return;
-      note = value.trim();
+      note = providedNote.trim();
       if (note.length < 5) { setMessage("Vui lòng ghi rõ nội dung cần chỉnh sửa."); return; }
     }
 
@@ -89,7 +90,7 @@ export function PlanWorkflowClient({
   if (currentStatus === "DRAFT") {
     controls = <button type="button" className="button primary" disabled={busy || !composerReady} title={!composerReady ? "Hoàn thiện dữ liệu nguồn và ít nhất 01 nhiệm vụ trước khi xác nhận ban hành." : undefined} onClick={() => run("SUBMIT")}><Icon name="check" size={17} /> {busy ? "Đang kiểm tra..." : "Xác nhận đã ban hành"}</button>;
   } else if (currentStatus === "PENDING_APPROVAL") {
-    controls = <><button type="button" className="button secondary" disabled={busy} onClick={() => run("RETURN")}>Trả lại chỉnh sửa</button><button type="button" className="button primary" disabled={busy} onClick={() => run("APPROVE")}><Icon name="play" size={17} /> {busy ? "Đang xử lý..." : "Tạo công việc & triển khai"}</button></>;
+    controls = <><button type="button" className="button secondary" disabled={busy} onClick={() => { setReturnOpen(true); setReturnNote(""); }}>Trả lại chỉnh sửa</button><button type="button" className="button primary" disabled={busy} onClick={() => run("APPROVE")}><Icon name="play" size={17} /> {busy ? "Đang xử lý..." : "Tạo công việc & triển khai"}</button>{returnOpen ? <div style={{ width: "100%", display: "grid", gap: 8, marginTop: 8 }}><label style={{ display: "grid", gap: 5 }}>Nội dung cần chỉnh sửa *<DictationTextarea rows={3} value={returnNote} onValueChange={setReturnNote} disabled={busy} /></label><div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}><button type="button" className="button secondary" disabled={busy} onClick={() => { setReturnOpen(false); setReturnNote(""); }}>Hủy</button><button type="button" className="button primary" disabled={busy || returnNote.trim().length < 5} onClick={() => run("RETURN", returnNote)}>Xác nhận trả lại</button></div></div> : null}</>;
   } else if (currentStatus === "IN_PROGRESS") {
     controls = <><button type="button" className="button secondary" disabled={busy} onClick={() => run("HOLD")}>Tạm dừng</button><button type="button" className="button primary" disabled={busy || !allRequiredDone} title={!allRequiredDone ? `Chưa đủ điều kiện: mới hoàn thành ${completedActions}/${requiredActions} nhiệm vụ bắt buộc.` : undefined} onClick={() => run("COMPLETE")}><Icon name="check" size={17} /> {busy ? "Đang kiểm tra..." : "Hoàn thành kế hoạch"}</button></>;
   } else if (currentStatus === "ON_HOLD") {
