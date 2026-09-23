@@ -1,4 +1,5 @@
-"use client";\nimport { DictationTextarea } from "@/components/dictation-textarea";
+"use client";
+import { DictationTextarea } from "@/components/dictation-textarea";
 import {FormEvent,useMemo,useState} from "react";import {useRouter} from "next/navigation";
 import {matchNC3} from "@/lib/nc3-classifier";
 import {IncidentContributingFactorsClient} from "@/components/incident-contributing-factors-client";
