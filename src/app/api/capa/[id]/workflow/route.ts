@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { capaEffectivenessGate } from "@/lib/quality-gates";
-import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 import { notifyWorkflowEvent } from "@/lib/workflow-notifications";
 
 const validReview = new Set(["EFFECTIVE", "PARTIALLY_EFFECTIVE", "INEFFECTIVE"]);
@@ -114,19 +114,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       p_actor_user_id: auth.user.id,
       p_reason: reason,
     });
-    if (!txError) return NextResponse.json({ ok: true, status: "CLOSED", message: "Đã đóng CAPA sau xác minh hiệu lực.", transaction: "atomic", result: tx });
-    if (!isMissingRpcFunction(txError, CLOSE_RPC)) {
+    if (txError) {
       const txMessage = rpcErrorMessage(txError, "Không thể đóng CAPA.");
       return NextResponse.json({ error: txMessage }, { status: /not active|only effective|not found/i.test(txMessage) ? 409 : 400 });
     }
-
-    newStatus="CLOSED";
-    const {error:capaError}=await admin.from("capas").update({workflow_status:newStatus,closed_at:now,updated_at:now}).eq("id",capa.id);if(capaError)return NextResponse.json({error:capaError.message},{status:400});
-    const {error:recordError}=await admin.from("records").update({lifecycle_status:"CLOSED",closed_at:now,updated_at:now}).eq("id",recordId);
-    if(recordError){await admin.from("capas").update({workflow_status:"EFFECTIVE",closed_at:null,updated_at:now}).eq("id",capa.id);return NextResponse.json({error:recordError.message},{status:400});}
-    await admin.from("record_status_history").insert({record_id:recordId,old_status:"ACTIVE",new_status:"CLOSED",changed_by:auth.user.id,reason}); message="Đã đóng CAPA sau xác minh hiệu lực.";
+    return NextResponse.json({ ok: true, status: "CLOSED", message: "Đã đóng CAPA sau xác minh hiệu lực.", transaction: "atomic", result: tx });
   } else return NextResponse.json({ error: "Thao tác CAPA không hợp lệ." }, { status: 400 });
 
-  await admin.from("audit_logs").insert({ actor_user_id:auth.user.id,record_id:recordId,table_name:"capas",row_id:capa.id,action_type:`CAPA_${command}`,old_value:{workflow_status:oldStatus},new_value:{workflow_status:newStatus},reason,request_meta:{source:"qlcl-ui",transaction:command==="CLOSE"?"legacy-fallback":undefined} });
-  return NextResponse.json({ok:true,status:newStatus,message,transaction:command==="CLOSE"?"legacy-fallback":"direct"});
+  await admin.from("audit_logs").insert({ actor_user_id:auth.user.id,record_id:recordId,table_name:"capas",row_id:capa.id,action_type:`CAPA_${command}`,old_value:{workflow_status:oldStatus},new_value:{workflow_status:newStatus},reason,request_meta:{source:"qlcl-ui"} });
+  return NextResponse.json({ok:true,status:newStatus,message,transaction:"direct"});
 }
