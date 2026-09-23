@@ -9,6 +9,7 @@ const CLOSE_RPC = "qlcl_close_capa_v1";
 const REQUEST_EFFECTIVENESS_RPC = "qlcl_request_capa_effectiveness_v1";
 const REVIEW_EFFECTIVENESS_RPC = "qlcl_review_capa_effectiveness_v1";
 const SAVE_RCA_RPC = "qlcl_save_capa_rca_v1";
+const START_ACTIONS_RPC = "qlcl_start_capa_actions_v1";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
@@ -66,17 +67,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       result: tx,
     });
   } else if (command === "START_ACTIONS") {
-    if (oldStatus !== "ROOT_CAUSE_ANALYSIS") return NextResponse.json({ error: "CAPA chưa ở bước lập hành động." }, { status: 409 });
-    if (!capa.rca_analysis_id) return NextResponse.json({ error: "Phải hoàn tất phân tích nguyên nhân gốc trước." }, { status: 409 });
-    const { data: rca } = await admin.from("rca_analyses").select("status,conclusion").eq("id", capa.rca_analysis_id).maybeSingle();
-    if (rca?.status !== "COMPLETED" || !String(rca.conclusion || "").trim()) return NextResponse.json({ error: "RCA chưa hoàn tất hoặc chưa có kết luận." }, { status: 409 });
-    const { data: links } = await admin.from("capa_action_links").select("action_id,action_type").eq("capa_id", capa.id);
-    const activeTypes = new Set((links || []).map((x:any) => String(x.action_type)));
-    if (!activeTypes.has("CORRECTIVE") || !activeTypes.has("PREVENTIVE")) return NextResponse.json({ error: "CAPA cần ít nhất 01 Corrective Action và 01 Preventive Action." }, { status: 409 });
-    newStatus = "IN_PROGRESS";
-    const { error: updateError } = await admin.from("capas").update({ workflow_status: newStatus, updated_at: now }).eq("id", capa.id);
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
-    message = "Đã bắt đầu triển khai CAPA.";
+    const { data: tx, error: txError } = await admin.rpc(START_ACTIONS_RPC, {
+      p_capa_record_id: recordId,
+      p_actor_user_id: auth.user.id,
+    });
+    if (txError) {
+      const txMessage = rpcErrorMessage(txError, "Không thể bắt đầu triển khai Action của CAPA.");
+      return NextResponse.json({ error: txMessage }, { status: 409 });
+    }
+    return NextResponse.json({
+      ok: true,
+      status: tx?.workflow_status ?? "IN_PROGRESS",
+      message: "Đã bắt đầu triển khai CAPA.",
+      transaction: "atomic",
+      result: tx,
+    });
   } else if (command === "REQUEST_EFFECTIVENESS") {
     const { data: tx, error: txError } = await admin.rpc(REQUEST_EFFECTIVENESS_RPC, {
       p_capa_record_id: recordId,
