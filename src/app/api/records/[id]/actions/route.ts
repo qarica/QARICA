@@ -9,39 +9,6 @@ const CAPA_TYPES = new Set(["CORRECTION", "CORRECTIVE", "PREVENTIVE", "VERIFICAT
 const RISK_TYPES = new Set(["AVOID", "REDUCE", "TRANSFER", "ACCEPT", "CONTINGENCY"]);
 const CREATE_LINKED_ACTION_RPC = "qlcl_create_linked_action_v2";
 
-async function addSpecializedLink(admin: ReturnType<typeof createAdminClient>, source: any, actionId: string, actionRecordId: string, actorUserId: string, body: any) {
-  if (source.record_type === "DIRECTIVE") {
-    const { data: root } = await admin.from("external_directives").select("id").eq("record_id", source.id).maybeSingle();
-    if (root?.id) return admin.from("directive_action_links").insert({ directive_id: root.id, action_id: actionId, relation_type: "REQUIRES" });
-  }
-  if (source.record_type === "FINDING") {
-    const { data: root } = await admin.from("findings").select("id").eq("record_id", source.id).maybeSingle();
-    if (root?.id) return admin.from("finding_action_links").insert({ finding_id: root.id, action_id: actionId, action_role: "CORRECTIVE" });
-  }
-  if (source.record_type === "CAPA") {
-    const actionType = String(body.capa_action_type || "CORRECTIVE");
-    if (!CAPA_TYPES.has(actionType)) return { error: { message: "Loại hành động CAPA không hợp lệ." } } as any;
-    const { data: root } = await admin.from("capas").select("id").eq("record_id", source.id).maybeSingle();
-    if (root?.id) return admin.from("capa_action_links").insert({ capa_id: root.id, action_id: actionId, action_type: actionType });
-  }
-  if (source.record_type === "RISK") {
-    const treatmentType = String(body.risk_treatment_type || "REDUCE");
-    if (!RISK_TYPES.has(treatmentType)) return { error: { message: "Biện pháp xử lý rủi ro không hợp lệ." } } as any;
-    const { data: root } = await admin.from("risks").select("id").eq("record_id", source.id).maybeSingle();
-    if (root?.id) return admin.from("risk_action_links").insert({ risk_id: root.id, action_id: actionId, treatment_type: treatmentType });
-  }
-  if (source.record_type === "INSPECTION") {
-    const { data: root } = await admin.from("inspection_events").select("id,visit_date").eq("record_id", source.id).maybeSingle();
-    if (root?.id) return admin.from("inspection_action_links").insert({ inspection_event_id: root.id, action_id: actionId, offset_days: null });
-  }
-  if (source.record_type === "FMEA") {
-    const failureModeId = String(body.failure_mode_id || "").trim();
-    if (!failureModeId) return { error: { message: "Failure mode là bắt buộc cho Action FMEA." } } as any;
-    return admin.from("fmea_failure_mode_action_links").insert({ failure_mode_id: failureModeId, action_record_id: actionRecordId, created_by: actorUserId });
-  }
-  return { error: null } as any;
-}
-
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
