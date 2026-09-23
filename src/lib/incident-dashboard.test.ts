@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hcmMonthNumber, incidentAttentionRank, incidentDomainDistribution } from "./incident-dashboard";
+import { hcmMonthNumber, incidentAttentionRank, incidentDomainDistribution, incidentHarmClassification } from "./incident-dashboard";
 
 describe("incident dashboard helpers", () => {
   it("prioritizes open serious and investigation cases above closed cases", () => {
@@ -9,6 +9,15 @@ describe("incident dashboard helpers", () => {
     expect(incidentAttentionRank({ workflow_status: "REPORTED", serious_event_flag: false })).toBe(20);
     expect(incidentAttentionRank({ workflow_status: "CLOSED", serious_event_flag: true })).toBe(10);
     expect(incidentAttentionRank({ workflow_status: "REJECTED", serious_event_flag: true })).toBe(10);
+  });
+
+  it("maps harm labels to TT43 NC groups", () => {
+    expect(incidentHarmClassification("NEAR_MISS")?.classCode).toBe("NC0");
+    expect(incidentHarmClassification("NO_HARM")?.classCode).toBe("NC1");
+    expect(incidentHarmClassification("MILD")?.classCode).toBe("NC1");
+    expect(incidentHarmClassification("MODERATE")?.classCode).toBe("NC2");
+    expect(incidentHarmClassification("SEVERE")?.classCode).toBe("NC3");
+    expect(incidentHarmClassification("DEATH")?.classCode).toBe("NC3");
   });
 
   it("buckets incident timestamps by Ho Chi Minh City month", () => {
