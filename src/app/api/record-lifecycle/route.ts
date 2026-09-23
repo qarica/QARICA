@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { canCancelIncident, lifecyclePermissionFor } from "@/lib/record-lifecycle";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const LIFECYCLE_RPC = "qlcl_change_record_lifecycle_v1";
@@ -71,17 +71,6 @@ export async function GET(request: Request) {
   return NextResponse.json(result);
 }
 
-const CHILD_CANCEL: Record<string, { table: string; status: string }> = {
-  ACTION: { table: "actions", status: "CANCELLED" },
-  PROGRAM: { table: "work_programs", status: "CANCELLED" },
-  REPORT: { table: "reporting_obligations", status: "CANCELLED" },
-  MONITORING: { table: "monitoring_rounds", status: "CANCELLED" },
-  FINDING: { table: "findings", status: "CANCELLED" },
-  CAPA: { table: "capas", status: "CANCELLED" },
-  INCIDENT: { table: "incidents", status: "CANCELLED" },
-  AUDIT: { table: "audits", status: "CANCELLED" },
-};
-
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -117,54 +106,9 @@ export async function POST(request: Request) {
     p_reason: reason,
   });
   if (!txError) return NextResponse.json({ ok: true, status: targetStatus, transaction: "atomic", result: tx });
-  if (!isMissingRpcFunction(txError, LIFECYCLE_RPC)) {
-    const txMessage = rpcErrorMessage(txError, "Không thể cập nhật vòng đời hồ sơ.");
-    return NextResponse.json({ error: txMessage }, { status: /already inactive|closed record|invalid|required|not found/i.test(txMessage) ? 409 : 400 });
-  }
-
-  // Backward-compatible fallback before migration exists.
-  let childTouched = false;
-  let childPreviousStatus: string | null = null;
-  let childTable: string | null = null;
-  if (action === "CANCEL") {
-    const child = CHILD_CANCEL[record.record_type];
-    if (child) {
-      childTable = child.table;
-      const { data: currentChild } = await admin.from(child.table).select("workflow_status").eq("record_id", record.id).maybeSingle();
-      childPreviousStatus = currentChild?.workflow_status ?? null;
-      const { error: childError } = await admin.from(child.table).update({ workflow_status: child.status, updated_at: now }).eq("record_id", record.id);
-      if (childError) return NextResponse.json({ error: `Không thể hủy workflow liên quan: ${childError.message}` }, { status: 400 });
-      childTouched = true;
-    }
-  } else if (record.record_type === "PROGRAM") {
-    childTable = "work_programs";
-    const { data: currentChild } = await admin.from("work_programs").select("workflow_status").eq("record_id", record.id).maybeSingle();
-    childPreviousStatus = currentChild?.workflow_status ?? null;
-    const { error: childError } = await admin.from("work_programs").update({ workflow_status: "ARCHIVED", updated_at: now }).eq("record_id", record.id);
-    if (childError) return NextResponse.json({ error: `Không thể lưu trữ kế hoạch: ${childError.message}` }, { status: 400 });
-    childTouched = true;
-  }
-
-  const { data: updated, error: updateError } = await admin.from("records").update({ lifecycle_status: targetStatus, closed_at: action === "CANCEL" ? now : record.closed_at, updated_at: now }).eq("id", record.id).select("id,lifecycle_status").maybeSingle();
-  if (updateError || !updated) {
-    if (childTouched && childTable && childPreviousStatus) await admin.from(childTable).update({ workflow_status: childPreviousStatus, updated_at: now }).eq("record_id", record.id);
-    return NextResponse.json({ error: updateError?.message || "Không cập nhật được hồ sơ." }, { status: 400 });
-  }
-
-  const { data: history, error: historyError } = await admin.from("record_status_history").insert({ record_id: record.id, old_status: record.lifecycle_status, new_status: targetStatus, changed_by: user.id, reason }).select("id").single();
-  if (historyError || !history) {
-    await admin.from("records").update({ lifecycle_status: record.lifecycle_status, closed_at: record.closed_at, updated_at: now }).eq("id", record.id);
-    if (childTouched && childTable && childPreviousStatus) await admin.from(childTable).update({ workflow_status: childPreviousStatus, updated_at: now }).eq("record_id", record.id);
-    return NextResponse.json({ error: historyError?.message || "Không ghi được lịch sử trạng thái." }, { status: 400 });
-  }
-
-  const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: user.id, record_id: record.id, table_name: "records", row_id: record.id, action_type: action === "CANCEL" ? "CANCEL_RECORD" : "ARCHIVE_RECORD", old_value: { lifecycle_status: record.lifecycle_status }, new_value: { lifecycle_status: targetStatus }, reason, request_meta: { source: "qlcl-ui", record_type: record.record_type, transaction: "legacy-fallback" } });
-  if (auditError) {
-    await admin.from("record_status_history").delete().eq("id", history.id);
-    await admin.from("records").update({ lifecycle_status: record.lifecycle_status, closed_at: record.closed_at, updated_at: now }).eq("id", record.id);
-    if (childTouched && childTable && childPreviousStatus) await admin.from(childTable).update({ workflow_status: childPreviousStatus, updated_at: now }).eq("record_id", record.id);
-    return NextResponse.json({ error: auditError.message }, { status: 400 });
-  }
-
-  return NextResponse.json({ ok: true, status: targetStatus, transaction: "legacy-fallback" });
+  const txMessage = rpcErrorMessage(txError, "Không thể cập nhật vòng đời hồ sơ.");
+  return NextResponse.json(
+    { error: txMessage },
+    { status: /đã ngưng|đã đóng|không hợp lệ|không tìm thấy|ngoài phạm vi|lý do/i.test(txMessage) ? 409 : 400 },
+  );
 }
