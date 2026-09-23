@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const LABEL: Record<string, string> = { DRAFT: "Nháp", REVIEWING: "Đang rà soát", PUBLISHED: "Đã phát hành", ARCHIVED: "Hết hiệu lực" };
@@ -24,7 +24,7 @@ export function SafetyAlertWorkflowClient({ recordId, status, canInvestigate, ca
   const [recommendation, setRecommendation] = useState("");
   const [expires, setExpires] = useState(localDateTimeValue(expiresAt));
 
-  async function loadContent() {
+  const loadContent = useCallback(async () => {
     if (!canInvestigate) return;
     setLoading(true);
     try {
@@ -40,9 +40,9 @@ export function SafetyAlertWorkflowClient({ recordId, status, canInvestigate, ca
     } finally {
       setLoading(false);
     }
-  }
+  }, [canInvestigate, recordId]);
 
-  useEffect(() => { void loadContent(); }, [recordId, canInvestigate]);
+  useEffect(() => { void loadContent(); }, [loadContent]);
 
   async function run(action: string, comment?: string) {
     setBusy(true); setError(""); setNotice("");
