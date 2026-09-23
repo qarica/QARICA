@@ -40,5 +40,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   if(body.is_active===false&&item.parent_criteria_item_id===null){
     await admin.from("criteria_items").update({is_active:false,updated_at:new Date().toISOString()}).eq("parent_criteria_item_id",id);
   }
+  const {error:auditError}=await admin.from("audit_logs").insert({actor_user_id:auth.user.id,table_name:"criteria_items",row_id:id,action_type:"CRITERIA_ITEM_UPDATE",old_value:{code:item.code,title:item.title,is_active:item.is_active,parent_criteria_item_id:item.parent_criteria_item_id},new_value:patch,request_meta:{source:"qlcl-ui"}});
+  if(auditError)return NextResponse.json({error:`Đã cập nhật nhưng không ghi được audit trail: ${auditError.message}`},{status:500});
   return NextResponse.json({ok:true});
 }
