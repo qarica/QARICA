@@ -35,10 +35,10 @@ type DictationTextareaProps = {
 };
 
 function appendTranscript(current: string, transcript: string) {
-  const clean = transcript.trim();
-  if (!clean) return current;
+  const cleanTranscript = transcript.trim();
+  if (!cleanTranscript) return current;
   const base = current.trimEnd();
-  return base ? `${base} ${clean}` : clean;
+  return base ? `${base} ${cleanTranscript}` : cleanTranscript;
 }
 
 export function DictationTextarea({
@@ -52,9 +52,14 @@ export function DictationTextarea({
   ariaLabel,
 }: DictationTextareaProps) {
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const valueRef = useRef(value);
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
 
   useEffect(() => {
     const speechWindow = window as typeof window & {
@@ -82,6 +87,7 @@ export function DictationTextarea({
       webkitSpeechRecognition?: BrowserSpeechRecognitionCtor;
     };
     const Recognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
+
     if (!Recognition) {
       setError("Trình duyệt này chưa hỗ trợ nhập bằng giọng nói.");
       return;
@@ -98,7 +104,11 @@ export function DictationTextarea({
         const result = event.results[i];
         if (result?.isFinal) finalText += ` ${result[0]?.transcript || ""}`;
       }
-      if (finalText.trim()) {\n        const nextValue = appendTranscript(valueRef.current, finalText);\n        valueRef.current = nextValue;\n        onValueChange(nextValue);\n      }
+      if (finalText.trim()) {
+        const nextValue = appendTranscript(valueRef.current, finalText);
+        valueRef.current = nextValue;
+        onValueChange(nextValue);
+      }
     };
     recognition.onerror = () => {
       setError("Không nhận được giọng nói. Kiểm tra quyền micro rồi thử lại.");
@@ -139,7 +149,9 @@ export function DictationTextarea({
         ) : (
           <span className="dictation-help">Nhập giọng nói hỗ trợ trên Chrome/Edge có Web Speech API.</span>
         )}
-        {listening ? <span className="dictation-listening">Đang nghe… Nội dung chỉ được chèn vào ô, không tự lưu.</span> : null}
+        {listening ? (
+          <span className="dictation-listening">Đang nghe… Nội dung chỉ được chèn vào ô, không tự lưu.</span>
+        ) : null}
       </div>
       {error ? <div className="dictation-error">{error}</div> : null}
       <style>{`
