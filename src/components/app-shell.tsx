@@ -44,7 +44,7 @@ function normalizeNavRoute(route: string | null, nav: NavSection[]) {
 export function AppShell({ children, user, organization, nav, year }: { children: React.ReactNode; user: UserContext; organization: OrganizationInfo | null; nav: NavSection[]; year: number; }) {
   const pathname = usePathname(); const router = useRouter(); const supabase = useMemo(() => createClient(), []);
   const [mobileOpen, setMobileOpen] = useState(false); const [profileOpen, setProfileOpen] = useState(false); const [navigating, setNavigating] = useState(false); const [sidebarCollapsed, setSidebarCollapsed] = useState(false); const [attention, setAttention] = useState<AttentionState>({});
-  const workspace = visibleWorkspaceForPath(pathname, user); const currentWorkspaceRoot = workspaceRootForPath(pathname); const adminHref = adminLandingHref(user); const assistantAttention = attention["/assistant"];
+  const workspace = visibleWorkspaceForPath(pathname, user); const currentWorkspaceRoot = workspaceRootForPath(pathname); const adminHref = adminLandingHref(user);
 
   useEffect(() => { setNavigating(false); setProfileOpen(false); }, [pathname]);
   useEffect(() => { try { setSidebarCollapsed(window.localStorage.getItem("qlcl-sidebar-collapsed") === "1"); } catch {} }, []);
