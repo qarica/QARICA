@@ -5,7 +5,8 @@ import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 
-type EventKind = "ACTION" | "PROGRAM" | "MONITORING" | "ASSESSMENT" | "REPORT" | "INSPECTION" | "RECURRING" | "PLAN" | "REMINDER";
+type EventKind = "ACTION" | "PROGRAM" | "MONITORING" | "ASSESSMENT" | "REPORT" | "INSPECTION" | "RECURRING" | "REMINDER";
+type CalendarKindFilter = "ALL" | EventKind;
 type EventTone = "danger" | "warning" | "info" | "success" | "neutral";
 
 type CalendarEvent = {
@@ -87,7 +88,7 @@ function isVisibleCycleMonth(workYear: number, year: number, month: number) {
   return key >= workYear * 12 && key <= (workYear + 1) * 12 + 2;
 }
 
-export default async function QualityCalendarPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+export default async function QualityCalendarPage({ searchParams }: { searchParams: Promise<{ month?: string; kind?: string }> }) {
   const { user } = await requireUserContext();
   if (!hasAnyPermission(user, ["dashboard.view", "tasks.view", "plans.view", "plans.manage", "monitoring.view", "monitoring.perform", "reports.view", "inspections.view"])) redirect("/dashboard?forbidden=1");
 
@@ -95,6 +96,9 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
   const today = hcmToday();
   const query = await searchParams;
   const selected = parseMonth(query.month, workYear, today);
+  const requestedKind = String(query.kind || "ALL").toUpperCase();
+  const allowedKinds = new Set<CalendarKindFilter>(["ALL","ACTION","PROGRAM","MONITORING","ASSESSMENT","REPORT","INSPECTION","RECURRING","REMINDER"]);
+  const kindFilter: CalendarKindFilter = allowedKinds.has(requestedKind as CalendarKindFilter) ? requestedKind as CalendarKindFilter : "ALL";
   const selectedPrefix = `${selected.year}-${pad(selected.month)}-`;
   const cycleStart = `${workYear}-01-01`;
   const cycleEnd = `${workYear + 1}-03-31`;
@@ -329,7 +333,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
 
   events.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title, "vi"));
 
-  const monthEvents = events.filter((event) => event.date.startsWith(selectedPrefix));
+  const monthEvents = events.filter((event) => event.date.startsWith(selectedPrefix) && (kindFilter === "ALL" || event.kind === kindFilter));
   const eventsByDate = new Map<string, CalendarEvent[]>();
   for (const event of monthEvents) {
     const list = eventsByDate.get(event.date) ?? [];
@@ -352,10 +356,12 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
 
   const previous = shiftMonth(selected.year, selected.month, -1);
   const next = shiftMonth(selected.year, selected.month, 1);
+  const monthHref = (year: number, month: number) => `/calendar?month=${monthParam(year, month)}${kindFilter === "ALL" ? "" : `&kind=${kindFilter}`}`;
+  const kindHref = (kind: CalendarKindFilter) => `/calendar?month=${monthParam(selected.year, selected.month)}${kind === "ALL" ? "" : `&kind=${kind}`}`;
   const currentTodayYear = Number(today.slice(0, 4));
   const currentTodayMonth = Number(today.slice(5, 7));
-  const overdueOpen = events.filter((event) => event.tone === "danger" && event.kind !== "PLAN").length;
-  const todayCount = events.filter((event) => event.date === today && !["success"].includes(event.tone) && event.kind !== "PLAN").length;
+  const overdueOpen = events.filter((event) => event.tone === "danger").length;
+  const todayCount = events.filter((event) => event.date === today && !["success"].includes(event.tone)).length;
   const recurringMonthCount = monthEvents.filter((event) => event.kind === "RECURRING" || event.kind === "MONITORING").length;
   const firstError = [actionsRes, programsRes, monitoringRes, reportingRes, inspectionsRes, recurringRunsRes, recurringTemplatesRes, holidaysRes, remindersRes]
     .find((result: any) => result.error)?.error || recordsError;
@@ -372,7 +378,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
   return <div className="page-stack quality-calendar-page">
     <style>{`
       .quality-calendar-page{max-width:1500px;margin:0 auto;gap:14px!important}
-      .calendar-source-note{display:flex;align-items:flex-start;gap:9px;padding:11px 13px;border:1px solid #dbe5ec;border-left:4px solid #2563eb;border-radius:12px;background:#f8fbff;color:#475569;font-size:11px;line-height:1.45}
+      .calendar-kind-filters{display:flex;gap:6px;flex-wrap:wrap}.calendar-kind-filter{display:inline-flex;align-items:center;min-height:30px;padding:5px 9px;border:1px solid #d7e1e5;border-radius:999px;background:#fff;color:#52656d;text-decoration:none;font-size:10px;font-weight:800}.calendar-kind-filter:hover{border-color:#94a3b8;background:#f8fafc}.calendar-kind-filter.active{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}.calendar-source-note{display:flex;align-items:flex-start;gap:9px;padding:11px 13px;border:1px solid #dbe5ec;border-left:4px solid #2563eb;border-radius:12px;background:#f8fbff;color:#475569;font-size:11px;line-height:1.45}
       .calendar-source-note strong{color:#1e3a5f}
       .calendar-roadmap{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
       .calendar-roadmap-card{border:1px solid #dfe7ec;border-left:4px solid #2563eb;border-radius:12px;padding:11px 12px;background:#fff;min-height:100px}
@@ -409,15 +415,32 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     <section className="panel">
       <div className="calendar-toolbar">
         <div className="calendar-toolbar-left">
-          {isVisibleCycleMonth(workYear, currentTodayYear, currentTodayMonth) ? <Link className="button tertiary small" href={`/calendar?month=${monthParam(currentTodayYear, currentTodayMonth)}`}>Hôm nay</Link> : null}
-          {isVisibleCycleMonth(workYear, previous.year, previous.month) ? <Link className="button secondary small" href={`/calendar?month=${monthParam(previous.year, previous.month)}`}>←</Link> : <span className="button secondary small" style={{ opacity: .35 }}>←</span>}
-          <details className="calendar-month-picker"><summary className="calendar-month-title">{MONTH_NAMES[selected.month - 1]} năm {selected.year} ▾</summary><div className="calendar-month-popover"><div className="calendar-picker-year"><strong>Chọn tháng · Chu kỳ {workYear}</strong></div><div className="calendar-picker-months">{Array.from({length:15},(_,i)=>{const d=shiftMonth(workYear,1,i);return d;}).map(({year,month})=><Link key={`${year}-${month}`} className={`button small ${year===selected.year&&month===selected.month?"primary":"secondary"}`} href={`/calendar?month=${monthParam(year,month)}`}>{month <= 12 ? `T${month}` : `T${month}`} {year !== workYear ? `/${String(year).slice(-2)}` : ""}</Link>)}</div></div></details>
-          {isVisibleCycleMonth(workYear, next.year, next.month) ? <Link className="button secondary small" href={`/calendar?month=${monthParam(next.year, next.month)}`}>→</Link> : <span className="button secondary small" style={{ opacity: .35 }}>→</span>}
+          {isVisibleCycleMonth(workYear, currentTodayYear, currentTodayMonth) ? <Link className="button tertiary small" href={monthHref(currentTodayYear, currentTodayMonth)}>Hôm nay</Link> : null}
+          {isVisibleCycleMonth(workYear, previous.year, previous.month) ? <Link className="button secondary small" href={monthHref(previous.year, previous.month)}>←</Link> : <span className="button secondary small" style={{ opacity: .35 }}>←</span>}
+          <details className="calendar-month-picker"><summary className="calendar-month-title">{MONTH_NAMES[selected.month - 1]} năm {selected.year} ▾</summary><div className="calendar-month-popover"><div className="calendar-picker-year"><strong>Chọn tháng · Chu kỳ {workYear}</strong></div><div className="calendar-picker-months">{Array.from({length:15},(_,i)=>{const d=shiftMonth(workYear,1,i);return d;}).map(({year,month})=><Link key={`${year}-${month}`} className={`button small ${year===selected.year&&month===selected.month?"primary":"secondary"}`} href={monthHref(year,month)}>{month <= 12 ? `T${month}` : `T${month}`} {year !== workYear ? `/${String(year).slice(-2)}` : ""}</Link>)}</div></div></details>
+          {isVisibleCycleMonth(workYear, next.year, next.month) ? <Link className="button secondary small" href={monthHref(next.year, next.month)}>→</Link> : <span className="button secondary small" style={{ opacity: .35 }}>→</span>}
         </div>
         <div className="calendar-toolbar-right">
           <Link className="button secondary small" href="/tasks">Việc của tôi</Link>
         </div>
       </div>
+      <nav className="calendar-kind-filters" aria-label="Lọc loại sự kiện">
+        {([
+          ["ALL","Tất cả"],
+          ["ACTION","Action"],
+          ["REMINDER","Nhắc việc"],
+          ["PROGRAM","Kế hoạch"],
+          ["ASSESSMENT","Đánh giá"],
+          ["REPORT","Báo cáo"],
+          ["MONITORING","Giám sát"],
+          ["INSPECTION","Tiếp đoàn"],
+          ["RECURRING","Định kỳ"],
+        ] as [CalendarKindFilter,string][]).map(([kind,label]) => (
+          <Link key={kind} href={kindHref(kind)} className={`calendar-kind-filter ${kindFilter===kind?"active":""}`}>
+            {label}
+          </Link>
+        ))}
+      </nav>
       <div className="calendar-legend">
         <span><i className="calendar-dot action" />Action</span><span><i className="calendar-dot reminder" />Nhắc việc cá nhân</span><span><i className="calendar-dot program" />Kế hoạch</span><span><i className="calendar-dot report" />Báo cáo</span><span><i className="calendar-dot monitoring" />Giám sát</span><span><i className="calendar-dot inspection" />Tiếp đoàn</span><span><i className="calendar-dot recurring" />Sổ tay QLCL</span><span><i className="calendar-dot attention" />Quá hạn/cần chú ý</span>
       </div>
