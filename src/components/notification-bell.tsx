@@ -21,6 +21,7 @@ type N = {
 type RecordInfo = { id: string; record_type: string };
 type RecordTypeInfo = { code: string; route_template: string | null };
 
+const MONITORING_SYNC_INTERVAL_MS = 15_000;
 const QUALITY_SYNC_INTERVAL_MS = 60_000;
 
 export function NotificationBell() {
@@ -38,6 +39,7 @@ export function NotificationBell() {
   const initializedRef = useRef(false);
   const latestCreatedAtRef = useRef<string | null>(null);
   const ringTimerRef = useRef<number | null>(null);
+  const lastMonitoringSyncRef = useRef(0);
   const lastQualitySyncRef = useRef(0);
 
   const triggerRing = useCallback(() => {
@@ -53,24 +55,27 @@ export function NotificationBell() {
   }, []);
 
   const load = useCallback(async () => {
-    // 5S recheck deadlines need a fast synchronization loop. Broader quality
-    // attention and assigned Action reminders are synchronized at most once
-    // per minute to avoid unnecessary DB load.
+    // 5S recheck deadlines use a 60-second pre-due window. Synchronize this
+    // server-side source at most every 15 seconds instead of every bell poll,
+    // while still reading the notification list responsively.
     let syncedNew = false;
-    try {
-      const syncRes = await fetch("/api/notifications/sync-monitoring-overdue", {
-        method: "POST",
-        cache: "no-store",
-      });
-      if (syncRes.ok) {
-        const sync = await syncRes.json();
-        syncedNew = Number(sync?.created || 0) > 0;
+    const now = Date.now();
+    if (now - lastMonitoringSyncRef.current >= MONITORING_SYNC_INTERVAL_MS) {
+      lastMonitoringSyncRef.current = now;
+      try {
+        const syncRes = await fetch("/api/notifications/sync-monitoring-overdue", {
+          method: "POST",
+          cache: "no-store",
+        });
+        if (syncRes.ok) {
+          const sync = await syncRes.json();
+          syncedNew = Number(sync?.created || 0) > 0;
+        }
+      } catch {
+        // Keep the bell usable even if deadline synchronization temporarily fails.
       }
-    } catch {
-      // Keep the bell usable even if deadline synchronization temporarily fails.
     }
 
-    const now = Date.now();
     if (now - lastQualitySyncRef.current >= QUALITY_SYNC_INTERVAL_MS) {
       lastQualitySyncRef.current = now;
       try {
