@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "QARICA — Nền tảng Quản trị Chất lượng & Cải tiến",
     short_name: "QARICA",
-    description: "Nền tảng quản trị chất lượng bệnh viện: kế hoạch, chỉ số, giám sát, sự cố y khoa và CAPA.",
+    description: "Nền tảng quản trị chất lượng & cải tiến: kế hoạch, chỉ số, giám sát, sự cố, rủi ro và CAPA.",
     start_url: "/",
     scope: "/",
     display: "standalone",
