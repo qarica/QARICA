@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: capa, error } = await admin.from("capas").select("id,workflow_status,approval_required,rca_analysis_id,effectiveness_due_date,required_resources").eq("record_id", recordId).maybeSingle();
   if (error || !capa) return NextResponse.json({ error: error?.message || "Không tìm thấy dữ liệu CAPA." }, { status: 404 });
   const oldStatus = String(capa.workflow_status || "DRAFT");
-  const now = new Date().toISOString(); const today = now.slice(0,10);
+  const now = new Date().toISOString();
   let newStatus = oldStatus; let reason = String(body.comment || "").trim() || null; let message = "Đã cập nhật CAPA.";
 
   if (command === "START") {

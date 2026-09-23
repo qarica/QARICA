@@ -9,8 +9,6 @@ type Item = { id: string; content: string; answer_type: string | null; allow_na:
 type Section = { id: string; title: string; items: Item[] };
 
 export function GenericChecklistRunClient({
-  templateId,
-  versionId,
   roundId,
   sections,
   assessorName,
