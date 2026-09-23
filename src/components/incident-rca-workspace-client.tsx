@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DictationTextarea } from "@/components/dictation-textarea";
 
 type TimelineRow = {
   event_time: string;
@@ -236,7 +237,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
             <div className="timeline-grid">
               <label>Thời điểm<input type="datetime-local" disabled={!editable} value={row.event_time} onChange={(e) => patchTimeline(index, { event_time: e.target.value })} /></label>
               <label>Sự kiện / mốc chính *<input disabled={!editable} value={row.event_title} onChange={(e) => patchTimeline(index, { event_title: e.target.value })} placeholder="Ghi ngắn gọn một mốc đã được xác minh, ví dụ: Điều dưỡng phát hiện người bệnh té ngã." /></label>
-              <label className="wide">Dữ kiện xác minh<textarea rows={2} placeholder="Ghi điều đã xác nhận từ hồ sơ, hệ thống hoặc phỏng vấn; chỉ ghi sự kiện thực tế, chưa kết luận nguyên nhân." disabled={!editable} value={row.event_description} onChange={(e) => patchTimeline(index, { event_description: e.target.value })} /></label>
+              <label className="wide">Dữ kiện xác minh<DictationTextarea rows={2} placeholder="Ghi điều đã xác nhận từ hồ sơ, hệ thống hoặc phỏng vấn; chỉ ghi sự kiện thực tế, chưa kết luận nguyên nhân." disabled={!editable} value={row.event_description} onValueChange={(value) => patchTimeline(index, { event_description: value })} /></label>
               <label className="wide">Nguồn / minh chứng<input disabled={!editable} value={row.source_reference} onChange={(e) => patchTimeline(index, { source_reference: e.target.value })} placeholder="Ghi nơi kiểm chứng dữ kiện, ví dụ: HSBA ngày..., HIS, biên bản, phỏng vấn BS/ĐD..." /></label>
             </div>
             {editable && timeline.length > 1 ? <div className="row-actions"><button type="button" className="button tertiary small" onClick={() => setTimeline((current) => current.filter((_, i) => i !== index))}>Xóa mốc</button></div> : null}
@@ -274,8 +275,8 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
           {roots.map((row, index) => <div className="root-card" key={index}>
             <div className="root-grid">
               <label>Nhóm<select disabled={!editable} value={row.category_code} onChange={(e) => patchRoot(index, { category_code: e.target.value })}><option value="">Chưa phân nhóm</option>{CATEGORIES.map((category) => <option key={category.code} value={category.code}>{category.label}</option>)}</select></label>
-              <label>Nguyên nhân gốc *<textarea rows={2} disabled={!editable} value={row.cause_statement} onChange={(e) => patchRoot(index, { cause_statement: e.target.value })} placeholder="Nêu vấn đề hệ thống có thể can thiệp để giảm tái diễn; tránh chỉ ghi tên hoặc lỗi của một cá nhân."/></label>
-              <label className="wide">Căn cứ chứng minh<textarea rows={2} disabled={!editable} value={row.evidence_basis} onChange={(e) => patchRoot(index, { evidence_basis: e.target.value })} placeholder="Nêu căn cứ dẫn đến kết luận nguyên nhân gốc: mốc Timeline, yếu tố Fishbone, Five Why (nếu dùng), HSBA hoặc dữ liệu liên quan." /></label>
+              <label>Nguyên nhân gốc *<DictationTextarea rows={2} disabled={!editable} value={row.cause_statement} onValueChange={(value) => patchRoot(index, { cause_statement: value })} placeholder="Nêu vấn đề hệ thống có thể can thiệp để giảm tái diễn; tránh chỉ ghi tên hoặc lỗi của một cá nhân." /></label>
+              <label className="wide">Căn cứ chứng minh<DictationTextarea rows={2} disabled={!editable} value={row.evidence_basis} onValueChange={(value) => patchRoot(index, { evidence_basis: value })} placeholder="Nêu căn cứ dẫn đến kết luận nguyên nhân gốc: mốc Timeline, yếu tố Fishbone, Five Why (nếu dùng), HSBA hoặc dữ liệu liên quan." /></label>
               <label className="root-check wide"><input type="checkbox" disabled={!editable} checked={row.action_required} onChange={(e) => patchRoot(index, { action_required: e.target.checked })} /> Cần Action/CAPA để kiểm soát nguyên nhân này</label>
             </div>
             {editable && roots.length > 1 ? <div className="row-actions"><button type="button" className="button tertiary small" onClick={() => setRoots((current) => current.filter((_, i) => i !== index))}>Xóa nguyên nhân</button></div> : null}
