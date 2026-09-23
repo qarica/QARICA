@@ -30,7 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const oldStatus = String(event.workflow_status || "PLANNING");
   const now = new Date().toISOString();
   let newStatus = oldStatus;
-  let reason = String(body.comment || "").trim() || null;
+  const reason = String(body.comment || "").trim() || null;
   let message = "Đã cập nhật Inspection Mode.";
 
   if (command === "GENERATE_COUNTDOWN") {
