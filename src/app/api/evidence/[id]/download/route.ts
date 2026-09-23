@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { evidenceInlineSafe } from "@/lib/evidence-file-policy";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("tasks.view");
@@ -9,7 +10,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const { data: evidence, error } = await auth.supabase
     .from("evidence")
-    .select("id,storage_bucket,storage_path,external_url,original_file_name,title")
+    .select("id,storage_bucket,storage_path,external_url,original_file_name,title,mime_type")
     .eq("id", id)
     .maybeSingle();
 
@@ -25,9 +26,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const admin = createAdminClient();
   const forceDownload = new URL(request.url).searchParams.get("download") === "1";
+  const inlineSafe = evidenceInlineSafe(evidence.original_file_name || evidence.title || "", evidence.mime_type);
+  const shouldDownload = forceDownload || !inlineSafe;
   const { data, error: signedError } = await admin.storage
     .from(evidence.storage_bucket)
-    .createSignedUrl(evidence.storage_path, 60, forceDownload ? {
+    .createSignedUrl(evidence.storage_path, 60, shouldDownload ? {
       download: evidence.original_file_name || evidence.title || true,
     } : undefined);
 
