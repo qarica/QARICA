@@ -38,3 +38,53 @@ export function incidentAttentionRank(row: IncidentAttentionLike) {
 }
 
 export { hcmMonthNumber };
+
+
+export type IncidentDomainLinkLike = {
+  record_id: string;
+  domain_id: string;
+};
+
+export type QualityDomainLike = {
+  id: string;
+  name: string;
+  sort_order?: number | null;
+};
+
+export function incidentDomainDistribution(
+  incidentRecordIds: string[],
+  links: IncidentDomainLinkLike[],
+  domains: QualityDomainLike[],
+) {
+  const visible = new Set(incidentRecordIds.map(String));
+  const domainMap = new Map(domains.map((domain) => [String(domain.id), domain]));
+  const unique = new Set<string>();
+  const countMap = new Map<string, number>();
+  const linkedRecords = new Set<string>();
+
+  for (const link of links) {
+    const recordId = String(link.record_id || "");
+    const domainId = String(link.domain_id || "");
+    if (!visible.has(recordId) || !domainMap.has(domainId)) continue;
+    const key = `${recordId}:${domainId}`;
+    if (unique.has(key)) continue;
+    unique.add(key);
+    linkedRecords.add(recordId);
+    countMap.set(domainId, (countMap.get(domainId) || 0) + 1);
+  }
+
+  const rows = Array.from(countMap.entries())
+    .map(([domainId, value]) => ({
+      domainId,
+      label: domainMap.get(domainId)?.name || domainId,
+      value,
+      sortOrder: Number(domainMap.get(domainId)?.sort_order ?? 999),
+    }))
+    .sort((a, b) => b.value - a.value || a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, "vi"));
+
+  return {
+    rows,
+    linkedRecordCount: linkedRecords.size,
+    unclassifiedCount: Math.max(0, visible.size - linkedRecords.size),
+  };
+}
