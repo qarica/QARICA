@@ -35,6 +35,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (!visibleRecord) return NextResponse.json({ error: "Không tìm thấy Finding hoặc bạn không có quyền truy cập." }, { status: 404 });
   if (visibleRecord.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "Finding không còn ở trạng thái hoạt động." }, { status: 409 });
+  const recordCode = visibleRecord.record_code;
+  const recordTitle = visibleRecord.title;
 
   const admin = createAdminClient();
   const { data: finding } = await admin
@@ -70,7 +72,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         : action === "ACCEPT"
           ? "Finding đã được xác nhận đóng"
           : "Finding đã chuyển sang CAPA",
-      message: `${visibleRecord.record_code} · ${visibleRecord.title}`,
+      message: `${recordCode} · ${recordTitle}`,
       target_record_id: recordId,
       target_route: `/findings/${recordId}`,
       notification_event_key: `finding:${action}:${findingId}:${notifyUser}:${oldStatus}`,
