@@ -98,7 +98,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const savedAtIso = savedAt.toISOString();
   const recheckDueAtIso = new Date(savedAt.getTime() + 5 * 60 * 1000).toISOString();
   const failCount = responses.filter((row) => row.result === "FAIL").length;
-  const nextStatus = failCount > 0 ? "IN_PROGRESS" : "AWAITING_CONFIRMATION";
   const context = { source_code: template.code, template_id: template.id, version_id: version.id, version_no: version.version_no, monitoring_date: monitoringDate, selected_areas: areaList, staff_name: staffName, assessor_user_id: auth.user.id, assessor_name: caller.full_name || null, checklist_saved_at: savedAtIso };
 
   // Upload PENDING evidence first. The core DB save is committed afterwards in one transaction.
