@@ -2,12 +2,14 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DictationTextarea } from "@/components/dictation-textarea";
 
 export function FindingWorkflowClient({ recordId, status, canOperate, canManage, actionCount, incompleteActionCount, evidenceCount }: { recordId: string; status: string; canOperate: boolean; canManage: boolean; actionCount: number; incompleteActionCount: number; evidenceCount: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"RETURN"|"ACCEPT"|"ESCALATE_CAPA"|null>(null);
   const [error, setError] = useState("");
+  const [comment, setComment] = useState("");
 
   async function run(action: string, payload: Record<string, unknown> = {}) {
     setBusy(true); setError("");
@@ -15,7 +17,7 @@ export function FindingWorkflowClient({ recordId, status, canOperate, canManage,
       const response = await fetch(`/api/findings/${recordId}/workflow`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...payload }) });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Không cập nhật được Finding.");
-      setMode(null); router.refresh();
+      setMode(null); setComment(""); router.refresh();
     } catch (err) { setError(err instanceof Error ? err.message : "Không cập nhật được Finding."); }
     finally { setBusy(false); }
   }
@@ -24,7 +26,7 @@ export function FindingWorkflowClient({ recordId, status, canOperate, canManage,
     event.preventDefault();
     if (!mode) return;
     const data = Object.fromEntries(new FormData(event.currentTarget).entries());
-    void run(mode, data);
+    void run(mode, { ...data, comment: comment.trim() });
   }
 
   const canSubmit = canOperate && ["IN_PROGRESS", "RETURNED", "ASSIGNED", "OPEN"].includes(status);
@@ -34,14 +36,14 @@ export function FindingWorkflowClient({ recordId, status, canOperate, canManage,
       {canOperate && ["OPEN","ASSIGNED"].includes(status) ? <button className="button secondary" disabled={busy} onClick={() => run("START")}>Bắt đầu xử lý</button> : null}
       {canSubmit ? <button className="button" disabled={busy || actionCount===0 || incompleteActionCount>0 || evidenceCount===0} onClick={() => run("SUBMIT")}>Gửi xác minh</button> : null}
       {canManage && status === "EVIDENCE_SUBMITTED" ? <button className="button" disabled={busy} onClick={() => run("BEGIN_VERIFY")}>Bắt đầu xác minh</button> : null}
-      {canManage && status === "VERIFYING" ? <><button className="button success" disabled={busy} onClick={() => setMode("ACCEPT")}>Chấp nhận & đóng</button><button className="button secondary" disabled={busy} onClick={() => setMode("RETURN")}>Trả lại</button><button className="button secondary" disabled={busy} onClick={() => setMode("ESCALATE_CAPA")}>Chuyển CAPA</button></> : null}
+      {canManage && status === "VERIFYING" ? <><button className="button success" disabled={busy} onClick={() => { setComment(""); setMode("ACCEPT"); }}>Chấp nhận & đóng</button><button className="button secondary" disabled={busy} onClick={() => { setComment(""); setMode("RETURN"); }}>Trả lại</button><button className="button secondary" disabled={busy} onClick={() => { setComment(""); setMode("ESCALATE_CAPA"); }}>Chuyển CAPA</button></> : null}
     </div></div>
     <div className="fw-checks"><span className={`fw-chip ${actionCount===0?"bad":""}`}>{actionCount} Action</span><span className={`fw-chip ${incompleteActionCount>0?"bad":""}`}>{incompleteActionCount} Action chưa hoàn thành</span><span className={`fw-chip ${evidenceCount===0?"bad":""}`}>{evidenceCount} minh chứng</span></div>
     {error ? <div className="alert error fw-error">{error}</div> : null}
     {mode ? <form className="fw-modal" onSubmit={submitReview}><strong>{mode === "ACCEPT" ? "Xác nhận kết quả khắc phục" : mode === "RETURN" ? "Trả lại để bổ sung" : "Chuyển Finding thành CAPA"}</strong><div className="form-grid two">
-      <label className="span-2">Nhận xét<textarea name="comment" required placeholder="Ghi rõ căn cứ xác minh/quyết định" /></label>
+      <label className="span-2">Nhận xét<DictationTextarea rows={3} value={comment} onValueChange={setComment} disabled={busy} placeholder="Ghi rõ căn cứ xác minh/quyết định" /></label>
       {mode === "RETURN" ? <label>Hạn bổ sung tiếp theo<input name="next_due_date" type="date" required /></label> : null}
       {mode === "ESCALATE_CAPA" ? <label>Mức ưu tiên CAPA<select name="capa_priority" defaultValue="HIGH"><option value="NORMAL">Bình thường</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn</option><option value="CRITICAL">Rất khẩn / trọng yếu</option></select></label> : null}
-    </div><div className="fw-modal-buttons"><button className="button tertiary" type="button" onClick={() => setMode(null)}>Đóng</button><button className="button" disabled={busy} type="submit">{busy?"Đang lưu…":"Xác nhận"}</button></div></form> : null}
+    </div><div className="fw-modal-buttons"><button className="button tertiary" type="button" onClick={() => { setMode(null); setComment(""); }}>Đóng</button><button className="button" disabled={busy || !comment.trim()} type="submit">{busy?"Đang lưu…":"Xác nhận"}</button></div></form> : null}
   </section>;
 }
