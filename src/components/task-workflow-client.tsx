@@ -69,21 +69,32 @@ export function TaskWorkflowClient({
 
     setBusy(true);
     setMessage(null);
+    const originalCount = files.length;
+    const pendingFiles = [...files];
+    let uploadedCount = 0;
     try {
       for (const [index, file] of files.entries()) {
         const body = new FormData();
         body.append("file", file);
-        body.append("title", files.length === 1 ? evidenceTitle.trim() : (evidenceTitle.trim() ? `${evidenceTitle.trim()} · ${file.name}` : file.name));
+        body.append("title", originalCount === 1 ? evidenceTitle.trim() : (evidenceTitle.trim() ? `${evidenceTitle.trim()} · ${file.name}` : file.name));
         const res = await fetch(`/api/tasks/${recordId}/evidence`, { method: "POST", body });
         const data = await res.json();
-        if (!res.ok) throw new Error(`File ${index + 1}/${files.length}: ${data.error || "Không thể tải minh chứng."}`);
+        if (!res.ok) throw new Error(`File ${index + 1}/${originalCount}: ${data.error || "Không thể tải minh chứng."}`);
+
+        uploadedCount += 1;
+        pendingFiles.shift();
+        setFiles([...pendingFiles]);
       }
       setEvidenceTitle("");
       setFiles([]);
       setUploadOpen(false);
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Có lỗi xảy ra.");
+      if (uploadedCount > 0) router.refresh();
+      const detail = error instanceof Error ? error.message : "Có lỗi xảy ra.";
+      setMessage(uploadedCount > 0
+        ? `Đã tải thành công ${uploadedCount}/${originalCount} file. Danh sách chọn chỉ còn các file chưa tải. ${detail}`
+        : detail);
     } finally {
       setBusy(false);
     }
