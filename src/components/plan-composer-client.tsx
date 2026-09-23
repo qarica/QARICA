@@ -497,11 +497,19 @@ export function PlanComposerClient({
       setMessage({ tone: "error", text: "Ngày kết thúc kế hoạch không được trước ngày bắt đầu." });
       return;
     }
+    const untitledTasks = taskTreeRows.filter((row) => !row.task.title.trim());
+    if (untitledTasks.length) {
+      setMessage({
+        tone: "error",
+        text: `Có ${untitledTasks.length} nhiệm vụ chưa có tiêu đề. Vui lòng nhập tiêu đề hoặc xóa nhiệm vụ trống trước khi lưu.`,
+      });
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
       const cleanedSpecifics = specifics.map((s) => s.trim()).filter(Boolean);
-      const cleanedTasks = taskTreeRows.map((row) => row.task).filter((task) => task.title.trim());
+      const cleanedTasks = taskTreeRows.map((row) => ({ ...row.task, title: row.task.title.trim() }));
       const res = await fetch(`/api/plans/${planId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
