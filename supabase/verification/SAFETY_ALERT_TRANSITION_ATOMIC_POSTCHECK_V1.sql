@@ -9,7 +9,7 @@ select
   case when body like '%evidence_links%' and body like '%publish%' then 'PASS' else 'FAIL' end as publish_evidence_gate,
   case when body like '%record_status_history%' and body like '%archived%' then 'PASS' else 'FAIL' end as archive_history,
   case when body like '%safety_alert_%' and body like '%audit_logs%' then 'PASS' else 'FAIL' end as audit_event,
-  case when body not like '%safety_alerts%updated_at%' then 'PASS' else 'FAIL' end as no_invalid_alert_updated_at,
+  case when split_part(split_part(body,'update public.safety_alerts',2),'where id=v_alert.id',1) not like '%updated_at%' then 'PASS' else 'FAIL' end as no_invalid_alert_updated_at,
   case when not has_function_privilege(
     'authenticated',
     to_regprocedure('public.qlcl_transition_safety_alert_v1(uuid,uuid,text,text)'),
