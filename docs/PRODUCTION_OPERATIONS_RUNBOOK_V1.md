@@ -1,4 +1,4 @@
-# QLCL-TTSG — Production Operations Runbook V1
+# QARICA — Production Operations Runbook V1
 
 ## 1. Mục tiêu
 Runbook này là điều kiện bắt buộc trước pilot/Go-Live. Không xác nhận `GO-LIVE PASS` nếu chưa có bằng chứng backup, restore và rollback thực tế.
@@ -6,7 +6,7 @@ Runbook này là điều kiện bắt buộc trước pilot/Go-Live. Không xác
 ## 2. Trước mỗi migration production
 1. Ghi commit SHA ứng dụng đang chạy.
 2. Ghi migration/version database hiện tại.
-3. Tạo backup database theo cơ chế Supabase đang được bệnh viện sử dụng.
+3. Tạo backup database theo cơ chế Supabase đang được tổ chức sử dụng.
 4. Kiểm tra backup hoàn tất và có timestamp.
 5. Kiểm tra các thay đổi Storage nếu migration liên quan file/evidence.
 6. Đọc migration và xác nhận:
@@ -77,7 +77,7 @@ Theo dõi:
 Không ghi PHI/secrets/token vào application log.
 
 ## 9. Access review
-Theo chu kỳ được bệnh viện duyệt:
+Theo chu kỳ được tổ chức duyệt:
 - user inactive phải thu hồi quyền;
 - rà role/permission/scope;
 - ADMIN kỹ thuật không tự có quyền nghiệp vụ;
