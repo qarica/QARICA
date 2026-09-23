@@ -3,7 +3,6 @@ import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { taskVerificationPermissions } from "@/lib/task-verification-policy";
 import { actionSubmitGate } from "@/lib/quality-gates";
-import { isMissingRpcFunction } from "@/lib/rpc-compat";
 
 const VERIFY_EXECUTION_RPC = "qlcl_verify_action_department_execution_v1";
 
@@ -338,32 +337,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           verified_at: tx?.verified_at ?? verifiedAt,
         });
       }
-      if (!isMissingRpcFunction(txError, VERIFY_EXECUTION_RPC)) {
-        return NextResponse.json({ error: txError.message }, { status: 409 });
-      }
-      // Fallback path (RPC not deployed yet) - kept only for compatibility during rollout.
-      // Not race-safe: see the RPC's migration comment for why the atomic version exists.
-      const {data:submittedExecutions,error:submittedExecutionsError}=await admin.from("action_department_executions").select("id,department_id").eq("action_id",action.id).eq("id",targetExecutionId).eq("workflow_status","SUBMITTED");
-      if (submittedExecutionsError) return NextResponse.json({error:submittedExecutionsError.message},{status:400});
-      if (!(submittedExecutions??[]).length) return NextResponse.json({error:"Không có khoa/phòng nào đang chờ xác minh."},{status:409});
-      // Xác minh Action tại thời điểm này áp dụng cho các execution đã gửi; mỗi đơn vị chỉ cần một người hợp lệ thực hiện.
-      const submittedIds=(submittedExecutions??[]).map((x:any)=>x.id);
-      if (!evidenceIds.length) return NextResponse.json({error:"Khoa/Phòng chưa có minh chứng để xác minh."},{status:409});
-      const {error:evidenceUpdateError}=await admin.from("evidence").update({validity_status:"VALID"}).in("id",evidenceIds).eq("validity_status","PENDING");
-      if (evidenceUpdateError) return NextResponse.json({error:evidenceUpdateError.message},{status:400});
-      const {error:verifyExecutionsError}=await admin.from("action_department_executions").update({workflow_status:"VERIFIED",verified_at:verifiedAt,verified_by:auth.user.id,completed_at:verifiedAt,completed_by:auth.user.id,note:note||null,updated_at:verifiedAt}).in("id",submittedIds);
-      if (verifyExecutionsError) {
-        await admin.from("evidence").update({validity_status:"PENDING"}).in("id",evidenceIds).eq("validity_status","VALID");
-        return NextResponse.json({error:verifyExecutionsError.message},{status:400});
-      }
-      const {data:remainingExecutions,error:remainingExecutionsError}=await admin.from("action_department_executions").select("id").eq("action_id",action.id).not("workflow_status","in","(VERIFIED,WAIVED)").limit(1);
-      if (remainingExecutionsError) return NextResponse.json({error:remainingExecutionsError.message},{status:400});
-      if ((remainingExecutions??[]).length) {
-        return NextResponse.json({ok:true,workflow_status:action.workflow_status,department_execution_status:"VERIFIED",aggregate_complete:false});
-      }
-      const {error:aggregateCompleteError}=await admin.from("actions").update({workflow_status:"COMPLETED",verified_at:verifiedAt,verified_by:auth.user.id,completion_note:note||null}).eq("id",action.id).in("workflow_status",["IN_PROGRESS","EVIDENCE_SUBMITTED","VERIFYING"]);
-      if (aggregateCompleteError) return NextResponse.json({error:aggregateCompleteError.message},{status:400});
-      return NextResponse.json({ok:true,workflow_status:"COMPLETED",department_execution_status:"VERIFIED",aggregate_complete:true,verified_at:verifiedAt});
+      return NextResponse.json({ error: txError.message || "Không thể xác minh phần việc của khoa/phòng bằng giao dịch nguyên tử." }, { status: 409 });
     }
 
     const { error } = await admin
