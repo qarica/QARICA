@@ -2,11 +2,11 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { EVIDENCE_ALLOWED_EXTENSIONS, evidenceFilePolicy } from "@/lib/evidence-file-policy";
 
 export const runtime = "nodejs";
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
-const BLOCKED_EXTENSIONS = new Set(["exe", "msi", "dll", "com", "scr", "bat", "cmd", "ps1", "sh", "js", "jar"]);
 
 function safeFileName(name: string) {
   const trimmed = name.trim() || "minh-chung";
@@ -41,9 +41,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const originalFileName = fileValue.name || "minh-chung";
-  const extension = originalFileName.includes(".") ? originalFileName.split(".").pop()?.toLowerCase() || "" : "";
-  if (extension && BLOCKED_EXTENSIONS.has(extension)) {
-    return NextResponse.json({ error: "Loại file này không được phép tải lên hệ thống." }, { status: 400 });
+  const filePolicy = evidenceFilePolicy(originalFileName);
+  if (!filePolicy) {
+    return NextResponse.json(
+      { error: `Loại file không được phép. Chỉ chấp nhận: ${EVIDENCE_ALLOWED_EXTENSIONS.join(", ")}.` },
+      { status: 400 },
+    );
   }
 
   const admin = createAdminClient();
@@ -136,7 +139,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const storageBucket = "qlcl-evidence";
   const storagePath = `${caller.organization_id}/${recordId}/${evidenceId}/${storedFileName}`;
   const title = requestedTitle || originalFileName;
-  const mimeType = fileValue.type || "application/octet-stream";
+  const mimeType = filePolicy.mimeType;
 
   const { error: metadataError } = await admin.from("evidence").insert({
     id: evidenceId,
