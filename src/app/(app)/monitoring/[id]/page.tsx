@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- Evidence previews use authenticated API/blob URLs; Next image optimization must not proxy them. */
 import { notFound, redirect } from "next/navigation";
 import { FiveSChecklistRunClient } from "@/components/five-s-checklist-run-client";
 import { GenericChecklistRunClient } from "@/components/generic-checklist-run-client";
