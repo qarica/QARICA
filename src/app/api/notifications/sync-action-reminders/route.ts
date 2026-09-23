@@ -103,7 +103,7 @@ export async function POST() {
   const admin = createAdminClient();
   const { data: inserted, error: insertError } = await admin
     .from("notifications")
-    .upsert(payload, { onConflict: "notification_event_key", ignoreDuplicates: true })
+    .upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true })
     .select("id");
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 400 });
