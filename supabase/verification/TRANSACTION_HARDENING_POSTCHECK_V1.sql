@@ -1,4 +1,4 @@
--- QLCL-TTSG Transaction Hardening Postcheck V1
+-- QARICA Transaction Hardening Postcheck V1
 -- Run manually in Supabase SQL Editor AFTER all transaction migrations.
 -- Read-only except for raising exceptions; does not mutate business data.
 
@@ -41,7 +41,20 @@ begin
   if to_regclass('public.uq_record_links_external_gap_criterion') is null then raise exception 'Missing uq_record_links_external_gap_criterion'; end if;
   if to_regclass('public.uq_inspection_action_offset') is null then raise exception 'Missing uq_inspection_action_offset'; end if;
   if to_regclass('public.uq_record_links_one_project_per_proposal') is null then raise exception 'Missing uq_record_links_one_project_per_proposal'; end if;
-  if to_regclass('public.uq_report_submission_version') is null then raise exception 'Missing uq_report_submission_version'; end if;
+  if not exists (
+    select 1
+    from pg_index i
+    join pg_class t on t.oid=i.indrelid
+    join pg_namespace n on n.oid=t.relnamespace
+    where n.nspname='public'
+      and t.relname='report_submissions'
+      and i.indisunique
+      and (
+        select array_agg(a.attname order by keypos.ordinality)
+        from unnest(i.indkey) with ordinality as keypos(attnum, ordinality)
+        join pg_attribute a on a.attrelid=t.oid and a.attnum=keypos.attnum
+      ) = array['reporting_obligation_id','submission_version']::name[]
+  ) then raise exception 'Missing unique key on report_submissions(reporting_obligation_id, submission_version)'; end if;
   if to_regclass('public.uq_incident_one_active_investigation') is null then raise exception 'Missing uq_incident_one_active_investigation'; end if;
 end $$;
 
