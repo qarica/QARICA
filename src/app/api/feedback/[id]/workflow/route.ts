@@ -5,6 +5,7 @@ import { rpcErrorMessage } from "@/lib/rpc-compat";
 
 const text = (value: unknown) => String(value ?? "").trim();
 const CREATE_FINDING_RPC = "qlcl_create_feedback_finding_v1";
+const CLOSE_RPC = "qlcl_close_feedback_v1";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
@@ -63,14 +64,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     next = "RESPONDED"; message = "Đã ghi nhận phản hồi được gửi; luồng Finding vẫn tiếp tục độc lập.";
   } else if (command === "CLOSE") {
     if (oldStatus !== "RESPONDED" || !reason) return NextResponse.json({ error: "Chỉ đóng sau khi đã phản hồi và có kết luận." }, { status: 409 });
-    next = "CLOSED";
-    await admin.from("records").update({ lifecycle_status: "CLOSED", closed_at: now, updated_at: now }).eq("id", recordId);
-    await admin.from("record_status_history").insert({ record_id: recordId, old_status: record.lifecycle_status, new_status: "CLOSED", changed_by: auth.user.id, reason });
-    message = "Đã đóng luồng phản hồi; Finding/Action liên quan không bị đóng theo.";
+
+    const { data: tx, error: txError } = await admin.rpc(CLOSE_RPC, {
+      p_feedback_record_id: recordId,
+      p_actor_user_id: auth.user.id,
+      p_reason: reason,
+    });
+    if (txError) {
+      const txMessage = rpcErrorMessage(txError, "Không thể đóng phản ánh.");
+      return NextResponse.json({ error: txMessage }, { status: /không còn hoạt động|chỉ đóng|không tìm thấy|trạng thái/i.test(txMessage) ? 409 : 400 });
+    }
+    return NextResponse.json({
+      ok: true,
+      status: "CLOSED",
+      message: "Đã đóng luồng phản hồi; Finding/Action liên quan không bị đóng theo.",
+      transaction: "atomic",
+      result: tx,
+    });
   } else return NextResponse.json({ error: "Thao tác phản ánh không hợp lệ." }, { status: 400 });
 
   const update: Record<string, unknown> = { workflow_status: next, updated_at: now };
-  if (command === "CLOSE") update.closed_at = now;
   const { error } = await admin.from("feedback_records").update(update).eq("id", feedback.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "feedback_records", row_id: feedback.id, action_type: `FEEDBACK_${command}`, old_value: { workflow_status: oldStatus }, new_value: { workflow_status: next }, reason, request_meta: { source: "qlcl-ui" } });
