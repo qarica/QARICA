@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { DictationTextarea } from "@/components/dictation-textarea";
 
 type Option = { id: string; label: string };
 type ProfileOption = { id: string; label: string; departmentId: string };
@@ -35,6 +36,9 @@ export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessi
   const [editingScopeId, setEditingScopeId] = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [finding, setFinding] = useState(EMPTY_FINDING);
+  const [pendingDelete, setPendingDelete] = useState<{ type: "SCOPE" | "SESSION"; id: string } | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [closeConclusion, setCloseConclusion] = useState("");
   const filteredFindingOwners = finding.lead_department_id ? profiles.filter((x) => x.departmentId === finding.lead_department_id) : [];
 
   async function call(url: string, action: string, payload: Record<string, unknown> = {}) {
@@ -84,11 +88,9 @@ export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessi
     if (ok) { setEditingScopeId(null); setScope(EMPTY_SCOPE); }
   }
 
-  async function deleteScope(id: string) {
-    const reason = window.prompt("Lý do xóa phạm vi Audit nhập nhầm:");
-    if (!reason?.trim()) return;
-    const ok = await setup("DELETE_SCOPE", { scope_id: id, reason: reason.trim() });
-    if (ok && editingScopeId === id) { setEditingScopeId(null); setScope(EMPTY_SCOPE); }
+  function deleteScope(id: string) {
+    setPendingDelete({ type: "SCOPE", id });
+    setDeleteReason("");
   }
 
   async function editSession(id: string) {
@@ -105,11 +107,25 @@ export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessi
     if (ok) { setEditingSessionId(null); setSession(EMPTY_SESSION); }
   }
 
-  async function deleteSession(id: string) {
-    const reason = window.prompt("Lý do xóa phiên Audit PLANNED nhập nhầm:");
-    if (!reason?.trim()) return;
-    const ok = await setup("DELETE_SESSION", { session_id: id, reason: reason.trim() });
-    if (ok && editingSessionId === id) { setEditingSessionId(null); setSession(EMPTY_SESSION); }
+  function deleteSession(id: string) {
+    setPendingDelete({ type: "SESSION", id });
+    setDeleteReason("");
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete || !deleteReason.trim()) return;
+    const isScope = pendingDelete.type === "SCOPE";
+    const ok = await setup(
+      isScope ? "DELETE_SCOPE" : "DELETE_SESSION",
+      isScope
+        ? { scope_id: pendingDelete.id, reason: deleteReason.trim() }
+        : { session_id: pendingDelete.id, reason: deleteReason.trim() },
+    );
+    if (!ok) return;
+    if (isScope && editingScopeId === pendingDelete.id) { setEditingScopeId(null); setScope(EMPTY_SCOPE); }
+    if (!isScope && editingSessionId === pendingDelete.id) { setEditingSessionId(null); setSession(EMPTY_SESSION); }
+    setPendingDelete(null);
+    setDeleteReason("");
   }
 
   async function createFinding() {
@@ -124,7 +140,7 @@ export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessi
       {error ? <div className="alert error">{error}</div> : null}{notice ? <div className="alert success">{notice}</div> : null}
       <div className="domain-metrics"><div><strong>{scopes}</strong><span>Phạm vi</span></div><div><strong>{sessions}</strong><span>Phiên Audit</span></div><div><strong>{findings}/{openFindings}</strong><span>Finding/chưa đóng</span></div><div><strong>{evidence}</strong><span>Bằng chứng</span></div></div>
 
-      {status === "DRAFT" && canManage ? <div className="page-stack"><h3>{editingScopeId ? "Sửa phạm vi Audit" : "Thêm phạm vi Audit"}</h3>{editingScopeId ? <div className="audit-edit-note">Đang chỉnh phạm vi đã có. Lịch sử thay đổi sẽ được lưu trong audit trail.</div> : null}<div className="detail-grid"><label><span>Khoa/phòng</span><select value={scope.department_id} onChange={(e) => setScope({ ...scope, department_id: e.target.value })}><option value="">Chọn...</option>{departments.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label><label><span>Quy trình</span><input value={scope.process_name} onChange={(e) => setScope({ ...scope, process_name: e.target.value })} /></label><label><span>Khu vực</span><input value={scope.area_name} onChange={(e) => setScope({ ...scope, area_name: e.target.value })} /></label><label className="wide"><span>Mô tả phạm vi</span><textarea rows={2} value={scope.scope_description} onChange={(e) => setScope({ ...scope, scope_description: e.target.value })} /></label></div><div className="audit-form-actions"><button type="button" className="button secondary" disabled={busy || (!scope.department_id && !scope.process_name && !scope.area_name && !scope.scope_description)} onClick={saveScope}>{editingScopeId ? "Lưu sửa phạm vi" : "Thêm phạm vi"}</button>{editingScopeId ? <button type="button" className="button tertiary" disabled={busy} onClick={() => { setEditingScopeId(null); setScope(EMPTY_SCOPE); }}>Hủy sửa</button> : null}</div></div> : null}
+      {status === "DRAFT" && canManage ? <div className="page-stack"><h3>{editingScopeId ? "Sửa phạm vi Audit" : "Thêm phạm vi Audit"}</h3>{editingScopeId ? <div className="audit-edit-note">Đang chỉnh phạm vi đã có. Lịch sử thay đổi sẽ được lưu trong audit trail.</div> : null}<div className="detail-grid"><label><span>Khoa/phòng</span><select value={scope.department_id} onChange={(e) => setScope({ ...scope, department_id: e.target.value })}><option value="">Chọn...</option>{departments.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label><label><span>Quy trình</span><input value={scope.process_name} onChange={(e) => setScope({ ...scope, process_name: e.target.value })} /></label><label><span>Khu vực</span><input value={scope.area_name} onChange={(e) => setScope({ ...scope, area_name: e.target.value })} /></label><label className="wide"><span>Mô tả phạm vi</span><DictationTextarea rows={2} value={scope.scope_description} onValueChange={(value) => setScope({ ...scope, scope_description: value })} disabled={busy} /></label></div><div className="audit-form-actions"><button type="button" className="button secondary" disabled={busy || (!scope.department_id && !scope.process_name && !scope.area_name && !scope.scope_description)} onClick={saveScope}>{editingScopeId ? "Lưu sửa phạm vi" : "Thêm phạm vi"}</button>{editingScopeId ? <button type="button" className="button tertiary" disabled={busy} onClick={() => { setEditingScopeId(null); setScope(EMPTY_SCOPE); }}>Hủy sửa</button> : null}</div></div> : null}
 
       {scopeRows.length ? <div className="table-wrap"><table><thead><tr><th>Khoa/phòng</th><th>Quy trình</th><th>Khu vực</th><th>Phạm vi</th>{status === "DRAFT" && canManage ? <th>Thao tác</th> : null}</tr></thead><tbody>{scopeRows.map((x) => <tr key={x.id}><td>{x.department || "—"}</td><td>{x.process || "—"}</td><td>{x.area || "—"}</td><td>{x.description || "—"}</td>{status === "DRAFT" && canManage ? <td><div className="audit-setup-actions"><button type="button" className="button tertiary small" disabled={busy} onClick={() => editScope(x.id)}>Sửa</button><button type="button" className="button tertiary small" disabled={busy} onClick={() => deleteScope(x.id)}>Xóa</button></div></td> : null}</tr>)}</tbody></table></div> : null}
       {status === "DRAFT" && canManage ? <button className="button primary" disabled={busy || scopes < 1} onClick={() => run("START")}>Bắt đầu Audit</button> : null}
@@ -132,6 +148,11 @@ export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessi
       {status === "IN_PROGRESS" && canManage ? <div className="page-stack"><h3>{editingSessionId ? "Sửa phiên Audit PLANNED" : "Tạo phiên thực hiện Audit"}</h3>{editingSessionId ? <div className="audit-edit-note">Chỉ lịch phiên còn PLANNED được phép sửa. Phiên đã thực hiện sẽ được khóa để giữ lịch sử.</div> : null}<div className="detail-grid"><label><span>Bắt đầu *</span><input type="datetime-local" value={session.scheduled_start} onChange={(e) => setSession({ ...session, scheduled_start: e.target.value })} /></label><label><span>Kết thúc</span><input type="datetime-local" value={session.scheduled_end} onChange={(e) => setSession({ ...session, scheduled_end: e.target.value })} /></label><label><span>Khoa/phòng</span><select value={session.department_id} onChange={(e) => setSession({ ...session, department_id: e.target.value })}><option value="">Chọn...</option>{departments.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label><label><span>Địa điểm</span><input value={session.location} onChange={(e) => setSession({ ...session, location: e.target.value })} /></label></div><div className="audit-form-actions"><button type="button" className="button secondary" disabled={busy || !session.scheduled_start} onClick={saveSession}>{editingSessionId ? "Lưu sửa phiên" : "Tạo phiên Audit"}</button>{editingSessionId ? <button type="button" className="button tertiary" disabled={busy} onClick={() => { setEditingSessionId(null); setSession(EMPTY_SESSION); }}>Hủy sửa</button> : null}</div></div> : null}
 
       {sessionRows.length ? <div className="table-wrap"><table><thead><tr><th>Bắt đầu</th><th>Kết thúc</th><th>Khoa/phòng</th><th>Địa điểm</th><th>Trạng thái</th>{status === "IN_PROGRESS" && canManage ? <th>Thao tác</th> : null}</tr></thead><tbody>{sessionRows.map((x) => <tr key={x.id}><td>{x.start}</td><td>{x.end || "—"}</td><td>{x.department || "—"}</td><td>{x.location || "—"}</td><td>{x.status}</td>{status === "IN_PROGRESS" && canManage ? <td>{String(x.status || "PLANNED").toUpperCase() === "PLANNED" ? <div className="audit-setup-actions"><button type="button" className="button tertiary small" disabled={busy} onClick={() => editSession(x.id)}>Sửa</button><button type="button" className="button tertiary small" disabled={busy} onClick={() => deleteSession(x.id)}>Xóa</button></div> : <span>Đã khóa</span>}</td> : null}</tr>)}</tbody></table></div> : null}
+      {pendingDelete ? <div className="audit-finding-box">
+        <div><h3>{pendingDelete.type === "SCOPE" ? "Xác nhận xóa phạm vi nhập nhầm" : "Xác nhận xóa phiên PLANNED nhập nhầm"}</h3><p>Ghi rõ lý do để lưu audit trail. Thao tác không thực hiện cho tới khi bấm xác nhận.</p></div>
+        <label>Lý do *<DictationTextarea rows={3} value={deleteReason} onValueChange={setDeleteReason} disabled={busy} placeholder="Nêu lý do xóa dữ liệu nhập nhầm và thông tin cần lưu vết." /></label>
+        <div className="audit-form-actions"><button type="button" className="button secondary" disabled={busy} onClick={() => { setPendingDelete(null); setDeleteReason(""); }}>Hủy</button><button type="button" className="button primary" disabled={busy || !deleteReason.trim()} onClick={confirmDelete}>Xác nhận xóa</button></div>
+      </div> : null}
       {findingRows.length ? <div className="table-wrap"><table><thead><tr><th>Mã Finding</th><th>Tham chiếu Audit</th><th>Khoa/phòng</th><th>Mức độ</th><th>Hạn</th><th>Trạng thái</th><th></th></tr></thead><tbody>{findingRows.map((x) => <tr key={x.id}><td><strong>{x.code}</strong><small className="subline">{x.title}</small></td><td>{x.sourceRef}</td><td>{x.department}</td><td>{x.severity}</td><td>{x.dueDate || "—"}</td><td>{x.status}</td><td><Link className="button tertiary small" href={x.href}>Mở Finding</Link></td></tr>)}</tbody></table></div> : null}
 
       {canManage && ["IN_PROGRESS", "DRAFT_REPORT", "REPORT_REVIEW", "FOLLOW_UP"].includes(status) ? <div className="audit-finding-box">
@@ -142,7 +163,7 @@ export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessi
           <label><span>Khoa/phòng chịu khắc phục *</span><select value={finding.lead_department_id} onChange={(e) => setFinding({ ...finding, lead_department_id: e.target.value, owner_user_id: "" })}><option value="">— Chọn khoa/phòng —</option>{departments.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
           <label><span>Người phụ trách *</span><select value={finding.owner_user_id} disabled={!finding.lead_department_id} onChange={(e) => setFinding({ ...finding, owner_user_id: e.target.value })}><option value="">— Chọn người —</option>{filteredFindingOwners.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
           <label><span>Hạn khắc phục *</span><input type="date" value={finding.due_date} onChange={(e) => setFinding({ ...finding, due_date: e.target.value })} /></label>
-          <label className="wide"><span>Mô tả phát hiện / điểm không phù hợp *</span><textarea rows={3} value={finding.description} onChange={(e) => setFinding({ ...finding, description: e.target.value })} /></label>
+          <label className="wide"><span>Mô tả phát hiện / điểm không phù hợp *</span><DictationTextarea rows={3} value={finding.description} onValueChange={(value) => setFinding({ ...finding, description: value })} disabled={busy} /></label>
         </div>
         {finding.lead_department_id && !filteredFindingOwners.length ? <div className="alert info">Khoa/phòng này chưa có người dùng hoạt động được gán làm đơn vị chính. Cần cập nhật người phụ trách trước khi tạo Finding.</div> : null}
         <div className="audit-form-actions"><button className="button primary" type="button" disabled={busy || !finding.source_ref.trim() || !finding.description.trim() || !finding.due_date || !finding.lead_department_id || !finding.owner_user_id} onClick={createFinding}>Tạo Finding từ Audit</button></div>
@@ -150,7 +171,7 @@ export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessi
 
       {status === "IN_PROGRESS" && canManage ? <button className="button primary" disabled={busy || sessions < 1 || evidence < 1} onClick={() => run("SUBMIT_REPORT")}>Gửi báo cáo rà soát</button> : null}
       {["DRAFT_REPORT", "REPORT_REVIEW"].includes(status) && canManage ? <button className="button primary" disabled={busy} onClick={() => run("START_FOLLOW_UP")}>Chuyển theo dõi Finding</button> : null}
-      {status === "FOLLOW_UP" && canManage ? <button className="button primary" disabled={busy || openFindings > 0} onClick={() => { const conclusion = window.prompt("Kết luận đóng Audit/Tracer:"); if (conclusion?.trim()) run("CLOSE", { comment: conclusion.trim() }); }}>Đóng Audit/Tracer</button> : null}
+      {status === "FOLLOW_UP" && canManage ? <div className="page-stack"><label>Kết luận đóng Audit/Tracer *<DictationTextarea rows={3} value={closeConclusion} onValueChange={setCloseConclusion} disabled={busy} placeholder="Tóm tắt kết quả follow-up, tình trạng Finding và cơ sở đóng Audit/Tracer." /></label><button className="button primary" disabled={busy || openFindings > 0 || !closeConclusion.trim()} onClick={() => run("CLOSE", { comment: closeConclusion.trim() })}>Đóng Audit/Tracer</button></div> : null}
     </div>
   </section>;
 }
