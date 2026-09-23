@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- Evidence previews use authenticated API/blob URLs; Next image optimization must not proxy them. */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
