@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { IndicatorPeriodAutoSyncClient } from "@/components/indicator-period-auto-sync-client";
-import { IndicatorSourceReconciliationClient } from "@/components/indicator-source-reconciliation-client";
 import { StatusBadge } from "@/components/status-badge";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
-import { INDICATOR_2026_BLUEPRINT, blueprintResolution } from "@/lib/indicator-2026-blueprint";
 import { routeForRecord } from "@/lib/record-route";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,7 +17,7 @@ function monthIndex(value?:string|null){if(!value)return null;const match=String
 function fmt(value:unknown){if(value===null||value===undefined||value==="")return "—";const n=Number(value);return Number.isFinite(n)?new Intl.NumberFormat("vi-VN",{maximumFractionDigits:2}).format(n):String(value)}
 function priorityOf(status:string,result:string|null){if(result==="OUT_OF_TARGET"&&FINAL_STATES.has(status))return 0;if(status==="SUBMITTED")return 1;if(status==="RETURNED")return 2;if(status==="DRAFT")return 3;return 9}
 
-export async function IndicatorQualityOverview({rows,year,canManage=false,canSync=false}:{rows:Row[];year:number;canManage?:boolean;canSync?:boolean}){
+export async function IndicatorQualityOverview({rows,year,canSync=false}:{rows:Row[];year:number;canSync?:boolean}){
  const supabase=await createClient();
  const assignmentsRes=await supabase.from("indicator_assignments").select("id,indicator_version_id,department_id,collector_user_id,work_year,frequency,local_target,status,active_from,active_to,auto_create_periods,source_reference").eq("work_year",year).eq("status","ACTIVE");
  const assignments=(assignmentsRes.data??[]) as any[];const assignmentIds=assignments.map(x=>x.id);const assignmentMap=new Map(assignments.map(x=>[x.id,x]));
@@ -40,40 +38,6 @@ export async function IndicatorQualityOverview({rows,year,canManage=false,canSyn
  const departmentMap=new Map((departmentsRes.data??[]).map((x:any)=>[x.id,x.short_name||x.name]));
  const profileMap=new Map((profilesRes.data??[]).map((x:any)=>[x.user_id,x.full_name||x.email||x.user_id]));
  const recordMap=new Map(rows.map(x=>[x.id,x]));
- const definitionCandidates=assignments.map((assignment:any)=>{
-  const version=versionMap.get(assignment.indicator_version_id) as any;
-  const definition=version?definitionMap.get(version.indicator_definition_id) as any:null;
-  return definition?{
-    id:definition.id,
-    code:definition.code||null,
-    name:definition.name||"Chỉ số",
-    assignmentId:assignment.id,
-    assignment,
-  }:null;
- }).filter(Boolean) as any[];
- const blueprintRows=year===2026?INDICATOR_2026_BLUEPRINT.map((item)=>{
-  const resolution=blueprintResolution(item,definitionCandidates);
-  const candidates=resolution.matches.map((match:any)=>({
-    assignment_id:match.assignmentId,
-    definition_id:match.id,
-    code:match.code||null,
-    name:match.name||"Chỉ số",
-    current_frequency:match.assignment?.frequency||null,
-    current_active_from:match.assignment?.active_from||null,
-    auto_create_periods:match.assignment?.auto_create_periods===true,
-  }));
-  return {
-    key:item.key,
-    source_code:item.sourceCode,
-    name:item.name,
-    owner:item.owner,
-    frequency:item.frequency,
-    active_from:item.activeFrom,
-    note:item.note,
-    status:resolution.status,
-    candidates,
-  };
- }):[];
  const autoConfiguredCount=assignments.filter((x:any)=>x.auto_create_periods&&x.active_from).length;
 
  const finalRows=measurements.filter(x=>FINAL_STATES.has(String(x.workflow_status)));
@@ -106,7 +70,6 @@ export async function IndicatorQualityOverview({rows,year,canManage=false,canSyn
   <style>{TQM_CHART_CSS+`.iq-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.iq-kpi{background:#fff;border:1px solid #e1e9ec;border-radius:17px;padding:15px 16px}.iq-kpi span{display:block;font-size:10px;color:#728188;font-weight:800;text-transform:uppercase}.iq-kpi strong{display:block;font-size:29px;line-height:1;margin-top:8px}.iq-kpi small{display:block;font-size:10px;color:#7d8c92;margin-top:6px}.iq-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.iq-head{padding:16px 18px 4px}.iq-head h2{margin:0;font-size:15px}.iq-head p{margin:4px 0 0;color:#74838a;font-size:11px}.iq-queue{display:grid;gap:8px;padding:8px 16px 16px}.iq-queue-row{display:grid;grid-template-columns:minmax(0,1.7fr) 110px 120px 110px auto;gap:10px;align-items:center;padding:11px 12px;border:1px solid #e4eaec;border-radius:13px}.iq-queue-row.danger{border-color:#f2c7cc;background:#fffafb}.iq-queue-row strong{font-size:11px}.iq-queue-row small{display:block;color:#7a898f;margin-top:3px}.iq-table{display:grid;gap:7px;padding:8px 16px 16px}.iq-assignment{display:grid;grid-template-columns:minmax(220px,1.8fr) 120px 125px 110px 130px 90px;gap:10px;align-items:center;padding:11px;border:1px solid #e4eaec;border-radius:12px}.iq-assignment strong{font-size:11px}.iq-assignment small{display:block;color:#7a898f;margin-top:3px}.iq-pill{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:4px 7px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:9px;font-weight:800}.iq-pill.red{background:#fff0f1;color:#b42335}.iq-pill.amber{background:#fff7e6;color:#92400e}.iq-pill.green{background:#eaf7ef;color:#166534}.iq-empty-banner{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:15px 17px;border:1px solid #f0d59e;background:#fffaf0;border-radius:14px}.iq-empty-banner strong{display:block;font-size:12px}.iq-empty-banner span{display:block;color:#78633d;font-size:10px;margin-top:3px}@media(max-width:1200px){.iq-kpis{grid-template-columns:repeat(3,1fr)}.iq-assignment{grid-template-columns:1.5fr 1fr 1fr}.iq-assignment>*:nth-child(n+4){display:none}}@media(max-width:900px){.iq-grid{grid-template-columns:1fr}.iq-queue-row{grid-template-columns:1fr 1fr}.iq-queue-row>div:first-child{grid-column:1/-1}}@media(max-width:700px){.iq-kpis{grid-template-columns:1fr 1fr}.iq-assignment{grid-template-columns:1fr}.iq-assignment>*{display:block!important}.iq-empty-banner{display:grid}}`}</style>
   {firstError?<div className="alert error">Một phần dữ liệu chỉ số chưa tải được: {firstError.message}</div>:null}
   <IndicatorPeriodAutoSyncClient year={year} enabled={canSync&&autoConfiguredCount>0}/>
-  {blueprintRows.length?<IndicatorSourceReconciliationClient rows={blueprintRows as any} canManage={canManage}/>:null}
   {assignments.length>0&&measurements.length===0?<section className="iq-empty-banner"><div><strong>Đã có {assignments.length} chỉ số/phân công nhưng chưa có kỳ đo trong năm {year}.</strong><span>Không cần nhập lại lịch đo thủ công. Sau khi xác nhận cấu hình nguồn, QARICA tự tạo kỳ đo đúng tần suất; hiện có {autoConfiguredCount} phân công đã bật tự động.</span></div><span className="iq-pill amber">{withoutMeasurement} phân công chưa có dữ liệu</span></section>:null}
   <section className="iq-kpis">
    <article className="iq-kpi"><span>Phân công hoạt động</span><strong>{assignments.length}</strong><small>{autoConfiguredCount} đã bật tự tạo kỳ đo</small></article>
