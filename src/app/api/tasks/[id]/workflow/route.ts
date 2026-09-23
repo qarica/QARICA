@@ -5,6 +5,7 @@ import { taskVerificationPermissions } from "@/lib/task-verification-policy";
 import { actionSubmitGate } from "@/lib/quality-gates";
 
 const VERIFY_EXECUTION_RPC = "qlcl_verify_action_department_execution_v1";
+const VERIFY_ACTION_RPC = "qlcl_verify_action_v1";
 const SUBMIT_EXECUTION_RPC = "qlcl_submit_action_department_execution_v1";
 const RETURN_EXECUTION_RPC = "qlcl_return_action_department_execution_v1";
 const START_EXECUTION_RPC = "qlcl_start_action_department_execution_v1";
@@ -278,85 +279,61 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   if (requestedAction === "APPROVE") {
-    let evidenceLinksQuery = admin.from("evidence_links").select("evidence_id").eq("record_id", recordId);
-    const targetExecutionId = action.assignment_target_type === "DEPARTMENT" && body.department_execution_id ? String(body.department_execution_id).trim() : "";
-    if (action.assignment_target_type === "DEPARTMENT") {
-      if (!targetExecutionId) return NextResponse.json({error:"Cần chọn đúng khoa/phòng cần xác minh."},{status:400});
-      evidenceLinksQuery = evidenceLinksQuery.eq("action_department_execution_id",targetExecutionId);
-    } else if (action.workflow_status !== "VERIFYING") {
-      return NextResponse.json({ error: "Chỉ công việc đang xác minh mới được xác nhận hoàn thành." }, { status: 409 });
-    }
-    const { data: evidenceLinks, error: evidenceLinksError } = await evidenceLinksQuery;
-    if (evidenceLinksError) {
-      return NextResponse.json({ error: evidenceLinksError.message }, { status: 400 });
-    }
-    const evidenceIds = (evidenceLinks ?? []).map((row) => row.evidence_id).filter(Boolean);
-
-    const verifiedAt = new Date().toISOString();
+    const targetExecutionId = action.assignment_target_type === "DEPARTMENT" && body.department_execution_id
+      ? String(body.department_execution_id).trim()
+      : "";
 
     if (action.assignment_target_type === "DEPARTMENT") {
+      if (!targetExecutionId) return NextResponse.json({ error: "Cần chọn đúng khoa/phòng cần xác minh." }, { status: 400 });
       const { data: tx, error: txError } = await admin.rpc(VERIFY_EXECUTION_RPC, {
         p_execution_id: targetExecutionId,
         p_actor_user_id: auth.user.id,
         p_note: note || null,
       });
-      if (!txError) {
-        const { data: targetExecution } = await admin.from("action_department_executions").select("department_id").eq("id", targetExecutionId).maybeSingle();
-        if (targetExecution?.department_id) {
-          const { data: recipientRoles } = await admin.from("department_user_roles").select("user_id").eq("department_id", targetExecution.department_id).eq("is_active", true).in("role_type", ["HEAD","QUALITY_NETWORK_MEMBER"]);
-          const recipientIds = Array.from(new Set((recipientRoles ?? []).map((row: any) => row.user_id).filter(Boolean))) as string[];
-          if (recipientIds.length) {
-            const eventStamp = Date.now();
-            await admin.from("notifications").insert(recipientIds.map((recipientUserId) => ({
-              recipient_user_id: recipientUserId,
-              notification_type: "ACTION_VERIFIED",
-              priority: "NORMAL",
-              title: "Công việc đã được xác minh hoàn thành",
-              message: record.title,
-              target_record_id: recordId,
-              target_route: `/tasks/${recordId}`,
-              notification_event_key: `action-verified:${action.id}:${targetExecutionId}:${recipientUserId}:${eventStamp}`,
-            })));
-          }
-        }
-        return NextResponse.json({
-          ok: true,
-          workflow_status: tx?.aggregate_complete ? "COMPLETED" : action.workflow_status,
-          department_execution_status: tx?.department_execution_status ?? "VERIFIED",
-          aggregate_complete: !!tx?.aggregate_complete,
-          verified_at: tx?.verified_at ?? verifiedAt,
-        });
+      if (txError) {
+        return NextResponse.json(
+          { error: txError.message || "Không thể xác minh phần việc của khoa/phòng bằng giao dịch nguyên tử." },
+          { status: 409 },
+        );
       }
-      return NextResponse.json({ error: txError.message || "Không thể xác minh phần việc của khoa/phòng bằng giao dịch nguyên tử." }, { status: 409 });
+
+      const { data: targetExecution } = await admin.from("action_department_executions").select("department_id").eq("id", targetExecutionId).maybeSingle();
+      if (targetExecution?.department_id) {
+        const { data: recipientRoles } = await admin.from("department_user_roles").select("user_id").eq("department_id", targetExecution.department_id).eq("is_active", true).in("role_type", ["HEAD","QUALITY_NETWORK_MEMBER"]);
+        const recipientIds = Array.from(new Set((recipientRoles ?? []).map((row: any) => row.user_id).filter(Boolean))) as string[];
+        if (recipientIds.length) {
+          const eventStamp = Date.now();
+          await admin.from("notifications").insert(recipientIds.map((recipientUserId) => ({
+            recipient_user_id: recipientUserId,
+            notification_type: "ACTION_VERIFIED",
+            priority: "NORMAL",
+            title: "Công việc đã được xác minh hoàn thành",
+            message: record.title,
+            target_record_id: recordId,
+            target_route: `/tasks/${recordId}`,
+            notification_event_key: `action-verified:${action.id}:${targetExecutionId}:${recipientUserId}:${eventStamp}`,
+          })));
+        }
+      }
+      return NextResponse.json({
+        ok: true,
+        workflow_status: tx?.aggregate_complete ? "COMPLETED" : action.workflow_status,
+        department_execution_status: tx?.department_execution_status ?? "VERIFIED",
+        aggregate_complete: !!tx?.aggregate_complete,
+        verified_at: tx?.verified_at ?? null,
+      });
     }
 
-    const { error } = await admin
-      .from("actions")
-      .update({
-        workflow_status: "COMPLETED",
-        verified_at: verifiedAt,
-        verified_by: auth.user.id,
-        completion_note: note || null,
-      })
-      .eq("id", action.id)
-      .eq("workflow_status", "VERIFYING");
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-
-    if (evidenceIds.length) {
-      const { error: evidenceUpdateError } = await admin
-        .from("evidence")
-        .update({ validity_status: "VALID" })
-        .in("id", evidenceIds)
-        .eq("validity_status", "PENDING");
-
-      if (evidenceUpdateError) {
-        await admin
-          .from("actions")
-          .update({ workflow_status: "VERIFYING", verified_at: null, verified_by: null, completion_note: null })
-          .eq("id", action.id)
-          .eq("workflow_status", "COMPLETED");
-        return NextResponse.json({ error: `Không thể cập nhật trạng thái minh chứng: ${evidenceUpdateError.message}` }, { status: 400 });
-      }
+    const { data: tx, error: txError } = await admin.rpc(VERIFY_ACTION_RPC, {
+      p_action_id: action.id,
+      p_actor_user_id: auth.user.id,
+      p_note: note || null,
+    });
+    if (txError) {
+      return NextResponse.json(
+        { error: txError.message || "Không thể xác minh hoàn thành công việc." },
+        { status: 409 },
+      );
     }
 
     if (executionRecipientIds.length) {
@@ -372,7 +349,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         notification_event_key: `action-verified:${action.id}:${recipientUserId}:${eventStamp}`,
       })));
     }
-    return NextResponse.json({ ok: true, workflow_status: "COMPLETED", verified_at: verifiedAt });
+    return NextResponse.json({
+      ok: true,
+      workflow_status: tx?.workflow_status ?? "COMPLETED",
+      verified_at: tx?.verified_at ?? null,
+    });
   }
 
   if (action.assignment_target_type === "DEPARTMENT" && departmentExecution) {
