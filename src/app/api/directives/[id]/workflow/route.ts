@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 
 const COMPLETE_RPC = "qlcl_complete_directive_v1";
 
@@ -57,26 +57,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       p_actor_user_id: auth.user.id,
       p_reason: reason,
     });
-    if (!txError) return NextResponse.json({ ok: true, status: "COMPLETED", message: "Đã xác nhận hoàn tất yêu cầu.", transaction: "atomic", result: tx });
-    if (!isMissingRpcFunction(txError, COMPLETE_RPC)) {
+    if (txError) {
       const txMessage = rpcErrorMessage(txError, "Không thể xác nhận hoàn tất yêu cầu.");
       return NextResponse.json({ error: txMessage }, { status: /not active|must be evidence_submitted|action|evidence|required|not found/i.test(txMessage) ? 409 : 400 });
     }
-
-    if (!active.length) return NextResponse.json({ error: "Cần ít nhất một Action thực hiện trước khi hoàn tất." }, { status: 409 });
-    if (incomplete) return NextResponse.json({ error: `Còn ${incomplete} Action chưa hoàn thành.` }, { status: 409 });
-    if (!evidence) return NextResponse.json({ error: "Cần minh chứng sản phẩm/đã gửi trước khi hoàn tất." }, { status: 409 });
-    next = "COMPLETED";
-    const { error: directiveError } = await admin.from("external_directives").update({ workflow_status: next, updated_at: now }).eq("id", directive.id);
-    if (directiveError) return NextResponse.json({ error: directiveError.message }, { status: 400 });
-    const { error: recordError } = await admin.from("records").update({ lifecycle_status: "CLOSED", closed_at: now, updated_at: now }).eq("id", recordId);
-    if (recordError) {
-      await admin.from("external_directives").update({ workflow_status: "EVIDENCE_SUBMITTED", updated_at: now }).eq("id", directive.id);
-      return NextResponse.json({ error: recordError.message }, { status: 400 });
-    }
-    await admin.from("record_status_history").insert({ record_id: recordId, old_status: record.lifecycle_status, new_status: "CLOSED", changed_by: auth.user.id, reason });
-    await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "external_directives", row_id: directive.id, action_type: "DIRECTIVE_COMPLETE", old_value: { workflow_status: oldStatus }, new_value: { workflow_status: next }, reason, request_meta: { source: "qlcl-ui", transaction: "legacy-fallback" } });
-    return NextResponse.json({ ok: true, status: next, message: "Đã xác nhận hoàn tất yêu cầu.", transaction: "legacy-fallback" });
+    return NextResponse.json({ ok: true, status: "COMPLETED", message: "Đã xác nhận hoàn tất yêu cầu.", transaction: "atomic", result: tx });
   } else if (command === "RETURN") {
     if (oldStatus !== "EVIDENCE_SUBMITTED" || !reason) return NextResponse.json({ error: "Cần lý do trả lại bổ sung." }, { status: 409 });
     next = "IN_PROGRESS";
