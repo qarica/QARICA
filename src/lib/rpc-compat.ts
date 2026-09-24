@@ -10,5 +10,12 @@ export function isMissingRpcFunction(error: RpcErrorLike, functionName?: string)
 }
 
 export function rpcErrorMessage(error: RpcErrorLike, fallback: string): string {
-  return String(error?.message || error?.details || fallback);
+  if (!error) return fallback;
+  const raw = String(error.message || error.details || "").trim();
+  if (!raw) return fallback;
+  const safe = raw.toLowerCase();
+  const known = ["required", "not active", "not found", "must be", "incomplete", "unsupported", "invalid", "already", "evidence", "action", "status"];
+  const looksInternal = /postgres|sql|schema|relation|column|function|constraint|stack|syntax|pgrst|uuid|jsonb/i.test(raw);
+  if (looksInternal || !known.some((token) => safe.includes(token))) return fallback;
+  return raw;
 }
