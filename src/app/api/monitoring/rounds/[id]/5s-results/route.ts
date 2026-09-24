@@ -71,7 +71,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     admin.from("checklist_versions").select("id,checklist_template_id,status,version_no").eq("id", round.checklist_version_id).maybeSingle(),
     admin.from("checklist_responses").select("id").eq("monitoring_round_id", round.id).limit(1),
   ]);
-  if (!record || record.organization_id !== caller.organization_id) return NextResponse.json({ error: "Đợt giám sát không thuộc bệnh viện hiện tại." }, { status: 403 });
+  if (!record || record.organization_id !== caller.organization_id) return NextResponse.json({ error: "Đợt giám sát không thuộc tổ chức hiện tại." }, { status: 403 });
   const organizationId = caller.organization_id;
   const monitoringRecordId = record.id;
   const monitoringOwnerDepartmentId = record.owner_department_id;
