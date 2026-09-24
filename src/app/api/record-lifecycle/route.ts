@@ -96,7 +96,6 @@ export async function POST(request: Request) {
   if (action === "ARCHIVE" && record.lifecycle_status === "ARCHIVED") return NextResponse.json({ ok: true, status: "ARCHIVED", transaction: "idempotent" });
 
   const targetStatus = action === "CANCEL" ? "CANCELLED" : "ARCHIVED";
-  const now = new Date().toISOString();
   const admin = createAdminClient();
 
   const { data: tx, error: txError } = await admin.rpc(LIFECYCLE_RPC, {
