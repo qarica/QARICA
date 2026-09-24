@@ -10,7 +10,7 @@ function hcmToday() {
 export async function POST(request: Request) {
   const auth = await requireApiPermission("indicators.enter");
   if (!auth.ok) return auth.response;
-  const actorUserId = actorUserId;
+  const actorUserId = auth.user.id;
 
   const body = await request.json().catch(() => ({}));
   const today = hcmToday();
