@@ -10,5 +10,7 @@ describe("indicator period sync batching", () => {
     expect(source).not.toContain("Tài khoản chưa gắn bệnh viện");
     expect(source).toContain("const organizationId = caller.organization_id");
     expect(source).not.toContain("const organizationId = organizationId");
+    expect(source).toContain("const actorUserId = auth.user.id");
+    expect(source).not.toContain("created_by: auth.user.id");
   });
 });
