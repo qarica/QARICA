@@ -35,14 +35,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (error || !project) return NextResponse.json({ error: error?.message || "Không tìm thấy dữ liệu đề án." }, { status: 404 });
 
   const oldStatus = String(project.workflow_status || "DRAFT");
-  const now = new Date().toISOString();
   const reason = String(body.comment || "").trim() || null;
   let newStatus = oldStatus;
   let message = "Đã cập nhật đề án.";
-  const transaction = "direct" as const;
-  let createdReviewId: string | null = null;
-  let projectChanged = false;
-  let auditDetails: Record<string, unknown> = {};
 
   const [{ count: objectives }, { count: milestones }, { data: links }, { count: evidence }] = await Promise.all([
     admin.from("project_objectives").select("id", { count: "exact", head: true }).eq("project_id", project.id),
@@ -73,7 +68,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if(incomplete)return NextResponse.json({error:`Còn ${incomplete} Action chưa hoàn thành.`},{status:409}); if(!evidence)return NextResponse.json({error:"Cần minh chứng và dữ liệu kết quả trước-sau."},{status:409});
     const summary=String(body.objective_achievement_summary||"").trim(); const result=String(body.overall_result||"").toUpperCase(); if(!summary||!["ACHIEVED","PARTIAL","NOT_ACHIEVED"].includes(result))return NextResponse.json({error:"Cần kết luận mức đạt mục tiêu hợp lệ."},{status:400});
     newStatus=result==="ACHIEVED"?"EVALUATED":"IN_PROGRESS"; message=result==="ACHIEVED"?"Đã xác nhận đề án đạt mục tiêu.":"Kết quả chưa đạt đầy đủ; tiếp tục chu trình PDSA.";
-  } else  } else if (command === "CLOSE") {
+  } else if (command === "CLOSE") {
     if (oldStatus !== "EVALUATED") return NextResponse.json({ error: "Chỉ đề án đã đánh giá đạt mới được đóng." }, { status: 409 });
     if (!reason) return NextResponse.json({ error: "Kết luận duy trì/nhân rộng là bắt buộc." }, { status: 400 });
 
