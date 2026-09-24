@@ -8,5 +8,7 @@ describe("indicator period sync batching", () => {
     expect(source).toContain("candidates.slice(offset, offset + CONCURRENCY)");
     expect(source).toContain("Promise.all(batch.map(materialize))");
     expect(source).not.toContain("Tài khoản chưa gắn bệnh viện");
+    expect(source).toContain("const organizationId = caller.organization_id");
+    expect(source).not.toContain("const organizationId = organizationId");
   });
 });
