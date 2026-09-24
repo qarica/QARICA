@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- Evidence previews use authenticated API/blob URLs; Next image optimization must not proxy them. */
 import { notFound, redirect } from "next/navigation";
 import { FiveSChecklistRunClient } from "@/components/five-s-checklist-run-client";
+import { FiveSOfflineStatus } from "@/components/five-s-offline-status";
 import { GenericChecklistRunClient } from "@/components/generic-checklist-run-client";
 import { MonitoringBackButton } from "@/components/monitoring-back-button";
 import { MonitoringConfirmClient } from "@/components/monitoring-confirm-client";
@@ -145,6 +146,7 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
 
     {scheduled ? <MonitoringStartClient roundId={round.id} canPerform={user.permissions.includes("monitoring.perform")} /> : null}
 
+    {activeScoring && ["BK01.V1_QLCL.QĐ.06","BK02.V1_QLCL.QĐ.06","BK03.V1_QLCL.QĐ.06","BK05.V1_QLCL.QĐ.06","BK07.V1_QLCL.QĐ.06","BK09.V1_QLCL.QĐ.06"].includes(template?.code || "") ? <FiveSOfflineStatus /> : null}
     {activeScoring && ["BK01.V1_QLCL.QĐ.06","BK02.V1_QLCL.QĐ.06","BK03.V1_QLCL.QĐ.06","BK05.V1_QLCL.QĐ.06","BK07.V1_QLCL.QĐ.06","BK09.V1_QLCL.QĐ.06"].includes(template?.code || "") ? <FiveSChecklistRunClient templateId={template.id} versionId={version.id} templateCode={template.code} sections={structure as any[]} assessorName={user.fullName} canPerform={user.permissions.includes("monitoring.perform")} roundId={round.id} initialMonitoringDate={round.scheduled_date} /> : null}
     {activeScoring && !["BK01.V1_QLCL.QĐ.06","BK02.V1_QLCL.QĐ.06","BK03.V1_QLCL.QĐ.06","BK05.V1_QLCL.QĐ.06","BK07.V1_QLCL.QĐ.06","BK09.V1_QLCL.QĐ.06"].includes(template?.code || "") ? <GenericChecklistRunClient templateId={template.id} versionId={version.id} roundId={round.id} sections={structure as any[]} assessorName={user.fullName} canPerform={user.permissions.includes("monitoring.perform")} initialMonitoringDate={round.scheduled_date} /> : null}
 

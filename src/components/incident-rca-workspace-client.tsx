@@ -61,13 +61,13 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
   const [whys, setWhys] = useState<WhyRow[]>(blankWhys());
   const [fishbone, setFishbone] = useState<Record<string, string>>({});
   const [roots, setRoots] = useState<RootRow[]>([emptyRoot()]);
-  const [revision, setRevision] = useState(0);
   const [editable, setEditable] = useState(false);
   const [status, setStatus] = useState("NOT_STARTED");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [similarCases, setSimilarCases] = useState<{ record_id: string; record_code: string; title: string; root_causes: { category_code: string | null; cause_statement: string }[] }[]>([]);
 
   const counts = useMemo(() => {
     const timelineCount = timeline.filter((row) => row.event_title.trim()).length;
@@ -92,7 +92,6 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
       if (!response.ok) throw new Error(json.error || "Không tải được RCA.");
 
       setEditable(!!json.editable);
-      setRevision(Number(json.revision || 0));
       setStatus(String(json.status || "NOT_STARTED"));
 
       const loadedTimeline = Array.isArray(json.timeline) ? json.timeline.map((row: any) => ({
@@ -136,6 +135,26 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
 
   useEffect(() => { void load(); }, [load]);
 
+  // Gợi ý tham khảo — sự cố tương tự đã có RCA hoàn tất, kèm nguyên nhân gốc.
+  // Chỉ là gợi ý bổ sung; lỗi ở đây không được làm hỏng luồng RCA chính.
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/incidents/${recordId}/rca/similar-cases`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => { if (active) setSimilarCases(Array.isArray(j.items) ? j.items : []); })
+      .catch(() => { if (active) setSimilarCases([]); });
+    return () => { active = false; };
+  }, [recordId]);
+
+  function applySuggestedRoot(categoryCode: string | null, causeStatement: string) {
+    setRoots((current) => {
+      const blank = current.findIndex((row) => !row.cause_statement.trim());
+      const next = { category_code: categoryCode || "", cause_statement: causeStatement, evidence_basis: "", action_required: true };
+      if (blank >= 0) return current.map((row, i) => (i === blank ? next : row));
+      return [...current, next];
+    });
+  }
+
   async function save() {
     if (!editable || saving) return;
     setSaving(true);
@@ -162,7 +181,6 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
         five_whys: whys.filter((row) => row.answer.trim()),
         fishbone: fishboneRows,
         root_causes: roots.filter((row) => row.cause_statement.trim()),
-        expected_revision: revision,
       };
 
       const response = await fetch(`/api/incidents/${recordId}/rca`, {
@@ -172,7 +190,6 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(json.error || "Không lưu được RCA.");
-      setRevision(Number(json.result?.revision ?? revision));
       setNotice(json.message || "Đã lưu RCA có cấu trúc.");
       await load();
       router.refresh();
@@ -276,6 +293,23 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
         <div className="rca-section">
           <h4>4. Nguyên nhân gốc</h4>
           <p>Chỉ chốt nguyên nhân có thể giải thích chuỗi sự kiện và có căn cứ. Nguyên nhân gốc phải đủ cụ thể để chuyển thành Action/CAPA.</p>
+          {similarCases.length ? <div className="alert warning" style={{ marginBottom: 10 }}>
+            <strong>Sự cố tương tự đã có RCA hoàn tất — tham khảo, không sao chép nguyên văn:</strong>
+            <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
+              {similarCases.map((c) => (
+                <div key={c.record_id} style={{ fontSize: 11 }}>
+                  <div><em>{c.record_code} · {c.title}</em></div>
+                  {c.root_causes.map((rc, i) => (
+                    <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3 }}>
+                      <span>— {CATEGORIES.find((cat) => cat.code === rc.category_code)?.label || "Chưa phân nhóm"}: {rc.cause_statement}</span>
+                      {editable ? <button type="button" className="button tertiary small" onClick={() => applySuggestedRoot(rc.category_code, rc.cause_statement)}>Dùng làm gợi ý</button> : null}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <small>So khớp theo từ ngữ mô tả sự cố (không phải AI) — chỉ để tham khảo hướng phân tích, vẫn phải tự xác minh căn cứ cho sự cố này.</small>
+          </div> : null}
           {roots.map((row, index) => <div className="root-card" key={index}>
             <div className="root-grid">
               <label>Nhóm<select disabled={!editable} value={row.category_code} onChange={(e) => patchRoot(index, { category_code: e.target.value })}><option value="">Chưa phân nhóm</option>{CATEGORIES.map((category) => <option key={category.code} value={category.code}>{category.label}</option>)}</select></label>

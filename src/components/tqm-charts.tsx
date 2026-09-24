@@ -16,13 +16,17 @@ export function TqmHorizontalBars({rows,max}:{rows:{label:string;value:number;to
   return <div className="tqm-hbars">{rows.map((r,i)=><div className="tqm-hbar-row" key={`${r.label}-${i}`}><div className="tqm-hbar-label"><strong>{r.label}</strong>{r.caption?<span>{r.caption}</span>:null}</div><div className="tqm-hbar-track"><span style={{width:`${Math.max(0,Math.min(100,r.value/ceiling*100))}%`,background:COLORS[r.tone||"brand"]}}/></div><b>{r.value}</b></div>)}</div>
 }
 
-export function TqmTrend({points,unit="%"}:{points:{label:string;value:number}[];unit?:string}){
+export function TqmTrend({points,unit="%",targetLine,targetLabel="Mục tiêu"}:{points:{label:string;value:number}[];unit?:string;targetLine?:number|null;targetLabel?:string}){
   const width=640,height=230,pad=34;
-  const vals=points.map(p=>p.value);const min=Math.min(...vals,0),max=Math.max(...vals,1);const span=Math.max(1,max-min);
-  const pts=points.map((p,i)=>{const x=pad+(points.length===1?0:i*(width-pad*2)/(points.length-1));const y=height-pad-(p.value-min)/span*(height-pad*2);return{x,y,...p}});
+  const hasTarget=targetLine!==null&&targetLine!==undefined&&Number.isFinite(targetLine);
+  const vals=points.map(p=>p.value).concat(hasTarget?[targetLine as number]:[]);
+  const min=Math.min(...vals,0),max=Math.max(...vals,1);const span=Math.max(1,max-min);
+  const yFor=(v:number)=>height-pad-(v-min)/span*(height-pad*2);
+  const pts=points.map((p,i)=>{const x=pad+(points.length===1?0:i*(width-pad*2)/(points.length-1));const y=yFor(p.value);return{x,y,...p}});
   const poly=pts.map(p=>`${p.x},${p.y}`).join(" ");
   const area=pts.length?`${pad},${height-pad} ${poly} ${pts[pts.length-1].x},${height-pad}`:"";
-  return <div className="tqm-trend"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Biểu đồ xu hướng"><defs><linearGradient id="tqmArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#14a394" stopOpacity=".28"/><stop offset="100%" stopColor="#14a394" stopOpacity=".02"/></linearGradient></defs><line x1={pad} y1={height-pad} x2={width-pad} y2={height-pad} stroke="#dce7ea"/><polygon points={area} fill="url(#tqmArea)"/><polyline points={poly} fill="none" stroke="#0b8a7f" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>{pts.map((p,i)=><g key={i}><circle cx={p.x} cy={p.y} r="4.5" fill="#fff" stroke="#0b8a7f" strokeWidth="3"/><text x={p.x} y={p.y-11} textAnchor="middle" fontSize="11" fontWeight="800" fill="#31515a">{p.value}{unit}</text><text x={p.x} y={height-10} textAnchor="middle" fontSize="10" fill="#71848b">{p.label}</text></g>)}</svg></div>
+  const targetY=hasTarget?yFor(targetLine as number):null;
+  return <div className="tqm-trend"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Biểu đồ xu hướng"><defs><linearGradient id="tqmArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#14a394" stopOpacity=".28"/><stop offset="100%" stopColor="#14a394" stopOpacity=".02"/></linearGradient></defs><line x1={pad} y1={height-pad} x2={width-pad} y2={height-pad} stroke="#dce7ea"/><polygon points={area} fill="url(#tqmArea)"/>{targetY!==null?<g><line x1={pad} y1={targetY} x2={width-pad} y2={targetY} stroke="#c2731f" strokeWidth="2" strokeDasharray="6 5"/><text x={width-pad} y={targetY-7} textAnchor="end" fontSize="10" fontWeight="800" fill="#a35c17">{targetLabel}: {targetLine}{unit}</text></g>:null}<polyline points={poly} fill="none" stroke="#0b8a7f" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>{pts.map((p,i)=><g key={i}><circle cx={p.x} cy={p.y} r="4.5" fill="#fff" stroke="#0b8a7f" strokeWidth="3"/><text x={p.x} y={p.y-11} textAnchor="middle" fontSize="11" fontWeight="800" fill="#31515a">{p.value}{unit}</text><text x={p.x} y={height-10} textAnchor="middle" fontSize="10" fill="#71848b">{p.label}</text></g>)}</svg></div>
 }
 
 export function TqmGantt({year,rows}:{year:number;rows:{label:string;start:string|null;end:string|null;progress?:number;tone?:Tone}[]}){

@@ -69,6 +69,7 @@ export const WORKSPACES: WorkspaceDefinition[] = [
     tabs: [
       { label: "Risk Register", href: "/risks", icon: "triangle-alert", anyPermissions: ["risk.view", "risk.manage"] },
       { label: "FMEA / HFMEA", href: "/fmea", icon: "workflow", anyPermissions: ["risk.view", "risk.manage"] },
+      { label: "Thang điểm nguy cơ", href: "/risks/score-tool", icon: "gauge", anyPermissions: ["risk.view", "risk.manage"] },
     ],
   },
   {

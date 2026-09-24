@@ -5,6 +5,7 @@ import { ChecklistTemplateEditorClient } from "@/components/checklist-template-e
 import { FiveSChecklistPreviewClient } from "@/components/five-s-checklist-preview-client";
 import { HandHygienePresetLoader } from "@/components/hand-hygiene-preset-loader";
 import { MonitoringScheduleClient } from "@/components/monitoring-schedule-client";
+import { SbarHandoffPresetLoader } from "@/components/sbar-handoff-preset-loader";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -159,6 +160,15 @@ export default async function ChecklistTemplatePage({ params }: { params: Promis
     {isPublished ? <div className="scope-note"><strong>Phân tách rõ mẫu và lần thực hiện:</strong> trang này quản lý cấu trúc/phiên bản; mỗi lần đi chấm được tạo thành một đợt giám sát có mã, trạng thái và lịch sử riêng.</div> : null}
 
     <HandHygienePresetLoader
+      templateId={template.id}
+      templateName={template.name}
+      versionId={currentVersion?.id ?? null}
+      versionStatus={currentVersion?.status ?? null}
+      sectionCount={sections.length}
+      itemCount={items.length}
+      canManage={canManage}
+    />
+    <SbarHandoffPresetLoader
       templateId={template.id}
       templateName={template.name}
       versionId={currentVersion?.id ?? null}
