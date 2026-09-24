@@ -58,7 +58,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const oldStatus = String(finding.workflow_status || "OPEN");
-  const now = new Date().toISOString();
   const reason = String(body.comment || "").trim() || null;
 
   async function notifyReview(action: "RETURN" | "ACCEPT" | "ESCALATE_CAPA") {
