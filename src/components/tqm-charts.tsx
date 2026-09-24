@@ -1,6 +1,6 @@
 import React from "react";
 
-type Tone = "brand" | "blue" | "amber" | "red" | "green" | "slate";
+export type Tone = "brand" | "blue" | "amber" | "red" | "green" | "slate";
 const COLORS: Record<Tone,string> = {
   brand:"#0b8a7f", blue:"#4a86e8", amber:"#e3a33c", red:"#df5a67", green:"#2ca56f", slate:"#b9c7cc"
 };
