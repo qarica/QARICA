@@ -31,7 +31,7 @@ begin
     raise exception 'Số thứ tự và tên bước quy trình là bắt buộc';
   end if;
 
-  select s.*,r.organization_id into v_study,v_org
+  select s.* into v_study
   from public.fmea_studies s
   join public.records r on r.id=s.record_id
   join public.profiles p on p.organization_id=r.organization_id
@@ -41,6 +41,10 @@ begin
     and p.user_id=p_actor_user_id
     and p.is_active=true
   for update of s;
+
+  select r.organization_id into v_org
+  from public.records r
+  where r.id=p_fmea_record_id;
 
   if not found then raise exception 'FMEA không thuộc phạm vi tổ chức hiện tại hoặc đã đóng'; end if;
   if v_study.workflow_status<>'DRAFT' then raise exception 'Chỉ được sửa cấu trúc khi FMEA còn ở trạng thái Nháp'; end if;
