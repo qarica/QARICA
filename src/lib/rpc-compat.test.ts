@@ -22,3 +22,18 @@ describe("transaction RPC compatibility", () => {
     expect(rpcErrorMessage({ message: "transaction failed" }, "fallback")).toBe("transaction failed");
   });
 });
+
+
+describe("rpcErrorMessage Vietnamese UI guard", () => {
+  it("translates known English business exceptions", () => {
+    expect(rpcErrorMessage({ message: "Finding record is not active" }, "Không xử lý được Finding.")).toBe("Finding không còn hoạt động.");
+    expect(rpcErrorMessage({ message: "CAPA can only effective close" }, "Không đóng được CAPA.")).toBe("Chỉ CAPA đã xác nhận có hiệu lực mới được đóng.");
+    expect(rpcErrorMessage({ message: "Record is outside organization scope" }, "Không xử lý được hồ sơ.")).toBe("Hồ sơ nằm ngoài phạm vi tổ chức hiện tại.");
+  });
+
+  it("keeps Vietnamese business messages but hides unknown English/internal details", () => {
+    expect(rpcErrorMessage({ message: "Hồ sơ không còn hoạt động." }, "Fallback")).toBe("Hồ sơ không còn hoạt động.");
+    expect(rpcErrorMessage({ message: "Unexpected workflow state" }, "Không xử lý được hồ sơ.")).toBe("Không xử lý được hồ sơ.");
+    expect(rpcErrorMessage({ message: "relation public.capas does not exist" }, "Không xử lý được CAPA.")).toBe("Không xử lý được CAPA.");
+  });
+});
