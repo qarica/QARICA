@@ -47,7 +47,7 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     const { data: alert } = await supabase.from("safety_alerts").select("status,summary,lesson,recommendation,expires_at").eq("record_id", recordId).maybeSingle();
     if (!alert) return null;
     const { count: evidence } = await supabase.from("evidence_links").select("id", { count: "exact", head: true }).eq("record_id", recordId);
-    return <SafetyAlertWorkflowClient recordId={recordId} status={alert.status} canInvestigate={user.permissions.includes("incident.investigate") || user.permissions.includes("incident.close")} canApprove={user.permissions.includes("incident.close")} contentReady={!!String(alert.summary || "").trim() && !!String(alert.lesson || "").trim() && !!String(alert.recommendation || "").trim()} evidence={evidence ?? 0} expiresAt={alert.expires_at} />;
+    return <SafetyAlertWorkflowClient recordId={recordId} status={alert.status} canEdit={user.permissions.includes("safety_alert.edit")} canPublish={user.permissions.includes("safety_alert.publish")} contentReady={!!String(alert.summary || "").trim() && !!String(alert.lesson || "").trim() && !!String(alert.recommendation || "").trim()} evidence={evidence ?? 0} expiresAt={alert.expires_at} />;
   }
 
   if (recordType === "EXTERNAL_ASSESSMENT") {
