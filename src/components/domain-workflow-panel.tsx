@@ -94,14 +94,16 @@ export async function DomainWorkflowPanel({ recordId, recordType }: { recordId: 
     ).length;
     const canManage = user.permissions.includes("criteria.manage");
     const criterionIds = Array.from(new Set((scopeRows ?? []).map((x: any) => x.criteria_item_id || x.criterion_id).filter(Boolean)));
-    const [{ data: criterionRows }, { data: assessmentRows }] = criterionIds.length ? await Promise.all([
+    const [{ data: criterionRows }, { data: assessmentRows }, { data: assessmentDepartments }] = criterionIds.length ? await Promise.all([
       supabase.from("criteria_items").select("id,code,title,sequence_no,parent_criteria_item_id,item_type,max_score").in("id", criterionIds).order("sequence_no"),
       supabase.from("criterion_assessments").select("criteria_item_id,score,result,note,workflow_status,assessed_by").eq("assessment_round_id", round.id),
-    ]) : [{ data: [] }, { data: [] }] as any;
+      supabase.from("departments").select("id,name,short_name").eq("is_active",true),
+    ]) : [{ data: [] }, { data: [] }, { data: [] }] as any;
     const savedByCriterion = new Map((assessmentRows ?? []).map((x: any) => [x.criteria_item_id, x]));
     const scopeMap = new Map((scopeRows ?? []).map((x: any) => [x.criteria_item_id || x.criterion_id, x.is_required !== false]));
     const scopeById = new Map((scopeRows ?? []).map((x:any)=>[x.criteria_item_id||x.criterion_id,x]));
-    const criteria = (criterionRows ?? []).map((criterion: any) => { const saved: any = savedByCriterion.get(criterion.id); const scoped:any=scopeById.get(criterion.id); return { id: criterion.id, code: criterion.code || "", name: criterion.title || "Chưa đặt tên", required: scopeMap.get(criterion.id) !== false, applicability: scoped?.applicability_status || "APPLICABLE", notApplicableReason: scoped?.not_applicable_reason || "", leadDepartmentId: scoped?.lead_department_id || null, score: saved?.score ?? null, result: saved?.result || "", levels: [], levelId: "", comment: saved?.note || "", status: saved?.workflow_status || "NOT_STARTED" }; });
+    const assessmentDepartmentMap = new Map((assessmentDepartments ?? []).map((x:any)=>[x.id,x.short_name||x.name]));
+    const criteria = (criterionRows ?? []).map((criterion: any) => { const saved: any = savedByCriterion.get(criterion.id); const scoped:any=scopeById.get(criterion.id); return { id: criterion.id, code: criterion.code || "", name: criterion.title || "Chưa đặt tên", required: scopeMap.get(criterion.id) !== false, applicability: scoped?.applicability_status || "APPLICABLE", notApplicableReason: scoped?.not_applicable_reason || "", leadDepartmentId: scoped?.lead_department_id || null, leadDepartmentName: scoped?.lead_department_id ? (assessmentDepartmentMap.get(scoped.lead_department_id)||"Khoa/phòng đã phân công") : "Chưa gán khoa/phòng", maxScore: criterion.max_score == null ? null : Number(criterion.max_score), score: saved?.score ?? null, result: saved?.result || "", comment: saved?.note || "", status: saved?.workflow_status || "NOT_STARTED" }; });
     const canAssess = user.permissions.includes("criteria.assess") || canManage;
     return <><AssessmentWorkflowClient recordId={recordId} status={round.workflow_status} canManage={canManage} canReview={canManage || user.permissions.includes("criteria.review")} scope={scope} submitted={submitted} evidence={evidence ?? 0} /><AssessmentCriteriaClient recordId={recordId} editable={round.workflow_status === "IN_PROGRESS" && canAssess} criteria={criteria} /></>;
   }
