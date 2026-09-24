@@ -56,10 +56,10 @@ export async function POST(request: Request) {
   if (!["USER","GROUP"].includes(assignmentTargetType)) return NextResponse.json({ error: "Đối tượng phân công không hợp lệ." }, { status: 400 });
   if (assignmentTargetType === "USER" && !assigneeUserId) return NextResponse.json({ error: "Cần chọn cá nhân phụ trách." }, { status: 400 });
   if (assignmentTargetType === "GROUP" && !assigneeGroupId) return NextResponse.json({ error: "Cần chọn nhóm phụ trách." }, { status: 400 });
-  if (!expectedResult) return NextResponse.json({ error: "Kết quả mong đợi là bắt buộc." }, { status: 400 });
-  if (!evidenceRequirement) return NextResponse.json({ error: "Yêu cầu minh chứng là bắt buộc." }, { status: 400 });
+  if (automationKind !== "REMINDER" && !expectedResult) return NextResponse.json({ error: "Kết quả mong đợi là bắt buộc khi đầu ra tạo Action." }, { status: 400 });
+  if (automationKind !== "REMINDER" && !evidenceRequirement) return NextResponse.json({ error: "Yêu cầu minh chứng là bắt buộc khi đầu ra tạo Action." }, { status: 400 });
   if (!PRIORITIES.has(priority)) return NextResponse.json({ error: "Mức ưu tiên không hợp lệ." }, { status: 400 });
-  if (!["ACTION","MONITORING","REPORT"].includes(automationKind)) return NextResponse.json({ error: "Loại tự động hóa không hợp lệ." }, { status: 400 });
+  if (!["REMINDER","ACTION","MONITORING","REPORT"].includes(automationKind)) return NextResponse.json({ error: "Loại tự động hóa không hợp lệ." }, { status: 400 });
   if (sourceCode && sourceCode.length > 80) return NextResponse.json({ error: "Mã nguồn tự động hóa quá dài." }, { status: 400 });
   if (automationKind === "MONITORING" && !automationRefId) return NextResponse.json({ error: "Đợt giám sát tự động cần chọn bảng kiểm." }, { status: 400 });
   if (automationKind === "MONITORING" && !automationTargetDepartmentId && !automationTargetArea) return NextResponse.json({ error: "Đợt giám sát tự động cần khoa/phòng hoặc phạm vi giám sát." }, { status: 400 });
