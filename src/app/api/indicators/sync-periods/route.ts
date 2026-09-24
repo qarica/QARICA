@@ -30,8 +30,9 @@ export async function POST(request: Request) {
     .eq("is_active", true)
     .maybeSingle();
   if (callerError || !caller?.organization_id) {
-    return NextResponse.json({ error: callerError?.message || "Tài khoản chưa gắn bệnh viện." }, { status: 400 });
+    return NextResponse.json({ error: callerError?.message || "Tài khoản chưa gắn tổ chức." }, { status: 400 });
   }
+  const organizationId = organizationId;
 
   const { data: assignmentsRaw, error: assignmentsError } = await admin
     .from("indicator_assignments")
@@ -69,10 +70,18 @@ export async function POST(request: Request) {
   let errors = 0;
   const errorDetails: string[] = [];
 
+  type Candidate = {
+    assignment: any;
+    definition: any;
+    period: { key: string; label: string; start: string; end: string };
+    key: string;
+  };
+  const candidates: Candidate[] = [];
+
   for (const assignment of assignments as any[]) {
     const version = versionMap.get(assignment.indicator_version_id) as any;
     const definition = version ? definitionMap.get(version.indicator_definition_id) as any : null;
-    if (!version || !definition || !definition.is_active || (definition.organization_id && definition.organization_id !== caller.organization_id)) {
+    if (!version || !definition || !definition.is_active || (definition.organization_id && definition.organization_id !== organizationId)) {
       skipped += 1;
       continue;
     }
@@ -90,100 +99,114 @@ export async function POST(request: Request) {
     });
 
     for (const period of periods) {
-      const key = `${assignment.id}:${period.start}:${period.end}`;
+      const key = assignment.id + ":" + period.start + ":" + period.end;
       if (existing.has(key)) {
         alreadyExists += 1;
         continue;
       }
+      candidates.push({ assignment, definition, period, key });
+    }
+  }
 
-      const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", {
-        p_org: caller.organization_id,
-        p_record_type: "INDICATOR_MEASUREMENT",
-        p_work_year: Number(assignment.work_year),
-      });
-      if (codeError || !recordCode) {
-        errors += 1;
-        if (errorDetails.length < 10) errorDetails.push(`${definition.code || definition.name} · ${period.label}: ${codeError?.message || "Không cấp được mã hồ sơ"}`);
-        continue;
-      }
+  async function materialize(candidate: Candidate) {
+    const { assignment, definition, period, key } = candidate;
+    const { data: recordCode, error: codeError } = await admin.rpc("next_record_code", {
+      p_org: organizationId,
+      p_record_type: "INDICATOR_MEASUREMENT",
+      p_work_year: Number(assignment.work_year),
+    });
+    if (codeError || !recordCode) {
+      return { kind: "error" as const, detail: (definition.code || definition.name) + " · " + period.label + ": " + (codeError?.message || "Không cấp được mã hồ sơ") };
+    }
 
-      const title = `${definition.code ? definition.code + " · " : ""}${definition.name} · ${period.label}`;
-      const { data: record, error: recordError } = await admin.from("records").insert({
-        organization_id: caller.organization_id,
-        record_type: "INDICATOR_MEASUREMENT",
-        record_code: recordCode,
-        title,
-        work_year: Number(assignment.work_year),
-        owner_department_id: assignment.department_id,
-        owner_user_id: assignment.collector_user_id,
-        lifecycle_status: "ACTIVE",
-        created_by: auth.user.id,
-        metadata: {
-          origin: "INDICATOR_PERIOD_AUTOMATION",
-          indicator_assignment_id: assignment.id,
-          indicator_period_key: period.key,
-          source_reference: assignment.source_reference,
-        },
-      }).select("id").single();
-
-      if (recordError || !record) {
-        errors += 1;
-        if (errorDetails.length < 10) errorDetails.push(`${definition.code || definition.name} · ${period.label}: ${recordError?.message || "Không tạo được hồ sơ"}`);
-        continue;
-      }
-
-      const { data: measurement, error: measurementError } = await admin.from("indicator_measurements").insert({
-        record_id: record.id,
+    const title = (definition.code ? definition.code + " · " : "") + definition.name + " · " + period.label;
+    const { data: record, error: recordError } = await admin.from("records").insert({
+      organization_id: organizationId,
+      record_type: "INDICATOR_MEASUREMENT",
+      record_code: recordCode,
+      title,
+      work_year: Number(assignment.work_year),
+      owner_department_id: assignment.department_id,
+      owner_user_id: assignment.collector_user_id,
+      lifecycle_status: "ACTIVE",
+      created_by: auth.user.id,
+      metadata: {
+        origin: "INDICATOR_PERIOD_AUTOMATION",
         indicator_assignment_id: assignment.id,
+        indicator_period_key: period.key,
+        source_reference: assignment.source_reference,
+      },
+    }).select("id").single();
+
+    if (recordError || !record) {
+      return { kind: "error" as const, detail: (definition.code || definition.name) + " · " + period.label + ": " + (recordError?.message || "Không tạo được hồ sơ") };
+    }
+
+    const { data: measurement, error: measurementError } = await admin.from("indicator_measurements").insert({
+      record_id: record.id,
+      indicator_assignment_id: assignment.id,
+      period_start: period.start,
+      period_end: period.end,
+      source_mode: "SCHEDULED_AUTO",
+      workflow_status: "DRAFT",
+    }).select("id").single();
+
+    if (measurementError || !measurement) {
+      await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id);
+      if (measurementError?.code === "23505") {
+        return { kind: "existing" as const, key };
+      }
+      return { kind: "error" as const, detail: (definition.code || definition.name) + " · " + period.label + ": " + (measurementError?.message || "Không tạo được kỳ đo") };
+    }
+
+    const sideEffects: PromiseLike<unknown>[] = [];
+    if (assignment.collector_user_id) {
+      sideEffects.push(admin.from("notifications").insert({
+        recipient_user_id: assignment.collector_user_id,
+        notification_type: "INDICATOR_PERIOD_CREATED",
+        priority: "NORMAL",
+        title: "Kỳ đo chỉ số đã được tạo",
+        message: definition.name + " · " + period.label,
+        target_record_id: record.id,
+        target_route: "/indicators/measurements/" + record.id,
+        notification_event_key: "indicator-period:" + assignment.id + ":" + period.key + ":" + assignment.collector_user_id,
+      }));
+    }
+    sideEffects.push(admin.from("audit_logs").insert({
+      actor_user_id: auth.user.id,
+      record_id: record.id,
+      table_name: "indicator_measurements",
+      row_id: measurement.id,
+      action_type: "AUTO_CREATE_INDICATOR_PERIOD",
+      new_value: {
+        indicator_assignment_id: assignment.id,
+        period_key: period.key,
         period_start: period.start,
         period_end: period.end,
-        source_mode: "SCHEDULED_AUTO",
-        workflow_status: "DRAFT",
-      }).select("id").single();
+        source_reference: assignment.source_reference,
+      },
+      request_meta: { source: "qlcl-ui", automation: "indicator-periods-v1" },
+    }));
+    await Promise.all(sideEffects);
 
-      if (measurementError || !measurement) {
-        await admin.from("records").update({ lifecycle_status: "ARCHIVED" }).eq("id", record.id);
-        if (measurementError?.code === "23505") {
-          existing.add(key);
-          alreadyExists += 1;
-          continue;
-        }
+    return { kind: "created" as const, key };
+  }
+
+  const CONCURRENCY = 4;
+  for (let offset = 0; offset < candidates.length; offset += CONCURRENCY) {
+    const batch = candidates.slice(offset, offset + CONCURRENCY);
+    const results = await Promise.all(batch.map(materialize));
+    for (const result of results) {
+      if (result.kind === "created") {
+        existing.add(result.key);
+        created += 1;
+      } else if (result.kind === "existing") {
+        existing.add(result.key);
+        alreadyExists += 1;
+      } else {
         errors += 1;
-        if (errorDetails.length < 10) errorDetails.push(`${definition.code || definition.name} · ${period.label}: ${measurementError?.message || "Không tạo được kỳ đo"}`);
-        continue;
+        if (errorDetails.length < 10) errorDetails.push(result.detail);
       }
-
-      if (assignment.collector_user_id) {
-        await admin.from("notifications").insert({
-          recipient_user_id: assignment.collector_user_id,
-          notification_type: "INDICATOR_PERIOD_CREATED",
-          priority: "NORMAL",
-          title: "Kỳ đo chỉ số đã được tạo",
-          message: `${definition.name} · ${period.label}`,
-          target_record_id: record.id,
-          target_route: `/indicators/measurements/${record.id}`,
-          notification_event_key: `indicator-period:${assignment.id}:${period.key}:${assignment.collector_user_id}`,
-        });
-      }
-
-      await admin.from("audit_logs").insert({
-        actor_user_id: auth.user.id,
-        record_id: record.id,
-        table_name: "indicator_measurements",
-        row_id: measurement.id,
-        action_type: "AUTO_CREATE_INDICATOR_PERIOD",
-        new_value: {
-          indicator_assignment_id: assignment.id,
-          period_key: period.key,
-          period_start: period.start,
-          period_end: period.end,
-          source_reference: assignment.source_reference,
-        },
-        request_meta: { source: "qlcl-ui", automation: "indicator-periods-v1" },
-      });
-
-      existing.add(key);
-      created += 1;
     }
   }
 
