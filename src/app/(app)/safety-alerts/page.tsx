@@ -32,7 +32,7 @@ function dateLabel(value: string | null) {
 
 export default async function SafetyAlertsPage() {
   const { user } = await requireUserContext();
-  if (!hasAnyPermission(user, ["incident.view_summary", "incident.view_case"])) {
+  if (!hasAnyPermission(user, ["safety_alert.view", "safety_alert.edit", "safety_alert.publish"])) {
     redirect("/dashboard?forbidden=1");
   }
 
@@ -40,8 +40,8 @@ export default async function SafetyAlertsPage() {
   const supabase = await createClient();
   const admin = createAdminClient();
   const canManage =
-    user.permissions.includes("incident.investigate") ||
-    user.permissions.includes("incident.close");
+    user.permissions.includes("safety_alert.edit") ||
+    user.permissions.includes("safety_alert.publish");
 
   const recordsRes = await supabase
     .from("records")
