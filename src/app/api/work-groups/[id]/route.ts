@@ -78,5 +78,4 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   }
 
   return NextResponse.json({ok:true,active_member_count:Number(tx?.active_member_count||0),transaction:"atomic"});
-  return NextResponse.json({ok:true});
 }
