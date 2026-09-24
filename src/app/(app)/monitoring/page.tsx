@@ -13,14 +13,24 @@ export default async function MonitoringPage() {
   if (!hasAnyPermission(user, ["monitoring.view", "monitoring.perform", "checklists.view", "checklists.manage"])) redirect("/dashboard?forbidden=1");
   const year = await getWorkYear();
   const supabase = await createClient();
-  const [templatesRes, versionsRes, sectionsRes, itemsRes, roundsRes, departmentsRes] = await Promise.all([
+  const [templatesRes, versionsRes, roundsRes, departmentsRes] = await Promise.all([
     supabase.from("checklist_templates").select("id,code,source_code,name,description,owner_department_id,is_active,created_at,updated_at").order("updated_at", { ascending: false }),
     supabase.from("checklist_versions").select("id,checklist_template_id,version_no,status,effective_from,effective_to,scoring_method,published_at").order("version_no", { ascending: false }),
-    supabase.from("checklist_sections").select("id,checklist_version_id"),
-    supabase.from("checklist_items").select("id,checklist_version_id"),
     supabase.from("monitoring_rounds").select("id,record_id,checklist_version_id,work_year,scheduled_date,target_department_id,target_area,workflow_status,started_at,completed_at").eq("work_year", year).neq("workflow_status", "CANCELLED").order("scheduled_date", { ascending: false, nullsFirst: false }).order("started_at", { ascending: false, nullsFirst: false }),
     supabase.from("departments").select("id,name,short_name").eq("is_active", true).order("name"),
   ]);
+
+  const versions = (versionsRes.data ?? []) as any[];
+  const latestVersionMap = new Map<string, any>();
+  for (const version of versions) {
+    const current = latestVersionMap.get(version.checklist_template_id);
+    if (!current || Number(version.version_no) > Number(current.version_no)) latestVersionMap.set(version.checklist_template_id, version);
+  }
+  const latestVersionIds = Array.from(latestVersionMap.values()).map((version:any)=>version.id).filter(Boolean);
+  const [sectionsRes, itemsRes] = latestVersionIds.length ? await Promise.all([
+    supabase.from("checklist_sections").select("id,checklist_version_id").in("checklist_version_id", latestVersionIds),
+    supabase.from("checklist_items").select("id,checklist_version_id").in("checklist_version_id", latestVersionIds),
+  ]) : [{ data: [], error: null }, { data: [], error: null }];
 
   const rounds = (roundsRes.data ?? []) as any[];
   const roundIds = rounds.map((x) => x.id).filter(Boolean);
@@ -30,9 +40,6 @@ export default async function MonitoringPage() {
     roundIds.length ? supabase.from("checklist_responses").select("monitoring_round_id,result_status,answer_value").in("monitoring_round_id", roundIds) : Promise.resolve({ data: [], error: null }),
   ]);
   const firstError = [templatesRes, versionsRes, sectionsRes, itemsRes, roundsRes, departmentsRes, recordsRes, roundResponsesRes].find((r: any) => r.error)?.error;
-  const versions = (versionsRes.data ?? []) as any[];
-  const latestVersionMap = new Map<string, any>();
-  for (const version of versions) { const current = latestVersionMap.get(version.checklist_template_id); if (!current || Number(version.version_no) > Number(current.version_no)) latestVersionMap.set(version.checklist_template_id, version); }
   const sectionCountMap = new Map<string, number>(); for (const row of sectionsRes.data ?? []) sectionCountMap.set((row as any).checklist_version_id, (sectionCountMap.get((row as any).checklist_version_id) ?? 0) + 1);
   const itemCountMap = new Map<string, number>(); for (const row of itemsRes.data ?? []) itemCountMap.set((row as any).checklist_version_id, (itemCountMap.get((row as any).checklist_version_id) ?? 0) + 1);
   const templateRows = (templatesRes.data ?? []).map((template: any) => { const latest = latestVersionMap.get(template.id); return { ...template, latest_version_no: latest?.version_no ?? null, latest_version_status: latest?.status ?? null, latest_version_id: latest?.id ?? null, scoring_method: latest?.scoring_method ?? null, effective_from: latest?.effective_from ?? null, section_count: latest?.id ? sectionCountMap.get(latest.id) ?? 0 : 0, item_count: latest?.id ? itemCountMap.get(latest.id) ?? 0 : 0 }; });
