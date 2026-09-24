@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { evidenceFilePolicy } from "@/lib/evidence-file-policy";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 export const runtime = "nodejs";
@@ -35,6 +36,7 @@ async function cleanupArtifacts(admin: ReturnType<typeof createAdminClient>, art
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("monitoring.perform");
   if (!auth.ok) return auth.response;
+  const actorUserId = auth.user.id;
   const { id: roundId } = await params;
 
   const formData = await request.formData();
@@ -56,7 +58,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const admin = createAdminClient();
   const [{ data: caller }, { data: round }] = await Promise.all([
-    admin.from("profiles").select("organization_id,is_active,full_name").eq("user_id", auth.user.id).maybeSingle(),
+    admin.from("profiles").select("organization_id,is_active,full_name").eq("user_id", actorUserId).maybeSingle(),
     admin.from("monitoring_rounds").select("id,record_id,checklist_version_id,scheduled_date,workflow_status").eq("id", roundId).maybeSingle(),
   ]);
   if (!caller?.organization_id || !caller.is_active) return NextResponse.json({ error: "Tài khoản không hợp lệ." }, { status: 403 });
@@ -70,6 +72,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     admin.from("checklist_responses").select("id").eq("monitoring_round_id", round.id).limit(1),
   ]);
   if (!record || record.organization_id !== caller.organization_id) return NextResponse.json({ error: "Đợt giám sát không thuộc bệnh viện hiện tại." }, { status: 403 });
+  const organizationId = caller.organization_id;
+  const monitoringRecordId = record.id;
+  const monitoringOwnerDepartmentId = record.owner_department_id;
+  const monitoringRoundId = round.id;
   if (existingResponses?.length) return NextResponse.json({ error: "Kết quả ban đầu của đợt này đã được lưu." }, { status: 409 });
   if (!version || version.status !== "PUBLISHED") return NextResponse.json({ error: "Phiên bản bảng kiểm không hợp lệ." }, { status: 409 });
 
@@ -98,26 +104,99 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const savedAtIso = savedAt.toISOString();
   const recheckDueAtIso = new Date(savedAt.getTime() + 5 * 60 * 1000).toISOString();
   const failCount = responses.filter((row) => row.result === "FAIL").length;
-  const context = { source_code: template.code, template_id: template.id, version_id: version.id, version_no: version.version_no, monitoring_date: monitoringDate, selected_areas: areaList, staff_name: staffName, assessor_user_id: auth.user.id, assessor_name: caller.full_name || null, checklist_saved_at: savedAtIso };
+  const context = { source_code: template.code, template_id: template.id, version_id: version.id, version_no: version.version_no, monitoring_date: monitoringDate, selected_areas: areaList, staff_name: staffName, assessor_user_id: actorUserId, assessor_name: caller.full_name || null, checklist_saved_at: savedAtIso };
 
-  // Upload PENDING evidence first. The core DB save is committed afterwards in one transaction.
-  const imageLists = new Map<string, any[]>();
-  const uploadedArtifacts: UploadedArtifact[] = [];
+  // Validate all requested images before uploading anything. The server derives the
+  // content type from an allowlisted extension instead of trusting browser-supplied MIME.
+  const preparedImages: Array<{ meta: ImageMeta; file: File; mimeType: string; storedName: string; itemTitle: string }> = [];
   for (const meta of images) {
     const file = formData.get(meta.key);
-    if (!(file instanceof File) || !file.type.startsWith("image/") || file.size <= 0 || file.size > MAX_IMAGE_SIZE) continue;
-    const evidenceId = randomUUID();
-    const storedName = safeName(file.name || "photo.jpg");
-    const bucket = "qlcl-evidence";
-    const path = `${caller.organization_id}/${record.id}/monitoring/${round.id}/${meta.item_id}/${evidenceId}/${storedName}`;
+    if (!(file instanceof File) || file.size <= 0 || file.size > MAX_IMAGE_SIZE) {
+      return NextResponse.json({ error: "Ảnh minh chứng bị thiếu, trống hoặc vượt quá 12 MB." }, { status: 400 });
+    }
+    const policy = evidenceFilePolicy(file.name || "");
+    if (!policy?.inlineSafe || !policy.mimeType.startsWith("image/")) {
+      return NextResponse.json({ error: "Ảnh minh chứng chỉ chấp nhận PNG, JPG/JPEG, WEBP hoặc GIF an toàn." }, { status: 400 });
+    }
     const item = (items ?? []).find((x) => x.id === meta.item_id);
-    const { error: evidenceError } = await admin.from("evidence").insert({ id: evidenceId, organization_id: caller.organization_id, title: `5S · Ảnh ban đầu · ${item?.content || "Tiêu chí"}`, evidence_type: "FILE", original_file_name: file.name || storedName, stored_file_name: storedName, mime_type: file.type || "image/jpeg", file_size: file.size, storage_bucket: bucket, storage_path: path, owner_department_id: record.owner_department_id, validity_status: "PENDING", uploaded_by: auth.user.id });
-    if (evidenceError) continue;
-    const { error: uploadError } = await admin.storage.from(bucket).upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type || "image/jpeg", upsert: false });
-    if (uploadError) { await admin.from("evidence").delete().eq("id", evidenceId); continue; }
-    uploadedArtifacts.push({ evidenceId, bucket, path });
-    const descriptor = { evidence_id: evidenceId, captured_at: meta.captured_at || null, server_received_at: new Date().toISOString(), latitude: meta.latitude ?? null, longitude: meta.longitude ?? null, accuracy: meta.accuracy ?? null, source: meta.source || "upload", stage: "INITIAL" };
-    imageLists.set(meta.item_id, [...(imageLists.get(meta.item_id) || []), descriptor]);
+    preparedImages.push({
+      meta,
+      file,
+      mimeType: policy.mimeType,
+      storedName: safeName(file.name || `photo.${policy.extension}`),
+      itemTitle: item?.content || "Tiêu chí",
+    });
+  }
+
+  const imageLists = new Map<string, any[]>();
+  const uploadedArtifacts: UploadedArtifact[] = [];
+
+  async function uploadPreparedImage(entry: typeof preparedImages[number]) {
+    const evidenceId = randomUUID();
+    const bucket = "qlcl-evidence";
+    const path = `${organizationId}/${monitoringRecordId}/monitoring/${monitoringRoundId}/${entry.meta.item_id}/${evidenceId}/${entry.storedName}`;
+
+    const { error: evidenceError } = await admin.from("evidence").insert({
+      id: evidenceId,
+      organization_id: organizationId,
+      title: `5S · Ảnh ban đầu · ${entry.itemTitle}`,
+      evidence_type: "FILE",
+      original_file_name: entry.file.name || entry.storedName,
+      stored_file_name: entry.storedName,
+      mime_type: entry.mimeType,
+      file_size: entry.file.size,
+      storage_bucket: bucket,
+      storage_path: path,
+      owner_department_id: monitoringOwnerDepartmentId,
+      validity_status: "PENDING",
+      uploaded_by: actorUserId,
+    });
+    if (evidenceError) throw new Error(evidenceError.message);
+
+    const { error: uploadError } = await admin.storage.from(bucket).upload(
+      path,
+      Buffer.from(await entry.file.arrayBuffer()),
+      { contentType: entry.mimeType, upsert: false },
+    );
+    if (uploadError) {
+      await admin.from("evidence").delete().eq("id", evidenceId);
+      throw new Error(uploadError.message);
+    }
+
+    const artifact = { evidenceId, bucket, path };
+    const descriptor = {
+      evidence_id: evidenceId,
+      captured_at: entry.meta.captured_at || null,
+      server_received_at: new Date().toISOString(),
+      latitude: entry.meta.latitude ?? null,
+      longitude: entry.meta.longitude ?? null,
+      accuracy: entry.meta.accuracy ?? null,
+      source: entry.meta.source || "upload",
+      stage: "INITIAL",
+    };
+    return { artifact, itemId: entry.meta.item_id, descriptor };
+  }
+
+  // Four concurrent uploads reduce timeout risk without loading every image into memory at once.
+  for (let offset = 0; offset < preparedImages.length; offset += 4) {
+    const batch = preparedImages.slice(offset, offset + 4);
+    const settled = await Promise.allSettled(batch.map(uploadPreparedImage));
+    const fulfilled = settled
+      .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof uploadPreparedImage>>> => result.status === "fulfilled")
+      .map((result) => result.value);
+
+    for (const result of fulfilled) {
+      uploadedArtifacts.push(result.artifact);
+      imageLists.set(result.itemId, [...(imageLists.get(result.itemId) || []), result.descriptor]);
+    }
+
+    const failed = settled.find((result) => result.status === "rejected");
+    if (failed && failed.status === "rejected") {
+      await cleanupArtifacts(admin, uploadedArtifacts);
+      return NextResponse.json({
+        error: `Không tải đủ ảnh minh chứng: ${failed.reason instanceof Error ? failed.reason.message : "Lỗi upload"}`,
+      }, { status: 400 });
+    }
   }
 
   const rpcResponses = responses.map((row) => ({
@@ -129,7 +208,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: tx, error: txError } = await admin.rpc(SAVE_RESULTS_RPC, {
     p_round_id: round.id,
-    p_actor_user_id: auth.user.id,
+    p_actor_user_id: actorUserId,
     p_target_area: targetArea,
     p_saved_at: savedAtIso,
     p_recheck_due_at: recheckDueAtIso,
