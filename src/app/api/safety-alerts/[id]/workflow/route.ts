@@ -17,11 +17,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
 
-  const [{ data: investigate }, { data: close }] = await Promise.all([
-    supabase.rpc("has_permission", { p_permission_code: "incident.investigate" }),
-    supabase.rpc("has_permission", { p_permission_code: "incident.close" }),
+  const [{ data: canEdit }, { data: canPublish }] = await Promise.all([
+    supabase.rpc("has_permission", { p_permission_code: "safety_alert.edit" }),
+    supabase.rpc("has_permission", { p_permission_code: "safety_alert.publish" }),
   ]);
-  if (!investigate && !close) return NextResponse.json({ error: "Bạn chưa có quyền xử lý bài học/cảnh báo." }, { status: 403 });
+  if (!canEdit && !canPublish) return NextResponse.json({ error: "Bạn chưa có quyền xử lý cảnh báo an toàn." }, { status: 403 });
 
   const { id: recordId } = await params;
   const body = await request.json().catch(() => ({}));
@@ -31,8 +31,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!["SUBMIT_REVIEW","RETURN","PUBLISH","ARCHIVE"].includes(command)) {
     return NextResponse.json({ error: "Thao tác cảnh báo không hợp lệ." }, { status: 400 });
   }
-  if (CLOSE_COMMANDS.has(command) && !close) {
-    return NextResponse.json({ error: "Bạn cần quyền phê duyệt/đóng để thực hiện thao tác này." }, { status: 403 });
+  if (command === "SUBMIT_REVIEW" && !canEdit) {
+    return NextResponse.json({ error: "Bạn cần quyền soạn cảnh báo để gửi rà soát." }, { status: 403 });
+  }
+  if (CLOSE_COMMANDS.has(command) && !canPublish) {
+    return NextResponse.json({ error: "Bạn cần quyền phê duyệt/phát hành cảnh báo để thực hiện thao tác này." }, { status: 403 });
   }
   if (CLOSE_COMMANDS.has(command) && !reason) {
     return NextResponse.json({
