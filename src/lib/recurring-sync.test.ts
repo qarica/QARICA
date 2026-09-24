@@ -66,4 +66,22 @@ describe("recurring sync canonical materializer", () => {
     expect(source).not.toContain("qlcl_materialize_recurring_run_v3");
     expect(source).not.toContain("recurringOccurrences");
   });
+
+  it("keeps REMINDER calendar-only and never routes it through the Action materializer", () => {
+    const source = readFileSync("src/lib/recurring-sync.ts", "utf8");
+    expect(source).toContain('automationKind === "REMINDER"');
+    expect(source).toContain('status: automationKind === "REMINDER" ? "PLANNED" : "PENDING"');
+    const reminderBranch = source.indexOf('if (automationKind === "REMINDER")');
+    const materializer = source.indexOf('admin.rpc("qlcl_materialize_recurring_run_v5"');
+    expect(reminderBranch).toBeGreaterThan(-1);
+    expect(materializer).toBeGreaterThan(reminderBranch);
+    expect(source.slice(reminderBranch, materializer)).toContain("continue;");
+  });
+
+  it("supports sync-all without requiring template_id", () => {
+    const source = readFileSync("src/app/api/calendar/recurring/sync/route.ts", "utf8");
+    expect(source).toContain('if (templateId)');
+    expect(source).toContain('from("recurring_work_templates")');
+    expect(source).toContain('created_reminders');
+  });
 });

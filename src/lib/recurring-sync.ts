@@ -132,6 +132,7 @@ export type RecurringSyncResult = {
   createdActions: number;
   createdMonitoringRounds: number;
   createdReports: number;
+  createdReminders: number;
   existing?: number;
   errors: number;
   error?: string;
@@ -158,19 +159,27 @@ export async function syncRecurringTemplateNow(input: {
     .eq("id", templateId)
     .eq("organization_id", organizationId)
     .maybeSingle();
-  if (templateError || !template) return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, errors: 1, error: templateError?.message || "Không tìm thấy mẫu định kỳ." };
-  if (!template.is_active) return { ok: true, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, errors: 0, skipped: true };
+  if (templateError || !template) return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, createdReminders: 0, errors: 1, error: templateError?.message || "Không tìm thấy mẫu định kỳ." };
+  if (!template.is_active) return { ok: true, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, createdReminders: 0, errors: 0, skipped: true };
   const assignmentTargetType = String(template.assignment_target_type || "USER").toUpperCase();
+  const automationKind = String(template.automation_kind || "ACTION").toUpperCase();
   const hasAssignee = assignmentTargetType === "GROUP" ? !!template.assignee_group_id : !!template.assignee_user_id;
-  if (!["USER","GROUP"].includes(assignmentTargetType) || !template.start_date || !template.lead_department_id || !hasAssignee || !template.expected_result || !template.evidence_requirement) {
-    return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, errors: 1, error: "Mẫu định kỳ chưa đủ dữ liệu để đồng bộ lịch." };
+  const requiresActionPayload = automationKind !== "REMINDER";
+  if (
+    !["USER","GROUP"].includes(assignmentTargetType)
+    || !template.start_date
+    || !template.lead_department_id
+    || !hasAssignee
+    || (requiresActionPayload && (!template.expected_result || !template.evidence_requirement))
+  ) {
+    return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, createdReminders: 0, errors: 1, error: "Mẫu định kỳ chưa đủ dữ liệu để đồng bộ lịch." };
   }
-  if (!["ACTION","MONITORING","REPORT"].includes(String(template.automation_kind || "").toUpperCase())) {
-    return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, errors: 1, error: "Loại đầu ra định kỳ không thuộc engine nghiệp vụ chính thức." };
+  if (!["REMINDER","ACTION","MONITORING","REPORT"].includes(automationKind)) {
+    return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, createdReminders: 0, errors: 1, error: "Loại đầu ra định kỳ không thuộc engine nghiệp vụ chính thức." };
   }
 
   const dates = recurringOccurrences(template as RecurringTemplate, today, horizonEnd);
-  if (dates.length > 400) return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, errors: 1, error: "Số kỳ của một mẫu vượt 400 trong khoảng đồng bộ." };
+  if (dates.length > 400) return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, createdReminders: 0, errors: 1, error: "Số kỳ của một mẫu vượt 400 trong khoảng đồng bộ." };
 
   const { data: existingRows, error: existingError } = await admin
     .from("recurring_work_runs")
@@ -178,17 +187,19 @@ export async function syncRecurringTemplateNow(input: {
     .eq("template_id", templateId)
     .gte("planned_date", today)
     .lte("planned_date", horizonEnd);
-  if (existingError) return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, errors: 1, error: existingError.message };
+  if (existingError) return { ok: false, createdActions: 0, createdMonitoringRounds: 0, createdReports: 0, createdReminders: 0, errors: 1, error: existingError.message };
 
   const byKey = new Map((existingRows || []).map((row: any) => [String(row.period_key), row]));
   let createdActions = 0;
   let createdMonitoringRounds = 0;
   let createdReports = 0;
+  let createdReminders = 0;
   let existing = 0;
   const errors: string[] = [];
 
   for (const plannedDate of dates) {
     let run: any = byKey.get(plannedDate);
+    let runWasCreated = false;
     if (run?.generated_action_id || ["SKIPPED", "CANCELLED", "COMPLETED"].includes(String(run?.status || "").toUpperCase())) {
       existing += 1;
       continue;
@@ -199,7 +210,7 @@ export async function syncRecurringTemplateNow(input: {
         template_id: templateId,
         period_key: plannedDate,
         planned_date: plannedDate,
-        status: "PENDING",
+        status: automationKind === "REMINDER" ? "PLANNED" : "PENDING",
       }).select("id,template_id,period_key,planned_date,generated_action_id,generated_output_record_id,status").maybeSingle();
       if (inserted.error || !inserted.data) {
         const fallback = await admin.from("recurring_work_runs")
@@ -212,8 +223,26 @@ export async function syncRecurringTemplateNow(input: {
         run = fallback.data;
       } else {
         run = inserted.data;
+        runWasCreated = true;
       }
       byKey.set(plannedDate, run);
+    }
+
+    if (automationKind === "REMINDER") {
+      const runStatus = String(run.status || "").toUpperCase();
+      if (runStatus === "PENDING") {
+        const normalized = await admin.from("recurring_work_runs")
+          .update({ status: "PLANNED" })
+          .eq("id", run.id)
+          .eq("status", "PENDING");
+        if (normalized.error) {
+          errors.push(`${plannedDate}: ${normalized.error.message}`);
+          continue;
+        }
+      }
+      if (runWasCreated) createdReminders += 1;
+      else existing += 1;
+      continue;
     }
 
     if (run.generated_action_id || String(run.status || "").toUpperCase() !== "PENDING") {
@@ -244,6 +273,7 @@ export async function syncRecurringTemplateNow(input: {
     createdActions,
     createdMonitoringRounds,
     createdReports,
+    createdReminders,
     existing,
     errors: errors.length,
     errorDetails: errors.slice(0, 10),

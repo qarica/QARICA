@@ -36,7 +36,7 @@ type TemplateRow = {
   source_code?: string | null;
   source_label?: string | null;
   source_criteria?: string[];
-  automation_kind?: "ACTION" | "MONITORING" | "REPORT";
+  automation_kind?: "REMINDER" | "ACTION" | "MONITORING" | "REPORT";
   automation_ref_id?: string | null;
   automation_target_department_id?: string | null;
   automation_target_area?: string | null;
@@ -63,7 +63,7 @@ type BlueprintRow = {
   weekOfMonth?: number;
   startMonth?: number;
   priority?: string;
-  automationKind?: "ACTION" | "MONITORING" | "REPORT";
+  automationKind?: "REMINDER" | "ACTION" | "MONITORING" | "REPORT";
   automationChecklistCode?: string;
   automationTargetArea?: string;
   automationReportRecipient?: string;
@@ -104,7 +104,7 @@ type FormState = {
   source_code: string;
   source_label: string;
   source_criteria: string[];
-  automation_kind: "ACTION" | "MONITORING" | "REPORT";
+  automation_kind: "REMINDER" | "ACTION" | "MONITORING" | "REPORT";
   automation_ref_id: string;
   automation_target_department_id: string;
   automation_target_area: string;
@@ -312,8 +312,16 @@ export function RecurringWorkClient({
 
   async function submit() {
     const hasAssignee = form.assignment_target_type === "GROUP" ? !!form.assignee_group_id : !!form.assignee_user_id;
-    if (!form.title.trim() || !form.start_date || !form.lead_department_id || !hasAssignee || !form.expected_result.trim() || !form.evidence_requirement.trim()) {
-      const missing = [!form.title.trim() && "tên công việc", !form.start_date && "ngày bắt đầu", !form.lead_department_id && "đơn vị phụ trách", !hasAssignee && "người/nhóm được giao", !form.expected_result.trim() && "kết quả mong đợi", !form.evidence_requirement.trim() && "minh chứng yêu cầu"].filter(Boolean);
+    const reminderOnly = form.automation_kind === "REMINDER";
+    if (!form.title.trim() || !form.start_date || !form.lead_department_id || !hasAssignee || (!reminderOnly && (!form.expected_result.trim() || !form.evidence_requirement.trim()))) {
+      const missing = [
+        !form.title.trim() && "tên công việc",
+        !form.start_date && "ngày bắt đầu",
+        !form.lead_department_id && "đơn vị phụ trách",
+        !hasAssignee && "người/nhóm được giao",
+        !reminderOnly && !form.expected_result.trim() && "kết quả mong đợi",
+        !reminderOnly && !form.evidence_requirement.trim() && "minh chứng yêu cầu",
+      ].filter(Boolean);
       setMessage({ tone: "error", text: `Cần bổ sung: ${missing.join(", ")}.` });
       return;
     }
@@ -351,8 +359,8 @@ export function RecurringWorkClient({
         assignment_target_type: form.assignment_target_type,
         assignee_user_id: form.assignment_target_type === "USER" ? form.assignee_user_id : null,
         assignee_group_id: form.assignment_target_type === "GROUP" ? form.assignee_group_id : null,
-        expected_result: form.expected_result.trim(),
-        evidence_requirement: form.evidence_requirement.trim(),
+        expected_result: reminderOnly ? null : form.expected_result.trim(),
+        evidence_requirement: reminderOnly ? null : form.evidence_requirement.trim(),
         priority: form.priority,
         is_active: form.is_active,
         source_code: form.source_code || null,
@@ -376,7 +384,7 @@ export function RecurringWorkClient({
       setModalOpen(false);
       const sync = json.sync;
       const syncText = sync
-        ? ` Lịch đã đồng bộ 90 ngày tới: ${Number(sync.createdActions || 0)} Action mới${Number(sync.createdMonitoringRounds || 0) ? `, ${sync.createdMonitoringRounds} đợt giám sát` : ""}${Number(sync.createdReports || 0) ? `, ${sync.createdReports} báo cáo` : ""}.`
+        ? ` Lịch đã đồng bộ 90 ngày tới: ${Number(sync.createdActions || 0)} Action mới${Number(sync.createdReminders || 0) ? `, ${sync.createdReminders} kỳ nhắc việc` : ""}${Number(sync.createdMonitoringRounds || 0) ? `, ${sync.createdMonitoringRounds} đợt giám sát` : ""}${Number(sync.createdReports || 0) ? `, ${sync.createdReports} báo cáo` : ""}.`
         : "";
       if (json.sync_warning) {
         setMessage({ tone: "info", text: `${editing ? "Đã cập nhật" : "Đã tạo"} cấu hình. ${json.sync_warning} Có thể dùng nút “Đồng bộ lại 90 ngày” để thử lại.` });
@@ -409,7 +417,7 @@ export function RecurringWorkClient({
         setMessage({ tone: "info", text: `Đã kích hoạt mẫu nhưng đồng bộ lịch chưa hoàn tất: ${json.sync_warning}` });
       } else if (nextActive) {
         const sync = json.sync;
-        setMessage({ tone: "success", text: `Đã kích hoạt và đồng bộ lịch: ${Number(sync?.createdActions || 0)} Action mới${Number(sync?.createdMonitoringRounds || 0) ? `, ${sync.createdMonitoringRounds} đợt giám sát` : ""}${Number(sync?.createdReports || 0) ? `, ${sync.createdReports} báo cáo` : ""}.` });
+        setMessage({ tone: "success", text: `Đã kích hoạt và đồng bộ lịch: ${Number(sync?.createdActions || 0)} Action mới${Number(sync?.createdReminders || 0) ? `, ${sync.createdReminders} kỳ nhắc việc` : ""}${Number(sync?.createdMonitoringRounds || 0) ? `, ${sync.createdMonitoringRounds} đợt giám sát` : ""}${Number(sync?.createdReports || 0) ? `, ${sync.createdReports} báo cáo` : ""}.` });
       } else {
         setMessage({ tone: "success", text: "Đã ngưng mẫu; lịch sử cũ được giữ nguyên." });
       }
@@ -437,7 +445,7 @@ export function RecurringWorkClient({
       const errors = Number(json.errors || 0);
       setMessage({
         tone: errors ? "error" : "success",
-        text: `Đồng bộ xong: tạo ${json.created_actions || 0} Action mới${Number(json.created_monitoring_rounds || 0) ? ` + ${json.created_monitoring_rounds} đợt giám sát` : ""}${Number(json.created_reports || 0) ? ` + ${json.created_reports} báo cáo` : ""}, ${json.existing_runs || 0} kỳ đã tồn tại${skipped ? `, ${skipped} mẫu chưa đủ điều kiện` : ""}${errors ? `, ${errors} lỗi cần kiểm tra` : ""}.`,
+        text: `Đồng bộ xong: tạo ${json.created_actions || 0} Action mới${Number(json.created_reminders || 0) ? ` + ${json.created_reminders} kỳ nhắc việc` : ""}${Number(json.created_monitoring_rounds || 0) ? ` + ${json.created_monitoring_rounds} đợt giám sát` : ""}${Number(json.created_reports || 0) ? ` + ${json.created_reports} báo cáo` : ""}, ${json.existing_runs || 0} kỳ đã tồn tại${skipped ? `, ${skipped} mẫu chưa đủ điều kiện` : ""}${errors ? `, ${errors} lỗi cần kiểm tra` : ""}.`,
       });
       router.refresh();
     } catch (error) {
@@ -484,7 +492,7 @@ export function RecurringWorkClient({
           <td><div className="recurring-title"><strong>{row.title}</strong><small>{row.expected_result || "Chưa mô tả kết quả mong đợi"}</small></div></td>
           <td><strong>{cadenceLabel(row.recurrence_rule)}</strong><div className="recurring-muted">{fmtDate(row.start_date)}{row.end_date ? ` → ${fmtDate(row.end_date)}` : " → không giới hạn"} · hạn +{row.due_offset_days || 0} ngày</div></td>
           <td><strong>{row.department_name || "—"}</strong><div className="recurring-muted">{row.assignment_target_type === "GROUP" ? "Nhóm · " : "Cá nhân · "}{row.assignee_name || "Chưa phân công"}</div></td>
-          <td><div className="recurring-run-stat"><strong>{row.generated_count} Action đã sinh</strong><span>{row.pending_count ? `${row.pending_count} run chờ xử lý · ` : ""}{row.latest_planned_date ? `gần nhất ${fmtDate(row.latest_planned_date)}` : "chưa có run"}</span></div></td>
+          <td><div className="recurring-run-stat"><strong>{row.automation_kind === "REMINDER" ? `${row.pending_count} kỳ nhắc trên lịch` : `${row.generated_count} Action đã sinh`}</strong><span>{row.automation_kind !== "REMINDER" && row.pending_count ? `${row.pending_count} run chờ xử lý · ` : ""}{row.latest_planned_date ? `gần nhất ${fmtDate(row.latest_planned_date)}` : "chưa có run"}</span></div></td>
           <td><span className={`recurring-status ${row.is_active ? "active" : "inactive"}`}>{row.is_active ? "Đang bật" : "Đã ngưng"}</span></td>
           <td><div className="recurring-actions">{canManage ? <><button className="button tertiary small" disabled={busy} onClick={() => openEdit(row)}>Sửa</button><button className="button secondary small" disabled={busy} onClick={() => toggle(row)}>{row.is_active ? "Ngưng" : "Kích hoạt"}</button></> : <span className="recurring-muted">Chỉ xem</span>}</div></td>
         </tr>)}
@@ -495,7 +503,7 @@ export function RecurringWorkClient({
 
     {modalOpen ? <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setModalOpen(false); }}>
       <div className="modal-card" style={{ maxWidth: 820 }}>
-        <div className="modal-head"><div><h2>{editing ? "Cập nhật công việc định kỳ" : form.source_code ? `Thiết lập ${form.source_code}` : "Tạo công việc định kỳ"}</h2><p>{form.source_code ? "Dữ liệu đã được kế thừa từ nguồn; chỉ xác nhận phần còn thiếu hoặc lịch vận hành." : "Mỗi kỳ sẽ sinh một Action giao cho cá nhân hoặc nhóm, có hạn và yêu cầu minh chứng rõ ràng."}</p></div><button className="icon-button" disabled={busy} onClick={() => setModalOpen(false)}>×</button></div>
+        <div className="modal-head"><div><h2>{editing ? "Cập nhật công việc định kỳ" : form.source_code ? `Thiết lập ${form.source_code}` : "Tạo công việc định kỳ"}</h2><p>{form.source_code ? "Dữ liệu đã được kế thừa từ nguồn; chỉ xác nhận phần còn thiếu hoặc lịch vận hành." : form.automation_kind === "REMINDER" ? "Mỗi kỳ chỉ tạo một mốc nhắc việc trên lịch; không sinh Action, không yêu cầu minh chứng." : "Mỗi kỳ sẽ sinh một Action giao cho cá nhân hoặc nhóm, có hạn và yêu cầu minh chứng rõ ràng."}</p></div><button className="icon-button" disabled={busy} onClick={() => setModalOpen(false)}>×</button></div>
         <div className="modal-body">
           <div className="recurring-modal-grid">
             {form.source_code ? <div className="span-2 scope-note" style={{margin:0}}><strong>{form.source_code} · {form.source_label}</strong>{form.source_criteria.length ? <> · Tiêu chí: {form.source_criteria.join(", ")}</> : null}{form.schedule_note ? <div style={{marginTop:4}}>{form.schedule_note}</div> : null}</div> : null}
@@ -534,9 +542,11 @@ export function RecurringWorkClient({
               <label style={{ marginTop: 8 }}>Khoa/Phòng chủ trì *</label>
               <select value={form.lead_department_id} onChange={(e) => patch("lead_department_id", e.target.value)}><option value="">— Chọn đơn vị —</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
             </details>
-            <div className="recurring-field span-2"><label>Kết quả mong đợi *</label><textarea value={form.expected_result} onChange={(e) => patch("expected_result", e.target.value)} placeholder="Sản phẩm/kết quả phải hoàn thành ở mỗi kỳ" /></div>
-            <div className="recurring-field span-2"><label>Minh chứng bắt buộc *</label><textarea value={form.evidence_requirement} onChange={(e) => patch("evidence_requirement", e.target.value)} placeholder="Ví dụ: báo cáo, biên bản, bảng kiểm, file số liệu…" /></div>
-            <div className="recurring-field span-2"><label>Đầu ra tự động</label><select value={form.automation_kind} onChange={(e) => patch("automation_kind", e.target.value as "ACTION" | "MONITORING" | "REPORT")}><option value="ACTION">Chỉ tạo Action</option><option value="MONITORING">Tạo Action + Đợt giám sát</option><option value="REPORT">Tạo Action + Báo cáo từng kỳ</option></select><small>QARICA chỉ tự tạo hồ sơ nghiệp vụ khi đã đủ dữ liệu nguồn bắt buộc; phần còn thiếu sẽ được hỏi ngay bên dưới.</small></div>
+            {form.automation_kind !== "REMINDER" ? <>
+              <div className="recurring-field span-2"><label>Kết quả mong đợi *</label><textarea value={form.expected_result} onChange={(e) => patch("expected_result", e.target.value)} placeholder="Sản phẩm/kết quả phải hoàn thành ở mỗi kỳ" /></div>
+              <div className="recurring-field span-2"><label>Minh chứng bắt buộc *</label><textarea value={form.evidence_requirement} onChange={(e) => patch("evidence_requirement", e.target.value)} placeholder="Ví dụ: báo cáo, biên bản, bảng kiểm, file số liệu…" /></div>
+            </> : <div className="span-2 scope-note" style={{margin:0}}><strong>Nhắc việc trên lịch</strong> · Không tạo Action, không yêu cầu minh chứng và không đi qua workflow CAPA/verification.</div>}
+            <div className="recurring-field span-2"><label>Đầu ra tự động</label><select value={form.automation_kind} onChange={(e) => patch("automation_kind", e.target.value as "REMINDER" | "ACTION" | "MONITORING" | "REPORT")}><option value="REMINDER">Chỉ nhắc việc trên lịch</option><option value="ACTION">Chỉ tạo Action</option><option value="MONITORING">Tạo Action + Đợt giám sát</option><option value="REPORT">Tạo Action + Báo cáo từng kỳ</option></select><small>QARICA chỉ tự tạo hồ sơ nghiệp vụ khi đã đủ dữ liệu nguồn bắt buộc; phần còn thiếu sẽ được hỏi ngay bên dưới.</small></div>
             {form.automation_kind === "MONITORING" ? <>
               <div className="recurring-field"><label>Bảng kiểm đã phát hành *</label><select value={form.automation_ref_id} onChange={(e) => patch("automation_ref_id", e.target.value)}><option value="">— Chọn bảng kiểm —</option>{checklists.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>
               <div className="recurring-field"><label>Khoa/phòng được giám sát</label><select value={form.automation_target_department_id} onChange={(e) => patch("automation_target_department_id", e.target.value)}><option value="">— Không cố định theo khoa —</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>

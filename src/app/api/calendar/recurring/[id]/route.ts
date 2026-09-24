@@ -35,7 +35,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const nextActive = Boolean(body.is_active);
     const currentTargetType = String(current.assignment_target_type || "USER").toUpperCase();
     const hasAssignee = currentTargetType === "GROUP" ? !!current.assignee_group_id : !!current.assignee_user_id;
-    if (nextActive && (!current.start_date || !current.lead_department_id || !hasAssignee || !current.expected_result || !current.evidence_requirement || !validRule(current.recurrence_rule))) {
+    const currentAutomationKind = String(current.automation_kind || "ACTION").toUpperCase();
+    const currentNeedsActionPayload = currentAutomationKind !== "REMINDER";
+    if (nextActive && (!current.start_date || !current.lead_department_id || !hasAssignee || (currentNeedsActionPayload && (!current.expected_result || !current.evidence_requirement)) || !validRule(current.recurrence_rule))) {
       return NextResponse.json({ error: "Mẫu chưa đủ đối tượng phụ trách, lịch, kết quả hoặc minh chứng để kích hoạt." }, { status: 409 });
     }
   const { error } = await admin.from("recurring_work_templates").update({ is_active: nextActive, updated_at: new Date().toISOString() }).eq("id", id).eq("organization_id", caller.organization_id);
@@ -90,9 +92,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!["USER","GROUP"].includes(assignmentTargetType)) return NextResponse.json({ error: "Đối tượng phân công không hợp lệ." }, { status: 400 });
   if (assignmentTargetType === "USER" && !assigneeUserId) return NextResponse.json({ error: "Cần chọn cá nhân phụ trách." }, { status: 400 });
   if (assignmentTargetType === "GROUP" && !assigneeGroupId) return NextResponse.json({ error: "Cần chọn nhóm phụ trách." }, { status: 400 });
-  if (!expectedResult || !evidenceRequirement) return NextResponse.json({ error: "Kết quả mong đợi và yêu cầu minh chứng là bắt buộc." }, { status: 400 });
+  if (automationKind !== "REMINDER" && (!expectedResult || !evidenceRequirement)) return NextResponse.json({ error: "Kết quả mong đợi và yêu cầu minh chứng là bắt buộc khi đầu ra tạo Action." }, { status: 400 });
   if (!PRIORITIES.has(priority)) return NextResponse.json({ error: "Mức ưu tiên không hợp lệ." }, { status: 400 });
-  if (!["ACTION","MONITORING","REPORT"].includes(automationKind)) return NextResponse.json({ error: "Loại tự động hóa không hợp lệ." }, { status: 400 });
+  if (!["REMINDER","ACTION","MONITORING","REPORT"].includes(automationKind)) return NextResponse.json({ error: "Loại tự động hóa không hợp lệ." }, { status: 400 });
   if (sourceCode && sourceCode.length > 80) return NextResponse.json({ error: "Mã nguồn tự động hóa quá dài." }, { status: 400 });
   if (automationKind === "MONITORING" && !automationRefId) return NextResponse.json({ error: "Đợt giám sát tự động cần chọn bảng kiểm." }, { status: 400 });
   if (automationKind === "MONITORING" && !automationTargetDepartmentId && !automationTargetArea) return NextResponse.json({ error: "Đợt giám sát tự động cần khoa/phòng hoặc phạm vi giám sát." }, { status: 400 });
