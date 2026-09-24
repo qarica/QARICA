@@ -9,11 +9,12 @@ async function context(recordId: string) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { ok: false as const, response: NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 }) };
 
-  const [{ data: investigate }, { data: close }] = await Promise.all([
-    supabase.rpc("has_permission", { p_permission_code: "incident.investigate" }),
-    supabase.rpc("has_permission", { p_permission_code: "incident.close" }),
+  const [{ data: canView }, { data: canEdit }, { data: canPublish }] = await Promise.all([
+    supabase.rpc("has_permission", { p_permission_code: "safety_alert.view" }),
+    supabase.rpc("has_permission", { p_permission_code: "safety_alert.edit" }),
+    supabase.rpc("has_permission", { p_permission_code: "safety_alert.publish" }),
   ]);
-  if (!investigate && !close) return { ok: false as const, response: NextResponse.json({ error: "Bạn chưa có quyền soạn bài học/cảnh báo." }, { status: 403 }) };
+  if (!canView && !canEdit && !canPublish) return { ok: false as const, response: NextResponse.json({ error: "Bạn chưa có quyền xem cảnh báo an toàn." }, { status: 403 }) };
 
   const { data: visible } = await supabase.from("records").select("id").eq("id", recordId).eq("record_type", "SAFETY_ALERT").maybeSingle();
   if (!visible) return { ok: false as const, response: NextResponse.json({ error: "Không tìm thấy bài học/cảnh báo." }, { status: 404 }) };
@@ -24,7 +25,7 @@ async function context(recordId: string) {
     admin.from("safety_alerts").select("id,status,summary,lesson,recommendation,expires_at").eq("record_id", recordId).maybeSingle(),
   ]);
   if (!record || !alert) return { ok: false as const, response: NextResponse.json({ error: "Thiếu dữ liệu bài học/cảnh báo." }, { status: 404 }) };
-  return { ok: true as const, admin, user: auth.user, record, alert };
+  return { ok: true as const, admin, user: auth.user, record, alert, canEdit: !!canEdit };
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -45,6 +46,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id: recordId } = await params;
   const ctx = await context(recordId);
   if (!ctx.ok) return ctx.response;
+  if (!ctx.canEdit) return NextResponse.json({ error: "Bạn chưa có quyền soạn/chỉnh sửa cảnh báo an toàn." }, { status: 403 });
   if (ctx.record.lifecycle_status !== "ACTIVE" || ctx.alert.status !== "DRAFT") {
     return NextResponse.json({ error: "Chỉ được chỉnh sửa bài học/cảnh báo khi hồ sơ còn Nháp. Bản đang rà soát hoặc đã phát hành phải giữ nguyên nội dung." }, { status: 409 });
   }
