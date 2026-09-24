@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   if (!canManage) return NextResponse.json({ error: `Bạn chưa được cấp quyền ${permission || "quản lý hồ sơ"}.` }, { status: 403 });
 
   const { data: caller } = await supabase.from("profiles").select("organization_id,is_active").eq("user_id", user.id).maybeSingle();
-  if (!caller?.is_active || !caller.organization_id || caller.organization_id !== record.organization_id) return NextResponse.json({ error: "Tài khoản hoặc phạm vi bệnh viện không hợp lệ." }, { status: 403 });
+  if (!caller?.is_active || !caller.organization_id || caller.organization_id !== record.organization_id) return NextResponse.json({ error: "Tài khoản hoặc phạm vi tổ chức không hợp lệ." }, { status: 403 });
 
   if (action === "CANCEL" && ["CANCELLED", "ARCHIVED", "RETIRED", "INACTIVE"].includes(record.lifecycle_status)) return NextResponse.json({ error: "Hồ sơ này đã ngưng hoạt động nên không thể hủy lại." }, { status: 409 });
   if (action === "CANCEL" && record.lifecycle_status === "CLOSED") return NextResponse.json({ error: "Hồ sơ đã đóng. Nếu cần loại khỏi danh sách vận hành, hãy dùng Lưu trữ." }, { status: 409 });
