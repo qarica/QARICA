@@ -61,6 +61,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
   const [whys, setWhys] = useState<WhyRow[]>(blankWhys());
   const [fishbone, setFishbone] = useState<Record<string, string>>({});
   const [roots, setRoots] = useState<RootRow[]>([emptyRoot()]);
+  const [revision, setRevision] = useState(0);
   const [editable, setEditable] = useState(false);
   const [status, setStatus] = useState("NOT_STARTED");
   const [loading, setLoading] = useState(true);
@@ -91,6 +92,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
       if (!response.ok) throw new Error(json.error || "Không tải được RCA.");
 
       setEditable(!!json.editable);
+      setRevision(Number(json.revision || 0));
       setStatus(String(json.status || "NOT_STARTED"));
 
       const loadedTimeline = Array.isArray(json.timeline) ? json.timeline.map((row: any) => ({
@@ -160,6 +162,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
         five_whys: whys.filter((row) => row.answer.trim()),
         fishbone: fishboneRows,
         root_causes: roots.filter((row) => row.cause_statement.trim()),
+        expected_revision: revision,
       };
 
       const response = await fetch(`/api/incidents/${recordId}/rca`, {
@@ -169,6 +172,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(json.error || "Không lưu được RCA.");
+      setRevision(Number(json.result?.revision ?? revision));
       setNotice(json.message || "Đã lưu RCA có cấu trúc.");
       await load();
       router.refresh();
