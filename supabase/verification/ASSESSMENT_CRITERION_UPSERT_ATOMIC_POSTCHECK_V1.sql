@@ -6,7 +6,7 @@ with fn as (
 )
 select
   case when body like '%on conflict (assessment_round_id,criteria_item_id)%' then 'PASS' else 'FAIL' end as atomic_upsert,
-  case when body like '%applicability_status%' and body like '%not applicable%' then 'PASS' else 'FAIL' end as applicability_gate,
+  case when body like '%applicability_status%' and body like '%<>''applicable''%' then 'PASS' else 'FAIL' end as applicability_gate,
   case when body like '%lead_department_id%' and body like '%support_department_ids%' then 'PASS' else 'FAIL' end as department_scope_gate,
   case when body like '%criterion_assessments%' and body like '%for update%' then 'PASS' else 'FAIL' end as terminal_state_lock,
   case when body like '%audit_logs%' then 'PASS' else 'FAIL' end as audit_insert,
