@@ -1,0 +1,286 @@
+/* QARICA mobile responsive hardening
+   Loaded last so mobile behavior cannot be accidentally reverted by desktop theme CSS. */
+
+@media (max-width: 860px) {
+  /* Mobile drawer must never inherit the persisted desktop collapsed state. */
+  .workspace-app .sidebar,
+  .workspace-app .sidebar.collapsed {
+    width: min(88vw, 360px) !important;
+    max-width: 360px !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+  }
+
+  .workspace-app .sidebar.collapsed .sidebar-brand {
+    justify-content: flex-start !important;
+    padding: 10px 14px !important;
+  }
+
+  .workspace-app .sidebar.collapsed .sidebar-brand-copy {
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0 !important;
+  }
+
+  .workspace-app .sidebar.collapsed .nav-label {
+    display: block !important;
+  }
+
+  .workspace-app .sidebar.collapsed .nav-link-label {
+    display: inline !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .workspace-app .sidebar.collapsed .nav-link {
+    justify-content: flex-start !important;
+    margin: 2px 0 !important;
+    padding: 11px 12px !important;
+  }
+
+  .workspace-app .sidebar.collapsed .nav-attention-badge {
+    position: static !important;
+    margin-left: auto !important;
+    min-width: 20px !important;
+    height: 20px !important;
+    padding: 0 6px !important;
+    border: 0 !important;
+    font-size: 11px !important;
+  }
+
+  .workspace-app .sidebar-collapse {
+    display: none !important;
+  }
+
+  .workspace-app .main-shell,
+  .workspace-app .main-shell.sidebar-collapsed {
+    margin-left: 0 !important;
+  }
+
+  .workspace-app .topbar,
+  .workspace-app .main-shell.sidebar-collapsed .topbar {
+    left: 0 !important;
+    right: 0 !important;
+    width: auto !important;
+  }
+
+  .workspace-app .mobile-menu {
+    display: inline-flex !important;
+    flex: 0 0 42px !important;
+    width: 42px !important;
+    height: 42px !important;
+    color: #ffffff !important;
+    background: rgba(255,255,255,.08) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+  }
+
+  .workspace-app .sidebar-close {
+    display: inline-flex !important;
+    width: 42px !important;
+    height: 42px !important;
+    flex: 0 0 42px !important;
+  }
+
+  .workspace-app .topbar {
+    min-height: 64px !important;
+    padding: 8px 10px !important;
+    gap: 6px !important;
+  }
+
+  .workspace-app .topbar-left {
+    flex: 0 0 auto !important;
+    min-width: 42px !important;
+  }
+
+  .workspace-app .topbar-right {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    justify-content: flex-end !important;
+    gap: 6px !important;
+  }
+
+  .workspace-app .topbar-right > * {
+    flex: 0 0 auto !important;
+  }
+
+  .workspace-app .profile-copy {
+    display: none !important;
+  }
+
+  .workspace-app .profile-button {
+    min-height: 42px !important;
+  }
+
+  .workspace-app .notification-panel {
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    top: 68px !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 82px) !important;
+  }
+
+  .workspace-app .notification-list {
+    max-height: calc(100dvh - 230px) !important;
+  }
+
+  .workspace-app .profile-dropdown {
+    position: fixed !important;
+    top: 68px !important;
+    right: 10px !important;
+    left: auto !important;
+    width: min(280px, calc(100vw - 20px)) !important;
+  }
+
+  /* Page-level menus/actions should behave like mobile controls, not squeezed desktop rows. */
+  .workspace-app .page-header {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .workspace-app .page-actions {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 1px 1px 5px !important;
+    scrollbar-width: none !important;
+  }
+
+  .workspace-app .page-actions::-webkit-scrollbar,
+  .workspace-app .tabs::-webkit-scrollbar,
+  .workspace-app .modern-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .workspace-app .page-actions > * {
+    flex: 0 0 auto !important;
+    min-height: 42px !important;
+  }
+
+  .workspace-app .tabs,
+  .workspace-app .modern-tabs {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    white-space: nowrap !important;
+  }
+
+  .workspace-app .tabs > *,
+  .workspace-app .modern-tabs > * {
+    flex: 0 0 auto !important;
+  }
+
+  .workspace-app .panel-title {
+    min-width: 0 !important;
+  }
+
+  .workspace-app .panel-title > * {
+    min-width: 0 !important;
+  }
+
+  .workspace-app .table-wrap {
+    max-width: 100% !important;
+    overscroll-behavior-x: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .workspace-app .content {
+    padding-left: 11px !important;
+    padding-right: 11px !important;
+  }
+
+  .workspace-app .year-select-wrap {
+    gap: 2px !important;
+    min-width: 68px !important;
+    height: 40px !important;
+    padding: 0 5px !important;
+  }
+
+  .workspace-app .year-select-wrap > span {
+    display: none !important;
+  }
+
+  .workspace-app .year-select-wrap select {
+    min-width: 52px !important;
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+  }
+
+  .workspace-app .header-icon,
+  .workspace-app .profile-button {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+  }
+
+  .workspace-app .profile-button {
+    padding: 2px !important;
+    justify-content: center !important;
+  }
+
+  .workspace-app .profile-button > svg {
+    display: none !important;
+  }
+
+  .workspace-app .avatar {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  /* Admin is still available in the drawer; hiding this duplicate frees topbar space. */
+  .workspace-app .admin-launcher {
+    display: none !important;
+  }
+
+  .workspace-app .panel-title {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .workspace-app .sidebar,
+  .workspace-app .sidebar.collapsed {
+    width: min(94vw, 350px) !important;
+  }
+
+  .workspace-app .topbar {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    gap: 4px !important;
+  }
+
+  .workspace-app .topbar-right {
+    gap: 4px !important;
+  }
+
+  .workspace-app .mobile-menu {
+    width: 40px !important;
+    height: 40px !important;
+    flex-basis: 40px !important;
+  }
+
+  .workspace-app .page-actions .button,
+  .workspace-app .page-actions button,
+  .workspace-app .page-actions a {
+    min-height: 44px !important;
+  }
+}
