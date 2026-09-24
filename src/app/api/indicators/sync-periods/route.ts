@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   if (callerError || !caller?.organization_id) {
     return NextResponse.json({ error: callerError?.message || "Tài khoản chưa gắn tổ chức." }, { status: 400 });
   }
-  const organizationId = organizationId;
+  const organizationId = caller.organization_id;
 
   const { data: assignmentsRaw, error: assignmentsError } = await admin
     .from("indicator_assignments")
