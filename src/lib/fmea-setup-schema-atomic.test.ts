@@ -15,12 +15,12 @@ describe("FMEA setup schema and atomic workflow", () => {
     expect(panel).toContain('failure_mode,effect,cause,current_control,is_high_priority');
     expect(panel).not.toContain("step_no,step_name");
     expect(panel).not.toContain("potential_effect,potential_cause");
-  
+  });
+
   it("does not assign a rowtype and scalar in the same INTO list", () => {
     const migration=readFileSync("supabase/migrations/20260924180000_fmea_setup_schema_atomic_v1.sql","utf8");
     expect(migration).not.toContain("into v_study,v_org");
     expect(migration).toContain("select s.* into v_study");
     expect(migration).toContain("select r.organization_id into v_org");
   });
-});
 });
