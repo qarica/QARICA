@@ -9,6 +9,7 @@ const REJECT_REASONS = new Set(["DUPLICATE", "INSUFFICIENT_INFO", "NOT_A_MEDICAL
 const START_INV_RPC = "qlcl_start_incident_investigation_v1";
 const COMPLETE_INV_RPC = "qlcl_complete_incident_investigation_v1";
 const CLOSE_RPC = "qlcl_close_incident_v1";
+const TRANSITION_RPC = "qlcl_transition_incident_v1";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
@@ -146,10 +147,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   } else if (command === "START_FOLLOW_UP") {
     if (oldStatus !== "TRIAGED") return NextResponse.json({ error: "Sự cố chưa ở bước có thể theo dõi hành động." }, { status: 409 });
     newStatus = "ACTION_FOLLOW_UP";
-    const { error: updateError } = await admin.from("incidents").update({ workflow_status: newStatus, updated_at: now }).eq("id", incident.id);
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
     reason = reason || "Chuyển sang theo dõi hành động sau xác minh sự cố.";
-    message = "Đã chuyển sang theo dõi hành động.";
+    const { data: tx, error: txError } = await admin.rpc(TRANSITION_RPC, { p_incident_record_id: recordId, p_actor_user_id: auth.user.id, p_command: command, p_reason: reason });
+    if (txError) return NextResponse.json({ error: rpcErrorMessage(txError, "Không thể chuyển sang theo dõi hành động.") }, { status: 409 });
+    return NextResponse.json({ ok: true, status: newStatus, message: "Đã chuyển sang theo dõi hành động.", transaction: "atomic", result: tx });
   } else if (command === "READY_TO_CLOSE") {
     if (oldStatus !== "ACTION_FOLLOW_UP") return NextResponse.json({ error: "Sự cố chưa ở bước theo dõi hành động." }, { status: 409 });
     const { data: links } = await admin.from("record_links").select("target_record_id").eq("source_record_id", recordId).eq("relation_type", "HAS_ACTION");
@@ -178,10 +179,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (ineffectiveCapas > 0) return NextResponse.json({ error: "CAPA liên kết phải được đánh giá EFFECTIVE hoặc CLOSED trước khi chờ đóng." }, { status: 409 });
     }
     newStatus = "AWAITING_CLOSURE";
-    const { error: updateError } = await admin.from("incidents").update({ workflow_status: newStatus, updated_at: now }).eq("id", incident.id);
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
     reason = reason || (noActionRequired ? `Không cần Action bổ sung: ${noActionReason}` : null);
-    message = "Hồ sơ đã đủ gate và chờ xác nhận đóng.";
+    const { data: tx, error: txError } = await admin.rpc(TRANSITION_RPC, { p_incident_record_id: recordId, p_actor_user_id: auth.user.id, p_command: command, p_reason: reason });
+    if (txError) return NextResponse.json({ error: rpcErrorMessage(txError, "Không thể chuyển hồ sơ sang chờ đóng.") }, { status: 409 });
+    return NextResponse.json({ ok: true, status: newStatus, message: "Hồ sơ đã đủ gate và chờ xác nhận đóng.", transaction: "atomic", result: tx });
   } else if (command === "CLOSE") {
     if (oldStatus !== "AWAITING_CLOSURE") return NextResponse.json({ error: "Sự cố chưa đủ gate để đóng." }, { status: 409 });
     if (!reason) return NextResponse.json({ error: "Kết luận đóng sự cố là bắt buộc." }, { status: 400 });
