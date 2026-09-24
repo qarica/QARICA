@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { evidenceInlineSafe } from "@/lib/evidence-file-policy";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireApiPermission("tasks.view");
+  const auth = await requireApiPermission("evidence.view");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
