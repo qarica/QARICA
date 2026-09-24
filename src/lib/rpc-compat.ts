@@ -9,13 +9,38 @@ export function isMissingRpcFunction(error: RpcErrorLike, functionName?: string)
   return !functionName || haystack.includes(functionName.toLowerCase());
 }
 
+const VIETNAMESE_CHARS = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
+
+function translatedRpcMessage(raw: string): string | null {
+  const value = raw.toLowerCase();
+  if (/finding.*not active|finding record is not active/.test(value)) return "Finding không còn hoạt động.";
+  if (/capa.*not active|capa record is not active/.test(value)) return "CAPA không còn hoạt động.";
+  if (/record.*not active|must be active/.test(value)) return "Hồ sơ không còn ở trạng thái hoạt động.";
+  if (/outside organization|organization scope|different organization/.test(value)) return "Hồ sơ nằm ngoài phạm vi tổ chức hiện tại.";
+  if (/only effective/.test(value)) return "Chỉ CAPA đã xác nhận có hiệu lực mới được đóng.";
+  if (/root cause.*required|requires.*root cause|root cause.*missing/.test(value)) return "Cần hoàn tất nguyên nhân gốc trước khi tiếp tục.";
+  if (/evidence.*required|requires.*evidence|missing evidence/.test(value)) return "Chưa đủ minh chứng để thực hiện bước này.";
+  if (/incomplete.*action|action.*incomplete/.test(value)) return "Vẫn còn Action chưa hoàn tất.";
+  if (/already closed|already completed/.test(value)) return "Hồ sơ đã hoàn tất hoặc đã đóng.";
+  if (/not found/.test(value)) return "Không tìm thấy dữ liệu phù hợp hoặc ngoài phạm vi truy cập.";
+  if (/invalid status|status.*invalid/.test(value)) return "Trạng thái hồ sơ không hợp lệ cho thao tác này.";
+  return null;
+}
+
 export function rpcErrorMessage(error: RpcErrorLike, fallback: string): string {
   if (!error) return fallback;
   const raw = String(error.message || error.details || "").trim();
   if (!raw) return fallback;
-  const safe = raw.toLowerCase();
-  const known = ["required", "not active", "not found", "must be", "incomplete", "unsupported", "invalid", "already", "evidence", "action", "status"];
+
+  const translated = translatedRpcMessage(raw);
+  if (translated) return translated;
+
   const looksInternal = /postgres|sql|schema|relation|column|function|constraint|stack|syntax|pgrst|uuid|jsonb/i.test(raw);
-  if (looksInternal || !known.some((token) => safe.includes(token))) return fallback;
-  return raw;
+  if (looksInternal) return fallback;
+
+  // Business exceptions authored in Vietnamese may be shown directly.
+  // Unknown English strings stay behind the caller's Vietnamese fallback
+  // so database implementation details never leak into the UI.
+  if (VIETNAMESE_CHARS.test(raw)) return raw;
+  return fallback;
 }
