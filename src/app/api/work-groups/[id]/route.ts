@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 
 const ROLE_SET = new Set(["LEADER","DEPUTY","SECRETARY","MEMBER"]);
 const TYPE_SET = new Set(["WORKING_GROUP","AUDIT_TEAM","ASSESSMENT_TEAM","RCA_TEAM","IMPROVEMENT_TEAM","MONITORING_TEAM","OTHER"]);
@@ -50,36 +51,32 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
     if((profiles??[]).length!==userIds.length)return NextResponse.json({error:"Có thành viên nhóm không hợp lệ."},{status:400});
   }
 
-  const {error:gerr}=await c.admin.from("work_groups").update({
-    code,name,group_type:groupType,description:text(b.description),lead_department_id:leadDepartmentId,
-    leader_user_id:leaderUserId,valid_from:validFrom,valid_to:validTo,is_active:b.is_active!==false,
-    updated_at:new Date().toISOString(),
-  }).eq("id",id);
-  if(gerr)return NextResponse.json({error:gerr.message},{status:400});
-
-  const existing=await c.admin.from("work_group_members").select("id,user_id").eq("group_id",id);
-  const existingMap=new Map((existing.data??[]).map((x:any)=>[x.user_id,x.id]));
-  const keep=new Set(userIds);
-  for(const row of existing.data??[]){
-    if(!keep.has((row as any).user_id)){
-      const {error}=await c.admin.from("work_group_members").update({is_active:false,left_at:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString()}).eq("id",(row as any).id);
-      if(error)return NextResponse.json({error:error.message},{status:400});
-    }
-  }
-  for(const userId of userIds){
+  const normalizedMembers=userIds.map((userId)=>{
     const supplied=members.find((x:any)=>String(x.user_id||"")===userId);
     let role=String(supplied?.member_role||"MEMBER").toUpperCase();
     if(userId===leaderUserId)role="LEADER";
     if(!ROLE_SET.has(role))role="MEMBER";
-    const memberId=existingMap.get(userId);
-    if(memberId){
-      const {error}=await c.admin.from("work_group_members").update({member_role:role,is_active:true,left_at:null,joined_at:validFrom,updated_at:new Date().toISOString()}).eq("id",memberId);
-      if(error)return NextResponse.json({error:error.message},{status:400});
-    }else{
-      const {error}=await c.admin.from("work_group_members").insert({group_id:id,user_id:userId,member_role:role,is_active:true,joined_at:validFrom});
-      if(error)return NextResponse.json({error:error.message},{status:400});
-    }
+    return {user_id:userId,member_role:role};
+  });
+
+  const {data:tx,error:txError}=await c.admin.rpc("qlcl_update_work_group_v1",{
+    p_group_id:id,
+    p_actor_user_id:c.user.id,
+    p_payload:{
+      code,name,group_type:groupType,description:text(b.description),
+      lead_department_id:leadDepartmentId,leader_user_id:leaderUserId,
+      valid_from:validFrom,valid_to:validTo,is_active:b.is_active!==false,
+      members:normalizedMembers,
+    },
+  });
+  if(txError){
+    const message=rpcErrorMessage(txError,"Không cập nhật được Nhóm phân công.");
+    return NextResponse.json(
+      {error:message},
+      {status:/không tồn tại|ngoài phạm vi|không hợp lệ|bắt buộc|ngày hết hiệu lực|trưởng nhóm/i.test(message)?409:400},
+    );
   }
 
+  return NextResponse.json({ok:true,active_member_count:Number(tx?.active_member_count||0),transaction:"atomic"});
   return NextResponse.json({ok:true});
 }
