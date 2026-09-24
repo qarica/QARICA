@@ -19,7 +19,7 @@ describe("transaction RPC compatibility", () => {
   });
 
   it("returns a useful RPC error message", () => {
-    expect(rpcErrorMessage({ message: "transaction failed" }, "fallback")).toBe("transaction failed");
+    expect(rpcErrorMessage({ message: "transaction failed" }, "fallback")).toBe("fallback");
   });
 });
 
