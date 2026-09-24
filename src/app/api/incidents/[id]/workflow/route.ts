@@ -182,6 +182,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
   } else return NextResponse.json({ error: "Thao tác sự cố không hợp lệ." }, { status: 400 });
 
-  await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "incidents", row_id: incident.id, action_type: `INCIDENT_${command}`, old_value: { workflow_status: oldStatus }, new_value: { workflow_status: newStatus }, reason, request_meta: { source: "qlcl-ui", sensitive: true } });
-  return NextResponse.json({ ok: true, status: newStatus, message, transaction: "direct" });
 }
