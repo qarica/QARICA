@@ -79,7 +79,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { data: rca, error: rcaError } = await supabase
     .from("rca_analyses")
-    .select("id,method,status,started_at,completed_at,conclusion")
+    .select("id,method,status,started_at,completed_at,conclusion,revision")
     .eq("incident_id", incident.id)
     .maybeSingle();
 
@@ -91,6 +91,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       required: !!incident.rca_required,
       editable: record.lifecycle_status === "ACTIVE" && incident.workflow_status === "INVESTIGATING" && (!!canInvestigate || !!canTriage),
       status: "NOT_STARTED",
+      revision: 0,
       ready: false,
       timeline: [],
       five_whys: [],
@@ -132,6 +133,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     started_at: rca.started_at,
     completed_at: rca.completed_at,
     conclusion: rca.conclusion,
+    revision: Number(rca.revision || 0),
     ready,
     timeline,
     five_whys: fiveWhys,
@@ -165,6 +167,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const rawWhys: WhyInput[] = Array.isArray(body.five_whys) ? body.five_whys : [];
   const rawFishbone: FishboneInput[] = Array.isArray(body.fishbone) ? body.fishbone : [];
   const rawRoots: RootCauseInput[] = Array.isArray(body.root_causes) ? body.root_causes : [];
+  const expectedRevision = Number(body.expected_revision);
 
   const timeline = rawTimeline
     .map((row) => ({
@@ -213,19 +216,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const invalidRoot = rootCauses.find((row) => row.category_code && !FACTOR_CODES.has(row.category_code));
   if (invalidRoot) return NextResponse.json({ error: `Nhóm nguyên nhân gốc không hợp lệ: ${invalidRoot.category_code}` }, { status: 400 });
+  if (!Number.isInteger(expectedRevision) || expectedRevision < 0) return NextResponse.json({ error: "Thiếu phiên bản RCA hợp lệ. Hãy tải lại hồ sơ." }, { status: 409 });
 
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc("qlcl_save_incident_rca_structure_v1", {
+  const { data, error } = await admin.rpc("qlcl_save_incident_rca_structure_v2", {
     p_incident_record_id: recordId,
     p_actor_user_id: auth.user.id,
     p_timeline: timeline,
     p_five_whys: fiveWhys,
     p_fishbone: fishbone,
     p_root_causes: rootCauses,
+    p_expected_revision: expectedRevision,
   });
 
   if (error) {
-    const status = /not active|does not require RCA|only be edited|not found/i.test(error.message || "") ? 409 : 400;
+    const status = /đã được người khác cập nhật|đã thay đổi|phiên làm việc khác|not active|does not require RCA|only be edited|not found/i.test(error.message || "") ? 409 : 400;
     return NextResponse.json({ error: error.message }, { status });
   }
 
