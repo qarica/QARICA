@@ -37,6 +37,12 @@ function dueBeforeToday(date: unknown, today: string) {
   return String(date).slice(0, 10) < today;
 }
 
+function severityLabel(severity: Recommendation["severity"]) {
+  if (severity === "critical") return "Nghiêm trọng";
+  if (severity === "warning") return "Cần chú ý";
+  return "Tham khảo";
+}
+
 function scoreLabel(score: number | null) {
   if (score === null) return "Chưa đủ dữ liệu";
   if (score >= 85) return "Ổn định";
@@ -438,6 +444,8 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
         .tqm-smart-action i{width:8px;height:38px;border-radius:999px;background:#2563eb}
         .tqm-smart-action.critical i{background:#dc2626}.tqm-smart-action.warning i{background:#d97706}
         .tqm-smart-action strong{display:block;font-size:11px}.tqm-smart-action span{display:block;color:#6b7d83;font-size:9.5px;margin-top:3px;line-height:1.4}
+        .tqm-smart-action-severity{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:800;color:#1d4ed8;margin-bottom:4px}
+        .tqm-smart-action.critical .tqm-smart-action-severity{color:#a72b35}.tqm-smart-action.warning .tqm-smart-action-severity{color:#9a5a05}
         .tqm-smart-empty{padding:14px;border:1px dashed #cbd7da;border-radius:12px;color:#6b7d83;font-size:11px;text-align:center}
         .tqm-smart-error{padding:10px 12px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a4b0a;font-size:10px}
         @media(max-width:980px){.tqm-smart-head{grid-template-columns:1fr}.tqm-pillar-grid{grid-template-columns:1fr 1fr}}
@@ -516,6 +524,7 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
             <div className={`tqm-smart-action ${item.severity}`} key={item.key}>
               <i />
               <div>
+                <span className="tqm-smart-action-severity">{severityLabel(item.severity)}</span>
                 <strong>{item.title}</strong>
                 <span>{item.detail}</span>
               </div>
