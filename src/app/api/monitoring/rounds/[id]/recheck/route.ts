@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
+import { safeImageMimeType } from "@/lib/evidence-file-policy";
 
 export const runtime = "nodejs";
 const MAX_IMAGE_SIZE = 12 * 1024 * 1024;
@@ -63,14 +64,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const uploadedArtifacts: UploadedArtifact[] = [];
   for (const meta of images) {
     const file = formData.get(meta.key);
-    if (!(file instanceof File) || !file.type.startsWith("image/") || file.size <= 0 || file.size > MAX_IMAGE_SIZE) continue;
+    const safeMimeType = file instanceof File ? safeImageMimeType(file.type) : null;
+    if (!(file instanceof File) || !safeMimeType || file.size <= 0 || file.size > MAX_IMAGE_SIZE) continue;
     const evidenceId = randomUUID();
     const storedName = safeName(file.name || "photo.jpg");
     const bucket = "qlcl-evidence";
     const path = `${caller.organization_id}/${round.record_id}/monitoring/${round.id}/recheck/${meta.response_id}/${evidenceId}/${storedName}`;
-    const { error: evidenceError } = await admin.from("evidence").insert({ id: evidenceId, organization_id: caller.organization_id, title: "5S · Ảnh sau khắc phục", evidence_type: "FILE", original_file_name: file.name || storedName, stored_file_name: storedName, mime_type: file.type || "image/jpeg", file_size: file.size, storage_bucket: bucket, storage_path: path, owner_department_id: record.owner_department_id, validity_status: "PENDING", uploaded_by: auth.user.id });
+    const { error: evidenceError } = await admin.from("evidence").insert({ id: evidenceId, organization_id: caller.organization_id, title: "5S · Ảnh sau khắc phục", evidence_type: "FILE", original_file_name: file.name || storedName, stored_file_name: storedName, mime_type: safeMimeType, file_size: file.size, storage_bucket: bucket, storage_path: path, owner_department_id: record.owner_department_id, validity_status: "PENDING", uploaded_by: auth.user.id });
     if (evidenceError) continue;
-    const { error: uploadError } = await admin.storage.from(bucket).upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type || "image/jpeg", upsert: false });
+    const { error: uploadError } = await admin.storage.from(bucket).upload(path, Buffer.from(await file.arrayBuffer()), { contentType: safeMimeType, upsert: false });
     if (uploadError) { await admin.from("evidence").delete().eq("id", evidenceId); continue; }
     uploadedArtifacts.push({ evidenceId, bucket, path });
     const descriptor = { evidence_id: evidenceId, captured_at: meta.captured_at || null, server_received_at: new Date().toISOString(), latitude: meta.latitude ?? null, longitude: meta.longitude ?? null, accuracy: meta.accuracy ?? null, source: meta.source || "upload", stage: "AFTER" };

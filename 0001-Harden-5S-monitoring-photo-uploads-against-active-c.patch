@@ -1,0 +1,124 @@
+From ba8e292c09222fb5feacb9f12df6551ee9d80695 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 24 Sep 2026 13:02:54 +0000
+Subject: [PATCH] Harden 5S monitoring photo uploads against active-content XSS
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The tasks/evidence upload route (PR #316) and the general evidence
+download path were already fixed to stop trusting client-declared
+MIME type, but two related routes were missed: the 5S checklist
+"before" photo upload (monitoring/rounds/5s) and the "after" photo
+upload on recheck (monitoring/rounds/[id]/recheck). Both accepted
+any file whose client-reported file.type merely started with
+"image/" and then stored that same client-declared value as both
+the DB mime_type and the Supabase storage contentType.
+
+image/svg+xml passes that prefix check, and SVG can embed <script>
+that browsers execute when the file is opened directly — the same
+stored-XSS class already fixed elsewhere for evidence uploads.
+
+Add safeImageMimeType() to evidence-file-policy.ts: an explicit
+allowlist of 4 raster MIME types (jpeg/png/webp/gif), rejecting
+svg+xml and anything else. Wire it into both 5S upload routes in
+place of the spoofable startsWith("image/") check and the
+client-echoed contentType/mime_type values.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015hVLqLVBtySF3HPQDPQvMw
+---
+ src/app/api/monitoring/rounds/5s/route.ts           |  8 +++++---
+ src/app/api/monitoring/rounds/[id]/recheck/route.ts |  8 +++++---
+ src/lib/evidence-file-policy.ts                     | 13 +++++++++++++
+ 3 files changed, 23 insertions(+), 6 deletions(-)
+
+diff --git a/src/app/api/monitoring/rounds/5s/route.ts b/src/app/api/monitoring/rounds/5s/route.ts
+index 83ff5f1..c21cde2 100644
+--- a/src/app/api/monitoring/rounds/5s/route.ts
++++ b/src/app/api/monitoring/rounds/5s/route.ts
+@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
+ import { NextResponse } from "next/server";
+ import { requireApiPermission } from "@/lib/api-auth";
+ import { createAdminClient } from "@/lib/supabase/admin";
++import { safeImageMimeType } from "@/lib/evidence-file-policy";
+ 
+ export const runtime = "nodejs";
+ const SOURCE_CODE = "BK01.V1_QLCL.QĐ.06";
+@@ -93,7 +94,8 @@ export async function POST(request: Request) {
+   const imageLists = new Map<string, any[]>();
+   for (const meta of images) {
+     const file = formData.get(meta.key);
+-    if (!(file instanceof File) || !file.type.startsWith("image/") || file.size <= 0 || file.size > MAX_IMAGE_SIZE) continue;
++    const safeMimeType = file instanceof File ? safeImageMimeType(file.type) : null;
++    if (!(file instanceof File) || !safeMimeType || file.size <= 0 || file.size > MAX_IMAGE_SIZE) continue;
+     const response = responseByItem.get(meta.item_id);
+     if (!response) continue;
+     const evidenceId = randomUUID();
+@@ -101,9 +103,9 @@ export async function POST(request: Request) {
+     const bucket = "qlcl-evidence";
+     const path = `${caller.organization_id}/${record.id}/monitoring/${round.id}/${meta.item_id}/${evidenceId}/${storedName}`;
+     const item = (items ?? []).find((x) => x.id === meta.item_id);
+-    const { error: evidenceError } = await admin.from("evidence").insert({ id: evidenceId, organization_id: caller.organization_id, title: `5S · Ảnh ban đầu · ${item?.content || "Tiêu chí"}`, evidence_type: "FILE", original_file_name: file.name || storedName, stored_file_name: storedName, mime_type: file.type || "image/jpeg", file_size: file.size, storage_bucket: bucket, storage_path: path, owner_department_id: template.owner_department_id, validity_status: "PENDING", uploaded_by: auth.user.id });
++    const { error: evidenceError } = await admin.from("evidence").insert({ id: evidenceId, organization_id: caller.organization_id, title: `5S · Ảnh ban đầu · ${item?.content || "Tiêu chí"}`, evidence_type: "FILE", original_file_name: file.name || storedName, stored_file_name: storedName, mime_type: safeMimeType, file_size: file.size, storage_bucket: bucket, storage_path: path, owner_department_id: template.owner_department_id, validity_status: "PENDING", uploaded_by: auth.user.id });
+     if (evidenceError) continue;
+-    const { error: uploadError } = await admin.storage.from(bucket).upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type || "image/jpeg", upsert: false });
++    const { error: uploadError } = await admin.storage.from(bucket).upload(path, Buffer.from(await file.arrayBuffer()), { contentType: safeMimeType, upsert: false });
+     if (uploadError) { await admin.from("evidence").delete().eq("id", evidenceId); continue; }
+     const descriptor = { evidence_id: evidenceId, captured_at: meta.captured_at || null, server_received_at: new Date().toISOString(), latitude: meta.latitude ?? null, longitude: meta.longitude ?? null, accuracy: meta.accuracy ?? null, source: meta.source || "upload", stage: "INITIAL" };
+     imageLists.set(meta.item_id, [...(imageLists.get(meta.item_id) || []), descriptor]);
+diff --git a/src/app/api/monitoring/rounds/[id]/recheck/route.ts b/src/app/api/monitoring/rounds/[id]/recheck/route.ts
+index a3f7cff..ab9e0f9 100644
+--- a/src/app/api/monitoring/rounds/[id]/recheck/route.ts
++++ b/src/app/api/monitoring/rounds/[id]/recheck/route.ts
+@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
+ import { requireApiPermission } from "@/lib/api-auth";
+ import { createAdminClient } from "@/lib/supabase/admin";
+ import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
++import { safeImageMimeType } from "@/lib/evidence-file-policy";
+ 
+ export const runtime = "nodejs";
+ const MAX_IMAGE_SIZE = 12 * 1024 * 1024;
+@@ -63,14 +64,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
+   const uploadedArtifacts: UploadedArtifact[] = [];
+   for (const meta of images) {
+     const file = formData.get(meta.key);
+-    if (!(file instanceof File) || !file.type.startsWith("image/") || file.size <= 0 || file.size > MAX_IMAGE_SIZE) continue;
++    const safeMimeType = file instanceof File ? safeImageMimeType(file.type) : null;
++    if (!(file instanceof File) || !safeMimeType || file.size <= 0 || file.size > MAX_IMAGE_SIZE) continue;
+     const evidenceId = randomUUID();
+     const storedName = safeName(file.name || "photo.jpg");
+     const bucket = "qlcl-evidence";
+     const path = `${caller.organization_id}/${round.record_id}/monitoring/${round.id}/recheck/${meta.response_id}/${evidenceId}/${storedName}`;
+-    const { error: evidenceError } = await admin.from("evidence").insert({ id: evidenceId, organization_id: caller.organization_id, title: "5S · Ảnh sau khắc phục", evidence_type: "FILE", original_file_name: file.name || storedName, stored_file_name: storedName, mime_type: file.type || "image/jpeg", file_size: file.size, storage_bucket: bucket, storage_path: path, owner_department_id: record.owner_department_id, validity_status: "PENDING", uploaded_by: auth.user.id });
++    const { error: evidenceError } = await admin.from("evidence").insert({ id: evidenceId, organization_id: caller.organization_id, title: "5S · Ảnh sau khắc phục", evidence_type: "FILE", original_file_name: file.name || storedName, stored_file_name: storedName, mime_type: safeMimeType, file_size: file.size, storage_bucket: bucket, storage_path: path, owner_department_id: record.owner_department_id, validity_status: "PENDING", uploaded_by: auth.user.id });
+     if (evidenceError) continue;
+-    const { error: uploadError } = await admin.storage.from(bucket).upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type || "image/jpeg", upsert: false });
++    const { error: uploadError } = await admin.storage.from(bucket).upload(path, Buffer.from(await file.arrayBuffer()), { contentType: safeMimeType, upsert: false });
+     if (uploadError) { await admin.from("evidence").delete().eq("id", evidenceId); continue; }
+     uploadedArtifacts.push({ evidenceId, bucket, path });
+     const descriptor = { evidence_id: evidenceId, captured_at: meta.captured_at || null, server_received_at: new Date().toISOString(), latitude: meta.latitude ?? null, longitude: meta.longitude ?? null, accuracy: meta.accuracy ?? null, source: meta.source || "upload", stage: "AFTER" };
+diff --git a/src/lib/evidence-file-policy.ts b/src/lib/evidence-file-policy.ts
+index 240af32..3c25ce8 100644
+--- a/src/lib/evidence-file-policy.ts
++++ b/src/lib/evidence-file-policy.ts
+@@ -37,3 +37,16 @@ export function evidenceInlineSafe(fileName: string, storedMimeType?: string | n
+   const expected = policy.mimeType.split(";")[0].trim().toLowerCase();
+   return actual === expected;
+ }
++
++// Raster-only allowlist for photo-capture uploads (5S checklist ảnh trước/sau
++// khắc phục). Trước đây các route này chỉ kiểm tra file.type.startsWith("image/")
++// do CLIENT tự khai và lưu thẳng giá trị đó làm Content-Type khi phục vụ —
++// "image/svg+xml" cũng khớp điều kiện này nhưng SVG có thể chứa <script> và
++// trình duyệt thực thi khi mở trực tiếp (stored XSS). Chỉ chấp nhận các mime
++// type ảnh raster cụ thể, không suy diễn/khớp tiền tố.
++const SAFE_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
++
++export function safeImageMimeType(mimeType: string | null | undefined): string | null {
++  const normalized = String(mimeType || "").split(";")[0].trim().toLowerCase();
++  return SAFE_IMAGE_MIME_TYPES.has(normalized) ? normalized : null;
++}
+-- 
+2.43.0
+

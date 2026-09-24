@@ -37,3 +37,16 @@ export function evidenceInlineSafe(fileName: string, storedMimeType?: string | n
   const expected = policy.mimeType.split(";")[0].trim().toLowerCase();
   return actual === expected;
 }
+
+// Raster-only allowlist for photo-capture uploads (5S checklist ảnh trước/sau
+// khắc phục). Trước đây các route này chỉ kiểm tra file.type.startsWith("image/")
+// do CLIENT tự khai và lưu thẳng giá trị đó làm Content-Type khi phục vụ —
+// "image/svg+xml" cũng khớp điều kiện này nhưng SVG có thể chứa <script> và
+// trình duyệt thực thi khi mở trực tiếp (stored XSS). Chỉ chấp nhận các mime
+// type ảnh raster cụ thể, không suy diễn/khớp tiền tố.
+const SAFE_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+export function safeImageMimeType(mimeType: string | null | undefined): string | null {
+  const normalized = String(mimeType || "").split(";")[0].trim().toLowerCase();
+  return SAFE_IMAGE_MIME_TYPES.has(normalized) ? normalized : null;
+}
