@@ -39,7 +39,7 @@ export async function GET(request:Request){
 export async function POST(request:Request){
  const body=await request.json();const recordType=String(body.record_type||"").toUpperCase();if(!SUPPORTED.has(recordType))return NextResponse.json({error:"Loại hồ sơ chưa hỗ trợ."},{status:400});const ctx=await context(recordType);if(!ctx.ok)return ctx.response;const {admin,caller,user}=ctx;
  const title=String(body.title||"").trim();const workYear=Number(body.work_year);const f=(body.fields||{}) as Record<string,unknown>;if(!title)return NextResponse.json({error:"Tên hồ sơ là bắt buộc."},{status:400});if(!Number.isInteger(workYear)||workYear<2000||workYear>2200)return NextResponse.json({error:"Năm làm việc không hợp lệ."},{status:400});
- let ownerDepartmentId=text(body.owner_primary_department_id);let ownerUserId=text(body.owner_user_id);
+ let ownerDepartmentId=text(body.owner_department_id)||text(body.owner_primary_department_id);let ownerUserId=text(body.owner_user_id);
  if(recordType==="INCIDENT")ownerDepartmentId=text(f.incident_location_primary_department_id)||caller.primary_department_id||null;
  if(recordType==="INDICATOR_MEASUREMENT"){
   const assignmentId=text(f.indicator_assignment_id);if(!assignmentId)return NextResponse.json({error:"Cần chọn chỉ số được phân công."},{status:400});const {data:a}=await admin.from("indicator_assignments").select("id,primary_department_id,collector_user_id,work_year,status").eq("id",assignmentId).eq("work_year",workYear).maybeSingle();if(!a||a.status!=="ACTIVE")return NextResponse.json({error:"Phân công chỉ số không hợp lệ hoặc không còn hoạt động."},{status:400});ownerDepartmentId=a.department_id;ownerUserId=a.collector_user_id||user.id;
