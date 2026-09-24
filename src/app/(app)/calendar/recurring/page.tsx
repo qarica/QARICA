@@ -79,7 +79,11 @@ export default async function RecurringWorkPage() {
         ? (template.assignee_group_id ? groupMap.get(template.assignee_group_id) || null : null)
         : (template.assignee_user_id ? profileMap.get(template.assignee_user_id) || null : null),
       generated_count: runs.filter((run: any) => !!run.generated_action_id).length,
-      pending_count: runs.filter((run: any) => !run.generated_action_id && String(run.status || "").toUpperCase() === "PENDING").length,
+      pending_count: runs.filter((run: any) => {
+        if (run.generated_action_id) return false;
+        const status = String(run.status || "").toUpperCase();
+        return template.automation_kind === "REMINDER" ? ["PLANNED","PENDING"].includes(status) : status === "PENDING";
+      }).length,
       latest_planned_date: runs[0]?.planned_date || null,
     };
   });
@@ -88,7 +92,7 @@ export default async function RecurringWorkPage() {
     <PageHeader
       eyebrow="LỊCH CÔNG TÁC QLCL · ENGINE ĐỊNH KỲ"
       title="Công việc định kỳ"
-      description="Định nghĩa một lần các công việc lặp ngày/tuần/tháng/quý/năm; hệ thống sinh Action thật theo kỳ, gắn người phụ trách, hạn và minh chứng mà không tạo trùng."
+      description="Định nghĩa một lần lịch lặp ngày/tuần/tháng/quý/năm. REMINDER chỉ tạo mốc nhắc việc trên lịch; ACTION/MONITORING/REPORT mới sinh hồ sơ nghiệp vụ tương ứng."
       actions={<Link className="button secondary" href="/calendar">← Lịch công tác QLCL</Link>}
     />
 
