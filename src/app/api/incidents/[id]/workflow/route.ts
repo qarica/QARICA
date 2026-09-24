@@ -32,7 +32,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (error || !incident) return NextResponse.json({ error: error?.message || "Không tìm thấy dữ liệu sự cố." }, { status: 404 });
 
   const oldStatus = String(incident.workflow_status || "REPORTED");
-  const now = new Date().toISOString();
   let newStatus = oldStatus;
   let reason = String(body.comment || "").trim() || null;
   let message = "Đã cập nhật sự cố.";
@@ -45,16 +44,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (reasonCode === "OTHER" && !note) return NextResponse.json({ error: "Lý do \"Khác\" cần ghi rõ nội dung." }, { status: 400 });
     const REASON_LABEL: Record<string, string> = { DUPLICATE: "Trùng lặp với báo cáo khác", INSUFFICIENT_INFO: "Không đủ thông tin để xác minh dù đã liên hệ", NOT_A_MEDICAL_INCIDENT: "Không phải sự cố y khoa (hiểu lầm/ngoài phạm vi)", OTHER: "Khác" };
     reason = `${REASON_LABEL[reasonCode]}${note ? `: ${note}` : ""}`;
-    newStatus = "REJECTED";
-    const { error: updateError } = await admin.from("incidents").update({ workflow_status: newStatus, case_owner_user_id: auth.user.id, closed_at: now, updated_at: now }).eq("id", incident.id);
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
-    const { error: recordError } = await admin.from("records").update({ lifecycle_status: "CLOSED", closed_at: now, updated_at: now }).eq("id", recordId);
-    if (recordError) {
-      await admin.from("incidents").update({ workflow_status: oldStatus, closed_at: null, updated_at: now }).eq("id", incident.id);
-      return NextResponse.json({ error: recordError.message }, { status: 400 });
-    }
-    await admin.from("record_status_history").insert({ record_id: recordId, old_status: "ACTIVE", new_status: "CLOSED", changed_by: auth.user.id, reason });
-    message = "Đã từ chối -- hồ sơ đóng ngay, lý do được lưu lại đầy đủ.";
+    const { data: tx, error: txError } = await admin.rpc("qlcl_reject_incident_v1", { p_incident_record_id: recordId, p_actor_user_id: auth.user.id, p_reason: reason });
+    if (txError) return NextResponse.json({ error: rpcErrorMessage(txError, "Không thể từ chối sự cố.") }, { status: 409 });
+    return NextResponse.json({ ok: true, status: "REJECTED", message: "Đã từ chối -- hồ sơ đóng ngay, lý do được lưu lại đầy đủ.", transaction: "atomic", result: tx });
   } else if (command === "TRIAGE") {
     if (!["REPORTED", "RETURNED"].includes(oldStatus)) return NextResponse.json({ error: "Sự cố không ở bước tiếp nhận/xác minh." }, { status: 409 });
     const description = String(body.verified_description || "").trim();
@@ -77,26 +69,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!originalInitialResponse && !existingVerifiedResponse && !verifiedInitialResponse) {
       return NextResponse.json({ error: "Cần ghi nhận xử trí tức thời hoặc ghi rõ không áp dụng trước khi hoàn tất xác minh." }, { status: 400 });
     }
+    const { data: tx, error: txError } = await admin.rpc("qlcl_triage_incident_v1", { p_incident_record_id: recordId, p_actor_user_id: auth.user.id, p_description: description, p_harm: harm, p_serious: serious, p_investigation_required: investigate, p_rca_required: rca, p_verified_initial_response: verifiedInitialResponse || null, p_reason: reason });
+    if (txError) return NextResponse.json({ error: rpcErrorMessage(txError, "Không thể xác minh/phân loại sự cố.") }, { status: 409 });
     newStatus = investigate ? "INVESTIGATION_REQUIRED" : "TRIAGED";
-    const triageUpdate: Record<string, unknown> = {
-      verified_description: description,
-      harm_status: harm,
-      serious_event_flag: serious,
-      investigation_required: investigate,
-      rca_required: rca,
-      workflow_status: newStatus,
-      case_owner_user_id: auth.user.id,
-      updated_at: now,
-    };
-    if (verifiedInitialResponse) {
-      triageUpdate.verified_initial_response = verifiedInitialResponse;
-      triageUpdate.verified_initial_response_by = auth.user.id;
-      triageUpdate.verified_initial_response_at = now;
-    }
-    const { error: updateError } = await admin.from("incidents").update(triageUpdate).eq("id", incident.id);
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
-    reason = reason || `Phân loại ${harm}; điều tra=${investigate}; RCA=${rca}; xử trí tức thời=${originalInitialResponse || existingVerifiedResponse || verifiedInitialResponse ? "đã ghi nhận" : "thiếu"}.`;
     message = investigate ? "Đã xác minh; sự cố cần điều tra." : "Đã xác minh và phân loại sự cố.";
+    return NextResponse.json({ ok: true, status: newStatus, message, transaction: "atomic", result: tx });
   } else if (command === "START_INVESTIGATION") {
     if (oldStatus !== "INVESTIGATION_REQUIRED") return NextResponse.json({ error: "Sự cố chưa ở bước cần điều tra." }, { status: 409 });
     const type = String(body.investigation_type || "").trim();
@@ -205,6 +182,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
   } else return NextResponse.json({ error: "Thao tác sự cố không hợp lệ." }, { status: 400 });
 
-  await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, record_id: recordId, table_name: "incidents", row_id: incident.id, action_type: `INCIDENT_${command}`, old_value: { workflow_status: oldStatus }, new_value: { workflow_status: newStatus }, reason, request_meta: { source: "qlcl-ui", sensitive: true } });
-  return NextResponse.json({ ok: true, status: newStatus, message, transaction: "direct" });
 }
