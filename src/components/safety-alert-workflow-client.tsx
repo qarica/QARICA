@@ -14,7 +14,7 @@ function localDateTimeValue(value: string | null) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function SafetyAlertWorkflowClient({ recordId, status, canInvestigate, canApprove, contentReady, evidence, expiresAt }: { recordId: string; status: string; canInvestigate: boolean; canApprove: boolean; contentReady: boolean; evidence: number; expiresAt: string | null }) {
+export function SafetyAlertWorkflowClient({ recordId, status, canEdit, canPublish, contentReady, evidence, expiresAt }: { recordId: string; status: string; canEdit: boolean; canPublish: boolean; contentReady: boolean; evidence: number; expiresAt: string | null }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -28,7 +28,7 @@ export function SafetyAlertWorkflowClient({ recordId, status, canInvestigate, ca
   const [reviewNote, setReviewNote] = useState("");
 
   const loadContent = useCallback(async () => {
-    if (!canInvestigate) return;
+    if (!canEdit && !canPublish) return;
     setLoading(true);
     try {
       const response = await fetch(`/api/safety-alerts/${recordId}/content`, { cache: "no-store" });
@@ -43,7 +43,7 @@ export function SafetyAlertWorkflowClient({ recordId, status, canInvestigate, ca
     } finally {
       setLoading(false);
     }
-  }, [canInvestigate, recordId]);
+  }, [canEdit, canPublish, recordId]);
 
   useEffect(() => { void loadContent(); }, [loadContent]);
 
@@ -89,7 +89,7 @@ export function SafetyAlertWorkflowClient({ recordId, status, canInvestigate, ca
         <div><strong>{expiresAt ? new Date(expiresAt).toLocaleDateString("vi-VN") : "—"}</strong><span>Hết hiệu lực</span></div>
       </div>
 
-      {status === "DRAFT" && canInvestigate ? <form onSubmit={saveDraft} className="domain-detail-grid">
+      {status === "DRAFT" && canEdit ? <form onSubmit={saveDraft} className="domain-detail-grid">
         <div className="wide alert" style={{ fontSize: 12 }}>Bản Nháp — kể cả nội dung vừa bị trả lại — được phép chỉnh sửa. Khi đã gửi rà soát hoặc phát hành, nội dung được khóa để bảo toàn dấu vết.</div>
         <label className="wide">Tóm tắt sự việc / nguy cơ *<DictationTextarea rows={3} value={summary} onValueChange={setSummary} placeholder="Mô tả ngắn, không định danh người bệnh nếu không cần thiết." /></label>
         <label className="wide">Bài học an toàn *<DictationTextarea rows={4} value={lesson} onValueChange={setLesson} placeholder="Điều hệ thống cần ghi nhớ từ sự việc hoặc nguy cơ." /></label>
@@ -98,9 +98,9 @@ export function SafetyAlertWorkflowClient({ recordId, status, canInvestigate, ca
         <button className="button secondary" disabled={busy || loading}>Lưu nội dung nháp</button>
       </form> : null}
 
-      {status === "DRAFT" && canInvestigate ? <button className="button primary" disabled={busy || loading || !draftReady} onClick={() => void run("SUBMIT_REVIEW")}>Gửi rà soát nội dung</button> : null}
-      {status === "REVIEWING" && canApprove ? <><button className="button primary" disabled={busy || evidence < 1} onClick={() => openReview("PUBLISH")}>Phát hành cảnh báo</button><button className="button secondary" disabled={busy} onClick={() => openReview("RETURN")}>Trả lại chỉnh sửa</button></> : null}
-      {status === "PUBLISHED" && canApprove ? <button className="button secondary" disabled={busy} onClick={() => openReview("ARCHIVE")}>Lưu hết hiệu lực</button> : null}
+      {status === "DRAFT" && canEdit ? <button className="button primary" disabled={busy || loading || !draftReady} onClick={() => void run("SUBMIT_REVIEW")}>Gửi rà soát nội dung</button> : null}
+      {status === "REVIEWING" && canPublish ? <><button className="button primary" disabled={busy || evidence < 1} onClick={() => openReview("PUBLISH")}>Phát hành cảnh báo</button><button className="button secondary" disabled={busy} onClick={() => openReview("RETURN")}>Trả lại chỉnh sửa</button></> : null}
+      {status === "PUBLISHED" && canPublish ? <button className="button secondary" disabled={busy} onClick={() => openReview("ARCHIVE")}>Lưu hết hiệu lực</button> : null}
       {reviewAction ? <div className="page-stack"><label>{reviewAction === "PUBLISH" ? "Kết luận phê duyệt phát hành" : reviewAction === "RETURN" ? "Lý do trả lại chỉnh sửa" : "Lý do lưu hết hiệu lực/thay thế"} *<DictationTextarea rows={3} value={reviewNote} onValueChange={setReviewNote} disabled={busy} /></label><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button type="button" className="button secondary" disabled={busy} onClick={() => { setReviewAction(null); setReviewNote(""); }}>Hủy</button><button type="button" className="button primary" disabled={busy || !reviewNote.trim()} onClick={() => void run(reviewAction, reviewNote.trim())}>Xác nhận</button></div></div> : null}
     </div>
   </section>;
