@@ -62,7 +62,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     admin.from("profiles").select("organization_id,is_active").eq("user_id", auth.user.id).maybeSingle(),
     admin.from("departments").select("id,organization_id,is_active").eq("id", leadDepartmentId).maybeSingle(),
   ]);
-  if (callerError || !caller?.organization_id || !caller.is_active || caller.organization_id !== visibleRecord.organization_id) return NextResponse.json({ error: callerError?.message || "Tài khoản hoặc phạm vi bệnh viện không hợp lệ." }, { status: 403 });
+  if (callerError || !caller?.organization_id || !caller.is_active || caller.organization_id !== visibleRecord.organization_id) return NextResponse.json({ error: callerError?.message || "Tài khoản hoặc phạm vi tổ chức không hợp lệ." }, { status: 403 });
   if (!department?.is_active || department.organization_id !== caller.organization_id) return NextResponse.json({ error: "Khoa/phòng phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
   if (assignmentTargetType === "USER") {
     const { data: assignee } = await admin.from("profiles").select("user_id,organization_id,is_active").eq("user_id", assigneeUserId).maybeSingle();
