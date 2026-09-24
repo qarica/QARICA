@@ -10,6 +10,7 @@ function hcmToday() {
 export async function POST(request: Request) {
   const auth = await requireApiPermission("indicators.enter");
   if (!auth.ok) return auth.response;
+  const actorUserId = actorUserId;
 
   const body = await request.json().catch(() => ({}));
   const today = hcmToday();
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
   const { data: caller, error: callerError } = await admin
     .from("profiles")
     .select("organization_id")
-    .eq("user_id", auth.user.id)
+    .eq("user_id", actorUserId)
     .eq("is_active", true)
     .maybeSingle();
   if (callerError || !caller?.organization_id) {
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
       owner_department_id: assignment.department_id,
       owner_user_id: assignment.collector_user_id,
       lifecycle_status: "ACTIVE",
-      created_by: auth.user.id,
+      created_by: actorUserId,
       metadata: {
         origin: "INDICATOR_PERIOD_AUTOMATION",
         indicator_assignment_id: assignment.id,
@@ -173,7 +174,7 @@ export async function POST(request: Request) {
       }));
     }
     sideEffects.push(admin.from("audit_logs").insert({
-      actor_user_id: auth.user.id,
+      actor_user_id: actorUserId,
       record_id: record.id,
       table_name: "indicator_measurements",
       row_id: measurement.id,
