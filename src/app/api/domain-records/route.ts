@@ -13,7 +13,7 @@ async function context(recordType:string){
  let can=!!allowed;if(recordType==="INCIDENT"&&!can){const {data:r}=await supabase.rpc("has_permission",{p_permission_code:"incident.report"});can=!!r;}
  if(!can)return {ok:false as const,response:NextResponse.json({error:"Bạn không có quyền tạo hồ sơ này."},{status:403})};
  const admin=createAdminClient();const {data:caller}=await admin.from("profiles").select("organization_id,is_active,full_name,primary_department_id").eq("user_id",user.id).maybeSingle();
- if(!caller?.organization_id||!caller.is_active)return {ok:false as const,response:NextResponse.json({error:"Tài khoản chưa gắn bệnh viện hoặc đã ngưng hoạt động."},{status:403})};
+ if(!caller?.organization_id||!caller.is_active)return {ok:false as const,response:NextResponse.json({error:"Tài khoản chưa gắn tổ chức hoặc đã ngưng hoạt động."},{status:403})};
  return {ok:true as const,user,admin,caller};
 }
 
