@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { booleanValue, canEditQualityRecord, CAPA_EDIT_PRIORITIES, cleanOptionalText, cleanRequiredText } from "@/lib/quality-record-edit";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -91,42 +92,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     };
   }
 
-  const oldDomain = { ...row };
-  const oldRecord = { title: record.title };
-  const { error: domainError } = await admin.from(table).update(patch).eq("id", row.id);
-  if (domainError) return NextResponse.json({ error: domainError.message }, { status: 400 });
-
-  const { error: recordError } = await admin.from("records").update({ title, updated_at: now }).eq("id", recordId);
-  if (recordError) {
-    const rollback: Record<string, unknown> = {};
-    for (const key of Object.keys(patch)) if (key !== "updated_at") rollback[key] = oldDomain[key];
-    rollback.updated_at = oldDomain.updated_at || now;
-    await admin.from(table).update(rollback).eq("id", row.id);
-    return NextResponse.json({ error: recordError.message }, { status: 400 });
-  }
-
-  const newValue = { title, ...patch };
-  const oldValue: Record<string, unknown> = { ...oldRecord };
-  for (const key of Object.keys(patch)) if (key !== "updated_at") oldValue[key] = oldDomain[key];
-  const { error: auditError } = await admin.from("audit_logs").insert({
-    actor_user_id: user.id,
-    record_id: recordId,
-    table_name: table,
-    row_id: row.id,
-    action_type: `${recordType}_CONTENT_EDIT`,
-    old_value: oldValue,
-    new_value: newValue,
-    reason: cleanOptionalText(body.reason) || "Chỉnh sửa nội dung hồ sơ trong giai đoạn cho phép.",
-    request_meta: { source: "qlcl-ui", edit_guard: row.workflow_status },
+  const { data: tx, error: txError } = await admin.rpc("qlcl_update_quality_record_content_v1", {
+    p_record_id: recordId,
+    p_actor_user_id: user.id,
+    p_record_type: recordType,
+    p_title: title,
+    p_patch: patch,
+    p_reason: cleanOptionalText(body.reason),
   });
-  if (auditError) {
-    const rollback: Record<string, unknown> = {};
-    for (const key of Object.keys(patch)) if (key !== "updated_at") rollback[key] = oldDomain[key];
-    rollback.updated_at = oldDomain.updated_at || now;
-    await admin.from(table).update(rollback).eq("id", row.id);
-    await admin.from("records").update({ title: record.title, updated_at: now }).eq("id", recordId);
-    return NextResponse.json({ error: `Không ghi được audit log; thay đổi đã được hoàn tác. ${auditError.message}` }, { status: 400 });
+
+  if (txError) {
+    const message = rpcErrorMessage(txError, "Không lưu được thay đổi hồ sơ.");
+    return NextResponse.json(
+      { error: message },
+      { status: /ngoài phạm vi|quyền|tài khoản.*ngưng/i.test(message) ? 403 : /không còn hoạt động|giai đoạn|DRAFT|đánh giá đầu tiên|bắt buộc|không hợp lệ/i.test(message) ? 409 : 400 },
+    );
   }
 
-  return NextResponse.json({ ok: true, message: "Đã lưu thay đổi và ghi audit trail.", status: row.workflow_status });
+  return NextResponse.json({
+    ok: true,
+    message: "Đã lưu thay đổi và ghi audit trail.",
+    status: tx?.workflow_status ?? row.workflow_status,
+    transaction: "atomic",
+  });
 }
