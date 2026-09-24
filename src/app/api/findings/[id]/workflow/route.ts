@@ -9,6 +9,7 @@ const CAPA_PRIORITIES = new Set(["NORMAL", "HIGH", "URGENT", "CRITICAL"]);
 const ACCEPT_RPC = "qlcl_accept_and_close_finding_v1";
 const RETURN_RPC = "qlcl_return_finding_v1";
 const ESCALATE_RPC = "qlcl_escalate_finding_to_capa_v1";
+const TRANSITION_RPC = "qlcl_transition_finding_v1";
 
 async function hasPermission(supabase: Awaited<ReturnType<typeof createClient>>, code: string) {
   const { data } = await supabase.rpc("has_permission", { p_permission_code: code });
@@ -172,31 +173,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Thao tác Finding không hợp lệ." }, { status: 400 });
   }
 
-  const { error: updateError } = await admin
-    .from("findings")
-    .update({ workflow_status: newStatus, updated_at: now })
-    .eq("id", findingId)
-    .eq("workflow_status", oldStatus);
-
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
-
-  const { error: auditError } = await admin.from("audit_logs").insert({
-    actor_user_id: actorUserId,
-    record_id: recordId,
-    table_name: "findings",
-    row_id: findingId,
-    action_type: `FINDING_${command}`,
-    old_value: { workflow_status: oldStatus, due_date: finding.due_date ?? null },
-    new_value: { workflow_status: newStatus },
-    reason: auditReason,
-    request_meta: { source: "qlcl-ui", transaction: "direct" },
+  const { data: tx, error: txError } = await admin.rpc(TRANSITION_RPC, {
+    p_finding_record_id: recordId,
+    p_actor_user_id: actorUserId,
+    p_command: command,
+    p_reason: auditReason,
   });
-
-  if (auditError) {
-    return NextResponse.json({
-      error: `Đã cập nhật trạng thái Finding nhưng chưa ghi được audit trail: ${auditError.message}`,
-    }, { status: 500 });
+  if (txError) {
+    const message = rpcErrorMessage(txError, "Không thể cập nhật trạng thái Finding.");
+    return NextResponse.json({ error: message }, { status: /not active|cannot|must be|not found|unsupported/i.test(message) ? 409 : 400 });
   }
 
-  return NextResponse.json({ ok: true, status: newStatus, transaction: "direct" });
+  return NextResponse.json({ ok: true, status: newStatus, transaction: "atomic", result: tx });
 }
