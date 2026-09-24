@@ -32,7 +32,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (error || !incident) return NextResponse.json({ error: error?.message || "Không tìm thấy dữ liệu sự cố." }, { status: 404 });
 
   const oldStatus = String(incident.workflow_status || "REPORTED");
-  const now = new Date().toISOString();
   let newStatus = oldStatus;
   let reason = String(body.comment || "").trim() || null;
   let message = "Đã cập nhật sự cố.";
