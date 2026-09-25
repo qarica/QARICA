@@ -21,6 +21,14 @@ hành...). Đưa thẳng những dữ liệu đó vào mã nguồn rồi đẩy 
 - Bảng chữ ký số **không có cột lưu số CCCD/CMND** — nếu thật sự cần, tự thêm
   cột đó trong Supabase với RLS chặt hơn (không nằm trong phạm vi migration này).
 
+## Về đường dẫn import
+
+Toàn bộ file trong module dùng **đường dẫn tương đối** (`../../lib/emr/...`)
+thay vì alias `@/...` — để không phụ thuộc vào việc `tsconfig.json` của
+QARICA có khai báo alias `@/*` hay không, và không quan trọng module được đặt
+ở gốc repo hay trong `src/`. Chỉ cần 3 thư mục `app/emr`, `components/emr`,
+`lib/emr` nằm **cạnh nhau** (cùng cấp) là các import sẽ đúng.
+
 ## Cài đặt
 
 1. **Copy thư mục vào repo QARICA**, giữ nguyên cấu trúc:

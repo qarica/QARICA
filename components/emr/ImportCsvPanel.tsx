@@ -5,8 +5,8 @@
 // commit vào Git. Dùng scripts/export_excel_to_csv.py để xuất CSV từ file Excel gốc.
 
 import { useState } from "react";
-import { parseCsv, csvToRecords, toBool, toIntOrNull } from "@/lib/emr/csv";
-import { emrSupabaseBrowser } from "@/lib/emr/supabase";
+import { parseCsv, csvToRecords, toBool, toIntOrNull } from "../../lib/emr/csv";
+import { emrSupabaseBrowser } from "../../lib/emr/supabase";
 
 type TargetTable =
   | "emr_forms"

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import EmrTabs from "@/components/emr/EmrTabs";
+import EmrTabs from "../../components/emr/EmrTabs";
 
 export const metadata = {
   title: "EMR Dashboard | QARICA",

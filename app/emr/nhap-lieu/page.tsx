@@ -1,4 +1,4 @@
-import ImportCsvPanel from "@/components/emr/ImportCsvPanel";
+import ImportCsvPanel from "../../../components/emr/ImportCsvPanel";
 
 export const metadata = { title: "Nhập liệu EMR | QARICA" };
 

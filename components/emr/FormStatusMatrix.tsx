@@ -3,7 +3,7 @@
 // bằng cách bấm vào ô (nếu truyền onCellClick từ component cha đã "use client").
 
 import StatusPill from "./StatusPill";
-import type { Department, DeptRolloutStatus, EmrForm } from "@/lib/emr/types";
+import type { Department, DeptRolloutStatus, EmrForm } from "../../lib/emr/types";
 
 export default function FormStatusMatrix({
   forms,

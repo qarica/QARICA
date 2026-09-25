@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { emrSupabaseBrowser } from "@/lib/emr/supabase";
-import FormStatusMatrix from "@/components/emr/FormStatusMatrix";
-import type { Department, DeptRolloutStatus, EmrForm } from "@/lib/emr/types";
+import { emrSupabaseBrowser } from "../../../lib/emr/supabase";
+import FormStatusMatrix from "../../../components/emr/FormStatusMatrix";
+import type { Department, DeptRolloutStatus, EmrForm } from "../../../lib/emr/types";
 
 const CYCLE: DeptRolloutStatus[] = [
   "Chưa triển khai",

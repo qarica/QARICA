@@ -1,7 +1,7 @@
-import { emrSupabase } from "@/lib/emr/supabase";
-import KpiCard from "@/components/emr/KpiCard";
-import DataTable from "@/components/emr/DataTable";
-import type { FormRolloutSummary, KpiSummary, OpenIssuesSummary } from "@/lib/emr/types";
+import { emrSupabase } from "../../lib/emr/supabase";
+import KpiCard from "../../components/emr/KpiCard";
+import DataTable from "../../components/emr/DataTable";
+import type { FormRolloutSummary, KpiSummary, OpenIssuesSummary } from "../../lib/emr/types";
 
 export const revalidate = 0; // luôn lấy dữ liệu mới nhất
 

@@ -1,6 +1,6 @@
-import { emrSupabase } from "@/lib/emr/supabase";
-import DataTable from "@/components/emr/DataTable";
-import StatusPill from "@/components/emr/StatusPill";
+import { emrSupabase } from "../../../lib/emr/supabase";
+import DataTable from "../../../components/emr/DataTable";
+import StatusPill from "../../../components/emr/StatusPill";
 
 export const revalidate = 0;
 
