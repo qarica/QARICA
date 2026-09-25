@@ -63,6 +63,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
   const [roots, setRoots] = useState<RootRow[]>([emptyRoot()]);
   const [editable, setEditable] = useState(false);
   const [status, setStatus] = useState("NOT_STARTED");
+  const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -93,6 +94,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
 
       setEditable(!!json.editable);
       setStatus(String(json.status || "NOT_STARTED"));
+      setRevision(Number(json.revision || 0));
 
       const loadedTimeline = Array.isArray(json.timeline) ? json.timeline.map((row: any) => ({
         event_time: localInput(row.event_time),
@@ -170,6 +172,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
       );
 
       const payload = {
+        expected_revision: revision,
         timeline: timeline
           .filter((row) => row.event_title.trim())
           .map((row) => ({
