@@ -14,6 +14,7 @@ import "./qarica-readability.css";
 import "./qarica-copy.css";
 import "./qarica-direct-navigation.css";
 import "./qms-enterprise-redesign.css";
+import "./tqm-charts.css";
 import "./mobile-responsive-fixes.css";
 
 const criticalCss=`
