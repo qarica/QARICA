@@ -1,89 +1,101 @@
-# QARICA — bàn giao vá bảo mật: upload ảnh 5S
+# EMR Rollout Dashboard — module cho QARICA
 
-## Tóm tắt tình hình 2 mục bảo mật đã báo cáo trước đó
+Menu theo dõi triển khai EMR chi tiết hơn bản Artifact web trước đó: bám theo
+đúng cấu trúc dữ liệu thật trong file dự án EMR (Timeline, danh sách biểu mẫu
+theo khoa, quy trình - tài liệu, thiết bị CNTT, thiết bị y tế/PACS-DICOM,
+chữ ký số, đào tạo - bàn giao, lỗi/góp ý) — nhưng chạy trên đúng hạ tầng
+Next.js + Supabase của QARICA, dùng chung đăng nhập, và lưu dữ liệu lâu dài
+thay vì chỉ demo.
 
-Anh nhắn "Có e làm luôn đi" cho 2 mục Cao — Bảo mật trong báo cáo rà soát.
-Khi bắt tay vào làm, em kiểm tra lại code hiện tại trên GitHub thì phát
-hiện:
+## Vì sao không có dữ liệu thật trong module này
 
-1. **IDOR trên `admin/departments/[id]` (PATCH)** — **đã được sửa sẵn**
-   trên repo (PR "Scope department admin updates to caller organization
-   #315"). Route đã lọc đúng `organization_id` ở cả bước tìm và bước cập
-   nhật. **Không cần làm gì thêm.**
+File dự án Excel gốc có dữ liệu nội bộ (họ tên nhân sự, mã HR, ghi chú vận
+hành...). Đưa thẳng những dữ liệu đó vào mã nguồn rồi đẩy lên GitHub là rủi ro,
+đặc biệt nếu repo là public. Vì vậy module này:
 
-2. **Upload minh chứng tin `mime_type` client tự khai (stored XSS)** —
-   route được nêu trong báo cáo gốc (`tasks/[id]/evidence`) **cũng đã
-   được sửa sẵn** (PR "Harden evidence uploads against active-content XSS
-   #316), dùng danh sách trắng đuôi file + mime type do SERVER quyết định.
+- Chỉ có **schema** (cấu trúc bảng) + một ít **dữ liệu mẫu tổng quát** (tên khoa,
+  loại biểu mẫu phổ biến theo Thông tư 32/2023/TT-BYT) để bạn xem giao diện.
+- Có sẵn **trang Nhập liệu** (`/emr/nhap-lieu`) và **script chuyển đổi**
+  (`scripts/export_excel_to_csv.py`) để bạn tự nhập dữ liệu thật từ máy mình
+  thẳng vào Supabase — không dữ liệu nào đi qua Claude hay nằm trong Git.
+- Bảng chữ ký số **không có cột lưu số CCCD/CMND** — nếu thật sự cần, tự thêm
+  cột đó trong Supabase với RLS chặt hơn (không nằm trong phạm vi migration này).
 
-   Tuy nhiên khi rà kỹ toàn bộ các chỗ có upload ảnh trong hệ thống, em
-   phát hiện **2 route khác chưa được vá, cùng lỗ hổng y hệt**:
-   - `api/monitoring/rounds/5s` (upload ảnh "trước khắc phục" khi làm
-     bảng kiểm 5S)
-   - `api/monitoring/rounds/[id]/recheck` (upload ảnh "sau khắc phục" khi
-     xác nhận đã sửa xong)
+## Cài đặt
 
-   Cả 2 route này chỉ kiểm tra `file.type.startsWith("image/")` — do
-   trình duyệt/thiết bị của người dùng tự khai báo, có thể giả mạo — rồi
-   lưu thẳng giá trị đó làm `Content-Type` khi phục vụ file. Một file
-   `.svg` giả dạng ảnh (khai `image/svg+xml`, vẫn qua được điều kiện
-   `startsWith("image/")`) có thể chứa mã `<script>` và trình duyệt sẽ
-   chạy mã đó khi ai mở file ra xem — đúng dạng lỗi "stored XSS" đã nêu
-   trong báo cáo, chỉ là ở 2 route chưa được rà tới trước đó.
+1. **Copy thư mục vào repo QARICA**, giữ nguyên cấu trúc:
+   ```
+   app/emr/**            -> app/emr/**
+   components/emr/**     -> components/emr/**
+   lib/emr/**            -> lib/emr/**
+   scripts/**            -> scripts/**
+   supabase/migrations/** -> supabase/migrations/**  (hoặc đúng thư mục migration bạn đang dùng)
+   ```
 
-   → Em đã vá 2 route này trong gói bàn giao hôm nay.
+2. **Cài dependency** (nếu repo chưa có sẵn):
+   ```bash
+   npm install @supabase/supabase-js
+   ```
 
-## Nội dung bàn giao (1 commit, base = origin/main mới nhất `50b5b41`)
+3. **Chạy migration** trên Supabase — dán nội dung
+   `supabase/migrations/20260925_emr_dashboard.sql` vào SQL Editor trên
+   Supabase Dashboard, hoặc `supabase db push` nếu bạn dùng Supabase CLI.
 
-- `src/lib/evidence-file-policy.ts` — thêm hàm `safeImageMimeType()`:
-  chỉ chấp nhận đúng 4 kiểu ảnh chụp thật (jpeg/png/webp/gif), từ chối
-  mọi kiểu khác kể cả khi client khai là "image/...".
-- `src/app/api/monitoring/rounds/5s/route.ts` — dùng hàm trên để kiểm
-  tra ảnh "trước khắc phục" thay vì tin `file.type`.
-- `src/app/api/monitoring/rounds/[id]/recheck/route.ts` — dùng hàm trên
-  để kiểm tra ảnh "sau khắc phục" thay vì tin `file.type`.
+4. **Kiểm tra biến môi trường** đã có `NEXT_PUBLIC_SUPABASE_URL` và
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` trong `.env.local` (thường QARICA đã có sẵn
+   hai biến này).
 
-## Đã verify (trong container này, đúng base `50b5b41` mới nhất, không bị lệch)
+5. **Đổi client Supabase nếu cần** — xem chú thích đầu file
+   `lib/emr/supabase.ts`. Nếu QARICA đã dùng `@supabase/ssr` (session lưu ở
+   cookie), hãy thay hai hàm `emrSupabase()` / `emrSupabaseBrowser()` bằng
+   client hiện có của bạn để trang Nhập liệu và ma trận biểu mẫu ghi được dữ
+   liệu dưới đúng phiên đăng nhập.
 
-- `npx tsc --noEmit` → sạch, 0 lỗi.
-- `npx eslint` (3 file đã sửa) → 0 lỗi.
-- `npx vitest run` → 352/353 test pass. 1 test fail
-  (`incident-rca-concurrency.test.ts`) — **đã xác nhận đây là lỗi có sẵn
-  trên chính origin/main, không liên quan gói này** (đã báo ở lần bàn
-  giao trước, nhắc lại để bên dev biết vẫn còn tồn tại).
-- `npx next build` → build production thành công, không lỗi.
-- Đã `git fetch origin main` ngay trước khi đóng gói: repo vẫn đứng ở
-  `50b5b41`, không có commit mới nào chen vào — gói này không đè lên
-  việc của ai.
+6. **Thêm mục menu** — xem `MENU_INTEGRATION.md`.
 
-## Cách apply (chọn 1 trong 3 cách)
+7. **Nhập dữ liệu thật:**
+   ```bash
+   pip install openpyxl
+   python scripts/export_excel_to_csv.py "/duong/dan/file_du_an_EMR_that.xlsx"
+   ```
+   Rồi vào `/emr/nhap-lieu`, chọn từng loại dữ liệu tương ứng, tải lên file
+   CSV vừa xuất trong thư mục `exports/` (thư mục này đã có trong
+   `.gitignore`, không bao giờ bị commit).
 
-**Cách 1 — bundle (khuyên dùng):**
-```bash
-git fetch qarica-security-fix.bundle security-fixes:incoming-security-fix
-git checkout main
-git merge incoming-security-fix
-```
+## Các trang trong module
 
-**Cách 2 — patch:**
-```bash
-git am 0001-Harden-5S-monitoring-photo-uploads-against-active-c.patch
-```
+| Route | Nội dung |
+|---|---|
+| `/emr` | Tổng quan — KPI tổng số biểu mẫu / đã triển khai / đã thực hiện EMR / chờ triển khai, theo từng nhóm biểu mẫu; danh sách biểu mẫu còn góp ý/lỗi mở |
+| `/emr/bieu-mau` | Ma trận **biểu mẫu × khoa/phòng** — bấm vào ô để đổi trạng thái (4 nấc: Chưa triển khai → Đang triển khai → Đã triển khai → Đã thực hiện EMR) |
+| `/emr/quy-trinh` | Danh sách quy trình - tài liệu quy định (trạng thái ban hành, hạn chót) |
+| `/emr/thiet-bi-cntt` | Thiết bị CNTT theo vị trí (hiện có / cần bổ sung) |
+| `/emr/thiet-bi-yte` | Thiết bị y tế có kết nối PACS/DICOM và trạng thái tích hợp |
+| `/emr/chu-ky-so` | Theo dõi chữ ký số theo nhân sự, cảnh báo sắp hết hạn trong 30 ngày |
+| `/emr/dao-tao` | Đào tạo - bàn giao theo khoa/biểu mẫu |
+| `/emr/loi` | Lỗi/góp ý ghi nhận theo từng biểu mẫu |
+| `/emr/nhap-lieu` | Nhập dữ liệu thật từ CSV thẳng vào Supabase |
 
-**Cách 3 — không rành git, dùng giao diện web GitHub:** kéo thả 3 file
-trong thư mục `src/` của gói này vào đúng đường dẫn tương ứng qua trang
-"Upload files" của GitHub (giữ nguyên cấu trúc thư mục), commit vào
-nhánh mới, mở Pull Request, Merge.
+## KPI được tính thế nào
 
-## Còn lại chưa làm (từ báo cáo rà soát 4 vai trò trước đó)
+Hai view SQL `emr_form_rollout_summary` và `emr_kpi_summary` tính lại đúng
+logic của sheet "KPI EMR" trong file dự án: một biểu mẫu được tính **"Đã hoàn
+thành"** khi TẤT CẢ khoa/phòng áp dụng nó đều ở trạng thái "Đã thực hiện EMR";
+**"Đang triển khai"** khi có ít nhất một khoa đã bắt đầu; còn lại là
+**"Chờ triển khai"**. Không cần tính tay trong code phía client — mọi trang
+chỉ `select * from emr_kpi_summary` / `emr_form_rollout_summary`.
 
-- **[Cao]** RPC đóng CAPA và chấp nhận Finding vẫn thiếu kiểm tra tổ chức
-  mà các RPC khác cùng nhóm đã có.
-- **[Cao]** Toàn bộ nhóm route quản lý Bộ tiêu chí (tạo/sửa/publish/ngưng)
-  không ghi `audit_logs` — không truy vết được ai làm gì khi đoàn Sở Y tế
-  hỏi.
-- Ngoài ra còn ~10 mục Trung bình khác và một số mục Thấp (thẩm mỹ/UX
-  nhỏ) — nằm trong file `QARICA-Bao-cao-ra-soat-va-de-xuat.pdf` đã gửi
-  trước đó, mục D/F/H.
+## Việc còn lại tùy bạn quyết định
 
-Anh xác nhận thì em làm tiếp 2 mục Cao còn lại ở trên.
+- **Quyền chỉnh sửa**: RLS mặc định cho phép mọi tài khoản đã đăng nhập
+  (`authenticated`) đọc/ghi toàn bộ module. Nếu QARICA có bảng phân quyền
+  riêng (role-based như QLCL Manager / Admin), sửa các policy trong file
+  migration (phần cuối, đoạn `do $$ ... $$`) để kiểm tra role đó thay vì chỉ
+  kiểm tra `auth.role() = 'authenticated'`.
+- **Giao diện**: các component dùng Tailwind (giả định repo đã cấu hình sẵn,
+  như phần lớn stack Next.js + Supabase + Vercel). Màu nhấn dùng trực tiếp
+  `#7B2D3B` (đỏ mận) khớp theme QARICA hiện tại — đổi ở `KpiCard.tsx` và
+  `EmrTabs.tsx` nếu theme đổi màu sau này.
+- **Cột chữ ký số**: cố tình không có `cccd`/`cmnd`. Nếu đơn vị cung cấp CKS
+  yêu cầu lưu số này nội bộ, cân nhắc lưu ở một bảng riêng có RLS chỉ Admin
+  đọc được, tách khỏi bảng theo dõi tiến độ chung.
