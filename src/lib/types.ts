@@ -6,6 +6,7 @@ export type UserContext = {
   primaryDepartmentId: string | null;
   primaryDepartmentName: string | null;
   roleCodes: string[];
+  roleNames: string[];
   permissions: string[];
   scopeTypes: string[];
   organizationId: string | null;
