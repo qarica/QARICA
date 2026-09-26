@@ -1,0 +1,60 @@
+/* QARICA FINAL VISUAL LOCK
+   Must be imported LAST. This file intentionally resolves legacy cascade conflicts
+   without changing business logic, routing, RBAC or data access. */
+:root{
+  --qf-bg:#f4f8fc;--qf-surface:#fff;--qf-line:#dce8f5;--qf-text:#102a56;
+  --qf-muted:#687b95;--qf-blue:#1677ff;--qf-blue-soft:#edf5ff;
+}
+html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
+.workspace-app{background:var(--qf-bg)!important;color:var(--qf-text)!important}
+.workspace-app .content{background:var(--qf-bg)!important}
+
+/* Light enterprise shell: authoritative final state */
+.workspace-app .sidebar{background:#fff!important;background-image:none!important;border-right:1px solid var(--qf-line)!important;box-shadow:4px 0 18px rgba(27,67,112,.045)!important;color:#37516f!important}
+.workspace-app .sidebar:before{background:linear-gradient(180deg,#f8fbff,rgba(255,255,255,0))!important}
+.workspace-app .sidebar-brand{background:#fff!important;border-bottom:1px solid var(--qf-line)!important}
+.workspace-app .brand-mark,.workspace-app .brand-logo-wrap{background:transparent!important;border:0!important;box-shadow:none!important}
+.workspace-app .sidebar-brand-copy strong,.workspace-app .sidebar-brand-copy strong::after{color:#1677ff!important}
+.workspace-app .sidebar-brand-copy span,.workspace-app .sidebar-brand-copy span::after{color:#6b86a6!important}
+.workspace-app .nav-label{color:#91a3b8!important}
+.workspace-app .nav-link{color:#506985!important;background:transparent!important;border-color:transparent!important;box-shadow:none!important}
+.workspace-app .nav-link:hover{background:#f3f8ff!important;color:#1769d2!important;border-color:#e0ecfb!important;transform:none!important}
+.workspace-app .nav-link.active{background:#eaf3ff!important;color:#1769d2!important;border-color:#d4e5ff!important;box-shadow:inset 3px 0 0 #1677ff!important}
+.workspace-app .nav-link.active svg{color:#1677ff!important}
+.workspace-app .sidebar-footer{background:linear-gradient(180deg,rgba(255,255,255,0),#fff 28%)!important}
+
+.workspace-app .topbar,.workspace-app .qarica-topbar{background:rgba(255,255,255,.98)!important;background-image:none!important;border-bottom:1px solid var(--qf-line)!important;box-shadow:0 2px 12px rgba(26,65,110,.035)!important;color:#17365d!important}
+.workspace-app .qarica-desktop-tagline{color:#17365d!important;text-shadow:none!important;font-weight:700!important}
+.workspace-app .header-icon,.workspace-app .year-select-wrap,.workspace-app .profile-button{background:#fff!important;border-color:var(--qf-line)!important;box-shadow:none!important}
+.workspace-app .header-icon:hover,.workspace-app .profile-button:hover{background:#f5f9ff!important}
+.workspace-app .avatar{background:linear-gradient(135deg,#2993ff,#1677ff)!important;color:#fff!important}
+
+/* TQM dashboard: remove the legacy dark hero that overrode the approved light baseline. */
+.workspace-app .tqm-dashboard .hero{
+  color:#12355f!important;
+  background:radial-gradient(circle at 88% 5%,rgba(59,130,246,.12),transparent 18rem),linear-gradient(135deg,#fff,#f6faff)!important;
+  border:1px solid #dce8f5!important;
+  border-radius:18px!important;
+  box-shadow:0 8px 26px rgba(30,64,120,.07)!important;
+}
+.workspace-app .tqm-dashboard .hero .eyebrow{color:#2f80ed!important}
+.workspace-app .tqm-dashboard .hero h2{color:#12355f!important}
+.workspace-app .tqm-dashboard .hero p{color:#65758a!important}
+.workspace-app .tqm-dashboard .kpi,.workspace-app .tqm-dashboard .panel,.workspace-app .panel,.workspace-app .kpi-card{background:#fff!important;border-color:var(--qf-line)!important;box-shadow:0 4px 16px rgba(27,78,140,.045)!important}
+.workspace-app .tqm-dashboard .kpi strong,.workspace-app .kpi-card strong{color:#102a56!important}
+
+/* Shared surfaces and tables */
+.workspace-app th{background:#f7faff!important;color:#60748d!important;border-color:#e6edf6!important}
+.workspace-app td{border-color:#edf2f7!important}
+.workspace-app tbody tr:hover{background:#f8fbff!important}
+.workspace-app .workspace-strip{background:#fff!important;border-bottom-color:var(--qf-line)!important}
+.workspace-app .workspace-tab.active{background:var(--qf-blue-soft)!important;color:#1769d2!important;border-color:#cfe2ff!important;box-shadow:none!important}
+
+/* Keep semantic status colors; primary action remains medical blue. */
+.workspace-app .button.primary{background:linear-gradient(135deg,#1769d2,#2f80ed)!important;border-color:#1769d2!important;color:#fff!important}
+.workspace-app input:focus,.workspace-app select:focus,.workspace-app textarea:focus{border-color:#2f80ed!important;box-shadow:0 0 0 3px rgba(47,128,237,.10)!important}
+
+@media(max-width:860px){
+  .workspace-app .sidebar{box-shadow:8px 0 28px rgba(15,23,42,.12)!important}
+  .workspace-app .content{padding-left:14px!important;padding-right:14px!important}
+}

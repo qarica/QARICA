@@ -16,6 +16,7 @@ import "./qarica-direct-navigation.css";
 import "./qms-enterprise-redesign.css";
 import "./tqm-charts.css";
 import "./mobile-responsive-fixes.css";
+import "./final-visual-lock.css";
 
 const criticalCss=`
   html,body,body *{font-family:var(--font-app),"Nunito Sans","Segoe UI",Arial,sans-serif!important}
