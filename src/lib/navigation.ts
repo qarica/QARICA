@@ -1,5 +1,6 @@
 import type { NavSection, UserContext } from "@/lib/types";
 import { WORKSPACES, workspaceLandingHref } from "@/lib/workspace-navigation";
+import { EMR_CATEGORIES } from "@/lib/emr-categories";
 
 type WorkspaceNav = { label: string; root: string; icon: string };
 
@@ -20,6 +21,7 @@ export const NAV_SECTIONS: NavSection[] = [
     { label: "Việc của tôi", href: "/tasks", icon: "inbox", permission: "tasks.view" },
     { label: "Lịch QLCL", href: "/calendar", icon: "calendar-days", permission: "dashboard.view" },
   ]},
+  { label: "EMR", items: EMR_CATEGORIES.map((c) => ({ label: c.label, href: `/emr/${c.slug}`, icon: c.icon })) },
   { label: "NGHIỆP VỤ QLCL", items: PRIMARY_WORKSPACES.map((item) => ({ label: item.label, href: item.root, icon: item.icon })) },
   { label: "BÁO CÁO", items: [
     { label: "Báo cáo & Phân tích", href: "/analytics", icon: "trending-up", permission: "reports.analytics" },

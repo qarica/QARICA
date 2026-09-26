@@ -17,3 +17,14 @@ export async function requireApiPermission(permission: string) {
 
   return { ok: true as const, user, supabase };
 }
+
+// For modules open to every authenticated user (no granular permission code) - still
+// requires login, but skips the has_permission RPC entirely.
+export async function requireApiUser() {
+  const supabase = await createClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    return { ok: false as const, response: NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 }) };
+  }
+  return { ok: true as const, user, supabase };
+}
