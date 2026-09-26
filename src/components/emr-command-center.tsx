@@ -17,13 +17,16 @@ export function EmrCommandCenter(){
  if(error)return <div className="alert error">{error}</div>; if(!data)return <div className="empty-state">Đang tổng hợp dữ liệu EMR...</div>;
  const blocked=data.counts.BLOCKED||0, active=data.counts.IN_PROGRESS||0, todo=data.counts.TODO||0, done=data.counts.DONE||0;
  const donutTotal=Math.max(1,data.total); const doneDeg=done/donutTotal*360; const activeDeg=(done+active)/donutTotal*360; const todoDeg=(done+active+todo)/donutTotal*360;
+ const totalDepartmentsWithData=data.departmentMatrix.length;
+ const liveDepartments=data.departmentMatrix.filter(d=>d.total>0&&d.completion===100).length;
+ const signatureCategory=data.categories.find(c=>c.code==="CHU_KY_SO");
  return <div className="emr-command">
   <div className="emr-title"><div><div className="crumb">EMR <b>›</b> Tổng quan</div><h1><span className="title-icon"><Icon name="building-2" size={24}/></span>Trung tâm Điều hành Bệnh án điện tử (EMR)</h1><p>Theo dõi tiến độ triển khai, vận hành và tuân thủ bệnh án điện tử</p></div><div className="emr-filters"><span><Icon name="calendar-days" size={15}/> Dữ liệu đến {new Date(data.generatedAt).toLocaleString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span><span>Toàn đơn vị⌄</span></div></div>
   <div className="emr-kpis">
    <Kpi icon="gauge" label="Mức độ triển khai EMR" value={`${data.completion}%`} note={`${done}/${data.total} hạng mục hoàn tất`} tone="blue"/>
-   <Kpi icon="building-2" label="Cấu phần có dữ liệu" value={`${data.categories.filter(x=>x.total>0).length}/${data.categories.length}`} note="Theo các workstream EMR" tone="green"/>
+   <Kpi icon="building-2" label="Khoa đã Go-live" value={`${liveDepartments}/${totalDepartmentsWithData}`} note="Đã hoàn tất 100% hạng mục" tone="green"/>
    <Kpi icon="workflow" label="Đang thực hiện" value={String(active)} note="Hạng mục đang triển khai" tone="orange"/>
-   <Kpi icon="shield-check" label="Go-live gates" value={`${data.gates.passed}/${data.gates.total}`} note="Đã đủ bằng chứng & xác minh" tone="purple"/>
+   <Kpi icon="key-round" label="Tỷ lệ ký số" value={signatureCategory?.completion===null?"—":`${signatureCategory?.completion??0}%`} note="Hạng mục Chữ ký số hoàn tất" tone="purple"/>
    <Kpi icon="calendar-days" label="Quá hạn" value={String(data.overdue)} note={`${data.stale} việc >7 ngày chưa cập nhật`} tone="cyan"/>
    <Kpi icon="circle-alert" label="Vấn đề cần xử lý" value={String(blocked+data.criticalOpen)} note={`${blocked} blocker · ${data.criticalOpen} critical`} tone="red"/>
   </div>
