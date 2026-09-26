@@ -107,3 +107,23 @@ chỉ `select * from emr_kpi_summary` / `emr_form_rollout_summary`.
 - **Cột chữ ký số**: cố tình không có `cccd`/`cmnd`. Nếu đơn vị cung cấp CKS
   yêu cầu lưu số này nội bộ, cân nhắc lưu ở một bảng riêng có RLS chỉ Admin
   đọc được, tách khỏi bảng theo dõi tiến độ chung.
+
+## RC4 visual/control baseline (2026-09-26)
+- EMR Command Center remains a read-only aggregation layer over source EMR work items; operational edits stay in source modules.
+- Work completion and Go-live readiness are deliberately separate. A gate passes only after DONE + evidence + verification.
+- Shell and TQM executive dashboard are aligned to the approved light enterprise visual direction; no dark navigation baseline.
+- Deployment policy for constrained Vercel quota: batch changes into a release candidate and deploy once after build/lint/test verification.
+
+## EMR Command Center — RC6 control enhancements
+- Adds department × EMR workstream matrix from live tenant-scoped rollout items.
+- Adds deterministic escalation queue prioritizing BLOCKED, CRITICAL, overdue, Go-live gate, missing owner and stale work.
+- Shows dashboard aggregation timestamp for operational freshness.
+- Keeps work completion separate from Go-live readiness; no fabricated clinical/HSBA KPIs are introduced.
+
+
+## RC11 visual release audit
+The light enterprise shell and EMR Command Center final visual audit is documented in `docs/RC11_VISUAL_RELEASE_AUDIT.md`. Production remains gated by dependency-backed lint, tests, build, migrations and smoke checks.
+
+
+## RC13 — Final Visual & Responsive QA
+Visual direction is locked. RC13 adds responsive hardening for the EMR KPI row and operational matrices without changing business semantics. See `docs/RC13_FINAL_VISUAL_QA.md`.
