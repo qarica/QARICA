@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 
-type Cat={slug:string;code:string;label:string;description:string;total:number;done:number;blocked:number;completion:number|null};
+type Cat={slug:string;code:string;label:string;description:string;icon:string;total:number;done:number;blocked:number;completion:number|null};
 type Item={id:string;category:string;title:string;description:string|null;status:string;priority?:string;due_date?:string|null;updated_at:string};
 type DomainCell={code:string;slug:string;label:string;total:number;done:number;blocked:number;completion:number|null};
 type Dept={id:string;name:string;total:number;done:number;open:number;overdue:number;blockers:number;gates:number;gatesPassed:number;completion:number|null;domains:DomainCell[]};
@@ -37,7 +37,7 @@ export function EmrCommandCenter(){
   </div>
 
   <div className="mid-grid">
-   <section className="emr-panel"><PanelHead title="Tình trạng sẵn sàng các cấu phần EMR" sub="Tổng hợp trực tiếp từ các module nguồn"/><div className="readiness-grid">{data.categories.map((c,i)=><Link href={`/emr/${c.slug}`} className="ready-card" key={c.code}><div className={`ready-icon ${tones[i%tones.length]}`}><Icon name={i%2?"file-text":"gauge"} size={18}/></div><div className="ready-main"><span>{c.label}</span><strong>{c.completion===null?"—":`${c.completion}%`}</strong><div className="emr-progress"><i style={{width:`${c.completion??0}%`}}/></div></div><em className={c.blocked?"warn":c.completion===100?"ok":"work"}>{c.total===0?"Chưa có dữ liệu":c.blocked?`${c.blocked} blocker`:c.completion===100?"Ổn định":"Đang triển khai"}</em></Link>)}</div></section>
+   <section className="emr-panel"><PanelHead title="Tình trạng sẵn sàng các cấu phần EMR" sub="Tổng hợp trực tiếp từ các module nguồn"/><div className="readiness-grid">{data.categories.map((c,i)=><Link href={`/emr/${c.slug}`} className="ready-card" key={c.code}><div className={`ready-icon ${tones[i%tones.length]}`}><Icon name={c.icon} size={18}/></div><div className="ready-main"><span>{c.label}</span><strong>{c.completion===null?"—":`${c.completion}%`}</strong><div className="emr-progress"><i style={{width:`${c.completion??0}%`}}/></div></div><em className={c.blocked?"warn":c.completion===100?"ok":"work"}>{c.total===0?"Chưa có dữ liệu":c.blocked?`${c.blocked} blocker`:c.completion===100?"Ổn định":"Đang triển khai"}</em></Link>)}</div></section>
    <section className="emr-panel"><PanelHead title="Chỉ số tuân thủ & dữ liệu điều hành" sub="Độ phủ metadata phục vụ kiểm soát"/><div className="emr-compliance"><Compliance icon="users" label="Có người phụ trách" value={data.controlCoverage.owner}/><Compliance icon="building-2" label="Có khoa/phòng" value={data.controlCoverage.department}/><Compliance icon="calendar-days" label="Có deadline" value={data.controlCoverage.deadline}/><Compliance icon="badge-check" label="Gate DONE đã xác minh" value={data.controlCoverage.gateEvidence}/></div></section>
   </div>
 

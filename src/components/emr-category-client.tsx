@@ -1,16 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
-import { EMR_STATUS_LABELS } from "@/lib/emr-categories";
+import { EMR_CATEGORY_FIELDS, EMR_STATUS_LABELS } from "@/lib/emr-categories";
 
-type Item = { id: string; category: string; title: string; description: string | null; status: string; department_id:string|null; owner_user_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; created_at: string; updated_at: string };
+type Item = { id: string; category: string; title: string; description: string | null; status: string; department_id:string|null; owner_user_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; details: Record<string, unknown>; created_at: string; updated_at: string };
 
 export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { categoryCode: string; categoryLabel: string; canManage: boolean }) {
+  const extraFields = EMR_CATEGORY_FIELDS[categoryCode as keyof typeof EMR_CATEGORY_FIELDS] || [];
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Item | null>(null);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_id:"", owner_user_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false });
+  const emptyDetails = () => Object.fromEntries(extraFields.map((f) => [f.key, ""])) as Record<string, string>;
+  const [form, setForm] = useState({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_id:"", owner_user_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
   const [saving, setSaving] = useState(false);
   const [departments,setDepartments]=useState<{id:string;name:string;short_name:string|null}[]>([]);
   const [users,setUsers]=useState<{user_id:string;full_name:string|null;email:string}[]>([]);
@@ -37,13 +39,15 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
   }, [categoryCode]);
 
   function openCreate() {
-    setForm({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_id:"", owner_user_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false });
+    setForm({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_id:"", owner_user_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
     setCreating(true);
     setEditing(null);
   }
 
   function openEdit(item: Item) {
-    setForm({ title: item.title, description: item.description || "", status: item.status, priority: item.priority || "MEDIUM", due_date: item.due_date || "", department_id:item.department_id||"", owner_user_id:item.owner_user_id||"", is_go_live_gate: !!item.is_go_live_gate, evidence_url: item.evidence_url || "", verify_completed:!!item.verified_at });
+    const details: Record<string, string> = {};
+    for (const f of extraFields) details[f.key] = item.details?.[f.key] != null ? String(item.details[f.key]) : "";
+    setForm({ title: item.title, description: item.description || "", status: item.status, priority: item.priority || "MEDIUM", due_date: item.due_date || "", department_id:item.department_id||"", owner_user_id:item.owner_user_id||"", is_go_live_gate: !!item.is_go_live_gate, evidence_url: item.evidence_url || "", verify_completed:!!item.verified_at, details });
     setEditing(item);
     setCreating(false);
   }
@@ -103,13 +107,14 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
         <div className="panel">
           <table className="data-table">
             <thead>
-              <tr><th>Tiêu đề</th><th>Mô tả</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th><th></th></tr>
+              <tr><th>Tiêu đề</th><th>Mô tả</th>{extraFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th><th></th></tr>
             </thead>
             <tbody>
               {items.map((item) => (
                 <tr key={item.id}>
                   <td><strong>{item.title}</strong></td>
                   <td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>
+                  {extraFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
                   <td>{item.priority || "MEDIUM"}</td><td>{item.due_date || "—"}</td>
                   <td>{EMR_STATUS_LABELS[item.status] || item.status}{item.verified_at ? <div><small>Đã xác minh</small></div> : null}</td>
                   <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>{canManage ? <>
@@ -134,6 +139,22 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
               <label>Mô tả
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
               </label>
+              {extraFields.map((f) => (
+                <label key={f.key}>{f.label}
+                  {f.type === "select" ? (
+                    <select value={form.details[f.key] || ""} onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.value } })}>
+                      <option value="">— Chưa chọn —</option>
+                      {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      type={f.type === "date" ? "date" : f.type === "number" ? "number" : "text"}
+                      value={form.details[f.key] || ""}
+                      onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.value } })}
+                    />
+                  )}
+                </label>
+              ))}
               <label>Trạng thái
                 <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
                   {Object.entries(EMR_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}

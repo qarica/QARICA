@@ -1,9 +1,23 @@
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { EMR_CATEGORY_FIELDS } from "@/lib/emr-categories";
+
+function sanitizeDetails(category: string, raw: unknown): Record<string, unknown> {
+  const fields = (EMR_CATEGORY_FIELDS as any)[category] || [];
+  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const out: Record<string, unknown> = {};
+  for (const f of fields) {
+    const value = source[f.key];
+    if (value === undefined || value === null || value === "") continue;
+    if (f.type === "number") { const n = Number(value); if (Number.isFinite(n)) out[f.key] = n; continue; }
+    out[f.key] = String(value).trim();
+  }
+  return out;
+}
 
 async function loadItemOrganization(admin: ReturnType<typeof createAdminClient>, id: string) {
-  const { data, error } = await admin.from("emr_rollout_items").select("id,organization_id,status,evidence_url").eq("id", id).maybeSingle();
+  const { data, error } = await admin.from("emr_rollout_items").select("id,organization_id,status,evidence_url,category").eq("id", id).maybeSingle();
   return { data, error };
 }
 
@@ -46,12 +60,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (typeof body.evidence_url === "string" || body.evidence_url === null) { patch.evidence_url = body.evidence_url ? String(body.evidence_url).trim() : null; if (!patch.evidence_url) { patch.verified_at = null; patch.verified_by = null; } }
   if (body.verify_completed === true) { const effectiveStatus = typeof body.status === "string" ? body.status : existing.status; const effectiveEvidence = (typeof body.evidence_url === "string" || body.evidence_url === null) ? (body.evidence_url ? String(body.evidence_url).trim() : null) : existing.evidence_url; if (effectiveStatus !== "DONE" || !effectiveEvidence) return NextResponse.json({ error: "Chỉ xác minh khi hạng mục DONE và có minh chứng." }, { status: 400 }); patch.verified_at = new Date().toISOString(); patch.verified_by = auth.user.id; }
   if (body.verify_completed === false || (body.status && body.status !== "DONE")) { patch.verified_at = null; patch.verified_by = null; }
+  if (body.details !== undefined) patch.details = sanitizeDetails(existing.category, body.details);
 
   const { data, error } = await admin
     .from("emr_rollout_items")
     .update(patch)
     .eq("id", id)
-    .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,created_at,updated_at")
+    .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,details,created_at,updated_at")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 

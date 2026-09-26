@@ -37,3 +37,44 @@ export const EMR_STATUS_LABELS: Record<string, string> = {
   DONE: "Hoàn tất",
   BLOCKED: "Bị chặn",
 };
+
+export type EmrFieldType = "text" | "date" | "number" | "select";
+export type EmrField = { key: string; label: string; type: EmrFieldType; options?: string[] };
+
+// Mỗi danh mục theo dõi một loại thông tin khác nhau trong triển khai EMR thật - không dùng
+// chung 1 form cho cả 8 danh mục. Người phụ trách/khoa-phòng/ưu tiên/Go-live gate đã có sẵn
+// chung cho mọi danh mục; đây chỉ là các trường ĐẶC THÙ còn thiếu, lưu trong cột `details`.
+export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
+  CHU_KY_SO: [
+    { key: "certificate_expiry", label: "Ngày hết hạn chứng thư số", type: "date" },
+    { key: "ca_provider", label: "Nhà cung cấp chứng thư số", type: "text" },
+  ],
+  NHAP_LIEU: [
+    { key: "record_count", label: "Số hồ sơ đã nhập", type: "number" },
+    { key: "data_source", label: "Nguồn dữ liệu gốc", type: "text" },
+  ],
+  DAO_TAO: [
+    { key: "training_date", label: "Ngày đào tạo", type: "date" },
+    { key: "pass_status", label: "Kết quả", type: "select", options: ["Đạt", "Chưa đạt", "Chưa thi"] },
+  ],
+  THIET_BI_YTE: [
+    { key: "device_name", label: "Tên thiết bị", type: "text" },
+    { key: "manufacturer", label: "Hãng sản xuất", type: "text" },
+    { key: "connection_status", label: "Tình trạng kết nối EMR", type: "select", options: ["Đã kết nối", "Chưa kết nối"] },
+  ],
+  QUY_TRINH: [
+    { key: "document_ref", label: "Số hiệu văn bản", type: "text" },
+    { key: "approved_date", label: "Ngày phê duyệt", type: "date" },
+  ],
+  BIEU_MAU: [
+    { key: "form_code", label: "Mã biểu mẫu", type: "text" },
+    { key: "digitized", label: "Tình trạng số hóa", type: "select", options: ["Đã số hóa", "Chưa số hóa"] },
+  ],
+  LOI: [
+    { key: "severity", label: "Mức độ", type: "select", options: ["Thấp", "Trung bình", "Cao", "Nghiêm trọng"] },
+  ],
+  THIET_BI_CNTT: [
+    { key: "asset_tag", label: "Mã tài sản", type: "text" },
+    { key: "location", label: "Vị trí lắp đặt", type: "text" },
+  ],
+};

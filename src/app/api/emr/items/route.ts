@@ -1,7 +1,20 @@
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { EMR_CATEGORIES } from "@/lib/emr-categories";
+import { EMR_CATEGORIES, EMR_CATEGORY_FIELDS } from "@/lib/emr-categories";
+
+function sanitizeDetails(category: string, raw: unknown): Record<string, unknown> {
+  const fields = (EMR_CATEGORY_FIELDS as any)[category] || [];
+  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const out: Record<string, unknown> = {};
+  for (const f of fields) {
+    const value = source[f.key];
+    if (value === undefined || value === null || value === "") continue;
+    if (f.type === "number") { const n = Number(value); if (Number.isFinite(n)) out[f.key] = n; continue; }
+    out[f.key] = String(value).trim();
+  }
+  return out;
+}
 
 export async function GET(request: Request) {
   const auth = await requireApiPermission("emr.view");
@@ -24,7 +37,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await admin
     .from("emr_rollout_items")
-    .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,created_at,updated_at")
+    .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,details,created_at,updated_at")
     .eq("organization_id", profile.organization_id)
     .eq("category", category)
     .order("created_at", { ascending: false });
@@ -75,10 +88,11 @@ export async function POST(request: Request) {
       description,
       status,
       priority, due_date: dueDate, department_id: departmentId, owner_user_id: ownerUserId, is_go_live_gate: isGoLiveGate, evidence_url: evidenceUrl,
+      details: sanitizeDetails(category, body.details),
       created_by: auth.user.id,
       updated_by: auth.user.id,
     })
-    .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,created_at,updated_at")
+    .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,details,created_at,updated_at")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
