@@ -49,8 +49,6 @@ export function LoginForm() {
 
   return (
     <form className="login-card" onSubmit={submit}>
-      <div className="mobile-brand"><Image src="/brand/qarica-logo.svg" alt="QARICA" width={190} height={58} priority /></div>
-
       <div className="login-card-header">
         <Image src="/brand/qarica-mark-v2.svg" alt="" width={44} height={44} aria-hidden="true" />
         <div>
