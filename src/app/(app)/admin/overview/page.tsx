@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
@@ -62,22 +63,22 @@ export default async function AdminOverviewPage() {
 
     <section className="panel-grid">
       {canUsers ? <article className="panel">
-        <div className="panel-title"><div><h2>Người dùng gần đây</h2><p>Danh sách người dùng được tạo hoặc cập nhật gần đây nhất.</p></div></div>
+        <div className="panel-title"><div><h2>Người dùng gần đây</h2><p>Danh sách người dùng được tạo hoặc cập nhật gần đây nhất.</p></div><Link className="link-button" href="/admin/users">Xem tất cả người dùng →</Link></div>
         <div className="table-wrap"><table><thead><tr><th>Họ tên</th><th>Vai trò</th><th>Khoa/Phòng</th><th>Trạng thái</th></tr></thead><tbody>{recentProfiles.map((p: any) => <tr key={p.user_id}><td><strong>{p.full_name || p.email}</strong><span className="subline">{p.email}</span></td><td>{(rolesByUser.get(p.user_id) || []).join(", ") || "—"}</td><td>{p.primary_department_id ? departmentMap.get(p.primary_department_id) || "—" : "—"}</td><td><span className={`status-badge ${p.is_active ? "success" : "muted"}`}>{p.is_active ? "Đang hoạt động" : "Tạm khóa"}</span></td></tr>)}{!recentProfiles.length ? <tr><td colSpan={4}><div className="empty-state">Chưa có người dùng.</div></td></tr> : null}</tbody></table></div>
       </article> : null}
       {(canDepartments || canUsers) ? <article className="panel">
-        <div className="panel-title"><div><h2>Khoa/Phòng</h2><p>Danh sách khoa/phòng trong hệ thống.</p></div></div>
+        <div className="panel-title"><div><h2>Khoa/Phòng</h2><p>Danh sách khoa/phòng trong hệ thống.</p></div>{canDepartments ? <Link className="link-button" href="/admin/departments">Xem tất cả khoa/phòng →</Link> : null}</div>
         <div className="table-wrap"><table><thead><tr><th>Tên khoa/phòng</th><th>Mã</th><th>Người dùng</th><th>Trạng thái</th></tr></thead><tbody>{recentDepartments.map((d: any) => <tr key={d.id}><td><strong>{d.short_name || d.name}</strong></td><td>{d.code || "—"}</td><td>{usersByDepartment.get(d.id) || 0}</td><td><span className={`status-badge ${d.is_active ? "success" : "muted"}`}>{d.is_active ? "Đang hoạt động" : "Ngưng"}</span></td></tr>)}{!recentDepartments.length ? <tr><td colSpan={4}><div className="empty-state">Chưa có khoa/phòng.</div></td></tr> : null}</tbody></table></div>
       </article> : null}
     </section>
 
     <section className="panel-grid">
       {canPermissions ? <article className="panel">
-        <div className="panel-title"><div><h2>Vai trò & Phân quyền</h2><p>Danh sách vai trò và số người dùng được gán.</p></div></div>
+        <div className="panel-title"><div><h2>Vai trò & Phân quyền</h2><p>Danh sách vai trò và số người dùng được gán.</p></div><Link className="link-button" href="/admin/permissions">Xem tất cả vai trò →</Link></div>
         <div className="table-wrap"><table><thead><tr><th>Tên vai trò</th><th>Mô tả</th><th>Số người dùng</th><th>Trạng thái</th></tr></thead><tbody>{roles.map((r: any) => <tr key={r.id}><td><strong>{r.name}</strong></td><td>{r.description || "—"}</td><td>{usersByRole.get(r.id) || 0}</td><td><span className={`status-badge ${r.is_active ? "success" : "muted"}`}>{r.is_active ? "Hoạt động" : "Ngưng"}</span></td></tr>)}{!roles.length ? <tr><td colSpan={4}><div className="empty-state">Chưa có vai trò.</div></td></tr> : null}</tbody></table></div>
       </article> : null}
       {canSystem ? <article className="panel">
-        <div className="panel-title"><div><h2>Danh mục hệ thống</h2><p>Loại hồ sơ dùng để định tuyến và phân loại Registry trung tâm.</p></div></div>
+        <div className="panel-title"><div><h2>Danh mục hệ thống</h2><p>Loại hồ sơ dùng để định tuyến và phân loại Registry trung tâm.</p></div><Link className="link-button" href="/admin/catalogs">Xem tất cả danh mục →</Link></div>
         <div className="table-wrap"><table><thead><tr><th>Mã loại</th><th>Route</th></tr></thead><tbody>{recordTypes.map((t: any) => <tr key={t.code}><td><strong>{t.code}</strong></td><td>{t.route_template || "—"}</td></tr>)}{!recordTypes.length ? <tr><td colSpan={2}><div className="empty-state">Chưa có danh mục.</div></td></tr> : null}</tbody></table></div>
       </article> : null}
     </section>
