@@ -60,7 +60,7 @@ export default async function PlansPage() {
       @media(max-width:900px){.tqm-workspace .tqm-overview-grid{grid-template-columns:1fr}.tqm-workspace .tqm-kpis{grid-template-columns:1fr 1fr}}
       @media(max-width:520px){.tqm-workspace .tqm-kpis{grid-template-columns:1fr 1fr}.tqm-workspace .tqm-kpi{padding:13px}.tqm-workspace .tqm-kpi strong{font-size:25px}}
     `}</style>
-    <PageHeader eyebrow={`ĐIỀU HÀNH QLCL · ${year}`} title="Kế hoạch chất lượng năm" description="Theo dõi mức hoàn thành kế hoạch, tiến độ Action, các đầu việc quá hạn và lộ trình triển khai trong năm. Danh sách chi tiết chỉ là lớp drill-down phía dưới." />
+    <PageHeader eyebrow={`ĐIỀU HÀNH QLCL · ${year}`} title="Kế hoạch chất lượng năm" description="Theo dõi mức hoàn thành kế hoạch, tiến độ Action, các đầu việc quá hạn và lộ trình triển khai trong năm. Danh sách chi tiết chỉ là lớp drill-down phía dưới." icon="calendar-range" />
     {firstError ? <div className="alert error">Không tải được dữ liệu kế hoạch: {firstError.message}</div> : null}
 
     <section className="tqm-kpis">

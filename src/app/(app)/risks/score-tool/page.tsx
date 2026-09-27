@@ -12,6 +12,7 @@ export default async function RiskScoreToolPage() {
       eyebrow="Quản lý rủi ro"
       title="Thang điểm nguy cơ lâm sàng"
       description="Công cụ tính điểm nguy cơ dùng chung cho các thang điểm dạng chọn mức độ theo từng yếu tố (ví dụ: Braden). Tự động cộng điểm, phân loại mức nguy cơ và gợi ý can thiệp tương ứng."
+      icon="gauge"
     />
     <section className="panel" style={{ padding: 18 }}>
       <RiskScoreCalculatorClient />

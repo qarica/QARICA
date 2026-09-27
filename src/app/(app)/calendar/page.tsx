@@ -400,6 +400,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
       eyebrow={`KẾ HOẠCH & ĐIỀU HÀNH · CHU KỲ ${workYear}`}
       title="Lịch công tác QLCL"
       description="Một lịch chung lấy trực tiếp từ dữ liệu vận hành: hạn Action, kế hoạch, báo cáo, giám sát, tiếp đoàn và công việc định kỳ. Không hiển thị mốc tĩnh ngoài dữ liệu đã cấu hình trên hệ thống."
+      icon="calendar-days"
       actions={<Link className="button secondary" href="/calendar/gantt">Gantt tiến độ →</Link>}
     />
 

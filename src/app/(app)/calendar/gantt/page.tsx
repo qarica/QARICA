@@ -134,6 +134,7 @@ export default async function QualityGanttPage(){
       eyebrow={`KẾ HOẠCH & ĐIỀU HÀNH · CHU KỲ ${workYear}`}
       title="Gantt tiến độ"
       description="Hiển thị trực tiếp Plan và Action có ngày thực tế trong hệ thống. Nếu hồ sơ chỉ có một mốc ngày, Gantt hiển thị milestone một ngày và không tự suy diễn ngày còn thiếu."
+      icon="calendar-days"
       actions={<Link className="button secondary" href="/calendar">← Lịch công tác</Link>}
     />
 

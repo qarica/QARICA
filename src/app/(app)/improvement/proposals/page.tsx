@@ -7,5 +7,6 @@ export default function ImprovementProposalsPage() {
     description: "Ghi nhận vấn đề, dữ liệu nền và phạm vi đề xuất trước khi xem xét chuyển thành đề án cải tiến chính thức.",
     permissions: ["projects.view", "projects.propose", "projects.manage"],
     recordTypes: ["IMPROVEMENT_PROPOSAL"],
+    icon: "file-input",
   }} />;
 }

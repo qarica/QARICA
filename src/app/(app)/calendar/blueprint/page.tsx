@@ -154,6 +154,7 @@ export default async function CalendarBlueprintPage() {
       eyebrow={`LỊCH & WORKFLOW · NĂM CÔNG TÁC ${workYear}`}
       title="Blueprint lịch vận hành"
       description="Trang kiểm soát kiến trúc lịch theo dữ liệu runtime. QARICA không hard-code kế hoạch, chương trình hay mốc của một năm/tổ chức cụ thể; chỉ hiển thị những gì đã được cấu hình trên hệ thống."
+      icon="calendar-days"
       actions={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Link className="button secondary" href="/calendar">Lịch công tác</Link><Link className="button primary" href="/calendar/recurring">Cấu hình Recurring Work →</Link></div>}
     />
 

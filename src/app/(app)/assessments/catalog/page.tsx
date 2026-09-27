@@ -21,7 +21,7 @@ export default async function CriteriaCatalogPage(){
  const rows=(setsRes.data??[]).map((set:any)=>{const latest=latestMap.get(set.id),published=publishedMap.get(set.id);return{...set,latest_version_id:latest?.id||null,latest_version_no:latest?.version_no||null,latest_version_status:latest?.status||null,published_version_no:published?.version_no||null,item_count:latest?.id?itemCount.get(latest.id)||0:0};});
  const firstError=[setsRes,versionsRes,itemsRes].find(x=>x.error)?.error;
  return <div className="page-stack" style={{maxWidth:1380,margin:"0 auto"}}>
-  <PageHeader eyebrow="ĐÁNH GIÁ & KIỂM TRA · DANH MỤC CHUẨN" title="Bộ tiêu chí" description="Khai báo Bộ tiêu chí → Tiêu chí → Tiểu mục. Bản đã phát hành được giữ nguyên; cập nhật nội dung bằng phiên bản mới." actions={<Link className="button secondary" href="/assessments">← Tự đánh giá</Link>}/>
+  <PageHeader eyebrow="ĐÁNH GIÁ & KIỂM TRA · DANH MỤC CHUẨN" title="Bộ tiêu chí" description="Khai báo Bộ tiêu chí → Tiêu chí → Tiểu mục. Bản đã phát hành được giữ nguyên; cập nhật nội dung bằng phiên bản mới." actions={<Link className="button secondary" href="/assessments">← Tự đánh giá</Link>} icon="list-tree"/>
   {firstError?<div className="alert error">Không tải được đầy đủ danh mục: {firstError.message}</div>:null}
   <CriteriaCatalogClient rows={rows as any[]} canManage={user.permissions.includes("criteria.manage")}/>
  </div>;

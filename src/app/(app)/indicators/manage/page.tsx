@@ -18,7 +18,7 @@ export default async function IndicatorManagementPage(){
   const latest=new Map<string,any>();
   for(const v of versions??[]) if(!latest.has((v as any).indicator_definition_id)) latest.set((v as any).indicator_definition_id,v);
   return <div className="page-stack">
-    <PageHeader eyebrow="CẤU HÌNH & DANH MỤC" title="Quản lý chỉ số chất lượng" description="Khai báo danh mục chuẩn và quản lý phiên bản chỉ số. Dữ liệu đo lường được thực hiện riêng để bảo toàn lịch sử." />
+    <PageHeader eyebrow="CẤU HÌNH & DANH MỤC" title="Quản lý chỉ số chất lượng" description="Khai báo danh mục chuẩn và quản lý phiên bản chỉ số. Dữ liệu đo lường được thực hiện riêng để bảo toàn lịch sử." icon="chart-no-axes-column-increasing" />
     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Link className="btn btn-secondary" href="/indicators">← Theo dõi chỉ số</Link></div>
     <IndicatorCreateForm />
     {error?<div className="card" style={{padding:16}}>Không tải được danh mục chỉ số.</div>:

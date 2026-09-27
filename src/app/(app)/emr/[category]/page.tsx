@@ -13,7 +13,7 @@ export default async function EmrCategoryPage({ params }: { params: Promise<{ ca
 
   return (
     <div className="page-stack">
-      <PageHeader eyebrow="TRIỂN KHAI EMR" title={category.label} description={category.description} actions={<a className="button secondary" href={`/api/emr/items/export?category=${category.code}`}>Xuất Excel</a>} />
+      <PageHeader eyebrow="TRIỂN KHAI EMR" title={category.label} description={category.description} actions={<a className="button secondary" href={`/api/emr/items/export?category=${category.code}`}>Xuất Excel</a>} icon={category.icon} />
       <EmrCategoryClient categoryCode={category.code} categoryLabel={category.label} canManage={hasPermission(user, "emr.manage")} />
     </div>
   );

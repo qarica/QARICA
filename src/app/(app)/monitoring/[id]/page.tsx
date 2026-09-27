@@ -138,7 +138,7 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
         img{print-color-adjust:exact;-webkit-print-color-adjust:exact}
       }
     `}</style>
-    <PageHeader eyebrow={`ĐỢT GIÁM SÁT · ${record?.record_code || "—"}`} title={record?.title || "Đợt giám sát"} description={`${template?.name || "Bảng kiểm"} · v${version?.version_no || "—"}`} />
+    <PageHeader eyebrow={`ĐỢT GIÁM SÁT · ${record?.record_code || "—"}`} title={record?.title || "Đợt giám sát"} description={`${template?.name || "Bảng kiểm"} · v${version?.version_no || "—"}`} icon="list-checks" />
     <div className="monitoring-sticky-actions no-print"><MonitoringBackButton roundId={round.id} />{hasResponses ? <MonitoringPrintClient roundId={round.id} isConfirmed={isConfirmed} /> : null}</div>
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
 

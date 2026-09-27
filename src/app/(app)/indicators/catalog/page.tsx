@@ -18,7 +18,7 @@ export default async function IndicatorCatalogPage(){
  const rows=(defsRes.data??[]).map((d:any)=>({...d,latest_version:latestMap.get(d.id)||null,published_version:publishedMap.get(d.id)||null}));
  const firstError=defsRes.error||versionsRes.error;
  return <div className="page-stack" style={{maxWidth:1400,margin:"0 auto"}}>
-  <PageHeader eyebrow="ĐO LƯỜNG & GIÁM SÁT · DANH MỤC CHUẨN" title="Danh mục chỉ số chất lượng" description="Khai báo định nghĩa chỉ số một lần, quản lý phiên bản công thức/tần suất và ngưng áp dụng mà không làm mất dữ liệu kỳ đo cũ." actions={<Link className="button secondary" href="/indicators">← Vận hành chỉ số</Link>}/>
+  <PageHeader eyebrow="ĐO LƯỜNG & GIÁM SÁT · DANH MỤC CHUẨN" title="Danh mục chỉ số chất lượng" description="Khai báo định nghĩa chỉ số một lần, quản lý phiên bản công thức/tần suất và ngưng áp dụng mà không làm mất dữ liệu kỳ đo cũ." actions={<Link className="button secondary" href="/indicators">← Vận hành chỉ số</Link>} icon="list-tree"/>
   {firstError?<div className="alert error">Không tải được danh mục chỉ số: {firstError.message}</div>:null}
   <IndicatorCatalogClient rows={rows as any[]} canManage={user.permissions.includes("indicators.manage")}/>
  </div>;

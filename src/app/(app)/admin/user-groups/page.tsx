@@ -19,6 +19,7 @@ export default async function AdminUserGroupsPage(){
       eyebrow="QUẢN TRỊ NGƯỜI DÙNG"
       title="Nhóm phân công"
       description="Khai báo nhóm một lần để tái sử dụng khi giao Kế hoạch, Action, Audit, RCA, đánh giá, giám sát và cải tiến. Thành viên nhóm được quản lý tại đây, không khai báo lặp lại trong từng kế hoạch."
+      icon="users-round"
     />
     {error?<div className="alert error">Không tải được dữ liệu nhóm: {error.message}</div>:null}
     <WorkGroupsClient
