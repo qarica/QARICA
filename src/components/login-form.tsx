@@ -121,13 +121,6 @@ export function LoginForm() {
         )}
       </button>
 
-      <div className="login-divider"><span>Hoặc đăng nhập bằng</span></div>
-      <div className="login-sso-row">
-        <button type="button" className="button secondary" disabled title="Chưa khả dụng">SSO</button>
-        <button type="button" className="button secondary" disabled title="Chưa khả dụng">Google</button>
-        <button type="button" className="button secondary" disabled title="Chưa khả dụng">Microsoft</button>
-      </div>
-
       <p className="tiny muted center">
         Dữ liệu truy cập được kiểm soát theo vai trò, quyền và phạm vi được&nbsp;phân&nbsp;công.<br />
         © 2026 Trần Trường Vinh · QARICA. All rights reserved.
