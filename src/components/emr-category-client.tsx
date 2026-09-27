@@ -93,6 +93,48 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
     }
   }
 
+  async function viewFile(item: Item) {
+    try {
+      const res = await fetch(`/api/emr/items/${item.id}/file`);
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "Không mở được file.");
+      window.open(json.url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
+    }
+  }
+
+  const [uploading, setUploading] = useState(false);
+  async function uploadFile(itemId: string, file: File) {
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch(`/api/emr/items/${itemId}/file`, { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "Không tải lên được.");
+      await load();
+      setEditing((prev) => (prev && prev.id === itemId ? { ...prev, details: { ...prev.details, file_name: json.file_name } } : prev));
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function removeFile(itemId: string) {
+    if (!window.confirm("Xoá file đính kèm này?")) return;
+    try {
+      const res = await fetch(`/api/emr/items/${itemId}/file`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "Không xoá được file.");
+      await load();
+      setEditing((prev) => { if (!prev || prev.id !== itemId) return prev; const d = { ...prev.details }; delete d.file_name; delete d.file_path; return { ...prev, details: d }; });
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
+    }
+  }
+
   return (
     <div className="page-stack">
       {canManage ? <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
@@ -107,14 +149,16 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
         <div className="panel">
           <table className="data-table">
             <thead>
-              <tr><th>Tiêu đề</th><th>Mô tả</th>{extraFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th><th></th></tr>
+              <tr><th>#</th><th>Tiêu đề</th><th>Mô tả</th>{extraFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Tệp đính kèm</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th><th></th></tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {items.map((item, idx) => (
                 <tr key={item.id}>
+                  <td>{idx + 1}</td>
                   <td><strong>{item.title}</strong></td>
                   <td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>
                   {extraFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
+                  <td>{item.details?.file_name ? <button type="button" className="button tertiary small" onClick={() => viewFile(item)}>📎 {String(item.details.file_name)}</button> : "—"}</td>
                   <td><span className={`status-badge ${item.priority==="CRITICAL"?"danger":item.priority==="HIGH"?"warning":"muted"}`}>{{LOW:"Thấp",MEDIUM:"Trung bình",HIGH:"Cao",CRITICAL:"Nghiêm trọng"}[item.priority]||item.priority}</span></td><td>{item.due_date || "—"}</td>
                   <td>{EMR_STATUS_LABELS[item.status] || item.status}{item.verified_at ? <div><small>Đã xác minh</small></div> : null}</td>
                   <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>{canManage ? <>
@@ -155,6 +199,26 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
                   )}
                 </label>
               ))}
+
+              <label>Tệp đính kèm (biểu mẫu, chứng thư, minh chứng...)
+                {editing ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    {editing.details?.file_name ? (
+                      <>
+                        <button type="button" className="button tertiary small" onClick={() => viewFile(editing)}>📎 Xem: {String(editing.details.file_name)}</button>
+                        <button type="button" className="button tertiary small" onClick={() => removeFile(editing.id)} disabled={uploading}>Xoá file</button>
+                      </>
+                    ) : (
+                      <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.doc,.docx,.xls,.xlsx" disabled={uploading}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(editing.id, f); }} />
+                    )}
+                    {uploading ? <small>Đang tải lên...</small> : null}
+                  </div>
+                ) : (
+                  <small style={{ display: "block", color: "#7a8b91" }}>Lưu mục này trước, sau đó bấm &quot;Sửa&quot; để đính kèm file.</small>
+                )}
+              </label>
+
               <label>Trạng thái
                 <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
                   {Object.entries(EMR_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
