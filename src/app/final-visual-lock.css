@@ -54,6 +54,61 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .workspace-app .button.primary{background:linear-gradient(135deg,#1769d2,#2f80ed)!important;border-color:#1769d2!important;color:#fff!important}
 .workspace-app input:focus,.workspace-app select:focus,.workspace-app textarea:focus{border-color:#2f80ed!important;box-shadow:0 0 0 3px rgba(47,128,237,.10)!important}
 
+/* Unify every page-local KPI/card variant (radius + shadow varied from 10px to 17px
+   depending which module a page was built in) onto the same radius+shadow already used
+   by the shared .panel/.kpi-card above, so every card in the system reads as one design
+   instead of a patchwork of near-identical but slightly different card styles. */
+.workspace-app [class*="tqm"] .kpi,
+.workspace-app .qcc-dashboard .kpi-card,
+.workspace-app .emr-command .emr-kpi,
+.workspace-app .emr-panel,
+.workspace-app .kpi-card{
+  border-radius:16px!important;
+  box-shadow:0 4px 16px rgba(27,78,140,.045)!important;
+  transition:box-shadow .18s ease,transform .18s ease!important;
+}
+.workspace-app .kpi-card:hover,
+.workspace-app [class*="tqm"] .kpi:hover,
+.workspace-app .qcc-dashboard .kpi-card:hover,
+.workspace-app .emr-command .emr-kpi:hover{
+  box-shadow:0 10px 26px rgba(27,78,140,.09)!important;
+  transform:translateY(-2px);
+}
+
+/* Buttons: consistent depth and hover feedback everywhere, instead of a flat click target. */
+.workspace-app .button{transition:background .15s ease,box-shadow .15s ease,transform .15s ease,border-color .15s ease!important}
+.workspace-app .button.primary:hover{box-shadow:0 6px 16px rgba(22,119,255,.28)!important;transform:translateY(-1px)}
+.workspace-app .button.secondary:hover,.workspace-app .button.tertiary:hover{background:#f3f8ff!important;border-color:#cfe2ff!important;color:#1769d2!important}
+
+/* Status badges: a subtle tinted border so the pill reads as a defined chip, not a flat fill. */
+.workspace-app .status-badge{border:1px solid transparent!important}
+.workspace-app .status-badge.success{border-color:#bfe6cf!important}
+.workspace-app .status-badge.danger{border-color:#f3c8c8!important}
+.workspace-app .status-badge.warning{border-color:#f2dfb0!important}
+.workspace-app .status-badge.info{border-color:#c8dcf3!important}
+
+/* Table header: slightly wider letter-spacing to match the rest of the refreshed type scale. */
+.workspace-app th{letter-spacing:.06em!important}
+
+/* Clickable tiles (EMR module cards, dashboard hotspots) had zero hover feedback, making
+   them read as static text instead of links. Give every such tile the same lift/shadow
+   language as the KPI cards above. */
+.workspace-app .ready-card,
+.workspace-app .hotspot{
+  border-radius:12px!important;
+  transition:box-shadow .18s ease,transform .18s ease,border-color .18s ease!important;
+}
+.workspace-app .ready-card:hover,
+.workspace-app .hotspot:hover{
+  box-shadow:0 8px 20px rgba(27,78,140,.09)!important;
+  border-color:#cfe2ff!important;
+  transform:translateY(-2px);
+}
+.workspace-app .action-list>a,
+.workspace-app .alert-row{transition:background .15s ease,border-color .15s ease!important}
+.workspace-app .action-list>a:hover{background:#f8fbff!important}
+.workspace-app .alert-row:hover{background:#f8fbff!important;border-color:#cfe2ff!important}
+
 @media(max-width:860px){
   .workspace-app .sidebar{box-shadow:8px 0 28px rgba(15,23,42,.12)!important}
   .workspace-app .content{padding-left:14px!important;padding-right:14px!important}
