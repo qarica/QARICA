@@ -288,7 +288,7 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
         </form>
       </section> : null}
 
-      {canManage && objectiveRows.length ? <div style={{ overflowX: "auto" }}>
+      {canManage && objectiveRows.length ? <div className="table-wrap">
         <table className="data-table"><thead><tr><th>#</th><th>Mục tiêu SMART</th><th>Chỉ số</th><th>Baseline</th><th>Target</th><th>Hạn</th>{status === "DRAFT" ? <th>Thao tác</th> : null}</tr></thead><tbody>
           {objectiveRows.map((item) => <tr key={item.id}><td>{item.order}</td><td>{item.statement}</td><td>{item.indicator || "—"}</td><td>{item.baseline ?? "—"}</td><td>{item.target ?? "—"}{item.unit ? ` ${item.unit}` : ""}</td><td>{item.due_date || "—"}</td>{status === "DRAFT" ? <td><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><button type="button" className="button tertiary small" disabled={busy} onClick={() => editObjective(item)}>Sửa</button><button type="button" className="button danger small" disabled={busy} onClick={() => void deleteObjective(item)}>Xóa</button></div></td> : null}</tr>)}
         </tbody></table>
@@ -313,7 +313,7 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
         <div className="domain-metrics">
           {phaseSummary.map((item) => <div key={item.key}><strong>{item.count}</strong><span>{PHASE_LABEL[item.key]}</span></div>)}
         </div>
-        <div style={{ overflowX: "auto" }}>
+        <div className="table-wrap">
           <table className="data-table"><thead><tr><th>#</th><th>PDSA</th><th>Milestone</th><th>Thời gian</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
             {milestoneRows.map((item) => {
               const canEdit = milestoneEditable && item.status === "PLANNED";
@@ -351,8 +351,8 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
         <form onSubmit={evaluate} className="domain-detail-grid">
           <label className="wide">Đánh giá mức đạt mục tiêu *<DictationTextarea rows={4} value={summary} onValueChange={setSummary} disabled={busy} /></label>
           <label>Kết quả<select value={result} onChange={(e) => setResult(e.target.value)}><option value="ACHIEVED">Đạt</option><option value="PARTIAL">Đạt một phần</option><option value="NOT_ACHIEVED">Chưa đạt</option></select></label>
-          <label><input type="checkbox" checked={sustain} onChange={(e) => setSustain(e.target.checked)} /> Cần kế hoạch duy trì</label>
-          <label><input type="checkbox" checked={scale} onChange={(e) => setScale(e.target.checked)} /> Đề xuất nhân rộng</label>
+          <label className="inline-check"><input type="checkbox" checked={sustain} onChange={(e) => setSustain(e.target.checked)} /> Cần kế hoạch duy trì</label>
+          <label className="inline-check"><input type="checkbox" checked={scale} onChange={(e) => setScale(e.target.checked)} /> Đề xuất nhân rộng</label>
           <button className="button primary" disabled={busy || incompleteMilestones > 0 || actions < 1 || incomplete > 0 || evidence < 1}>Đánh giá kết quả</button>
         </form>
       </> : null}

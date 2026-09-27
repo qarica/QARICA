@@ -20,7 +20,7 @@ export default async function IndicatorManageDetailPage({ params }: { params: Pr
 
   return <div className="page-stack">
     <PageHeader eyebrow="CẤU HÌNH & DANH MỤC" title={definition.name} description={`Mã ${definition.code}${definition.quality_dimension ? ` · ${definition.quality_dimension}` : ""}`} icon="chart-no-axes-column-increasing" />
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Link className="btn btn-secondary" href="/indicators/manage">← Quản lý chỉ số</Link></div>
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Link className="button secondary" href="/indicators/manage">← Quản lý chỉ số</Link></div>
     {versionsError ? <div className="alert error">Không tải được phiên bản: {versionsError.message}</div> : null}
     <IndicatorManageDetailClient definition={definition} versions={versions ?? []} canManage={canManage} />
   </div>;

@@ -12,8 +12,8 @@ export function IndicatorCreateForm(){
   setBusy(false); if(!res.ok){setError(json.error||"Không tạo được chỉ số.");return}
   setOpen(false); router.refresh();
  }
- return <div className="card" style={{padding:16}}>
-  <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div><strong>Danh mục chỉ số</strong><div className="muted">Chỉ tạo master data tại đây; kỳ đo lường được quản lý riêng.</div></div><button className="btn btn-primary" onClick={()=>setOpen(v=>!v)}>{open?"Đóng":"+ Thêm chỉ số"}</button></div>
+ return <div className="panel" style={{padding:16}}>
+  <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div><strong>Danh mục chỉ số</strong><div className="muted">Chỉ tạo master data tại đây; kỳ đo lường được quản lý riêng.</div></div><button className="button primary" onClick={()=>setOpen(v=>!v)}>{open?"Đóng":"+ Thêm chỉ số"}</button></div>
   {open&&<form onSubmit={submit} style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(210px,1fr))",gap:12,marginTop:16}}>
    <label>Mã chỉ số<input name="code" placeholder="Tự sinh nếu để trống"/></label>
    <label>Tên chỉ số *<input name="name" required/></label>
@@ -24,8 +24,8 @@ export function IndicatorCreateForm(){
    <label>Tần suất<select name="frequency" defaultValue="MONTHLY"><option value="DAILY">Hằng ngày</option><option value="WEEKLY">Hằng tuần</option><option value="MONTHLY">Hằng tháng</option><option value="QUARTERLY">Hằng quý</option><option value="SEMIANNUAL">6 tháng</option><option value="ANNUAL">Hằng năm</option></select></label>
    <label>Ngày hiệu lực<input type="date" name="effective_from"/></label>
    <label style={{gridColumn:"1/-1"}}>Mục đích<textarea name="purpose" rows={2}/></label>
-   {error&&<div style={{gridColumn:"1/-1"}} className="alert alert-error">{error}</div>}
-   <div style={{gridColumn:"1/-1",display:"flex",justifyContent:"flex-end"}}><button className="btn btn-primary" disabled={busy}>{busy?"Đang tạo...":"Tạo chỉ số"}</button></div>
+   {error&&<div style={{gridColumn:"1/-1"}} className="alert error">{error}</div>}
+   <div style={{gridColumn:"1/-1",display:"flex",justifyContent:"flex-end"}}><button className="button primary" disabled={busy}>{busy?"Đang tạo...":"Tạo chỉ số"}</button></div>
   </form>}
  </div>
 }

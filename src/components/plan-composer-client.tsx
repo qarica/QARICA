@@ -901,7 +901,7 @@ export function PlanComposerClient({
                   <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 8, padding: 8, marginTop: 6, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 4 }}>
                     {criteriaItems.map((criterion) => (
                       <label key={criterion.id} style={{ display: "flex", gap: 6, alignItems: "flex-start", fontSize: 12, fontWeight: 400 }}>
-                        <input type="checkbox" checked={task.criteria_refs.includes(criterion.code)} onChange={() => toggleCriterion(i, criterion.code)} style={{ marginTop: 2 }} />
+                        <input type="checkbox" checked={task.criteria_refs.includes(criterion.code)} onChange={() => toggleCriterion(i, criterion.code)} style={{ width: "auto", minHeight: 0, marginTop: 2 }} />
                         <span><strong>{criterion.code}</strong> — {criterion.title}</span>
                       </label>
                     ))}

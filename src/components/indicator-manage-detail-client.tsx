@@ -61,7 +61,7 @@ export function IndicatorManageDetailClient({ definition, versions, canManage }:
   }
 
   return <div className="page-stack">
-    <div className="card" style={{ padding: 16 }}>
+    <div className="panel" style={{ padding: 16 }}>
       <strong>Thông tin chỉ số</strong>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 12, marginTop: 12 }}>
         <label>Mã chỉ số<input value={def.code} disabled={!canManage} onChange={(e) => setDef({ ...def, code: e.target.value })} /></label>
@@ -76,13 +76,13 @@ export function IndicatorManageDetailClient({ definition, versions, canManage }:
 
     {error ? <div className="alert error">{error}</div> : null}
 
-    <div className="card" style={{ padding: 16 }}>
+    <div className="panel" style={{ padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
         <strong>Phiên bản chỉ số</strong>
         {canManage && !draft ? <button className="button secondary" onClick={createDraft}>+ Tạo phiên bản mới</button> : null}
       </div>
-      <div style={{ overflowX: "auto", marginTop: 12 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
+      <div className="table-wrap" style={{ marginTop: 12 }}>
+        <table style={{ minWidth: 760 }}>
           <thead><tr><th>Phiên bản</th><th>Trạng thái</th><th>Cách tính</th><th>Chiều hướng</th><th>Tần suất</th><th>Đơn vị</th><th>Hiệu lực từ</th><th></th></tr></thead>
           <tbody>
             {versions.map((v) => {

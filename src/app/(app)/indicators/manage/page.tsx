@@ -19,12 +19,12 @@ export default async function IndicatorManagementPage(){
   for(const v of versions??[]) if(!latest.has((v as any).indicator_definition_id)) latest.set((v as any).indicator_definition_id,v);
   return <div className="page-stack">
     <PageHeader eyebrow="CẤU HÌNH & DANH MỤC" title="Quản lý chỉ số chất lượng" description="Khai báo danh mục chuẩn và quản lý phiên bản chỉ số. Dữ liệu đo lường được thực hiện riêng để bảo toàn lịch sử." icon="chart-no-axes-column-increasing" />
-    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Link className="btn btn-secondary" href="/indicators">← Theo dõi chỉ số</Link></div>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Link className="button secondary" href="/indicators">← Theo dõi chỉ số</Link></div>
     <IndicatorCreateForm />
-    {error?<div className="card" style={{padding:16}}>Không tải được danh mục chỉ số.</div>:
-    <div className="card" style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:900}}>
+    {error?<div className="panel empty-state">Không tải được danh mục chỉ số.</div>:
+    <div className="panel"><div className="table-wrap"><table>
       <thead><tr><th>Mã</th><th>Tên chỉ số</th><th>Lĩnh vực</th><th>Đơn vị</th><th>Tần suất</th><th>Phiên bản</th><th>Trạng thái</th><th>Hiệu lực</th></tr></thead>
-      <tbody>{(defs??[]).map((d:any)=>{const v=latest.get(d.id);return <tr key={d.id}><td><Link href={`/indicators/manage/${d.id}`}><strong>{d.code}</strong></Link></td><td><Link href={`/indicators/manage/${d.id}`}>{d.name}<div className="muted">{d.purpose||""}</div></Link></td><td>{d.quality_dimension||"—"}</td><td>{v?.unit||"—"}</td><td>{frequencyLabel(v?.frequency)}</td><td>v{v?.version_no??"—"}</td><td>{d.is_active===false?"Ngưng sử dụng":statusLabel(v?.status)}</td><td>{v?.effective_from||"—"}</td></tr>})}{!(defs??[]).length&&<tr><td colSpan={8} style={{padding:24,textAlign:"center"}}>Chưa có chỉ số. Tạo chỉ số đầu tiên bằng biểu mẫu phía trên.</td></tr>}</tbody>
-    </table></div>}
+      <tbody>{(defs??[]).map((d:any)=>{const v=latest.get(d.id);return <tr key={d.id}><td><Link href={`/indicators/manage/${d.id}`}><strong>{d.code}</strong></Link></td><td><Link href={`/indicators/manage/${d.id}`}>{d.name}<div className="muted">{d.purpose||""}</div></Link></td><td>{d.quality_dimension||"—"}</td><td>{v?.unit||"—"}</td><td>{frequencyLabel(v?.frequency)}</td><td>v{v?.version_no??"—"}</td><td>{d.is_active===false?"Ngưng sử dụng":statusLabel(v?.status)}</td><td>{v?.effective_from||"—"}</td></tr>})}{!(defs??[]).length&&<tr><td colSpan={8} className="empty-state">Chưa có chỉ số. Tạo chỉ số đầu tiên bằng biểu mẫu phía trên.</td></tr>}</tbody>
+    </table></div></div>}
   </div>
 }
