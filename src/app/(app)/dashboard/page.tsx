@@ -46,12 +46,32 @@ const RISK_MED = new Set(["MEDIUM", "MODERATE"]);
 const RISK_LOW = new Set(["LOW"]);
 function riskTier(level: string | null | undefined) { const v = String(level || "").toUpperCase(); if (["VERY_HIGH", "CRITICAL", "EXTREME"].includes(v)) return "RAT_CAO"; if (v === "HIGH") return "CAO"; if (RISK_MED.has(v)) return "TRUNG_BINH"; if (RISK_LOW.has(v)) return "THAP"; return null; }
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ asOf?: string; from?: string; dept?: string }> }) {
+const RANGE_LABEL: Record<string, string> = { week: "Tuần", month: "Tháng", quarter: "Quý" };
+function quarterKey(monthKey_: string) { const [y, m] = monthKey_.split("-").map(Number); return `${y}-Q${Math.ceil(m / 3)}`; }
+function quarterLabel(key: string) { return key.split("-")[1]; }
+function isoWeekKey(dateStr: string) {
+  const d = new Date(`${dateStr.slice(0, 10)}T00:00:00Z`);
+  const day = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - day + 3);
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const week = 1 + Math.round(((d.getTime() - firstThursday.getTime()) / 86400000 - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+function weekLabel(key: string) { return `T${key.split("-W")[1]}`; }
+function last12Weeks(todayStr: string) {
+  const base = new Date(`${todayStr}T00:00:00Z`);
+  const out: string[] = [];
+  for (let i = 11; i >= 0; i--) { const d = new Date(base.getTime() - i * 7 * 86400000); out.push(isoWeekKey(d.toISOString().slice(0, 10))); }
+  return Array.from(new Set(out));
+}
+
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ asOf?: string; from?: string; dept?: string; range?: string }> }) {
   const { user } = await requireUserContext();
   const year = await getWorkYear();
   const supabase = await createClient();
   const admin = createAdminClient();
   const query = await searchParams;
+  const range = ["week", "month", "quarter"].includes(String(query.range || "")) ? String(query.range) : "month";
   const requestedAsOf = String(query.asOf || "").trim();
   const today = /^\d{4}-\d{2}-\d{2}$/.test(requestedAsOf) && requestedAsOf <= todayHcm() ? requestedAsOf : todayHcm();
   const defaultFrom = addMonths(today.slice(0, 7), -8) + "-01";
@@ -113,16 +133,33 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const domainIds = Array.from(new Set(((domainLinksRes.data ?? []) as any[]).map((x: any) => String(x.domain_id || "")).filter(Boolean)));
   const domainsRes = domainIds.length ? await admin.from("quality_domains").select("id,name,sort_order,is_active").in("id", domainIds).eq("is_active", true) : { data: [], error: null };
   const domainDistribution = incidentDomainDistribution(Array.from(incidentRecordIds) as string[], (domainLinksRes.data ?? []) as any[], (domainsRes.data ?? []) as any[]);
-  const domainTotal = domainDistribution.rows.reduce((s: number, r: any) => s + r.value, 0);
   const domainSegments = domainDistribution.rows.slice(0, 6).map((r: any, i: number) => ({ label: r.label as string, value: r.value as number, tone: (["brand", "green", "amber", "red", "blue", "slate"] as const)[i % 6] }));
 
-  const trendRows = months.map((m) => {
-    const inMonth = incidentsAll.filter((x: any) => monthKey(x.reported_at) === m);
+  const trendBuckets = range === "quarter"
+    ? Array.from(new Set(months.map((m) => quarterKey(m))))
+    : range === "week"
+    ? last12Weeks(today)
+    : months;
+  const bucketOf = (reportedAt: string | null | undefined): string | null => {
+    if (!reportedAt) return null;
+    if (range === "quarter") { const mk = monthKey(reportedAt); return mk ? quarterKey(mk) : null; }
+    if (range === "week") return isoWeekKey(String(reportedAt).slice(0, 10));
+    return monthKey(reportedAt);
+  };
+  const bucketLabel = range === "quarter" ? quarterLabel : range === "week" ? weekLabel : monthLabel;
+  const trendRows = trendBuckets.map((bucket) => {
+    const inBucket = incidentsAll.filter((x: any) => bucketOf(x.reported_at) === bucket);
     let low = 0, high = 0, veryHigh = 0;
-    for (const inc of inMonth) { const h = incidentHarmClassification(inc.harm_status); if (h?.classLabel?.includes("Tử vong")) veryHigh++; else if (h?.serious) high++; else low++; }
-    return { month: m, low, high, veryHigh, total: inMonth.length };
+    for (const inc of inBucket) { const h = incidentHarmClassification(inc.harm_status); if (h?.classLabel?.includes("Tử vong")) veryHigh++; else if (h?.serious) high++; else low++; }
+    return { month: bucket, low, high, veryHigh, total: inBucket.length };
   });
   const trendMax = Math.max(1, ...trendRows.map((r) => r.total));
+
+  const incidentStatusTotal = incidentsAll.length;
+  const incidentStatusDone = incidentsAll.filter((x: any) => x.workflow_status === "CLOSED").length;
+  const incidentStatusInProgress = incidentsAll.filter((x: any) => ["TRIAGED", "INVESTIGATION_REQUIRED", "INVESTIGATING", "ACTION_FOLLOW_UP", "AWAITING_CLOSURE"].includes(String(x.workflow_status))).length;
+  const incidentStatusNew = incidentsAll.filter((x: any) => ["REPORTED", "RETURNED"].includes(String(x.workflow_status))).length;
+  const incidentStatusOverdue = openIncidents.filter((x: any) => { const days = Math.floor((Date.parse(today) - Date.parse(String(x.reported_at).slice(0, 10))) / 86400000); return days > 7; }).length;
 
   const JOURNEY_STAGES = [
     { key: "REPORTED", label: "Báo cáo", status: "Mới", statuses: ["REPORTED", "RETURNED"] },
@@ -209,12 +246,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
       .qcc-dashboard .kpi-card{background:#fff;border:1px solid #e5eaf2;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.03)}
       .qcc-dashboard .kpi-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-      .qcc-dashboard .kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff}
+      .qcc-dashboard .kpi-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}
       .qcc-dashboard .kpi-icon.blue{background:#3b82f6}.qcc-dashboard .kpi-icon.green{background:#22c55e}.qcc-dashboard .kpi-icon.amber{background:#f59e0b}.qcc-dashboard .kpi-icon.red{background:#ef4444}.qcc-dashboard .kpi-icon.purple{background:#8b5cf6}
-      .qcc-dashboard .kpi-title{font-size:12.5px;color:#475569;font-weight:600}
+      .qcc-dashboard .kpi-title{font-size:12.5px;color:#475569;font-weight:600;margin-top:2px}
       .qcc-dashboard .kpi-value{font-size:26px;font-weight:800;color:#0f172a}
-      .qcc-dashboard .kpi-trend{font-size:11px;font-weight:700;margin-top:6px}
-      .qcc-dashboard .kpi-trend.up{color:#16a34a}.qcc-dashboard .kpi-trend.down{color:#dc2626}.qcc-dashboard .kpi-trend.flat{color:#94a3b8}
+      .qcc-dashboard .kpi-trend{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
+      .qcc-dashboard .kpi-trend.up{color:#16a34a;background:#eafaf0}.qcc-dashboard .kpi-trend.down{color:#dc2626;background:#fef2f2}.qcc-dashboard .kpi-trend.flat{color:#94a3b8;background:#f1f5f9}
+      .qcc-dashboard .chart-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+      .qcc-dashboard .range-toggle{display:flex;gap:2px;background:#f1f5f9;border-radius:9px;padding:2px}
+      .qcc-dashboard .range-toggle a{padding:6px 12px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b}
+      .qcc-dashboard .range-toggle a.active{background:#2563eb;color:#fff}
       .qcc-dashboard .grid2{display:grid;grid-template-columns:1.3fr .9fr;gap:14px}
       .qcc-dashboard .grid3{display:grid;grid-template-columns:1fr 1fr;gap:14px}
       .qcc-dashboard .grid-bottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
@@ -272,20 +313,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
 
     <section className="kpis">
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon blue"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span></div><div className="kpi-title">Sự cố mới</div><div className="kpi-value">{thisMonthNew}</div><div className={`kpi-trend ${pctChange(thisMonthNew, lastMonthNew).tone}`}>{pctChange(thisMonthNew, lastMonthNew).tone === "up" ? "▲" : pctChange(thisMonthNew, lastMonthNew).tone === "down" ? "▼" : ""} {pctChange(thisMonthNew, lastMonthNew).text}</div></article>
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon green"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span></div><div className="kpi-title">Đang phân tích RCA</div><div className="kpi-value">{investigating}</div><div className={`kpi-trend ${pctChange(investigating, investigatingLastMonth).tone}`}>{pctChange(investigating, investigatingLastMonth).tone === "up" ? "▲" : pctChange(investigating, investigatingLastMonth).tone === "down" ? "▼" : ""} {pctChange(investigating, investigatingLastMonth).text}</div></article>
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon amber"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span></div><div className="kpi-title">CAPA quá hạn</div><div className="kpi-value">{capaOverdue.length}</div><div className={`kpi-trend ${pctChange(capaOverdue.length, capaOverdueLastMonth).tone}`}>{pctChange(capaOverdue.length, capaOverdueLastMonth).tone === "up" ? "▲" : pctChange(capaOverdue.length, capaOverdueLastMonth).tone === "down" ? "▼" : ""} {pctChange(capaOverdue.length, capaOverdueLastMonth).text}</div></article>
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon red"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></span></div><div className="kpi-title">Rủi ro mức cao</div><div className="kpi-value">{highRiskCount}</div><div className="kpi-trend flat">Không thay đổi</div></article>
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon purple"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span></div><div className="kpi-title">Audit đang thực hiện</div><div className="kpi-value">{auditInProgress}</div><div className={`kpi-trend ${pctChange(auditInProgress, auditInProgressLastMonth).tone}`}>{pctChange(auditInProgress, auditInProgressLastMonth).tone === "up" ? "▲" : pctChange(auditInProgress, auditInProgressLastMonth).tone === "down" ? "▼" : ""} {pctChange(auditInProgress, auditInProgressLastMonth).text}</div></article>
+      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon blue"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span className={`kpi-trend ${pctChange(thisMonthNew, lastMonthNew).tone}`}>{pctChange(thisMonthNew, lastMonthNew).tone === "up" ? "▲" : pctChange(thisMonthNew, lastMonthNew).tone === "down" ? "▼" : ""} {pctChange(thisMonthNew, lastMonthNew).tone === "flat" ? "0%" : `${Math.abs(Math.round(((thisMonthNew - lastMonthNew) / (lastMonthNew || 1)) * 100))}%`}</span></div><div className="kpi-value">{thisMonthNew}</div><div className="kpi-title">Sự cố mới</div></article>
+      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span><span className={`kpi-trend ${pctChange(investigating, investigatingLastMonth).tone}`}>{pctChange(investigating, investigatingLastMonth).tone === "up" ? "▲" : pctChange(investigating, investigatingLastMonth).tone === "down" ? "▼" : ""} {pctChange(investigating, investigatingLastMonth).tone === "flat" ? "0%" : `${Math.abs(Math.round(((investigating - investigatingLastMonth) / (investigatingLastMonth || 1)) * 100))}%`}</span></div><div className="kpi-value">{investigating}</div><div className="kpi-title">Đang phân tích RCA</div></article>
+      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon amber"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><span className={`kpi-trend ${pctChange(capaOverdue.length, capaOverdueLastMonth).tone}`}>{pctChange(capaOverdue.length, capaOverdueLastMonth).tone === "up" ? "▲" : pctChange(capaOverdue.length, capaOverdueLastMonth).tone === "down" ? "▼" : ""} {pctChange(capaOverdue.length, capaOverdueLastMonth).tone === "flat" ? "0%" : `${Math.abs(Math.round(((capaOverdue.length - capaOverdueLastMonth) / (capaOverdueLastMonth || 1)) * 100))}%`}</span></div><div className="kpi-value">{capaOverdue.length}</div><div className="kpi-title">CAPA quá hạn</div></article>
+      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon red"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></span><span className="kpi-trend flat">0%</span></div><div className="kpi-value">{highRiskCount}</div><div className="kpi-title">Rủi ro mức cao</div></article>
+      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon purple"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span className={`kpi-trend ${pctChange(auditInProgress, auditInProgressLastMonth).tone}`}>{pctChange(auditInProgress, auditInProgressLastMonth).tone === "up" ? "▲" : pctChange(auditInProgress, auditInProgressLastMonth).tone === "down" ? "▼" : ""} {pctChange(auditInProgress, auditInProgressLastMonth).tone === "flat" ? "0%" : `${Math.abs(Math.round(((auditInProgress - auditInProgressLastMonth) / (auditInProgressLastMonth || 1)) * 100))}%`}</span></div><div className="kpi-value">{auditInProgress}</div><div className="kpi-title">Audit đang thực hiện</div></article>
     </section>
 
     <section className="grid2">
-      <article className="panel"><div className="head"><div><h2>Xu hướng sự cố y khoa</h2><p>Số lượng sự cố theo tháng và theo mức độ tổn hại (taxonomy thật của hệ thống).</p></div></div>
+      <article className="panel"><div className="head"><div><h2>Xu hướng sự cố y khoa</h2><p>Số lượng sự cố theo {RANGE_LABEL[range].toLowerCase()} và theo mức độ tổn hại (taxonomy thật của hệ thống).</p></div>
+        <div className="chart-toolbar"><div className="range-toggle">{(["week","month","quarter"] as const).map((r) => <Link key={r} href={`?${new URLSearchParams({ ...(from?{from}:{}) , asOf: today, ...(selectedDept?{dept:selectedDept}:{}), range: r }).toString()}`} className={range === r ? "active" : ""}>{RANGE_LABEL[r]}</Link>)}</div></div>
+        </div>
         <div className="stacked-trend-legend"><span><i style={{ background: "#3b82f6" }} />Không nghiêm trọng</span><span><i style={{ background: "#f59e0b" }} />Nghiêm trọng</span><span><i style={{ background: "#ef4444" }} />Rất nghiêm trọng</span></div>
-        <div className="stacked-trend"><div className="stacked-bars">{trendRows.map((r) => <div className="stacked-bar-col" key={r.month}><div className="stacked-bar" style={{ height: `${Math.max(4, (r.total / trendMax) * 160)}px` }}>{r.veryHigh ? <span className="stacked-bar-seg" style={{ background: "#ef4444", height: `${(r.veryHigh / Math.max(1, r.total)) * 100}%` }} /> : null}{r.high ? <span className="stacked-bar-seg" style={{ background: "#f59e0b", height: `${(r.high / Math.max(1, r.total)) * 100}%` }} /> : null}{r.low ? <span className="stacked-bar-seg" style={{ background: "#3b82f6", height: `${(r.low / Math.max(1, r.total)) * 100}%` }} /> : null}</div><span className="stacked-bar-label">{monthLabel(r.month)}</span></div>)}</div></div>
+        <div className="stacked-trend"><div className="stacked-bars">{trendRows.map((r) => <div className="stacked-bar-col" key={r.month}><div className="stacked-bar" style={{ height: `${Math.max(4, (r.total / trendMax) * 160)}px` }}>{r.veryHigh ? <span className="stacked-bar-seg" style={{ background: "#ef4444", height: `${(r.veryHigh / Math.max(1, r.total)) * 100}%` }} /> : null}{r.high ? <span className="stacked-bar-seg" style={{ background: "#f59e0b", height: `${(r.high / Math.max(1, r.total)) * 100}%` }} /> : null}{r.low ? <span className="stacked-bar-seg" style={{ background: "#3b82f6", height: `${(r.low / Math.max(1, r.total)) * 100}%` }} /> : null}</div><span className="stacked-bar-label">{bucketLabel(r.month)}</span></div>)}</div></div>
       </article>
-      <article className="panel"><div className="head"><h2>Phân bố sự cố theo lĩnh vực</h2><p>Theo taxonomy Lĩnh vực chất lượng &amp; an toàn dùng chung.</p></div>{domainSegments.length ? <TqmDonut value={domainTotal} label="Tổng số sự cố" segments={domainSegments} /> : <div className="empty-state">Chưa có hồ sơ được gắn lĩnh vực.</div>}</article>
+      <article className="panel"><div className="head"><h2>Tình trạng sự cố</h2><p>Phân bố theo trạng thái xử lý hiện tại.</p></div>{incidentStatusTotal ? <TqmDonut value={incidentStatusTotal} label="Tổng số" segments={[{ label: "Đã xử lý", value: incidentStatusDone, tone: "green" as const }, { label: "Đang xử lý", value: incidentStatusInProgress, tone: "blue" as const }, { label: "Mới ghi nhận", value: incidentStatusNew, tone: "amber" as const }, { label: "Quá hạn", value: incidentStatusOverdue, tone: "red" as const }].filter((s) => s.value > 0)} /> : <div className="empty-state">Chưa có sự cố được ghi nhận.</div>}</article>
     </section>
+    <section className="panel"><div className="head"><h2>Phân bố sự cố theo lĩnh vực</h2><p>Theo taxonomy Lĩnh vực chất lượng &amp; an toàn dùng chung.</p></div>{domainSegments.length ? <TqmHorizontalBars rows={domainSegments.map((s) => ({ label: s.label, value: s.value, tone: s.tone }))} /> : <div className="empty-state">Chưa có hồ sơ được gắn lĩnh vực.</div>}</section>
 
     <section className="grid3">
       <article className="panel"><div className="head"><h2>Tiến độ xử lý sự cố</h2><Link className="button tertiary small" href="/incidents">Xem chi tiết →</Link></div>

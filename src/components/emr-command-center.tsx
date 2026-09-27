@@ -9,7 +9,6 @@ type DomainCell={code:string;slug:string;label:string;total:number;done:number;b
 type Dept={id:string;name:string;total:number;done:number;open:number;overdue:number;blockers:number;gates:number;gatesPassed:number;completion:number|null;domains:DomainCell[]};
 type Escalation=Item & {reasons:string[];score:number};
 type Data={generatedAt:string;filter?:{from:string;to:string;active:boolean};total:number;completion:number|null;stale:number;overdue:number;controlCoverage:{owner:number|null;department:number|null;deadline:number|null;gateEvidence:number|null};gates:{total:number;passed:number;evidenceMissing:number};unassigned:number;criticalOpen:number;counts:Record<string,number>;categories:Cat[];attention:Item[];departmentMatrix:Dept[];upcoming:Item[];escalation:Escalation[]};
-const statusLabel:Record<string,string>={TODO:"Chưa làm",IN_PROGRESS:"Đang thực hiện",DONE:"Hoàn tất",BLOCKED:"Bị chặn"};
 const REASON_VISUAL:Record<string,{icon:string;tone:string}>={
  BLOCKED:{icon:"circle-alert",tone:"a0"},
  CRITICAL:{icon:"triangle-alert",tone:"a0"},

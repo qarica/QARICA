@@ -1,14 +1,40 @@
 "use client";
-import { useEffect, useState } from "react";
-import { EMR_CATEGORY_FIELDS, EMR_STATUS_LABELS } from "@/lib/emr-categories";
+import { useEffect, useMemo, useState } from "react";
+import { Icon } from "@/components/icon";
+import { EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
 
 type Item = { id: string; category: string; title: string; description: string | null; status: string; department_id:string|null; owner_user_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; created_at: string; updated_at: string };
+
+const KPI_TONE: Record<EmrKpiBucket, string> = { TOTAL: "blue", DONE: "green", IN_PROGRESS: "amber", TODO: "slate", BLOCKED: "red", OVERDUE: "red", CERT_VALID: "green", CERT_EXPIRING: "amber", CERT_EXPIRED: "red" };
+const KPI_ICON: Record<EmrKpiBucket, string> = { TOTAL: "list-checks", DONE: "badge-check", IN_PROGRESS: "refresh-cw", TODO: "calendar-days", BLOCKED: "circle-alert", OVERDUE: "triangle-alert", CERT_VALID: "shield-check", CERT_EXPIRING: "triangle-alert", CERT_EXPIRED: "circle-alert" };
+
+function todayHcm() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()); }
+function addDays(date: string, days: number) { const d = new Date(`${date}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); }
+
+function bucketCount(bucket: EmrKpiBucket, items: Item[], hasBlockedBucket: boolean): number {
+  const today = todayHcm();
+  switch (bucket) {
+    case "TOTAL": return items.length;
+    case "DONE": return items.filter((i) => i.status === "DONE").length;
+    case "IN_PROGRESS": return items.filter((i) => i.status === "IN_PROGRESS").length;
+    case "TODO": return items.filter((i) => i.status === "TODO" || (!hasBlockedBucket && i.status === "BLOCKED")).length;
+    case "BLOCKED": return items.filter((i) => i.status === "BLOCKED").length;
+    case "OVERDUE": return items.filter((i) => i.status !== "DONE" && i.due_date && i.due_date < today).length;
+    case "CERT_VALID": return items.filter((i) => { const exp = i.details?.certificate_expiry; return exp && String(exp) >= today; }).length;
+    case "CERT_EXPIRING": return items.filter((i) => { const exp = i.details?.certificate_expiry; if (!exp) return false; const value = String(exp); return value >= today && value <= addDays(today, 30); }).length;
+    case "CERT_EXPIRED": return items.filter((i) => { const exp = i.details?.certificate_expiry; return exp && String(exp) < today; }).length;
+    default: return 0;
+  }
+}
 
 export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { categoryCode: string; categoryLabel: string; canManage: boolean }) {
   const extraFields = EMR_CATEGORY_FIELDS[categoryCode as keyof typeof EMR_CATEGORY_FIELDS] || [];
   const beforeTitleFields = extraFields.filter((f) => f.showBeforeTitle);
   const afterTitleFields = extraFields.filter((f) => !f.showBeforeTitle);
+  const kpis = EMR_CATEGORY_KPIS[categoryCode as EmrCategoryCode] || [];
+  const hasBlockedBucket = kpis.some((k) => k.bucket === "BLOCKED");
   const [items, setItems] = useState<Item[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Item | null>(null);
@@ -142,16 +168,29 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
     }
   }
 
+  const filtered = useMemo(() => { const text = search.trim().toLowerCase(); if (!text) return items; return items.filter((i) => `${i.title} ${i.description || ""}`.toLowerCase().includes(text)); }, [items, search]);
+
   return (
     <div className="page-stack">
-      {canManage ? <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-        <button type="button" className="button primary" onClick={openCreate}>+ Thêm mục {categoryLabel.toLowerCase()}</button>
-      </div> : null}
+      {kpis.length ? <section className="kpis" style={{ display: "grid", gridTemplateColumns: `repeat(${kpis.length},minmax(0,1fr))`, gap: 12 }}>
+        {kpis.map((k) => <article className="kpi-card" key={k.bucket} style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)" }}>
+          <div style={{ display: "flex", marginBottom: 12 }}><span className={`emr-cat-kpi-icon ${KPI_TONE[k.bucket]}`}><Icon name={KPI_ICON[k.bucket]} size={18} /></span></div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{bucketCount(k.bucket, items, hasBlockedBucket)}</div>
+          <div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>{k.label}</div>
+        </article>)}
+        <style>{`.emr-cat-kpi-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}.emr-cat-kpi-icon.blue{background:#3b82f6}.emr-cat-kpi-icon.green{background:#22c55e}.emr-cat-kpi-icon.amber{background:#f59e0b}.emr-cat-kpi-icon.red{background:#ef4444}.emr-cat-kpi-icon.slate{background:#64748b}`}</style>
+      </section> : null}
+      <div className="toolbar" style={{ padding: "0 0 4px" }}>
+        <div className="toolbar-left"><div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Tìm trong ${categoryLabel.toLowerCase()}...`} /></div></div>
+        {canManage ? <button type="button" className="button primary" onClick={openCreate}>+ Thêm mục {categoryLabel.toLowerCase()}</button> : null}
+      </div>
       {error ? <div className="alert error">{error}</div> : null}
       {loading ? (
         <div className="empty-state">Đang tải...</div>
       ) : items.length === 0 ? (
         <div className="empty-state">Chưa có mục nào trong &quot;{categoryLabel}&quot;.{canManage ? <> Bấm &quot;+ Thêm mục&quot; để tạo mới.</> : null}</div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">Không tìm thấy mục phù hợp với &quot;{search}&quot;.</div>
       ) : (
         <div className="panel">
           <div className="table-wrap">
@@ -160,7 +199,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
                 <tr><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Tiêu đề</th><th>Mô tả</th>{afterTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Tệp đính kèm</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th><th></th></tr>
               </thead>
               <tbody>
-                {items.map((item, idx) => (
+                {filtered.map((item, idx) => (
                   <tr key={item.id}>
                     <td>{idx + 1}</td>
                     {beforeTitleFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Icon } from "@/components/icon";
 import {
   AssignmentTargetSelect,
   assignmentTargetToken,
@@ -194,6 +195,14 @@ export function RecurringWorkClient({
   checklists: ChecklistOption[];
 }) {
   const router = useRouter();
+  const todayIso = useMemo(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()), []);
+  const kpi = useMemo(() => {
+    const total = templates.length;
+    const expired = templates.filter((t) => t.is_active && t.end_date && t.end_date < todayIso).length;
+    const paused = templates.filter((t) => !t.is_active).length;
+    const active = total - expired - paused;
+    return { total, active, paused, expired };
+  }, [templates, todayIso]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<TemplateRow | null>(null);
   const [form, setForm] = useState<FormState>(defaultForm());
@@ -468,6 +477,14 @@ export function RecurringWorkClient({
     `}</style>
 
     {message ? <div className={`alert ${message.tone === "error" ? "error" : message.tone === "success" ? "success" : "info"}`} style={{ margin: "0 0 10px" }}>{message.text}</div> : null}
+
+    <section className="kpis" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 14 }}>
+      <article className="kpi-card" style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)" }}><span className="recurring-kpi-icon blue"><Icon name="calendar-days" size={18} /></span><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", marginTop: 12 }}>{kpi.total}</div><div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>Tổng số công việc</div></article>
+      <article className="kpi-card" style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)" }}><span className="recurring-kpi-icon green"><Icon name="refresh-cw" size={18} /></span><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", marginTop: 12 }}>{kpi.active}</div><div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>Đang kích hoạt</div></article>
+      <article className="kpi-card" style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)" }}><span className="recurring-kpi-icon amber"><Icon name="circle-alert" size={18} /></span><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", marginTop: 12 }}>{kpi.paused}</div><div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>Tạm dừng</div></article>
+      <article className="kpi-card" style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)" }}><span className="recurring-kpi-icon red"><Icon name="triangle-alert" size={18} /></span><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", marginTop: 12 }}>{kpi.expired}</div><div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>Hết hiệu lực</div></article>
+      <style>{`.recurring-kpi-icon{width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff}.recurring-kpi-icon.blue{background:#3b82f6}.recurring-kpi-icon.green{background:#22c55e}.recurring-kpi-icon.amber{background:#f59e0b}.recurring-kpi-icon.red{background:#ef4444}@media(max-width:900px){.recurring-work-client .kpis{grid-template-columns:repeat(2,1fr)!important}}`}</style>
+    </section>
 
     <section className="panel blueprint-panel">
       <div className="blueprint-head"><div><h2>QARICA gợi ý từ Kế hoạch/Sổ tay tác nghiệp</h2><p>Không nhập lại từ đầu: chọn một đầu việc nguồn, QARICA điền sẵn nội dung, đơn vị, đối tượng phụ trách (cá nhân hoặc nhóm), kết quả và minh chứng. Phần nguồn chưa quy định ngày cụ thể sẽ yêu cầu xác nhận đúng 1 lần.</p></div><span className="recurring-status active">{blueprints.filter((x) => x.already_configured).length}/{blueprints.length} đã cấu hình</span></div>

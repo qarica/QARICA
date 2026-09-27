@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -129,6 +130,8 @@ export default async function CalendarBlueprintPage() {
   return <div className="page-stack calendar-blueprint-page">
     <style>{`
       .calendar-blueprint-page{max-width:1450px;margin:0 auto;gap:14px!important}
+      .calendar-blueprint-page .kpi-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;margin-bottom:11px}
+      .calendar-blueprint-page .kpi-icon.blue{background:#3b82f6}.calendar-blueprint-page .kpi-icon.green{background:#22c55e}.calendar-blueprint-page .kpi-icon.amber{background:#f59e0b}.calendar-blueprint-page .kpi-icon.purple{background:#8b5cf6}
       .blueprint-principles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
       .blueprint-principle{padding:13px 14px;border:1px solid #dfe7ec;border-left:4px solid #2563eb;border-radius:12px;background:#fff}
       .blueprint-principle:nth-child(2){border-left-color:#0f766e}.blueprint-principle:nth-child(3){border-left-color:#7c3aed}
@@ -167,10 +170,10 @@ export default async function CalendarBlueprintPage() {
     </section>
 
     <section className="kpi-grid">
-      <article className="kpi-card info"><span>Recurring template</span><strong>{templates.length}</strong><small>Tổng cấu hình hiện có</small></article>
-      <article className="kpi-card success"><span>Đang hoạt động</span><strong>{active.length}</strong><small>Template đang bật</small></article>
-      <article className="kpi-card warning"><span>Thiếu ngày bắt đầu</span><strong>{missingStart.length}</strong><small>Cần cấu hình trước khi vận hành</small></article>
-      <article className="kpi-card neutral"><span>Action / Reminder</span><strong>{actionTemplates.length} / {reminderTemplates.length}</strong><small>Hai cơ chế tự động chính</small></article>
+      <article className="kpi-card info"><span className="kpi-icon blue"><Icon name="list-checks" size={17}/></span><span>Recurring template</span><strong>{templates.length}</strong><small>Tổng cấu hình hiện có</small></article>
+      <article className="kpi-card success"><span className="kpi-icon green"><Icon name="refresh-cw" size={17}/></span><span>Đang hoạt động</span><strong>{active.length}</strong><small>Template đang bật</small></article>
+      <article className="kpi-card warning"><span className="kpi-icon amber"><Icon name="calendar-days" size={17}/></span><span>Thiếu ngày bắt đầu</span><strong>{missingStart.length}</strong><small>Cần cấu hình trước khi vận hành</small></article>
+      <article className="kpi-card neutral"><span className="kpi-icon purple"><Icon name="workflow" size={17}/></span><span>Action / Reminder</span><strong>{actionTemplates.length} / {reminderTemplates.length}</strong><small>Hai cơ chế tự động chính</small></article>
     </section>
 
     <section className="panel">

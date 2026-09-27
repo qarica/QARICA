@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icon } from "@/components/icon";
 import { createClient } from "@/lib/supabase/server";
 
 type Pillar = {
@@ -15,6 +16,23 @@ type Recommendation = {
   href: string;
   severity: "critical" | "warning" | "info";
   rank: number;
+};
+
+const PILLAR_TONE: Record<string, string> = {
+  customer: "red",
+  process: "teal",
+  improvement: "orange",
+  data: "blue",
+  participation: "purple",
+  leadership: "green",
+};
+const PILLAR_ICON: Record<string, string> = {
+  customer: "shield-check",
+  process: "workflow",
+  improvement: "refresh-cw",
+  data: "chart-no-axes-column-increasing",
+  participation: "users",
+  leadership: "target",
 };
 
 const CLOSED_RECORD = new Set(["CANCELLED", "ARCHIVED", "INACTIVE", "RETIRED"]);
@@ -431,6 +449,8 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
         .tqm-pillar-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
         .tqm-pillar{border:1px solid #e0e9eb;border-radius:16px;background:#fff;padding:14px}
         .tqm-pillar-top{display:flex;justify-content:space-between;gap:8px;align-items:start}
+        .tqm-pillar-icon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;flex:0 0 34px;margin-bottom:8px}
+        .tqm-pillar-icon.red{background:#ef4444}.tqm-pillar-icon.teal{background:#14b8a6}.tqm-pillar-icon.orange{background:#f97316}.tqm-pillar-icon.blue{background:#3b82f6}.tqm-pillar-icon.purple{background:#8b5cf6}.tqm-pillar-icon.green{background:#22c55e}
         .tqm-pillar h4{margin:0;font-size:12px;line-height:1.35}
         .tqm-pillar strong{font-size:18px}
         .tqm-pillar p{margin:7px 0 0;color:#6b7d83;font-size:10px;line-height:1.45}
@@ -493,6 +513,7 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
       <div className="tqm-pillar-grid">
         {pillars.map((pillar) => (
           <article className="tqm-pillar" key={pillar.key}>
+            <span className={`tqm-pillar-icon ${PILLAR_TONE[pillar.key]}`}><Icon name={PILLAR_ICON[pillar.key]} size={17} /></span>
             <div className="tqm-pillar-top">
               <h4>{pillar.label}</h4>
               <strong>{pillar.score === null ? "—" : `${pillar.score}%`}</strong>

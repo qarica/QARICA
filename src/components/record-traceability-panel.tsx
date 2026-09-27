@@ -16,7 +16,7 @@ const RELATION_LABEL: Record<string, string> = {
   EVIDENCE_FOR: "Minh chứng cho",
 };
 
-const TYPE_LABEL: Record<string, string> = {
+export const RECORD_TYPE_LABEL: Record<string, string> = {
   ACTION: "Action",
   DIRECTIVE: "Chỉ đạo/Yêu cầu",
   REPORT: "Báo cáo",
@@ -43,7 +43,7 @@ function relationLabel(value: string) {
 }
 
 function typeLabel(value: string) {
-  return TYPE_LABEL[value] || value.replaceAll("_", " ");
+  return RECORD_TYPE_LABEL[value] || value.replaceAll("_", " ");
 }
 
 export async function RecordTraceabilityPanel({ recordId }: { recordId: string }) {
