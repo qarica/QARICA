@@ -4,16 +4,16 @@
    ========================================================= */
 
 :root {
-  --bg: #eef6f5;
+  --bg: #f5f8fc;
   --surface: #ffffff;
-  --text: #152b49;
+  --text: #172126;
   --muted: #54657a; /* darkened from #65758a for WCAG AA margin on white */
-  --line: #d7e1ed;
-  --navy: #0d9488;
-  --navy-dark: #0f2138;
-  --navy-mid: #14b8a6;
-  --navy-soft: #e6fbf8;
-  --focus: #7dd3c7;
+  --line: #e5eaf2;
+  --navy: #2563eb;
+  --navy-dark: #1d4ed8;
+  --navy-mid: #3b82f6;
+  --navy-soft: #eff6ff;
+  --focus: #93c5fd;
 
   /* Type scale — single source of truth. Reference these tokens
      instead of hard-coding new font-size values in component CSS. */

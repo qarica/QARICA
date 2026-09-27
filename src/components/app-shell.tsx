@@ -115,7 +115,7 @@ export function AppShell({ children, user, organization, nav, year }: { children
   function startNavigation(href: string) { const target = href.split("?")[0]; if (target !== pathname) setNavigating(true); setMobileOpen(false); }
   function renderBadge(badge: { count: number; urgent: boolean } | undefined, className = "nav-attention-badge") { if (!badge?.count) return null; return <span className={`${className} ${badge.urgent ? "urgent" : "warning"}`}>{badge.count > 99 ? "99+" : badge.count}</span>; }
 
-  return <div className="app-root workspace-app" style={{ ["--brand" as string]: organization?.primary_color || "#0d9488" }}>
+  return <div className="app-root workspace-app" style={{ ["--brand" as string]: organization?.primary_color || "#2563eb" }}>
     <style>{`
       .workspace-app{--sidebar-width:266px;--sidebar-collapsed-width:76px;background:#f5f8fc;color:#0f172a}
       .workspace-app .main-shell{margin-left:var(--sidebar-width);padding-top:68px;transition:margin-left .2s}
