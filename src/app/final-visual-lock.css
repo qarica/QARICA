@@ -62,6 +62,10 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .workspace-app .qcc-dashboard .kpi-card,
 .workspace-app .emr-command .emr-kpi,
 .workspace-app .emr-panel,
+.workspace-app .av2-kpi,
+.workspace-app .rp-kpi,
+.workspace-app .ops-kpi,
+.workspace-app .cs-kpi,
 .workspace-app .kpi-card{
   border-radius:16px!important;
   box-shadow:0 4px 16px rgba(27,78,140,.045)!important;
@@ -70,6 +74,10 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .workspace-app .kpi-card:hover,
 .workspace-app [class*="tqm"] .kpi:hover,
 .workspace-app .qcc-dashboard .kpi-card:hover,
+.workspace-app .av2-kpi:hover,
+.workspace-app .rp-kpi:hover,
+.workspace-app .ops-kpi:hover,
+.workspace-app .cs-kpi:hover,
 .workspace-app .emr-command .emr-kpi:hover{
   box-shadow:0 10px 26px rgba(27,78,140,.09)!important;
   transform:translateY(-2px);

@@ -1,11 +1,12 @@
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { humanStatus } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 type Row={id:string;lifecycle_status:string;department_name:string;created_at:string;updated_at:string};
 type Tone="brand"|"blue"|"amber"|"red"|"green"|"slate";
 const CSS=`${TQM_CHART_CSS}.rp-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.rp-kpi{background:#fff;border:1px solid #e1e9ec;border-radius:17px;padding:15px 16px}.rp-kpi span{display:block;font-size:10px;color:#728188;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.rp-kpi strong{display:block;font-size:29px;line-height:1;margin-top:8px}.rp-kpi small{display:block;font-size:10px;color:#7d8c92;margin-top:6px}.rp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.rp-head{padding:16px 18px 4px}.rp-head h2{margin:0;font-size:15px}.rp-head p{margin:4px 0 0;color:#74838a;font-size:11px}@media(max-width:900px){.rp-grid{grid-template-columns:1fr}}@media(max-width:700px){.rp-kpis{grid-template-columns:1fr 1fr}}`;
 function Kpis({items}:{items:{label:string;value:string|number;note:string}[]}){return <section className="rp-kpis">{items.map(x=><article className="rp-kpi" key={x.label}><span>{x.label}</span><strong>{x.value}</strong><small>{x.note}</small></article>)}</section>}
-function statusBars(values:string[]){const m=new Map<string,number>();values.forEach(v=>m.set(v||"UNKNOWN",(m.get(v||"UNKNOWN")||0)+1));return Array.from(m.entries()).sort((a,b)=>b[1]-a[1]).map(([label,value],i)=>({label:label.replaceAll("_"," "),value,tone:(i===0?"brand":i===1?"blue":i===2?"amber":"slate") as Tone}))}
+function statusBars(values:string[]){const m=new Map<string,number>();values.forEach(v=>m.set(v||"UNKNOWN",(m.get(v||"UNKNOWN")||0)+1));return Array.from(m.entries()).sort((a,b)=>b[1]-a[1]).map(([label,value],i)=>({label:humanStatus(label),value,tone:(i===0?"brand":i===1?"blue":i===2?"amber":"slate") as Tone}))}
 function months(rows:Row[]){const p=Array.from({length:12},(_,i)=>({label:`T${i+1}`,value:0}));rows.forEach(r=>{const d=new Date(r.created_at);if(!Number.isNaN(d.getTime()))p[d.getMonth()].value++});return p}
 
 export async function RiskProactiveOverview({rows,recordType}:{rows:Row[];recordType:string}){

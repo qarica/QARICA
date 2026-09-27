@@ -1,4 +1,5 @@
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { humanStatus } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 type Row = {
@@ -30,7 +31,7 @@ function statusBars(statuses: string[]) {
   const map = new Map<string, number>();
   statuses.forEach((status) => map.set(status || "UNKNOWN", (map.get(status || "UNKNOWN") || 0) + 1));
   return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 7).map(([label, value], index) => ({
-    label: label.replaceAll("_", " "), value, tone: (index === 0 ? "brand" : index === 1 ? "blue" : index === 2 ? "amber" : "slate") as Tone,
+    label: humanStatus(label), value, tone: (index === 0 ? "brand" : index === 1 ? "blue" : index === 2 ? "amber" : "slate") as Tone,
   }));
 }
 

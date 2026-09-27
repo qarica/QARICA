@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { humanStatus } from "@/lib/format";
 import { hcmMonthNumber } from "@/lib/hcm-date";
 
 type Row={record_type:string;lifecycle_status:string;department_name:string;owner_name:string;created_at:string;updated_at:string};
@@ -28,7 +29,7 @@ export function TqmRegistryOverview({rows,recordType}:{rows:Row[];recordType:str
  const copy=LABELS[recordType]||{total:"Hồ sơ",active:"Đang hoạt động",closed:"Đã đóng",unassigned:"Thiếu phân công",trend:"Hồ sơ được ghi nhận theo tháng",dept:"Phân bố theo đơn vị"};
  const total=rows.length,active=rows.filter(r=>r.lifecycle_status==="ACTIVE").length,closed=rows.filter(r=>r.lifecycle_status==="CLOSED").length,unassigned=rows.filter(r=>r.department_name==="—"||r.owner_name==="Chưa gán người").length;
  const statusMap=new Map<string,number>();rows.forEach(r=>statusMap.set(r.lifecycle_status,(statusMap.get(r.lifecycle_status)||0)+1));
- const segments=Array.from(statusMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,value],i)=>({label:label.replaceAll("_"," "),value,tone:(i===0?"brand":i===1?"blue":i===2?"green":i===3?"amber":"slate") as any}));
+ const segments=Array.from(statusMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,value],i)=>({label:humanStatus(label),value,tone:(i===0?"brand":i===1?"blue":i===2?"green":i===3?"amber":"slate") as any}));
  const depMap=new Map<string,number>();rows.forEach(r=>depMap.set(r.department_name,(depMap.get(r.department_name)||0)+1));
  const depBars=Array.from(depMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value],i)=>({label,value,tone:(i<3?"brand":"blue") as any}));
  const months=Array.from({length:12},(_,i)=>({label:`T${i+1}`,value:0}));rows.forEach(r=>{const m=monthKey(r.created_at);if(m!==null)months[m].value++});

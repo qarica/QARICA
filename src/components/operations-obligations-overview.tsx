@@ -1,11 +1,12 @@
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { humanStatus } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 type Row={id:string;record_code:string;title:string;lifecycle_status:string;department_name:string;created_at:string;updated_at:string};
 type Tone="brand"|"blue"|"amber"|"red"|"green"|"slate";
 const CSS=`${TQM_CHART_CSS}.ops-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.ops-kpi{background:#fff;border:1px solid #e1e9ec;border-radius:17px;padding:15px 16px}.ops-kpi span{display:block;font-size:10px;color:#728188;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.ops-kpi strong{display:block;font-size:29px;line-height:1;margin-top:8px}.ops-kpi small{display:block;font-size:10px;color:#7d8c92;margin-top:6px}.ops-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.ops-head{padding:16px 18px 4px}.ops-head h2{margin:0;font-size:15px}.ops-head p{margin:4px 0 0;color:#74838a;font-size:11px}@media(max-width:900px){.ops-grid{grid-template-columns:1fr}}@media(max-width:700px){.ops-kpis{grid-template-columns:1fr 1fr}}`;
 function Kpis({items}:{items:{label:string;value:string|number;note:string}[]}){return <section className="ops-kpis">{items.map(x=><article className="ops-kpi" key={x.label}><span>{x.label}</span><strong>{x.value}</strong><small>{x.note}</small></article>)}</section>}
-function statusBars(values:string[]){const m=new Map<string,number>();values.forEach(v=>m.set(v||"UNKNOWN",(m.get(v||"UNKNOWN")||0)+1));return Array.from(m.entries()).sort((a,b)=>b[1]-a[1]).map(([label,value],i)=>({label:label.replaceAll("_"," "),value,tone:(i===0?"brand":i===1?"blue":i===2?"amber":"slate") as Tone}))}
+function statusBars(values:string[]){const m=new Map<string,number>();values.forEach(v=>m.set(v||"UNKNOWN",(m.get(v||"UNKNOWN")||0)+1));return Array.from(m.entries()).sort((a,b)=>b[1]-a[1]).map(([label,value],i)=>({label:humanStatus(label),value,tone:(i===0?"brand":i===1?"blue":i===2?"amber":"slate") as Tone}))}
 function monthPoints(values:(string|null|undefined)[]){const p=Array.from({length:12},(_,i)=>({label:`T${i+1}`,value:0}));values.forEach(value=>{if(!value)return;const d=new Date(value);if(!Number.isNaN(d.getTime()))p[d.getMonth()].value++});return p}
 function depBars(rows:Row[]){const m=new Map<string,number>();rows.forEach(r=>m.set(r.department_name,(m.get(r.department_name)||0)+1));return Array.from(m.entries()).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value],i)=>({label,value,tone:(i<3?"brand":"blue") as Tone}))}
 function hcmToday(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh"}).format(new Date())}

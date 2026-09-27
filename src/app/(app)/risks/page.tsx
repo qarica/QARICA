@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { hcmMonthNumber } from "@/lib/hcm-date";
+import { humanStatus } from "@/lib/format";
 import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { routeForRecord } from "@/lib/record-route";
 import { createClient } from "@/lib/supabase/server";
@@ -15,7 +16,7 @@ import { getWorkYear } from "@/lib/work-year";
 
 function levelTone(level:string){const v=String(level||"").toUpperCase();if(["EXTREME","CRITICAL","VERY_HIGH","HIGH","RED"].includes(v))return"danger";if(["MEDIUM","MODERATE","YELLOW","AMBER"].includes(v))return"warning";if(["LOW","GREEN"].includes(v))return"success";return"muted"}
 function cellTone(levels:string[]){if(levels.some(x=>levelTone(x)==="danger"))return"danger";if(levels.some(x=>levelTone(x)==="warning"))return"warning";if(levels.some(x=>levelTone(x)==="success"))return"success";return"empty"}
-function workflowLabel(value:string){return String(value||"").replaceAll("_"," ")}
+function workflowLabel(value:string){return humanStatus(value)}
 
 export default async function RisksPage({searchParams}:{searchParams:Promise<{q?:string;status?:string}>}){
  const {user}=await requireUserContext();if(!hasAnyPermission(user,["risk.view","risk.manage"]))redirect("/dashboard?forbidden=1");const canCreate=hasAnyPermission(user,["risk.manage"]);const year=await getWorkYear();const query=await searchParams;const qRaw=String(query.q||"").trim();const q=qRaw.toLocaleLowerCase("vi");const status=String(query.status||"").trim();const supabase=await createClient();

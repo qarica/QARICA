@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { hcmMonthNumber } from "@/lib/hcm-date";
+import { humanStatus } from "@/lib/format";
 import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { routeForRecord } from "@/lib/record-route";
 import { createClient } from "@/lib/supabase/server";
@@ -15,7 +16,7 @@ import { getWorkYear } from "@/lib/work-year";
 
 const REVIEW_LABEL:Record<string,string>={EFFECTIVE:"Có hiệu lực",PARTIALLY_EFFECTIVE:"Hiệu lực một phần",INEFFECTIVE:"Không hiệu lực"};
 function reviewTone(v:string){return v==="EFFECTIVE"?"green" as const:v==="PARTIALLY_EFFECTIVE"?"amber" as const:v==="INEFFECTIVE"?"red" as const:"slate" as const}
-function workflowLabel(value:string){return String(value||"").replaceAll("_"," ")}
+function workflowLabel(value:string){return humanStatus(value)}
 function isClosed(x:any){return ["EFFECTIVE","CLOSED"].includes(String(x.workflow_status||""))}
 function isOverdue(x:any,today:string){return !!x.effectiveness_due_date&&x.effectiveness_due_date<today&&!isClosed(x)}
 function actionLabel(x:any,today:string){if(isOverdue(x,today))return"Đánh giá hiệu lực đã quá hạn";if(x.workflow_status==="EFFECTIVENESS_REVIEW")return"Thực hiện đánh giá hiệu lực";if(x.workflow_status==="ROOT_CAUSE_ANALYSIS")return"Hoàn tất RCA và thiết kế Action";if(x.workflow_status==="IN_PROGRESS")return"Theo dõi Corrective + Preventive";if(x.workflow_status==="PENDING_APPROVAL")return"Chờ phê duyệt CAPA";if(x.workflow_status==="DRAFT")return"Khởi động CAPA";if(x.workflow_status==="EFFECTIVE")return"Đủ gate để đóng CAPA";return"Theo dõi hồ sơ"}

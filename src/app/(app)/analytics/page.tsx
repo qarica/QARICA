@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
 import { requireUserContext } from "@/lib/auth";
+import { humanStatus } from "@/lib/format";
 import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { filterRegistryAnalyticsRows, registryMonthlyCounts } from "@/lib/registry-analytics";
 import { createClient } from "@/lib/supabase/server";
@@ -27,7 +28,7 @@ export default async function AnalyticsPage({searchParams}:{searchParams:Promise
  const typeData=Array.from(byType.entries()).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([k,v],i)=>({label:TYPE_LABELS[k]||k,value:v,tone:(i<4?"brand":"blue") as any}));
  const deptData=Array.from(byDept.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k,v],i)=>({label:String(depMap.get(k)||"Chưa rõ"),value:v,tone:(i<3?"brand":"blue") as any}));
  const active=rows.filter(r=>r.lifecycle_status==="ACTIVE").length,closed=rows.filter(r=>r.lifecycle_status==="CLOSED").length,unassigned=rows.filter(r=>!r.owner_department_id).length,closure=rows.length?Math.round(closed/rows.length*100):0;
- const statusSegments=Array.from(byStatus.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,value],i)=>({label:label.replaceAll("_"," "),value,tone:(i===0?"brand":i===1?"green":i===2?"blue":i===3?"amber":"slate") as any}));
+ const statusSegments=Array.from(byStatus.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,value],i)=>({label:humanStatus(label),value,tone:(i===0?"brand":i===1?"green":i===2?"blue":i===3?"amber":"slate") as any}));
  const months=registryMonthlyCounts(rows);
  const query=new URLSearchParams();if(month)query.set("month",String(month));if(departmentId)query.set("department",departmentId);if(status!=="ALL")query.set("status",status);const exportHref=`/api/analytics/registry/export${query.toString()?`?${query}`:""}`;
  const selectedDepartment=departmentId?String(depMap.get(departmentId)||"Khoa/Phòng đã chọn"):"Tất cả khoa/phòng";

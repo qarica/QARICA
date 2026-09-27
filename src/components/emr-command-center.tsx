@@ -18,7 +18,16 @@ const REASON_VISUAL:Record<string,{icon:string;tone:string}>={
  NO_OWNER:{icon:"users",tone:"a2"},
  STALE:{icon:"refresh-cw",tone:"a2"},
 };
+const REASON_LABEL:Record<string,string>={
+ BLOCKED:"Bị chặn",
+ CRITICAL:"Mức ưu tiên nghiêm trọng",
+ OVERDUE:"Quá hạn",
+ GO_LIVE_GATE:"Điều kiện Go-live",
+ NO_OWNER:"Chưa có người phụ trách",
+ STALE:"Chưa cập nhật lâu ngày",
+};
 function reasonVisual(reasons:string[]){for(const r of reasons){if(REASON_VISUAL[r])return REASON_VISUAL[r];}return {icon:"circle-alert",tone:"a0"};}
+function reasonLabel(reasons:string[]){return reasons.slice(0,2).map(r=>REASON_LABEL[r]||r).join(" · ");}
 function readinessTone(c:{blocked:number;completion:number|null}){if(c.blocked>0)return "red";if(c.completion===null)return "slate";if(c.completion===100)return "green";return "blue";}
 export function EmrCommandCenter(){
  const [data,setData]=useState<Data|null>(null); const [error,setError]=useState("");
@@ -67,7 +76,7 @@ export function EmrCommandCenter(){
 
   <div className="bottom-grid">
    <section className="emr-panel emr-matrix-panel"><PanelHead title="Tình trạng triển khai EMR theo khoa/phòng" sub="Ma trận tiến độ, cấu phần và Go-live gate"/>{data.departmentMatrix.length?<div className="table-wrap"><table><thead><tr><th>#</th><th>Khoa/Phòng</th><th>Tiến độ</th>{data.categories.slice(0,6).map(c=><th key={c.code}>{c.label}</th>)}<th>Gate</th><th>Vấn đề</th></tr></thead><tbody>{data.departmentMatrix.slice(0,10).map((d,idx)=><tr key={d.id}><td>{idx+1}</td><td><strong>{d.name}</strong></td><td><b>{d.completion===null?"—":`${d.completion}%`}</b></td>{d.domains.slice(0,6).map(c=><td key={c.code}><span className={`status-dot ${c.blocked?"bad":c.completion===100?"good":c.total?"mid":"none"}`}/></td>)}<td><span className={d.gates&&d.gatesPassed===d.gates?"pill good":"pill mid"}>{d.gatesPassed}/{d.gates}</span></td><td className={d.blockers||d.overdue?"danger":""}>{d.blockers+d.overdue}</td></tr>)}</tbody></table></div>:<div className="zero-table"><Icon name="building-2" size={28}/><b>Chưa có dữ liệu khoa/phòng</b><span>Khi hạng mục được gán khoa/phòng, ma trận sẽ tự động hiển thị tại đây.</span></div>}</section>
-   <section className="emr-panel emr-action"><PanelHead title="Cảnh báo & công việc cần xử lý" sub="Ưu tiên theo blocker, critical, quá hạn và Go-live gate"/><div className="action-list">{data.escalation.length?data.escalation.slice(0,6).map((x)=>{const c=data.categories.find(y=>y.code===x.category);const rv=reasonVisual(x.reasons);return <Link href={`/emr/${c?.slug||""}`} key={x.id}><span className={`action-icon ${rv.tone}`}><Icon name={rv.icon} size={17}/></span><div><strong>{x.title}</strong><small>{c?.label} · {x.reasons.slice(0,2).join(" · ").replaceAll("_"," ")}</small></div><b>{x.score}</b><Icon name="chevron-right" size={15}/></Link>}):<div className="zero-action"><span className="action-icon ok"><Icon name="badge-check" size={18}/></span><div><strong>Không có cảnh báo đang mở</strong><small>Dữ liệu nguồn hiện chưa có backlog/blocker cần escalation.</small></div></div>}</div></section>
+   <section className="emr-panel emr-action"><PanelHead title="Cảnh báo & công việc cần xử lý" sub="Ưu tiên theo blocker, critical, quá hạn và Go-live gate"/><div className="action-list">{data.escalation.length?data.escalation.slice(0,6).map((x)=>{const c=data.categories.find(y=>y.code===x.category);const rv=reasonVisual(x.reasons);return <Link href={`/emr/${c?.slug||""}`} key={x.id}><span className={`action-icon ${rv.tone}`}><Icon name={rv.icon} size={17}/></span><div><strong>{x.title}</strong><small>{c?.label} · {reasonLabel(x.reasons)}</small></div><b>{x.score}</b><Icon name="chevron-right" size={15}/></Link>}):<div className="zero-action"><span className="action-icon ok"><Icon name="badge-check" size={18}/></span><div><strong>Không có cảnh báo đang mở</strong><small>Dữ liệu nguồn hiện chưa có backlog/blocker cần escalation.</small></div></div>}</div></section>
   </div>
   <div className="principle"><Icon name="info" size={16}/><span><b>Nguyên tắc kiểm soát:</b> Tiến độ công việc không đồng nghĩa Go-live readiness. Gate chỉ PASS khi DONE + có bằng chứng + đã xác minh.</span></div>
   <style jsx>{`
