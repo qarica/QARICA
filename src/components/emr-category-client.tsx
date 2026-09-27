@@ -14,6 +14,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
   const emptyDetails = () => Object.fromEntries(extraFields.map((f) => [f.key, ""])) as Record<string, string>;
   const [form, setForm] = useState({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_id:"", owner_user_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
   const [saving, setSaving] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [departments,setDepartments]=useState<{id:string;name:string;short_name:string|null}[]>([]);
   const [users,setUsers]=useState<{user_id:string;full_name:string|null;email:string}[]>([]);
 
@@ -40,6 +41,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
 
   function openCreate() {
     setForm({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_id:"", owner_user_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
+    setPendingFile(null);
     setCreating(true);
     setEditing(null);
   }
@@ -72,6 +74,9 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      if (!isEdit && pendingFile && json.item?.id) {
+        await uploadFile(json.item.id, pendingFile);
+      }
       closeModal();
       await load();
     } catch (e) {
@@ -147,35 +152,37 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
         <div className="empty-state">Chưa có mục nào trong &quot;{categoryLabel}&quot;.{canManage ? <> Bấm &quot;+ Thêm mục&quot; để tạo mới.</> : null}</div>
       ) : (
         <div className="panel">
-          <table className="data-table">
-            <thead>
-              <tr><th>#</th><th>Tiêu đề</th><th>Mô tả</th>{extraFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Tệp đính kèm</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th><th></th></tr>
-            </thead>
-            <tbody>
-              {items.map((item, idx) => (
-                <tr key={item.id}>
-                  <td>{idx + 1}</td>
-                  <td><strong>{item.title}</strong></td>
-                  <td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>
-                  {extraFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
-                  <td>{item.details?.file_name ? <button type="button" className="button tertiary small" onClick={() => viewFile(item)}>📎 {String(item.details.file_name)}</button> : "—"}</td>
-                  <td><span className={`status-badge ${item.priority==="CRITICAL"?"danger":item.priority==="HIGH"?"warning":"muted"}`}>{{LOW:"Thấp",MEDIUM:"Trung bình",HIGH:"Cao",CRITICAL:"Nghiêm trọng"}[item.priority]||item.priority}</span></td><td>{item.due_date || "—"}</td>
-                  <td>{EMR_STATUS_LABELS[item.status] || item.status}{item.verified_at ? <div><small>Đã xác minh</small></div> : null}</td>
-                  <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>{canManage ? <>
-                    <button type="button" className="button tertiary small" onClick={() => openEdit(item)}>Sửa</button>
-                    <button type="button" className="button tertiary small" onClick={() => remove(item)}>Xoá</button>
-                  </> : <small>Chỉ xem</small>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr><th>#</th><th>Tiêu đề</th><th>Mô tả</th>{extraFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Tệp đính kèm</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th><th></th></tr>
+              </thead>
+              <tbody>
+                {items.map((item, idx) => (
+                  <tr key={item.id}>
+                    <td>{idx + 1}</td>
+                    <td><strong>{item.title}</strong></td>
+                    <td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>
+                    {extraFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
+                    <td>{item.details?.file_name ? <button type="button" className="button tertiary small" onClick={() => viewFile(item)}>📎 {String(item.details.file_name)}</button> : "—"}</td>
+                    <td><span className={`status-badge ${item.priority==="CRITICAL"?"danger":item.priority==="HIGH"?"warning":"muted"}`}>{{LOW:"Thấp",MEDIUM:"Trung bình",HIGH:"Cao",CRITICAL:"Nghiêm trọng"}[item.priority]||item.priority}</span></td><td>{item.due_date || "—"}</td>
+                    <td>{EMR_STATUS_LABELS[item.status] || item.status}{item.verified_at ? <div><small>Đã xác minh</small></div> : null}</td>
+                    <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>{canManage ? <>
+                      <button type="button" className="button tertiary small" onClick={() => openEdit(item)}>Sửa</button>
+                      <button type="button" className="button tertiary small" onClick={() => remove(item)}>Xoá</button>
+                    </> : <small>Chỉ xem</small>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {canManage && (creating || editing) ? (
         <div className="modal-backdrop" onClick={closeModal}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3>{editing ? "Sửa mục" : `Thêm mục ${categoryLabel.toLowerCase()}`}</h3>
+            <div className="modal-head"><h3>{editing ? "Sửa mục" : `Thêm mục ${categoryLabel.toLowerCase()}`}</h3></div>
             <div className="modal-body">
               <label>Tiêu đề *
                 <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
@@ -215,7 +222,11 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
                     {uploading ? <small>Đang tải lên...</small> : null}
                   </div>
                 ) : (
-                  <small style={{ display: "block", color: "#7a8b91" }}>Lưu mục này trước, sau đó bấm &quot;Sửa&quot; để đính kèm file.</small>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.doc,.docx,.xls,.xlsx"
+                      onChange={(e) => setPendingFile(e.target.files?.[0] || null)} />
+                    {pendingFile ? <small>Đã chọn: {pendingFile.name}</small> : null}
+                  </div>
                 )}
               </label>
 
@@ -230,9 +241,9 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
               <label>Khoa/phòng<select value={form.department_id} onChange={(e)=>setForm({...form,department_id:e.target.value})}><option value="">— Chưa gán —</option>{departments.map(d=><option key={d.id} value={d.id}>{d.short_name||d.name}</option>)}</select></label>
               <label>Người phụ trách<select value={form.owner_user_id} onChange={(e)=>setForm({...form,owner_user_id:e.target.value})}><option value="">— Chưa gán —</option>{users.map(u=><option key={u.user_id} value={u.user_id}>{u.full_name||u.email}</option>)}</select></label>
               <label>Hạn hoàn thành<input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></label>
-              <label><input type="checkbox" checked={form.is_go_live_gate} onChange={(e) => setForm({ ...form, is_go_live_gate: e.target.checked })} /> Điều kiện bắt buộc trước Go-live</label>
+              <label className="inline-check"><input type="checkbox" checked={form.is_go_live_gate} onChange={(e) => setForm({ ...form, is_go_live_gate: e.target.checked })} /> Điều kiện bắt buộc trước Go-live</label>
               <label>Minh chứng / liên kết xác minh<input value={form.evidence_url} onChange={(e) => setForm({ ...form, evidence_url: e.target.value, verify_completed:false })} placeholder="URL hoặc tham chiếu minh chứng" /></label>
-              {form.status==="DONE"&&form.evidence_url?<label><input type="checkbox" checked={form.verify_completed} onChange={(e)=>setForm({...form,verify_completed:e.target.checked})}/> Xác minh hoàn thành dựa trên minh chứng</label>:null}
+              {form.status==="DONE"&&form.evidence_url?<label className="inline-check"><input type="checkbox" checked={form.verify_completed} onChange={(e)=>setForm({...form,verify_completed:e.target.checked})}/> Xác minh hoàn thành dựa trên minh chứng</label>:null}
             </div>
             <div className="modal-footer">
               <button type="button" className="button tertiary" onClick={closeModal} disabled={saving}>Huỷ</button>

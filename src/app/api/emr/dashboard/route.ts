@@ -65,12 +65,13 @@ export async function GET() {
   }).filter(x => x.score > 0).sort((a,b) => b.score-a.score || new Date(a.updated_at).getTime()-new Date(b.updated_at).getTime()).slice(0,10);
 
   const openItems = items.filter(x => x.status !== "DONE");
+  const doneGates = gates.filter(x => x.status === "DONE");
   const controlCoverage = {
-    owner: openItems.length ? Math.round(openItems.filter(x => !!x.owner_user_id).length * 100 / openItems.length) : 100,
-    department: openItems.length ? Math.round(openItems.filter(x => !!x.department_id).length * 100 / openItems.length) : 100,
-    deadline: openItems.length ? Math.round(openItems.filter(x => !!x.due_date).length * 100 / openItems.length) : 100,
-    gateEvidence: gates.filter(x => x.status === "DONE").length ? Math.round(gates.filter(x => x.status === "DONE" && !!x.evidence_url && !!x.verified_at).length * 100 / gates.filter(x => x.status === "DONE").length) : 100,
+    owner: openItems.length ? Math.round(openItems.filter(x => !!x.owner_user_id).length * 100 / openItems.length) : null,
+    department: openItems.length ? Math.round(openItems.filter(x => !!x.department_id).length * 100 / openItems.length) : null,
+    deadline: openItems.length ? Math.round(openItems.filter(x => !!x.due_date).length * 100 / openItems.length) : null,
+    gateEvidence: doneGates.length ? Math.round(doneGates.filter(x => !!x.evidence_url && !!x.verified_at).length * 100 / doneGates.length) : null,
   };
 
-  return NextResponse.json({ ok: true, generatedAt: new Date().toISOString(), total: items.length, counts, completion: items.length ? Math.round(counts.DONE * 100 / items.length) : 0, categories, stale, overdue, unassigned, criticalOpen, controlCoverage, gates: { total: gates.length, passed: gatesPassed, evidenceMissing: gateEvidenceMissing }, departmentMatrix, upcoming, escalation, attention: items.filter(x => x.status === "BLOCKED" || x.priority === "CRITICAL" || (x.due_date && x.status !== "DONE" && x.due_date < today) || x.status === "TODO").slice(0, 8) });
+  return NextResponse.json({ ok: true, generatedAt: new Date().toISOString(), total: items.length, counts, completion: items.length ? Math.round(counts.DONE * 100 / items.length) : null, categories, stale, overdue, unassigned, criticalOpen, controlCoverage, gates: { total: gates.length, passed: gatesPassed, evidenceMissing: gateEvidenceMissing }, departmentMatrix, upcoming, escalation, attention: items.filter(x => x.status === "BLOCKED" || x.priority === "CRITICAL" || (x.due_date && x.status !== "DONE" && x.due_date < today) || x.status === "TODO").slice(0, 8) });
 }

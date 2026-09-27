@@ -8,7 +8,7 @@ type Item={id:string;category:string;title:string;description:string|null;status
 type DomainCell={code:string;slug:string;label:string;total:number;done:number;blocked:number;completion:number|null};
 type Dept={id:string;name:string;total:number;done:number;open:number;overdue:number;blockers:number;gates:number;gatesPassed:number;completion:number|null;domains:DomainCell[]};
 type Escalation=Item & {reasons:string[];score:number};
-type Data={generatedAt:string;total:number;completion:number;stale:number;overdue:number;controlCoverage:{owner:number;department:number;deadline:number;gateEvidence:number};gates:{total:number;passed:number;evidenceMissing:number};unassigned:number;criticalOpen:number;counts:Record<string,number>;categories:Cat[];attention:Item[];departmentMatrix:Dept[];upcoming:Item[];escalation:Escalation[]};
+type Data={generatedAt:string;total:number;completion:number|null;stale:number;overdue:number;controlCoverage:{owner:number|null;department:number|null;deadline:number|null;gateEvidence:number|null};gates:{total:number;passed:number;evidenceMissing:number};unassigned:number;criticalOpen:number;counts:Record<string,number>;categories:Cat[];attention:Item[];departmentMatrix:Dept[];upcoming:Item[];escalation:Escalation[]};
 const statusLabel:Record<string,string>={TODO:"Chưa làm",IN_PROGRESS:"Đang thực hiện",DONE:"Hoàn tất",BLOCKED:"Bị chặn"};
 const REASON_VISUAL:Record<string,{icon:string;tone:string}>={
  BLOCKED:{icon:"circle-alert",tone:"a0"},
@@ -32,7 +32,7 @@ export function EmrCommandCenter(){
  return <div className="emr-command">
   <div className="emr-title"><div><div className="crumb">EMR <b>›</b> Tổng quan</div><h1><span className="title-icon"><Icon name="building-2" size={24}/></span>Trung tâm Điều hành Bệnh án điện tử (EMR)</h1><p>Theo dõi tiến độ triển khai, vận hành và tuân thủ bệnh án điện tử</p></div><div className="emr-filters"><span><Icon name="calendar-days" size={15}/> Dữ liệu đến {new Date(data.generatedAt).toLocaleString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span><span>Toàn đơn vị⌄</span></div></div>
   <div className="emr-kpis">
-   <Kpi icon="gauge" label="Mức độ triển khai EMR" value={`${data.completion}%`} note={`${done}/${data.total} hạng mục hoàn tất`} tone="blue"/>
+   <Kpi icon="gauge" label="Mức độ triển khai EMR" value={data.completion===null?"—":`${data.completion}%`} note={`${done}/${data.total} hạng mục hoàn tất`} tone="blue"/>
    <Kpi icon="building-2" label="Khoa đã Go-live" value={`${liveDepartments}/${totalDepartmentsWithData}`} note="Đã hoàn tất 100% hạng mục" tone="green"/>
    <Kpi icon="workflow" label="Đang thực hiện" value={String(active)} note="Hạng mục đang triển khai" tone="orange"/>
    <Kpi icon="key-round" label="Tỷ lệ ký số" value={signatureCategory?.completion===null?"—":`${signatureCategory?.completion??0}%`} note="Hạng mục Chữ ký số hoàn tất" tone="purple"/>
@@ -66,5 +66,5 @@ export function EmrCommandCenter(){
 }
 function PanelHead({title,sub}:{title:string;sub:string}){return <div className="emr-panel-head"><div><h2>{title}</h2><p>{sub}</p></div></div>}
 function Legend({c,l,v}:{c:string;l:string;v:number}){return <div className="legend-row"><i style={{background:c}}/><span>{l}</span><b>{v}</b></div>}
-function Compliance({icon,label,value}:{icon:string;label:string;value:number}){return <div className="emr-compliance-row"><span className="emr-compliance-icon"><Icon name={icon} size={15}/></span><div><label>{label}</label><div className="emr-bar"><i style={{width:`${value}%`}}/></div></div><b>{value}%</b></div>}
-function Kpi({icon,label,value,note,tone}:{icon:string;label:string;value:string;note:string;tone:string}){return <div className={`emr-kpi ${tone}`}><div className="emr-kpi-top"><span className="emr-kpi-icon"><Icon name={icon} size={18}/></span><div><label>{label}</label><strong>{value}</strong></div></div><small>{note}</small></div>}
+function Compliance({icon,label,value}:{icon:string;label:string;value:number|null}){return <div className="emr-compliance-row"><span className="emr-compliance-icon"><Icon name={icon} size={15}/></span><div><label style={{display:"block"}}>{label}</label><div className="emr-bar"><i style={{width:`${value??0}%`}}/></div></div><b>{value===null?"—":`${value}%`}</b></div>}
+function Kpi({icon,label,value,note,tone}:{icon:string;label:string;value:string;note:string;tone:string}){return <div className={`emr-kpi ${tone}`}><div className="emr-kpi-top"><span className="emr-kpi-icon"><Icon name={icon} size={18}/></span><div><label style={{display:"block"}}>{label}</label><strong style={{display:"block"}}>{value}</strong></div></div><small style={{display:"block"}}>{note}</small></div>}
