@@ -6,7 +6,8 @@ export type EmrCategoryCode =
   | "QUY_TRINH"
   | "BIEU_MAU"
   | "LOI"
-  | "THIET_BI_CNTT";
+  | "THIET_BI_CNTT"
+  | "PATIENT_PORTAL";
 
 export type EmrCategory = {
   slug: string;
@@ -25,6 +26,7 @@ export const EMR_CATEGORIES: EmrCategory[] = [
   { slug: "bieu-mau", code: "BIEU_MAU", label: "Biểu mẫu", description: "Biểu mẫu giấy cần số hóa/điện tử hóa trong EMR.", icon: "file-input" },
   { slug: "loi", code: "LOI", label: "Lỗi", description: "Lỗi và sự cố phát sinh trong quá trình triển khai EMR.", icon: "circle-alert" },
   { slug: "thiet-bi-cntt", code: "THIET_BI_CNTT", label: "Thiết bị CNTT", description: "Máy tính, mạng và hạ tầng CNTT phục vụ EMR.", icon: "cog" },
+  { slug: "patient-portal", code: "PATIENT_PORTAL", label: "Patient Portal", description: "Triển khai cổng thông tin tra cứu, đăng ký và kết quả dành cho người bệnh.", icon: "smartphone" },
 ];
 
 export function emrCategoryBySlug(slug: string): EmrCategory | undefined {
@@ -69,6 +71,7 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
   BIEU_MAU: [
     { key: "form_code", label: "Mã biểu mẫu", type: "text" },
     { key: "digitized", label: "Tình trạng số hóa", type: "select", options: ["Đã số hóa", "Chưa số hóa"] },
+    { key: "training_required", label: "Yêu cầu đào tạo", type: "select", options: ["Cần đào tạo", "Không cần đào tạo"] },
   ],
   LOI: [
     { key: "severity", label: "Mức độ", type: "select", options: ["Thấp", "Trung bình", "Cao", "Nghiêm trọng"] },
@@ -76,5 +79,9 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
   THIET_BI_CNTT: [
     { key: "asset_tag", label: "Mã tài sản", type: "text" },
     { key: "location", label: "Vị trí lắp đặt", type: "text" },
+  ],
+  PATIENT_PORTAL: [
+    { key: "portal_module", label: "Chức năng cổng", type: "text" },
+    { key: "rollout_status", label: "Tình trạng triển khai", type: "select", options: ["Đã triển khai", "Đang thử nghiệm", "Chưa triển khai"] },
   ],
 };

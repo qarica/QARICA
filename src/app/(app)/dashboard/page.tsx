@@ -34,16 +34,20 @@ const RISK_MED = new Set(["MEDIUM", "MODERATE"]);
 const RISK_LOW = new Set(["LOW"]);
 function riskTier(level: string | null | undefined) { const v = String(level || "").toUpperCase(); if (["VERY_HIGH", "CRITICAL", "EXTREME"].includes(v)) return "RAT_CAO"; if (v === "HIGH") return "CAO"; if (RISK_MED.has(v)) return "TRUNG_BINH"; if (RISK_LOW.has(v)) return "THAP"; return null; }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ asOf?: string; dept?: string }> }) {
   const { user } = await requireUserContext();
   const year = await getWorkYear();
   const supabase = await createClient();
   const admin = createAdminClient();
-  const today = todayHcm();
+  const query = await searchParams;
+  const requestedAsOf = String(query.asOf || "").trim();
+  const today = /^\d{4}-\d{2}-\d{2}$/.test(requestedAsOf) && requestedAsOf <= todayHcm() ? requestedAsOf : todayHcm();
+  const isHospitalScope = user.scopeTypes.includes("HOSPITAL");
+  const selectedDept = isHospitalScope ? String(query.dept || "").trim() : "";
   const months = last9Months(today);
 
-  const recordsRes = await supabase.from("records").select("id,record_type,record_code,title,work_year,lifecycle_status").eq("work_year",year);
-  const records = ((recordsRes.data ?? []) as any[]).filter((r:any)=>!CLOSED.has(r.lifecycle_status));
+  const recordsRes = await supabase.from("records").select("id,record_type,record_code,title,work_year,lifecycle_status,owner_department_id").eq("work_year",year);
+  const records = ((recordsRes.data ?? []) as any[]).filter((r:any)=>!CLOSED.has(r.lifecycle_status)&&(!selectedDept||r.owner_department_id===selectedDept));
   const recordIdList=records.map((r:any)=>r.id).filter(Boolean);
   const incidentRecordIds = new Set(records.filter((r: any) => r.record_type === "INCIDENT").map((r: any) => r.id));
 
@@ -240,7 +244,11 @@ export default async function DashboardPage() {
         <span className="icon-badge"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1m-6 4h1m4 0h1" /></svg></span>
         <div><PageHeader title="Trung tâm Điều hành Chất lượng" description="Theo dõi, phân tích và quản lý tổng thể các hoạt động chất lượng, an toàn người bệnh" /></div>
       </div>
-      <div className="scope-controls"><span className="button secondary" style={{ pointerEvents: "none" }}>{months[0]}-01 → {today}</span><span className="button secondary" style={{ pointerEvents: "none" }}>{user.scopeTypes.includes("HOSPITAL") ? "Toàn bệnh viện" : user.primaryDepartmentName || "Phạm vi được phân công"}</span></div>
+      <form className="scope-controls" method="get">
+        <input type="date" name="asOf" defaultValue={today} max={todayHcm()} className="button secondary" title="Xem đến ngày" />
+        {isHospitalScope ? <select name="dept" defaultValue={selectedDept} className="button secondary"><option value="">Toàn bệnh viện</option>{((departmentsRes.data ?? []) as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select> : <span className="button secondary" style={{ pointerEvents: "none" }}>{user.primaryDepartmentName || "Phạm vi được phân công"}</span>}
+        <button type="submit" className="button primary">Áp dụng</button>
+      </form>
     </div>
 
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}

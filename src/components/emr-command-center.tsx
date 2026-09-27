@@ -65,6 +65,6 @@ export function EmrCommandCenter(){
  </div>
 }
 function PanelHead({title,sub}:{title:string;sub:string}){return <div className="emr-panel-head"><div><h2>{title}</h2><p>{sub}</p></div></div>}
-function Legend({c,l,v}:{c:string;l:string;v:number}){return <div className="legend-row"><i style={{background:c}}/><span>{l}</span><b>{v}</b></div>}
+function Legend({c,l,v}:{c:string;l:string;v:number}){return <div className="legend-row" style={{display:"grid",gridTemplateColumns:"9px 1fr auto",alignItems:"center",gap:7,fontSize:10}}><i style={{background:c,width:8,height:8,borderRadius:"50%",display:"block"}}/><span>{l}</span><b style={{fontSize:12,color:"#12356d"}}>{v}</b></div>}
 function Compliance({icon,label,value}:{icon:string;label:string;value:number|null}){return <div className="emr-compliance-row"><span className="emr-compliance-icon"><Icon name={icon} size={15}/></span><div><label style={{display:"block"}}>{label}</label><div className="emr-bar"><i style={{width:`${value??0}%`}}/></div></div><b>{value===null?"—":`${value}%`}</b></div>}
 function Kpi({icon,label,value,note,tone}:{icon:string;label:string;value:string;note:string;tone:string}){return <div className={`emr-kpi ${tone}`}><div className="emr-kpi-top"><span className="emr-kpi-icon"><Icon name={icon} size={18}/></span><div><label style={{display:"block"}}>{label}</label><strong style={{display:"block"}}>{value}</strong></div></div><small style={{display:"block"}}>{note}</small></div>}

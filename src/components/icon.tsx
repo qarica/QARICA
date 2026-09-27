@@ -5,7 +5,7 @@ import {
   Cog, FileInput, FileText, FolderArchive, FolderCheck, Footprints, Gauge, Inbox, KeyRound, LayoutDashboard,
   Lightbulb, ListChecks, LogOut, Megaphone, Menu, MessageCircleWarning, Network, PanelLeftClose, PanelLeftOpen,
   Paperclip, Pencil, PieChart, Plus, RefreshCw, Save, Search, SearchCheck, Send, Settings, ShieldAlert, ShieldCheck,
-  Sparkles, Sprout, Target, TrendingUp, TriangleAlert, Users, UsersRound, Workflow, X
+  Smartphone, Sparkles, Sprout, Target, TrendingUp, TriangleAlert, Users, UsersRound, Workflow, X
 } from "lucide-react";
 
 const map:Record<string,React.ComponentType<{size?:number;className?:string}>>={
@@ -21,7 +21,7 @@ const map:Record<string,React.ComponentType<{size?:number;className?:string}>>={
   "pencil":Pencil,"file-text":FileText,"save":Save,"shield-check":ShieldCheck,"camera":Camera,
   "paperclip":Paperclip,"panel-left-close":PanelLeftClose,"panel-left-open":PanelLeftOpen,"arrow-left":ArrowLeft,
   "archive":Archive,"sparkles":Sparkles,"target":Target,"gauge":Gauge,"network":Network,"footprints":Footprints,
-  "book-open":BookOpen,"cog":Cog,"refresh-cw":RefreshCw,"sprout":Sprout
+  "book-open":BookOpen,"cog":Cog,"refresh-cw":RefreshCw,"sprout":Sprout,"smartphone":Smartphone
 };
 
 export function Icon({name,size=18,className}:{name:string;size?:number;className?:string}){

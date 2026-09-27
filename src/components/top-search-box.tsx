@@ -12,6 +12,7 @@ export function TopSearchBox() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -19,6 +20,18 @@ export function TopSearchBox() {
     }
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+        setOpen(true);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {
@@ -51,6 +64,7 @@ export function TopSearchBox() {
     <div className="top-search" ref={boxRef}>
       <Icon name="search" size={16} />
       <input
+        ref={inputRef}
         placeholder="Tìm kiếm sự cố, RCA, CAPA, audit, tài liệu..."
         value={query}
         onChange={(e) => { setQuery(e.target.value); setOpen(true); }}

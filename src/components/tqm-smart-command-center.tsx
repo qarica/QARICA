@@ -514,9 +514,6 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
             <h3>Ưu tiên hệ thống đề xuất</h3>
             <p>Luật quyết định minh bạch, dựa trên dữ liệu; không tự thay người dùng ra quyết định nghiệp vụ.</p>
           </div>
-          <Link href="/assistant" className="button secondary small">
-            Mở Trợ lý QLCL
-          </Link>
         </div>
 
         <div className="tqm-smart-action-list">

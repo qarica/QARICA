@@ -15,6 +15,8 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   const body=await request.json().catch(()=>({}));
   const title=clean(body.title);
   if(!title)return NextResponse.json({error:"Tên tiêu chí/tiểu mục là bắt buộc."},{status:400});
+  const ownerDepartmentId=clean(body.owner_department_id)||null;
+  if(!ownerDepartmentId)return NextResponse.json({error:"Khoa/phòng phụ trách tiêu chí là bắt buộc."},{status:400});
 
   const admin=createAdminClient();
   const {data:tx,error:txError}=await admin.rpc(CREATE_ITEM_RPC,{
@@ -32,6 +34,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     p_is_core:body.is_core===true,
     p_is_mandatory:body.is_mandatory===true,
     p_max_score:numberOrNull(body.max_score),
+    p_owner_department_id:ownerDepartmentId,
   });
 
   if(txError){
@@ -51,6 +54,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
       parent_criteria_item_id:tx?.parent_criteria_item_id??null,
       item_type:tx?.item_type,
       sequence_no:tx?.sequence_no,
+      owner_department_id:tx?.owner_department_id??null,
     },
     transaction:"atomic",
   });

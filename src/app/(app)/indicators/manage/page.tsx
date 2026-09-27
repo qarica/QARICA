@@ -24,7 +24,7 @@ export default async function IndicatorManagementPage(){
     {error?<div className="card" style={{padding:16}}>Không tải được danh mục chỉ số.</div>:
     <div className="card" style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:900}}>
       <thead><tr><th>Mã</th><th>Tên chỉ số</th><th>Lĩnh vực</th><th>Đơn vị</th><th>Tần suất</th><th>Phiên bản</th><th>Trạng thái</th><th>Hiệu lực</th></tr></thead>
-      <tbody>{(defs??[]).map((d:any)=>{const v=latest.get(d.id);return <tr key={d.id}><td><strong>{d.code}</strong></td><td>{d.name}<div className="muted">{d.purpose||""}</div></td><td>{d.quality_dimension||"—"}</td><td>{v?.unit||"—"}</td><td>{frequencyLabel(v?.frequency)}</td><td>v{v?.version_no??"—"}</td><td>{d.is_active===false?"Ngưng sử dụng":statusLabel(v?.status)}</td><td>{v?.effective_from||"—"}</td></tr>})}{!(defs??[]).length&&<tr><td colSpan={8} style={{padding:24,textAlign:"center"}}>Chưa có chỉ số. Tạo chỉ số đầu tiên bằng biểu mẫu phía trên.</td></tr>}</tbody>
+      <tbody>{(defs??[]).map((d:any)=>{const v=latest.get(d.id);return <tr key={d.id}><td><Link href={`/indicators/manage/${d.id}`}><strong>{d.code}</strong></Link></td><td><Link href={`/indicators/manage/${d.id}`}>{d.name}<div className="muted">{d.purpose||""}</div></Link></td><td>{d.quality_dimension||"—"}</td><td>{v?.unit||"—"}</td><td>{frequencyLabel(v?.frequency)}</td><td>v{v?.version_no??"—"}</td><td>{d.is_active===false?"Ngưng sử dụng":statusLabel(v?.status)}</td><td>{v?.effective_from||"—"}</td></tr>})}{!(defs??[]).length&&<tr><td colSpan={8} style={{padding:24,textAlign:"center"}}>Chưa có chỉ số. Tạo chỉ số đầu tiên bằng biểu mẫu phía trên.</td></tr>}</tbody>
     </table></div>}
   </div>
 }
