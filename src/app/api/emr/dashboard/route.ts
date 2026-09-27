@@ -1,9 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
 
-export async function GET() {
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function GET(req: NextRequest) {
   const auth = await requireApiPermission("emr.view");
   if (!auth.ok) return auth.response;
   const admin = createAdminClient();
@@ -14,7 +16,13 @@ export async function GET() {
     .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,created_at,updated_at")
     .eq("organization_id", profile.organization_id).order("updated_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  const items = data ?? [];
+  const allItems = data ?? [];
+  const rawFrom = req.nextUrl.searchParams.get("from") || "";
+  const rawTo = req.nextUrl.searchParams.get("to") || "";
+  const from = DATE_RE.test(rawFrom) ? rawFrom : "";
+  const to = DATE_RE.test(rawTo) && (!from || rawTo >= from) ? rawTo : "";
+  const dateFilterActive = !!(from || to);
+  const items = dateFilterActive ? allItems.filter(x => !!x.due_date && (!from || x.due_date >= from) && (!to || x.due_date <= to)) : allItems;
   const now = Date.now();
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
   const counts = { TODO: 0, IN_PROGRESS: 0, DONE: 0, BLOCKED: 0 } as Record<string, number>;
@@ -73,5 +81,5 @@ export async function GET() {
     gateEvidence: doneGates.length ? Math.round(doneGates.filter(x => !!x.evidence_url && !!x.verified_at).length * 100 / doneGates.length) : null,
   };
 
-  return NextResponse.json({ ok: true, generatedAt: new Date().toISOString(), total: items.length, counts, completion: items.length ? Math.round(counts.DONE * 100 / items.length) : null, categories, stale, overdue, unassigned, criticalOpen, controlCoverage, gates: { total: gates.length, passed: gatesPassed, evidenceMissing: gateEvidenceMissing }, departmentMatrix, upcoming, escalation, attention: items.filter(x => x.status === "BLOCKED" || x.priority === "CRITICAL" || (x.due_date && x.status !== "DONE" && x.due_date < today) || x.status === "TODO").slice(0, 8) });
+  return NextResponse.json({ ok: true, generatedAt: new Date().toISOString(), filter: { from, to, active: dateFilterActive }, total: items.length, counts, completion: items.length ? Math.round(counts.DONE * 100 / items.length) : null, categories, stale, overdue, unassigned, criticalOpen, controlCoverage, gates: { total: gates.length, passed: gatesPassed, evidenceMissing: gateEvidenceMissing }, departmentMatrix, upcoming, escalation, attention: items.filter(x => x.status === "BLOCKED" || x.priority === "CRITICAL" || (x.due_date && x.status !== "DONE" && x.due_date < today) || x.status === "TODO").slice(0, 8) });
 }

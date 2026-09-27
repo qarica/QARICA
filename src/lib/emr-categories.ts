@@ -41,7 +41,7 @@ export const EMR_STATUS_LABELS: Record<string, string> = {
 };
 
 export type EmrFieldType = "text" | "date" | "number" | "select";
-export type EmrField = { key: string; label: string; type: EmrFieldType; options?: string[] };
+export type EmrField = { key: string; label: string; type: EmrFieldType; options?: string[]; showBeforeTitle?: boolean };
 
 // Mỗi danh mục theo dõi một loại thông tin khác nhau trong triển khai EMR thật - không dùng
 // chung 1 form cho cả 8 danh mục. Người phụ trách/khoa-phòng/ưu tiên/Go-live gate đã có sẵn
@@ -69,7 +69,7 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
     { key: "approved_date", label: "Ngày phê duyệt", type: "date" },
   ],
   BIEU_MAU: [
-    { key: "form_code", label: "Mã biểu mẫu", type: "text" },
+    { key: "form_code", label: "Mã biểu mẫu", type: "text", showBeforeTitle: true },
     { key: "digitized", label: "Tình trạng số hóa", type: "select", options: ["Đã số hóa", "Chưa số hóa"] },
     { key: "training_required", label: "Yêu cầu đào tạo", type: "select", options: ["Cần đào tạo", "Không cần đào tạo"] },
   ],

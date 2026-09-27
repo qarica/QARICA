@@ -6,6 +6,8 @@ type Item = { id: string; category: string; title: string; description: string |
 
 export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { categoryCode: string; categoryLabel: string; canManage: boolean }) {
   const extraFields = EMR_CATEGORY_FIELDS[categoryCode as keyof typeof EMR_CATEGORY_FIELDS] || [];
+  const beforeTitleFields = extraFields.filter((f) => f.showBeforeTitle);
+  const afterTitleFields = extraFields.filter((f) => !f.showBeforeTitle);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -155,15 +157,16 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr><th>#</th><th>Tiêu đề</th><th>Mô tả</th>{extraFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Tệp đính kèm</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th><th></th></tr>
+                <tr><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Tiêu đề</th><th>Mô tả</th>{afterTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Tệp đính kèm</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th><th></th></tr>
               </thead>
               <tbody>
                 {items.map((item, idx) => (
                   <tr key={item.id}>
                     <td>{idx + 1}</td>
+                    {beforeTitleFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
                     <td><strong>{item.title}</strong></td>
                     <td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>
-                    {extraFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
+                    {afterTitleFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
                     <td>{item.details?.file_name ? <button type="button" className="button tertiary small" onClick={() => viewFile(item)}>📎 {String(item.details.file_name)}</button> : "—"}</td>
                     <td><span className={`status-badge ${item.priority==="CRITICAL"?"danger":item.priority==="HIGH"?"warning":"muted"}`}>{{LOW:"Thấp",MEDIUM:"Trung bình",HIGH:"Cao",CRITICAL:"Nghiêm trọng"}[item.priority]||item.priority}</span></td><td>{item.due_date || "—"}</td>
                     <td>{EMR_STATUS_LABELS[item.status] || item.status}{item.verified_at ? <div><small>Đã xác minh</small></div> : null}</td>

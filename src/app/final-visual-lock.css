@@ -19,8 +19,8 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .workspace-app .nav-label{color:#91a3b8!important}
 .workspace-app .nav-link{color:#506985!important;background:transparent!important;border-color:transparent!important;box-shadow:none!important}
 .workspace-app .nav-link:hover{background:#f3f8ff!important;color:#1769d2!important;border-color:#e0ecfb!important;transform:none!important}
-.workspace-app .nav-link.active{background:#eaf3ff!important;color:#1769d2!important;border-color:#d4e5ff!important;box-shadow:inset 3px 0 0 #1677ff!important}
-.workspace-app .nav-link.active svg{color:#1677ff!important}
+.workspace-app .nav-link.active{background:#1677ff!important;color:#ffffff!important;border-color:transparent!important;box-shadow:0 4px 12px rgba(22,119,255,.28)!important}
+.workspace-app .nav-link.active svg{color:#ffffff!important}
 .workspace-app .sidebar-footer{background:linear-gradient(180deg,rgba(255,255,255,0),#fff 28%)!important}
 
 .workspace-app .topbar,.workspace-app .qarica-topbar{background:rgba(255,255,255,.98)!important;background-image:none!important;border-bottom:1px solid var(--qf-line)!important;box-shadow:0 2px 12px rgba(26,65,110,.035)!important;color:#17365d!important}

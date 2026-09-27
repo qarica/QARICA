@@ -17,10 +17,22 @@ const CLOSED = new Set(["CANCELLED", "ARCHIVED", "INACTIVE", "RETIRED"]);
 
 function todayHcm() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()); }
 function monthKey(value: string | null | undefined) { if (!value) return null; return String(value).slice(0, 7); }
-function last9Months(today: string) {
-  const [y, m] = today.split("-").map(Number);
+function addMonths(ym: string, delta: number) {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+function monthsBetween(from: string, to: string) {
+  const [fy, fm] = from.split("-").map(Number);
+  const [ty, tm] = to.split("-").map(Number);
+  const startIdx = fy * 12 + (fm - 1);
+  const endIdx = ty * 12 + (tm - 1);
+  const count = Math.max(2, Math.min(24, endIdx - startIdx + 1));
   const out: string[] = [];
-  for (let i = 8; i >= 0; i--) { const d = new Date(Date.UTC(y, m - 1 - i, 1)); out.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`); }
+  for (let i = 0; i < count; i++) {
+    const idx = endIdx - count + 1 + i;
+    out.push(`${Math.floor(idx / 12)}-${String((idx % 12) + 1).padStart(2, "0")}`);
+  }
   return out;
 }
 function monthLabel(key: string) { return `T${key.slice(5, 7)}`; }
@@ -34,7 +46,7 @@ const RISK_MED = new Set(["MEDIUM", "MODERATE"]);
 const RISK_LOW = new Set(["LOW"]);
 function riskTier(level: string | null | undefined) { const v = String(level || "").toUpperCase(); if (["VERY_HIGH", "CRITICAL", "EXTREME"].includes(v)) return "RAT_CAO"; if (v === "HIGH") return "CAO"; if (RISK_MED.has(v)) return "TRUNG_BINH"; if (RISK_LOW.has(v)) return "THAP"; return null; }
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ asOf?: string; dept?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ asOf?: string; from?: string; dept?: string }> }) {
   const { user } = await requireUserContext();
   const year = await getWorkYear();
   const supabase = await createClient();
@@ -42,9 +54,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const query = await searchParams;
   const requestedAsOf = String(query.asOf || "").trim();
   const today = /^\d{4}-\d{2}-\d{2}$/.test(requestedAsOf) && requestedAsOf <= todayHcm() ? requestedAsOf : todayHcm();
+  const defaultFrom = addMonths(today.slice(0, 7), -8) + "-01";
+  const requestedFrom = String(query.from || "").trim();
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(requestedFrom) && requestedFrom <= today ? requestedFrom : defaultFrom;
   const isHospitalScope = user.scopeTypes.includes("HOSPITAL");
   const selectedDept = isHospitalScope ? String(query.dept || "").trim() : "";
-  const months = last9Months(today);
+  const months = monthsBetween(from.slice(0, 7), today.slice(0, 7));
 
   const recordsRes = await supabase.from("records").select("id,record_type,record_code,title,work_year,lifecycle_status,owner_department_id").eq("work_year",year);
   const records = ((recordsRes.data ?? []) as any[]).filter((r:any)=>!CLOSED.has(r.lifecycle_status)&&(!selectedDept||r.owner_department_id===selectedDept));
@@ -61,14 +76,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const incidentsAll = ((incidentsAllRes.data ?? []) as any[]).filter((x: any) => incidentRecordIds.has(x.record_id));
   const openIncidents = incidentsAll.filter((x: any) => !["CLOSED", "CANCELLED", "REJECTED"].includes(String(x.workflow_status)));
-  const thisMonthNew = incidentsAll.filter((x: any) => monthKey(x.reported_at) === months[8]).length;
-  const lastMonthNew = incidentsAll.filter((x: any) => monthKey(x.reported_at) === months[7]).length;
+  const curMonth = months[months.length - 1];
+  const prevMonth = months[months.length - 2];
+  const thisMonthNew = incidentsAll.filter((x: any) => monthKey(x.reported_at) === curMonth).length;
+  const lastMonthNew = incidentsAll.filter((x: any) => monthKey(x.reported_at) === prevMonth).length;
   const investigating = openIncidents.filter((x: any) => x.workflow_status === "INVESTIGATING").length;
-  const investigatingLastMonth = incidentsAll.filter((x: any) => x.workflow_status === "INVESTIGATING" && monthKey(x.reported_at) === months[7]).length;
+  const investigatingLastMonth = incidentsAll.filter((x: any) => x.workflow_status === "INVESTIGATING" && monthKey(x.reported_at) === prevMonth).length;
 
   const capas = (capasRes.data ?? []) as any[];
   const capaOverdue = capas.filter((x: any) => !["CLOSED", "CANCELLED", "EFFECTIVE"].includes(String(x.workflow_status)) && x.effectiveness_due_date && x.effectiveness_due_date < today);
-  const capaOverdueLastMonth = capas.filter((x: any) => x.effectiveness_due_date && x.effectiveness_due_date < months[7] + "-28").length;
+  const capaOverdueLastMonth = capas.filter((x: any) => x.effectiveness_due_date && x.effectiveness_due_date < prevMonth + "-28").length;
   const capaByStatus = { DONE: capas.filter((x: any) => x.workflow_status === "EFFECTIVE").length, IN_PROGRESS: capas.filter((x: any) => ["IN_PROGRESS", "EFFECTIVENESS_REVIEW"].includes(String(x.workflow_status))).length, OVERDUE: capaOverdue.length, NOT_STARTED: capas.filter((x: any) => x.workflow_status === "DRAFT").length };
   const capaTotal = capas.filter((x: any) => x.workflow_status !== "CANCELLED").length;
 
@@ -85,7 +102,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const audits = (auditsRes.data ?? []) as any[];
   const auditInProgress = audits.filter((x: any) => ["IN_PROGRESS", "DRAFT_REPORT", "REPORT_REVIEW", "FOLLOW_UP"].includes(String(x.workflow_status))).length;
-  const auditInProgressLastMonth = audits.filter((x: any) => ["IN_PROGRESS", "DRAFT_REPORT", "REPORT_REVIEW", "FOLLOW_UP"].includes(String(x.workflow_status)) && monthKey(x.start_date) === months[7]).length;
+  const auditInProgressLastMonth = audits.filter((x: any) => ["IN_PROGRESS", "DRAFT_REPORT", "REPORT_REVIEW", "FOLLOW_UP"].includes(String(x.workflow_status)) && monthKey(x.start_date) === prevMonth).length;
   const auditPlannedByMonth = new Map<string, number>(); const auditDoneByMonth = new Map<string, number>();
   for (const a of audits) { const pm = monthKey(a.start_date); if (pm) auditPlannedByMonth.set(pm, (auditPlannedByMonth.get(pm) || 0) + 1); const dm = monthKey(a.closed_at || a.report_finalized_at); if (dm && a.workflow_status === "CLOSED") auditDoneByMonth.set(dm, (auditDoneByMonth.get(dm) || 0) + 1); }
   const auditNearDue = audits.filter((x: any) => !["CLOSED", "CANCELLED"].includes(String(x.workflow_status)) && x.end_date && x.end_date >= today && x.end_date <= new Date(new Date(today).getTime() + 7 * 86400000).toISOString().slice(0, 10));
@@ -245,7 +262,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <div><PageHeader title="Trung tâm Điều hành Chất lượng" description="Theo dõi, phân tích và quản lý tổng thể các hoạt động chất lượng, an toàn người bệnh" /></div>
       </div>
       <form className="scope-controls" method="get">
-        <input type="date" name="asOf" defaultValue={today} max={todayHcm()} className="button secondary" title="Xem đến ngày" />
+        <input type="date" name="from" defaultValue={from} max={today} className="button secondary" title="Từ ngày" />
+        <input type="date" name="asOf" defaultValue={today} max={todayHcm()} className="button secondary" title="Đến ngày" />
         {isHospitalScope ? <select name="dept" defaultValue={selectedDept} className="button secondary"><option value="">Toàn bệnh viện</option>{((departmentsRes.data ?? []) as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select> : <span className="button secondary" style={{ pointerEvents: "none" }}>{user.primaryDepartmentName || "Phạm vi được phân công"}</span>}
         <button type="submit" className="button primary">Áp dụng</button>
       </form>
@@ -285,7 +303,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <article className="panel"><div className="head"><h2>Tình trạng CAPA</h2><Link className="button tertiary small" href="/capa">Xem chi tiết →</Link></div>{capaTotal ? <TqmDonut value={capaTotal} label="Tổng CAPA" segments={[{ label: "Hoàn thành", value: capaByStatus.DONE, tone: "green" as const }, { label: "Đang thực hiện", value: capaByStatus.IN_PROGRESS, tone: "blue" as const }, { label: "Quá hạn", value: capaByStatus.OVERDUE, tone: "red" as const }, { label: "Chưa thực hiện", value: capaByStatus.NOT_STARTED, tone: "slate" as const }].filter((s) => s.value > 0)} /> : <div className="empty-state">Chưa có CAPA.</div>}</article>
       <article className="panel"><div className="head"><h2>Hoạt động Audit</h2><Link className="button tertiary small" href="/audits">Xem chi tiết →</Link></div>
         <div className="stacked-trend-legend"><span><i style={{ background: "#bfdbfe" }} />Kế hoạch</span><span><i style={{ background: "#2563eb" }} />Đã thực hiện</span></div>
-        <div className="stacked-trend"><div className="stacked-bars">{months.slice(3).map((m) => { const planned = auditPlannedByMonth.get(m) || 0; const done = auditDoneByMonth.get(m) || 0; const max = Math.max(1, ...months.map((mm) => Math.max(auditPlannedByMonth.get(mm) || 0, auditDoneByMonth.get(mm) || 0))); return <div className="stacked-bar-col" key={m}><div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 160 }}><span style={{ width: 10, background: "#bfdbfe", borderRadius: "3px 3px 0 0", height: `${Math.max(2, (planned / max) * 150)}px` }} /><span style={{ width: 10, background: "#2563eb", borderRadius: "3px 3px 0 0", height: `${Math.max(2, (done / max) * 150)}px` }} /></div><span className="stacked-bar-label">{monthLabel(m)}</span></div>; })}</div></div>
+        <div className="stacked-trend"><div className="stacked-bars">{months.map((m) => { const planned = auditPlannedByMonth.get(m) || 0; const done = auditDoneByMonth.get(m) || 0; const max = Math.max(1, ...months.map((mm) => Math.max(auditPlannedByMonth.get(mm) || 0, auditDoneByMonth.get(mm) || 0))); return <div className="stacked-bar-col" key={m}><div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 160 }}><span style={{ width: 10, background: "#bfdbfe", borderRadius: "3px 3px 0 0", height: `${Math.max(2, (planned / max) * 150)}px` }} /><span style={{ width: 10, background: "#2563eb", borderRadius: "3px 3px 0 0", height: `${Math.max(2, (done / max) * 150)}px` }} /></div><span className="stacked-bar-label">{monthLabel(m)}</span></div>; })}</div></div>
       </article>
       <article className="panel"><div className="head"><h2>Tình hình rủi ro</h2><Link className="button tertiary small" href="/risks">Xem chi tiết →</Link></div>{riskAssessedTotal ? <TqmDonut value={riskAssessedTotal} label="Tổng rủi ro" segments={[{ label: "Thấp", value: riskTiers.THAP, tone: "green" as const }, { label: "Trung bình", value: riskTiers.TRUNG_BINH, tone: "amber" as const }, { label: "Cao", value: riskTiers.CAO, tone: "blue" as const }, { label: "Rất cao", value: riskTiers.RAT_CAO, tone: "red" as const }].filter((s) => s.value > 0)} /> : <div className="empty-state">Chưa có rủi ro được đánh giá.</div>}</article>
     </section>

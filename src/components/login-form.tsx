@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, LoaderCircle } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, User, Lock, ArrowRight } from "lucide-react";
 
 export function LoginForm() {
   const router = useRouter();
@@ -11,6 +11,7 @@ export function LoginForm() {
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -50,29 +51,40 @@ export function LoginForm() {
     <form className="login-card" onSubmit={submit}>
       <div className="mobile-brand"><Image src="/brand/qarica-logo.svg" alt="QARICA" width={190} height={58} priority /></div>
 
+      <div className="login-card-header">
+        <Image src="/brand/qarica-mark-v2.svg" alt="" width={44} height={44} aria-hidden="true" />
+        <div>
+          <strong>QARICA</strong>
+          <span>QUALITY · RISK · INCIDENT · COMPLIANCE</span>
+        </div>
+      </div>
+
       <div>
-        <div className="eyebrow">ĐĂNG NHẬP QARICA</div>
-        <h2>Chào mừng trở lại</h2>
+        <h2>Đăng nhập hệ thống</h2>
         <p className="muted">
-          Sử dụng tài khoản và mật khẩu do quản trị viên cấp.
+          Sử dụng tài khoản và mật khẩu do quản trị viên cấp để truy cập QARICA.
         </p>
       </div>
 
       <label>
         <span>Tài khoản</span>
-        <input
-          type="text"
-          value={login}
-          onChange={(e) => setLogin(e.target.value)}
-          placeholder="Ví dụ: ten.nguoidung hoặc qarica01"
-          autoComplete="username"
-          required
-        />
+        <div className="login-input-icon">
+          <User size={16} />
+          <input
+            type="text"
+            value={login}
+            onChange={(e) => setLogin(e.target.value)}
+            placeholder="Ví dụ: ten.nguoidung hoặc qarica01"
+            autoComplete="username"
+            required
+          />
+        </div>
       </label>
 
       <label>
         <span>Mật khẩu</span>
-        <div className="password-wrap">
+        <div className="password-wrap login-input-icon">
+          <Lock size={16} />
           <input
             type={showPassword ? "text" : "password"}
             value={password}
@@ -92,6 +104,11 @@ export function LoginForm() {
         </div>
       </label>
 
+      <div className="login-remember-row">
+        <label className="inline-check"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Ghi nhớ đăng nhập</label>
+        <a className="login-forgot" href="#">Quên mật khẩu?</a>
+      </div>
+
       {error ? <div className="alert error">{error}</div> : null}
 
       <button className="button primary wide" type="submit" disabled={loading}>
@@ -100,9 +117,16 @@ export function LoginForm() {
             <LoaderCircle className="spin" size={18} /> Đang đăng nhập...
           </>
         ) : (
-          "Đăng nhập"
+          <>Đăng nhập <ArrowRight size={17} /></>
         )}
       </button>
+
+      <div className="login-divider"><span>Hoặc đăng nhập bằng</span></div>
+      <div className="login-sso-row">
+        <button type="button" className="button secondary" disabled title="Chưa khả dụng">SSO</button>
+        <button type="button" className="button secondary" disabled title="Chưa khả dụng">Google</button>
+        <button type="button" className="button secondary" disabled title="Chưa khả dụng">Microsoft</button>
+      </div>
 
       <p className="tiny muted center">
         Dữ liệu truy cập được kiểm soát theo vai trò, quyền và phạm vi được&nbsp;phân&nbsp;công.<br />
