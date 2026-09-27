@@ -654,6 +654,7 @@ export function PlanComposerClient({
                         type="checkbox"
                         checked={row.childCount > 0 || childEnabledIds.includes(task.client_id)}
                         onChange={(e) => setChildMode(task, e.target.checked)}
+                        style={{ width: "auto", minHeight: 0 }}
                       />
                       Có nhiệm vụ con
                     </label> : null}
