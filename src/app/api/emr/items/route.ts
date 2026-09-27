@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await admin
     .from("emr_rollout_items")
-    .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,details,created_at,updated_at")
+    .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
     .eq("organization_id", profile.organization_id)
     .eq("category", category)
     .order("created_at", { ascending: false });
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
       created_by: auth.user.id,
       updated_by: auth.user.id,
     })
-    .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,details,created_at,updated_at")
+    .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 

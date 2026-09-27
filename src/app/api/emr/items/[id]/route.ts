@@ -66,7 +66,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .from("emr_rollout_items")
     .update(patch)
     .eq("id", id)
-    .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,details,created_at,updated_at")
+    .select("id,category,title,description,status,department_id,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 

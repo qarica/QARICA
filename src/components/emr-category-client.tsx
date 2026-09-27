@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { EMR_CATEGORY_FIELDS, EMR_STATUS_LABELS } from "@/lib/emr-categories";
 
-type Item = { id: string; category: string; title: string; description: string | null; status: string; department_id:string|null; owner_user_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; details: Record<string, unknown>; created_at: string; updated_at: string };
+type Item = { id: string; category: string; title: string; description: string | null; status: string; department_id:string|null; owner_user_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; created_at: string; updated_at: string };
 
 export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { categoryCode: string; categoryLabel: string; canManage: boolean }) {
   const extraFields = EMR_CATEGORY_FIELDS[categoryCode as keyof typeof EMR_CATEGORY_FIELDS] || [];
@@ -243,7 +243,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
               <label>Hạn hoàn thành<input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></label>
               <label className="inline-check"><input type="checkbox" checked={form.is_go_live_gate} onChange={(e) => setForm({ ...form, is_go_live_gate: e.target.checked })} /> Điều kiện bắt buộc trước Go-live</label>
               <label>Minh chứng / liên kết xác minh<input value={form.evidence_url} onChange={(e) => setForm({ ...form, evidence_url: e.target.value, verify_completed:false })} placeholder="URL hoặc tham chiếu minh chứng" /></label>
-              {form.status==="DONE"&&form.evidence_url?<label className="inline-check"><input type="checkbox" checked={form.verify_completed} onChange={(e)=>setForm({...form,verify_completed:e.target.checked})}/> Xác minh hoàn thành dựa trên minh chứng</label>:null}
+              {editing&&form.status==="DONE"&&form.evidence_url?<label className="inline-check"><input type="checkbox" checked={form.verify_completed} onChange={(e)=>setForm({...form,verify_completed:e.target.checked})}/> Xác minh hoàn thành dựa trên minh chứng</label>:null}
             </div>
             <div className="modal-footer">
               <button type="button" className="button tertiary" onClick={closeModal} disabled={saving}>Huỷ</button>
