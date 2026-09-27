@@ -115,7 +115,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
                   <td><strong>{item.title}</strong></td>
                   <td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>
                   {extraFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
-                  <td>{item.priority || "MEDIUM"}</td><td>{item.due_date || "—"}</td>
+                  <td><span className={`status-badge ${item.priority==="CRITICAL"?"danger":item.priority==="HIGH"?"warning":"muted"}`}>{{LOW:"Thấp",MEDIUM:"Trung bình",HIGH:"Cao",CRITICAL:"Nghiêm trọng"}[item.priority]||item.priority}</span></td><td>{item.due_date || "—"}</td>
                   <td>{EMR_STATUS_LABELS[item.status] || item.status}{item.verified_at ? <div><small>Đã xác minh</small></div> : null}</td>
                   <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>{canManage ? <>
                     <button type="button" className="button tertiary small" onClick={() => openEdit(item)}>Sửa</button>
