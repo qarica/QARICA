@@ -14,7 +14,7 @@ describe("EMR security and control gates", () => {
   });
   it("hides EMR navigation from users without emr.view", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "Tổng quan EMR", href: "/emr", icon: "layout-dashboard", permission: "emr.view" }');
+    expect(nav).toContain('{ label: "EMR", href: "/emr", icon: "layout-dashboard", permission: "emr.view" }');
     expect(nav).toContain('permission: "emr.view"');
   });
   it("uses Vietnam-local calendar dates for deadline control", () => {

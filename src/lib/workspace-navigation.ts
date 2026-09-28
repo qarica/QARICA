@@ -110,6 +110,7 @@ export const WORKSPACES: WorkspaceDefinition[] = [
       { label: "Vai trò & Phân quyền", href: "/admin/permissions", icon: "key-round", permission: "permissions.manage" },
       { label: "Danh mục", href: "/admin/catalogs", icon: "list-tree", permission: "system.manage" },
       { label: "Cấu hình", href: "/admin/settings", icon: "settings", permission: "system.manage" },
+      { label: "Nhật ký hệ thống", href: "/admin/audit-log", icon: "file-text", permission: "system.manage" },
     ],
   },
 ];

@@ -130,8 +130,8 @@ export default async function CalendarBlueprintPage() {
   return <div className="page-stack calendar-blueprint-page">
     <style>{`
       .calendar-blueprint-page{max-width:1450px;margin:0 auto;gap:14px!important}
-      .calendar-blueprint-page .kpi-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;margin-bottom:11px}
-      .calendar-blueprint-page .kpi-icon.blue{background:#3b82f6}.calendar-blueprint-page .kpi-icon.green{background:#22c55e}.calendar-blueprint-page .kpi-icon.amber{background:#f59e0b}.calendar-blueprint-page .kpi-icon.purple{background:#8b5cf6}
+      .calendar-blueprint-page .kpi-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:11px}
+      .calendar-blueprint-page .kpi-icon.blue{background:#dbeafe;color:#2563eb}.calendar-blueprint-page .kpi-icon.green{background:#dcfce7;color:#16a34a}.calendar-blueprint-page .kpi-icon.amber{background:#fef3c7;color:#b45309}.calendar-blueprint-page .kpi-icon.purple{background:#ede9fe;color:#7c3aed}
       .blueprint-principles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
       .blueprint-principle{padding:13px 14px;border:1px solid #dfe7ec;border-left:4px solid #2563eb;border-radius:12px;background:#fff}
       .blueprint-principle:nth-child(2){border-left-color:#0f766e}.blueprint-principle:nth-child(3){border-left-color:#7c3aed}

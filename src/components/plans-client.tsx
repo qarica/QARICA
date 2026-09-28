@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { StatusBadge } from "@/components/status-badge";
 import { MultiCheckSelect } from "@/components/multi-check-select";
+import { useCreateModalSignal } from "@/components/create-modal-signal";
 import { formatDate } from "@/lib/format";
 
 type PlanRow = {
@@ -32,6 +33,10 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
+  const [programType, setProgramType] = useState("ALL");
+  const [department, setDepartment] = useState("ALL");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [formOpen, setFormOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
@@ -40,9 +45,25 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
   useEffect(() => { if (!formOpen) return; const previous = document.body.style.overflow; document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = previous; }; }, [formOpen]);
   const deptMap = useMemo(() => new Map(departments.map((d) => [d.id, d.short_name || d.name])), [departments]);
   const userMap = useMemo(() => new Map(profiles.map((p) => [p.user_id, p.full_name || p.email || "Người dùng"])), [profiles]);
-  const filtered = rows.filter((row) => { const text = `${row.record_code} ${row.title} ${deptMap.get(row.lead_department_id || "") || ""}`.toLowerCase(); return text.includes(search.trim().toLowerCase()) && (status === "ALL" || row.workflow_status === status); });
+  const filtered = rows.filter((row) => { const text = `${row.record_code} ${row.title} ${deptMap.get(row.lead_department_id || "") || ""}`.toLowerCase(); return text.includes(search.trim().toLowerCase()) && (status === "ALL" || row.workflow_status === status) && (programType === "ALL" || row.program_type === programType) && (department === "ALL" || row.lead_department_id === department); });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  function updateFilter(setter: () => void) { setter(); setPage(1); }
+
+  function exportCsv() {
+    const header = ["Mã", "Tên kế hoạch", "Loại", "Khoa/phòng", "Chủ trì", "Bắt đầu", "Kết thúc", "Tiến độ %", "Trạng thái"];
+    const lines = [header.join(",")];
+    for (const row of filtered) lines.push([row.record_code, `"${row.title.replace(/"/g, '""')}"`, TYPE_LABELS[row.program_type] || row.program_type, deptMap.get(row.lead_department_id || "") || "", row.owner_user_id ? userMap.get(row.owner_user_id) || "" : "", row.start_date || "", row.end_date || "", String(Math.round(row.progress_pct || 0)), row.workflow_status].join(","));
+    const blob = new Blob([`﻿${lines.join("\n")}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `ke-hoach-${year}.csv`; document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+  }
 
   function openCreate() { setMessage(null); setForm(initialForm(year)); setFormOpen(true); }
+  const { openSignal } = useCreateModalSignal();
+  useEffect(() => { if (openSignal > 0 && canManage) openCreate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSignal]);
   function requestClose() { if (busy) return; const changed = JSON.stringify(form) !== JSON.stringify(initialForm(year)); if (changed && !window.confirm("Bạn có chắc muốn đóng? Dữ liệu chưa lưu sẽ bị mất.")) return; setMessage(null); setFormOpen(false); }
   function setSpecific(index: number, value: string) { setForm((current) => ({ ...current, specificObjectives: current.specificObjectives.map((item, i) => i === index ? value : item) })); }
   function addSpecific() { setForm((current) => ({ ...current, specificObjectives: [...current.specificObjectives, ""] })); }
@@ -125,8 +146,9 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
     </form></div>, document.body) : null;
 
   return <>
-    <section className="panel"><div className="toolbar"><div className="toolbar-left"><div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm mã, tên kế hoạch, khoa/phòng..." /></div><select style={{ width: 190 }} value={status} onChange={(e) => setStatus(e.target.value)}><option value="ALL">Tất cả trạng thái</option><option value="DRAFT">Nháp</option><option value="PENDING_APPROVAL">Chờ phê duyệt</option><option value="APPROVED">Đã phê duyệt</option><option value="IN_PROGRESS">Đang thực hiện</option><option value="ON_HOLD">Tạm dừng</option><option value="COMPLETED">Hoàn thành</option><option value="CANCELLED">Đã hủy</option></select></div>{canManage ? <button className="button primary" onClick={openCreate}><Icon name="plus" size={18} /> Tạo kế hoạch</button> : null}</div>
-      <div className="table-wrap"><table><thead><tr><th>#</th><th>Mã</th><th>Tên kế hoạch</th><th>Loại</th><th>Khoa/phòng</th><th>Chủ trì</th><th>Thời gian</th><th>Tiến độ</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{filtered.map((row, index) => { const pct = Math.max(0, Math.min(100, Math.round(row.progress_pct || 0))); return <tr key={row.id}><td>{index + 1}</td><td><Link className="table-link" href={`/plans/${row.id}`}>{row.record_code}</Link></td><td><Link href={`/plans/${row.id}`}><strong>{row.title}</strong></Link></td><td>{TYPE_LABELS[row.program_type] || row.program_type}</td><td>{deptMap.get(row.lead_department_id || "") || "—"}</td><td>{row.owner_user_id ? userMap.get(row.owner_user_id) || "Người phụ trách" : "—"}</td><td>{formatDate(row.start_date)}<span className="subline">đến {formatDate(row.end_date)}</span></td><td><div className="progress-cell"><div className="progress-track"><span style={{ width: `${pct}%` }} /></div><strong>{pct}%</strong></div><span className="subline">{row.completed_actions}/{row.required_actions} việc · {row.overdue_actions} quá hạn</span></td><td><StatusBadge status={row.workflow_status} /></td><td><Link className="icon-button header-icon" title="Xem chi tiết" href={`/plans/${row.id}`}><Icon name="search" size={16} /></Link></td></tr>; })}{!filtered.length ? <tr><td colSpan={10}><div className="empty-state">Chưa có kế hoạch phù hợp trong năm {year}.</div></td></tr> : null}</tbody></table></div>
+    <section className="panel"><div className="toolbar"><div className="toolbar-left"><div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Tìm mã, tên kế hoạch, khoa/phòng..." /></div><select style={{ width: 180 }} value={status} onChange={(e) => updateFilter(() => setStatus(e.target.value))}><option value="ALL">Tất cả trạng thái</option><option value="DRAFT">Nháp</option><option value="PENDING_APPROVAL">Chờ phê duyệt</option><option value="APPROVED">Đã phê duyệt</option><option value="IN_PROGRESS">Đang thực hiện</option><option value="ON_HOLD">Tạm dừng</option><option value="COMPLETED">Hoàn thành</option><option value="CANCELLED">Đã hủy</option></select><select style={{ width: 180 }} value={programType} onChange={(e) => updateFilter(() => setProgramType(e.target.value))}><option value="ALL">Tất cả loại kế hoạch</option>{Object.entries(TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select><select style={{ width: 180 }} value={department} onChange={(e) => updateFilter(() => setDepartment(e.target.value))}><option value="ALL">Tất cả khoa/phòng</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select></div><button type="button" className="button secondary" onClick={exportCsv} disabled={!filtered.length}>Xuất Excel</button></div>
+      <div className="table-wrap"><table><thead><tr><th>#</th><th>Mã</th><th>Tên kế hoạch</th><th>Loại</th><th>Khoa/phòng</th><th>Chủ trì</th><th>Thời gian</th><th>Tiến độ</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{pageRows.map((row, index) => { const pct = Math.max(0, Math.min(100, Math.round(row.progress_pct || 0))); return <tr key={row.id}><td>{(currentPage - 1) * PAGE_SIZE + index + 1}</td><td><Link className="table-link" href={`/plans/${row.id}`}>{row.record_code}</Link></td><td><Link href={`/plans/${row.id}`}><strong>{row.title}</strong></Link></td><td>{TYPE_LABELS[row.program_type] || row.program_type}</td><td>{deptMap.get(row.lead_department_id || "") || "—"}</td><td>{row.owner_user_id ? userMap.get(row.owner_user_id) || "Người phụ trách" : "—"}</td><td>{formatDate(row.start_date)}<span className="subline">đến {formatDate(row.end_date)}</span></td><td><div className="progress-cell"><div className="progress-track"><span style={{ width: `${pct}%` }} /></div><strong>{pct}%</strong></div><span className="subline">{row.completed_actions}/{row.required_actions} việc · {row.overdue_actions} quá hạn</span></td><td><StatusBadge status={row.workflow_status} /></td><td><Link className="icon-button header-icon" title="Xem chi tiết" href={`/plans/${row.id}`}><Icon name="search" size={16} /></Link></td></tr>; })}{!pageRows.length ? <tr><td colSpan={10}><div className="empty-state">Chưa có kế hoạch phù hợp trong năm {year}.</div></td></tr> : null}</tbody></table></div>
+      {filtered.length ? <div className="module-pagination"><span>Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filtered.length)} của {filtered.length} bản ghi</span><div className="module-pagination-pages">{Array.from({ length: totalPages }, (_, i) => i + 1).map((pn) => <button type="button" key={pn} className={`button small ${pn === currentPage ? "primary" : "secondary"}`} onClick={() => setPage(pn)}>{pn}</button>)}</div></div> : null}
     </section>{modal}
   </>;
 }

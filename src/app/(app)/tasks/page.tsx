@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Icon } from "@/components/icon";
+import { WorkRowCheckbox, WorkRowSelectionProvider, WorkSelectionCount } from "@/components/work-row-checkbox";
 import { MyWorkSyncClient } from "@/components/my-work-sync-client";
 import { PageHeader } from "@/components/page-header";
 import { PersonalReminders } from "@/components/personal-reminders";
 import { RECORD_TYPE_LABEL } from "@/components/record-traceability-panel";
+import { ReminderRowDelete } from "@/components/reminder-row-delete";
 import { StatusBadge } from "@/components/status-badge";
 import { requirePermission, requireUserContext } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
@@ -21,9 +23,13 @@ function workCue(row:any){const days=Number(row.days_to_due||0);if(row.is_overdu
 function workScore(row:any){const days=Number(row.days_to_due||0);let score=0;if(row.is_overdue)score+=200+Math.abs(days)*5;if(row.workflow_status==="RETURNED")score+=150;if(["EVIDENCE_SUBMITTED","VERIFYING"].includes(String(row.workflow_status)))score+=135;if(days===0)score+=160;if(days>0&&days<=3)score+=100;if(row.priority==="CRITICAL")score+=90;else if(row.priority==="URGENT")score+=70;else if(row.priority==="HIGH")score+=40;return score}
 const ACTION_SELECT="action_id,record_id,record_code,title,work_year,workflow_status,priority,due_date,is_overdue,days_to_due,lead_department_id,assignee_user_id,assignment_target_type,assignee_group_id";
 
-export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string}>}){
+export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string;q?:string;page?:string}>}){
  const {user}=await requireUserContext();requirePermission(user,"tasks.view");const year=await getWorkYear();const supabase=await createClient();
- const {tab:rawTab}=await searchParams;const tab=(["ALL","OPEN","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"ALL") as "ALL"|"OPEN"|"DONE";
+ const {tab:rawTab,q:rawQ,page:rawPage}=await searchParams;
+ const tab=(["ALL","REMINDER","ASSIGNED","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"ALL") as "ALL"|"REMINDER"|"ASSIGNED"|"WATCH"|"DONE";
+ const searchQuery=String(rawQ||"").trim();
+ const page=Math.max(1,Number(rawPage)||1);
+ const PAGE_SIZE=10;
  const isQlcl=user.roleCodes.includes("QLCL_MANAGER")||user.roleCodes.includes("HOI_DONG_QLCL");const isDepartmentHead=user.roleCodes.includes("DEPARTMENT_HEAD");const isBoard=user.roleCodes.includes("BAN_GIAM_DOC");
  const groupAssignmentRes=await supabase
   .from("work_group_assignment_snapshots")
@@ -53,7 +59,12 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  let scopeActionsRes:any={data:[] as any[],error:null};
  if(isQlcl){scopeActionsRes=await supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).order("due_date",{ascending:true,nullsFirst:false});}
  else if(isDepartmentHead&&user.primaryDepartmentId){const leadScopeRes=await supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).eq("lead_department_id",user.primaryDepartmentId).order("due_date",{ascending:true,nullsFirst:false});const executionScopeRes=departmentActionIds.length?await supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).in("action_id",departmentActionIds).order("due_date",{ascending:true,nullsFirst:false}):{data:[] as any[],error:null};const scopedById=new Map<string,any>();for(const row of [...(leadScopeRes.data??[]),...(executionScopeRes.data??[])])scopedById.set((row as any).action_id,row);scopeActionsRes={data:Array.from(scopedById.values()),error:leadScopeRes.error||executionScopeRes.error};}
- const sourceRows=(actionsRes.data??[]) as any[];const scopeSourceRows=(scopeActionsRes.data??[]) as any[];const recordIds=Array.from(new Set([...sourceRows,...scopeSourceRows].map(r=>r.record_id).filter(Boolean)));const recordRes=recordIds.length?await supabase.from("records").select("id,lifecycle_status,record_type").in("id",recordIds):{data:[],error:null};const hidden=new Set((recordRes.data??[]).filter((r:any)=>isOperationallyHiddenStatus(r.lifecycle_status)).map((r:any)=>r.id));const recordTypeMap=new Map((recordRes.data??[]).map((r:any)=>[r.id,r.record_type]));
+ const sourceRows=(actionsRes.data??[]) as any[];const scopeSourceRows=(scopeActionsRes.data??[]) as any[];const recordIds=Array.from(new Set([...sourceRows,...scopeSourceRows].map(r=>r.record_id).filter(Boolean)));const recordRes=recordIds.length?await supabase.from("records").select("id,lifecycle_status,record_type,record_code,created_by").in("id",recordIds):{data:[],error:null};const hidden=new Set((recordRes.data??[]).filter((r:any)=>isOperationallyHiddenStatus(r.lifecycle_status)).map((r:any)=>r.id));const recordTypeMap=new Map((recordRes.data??[]).map((r:any)=>[r.id,r.record_type]));const recordCodeMap=new Map((recordRes.data??[]).map((r:any)=>[r.id,r.record_code]));
+ const creatorIds=Array.from(new Set((recordRes.data??[]).map((r:any)=>r.created_by).filter(Boolean))) as string[];
+ const creatorsRes=creatorIds.length?await supabase.from("profiles").select("user_id,full_name,email").in("user_id",creatorIds):{data:[],error:null};
+ const creatorNameMap=new Map((creatorsRes.data??[]).map((p:any)=>[p.user_id,p.full_name||p.email]));
+ const recordCreatedByMap=new Map((recordRes.data??[]).map((r:any)=>[r.id,r.created_by]));
+ const createdByForRecord=(recordId:string)=>{const creatorId=recordCreatedByMap.get(recordId);return creatorId?creatorNameMap.get(creatorId)||"—":"—"};
  const roleDepartmentIds=Array.from(new Set([...scopeSourceRows.map(r=>r.lead_department_id),user.primaryDepartmentId].filter(Boolean)));const roleDepartmentsRes=roleDepartmentIds.length?await supabase.from("departments").select("id,name,short_name").in("id",roleDepartmentIds):{data:[],error:null};const roleDepartmentMap=new Map((roleDepartmentsRes.data??[]).map((d:any)=>[d.id,d.short_name||d.name]));
  const assignedGroupIds=Array.from(new Set([...sourceRows,...scopeSourceRows].map((r:any)=>r.assignee_group_id).filter(Boolean))) as string[];const assignedGroupsRes=assignedGroupIds.length?await supabase.from("work_groups").select("id,name,code").in("id",assignedGroupIds):{data:[],error:null};const assignedGroupMap=new Map((assignedGroupsRes.data??[]).map((g:any)=>[g.id,[g.code,g.name].filter(Boolean).join(" · ")]));
  const rows=sourceRows.filter(r=>r.workflow_status!=="CANCELLED"&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const attention=(attentionRes.data??[]) as any[];const personalReminders=(personalRemindersRes.data??[]) as any[];const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=actionsRes.error||attentionRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error;
@@ -68,7 +79,30 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
 
  const today=hcmToday();
  const openRows=rows.filter(r=>!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status));
- const tableRows=tab==="OPEN"?openRows:tab==="DONE"?rows.filter(r=>r.workflow_status==="COMPLETED"):rows;
+
+ type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"};
+ const unifiedActionRows:UnifiedRow[]=rows.map(r=>({
+  key:`a-${r.action_id}`,title:r.title,typeLabel:RECORD_TYPE_LABEL[recordTypeMap.get(r.record_id)||""]||"—",
+  relatedTo:recordCodeMap.get(r.record_id)||"—",priority:r.priority,dueDate:r.due_date,
+  statusLabel:r.is_overdue?"OVERDUE":r.workflow_status,isOverdue:!!r.is_overdue,isDone:r.workflow_status==="COMPLETED",
+  isWatch:!r.is_overdue&&!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status)&&Number(r.days_to_due)>0,
+  assignedBy:createdByForRecord(r.record_id),href:`/tasks/${r.record_id}`,source:"action",
+ }));
+ const unifiedReminderRows:UnifiedRow[]=personalReminders.map((p:any)=>({
+  key:`p-${p.id}`,title:p.title,typeLabel:"Note cá nhân",relatedTo:"—",priority:p.priority,
+  dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="COMPLETED"?"COMPLETED":(p.due_at&&dateOnly(p.due_at)<today?"OVERDUE":p.status),
+  isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="COMPLETED",
+  isWatch:p.status==="OPEN"&&(!p.due_at||dateOnly(p.due_at)>=today),
+  assignedBy:"—",href:"/tasks",source:"reminder",
+ }));
+ const allWorkRows=[...unifiedActionRows,...unifiedReminderRows].sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999"));
+ const byTab=tab==="REMINDER"?unifiedReminderRows:tab==="ASSIGNED"?unifiedActionRows:tab==="WATCH"?allWorkRows.filter(r=>r.isWatch):tab==="DONE"?allWorkRows.filter(r=>r.isDone):allWorkRows;
+ const searched=searchQuery?byTab.filter(r=>r.title.toLowerCase().includes(searchQuery.toLowerCase())||r.relatedTo.toLowerCase().includes(searchQuery.toLowerCase())):byTab;
+ const totalPages=Math.max(1,Math.ceil(searched.length/PAGE_SIZE));
+ const currentPage=Math.min(page,totalPages);
+ const tableRowsPage=searched.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
+ const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}#all-work`;
+ const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}&page=${p}#all-work`;
 
  // Mini "Lịch cá nhân": chỉ đánh dấu ngày có việc thật (Action mở + note cá nhân), không vẽ ô trang trí.
  const dueDateSet=new Set<string>([...openRows.map(r=>r.due_date).filter(Boolean),...personalReminders.filter((p:any)=>p.status==="OPEN"&&p.due_at).map((p:any)=>dateOnly(p.due_at))]);
@@ -87,14 +121,35 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
 
  return <div className="page-stack my-work-page tqm-my-work">
   <MyWorkSyncClient/>
-  <style>{`.tqm-my-work{max-width:1180px;margin:0 auto}.tqm-my-work .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.tqm-my-work .kpi-card{background:#fff;border:1px solid #e5eaf2;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.03)}.tqm-my-work .kpi-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.tqm-my-work .kpi-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}.tqm-my-work .kpi-icon.blue{background:#3b82f6}.tqm-my-work .kpi-icon.green{background:#22c55e}.tqm-my-work .kpi-icon.amber{background:#f59e0b}.tqm-my-work .kpi-icon.red{background:#ef4444}.tqm-my-work .kpi-icon.purple{background:#8b5cf6}.tqm-my-work .kpi-value{font-size:26px;font-weight:800;color:#0f172a}.tqm-my-work .kpi-title{font-size:12.5px;color:#475569;font-weight:600;margin-top:2px}.tqm-my-work .kpi-trend{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}.tqm-my-work .kpi-trend.down{color:#dc2626;background:#fef2f2}@media(max-width:1100px){.tqm-my-work .kpis{grid-template-columns:repeat(2,1fr)}}.tqm-my-work .work-section{background:#fff;border:1px solid #d3dee3;border-radius:16px;overflow:hidden}.tqm-my-work .work-section.primary{border:2px solid #9fb8c5}.tqm-my-work .section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:15px 17px;border-bottom:1px solid #e2e9ec;background:#f8fbfc}.tqm-my-work .section-head h2{margin:0;font-size:16px}.tqm-my-work .section-head p{margin:4px 0 0;color:#687a80;font-size:11px}.tqm-my-work .work-list{display:grid}.tqm-my-work .work-row{display:grid;grid-template-columns:minmax(0,1fr) 115px 110px auto;gap:12px;align-items:center;padding:13px 16px;border-bottom:1px solid #e7edef}.tqm-my-work .work-row:last-child{border-bottom:0}.tqm-my-work .work-row.danger{background:#fffafa}.tqm-my-work .work-main strong{font-size:12px}.tqm-my-work .work-main small{display:block;margin-top:4px;color:#718187;font-size:10px}.tqm-my-work .role-badge{display:inline-flex;border-radius:999px;background:#eaf2fb;color:#1d4f7a;padding:5px 8px;font-size:9px;font-weight:900}.tqm-my-work details{border-top:1px solid #dbe5e9}.tqm-my-work summary{cursor:pointer;padding:13px 16px;font-weight:800;font-size:12px;background:#fafcfd}.tqm-my-work .all-table{padding:0}.tqm-my-work .attention-list{display:grid;gap:8px;padding:12px 16px 16px}.tqm-my-work .attention-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid #e4eaec;border-radius:12px;padding:11px}.tqm-my-work .attention-item strong{font-size:11px}.tqm-my-work .attention-item small{display:block;margin-top:3px;color:#7b898f}.tqm-my-work .mobile-only{display:none}@media(max-width:760px){.tqm-my-work .work-row{grid-template-columns:1fr auto}.tqm-my-work .work-row>div:nth-child(2),.tqm-my-work .work-row>div:nth-child(3){display:none}.tqm-my-work .desktop-only{display:none}.tqm-my-work .mobile-only{display:grid;gap:10px}.tqm-my-work .my-work-card{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title action" "cue action";column-gap:12px;row-gap:5px;align-items:center;padding:14px 14px;background:#fff;border:1px solid #d7e1e5;border-radius:14px;overflow:hidden}.tqm-my-work .my-work-card.overdue{border-color:#efc6c6;background:#fffafa}.tqm-my-work .my-work-card strong{grid-area:title;display:block;min-width:0;font-size:14px;line-height:1.35;overflow-wrap:anywhere}.tqm-my-work .my-work-card small{grid-area:cue;display:block;color:#687a80;font-size:11px;line-height:1.35}.tqm-my-work .my-work-card .button{grid-area:action;align-self:center;white-space:nowrap;padding:8px 10px;font-size:11px;min-height:auto}}
+  <style>{`.tqm-my-work{max-width:1180px;margin:0 auto}.tqm-my-work .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.tqm-my-work .kpi-card{background:#fff;border:1px solid #e5eaf2;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.03)}.tqm-my-work .kpi-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.tqm-my-work .kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}.tqm-my-work .kpi-icon.blue{background:#dbeafe;color:#2563eb}.tqm-my-work .kpi-icon.green{background:#dcfce7;color:#16a34a}.tqm-my-work .kpi-icon.amber{background:#fef3c7;color:#b45309}.tqm-my-work .kpi-icon.red{background:#fee2e2;color:#dc2626}.tqm-my-work .kpi-icon.purple{background:#ede9fe;color:#7c3aed}.tqm-my-work .kpi-value{font-size:26px;font-weight:800;color:#0f172a}.tqm-my-work .kpi-title{font-size:12.5px;color:#475569;font-weight:600;margin-top:2px}.tqm-my-work .kpi-trend{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}.tqm-my-work .kpi-trend.down{color:#dc2626;background:#fef2f2}@media(max-width:1100px){.tqm-my-work .kpis{grid-template-columns:repeat(2,1fr)}}.tqm-my-work .work-section{background:#fff;border:1px solid #d3dee3;border-radius:16px;overflow:hidden}.tqm-my-work .work-section.primary{border:2px solid #9fb8c5}.tqm-my-work .section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:15px 17px;border-bottom:1px solid #e2e9ec;background:#f8fbfc}.tqm-my-work .section-head h2{margin:0;font-size:16px}.tqm-my-work .section-head p{margin:4px 0 0;color:#687a80;font-size:11px}.tqm-my-work .work-list{display:grid}.tqm-my-work .work-row{display:grid;grid-template-columns:minmax(0,1fr) 115px 110px auto;gap:12px;align-items:center;padding:13px 16px;border-bottom:1px solid #e7edef}.tqm-my-work .work-row:last-child{border-bottom:0}.tqm-my-work .work-row.danger{background:#fffafa}.tqm-my-work .work-main strong{font-size:12px}.tqm-my-work .work-main small{display:block;margin-top:4px;color:#718187;font-size:10px}.tqm-my-work .role-badge{display:inline-flex;border-radius:999px;background:#eaf2fb;color:#1d4f7a;padding:5px 8px;font-size:9px;font-weight:900}.tqm-my-work details{border-top:1px solid #dbe5e9}.tqm-my-work summary{cursor:pointer;padding:13px 16px;font-weight:800;font-size:12px;background:#fafcfd}.tqm-my-work .all-table{padding:0}.tqm-my-work .attention-list{display:grid;gap:8px;padding:12px 16px 16px}.tqm-my-work .attention-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid #e4eaec;border-radius:12px;padding:11px}.tqm-my-work .attention-item strong{font-size:11px}.tqm-my-work .attention-item small{display:block;margin-top:3px;color:#7b898f}.tqm-my-work .mobile-only{display:none}@media(max-width:760px){.tqm-my-work .work-row{grid-template-columns:1fr auto}.tqm-my-work .work-row>div:nth-child(2),.tqm-my-work .work-row>div:nth-child(3){display:none}.tqm-my-work .desktop-only{display:none}.tqm-my-work .mobile-only{display:grid;gap:10px}.tqm-my-work .my-work-card{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title action" "cue action";column-gap:12px;row-gap:5px;align-items:center;padding:14px 14px;background:#fff;border:1px solid #d7e1e5;border-radius:14px;overflow:hidden}.tqm-my-work .my-work-card.overdue{border-color:#efc6c6;background:#fffafa}.tqm-my-work .my-work-card strong{grid-area:title;display:block;min-width:0;font-size:14px;line-height:1.35;overflow-wrap:anywhere}.tqm-my-work .my-work-card small{grid-area:cue;display:block;color:#687a80;font-size:11px;line-height:1.35}.tqm-my-work .my-work-card .button{grid-area:action;align-self:center;white-space:nowrap;padding:8px 10px;font-size:11px;min-height:auto}}
   .tqm-my-work .kpi-card-foot{margin-top:10px;font-size:11px;font-weight:700;color:#2563eb}
   .tqm-my-work .work-columns{display:grid;grid-template-columns:minmax(0,2fr) minmax(240px,1fr);gap:14px;align-items:start}
   .tqm-my-work .work-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}.tqm-my-work .work-tab{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#52656d;border:1px solid #d7e1e5;background:#fff}.tqm-my-work .work-tab.active{background:#2563eb;border-color:#2563eb;color:#fff}
+  .tqm-my-work .work-search-row{display:flex;gap:8px;align-items:center;padding:10px 16px}.tqm-my-work .work-search-row .search-box{flex:1;max-width:280px}
+  .tqm-my-work .work-selection-count{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#1d4ed8;background:#eff6ff}
+  .tqm-my-work .my-work-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .tqm-my-work .my-work-header .page-header{flex:1}
+  .tqm-my-work .my-work-header-side{display:flex;align-items:center;gap:14px;flex:0 0 auto}
+  .tqm-my-work .my-work-quote{max-width:200px;margin:0;padding:12px 14px;border-radius:14px;background:#eff6ff;color:#1e40af;font-size:11.5px;font-weight:600;font-style:italic;line-height:1.4}
+  @media(max-width:900px){.tqm-my-work .my-work-header{flex-direction:column;align-items:flex-start}.tqm-my-work .my-work-header-side{display:none}}
+  .tqm-my-work .work-pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;flex-wrap:wrap;font-size:11px;color:#64748b}.tqm-my-work .work-pagination-pages{display:flex;gap:5px}
   .tqm-my-work .mini-cal{padding:13px 14px}.tqm-my-work .mini-cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.tqm-my-work .mini-cal-head strong{font-size:12px;color:#243247}.tqm-my-work .mini-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}.tqm-my-work .mini-cal-wd{font-size:9px;font-weight:800;color:#94a3b8;padding:3px 0}.tqm-my-work .mini-cal-day{position:relative;font-size:10.5px;padding:5px 0;border-radius:7px;color:#334155}.tqm-my-work .mini-cal-day.today{background:#2563eb;color:#fff;font-weight:800}.tqm-my-work .mini-cal-day.has-event:not(.today):after{content:"";position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:#2563eb}
   .tqm-my-work .upcoming-list{display:grid;padding:4px 0}.tqm-my-work .upcoming-item{display:flex;justify-content:space-between;gap:8px;padding:9px 14px;border-top:1px solid #eef2f3;font-size:11px}.tqm-my-work .upcoming-item strong{display:block;font-size:11.5px;color:#243247;font-weight:700}.tqm-my-work .upcoming-item small{color:#94a3b8}.tqm-my-work .upcoming-item small.overdue{color:#c43232;font-weight:800}
   @media(max-width:900px){.tqm-my-work .work-columns{grid-template-columns:1fr}}`}</style>
-  <PageHeader eyebrow={`CÔNG VIỆC HÔM NAY · ${roleViewLabel} · ${year}`} title="Việc của tôi" description="Chỉ tập trung vào việc cần làm. Việc khẩn và đến hạn được đưa lên trước; các danh sách quản lý mở khi cần." icon="inbox"/>
+  <div className="my-work-header">
+   <PageHeader eyebrow={`CÔNG VIỆC HÔM NAY · ${roleViewLabel} · ${year}`} title="Việc của tôi" description="Chỉ tập trung vào việc cần làm. Việc khẩn và đến hạn được đưa lên trước; các danh sách quản lý mở khi cần." icon="inbox"/>
+   <div className="my-work-header-side">
+    <svg className="my-work-illustration" width="120" height="100" viewBox="0 0 120 100" fill="none" aria-hidden="true">
+     <rect x="28" y="6" width="64" height="88" rx="10" fill="#eff6ff" stroke="#bfdbfe" strokeWidth="2"/>
+     <rect x="46" y="0" width="28" height="14" rx="5" fill="#93c5fd"/>
+     <path d="M40 34h40M40 50h40M40 66h24" stroke="#93c5fd" strokeWidth="4" strokeLinecap="round"/>
+     <circle cx="40" cy="34" r="3" fill="#2563eb"/><circle cx="40" cy="50" r="3" fill="#2563eb"/><circle cx="40" cy="66" r="3" fill="#2563eb"/>
+     <path d="M6 60c0-16 12-28 28-28" stroke="#60a5fa" strokeWidth="4" strokeLinecap="round" opacity=".5"/>
+     <path d="m86 22 6 6 12-12" stroke="#22c55e" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+    <p className="my-work-quote">&ldquo;Mỗi công việc nhỏ hôm nay là nền tảng cho chất lượng ngày mai.&rdquo;</p>
+   </div>
+  </div>
   <section className="kpis">
     <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon red"><Icon name="triangle-alert" size={18}/></span>{overdue7?<span className="kpi-trend down">{overdue7} ≥7 ngày</span>:null}</div><div className="kpi-value">{overdue}</div><div className="kpi-title">Quá hạn</div><Link className="kpi-card-foot" href="?tab=OPEN#all-work">Xem chi tiết →</Link></article>
     <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon amber"><Icon name="calendar-days" size={18}/></span></div><div className="kpi-value">{dueToday}</div><div className="kpi-title">Đến hạn hôm nay</div><Link className="kpi-card-foot" href="?tab=OPEN#all-work">Xem chi tiết →</Link></article>
@@ -112,15 +167,26 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   <div className="work-columns">
    <div style={{display:"grid",gap:14}}>
     <PersonalReminders initialRows={personalReminders} organizationId={user.organizationId!} userId={user.id}/>
+    <WorkRowSelectionProvider>
     <section id="all-work" className="work-section desktop-only">
      <nav className="work-tabs" aria-label="Lọc việc được giao">
-      <Link href="?tab=ALL#all-work" className={`work-tab ${tab==="ALL"?"active":""}`}>Tất cả · {rows.length}</Link>
-      <Link href="?tab=OPEN#all-work" className={`work-tab ${tab==="OPEN"?"active":""}`}>Đang mở · {open}</Link>
-      <Link href="?tab=DONE#all-work" className={`work-tab ${tab==="DONE"?"active":""}`}>Hoàn thành · {completed}</Link>
+      <Link href={tabHref("ALL")} className={`work-tab ${tab==="ALL"?"active":""}`}>Tất cả · {allWorkRows.length}</Link>
+      <Link href={tabHref("REMINDER")} className={`work-tab ${tab==="REMINDER"?"active":""}`}>Note cá nhân · {unifiedReminderRows.length}</Link>
+      <Link href={tabHref("ASSIGNED")} className={`work-tab ${tab==="ASSIGNED"?"active":""}`}>Đã giao · {unifiedActionRows.length}</Link>
+      <Link href={tabHref("WATCH")} className={`work-tab ${tab==="WATCH"?"active":""}`}>Theo dõi · {allWorkRows.filter(r=>r.isWatch).length}</Link>
+      <Link href={tabHref("DONE")} className={`work-tab ${tab==="DONE"?"active":""}`}>Hoàn thành · {allWorkRows.filter(r=>r.isDone).length}</Link>
+      <WorkSelectionCount/>
      </nav>
-     <div className="table-wrap all-table"><table><thead><tr><th>#</th><th>Nội dung</th><th>Loại</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th></tr></thead><tbody>{tableRows.map((r,idx)=><tr key={r.action_id}><td>{idx+1}</td><td><Link className="table-link" href={`/tasks/${r.record_id}`}>{r.title}</Link><span className="subline">{r.record_code}{r.assignment_target_type==="GROUP"?` · Nhóm: ${assignedGroupMap.get(r.assignee_group_id)||"Nhóm phân công"}`:""}</span></td><td>{RECORD_TYPE_LABEL[recordTypeMap.get(r.record_id)||""]||"—"}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.is_overdue?"text-danger":""}>{formatDate(r.due_date)}</td><td><StatusBadge status={r.is_overdue?"OVERDUE":r.workflow_status}/></td></tr>)}{!tableRows.length?<tr><td colSpan={6}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
+     <form method="get" className="work-search-row">
+      <input type="hidden" name="tab" value={tab}/>
+      <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm công việc..."/></div>
+      <button type="submit" className="button secondary small">Lọc</button>
+     </form>
+     <div className="table-wrap all-table"><table><thead><tr><th></th><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Liên quan đến</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th><th>Người giao</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td><WorkRowCheckbox rowKey={r.key}/></td><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td><Link className="table-link" href={r.href}>{r.title}</Link></td><td>{r.typeLabel}</td><td>{r.relatedTo}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":""}>{r.dueDate?formatDate(r.dueDate):"—"}</td><td><StatusBadge status={r.statusLabel}/></td><td>{r.assignedBy}</td><td>{r.source==="reminder"?<ReminderRowDelete id={r.key.slice(2)} title={r.title}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={10}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
+     {searched.length?<div className="work-pagination"><span>Hiển thị {(currentPage-1)*PAGE_SIZE+1}-{Math.min(currentPage*PAGE_SIZE,searched.length)} của {searched.length} bản ghi</span><div className="work-pagination-pages">{Array.from({length:totalPages},(_,i)=>i+1).map(p=><Link key={p} href={pageHref(p)} className={`button small ${p===currentPage?"primary":"secondary"}`}>{p}</Link>)}</div></div>:null}
     </section>
-    <section className="mobile-only">{tableRows.map(r=><article className={`my-work-card ${r.is_overdue?"overdue":""}`} key={r.action_id}><strong>{r.title}</strong><small>{workCue(r)}</small><Link className="button primary small" href={`/tasks/${r.record_id}`}>Mở</Link></article>)}</section>
+    </WorkRowSelectionProvider>
+    <section className="mobile-only">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.title}</strong><small>{r.typeLabel} · {r.dueDate?formatDate(r.dueDate):"Không có hạn"}</small><Link className="button primary small" href={r.href}>Mở</Link></article>)}</section>
    </div>
    <div style={{display:"grid",gap:14}}>
     <section className="work-section desktop-only">

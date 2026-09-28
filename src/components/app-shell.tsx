@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { NavSection, OrganizationInfo, UserContext } from "@/lib/types";
+import type { NavGroup, NavItem, OrganizationInfo, UserContext } from "@/lib/types";
 import { adminLandingHref, isWorkspaceTabActive, visibleWorkspaceForPath, workspaceRootForPath } from "@/lib/workspace-navigation";
 import { Icon } from "@/components/icon";
 import { YearSelector } from "@/components/year-selector";
@@ -33,23 +33,42 @@ const RECORD_TYPE_NAV: Record<string, string> = {
   ACTION: "/tasks", PROGRAM: "/plans", DIRECTIVE: "/directives", REPORT: "/reports", INSPECTION: "/inspections", INDICATOR_MEASUREMENT: "/indicators", MONITORING: "/monitoring", FINDING: "/findings", INCIDENT: "/incidents", CAPA: "/capa", RISK: "/risks", IMPROVEMENT_PROJECT: "/improvement/projects", IMPROVEMENT_PROPOSAL: "/improvement/proposals", ASSESSMENT: "/assessments", EXTERNAL_ASSESSMENT: "/external-assessments", AUDIT: "/audits", SAFETY_ALERT: "/safety-alerts", FEEDBACK: "/feedback",
 };
 
-function normalizeNavRoute(route: string | null, nav: NavSection[]) {
+function normalizeNavRoute(route: string | null, navGroups: NavGroup[]) {
   if (!route) return null;
   const base = route.split("?")[0];
-  const visibleRoots = new Set(nav.flatMap((section) => section.items.map((item) => item.workspaceRoot || item.href.split("?")[0])));
+  const visibleRoots = new Set(navGroups.flatMap((group) => group.children.map((item) => item.workspaceRoot || item.href.split("?")[0])));
   const workspaceRoot = workspaceRootForPath(base);
   if (workspaceRoot && visibleRoots.has(workspaceRoot)) return workspaceRoot;
-  const hrefs = nav.flatMap((section) => section.items.map((item) => item.href.split("?")[0]));
+  const hrefs = navGroups.flatMap((group) => group.children.map((item) => item.href.split("?")[0]));
   return [...hrefs].sort((a, b) => b.length - a.length).find((href) => base === href || base.startsWith(`${href}/`)) ?? null;
 }
 
-export function AppShell({ children, user, organization, nav, year }: { children: React.ReactNode; user: UserContext; organization: OrganizationInfo | null; nav: NavSection[]; year: number; }) {
+// Single source of truth for "is this child the active route" — shared by the
+// per-link active class and by the accordion group's auto-expand resolution,
+// so the two never drift apart.
+function isChildActive(pathname: string, child: NavItem, currentWorkspaceRoot: string | null) {
+  if (child.workspaceRoot) return currentWorkspaceRoot === child.workspaceRoot;
+  const baseHref = child.href.split("?")[0];
+  return pathname === baseHref || (baseHref !== "/dashboard" && pathname.startsWith(`${baseHref}/`));
+}
+
+function resolveActiveGroupId(pathname: string, navGroups: NavGroup[], currentWorkspaceRoot: string | null) {
+  return navGroups.find((group) => group.children.some((child) => isChildActive(pathname, child, currentWorkspaceRoot)))?.id ?? null;
+}
+
+export function AppShell({ children, user, organization, navGroups, year }: { children: React.ReactNode; user: UserContext; organization: OrganizationInfo | null; navGroups: NavGroup[]; year: number; }) {
   const pathname = usePathname(); const router = useRouter(); const supabase = useMemo(() => createClient(), []);
   const [mobileOpen, setMobileOpen] = useState(false); const [profileOpen, setProfileOpen] = useState(false); const [navigating, setNavigating] = useState(false); const [sidebarCollapsed, setSidebarCollapsed] = useState(false); const [attention, setAttention] = useState<AttentionState>({});
   const workspace = visibleWorkspaceForPath(pathname, user); const currentWorkspaceRoot = workspaceRootForPath(pathname); const adminHref = adminLandingHref(user);
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(() => resolveActiveGroupId(pathname, navGroups, currentWorkspaceRoot));
 
   useEffect(() => { setNavigating(false); setProfileOpen(false); setMobileOpen(false); }, [pathname]);
   useEffect(() => { try { setSidebarCollapsed(window.localStorage.getItem("qlcl-sidebar-collapsed") === "1"); } catch {} }, []);
+  // Re-sync on every navigation (not merely when the resolved id differs from
+  // its last value) so the active group always re-expands even if the user
+  // had manually switched to peek at another group in between.
+  useEffect(() => { setExpandedGroupId(resolveActiveGroupId(pathname, navGroups, workspaceRootForPath(pathname))); }, [pathname, navGroups]);
+  function toggleGroup(id: string) { setExpandedGroupId((current) => (current === id ? null : id)); }
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -91,7 +110,7 @@ export function AppShell({ children, user, organization, nav, year }: { children
         if (failedQuery) throw new Error(`Truy vấn "${failedQuery[0]}" lỗi: ${failedQuery[1]?.error?.message}`);
         const currentRecordIds = new Set((recordsRes.data ?? []).map((x: any) => x.id)); const inCurrentYear = (recordId: string | null | undefined) => !!recordId && currentRecordIds.has(recordId); const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()); const todayMs = Date.parse(`${today}T00:00:00+07:00`); const daysTo = (value: string | null | undefined) => { if (!value) return null; const date = String(value).slice(0, 10); const targetMs = Date.parse(`${date}T00:00:00+07:00`); if (!Number.isFinite(targetMs) || !Number.isFinite(todayMs)) return null; return Math.round((targetMs - todayMs) / 86400000); }; const mine = (ownerUserId?: string | null, departmentId?: string | null) => ownerUserId === user.id || (!!user.primaryDepartmentId && departmentId === user.primaryDepartmentId);
         const notificationRows = (noticesRes.data ?? []) as AttentionNotification[]; const recordIds = Array.from(new Set(notificationRows.map((notice) => notice.target_record_id).filter(Boolean))) as string[]; const recordTypeById = new Map<string, string>(); if (recordIds.length) { const { data: records } = await supabase.from("records").select("id,record_type").in("id", recordIds); (records ?? []).forEach((record: any) => recordTypeById.set(record.id, record.record_type)); }
-        for (const notice of notificationRows) { const priority = String(notice.priority || "").toUpperCase(); if (!["HIGH", "URGENT", "CRITICAL"].includes(priority)) continue; let href = normalizeNavRoute(notice.target_route, nav); if (!href && notice.target_record_id) href = RECORD_TYPE_NAV[recordTypeById.get(notice.target_record_id) || ""] || null; addActionable(href, `notice:${notice.id}`, true); }
+        for (const notice of notificationRows) { const priority = String(notice.priority || "").toUpperCase(); if (!["HIGH", "URGENT", "CRITICAL"].includes(priority)) continue; let href = normalizeNavRoute(notice.target_route, navGroups); if (!href && notice.target_record_id) href = RECORD_TYPE_NAV[recordTypeById.get(notice.target_record_id) || ""] || null; addActionable(href, `notice:${notice.id}`, true); }
         for (const task of (tasksRes.data ?? []) as any[]) { const assignedToMe = task.assignee_user_id === user.id || (task.assignment_target_type === "GROUP" && myGroupActionRecordIds.has(task.record_id)) || (task.assignment_target_type === "DEPARTMENT" && myDepartmentActionIds.has(task.action_id)); const days = Number(task.days_to_due); const dueToday = Number.isFinite(days) && days === 0; const returned = task.workflow_status === "RETURNED"; const overdue = Boolean(task.is_overdue); const needsVerification = canVerifyTasks && ["EVIDENCE_SUBMITTED", "VERIFYING"].includes(task.workflow_status); if ((assignedToMe && (overdue || dueToday || returned)) || needsVerification) addActionable("/tasks", `task:${task.action_id}`, overdue || returned); }
         for (const round of (monitoringRes.data ?? []) as any[]) { if (!inCurrentYear(round.record_id)) continue; if (round.workflow_status === "AWAITING_CONFIRMATION" && canConfirmMonitoring) { addActionable("/monitoring", `monitoring:${round.id}`, false); continue; } if (round.lead_assessor_id !== user.id) continue; if (round.workflow_status === "IN_PROGRESS") { addActionable("/monitoring", `monitoring:${round.id}`, true); continue; } if (round.workflow_status === "SCHEDULED" && round.scheduled_date && round.scheduled_date <= today) addActionable("/monitoring", `monitoring:${round.id}`, round.scheduled_date < today); }
         for (const directive of (directivesRes.data ?? []) as any[]) { if (!inCurrentYear(directive.record_id) || ["COMPLETED", "CANCELLED"].includes(String(directive.workflow_status))) continue; if (!canManageDirectives && !mine(directive.owner_user_id, directive.lead_department_id)) continue; const days = daysTo(directive.report_due_date || directive.implementation_due_date); if (days !== null && days <= 7) addActionable("/directives", `directive:${directive.id}`, days < 0); }
@@ -106,7 +125,7 @@ export function AppShell({ children, user, organization, nav, year }: { children
       } catch (err) { console.error("[AppShell] failed to load sidebar attention counts", err); }
     }
     loadAttention(); const timer = window.setInterval(loadAttention, 30000); const onFocus = () => loadAttention(); window.addEventListener("focus", onFocus); return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
-  }, [nav, supabase, user.id, user.permissions, user.primaryDepartmentId, year]);
+  }, [navGroups, supabase, user.id, user.permissions, user.primaryDepartmentId, year]);
 
   function toggleSidebarCollapsed() { setSidebarCollapsed((current) => { const next = !current; try { window.localStorage.setItem("qlcl-sidebar-collapsed", next ? "1" : "0"); } catch {} return next; }); }
   async function logout() { await supabase.auth.signOut(); router.replace("/login"); router.refresh(); }
@@ -128,6 +147,14 @@ export function AppShell({ children, user, organization, nav, year }: { children
       .workspace-app .sidebar.collapsed .brand-mark img{width:38px;height:38px}
       .workspace-app .sidebar.collapsed .sidebar-collapse{position:absolute;right:-14px;top:56px;background:#fff;border:1px solid #dbe4f0;color:#2563eb;box-shadow:0 3px 10px rgba(37,99,235,.16)}
       .workspace-app .sidebar.collapsed .nav-link{margin:3px 8px;padding:10px;justify-content:center}
+      .workspace-app .sidebar.collapsed .nav-group-header{justify-content:center;margin:3px 8px;padding:10px}
+      .workspace-app .sidebar.collapsed .nav-group-chevron{display:none}
+      .workspace-app .sidebar.collapsed .nav-group-children{display:none!important}
+      .workspace-app .sidebar.collapsed .nav-group{position:relative}
+      .workspace-app .sidebar.collapsed .nav-group-flyout{display:none;position:absolute;left:calc(100% + 8px);top:0;min-width:236px;max-height:calc(100vh - 24px);overflow-y:auto;background:#fff;border:1px solid #e5eaf2;border-radius:12px;box-shadow:0 18px 40px rgba(15,23,42,.16);padding:8px;z-index:70}
+      .workspace-app .sidebar.collapsed .nav-group:hover .nav-group-flyout,.workspace-app .sidebar.collapsed .nav-group:focus-within .nav-group-flyout{display:block}
+      .workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:2px 0}
+      .workspace-app .sidebar.collapsed .nav-group-flyout .nav-link-label{display:inline}
       .workspace-app .sidebar:not(.collapsed) .sidebar-collapse{margin-left:auto;color:#64748b;background:#fff;border:1px solid #e5eaf2}
       .workspace-app .qarica-topbar{background:#ffffff!important;background-image:none!important;backdrop-filter:none;border-bottom:1px solid #e5eaf2;min-height:68px;padding:10px 22px;box-shadow:0 1px 2px rgba(15,23,42,.03);color:#0f172a}
       .workspace-app .topbar:before{content:none}
@@ -177,10 +204,27 @@ export function AppShell({ children, user, organization, nav, year }: { children
       .workspace-app .nav-link.active:before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:#2563eb}
       .workspace-app .nav-icon{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex:0 0 26px;border-radius:8px;color:#64748b;background:transparent;transition:color .16s,background .16s}
       .workspace-app .nav-link.active .nav-icon{color:#2563eb;background:transparent}
+      .workspace-app .nav-group{margin:2px 0}
+      .workspace-app .nav-group-header{display:flex;align-items:center;gap:11px;width:100%;border-radius:10px;margin:2px 10px;padding:9px 12px;color:#1e293b;border:1px solid transparent;background:transparent;font-weight:800;font-size:13px;text-align:left}
+      .workspace-app .nav-group-header:hover{background:#f8fafc;border-color:#eef2f7}
+      .workspace-app .nav-group.active-context>.nav-group-header{color:#1d4ed8}
+      .workspace-app .nav-group.active-context>.nav-group-header .nav-group-icon{color:#2563eb}
+      .workspace-app .nav-group-label{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;letter-spacing:.03em}
+      .workspace-app .nav-group-chevron{flex:0 0 auto;color:#94a3b8;transform:rotate(-90deg);transition:transform .16s}
+      .workspace-app .nav-group-chevron.expanded{transform:rotate(0deg)}
+      .workspace-app .nav-group-children{display:flex;flex-direction:column;padding-bottom:4px}
+      .workspace-app .nav-group-flyout{display:none}
+      .workspace-app .nav-group-flyout-title{padding:6px 10px 8px;font-size:10.5px;font-weight:800;letter-spacing:.06em;color:#94a3b8;text-transform:uppercase}
+      .workspace-app .nav-child-link{margin:1px 10px 1px 26px;padding:7px 10px;font-weight:600;font-size:12.5px;color:#64748b}
+      .workspace-app .nav-child-link .nav-icon{width:22px;height:22px;flex:0 0 22px}
+      .workspace-app .nav-child-link.active{font-weight:800}
+      .workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px}
+      @media(max-width:860px){.workspace-app .nav-group-flyout{display:none!important}}
       .workspace-app .nav-attention-badge{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;font-size:11px;font-weight:800;line-height:1;color:#fff;flex:0 0 auto}
       .workspace-app .nav-attention-badge.warning{background:#d97706}
       .workspace-app .nav-attention-badge.urgent{background:#dc2626}
       .workspace-app .sidebar.collapsed .nav-attention-badge{position:absolute;right:5px;top:4px;min-width:16px;height:16px;padding:0 4px;font-size:9px;border:2px solid #fff}
+      .workspace-app .sidebar.collapsed .nav-group-flyout .nav-attention-badge{position:static;min-width:20px;height:20px;padding:0 6px;font-size:11px;border:0}
       .workspace-app .sidebar-footer{border-top:1px solid #f1f5f9;padding:12px 14px}
       .workspace-app .scope-chip{color:#64748b;font-size:11px;margin-bottom:8px}
       .workspace-app .sidebar-collapse-text{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:#64748b;font-size:12.5px;font-weight:700;padding:6px 4px;cursor:pointer;border-radius:8px}
@@ -208,7 +252,7 @@ export function AppShell({ children, user, organization, nav, year }: { children
     {navigating ? <div className="route-progress" aria-label="Đang chuyển trang"><span /></div> : null}
     <aside className={`sidebar ${mobileOpen ? "open" : ""} ${sidebarCollapsed ? "collapsed" : ""}`}>
       <div className="sidebar-brand"><div className="brand-mark"><Image src="/brand/qarica-mark-v2.svg" alt="" width={32} height={32} aria-hidden="true" /></div><div className="sidebar-brand-copy"><strong>QARICA</strong><span>Quality</span></div><button className="icon-button sidebar-collapse" onClick={toggleSidebarCollapsed} title={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"} aria-label={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"}><Icon name={sidebarCollapsed ? "panel-left-open" : "panel-left-close"} size={18} /></button><button className="icon-button sidebar-close" onClick={() => setMobileOpen(false)} aria-label="Đóng menu"><Icon name="x" /></button></div>
-      <nav className="sidebar-nav" aria-label="Điều hướng chính">{nav.map((section) => <div className="nav-section" key={section.label}><div className="nav-label">{section.label}</div>{section.items.map((item) => { const baseHref = item.href.split("?")[0]; const itemRoot = item.workspaceRoot || baseHref; const active = item.workspaceRoot ? currentWorkspaceRoot === item.workspaceRoot : pathname === baseHref || (baseHref !== "/dashboard" && pathname.startsWith(`${baseHref}/`)); const badge = attention[itemRoot]; return <Link key={`${itemRoot}:${item.label}`} href={item.href} prefetch={true} className={`nav-link ${active ? "active" : ""}`} title={sidebarCollapsed ? `${item.label}${badge?.count ? ` · ${badge.count} việc cần chú ý` : ""}` : undefined} onMouseEnter={() => router.prefetch(item.href)} onFocus={() => router.prefetch(item.href)} onClick={() => startNavigation(item.href)}><span className={`nav-icon ${NAV_ICON_TONE[itemRoot] || "overview"}`} aria-hidden="true"><Icon name={item.icon} size={18} /></span><span className="nav-link-label">{item.label}</span>{renderBadge(badge)}</Link>; })}</div>)}</nav>
+      <nav className="sidebar-nav" aria-label="Điều hướng chính">{navGroups.map((group) => { const expanded = expandedGroupId === group.id; const isActiveGroup = group.children.some((child) => isChildActive(pathname, child, currentWorkspaceRoot)); function renderChild(item: NavItem) { const baseHref = item.href.split("?")[0]; const itemRoot = item.workspaceRoot || baseHref; const active = isChildActive(pathname, item, currentWorkspaceRoot); const badge = attention[itemRoot]; return <Link key={`${itemRoot}:${item.label}`} href={item.href} prefetch={true} className={`nav-link nav-child-link ${active ? "active" : ""}`} title={`${item.label}${badge?.count ? ` · ${badge.count} việc cần chú ý` : ""}`} onMouseEnter={() => router.prefetch(item.href)} onFocus={() => router.prefetch(item.href)} onClick={() => startNavigation(item.href)}><span className={`nav-icon ${NAV_ICON_TONE[itemRoot] || "overview"}`} aria-hidden="true"><Icon name={item.icon} size={18} /></span><span className="nav-link-label">{item.label}</span>{renderBadge(badge)}</Link>; } return <div className={`nav-group ${expanded ? "expanded" : ""} ${isActiveGroup ? "active-context" : ""}`} key={group.id}><button type="button" className="nav-group-header" aria-expanded={expanded} onClick={() => toggleGroup(group.id)}><span className="nav-icon nav-group-icon" aria-hidden="true"><Icon name={group.icon} size={18} /></span><span className="nav-group-label">{group.label}</span><Icon name="chevron-down" size={15} className={`nav-group-chevron ${expanded ? "expanded" : ""}`} /></button><div className="nav-group-children" aria-hidden={!expanded}>{expanded ? group.children.map(renderChild) : null}</div><div className="nav-group-flyout"><div className="nav-group-flyout-title">{group.label}</div>{group.children.map(renderChild)}</div></div>; })}</nav>
       <div className="sidebar-footer"><div className="scope-chip">{user.scopeTypes.includes("HOSPITAL") ? "Phạm vi: Toàn viện" : `Phạm vi: ${user.primaryDepartmentName || "Được phân công"}`}</div><button type="button" className="sidebar-collapse-text" onClick={toggleSidebarCollapsed}><Icon name="panel-left-close" size={16} /><span>Thu gọn</span></button></div>
     </aside>
     {mobileOpen ? <button className="sidebar-overlay" onClick={() => setMobileOpen(false)} aria-label="Đóng menu" /> : null}

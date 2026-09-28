@@ -1,9 +1,8 @@
 import Link from "next/link";
+import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { TQM_CHART_CSS, TqmDonut, TqmGantt, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
 import { TqmSmartCommandCenter } from "@/components/tqm-smart-command-center";
-import { TqmProcessMap } from "@/components/tqm-process-map";
-import { TqmScorecard } from "@/components/tqm-scorecard";
 import { TqmInterventionLoop } from "@/components/tqm-intervention-loop";
 import { TqmPriorityBoard } from "@/components/tqm-priority-board";
 import { requireUserContext } from "@/lib/auth";
@@ -107,7 +106,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const capaOverdue = capas.filter((x: any) => !["CLOSED", "CANCELLED", "EFFECTIVE"].includes(String(x.workflow_status)) && x.effectiveness_due_date && x.effectiveness_due_date < today);
   const capaOverdueLastMonth = capas.filter((x: any) => x.effectiveness_due_date && x.effectiveness_due_date < prevMonth + "-28").length;
   const capaByStatus = { DONE: capas.filter((x: any) => x.workflow_status === "EFFECTIVE").length, IN_PROGRESS: capas.filter((x: any) => ["IN_PROGRESS", "EFFECTIVENESS_REVIEW"].includes(String(x.workflow_status))).length, OVERDUE: capaOverdue.length, NOT_STARTED: capas.filter((x: any) => x.workflow_status === "DRAFT").length };
-  const capaTotal = capas.filter((x: any) => x.workflow_status !== "CANCELLED").length;
 
   const risks = (risksRes.data ?? []) as any[];
   const riskIds = risks.map((x: any) => x.id);
@@ -118,14 +116,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const riskTiers = { THAP: 0, TRUNG_BINH: 0, CAO: 0, RAT_CAO: 0 };
   for (const r of activeRisks) { const tier = riskTier(latestLevelByRisk.get(r.id)); if (tier) (riskTiers as any)[tier]++; }
   const highRiskCount = riskTiers.CAO + riskTiers.RAT_CAO;
-  const riskAssessedTotal = riskTiers.THAP + riskTiers.TRUNG_BINH + riskTiers.CAO + riskTiers.RAT_CAO;
 
   const audits = (auditsRes.data ?? []) as any[];
   const auditInProgress = audits.filter((x: any) => ["IN_PROGRESS", "DRAFT_REPORT", "REPORT_REVIEW", "FOLLOW_UP"].includes(String(x.workflow_status))).length;
   const auditInProgressLastMonth = audits.filter((x: any) => ["IN_PROGRESS", "DRAFT_REPORT", "REPORT_REVIEW", "FOLLOW_UP"].includes(String(x.workflow_status)) && monthKey(x.start_date) === prevMonth).length;
-  const auditPlannedByMonth = new Map<string, number>(); const auditDoneByMonth = new Map<string, number>();
-  for (const a of audits) { const pm = monthKey(a.start_date); if (pm) auditPlannedByMonth.set(pm, (auditPlannedByMonth.get(pm) || 0) + 1); const dm = monthKey(a.closed_at || a.report_finalized_at); if (dm && a.workflow_status === "CLOSED") auditDoneByMonth.set(dm, (auditDoneByMonth.get(dm) || 0) + 1); }
   const auditNearDue = audits.filter((x: any) => !["CLOSED", "CANCELLED"].includes(String(x.workflow_status)) && x.end_date && x.end_date >= today && x.end_date <= new Date(new Date(today).getTime() + 7 * 86400000).toISOString().slice(0, 10));
+  const auditActive = audits.filter((x: any) => x.workflow_status !== "CANCELLED");
+  const auditDone = auditActive.filter((x: any) => x.workflow_status === "CLOSED").length;
+  const auditNotStarted = auditActive.length - auditDone - auditInProgress;
+
+  const ownerCoveragePct = records.length ? Math.round((records.filter((r: any) => r.owner_user_id).length / records.length) * 100) : 0;
+  const deptCoveragePct = records.length ? Math.round((records.filter((r: any) => r.owner_department_id).length / records.length) * 100) : 0;
 
   const outTargetIndicators = ((indicatorsRes.data ?? []) as any[]).filter((x: any) => x.result_level === "OUT_OF_TARGET");
 
@@ -161,15 +162,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const incidentStatusNew = incidentsAll.filter((x: any) => ["REPORTED", "RETURNED"].includes(String(x.workflow_status))).length;
   const incidentStatusOverdue = openIncidents.filter((x: any) => { const days = Math.floor((Date.parse(today) - Date.parse(String(x.reported_at).slice(0, 10))) / 86400000); return days > 7; }).length;
 
-  const JOURNEY_STAGES = [
-    { key: "REPORTED", label: "Báo cáo", status: "Mới", statuses: ["REPORTED", "RETURNED"] },
-    { key: "TRIAGED", label: "Sàng lọc", status: "Đang xử lý", statuses: ["TRIAGED", "INVESTIGATION_REQUIRED"] },
-    { key: "INVESTIGATING", label: "RCA", status: "Đang thực hiện", statuses: ["INVESTIGATING"] },
-    { key: "ACTION_FOLLOW_UP", label: "CAPA", status: "Đang triển khai", statuses: ["ACTION_FOLLOW_UP"] },
-    { key: "AWAITING_CLOSURE", label: "Xác minh", status: "Chờ xác minh", statuses: ["AWAITING_CLOSURE"] },
-    { key: "CLOSED", label: "Đóng", status: "Hoàn tất", statuses: ["CLOSED"] },
-  ];
-  const journeyCounts = JOURNEY_STAGES.map((stage) => ({ ...stage, count: incidentsAll.filter((x: any) => stage.statuses.includes(String(x.workflow_status))).length }));
 
   const alerts = [
     capaOverdue.length ? { icon: "clock", tone: "red", title: `${capaOverdue.length} CAPA đã quá hạn`, sub: "Cần phân công/đôn đốc thực hiện", when: "Hôm nay", href: "/capa" } : null,
@@ -203,16 +195,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     supabase.from("record_links").select("source_record_id,target_record_id").eq("relation_type", "HAS_ACTION"),
   ]) : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
   const indicatorKpi = buildIndicatorKpi((legacyIndicatorsRes.data ?? []) as any[]);
-  const legacyOutTarget = indicatorKpi.outTarget; const indicatorPct = indicatorKpi.percentage; const indicatorTrend = indicatorKpi.trend;
+  const legacyOutTarget = indicatorKpi.outTarget; const indicatorTrend = indicatorKpi.trend;
 
   const monitoring = ((monitoringRes.data ?? []) as any[]).filter((x: any) => activeRecordIds.has(x.record_id));
   const roundIds = monitoring.map((x: any) => x.id);
   const responsesRes = roundIds.length ? await supabase.from("checklist_responses").select("monitoring_round_id,result_status").in("monitoring_round_id", roundIds) : { data: [] as any[], error: null };
   const responseMap = new Map<string, { pass: number; fail: number }>();
   for (const x of (responsesRes.data ?? []) as any[]) { const a = responseMap.get(x.monitoring_round_id) ?? { pass: 0, fail: 0 }; if (String(x.result_status).toUpperCase() === "PASS") a.pass++; if (String(x.result_status).toUpperCase() === "FAIL") a.fail++; responseMap.set(x.monitoring_round_id, a); }
-  let monitorPass = 0, monitorFail = 0; const deptAgg = new Map<string, { pass: number; fail: number }>();
-  for (const r of monitoring) { const a = responseMap.get(r.id) ?? { pass: 0, fail: 0 }; monitorPass += a.pass; monitorFail += a.fail; const key = r.target_department_id || "none"; const d = deptAgg.get(key) ?? { pass: 0, fail: 0 }; d.pass += a.pass; d.fail += a.fail; deptAgg.set(key, d); }
-  const monitoringPct = (monitorPass + monitorFail) ? Math.round((monitorPass / (monitorPass + monitorFail)) * 100) : 0;
+  const deptAgg = new Map<string, { pass: number; fail: number }>();
+  for (const r of monitoring) { const a = responseMap.get(r.id) ?? { pass: 0, fail: 0 }; const key = r.target_department_id || "none"; const d = deptAgg.get(key) ?? { pass: 0, fail: 0 }; d.pass += a.pass; d.fail += a.fail; deptAgg.set(key, d); }
   const deptBars = Array.from(deptAgg.entries()).map(([id, a]) => { const n = a.pass + a.fail; const pct = n ? Math.round((a.pass / n) * 100) : 0; return { label: String(depMap.get(id) || "Chưa xác định"), value: pct, tone: (pct >= 90 ? "green" : pct >= 75 ? "blue" : pct >= 60 ? "amber" : "red") as any, caption: `${n} mục đã chấm` }; }).filter((x) => x.caption !== "0 mục đã chấm").sort((a, b) => a.value - b.value).slice(0, 10);
 
   const legacyProjects = (projectsRes.data ?? []) as any[];
@@ -246,10 +237,33 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
       .qcc-dashboard .kpi-card{background:#fff;border:1px solid #e5eaf2;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.03)}
       .qcc-dashboard .kpi-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-      .qcc-dashboard .kpi-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}
-      .qcc-dashboard .kpi-icon.blue{background:#3b82f6}.qcc-dashboard .kpi-icon.green{background:#22c55e}.qcc-dashboard .kpi-icon.amber{background:#f59e0b}.qcc-dashboard .kpi-icon.red{background:#ef4444}.qcc-dashboard .kpi-icon.purple{background:#8b5cf6}
+      .qcc-dashboard .kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+      .qcc-dashboard .kpi-icon.blue{background:#dbeafe;color:#2563eb}.qcc-dashboard .kpi-icon.green{background:#dcfce7;color:#16a34a}.qcc-dashboard .kpi-icon.amber{background:#fef3c7;color:#b45309}.qcc-dashboard .kpi-icon.red{background:#fee2e2;color:#dc2626}.qcc-dashboard .kpi-icon.purple{background:#ede9fe;color:#7c3aed}
       .qcc-dashboard .kpi-title{font-size:12.5px;color:#475569;font-weight:600;margin-top:2px}
       .qcc-dashboard .kpi-value{font-size:26px;font-weight:800;color:#0f172a}
+      .qcc-dashboard .hero-banner{position:relative;overflow:hidden;background:linear-gradient(120deg,#1450c9,#2f7bf0 65%,#38bdf8);border-radius:16px;padding:22px 26px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:16px}
+      .qcc-dashboard .hero-banner-decor{position:absolute;inset:0;pointer-events:none;background:radial-gradient(280px 280px at 92% -10%,rgba(255,255,255,.16),transparent 70%),radial-gradient(220px 220px at 100% 100%,rgba(255,255,255,.1),transparent 70%)}
+      .qcc-dashboard .hero-banner h2{position:relative;margin:0;font-size:19px}
+      .qcc-dashboard .hero-banner p{position:relative;margin:6px 0 0;font-size:12.5px;color:#dbeafe;max-width:560px}
+      .qcc-dashboard .hero-banner-icon{position:relative;flex:0 0 auto;width:56px;height:56px;border-radius:16px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center}
+      .qcc-dashboard .quick-links{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:16px}
+      .qcc-dashboard .quick-link{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:12px 6px;border-radius:12px;color:#334155;font-size:11px;font-weight:700}
+      .qcc-dashboard .quick-link:hover{background:#f8fafc}
+      .qcc-dashboard .quick-link-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center}
+      @media(max-width:1100px){.qcc-dashboard .quick-links{grid-template-columns:repeat(4,1fr)}}
+      @media(max-width:640px){.qcc-dashboard .hero-banner{flex-direction:column;align-items:flex-start}.qcc-dashboard .quick-links{grid-template-columns:repeat(2,1fr)}}
+      .qcc-dashboard .grid2b{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+      .qcc-dashboard .grid3b{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+      .qcc-dashboard .capa-stat-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px 18px 18px}
+      .qcc-dashboard .capa-stat{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+      .qcc-dashboard .capa-stat-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+      .qcc-dashboard .capa-stat strong{font-size:20px;display:block}
+      .qcc-dashboard .capa-stat span{font-size:10.5px;color:#64748b}
+      .qcc-dashboard .compliance-rows{display:grid;gap:12px;padding:14px 18px 18px}
+      .qcc-dashboard .compliance-row{display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:8px;font-size:11.5px;color:#334155}
+      .qcc-dashboard .compliance-row .bar-track{grid-column:1/-1;height:6px;background:#eef2f6;border-radius:99px;overflow:hidden}
+      .qcc-dashboard .compliance-row .bar-track i{display:block;height:100%;background:#2563eb;border-radius:99px}
+      @media(max-width:1100px){.qcc-dashboard .grid2b,.qcc-dashboard .grid3b{grid-template-columns:1fr}}
       .qcc-dashboard .kpi-trend{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
       .qcc-dashboard .kpi-trend.up{color:#16a34a;background:#eafaf0}.qcc-dashboard .kpi-trend.down{color:#dc2626;background:#fef2f2}.qcc-dashboard .kpi-trend.flat{color:#94a3b8;background:#f1f5f9}
       .qcc-dashboard .chart-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -257,8 +271,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .range-toggle a{padding:6px 12px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b}
       .qcc-dashboard .range-toggle a.active{background:#2563eb;color:#fff}
       .qcc-dashboard .grid2{display:grid;grid-template-columns:1.3fr .9fr;gap:14px}
-      .qcc-dashboard .grid3{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-      .qcc-dashboard .grid-bottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
       .qcc-dashboard .head{padding:16px 18px 4px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
       .qcc-dashboard .head h2{margin:0;font-size:15px}
       .qcc-dashboard .head p{margin:4px 0 0;color:#74838a;font-size:11px}
@@ -271,12 +283,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .stacked-bar{width:26px;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden}
       .qcc-dashboard .stacked-bar-seg{width:100%}
       .qcc-dashboard .stacked-bar-label{font-size:10px;color:#94a3b8}
-      .qcc-dashboard .journey{display:flex;align-items:center;padding:20px 22px 22px;overflow-x:auto;gap:0}
-      .qcc-dashboard .journey-step{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:82px}
-      .qcc-dashboard .journey-circle{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff}
-      .qcc-dashboard .journey-title{font-size:12px;font-weight:700;color:#0f172a}
-      .qcc-dashboard .journey-status{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:999px}
-      .qcc-dashboard .journey-connector{flex:1;height:2px;background:#e2e8f0;min-width:24px}
       .qcc-dashboard .alerts{display:grid;gap:10px;padding:8px 16px 16px}
       .qcc-dashboard .alert-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;border:1px solid #eef2f7;border-radius:12px;padding:12px}
       .qcc-dashboard .alert-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 34px}
@@ -284,15 +290,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .alert-row strong{display:block;font-size:12.5px}
       .qcc-dashboard .alert-row small{color:#94a3b8;font-size:11px}
       .qcc-dashboard .alert-when{font-size:11px;color:#94a3b8;white-space:nowrap}
-      @media(max-width:1100px){.qcc-dashboard .kpis{grid-template-columns:repeat(2,1fr)}.qcc-dashboard .grid2,.qcc-dashboard .grid3,.qcc-dashboard .grid-bottom{grid-template-columns:1fr}}
+      @media(max-width:1100px){.qcc-dashboard .kpis{grid-template-columns:repeat(2,1fr)}.qcc-dashboard .grid2{grid-template-columns:1fr}}
       .qcc-dashboard .qcc-legacy-divider{display:flex;align-items:center;gap:14px;margin:8px 0 2px;color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
       .qcc-dashboard .qcc-legacy-divider:before,.qcc-dashboard .qcc-legacy-divider:after{content:"";flex:1;height:1px;background:#e5eaf2}
       .qcc-dashboard .legacy-grid3{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}
-      .qcc-dashboard .hotspots{display:grid;gap:8px;padding:8px 16px 16px}
-      .qcc-dashboard .hotspot{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:13px;border-radius:13px;border:1px solid #e4eaec;background:#fbfdfd}
-      .qcc-dashboard .hotspot strong{font-size:12px}.qcc-dashboard .hotspot b{font-size:22px}
-      .qcc-dashboard .hotspot.red b{color:#c84350}.qcc-dashboard .hotspot.amber b{color:#b86f1a}
-      .qcc-dashboard .quick{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 16px}
       @media(max-width:920px){.qcc-dashboard .legacy-grid3{grid-template-columns:1fr}}
     `}</style>
 
@@ -312,6 +313,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
 
+    <div className="hero-banner"><div className="hero-banner-decor" aria-hidden="true"></div><div><h2>Xin chào, {user.fullName || (user.email ? user.email.split("@")[0] : "bạn")}!</h2><p>Cùng QARICA xây dựng môi trường y tế an toàn, chất lượng và bền vững.</p></div><span className="hero-banner-icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></span></div>
+
     <section className="kpis">
       <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon blue"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span className={`kpi-trend ${pctChange(thisMonthNew, lastMonthNew).tone}`}>{pctChange(thisMonthNew, lastMonthNew).tone === "up" ? "▲" : pctChange(thisMonthNew, lastMonthNew).tone === "down" ? "▼" : ""} {pctChange(thisMonthNew, lastMonthNew).tone === "flat" ? "0%" : `${Math.abs(Math.round(((thisMonthNew - lastMonthNew) / (lastMonthNew || 1)) * 100))}%`}</span></div><div className="kpi-value">{thisMonthNew}</div><div className="kpi-title">Sự cố mới</div></article>
       <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span><span className={`kpi-trend ${pctChange(investigating, investigatingLastMonth).tone}`}>{pctChange(investigating, investigatingLastMonth).tone === "up" ? "▲" : pctChange(investigating, investigatingLastMonth).tone === "down" ? "▼" : ""} {pctChange(investigating, investigatingLastMonth).tone === "flat" ? "0%" : `${Math.abs(Math.round(((investigating - investigatingLastMonth) / (investigatingLastMonth || 1)) * 100))}%`}</span></div><div className="kpi-value">{investigating}</div><div className="kpi-title">Đang phân tích RCA</div></article>
@@ -329,37 +332,49 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </article>
       <article className="panel"><div className="head"><h2>Tình trạng sự cố</h2><p>Phân bố theo trạng thái xử lý hiện tại.</p></div>{incidentStatusTotal ? <TqmDonut value={incidentStatusTotal} label="Tổng số" segments={[{ label: "Đã xử lý", value: incidentStatusDone, tone: "green" as const }, { label: "Đang xử lý", value: incidentStatusInProgress, tone: "blue" as const }, { label: "Mới ghi nhận", value: incidentStatusNew, tone: "amber" as const }, { label: "Quá hạn", value: incidentStatusOverdue, tone: "red" as const }].filter((s) => s.value > 0)} /> : <div className="empty-state">Chưa có sự cố được ghi nhận.</div>}</article>
     </section>
-    <section className="panel"><div className="head"><h2>Phân bố sự cố theo lĩnh vực</h2><p>Theo taxonomy Lĩnh vực chất lượng &amp; an toàn dùng chung.</p></div>{domainSegments.length ? <TqmHorizontalBars rows={domainSegments.map((s) => ({ label: s.label, value: s.value, tone: s.tone }))} /> : <div className="empty-state">Chưa có hồ sơ được gắn lĩnh vực.</div>}</section>
+    <section className="grid2b">
+      <article className="panel"><div className="head"><h2>Tình trạng CAPA</h2><Link className="button tertiary small" href="/capa">Xem chi tiết →</Link></div>
+        <div className="capa-stat-row">
+          <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#dbeafe",color:"#2563eb"}}><Icon name="folder-check" size={16}/></span><strong>{capaByStatus.NOT_STARTED}</strong><span>Chưa bắt đầu</span></div>
+          <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#fef3c7",color:"#b45309"}}><Icon name="workflow" size={16}/></span><strong>{capaByStatus.IN_PROGRESS}</strong><span>Đang triển khai</span></div>
+          <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#dcfce7",color:"#16a34a"}}><Icon name="badge-check" size={16}/></span><strong>{capaByStatus.DONE}</strong><span>Đã hiệu lực</span></div>
+          <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#fee2e2",color:"#dc2626"}}><Icon name="triangle-alert" size={16}/></span><strong>{capaByStatus.OVERDUE}</strong><span>Quá hạn</span></div>
+        </div>
+      </article>
+      <article className="panel"><div className="head"><h2>Hoạt động Audit</h2><Link className="button tertiary small" href="/audits">Xem chi tiết →</Link></div>{auditActive.length ? <TqmDonut value={auditActive.length ? Math.round((auditDone/auditActive.length)*100) : 0} label={`${auditDone}/${auditActive.length}`} segments={[{ label: "Đã hoàn thành", value: auditDone, tone: "green" as const }, { label: "Đang thực hiện", value: auditInProgress, tone: "blue" as const }, { label: "Chưa bắt đầu", value: auditNotStarted, tone: "slate" as const }].filter((s) => s.value > 0)} /> : <div className="empty-state">Chưa có Audit trong năm.</div>}</article>
+    </section>
 
-    <section className="grid3">
-      <article className="panel"><div className="head"><h2>Tiến độ xử lý sự cố</h2><Link className="button tertiary small" href="/incidents">Xem chi tiết →</Link></div>
-        <div className="journey">{journeyCounts.map((stage, i) => <>
-          <div className="journey-step" key={stage.key}><div className="journey-circle" style={{ background: ["#3b82f6", "#06b6d4", "#3b82f6", "#f59e0b", "#ec4899", "#22c55e"][i] }}>{stage.count}</div><div className="journey-title">{stage.label}</div><span className="journey-status" style={{ background: "#f1f5f9", color: "#475569" }}>{stage.status}</span></div>
-          {i < journeyCounts.length - 1 ? <div className="journey-connector" key={`c-${stage.key}`} /> : null}
-        </>)}</div>
+    <section className="grid3b">
+      <article className="panel"><div className="head"><h2>Tình trạng theo lĩnh vực</h2><p>Theo taxonomy Lĩnh vực chất lượng &amp; an toàn dùng chung.</p></div>{domainSegments.length ? <TqmHorizontalBars rows={domainSegments.map((s) => ({ label: s.label, value: s.value, tone: s.tone }))} /> : <div className="empty-state">Chưa có hồ sơ được gắn lĩnh vực.</div>}</article>
+      <article className="panel"><div className="head"><h2>Chỉ số tuân thủ &amp; dữ liệu điều hành</h2><p>Độ phủ metadata phục vụ kiểm soát.</p></div>
+        <div className="compliance-rows">
+          <div className="compliance-row"><Icon name="users" size={14}/><span>Có người phụ trách</span><b>{ownerCoveragePct}%</b><div className="bar-track"><i style={{width:`${ownerCoveragePct}%`}}/></div></div>
+          <div className="compliance-row"><Icon name="building-2" size={14}/><span>Có khoa/phòng</span><b>{deptCoveragePct}%</b><div className="bar-track"><i style={{width:`${deptCoveragePct}%`}}/></div></div>
+        </div>
       </article>
       <article className="panel"><div className="head"><h2>Cảnh báo &amp; công việc cần chú ý</h2><Link className="button tertiary small" href="/tasks">Xem tất cả →</Link></div>
         <div className="alerts">{alerts.length === 0 ? <div className="empty-state">Không có cảnh báo nào đang mở.</div> : alerts.map((a, i) => <Link href={a.href} className="alert-row" key={i}><span className={`alert-icon ${a.tone}`}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /></svg></span><span><strong>{a.title}</strong><small>{a.sub}</small></span><span className="alert-when">{a.when}</span><span>→</span></Link>)}</div>
       </article>
     </section>
 
-    <section className="grid-bottom">
-      <article className="panel"><div className="head"><h2>Tình trạng CAPA</h2><Link className="button tertiary small" href="/capa">Xem chi tiết →</Link></div>{capaTotal ? <TqmDonut value={capaTotal} label="Tổng CAPA" segments={[{ label: "Hoàn thành", value: capaByStatus.DONE, tone: "green" as const }, { label: "Đang thực hiện", value: capaByStatus.IN_PROGRESS, tone: "blue" as const }, { label: "Quá hạn", value: capaByStatus.OVERDUE, tone: "red" as const }, { label: "Chưa thực hiện", value: capaByStatus.NOT_STARTED, tone: "slate" as const }].filter((s) => s.value > 0)} /> : <div className="empty-state">Chưa có CAPA.</div>}</article>
-      <article className="panel"><div className="head"><h2>Hoạt động Audit</h2><Link className="button tertiary small" href="/audits">Xem chi tiết →</Link></div>
-        <div className="stacked-trend-legend"><span><i style={{ background: "#bfdbfe" }} />Kế hoạch</span><span><i style={{ background: "#2563eb" }} />Đã thực hiện</span></div>
-        <div className="stacked-trend"><div className="stacked-bars">{months.map((m) => { const planned = auditPlannedByMonth.get(m) || 0; const done = auditDoneByMonth.get(m) || 0; const max = Math.max(1, ...months.map((mm) => Math.max(auditPlannedByMonth.get(mm) || 0, auditDoneByMonth.get(mm) || 0))); return <div className="stacked-bar-col" key={m}><div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 160 }}><span style={{ width: 10, background: "#bfdbfe", borderRadius: "3px 3px 0 0", height: `${Math.max(2, (planned / max) * 150)}px` }} /><span style={{ width: 10, background: "#2563eb", borderRadius: "3px 3px 0 0", height: `${Math.max(2, (done / max) * 150)}px` }} /></div><span className="stacked-bar-label">{monthLabel(m)}</span></div>; })}</div></div>
-      </article>
-      <article className="panel"><div className="head"><h2>Tình hình rủi ro</h2><Link className="button tertiary small" href="/risks">Xem chi tiết →</Link></div>{riskAssessedTotal ? <TqmDonut value={riskAssessedTotal} label="Tổng rủi ro" segments={[{ label: "Thấp", value: riskTiers.THAP, tone: "green" as const }, { label: "Trung bình", value: riskTiers.TRUNG_BINH, tone: "amber" as const }, { label: "Cao", value: riskTiers.CAO, tone: "blue" as const }, { label: "Rất cao", value: riskTiers.RAT_CAO, tone: "red" as const }].filter((s) => s.value > 0)} /> : <div className="empty-state">Chưa có rủi ro được đánh giá.</div>}</article>
-    </section>
 
     <div className="qcc-legacy-divider"><span>Kế hoạch, giám sát &amp; cải tiến chất lượng</span></div>
     <TqmSmartCommandCenter year={year} />
-    <TqmProcessMap planPct={planPct} indicatorPct={indicatorPct} monitoringPct={monitoringPct} openFindings={legacyFindings.length} capaDue={legacyCapaDue} projectPct={projectPct} />
-    <TqmScorecard planPct={planPct} indicatorPct={indicatorPct} monitoringPct={monitoringPct} projectPct={projectPct} seriousIncidents={legacySeriousOpen} overdueFindings={legacyOverdueFindings} />
-    <TqmInterventionLoop openFindings={legacyFindings.length} overdueFindings={legacyOverdueFindings} capaDue={legacyCapaDue} projectPct={projectPct} />
     <TqmPriorityBoard serious={legacySeriousOpen} overdueFindings={legacyOverdueFindings} capaDue={legacyCapaDue} outTarget={legacyOutTarget} planOverdue={planOverdue} />
-    <section className="legacy-grid3"><article className="panel"><div className="head"><h2>Tiến độ kế hoạch chất lượng năm</h2><p>Từ Action thực tế của các kế hoạch.</p></div><TqmDonut value={planPct} label="Hoàn thành" segments={[{ label: "Đã hoàn thành", value: planDone, tone: "brand" }, { label: "Còn lại", value: Math.max(0, planReq - planDone), tone: "blue" }, { label: "Quá hạn", value: planOverdue, tone: "red" }]} /></article><article className="panel"><div className="head"><h2>Điểm nóng cần chú ý</h2><p>Chỉ giữ các vấn đề quản trị cấp bệnh viện.</p></div><div className="hotspots">{legacyHotspots.map((x) => <Link href={x.href} key={x.label} className={`hotspot ${x.tone}`}><strong>{x.label}</strong><b>{x.value}</b></Link>)}</div><div className="quick"><Link className="button secondary" href="/plans">Kế hoạch năm</Link><Link className="button secondary" href="/monitoring">Giám sát</Link><Link className="button secondary" href="/improvement/projects">Cải tiến</Link></div></article></section>
+    <TqmInterventionLoop openFindings={legacyFindings.length} overdueFindings={legacyOverdueFindings} capaDue={legacyCapaDue} projectPct={projectPct} />
     <section className="grid2"><article className="panel"><div className="head"><h2>Xu hướng chỉ số đạt mục tiêu 12 tháng</h2><p>Tỷ lệ MEETS_TARGET trong các kỳ VERIFIED/LOCKED đã có kết luận mục tiêu.</p></div><TqmTrend points={indicatorTrend} /></article><article className="panel"><div className="head"><h2>Giám sát theo khoa/phòng</h2><p>Đơn vị có tỷ lệ mục đạt thấp được đưa lên trước.</p></div>{deptBars.length ? <TqmHorizontalBars rows={deptBars} max={100} /> : <div className="empty-state">Chưa có dữ liệu giám sát đủ để so sánh.</div>}</article></section>
-    <section className="panel"><div className="head"><h2>Gantt đề án cải tiến trọng tâm</h2><p>Thời gian và tiến độ lấy từ dữ liệu đề án/Action thật.</p></div>{ganttRows.length ? <TqmGantt year={year} rows={ganttRows} /> : <div className="empty-state">Chưa đủ mốc thời gian đề án để dựng Gantt.</div>}</section>
+
+    <section className="legacy-grid3" style={{gridTemplateColumns:".7fr 1.3fr"}}><article className="panel"><div className="head"><h2>Tiến độ kế hoạch chất lượng năm</h2><p>Từ Action thực tế của các kế hoạch.</p></div><TqmDonut value={planPct} label="Hoàn thành" segments={[{ label: "Đã hoàn thành", value: planDone, tone: "brand" }, { label: "Còn lại", value: Math.max(0, planReq - planDone), tone: "blue" }, { label: "Quá hạn", value: planOverdue, tone: "red" }]} /></article><article className="panel"><div className="head"><h2>Gantt đề án cải tiến trọng tâm</h2><p>Thời gian và tiến độ lấy từ dữ liệu đề án/Action thật.</p></div>{ganttRows.length ? <TqmGantt year={year} rows={ganttRows} /> : <div className="empty-state">Chưa đủ mốc thời gian đề án để dựng Gantt.</div>}</article></section>
+
+    <section className="legacy-grid3"><article className="panel"><div className="head"><h2>Điểm nóng cần chú ý</h2><p>Chỉ giữ các vấn đề quản trị cấp bệnh viện.</p></div><div className="table-wrap"><table><thead><tr><th>#</th><th>Nội dung</th><th>Số lượng</th><th>Trạng thái</th></tr></thead><tbody>{legacyHotspots.map((x,i) => <tr key={x.label}><td>{i+1}</td><td><Link className="table-link" href={x.href}>{x.label}</Link></td><td><b>{x.value}</b></td><td><span className={`status-badge ${x.tone==="red"?"danger":"warning"}`}>{x.tone==="red"?"Quá hạn":"Cần theo dõi"}</span></td></tr>)}</tbody></table></div></article><article className="panel"><div className="head"><h2>Truy cập nhanh</h2></div><div className="quick-links">
+      <Link className="quick-link" href="/incidents"><span className="quick-link-icon" style={{background:"#fee2e2",color:"#dc2626"}}><Icon name="shield-alert" size={18}/></span>Sự cố</Link>
+      <Link className="quick-link" href="/capa"><span className="quick-link-icon" style={{background:"#ede9fe",color:"#7c3aed"}}><Icon name="workflow" size={18}/></span>CAPA</Link>
+      <Link className="quick-link" href="/risks"><span className="quick-link-icon" style={{background:"#fef3c7",color:"#b45309"}}><Icon name="triangle-alert" size={18}/></span>Rủi ro</Link>
+      <Link className="quick-link" href="/audits"><span className="quick-link-icon" style={{background:"#dbeafe",color:"#2563eb"}}><Icon name="search-check" size={18}/></span>Audit</Link>
+      <Link className="quick-link" href="/indicators"><span className="quick-link-icon" style={{background:"#dcfce7",color:"#16a34a"}}><Icon name="gauge" size={18}/></span>Chỉ số</Link>
+      <Link className="quick-link" href="/plans"><span className="quick-link-icon" style={{background:"#dbeafe",color:"#2563eb"}}><Icon name="calendar-range" size={18}/></span>Kế hoạch</Link>
+      <Link className="quick-link" href="/assessments"><span className="quick-link-icon" style={{background:"#dcfce7",color:"#16a34a"}}><Icon name="badge-check" size={18}/></span>Đánh giá</Link>
+      <Link className="quick-link" href="/evidence"><span className="quick-link-icon" style={{background:"#ede9fe",color:"#7c3aed"}}><Icon name="folder-check" size={18}/></span>Minh chứng</Link>
+    </div></article></section>
   </div>;
 }

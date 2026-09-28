@@ -15,23 +15,27 @@ export function TqmInterventionLoop({ openFindings, overdueFindings, capaDue, pr
       <style>{`
         .tqm-intervention-loop{padding:18px}
         .tqm-loop-head{margin-bottom:13px}.tqm-loop-head h2{margin:0;font-size:16px}.tqm-loop-head p{margin:4px 0 0;color:#74838a;font-size:11px}
-        .tqm-loop-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-        .tqm-loop-card{display:block;border:1px solid #e1eaec;border-radius:14px;padding:14px;text-decoration:none;background:#fbfdfd;transition:.2s}
+        .tqm-loop-grid{display:flex;align-items:stretch;gap:0;overflow-x:auto}
+        .tqm-loop-card{display:block;flex:1;min-width:170px;border:1px solid #e1eaec;border-radius:14px;padding:14px;text-decoration:none;background:#fbfdfd;transition:.2s}
         .tqm-loop-card:hover{border-color:#9fc4eb;box-shadow:0 8px 18px rgba(16,40,72,.08);transform:translateY(-1px)}
         .tqm-loop-card header{display:flex;justify-content:space-between;gap:8px;align-items:center}.tqm-loop-card header strong{color:#244148;font-size:12px}
         .tqm-loop-status{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;color:#166534}
         .tqm-loop-status i{width:9px;height:9px;border-radius:50%;background:#16a34a;flex:none}.tqm-loop-card.watch .tqm-loop-status{color:#9a5a05}.tqm-loop-card.watch .tqm-loop-status i{background:#d97706}.tqm-loop-card.risk .tqm-loop-status{color:#a72b35}.tqm-loop-card.risk .tqm-loop-status i{background:#dc2626}
         .tqm-loop-value{display:block;margin-top:16px;color:#173f45;font-size:23px;font-weight:850}
         .tqm-loop-note{display:block;margin-top:5px;color:#74868a;font-size:10px;line-height:1.4}
-        @media(max-width:680px){.tqm-loop-grid{grid-template-columns:1fr}}
+        .tqm-loop-connector{flex:0 0 auto;width:26px;display:flex;align-items:center;justify-content:center;color:#94a3b8}
+        @media(max-width:680px){.tqm-loop-grid{flex-direction:column}.tqm-loop-connector{width:100%;height:20px;transform:rotate(90deg)}}
       `}</style>
       <div className="tqm-loop-head"><h2>Vòng can thiệp chất lượng</h2><p>Finding → RCA/Action → CAPA → đánh giá hiệu lực → cải tiến duy trì.</p></div>
       <div className="tqm-loop-grid">
-        {stages.map((stage) => <Link href={stage.href} className={`tqm-loop-card ${stage.tone}`} key={stage.label}>
-          <header><strong>{stage.label}</strong><span className="tqm-loop-status"><i />{statusText[stage.tone]}</span></header>
-          <span className="tqm-loop-value">{stage.value}</span>
-          <span className="tqm-loop-note">{stage.note}</span>
-        </Link>)}
+        {stages.map((stage, i) => <>
+          <Link href={stage.href} className={`tqm-loop-card ${stage.tone}`} key={stage.label}>
+            <header><strong>{stage.label}</strong><span className="tqm-loop-status"><i />{statusText[stage.tone]}</span></header>
+            <span className="tqm-loop-value">{stage.value}</span>
+            <span className="tqm-loop-note">{stage.note}</span>
+          </Link>
+          {i < stages.length - 1 ? <span className="tqm-loop-connector" key={`c-${stage.label}`} aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 6l6 6-6 6"/></svg></span> : null}
+        </>)}
       </div>
     </section>
   );

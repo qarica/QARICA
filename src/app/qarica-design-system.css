@@ -312,7 +312,6 @@ body{font-feature-settings:"kern" 1,"liga" 1}
   background:radial-gradient(circle at 88% 15%,rgba(49,185,189,.28),transparent 17rem),linear-gradient(145deg,var(--qarica-navy-950),var(--qarica-navy-900) 52%,#12506c 100%)!important;
 }
 .login-hero-inner{max-width:680px!important}
-.login-brand-logo{filter:drop-shadow(0 12px 22px rgba(0,0,0,.10))}
 .login-panel{background:linear-gradient(145deg,#f7faff,#f4f7fa)!important}
 .login-card{
   width:min(470px,100%)!important;

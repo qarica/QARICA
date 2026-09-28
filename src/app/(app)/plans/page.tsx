@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { CreateModalButton, CreateModalProvider } from "@/components/create-modal-signal";
 import { PlansClient } from "@/components/plans-client";
 import { PageHeader } from "@/components/page-header";
 import { TQM_CHART_CSS, TqmDonut, TqmGantt } from "@/components/tqm-charts";
@@ -55,22 +56,23 @@ export default async function PlansPage() {
   const notStartedCount = rows.length - completedCount - overdueCount - inProgressCount;
   const donutValue = rows.length ? Math.round((completedCount / rows.length) * 100) : 0;
 
-  return <div className="page-stack plans-page tqm-workspace">
+  const canManage = user.permissions.includes("plans.manage");
+  return <CreateModalProvider><div className="page-stack plans-page tqm-workspace">
     <style>{TQM_CHART_CSS + `
       .tqm-workspace .tqm-overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-      .tqm-workspace .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.tqm-workspace .kpi-card{background:#fff;border:1px solid #e5eaf2;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.03)}.tqm-workspace .kpi-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.tqm-workspace .kpi-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}.tqm-workspace .kpi-icon.blue{background:#3b82f6}.tqm-workspace .kpi-icon.green{background:#22c55e}.tqm-workspace .kpi-icon.red{background:#ef4444}.tqm-workspace .kpi-value{font-size:26px;font-weight:800;color:#0f172a}.tqm-workspace .kpi-title{font-size:12.5px;color:#475569;font-weight:600;margin-top:2px}
+      .tqm-workspace .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.tqm-workspace .kpi-card{background:#fff;border:1px solid #e5eaf2;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.03);display:flex;gap:12px;align-items:flex-start}.tqm-workspace .kpi-icon{flex:0 0 auto;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center}.tqm-workspace .kpi-icon.blue{background:#dbeafe;color:#2563eb}.tqm-workspace .kpi-icon.green{background:#dcfce7;color:#16a34a}.tqm-workspace .kpi-icon.red{background:#fee2e2;color:#dc2626}.tqm-workspace .kpi-body{min-width:0}.tqm-workspace .kpi-title{font-size:12.5px;color:#475569;font-weight:600}.tqm-workspace .kpi-value{font-size:26px;font-weight:800;color:#0f172a;line-height:1.2;margin-top:2px}.tqm-workspace .kpi-note{font-size:11px;color:#8a97a3;margin-top:2px}
       .tqm-workspace .tqm-section-head{padding:17px 18px 6px}.tqm-workspace .tqm-section-head h2{margin:0;font-size:15px}.tqm-workspace .tqm-section-head p{margin:4px 0 0;color:#74838a;font-size:11px;line-height:1.45}.tqm-workspace .plans-detail-label{font-size:10px;font-weight:900;letter-spacing:.1em;color:#6c7d84;text-transform:uppercase;margin:4px 2px -4px}
       @media(max-width:1100px){.tqm-workspace .kpis{grid-template-columns:repeat(2,1fr)}}
       @media(max-width:900px){.tqm-workspace .tqm-overview-grid{grid-template-columns:1fr}}
     `}</style>
-    <PageHeader eyebrow={`ĐIỀU HÀNH QLCL · ${year}`} title="Kế hoạch & Điều hành" description="Theo dõi mức hoàn thành kế hoạch, tiến độ Action, các đầu việc quá hạn và lộ trình triển khai trong năm. Danh sách chi tiết chỉ là lớp drill-down phía dưới." icon="calendar-range" />
+    <PageHeader eyebrow={`ĐIỀU HÀNH QLCL · ${year}`} title="Kế hoạch & Điều hành" description="Theo dõi mức hoàn thành kế hoạch, tiến độ Action, các đầu việc quá hạn và lộ trình triển khai trong năm. Danh sách chi tiết chỉ là lớp drill-down phía dưới." icon="calendar-range" actions={canManage ? <CreateModalButton><Icon name="plus" size={18}/> Tạo kế hoạch mới</CreateModalButton> : null} />
     {firstError ? <div className="alert error">Không tải được dữ liệu kế hoạch: {firstError.message}</div> : null}
 
     <section className="kpis">
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon blue"><Icon name="calendar-range" size={18}/></span></div><div className="kpi-value">{rows.length}</div><div className="kpi-title">Tổng kế hoạch · {year}</div></article>
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon green"><Icon name="refresh-cw" size={18}/></span></div><div className="kpi-value">{inProgressCount}</div><div className="kpi-title">Đang triển khai · {rows.length?Math.round(inProgressCount/rows.length*100):0}%</div></article>
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon green"><Icon name="badge-check" size={18}/></span></div><div className="kpi-value">{completedCount}</div><div className="kpi-title">Hoàn thành · {donutValue}%</div></article>
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon red"><Icon name="triangle-alert" size={18}/></span></div><div className="kpi-value">{overdueCount}</div><div className="kpi-title">Quá hạn · {rows.length?Math.round(overdueCount/rows.length*100):0}%</div></article>
+      <article className="kpi-card"><span className="kpi-icon blue"><Icon name="calendar-range" size={20}/></span><div className="kpi-body"><div className="kpi-title">Tổng kế hoạch</div><div className="kpi-value">{rows.length}</div><div className="kpi-note">Trong năm {year}</div></div></article>
+      <article className="kpi-card"><span className="kpi-icon green"><Icon name="refresh-cw" size={20}/></span><div className="kpi-body"><div className="kpi-title">Đang triển khai</div><div className="kpi-value">{inProgressCount}</div><div className="kpi-note">{rows.length?Math.round(inProgressCount/rows.length*100):0}%</div></div></article>
+      <article className="kpi-card"><span className="kpi-icon green"><Icon name="badge-check" size={20}/></span><div className="kpi-body"><div className="kpi-title">Hoàn thành</div><div className="kpi-value">{completedCount}</div><div className="kpi-note">{donutValue}%</div></div></article>
+      <article className="kpi-card"><span className="kpi-icon red"><Icon name="triangle-alert" size={20}/></span><div className="kpi-body"><div className="kpi-title">Quá hạn</div><div className="kpi-value">{overdueCount}</div><div className="kpi-note">{rows.length?Math.round(overdueCount/rows.length*100):0}%</div></div></article>
     </section>
 
     <section className="tqm-overview-grid">
@@ -79,6 +81,6 @@ export default async function PlansPage() {
     </section>
 
     <div className="plans-detail-label">CHI TIẾT KẾ HOẠCH & THAO TÁC NGHIỆP VỤ</div>
-    <PlansClient year={year} canManage={user.permissions.includes("plans.manage")} rows={rows} departments={(departmentsRes.data ?? []) as any[]} profiles={(profilesRes.data ?? []) as any[]} referenceOptions={referenceOptions} />
-  </div>;
+    <PlansClient year={year} canManage={canManage} rows={rows} departments={(departmentsRes.data ?? []) as any[]} profiles={(profilesRes.data ?? []) as any[]} referenceOptions={referenceOptions} />
+  </div></CreateModalProvider>;
 }

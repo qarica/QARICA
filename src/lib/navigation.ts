@@ -1,59 +1,75 @@
-import type { NavSection, UserContext } from "@/lib/types";
-import { WORKSPACES, workspaceLandingHref } from "@/lib/workspace-navigation";
-import { EMR_CATEGORIES } from "@/lib/emr-categories";
+import type { NavGroup, NavItem, UserContext } from "@/lib/types";
+import { workspaceLandingHref } from "@/lib/workspace-navigation";
 
-type WorkspaceNav = { label: string; root: string; icon: string };
+type WorkspaceChildDef = { label: string; icon: string; workspaceRoot: string };
+type DirectChildDef = { label: string; icon: string; href: string; permission?: string; anyPermissions?: string[] };
+type ChildDef = WorkspaceChildDef | DirectChildDef;
 
-const PRIMARY_WORKSPACES: WorkspaceNav[] = [
-  { label: "Kế hoạch & Điều hành", root: "/plans", icon: "target" },
-  { label: "Đo lường & Giám sát", root: "/indicators", icon: "gauge" },
-  { label: "Đánh giá & Kiểm tra", root: "/assessments", icon: "clipboard-check" },
-  { label: "Sự cố & Phản ánh", root: "/incidents", icon: "shield-alert" },
-  { label: "Rủi ro & FMEA", root: "/risks", icon: "triangle-alert" },
-  { label: "Khắc phục & CAPA", root: "/findings", icon: "refresh-cw" },
-  { label: "Cải tiến chất lượng", root: "/improvement/projects", icon: "lightbulb" },
-  { label: "Kho minh chứng", root: "/evidence", icon: "folder-check" },
-];
-
-export const NAV_SECTIONS: NavSection[] = [
-  { label: "CÔNG VIỆC", items: [
-    { label: "Tổng quan", href: "/dashboard", icon: "layout-dashboard", permission: "dashboard.view" },
-    { label: "Việc của tôi", href: "/tasks", icon: "inbox", permission: "tasks.view" },
-    { label: "Lịch QLCL", href: "/calendar", icon: "calendar-days", permission: "dashboard.view" },
-  ]},
-  { label: "EMR", items: [
-    { label: "Tổng quan EMR", href: "/emr", icon: "layout-dashboard", permission: "emr.view" },
-    ...EMR_CATEGORIES.map((c) => ({ label: c.label, href: `/emr/${c.slug}`, icon: c.icon, permission: "emr.view" })),
-  ] },
-  { label: "NGHIỆP VỤ QLCL", items: PRIMARY_WORKSPACES.map((item) => ({ label: item.label, href: item.root, icon: item.icon })) },
-  { label: "BÁO CÁO", items: [
-    { label: "Báo cáo & Phân tích", href: "/analytics", icon: "trending-up", permission: "reports.analytics" },
-  ]},
-  { label: "HỆ THỐNG", items: [
-    { label: "Cấu hình hệ thống", href: "/admin", icon: "settings", anyPermissions: ["users.manage", "departments.manage", "permissions.manage", "system.manage"] },
-  ]},
-];
-
-export function visibleNav(user: UserContext) {
-  const permissionSet = new Set(user.permissions);
-  return NAV_SECTIONS.map((section) => ({
-    ...section,
-    items: section.items.map((item) => {
-      if (PRIMARY_WORKSPACES.some((workspace) => workspace.root === item.href)) {
-        const landing = workspaceLandingHref(item.href, user);
-        return landing ? { ...item, href: landing, workspaceRoot: item.href } : null;
-      }
-      return item;
-    }).filter((item): item is NonNullable<typeof item> => {
-      if (!item) return false;
-      if (item.permission && !permissionSet.has(item.permission)) return false;
-      if (item.anyPermissions?.length && !item.anyPermissions.some((permission) => permissionSet.has(permission))) return false;
-      return true;
-    }),
-  })).filter((section) => section.items.length > 0);
+function isWorkspaceChild(child: ChildDef): child is WorkspaceChildDef {
+  return "workspaceRoot" in child;
 }
 
-// Sidebar shows recognizable business areas. Workspace tabs remain the
-// authoritative second level, so users can reach every module without
-// restoring the old 20+ item flat menu.
-void WORKSPACES;
+type NavGroupDef = { id: string; label: string; icon: string; children: ChildDef[] };
+
+// Navigation V2: main sidebar presentation only. Groups children under three
+// accordion sections; underlying routes/permissions/workspace semantics are
+// unchanged. EMR and Admin keep their own internal navigation (EMR command
+// center readiness grid, Admin workspace-strip) — those screens are reached
+// through their single sidebar entry, not duplicated here.
+const NAV_GROUPS: NavGroupDef[] = [
+  {
+    id: "operations",
+    label: "ĐIỀU HÀNH CHẤT LƯỢNG",
+    icon: "layout-dashboard",
+    children: [
+      { label: "Tổng quan QLCL", href: "/dashboard", icon: "layout-dashboard", permission: "dashboard.view" },
+      { label: "Việc của tôi", href: "/tasks", icon: "inbox", permission: "tasks.view" },
+      { label: "Lịch QLCL", href: "/calendar", icon: "calendar-days", permission: "dashboard.view" },
+      { label: "Kế hoạch & Điều hành", icon: "target", workspaceRoot: "/plans" },
+    ],
+  },
+  {
+    id: "quality-management",
+    label: "QUẢN LÝ CHẤT LƯỢNG",
+    icon: "shield-check",
+    children: [
+      { label: "Đo lường & Giám sát", icon: "gauge", workspaceRoot: "/indicators" },
+      { label: "Đánh giá & Kiểm tra", icon: "clipboard-check", workspaceRoot: "/assessments" },
+      { label: "Sự cố & Phản ánh", icon: "shield-alert", workspaceRoot: "/incidents" },
+      { label: "Rủi ro & FMEA", icon: "triangle-alert", workspaceRoot: "/risks" },
+      { label: "Khắc phục & CAPA", icon: "refresh-cw", workspaceRoot: "/findings" },
+      { label: "Cải tiến chất lượng", icon: "lightbulb", workspaceRoot: "/improvement/projects" },
+      { label: "Kho minh chứng", icon: "folder-check", workspaceRoot: "/evidence" },
+      { label: "Báo cáo & Phân tích QLCL", href: "/analytics", icon: "trending-up", permission: "reports.analytics" },
+    ],
+  },
+  {
+    id: "digital-systems",
+    label: "CHUYỂN ĐỔI SỐ & HỆ THỐNG",
+    icon: "network",
+    children: [
+      { label: "EMR", href: "/emr", icon: "layout-dashboard", permission: "emr.view" },
+      { label: "Cấu hình hệ thống", href: "/admin", icon: "settings", anyPermissions: ["users.manage", "departments.manage", "permissions.manage", "system.manage"] },
+    ],
+  },
+];
+
+function resolveChild(child: ChildDef, user: UserContext): NavItem | null {
+  const permissionSet = new Set(user.permissions);
+  if (isWorkspaceChild(child)) {
+    const landing = workspaceLandingHref(child.workspaceRoot, user);
+    return landing ? { label: child.label, href: landing, icon: child.icon, workspaceRoot: child.workspaceRoot } : null;
+  }
+  if (child.permission && !permissionSet.has(child.permission)) return null;
+  if (child.anyPermissions?.length && !child.anyPermissions.some((permission) => permissionSet.has(permission))) return null;
+  return { label: child.label, href: child.href, icon: child.icon };
+}
+
+export function visibleNavGroups(user: UserContext): NavGroup[] {
+  return NAV_GROUPS.map((group) => ({
+    id: group.id,
+    label: group.label,
+    icon: group.icon,
+    children: group.children.map((child) => resolveChild(child, user)).filter((item): item is NavItem => item !== null),
+  })).filter((group) => group.children.length > 0);
+}

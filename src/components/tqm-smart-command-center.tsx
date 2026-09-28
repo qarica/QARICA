@@ -449,8 +449,8 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
         .tqm-pillar-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
         .tqm-pillar{border:1px solid #e0e9eb;border-radius:16px;background:#fff;padding:14px}
         .tqm-pillar-top{display:flex;justify-content:space-between;gap:8px;align-items:start}
-        .tqm-pillar-icon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;flex:0 0 34px;margin-bottom:8px}
-        .tqm-pillar-icon.red{background:#ef4444}.tqm-pillar-icon.teal{background:#14b8a6}.tqm-pillar-icon.orange{background:#f97316}.tqm-pillar-icon.blue{background:#3b82f6}.tqm-pillar-icon.purple{background:#8b5cf6}.tqm-pillar-icon.green{background:#22c55e}
+        .tqm-pillar-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 34px;margin-bottom:8px}
+        .tqm-pillar-icon.red{background:#fee2e2;color:#dc2626}.tqm-pillar-icon.teal{background:#ccfbf1;color:#0f766e}.tqm-pillar-icon.orange{background:#ffedd5;color:#c2410c}.tqm-pillar-icon.blue{background:#dbeafe;color:#2563eb}.tqm-pillar-icon.purple{background:#ede9fe;color:#7c3aed}.tqm-pillar-icon.green{background:#dcfce7;color:#16a34a}
         .tqm-pillar h4{margin:0;font-size:12px;line-height:1.35}
         .tqm-pillar strong{font-size:18px}
         .tqm-pillar p{margin:7px 0 0;color:#6b7d83;font-size:10px;line-height:1.45}

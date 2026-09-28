@@ -41,8 +41,8 @@ export async function RegistryModulePage({config}:{config:RegistryModuleConfig})
  const proactiveRiskType=createType&&RISK_PROACTIVE_TYPES.has(createType)?createType:null;
  const indicatorType=createType==="INDICATOR_MEASUREMENT";
  return <div className="page-stack registry-module-page modern-module-page tqm-registry-page">
-  <PageHeader eyebrow={`${config.eyebrow} · NĂM ${year}`} title={config.title} description={config.description} icon={config.icon}/>
-  {config.tabs?.length?<nav className="module-tabs" aria-label="Chức năng liên quan">{config.tabs.map(tab=><a href={tab.href} key={tab.href}>{tab.label}</a>)}</nav>:null}  {canCreate&&createType?<div className="module-action-row"><DomainCreateClient recordType={createType} workYear={year}/></div>:null}
+  <PageHeader eyebrow={`${config.eyebrow} · NĂM ${year}`} title={config.title} description={config.description} icon={config.icon} actions={canCreate&&createType?<DomainCreateClient recordType={createType} workYear={year}/>:null}/>
+  {config.tabs?.length?<nav className="module-tabs" aria-label="Chức năng liên quan">{config.tabs.map(tab=><a href={tab.href} key={tab.href}>{tab.label}</a>)}</nav>:null}
   {error?<div className="alert error">Không tải được dữ liệu: {error.message}</div>:null}
   {registryTruncated?<div className="alert warning">Danh sách đang hiển thị {REGISTRY_PAGE_SIZE} hồ sơ cập nhật gần nhất. Hãy dùng bộ lọc hoặc phân trang trước khi xem đây là toàn bộ dữ liệu.</div>:null}
   {indicatorType?<IndicatorQualityOverview rows={rows} year={year} canSync={user.permissions.includes("indicators.enter")||user.permissions.includes("indicators.manage")}/>:assessmentType?<AssessmentInspectionOverviewV2 rows={rows} recordType={assessmentType}/>:correctiveType?<CorrectiveSafetyOverview rows={rows} recordType={correctiveType}/>:operationsType?<OperationsObligationsOverview rows={rows} recordType={operationsType}/>:proactiveRiskType?<RiskProactiveOverview rows={rows} recordType={proactiveRiskType}/>:<TqmRegistryOverview rows={rows} recordType={createType||config.recordTypes[0]||"RECORD"}/>} 

@@ -97,6 +97,38 @@ export function TqmTrend({points,unit="%",targetLine,targetLabel="Mục tiêu"}:
   </div>
 }
 
+/**
+ * Biến thể nhiều-đường của TqmTrend: dùng khi tham chiếu cần so sánh nhiều
+ * chuỗi cùng trục thời gian (vd. số lượng theo từng mức độ qua các tháng).
+ * Giữ đơn giản hơn TqmTrend (không crosshair/hover từng điểm) nhưng vẫn có
+ * legend màu + bảng số liệu ẩn/hiện để không bắt buộc phải đọc màu để hiểu dữ liệu.
+ */
+export function TqmMultiTrend({series,unit=""}:{series:{label:string;tone:Tone;points:{label:string;value:number}[]}[];unit?:string}){
+  const width=640,height=230,pad=34;
+  const [showTable,setShowTable]=useState(false);
+  const labels=series[0]?.points.map(p=>p.label)||[];
+  const allVals=series.flatMap(s=>s.points.map(p=>p.value));
+  const min=Math.min(0,...allVals),max=Math.max(1,...allVals);const span=Math.max(1,max-min);
+  const yFor=(v:number)=>height-pad-(v-min)/span*(height-pad*2);
+  const xFor=(i:number,len:number)=>pad+(len<=1?0:i*(width-pad*2)/(len-1));
+  const seriesPts=series.map(s=>s.points.map((p,i)=>({x:xFor(i,s.points.length),y:yFor(p.value),...p})));
+  return <div className="tqm-trend tqm-multi-trend">
+    <div className="tqm-multi-trend-legend">{series.map((s,i)=><span key={`${s.label}-${i}`}><i style={{background:COLORS[s.tone]}}/>{s.label}</span>)}</div>
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Biểu đồ xu hướng nhiều chuỗi: ${series.map(s=>s.label).join(", ")}`}>
+      <line x1={pad} y1={height-pad} x2={width-pad} y2={height-pad} stroke="#dce7ea"/>
+      {seriesPts.map((pts,si)=><g key={si}>
+        <polyline points={pts.map(p=>`${p.x},${p.y}`).join(" ")} fill="none" stroke={COLORS[series[si].tone]} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+        {pts.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="3" fill={COLORS[series[si].tone]}/>)}
+      </g>)}
+      {labels.map((l,i)=><text key={i} x={xFor(i,labels.length)} y={height-10} textAnchor="middle" fontSize="10" fill="#71848b">{l}</text>)}
+    </svg>
+    <button type="button" className="tqm-trend-table-toggle" onClick={()=>setShowTable((v)=>!v)} aria-expanded={showTable}>
+      {showTable?"Ẩn bảng số liệu":"Xem bảng số liệu"}
+    </button>
+    {showTable?<table className="tqm-trend-table"><thead><tr><th>Kỳ</th>{series.map((s,i)=><th key={i}>{s.label}</th>)}</tr></thead><tbody>{labels.map((l,i)=><tr key={i}><td>{l}</td>{series.map((s,si)=><td key={si}>{s.points[i]?.value ?? 0}{unit}</td>)}</tr>)}</tbody></table>:null}
+  </div>
+}
+
 export function TqmGantt({year,rows}:{year:number;rows:{label:string;start:string|null;end:string|null;progress?:number;tone?:Tone}[]}){
   const months=Array.from({length:15},(_,i)=>({year:year+Math.floor(i/12),month:i%12+1}));
   function monthPos(date:string|null){if(!date)return null;const d=new Date(`${date}T00:00:00Z`);if(Number.isNaN(d.getTime()))return null;const pos=(d.getUTCFullYear()-year)*12+d.getUTCMonth();return pos>=0&&pos<15?pos:null;}
@@ -108,6 +140,7 @@ export const TQM_CHART_CSS = `
 .tqm-trend{padding:6px 12px 12px;overflow-x:auto;position:relative}.tqm-trend svg{min-width:520px;width:100%;height:auto;cursor:crosshair}.tqm-trend svg:focus{outline:2px solid #0b8a7f;outline-offset:2px}
 .tqm-trend-tip{position:absolute;top:4px;transform:translateX(-50%);background:#12313a;color:#fff;border-radius:10px;padding:7px 11px;font-size:11px;pointer-events:none;box-shadow:0 10px 24px rgba(10,30,36,.25);white-space:nowrap;z-index:2}.tqm-trend-tip strong{font-size:14px;margin-right:6px}.tqm-trend-tip em{display:block;font-style:normal;color:#ffcfa8;font-size:10px;margin-top:2px}
 .tqm-trend-table-toggle{margin-top:8px;border:1px solid #d7e0e3;background:#fff;border-radius:999px;padding:5px 12px;font-size:10.5px;font-weight:700;color:#31515a;cursor:pointer}.tqm-trend-table-toggle:hover{background:#f3f7f8}
+.tqm-multi-trend-legend{display:flex;flex-wrap:wrap;gap:12px;padding:0 4px 8px}.tqm-multi-trend-legend span{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:#5d6f76;font-weight:700}.tqm-multi-trend-legend i{width:9px;height:9px;border-radius:50%}.tqm-multi-trend svg{cursor:default}
 .tqm-trend-table{margin-top:10px;border-collapse:collapse;font-size:11px;width:100%;max-width:420px}.tqm-trend-table th,.tqm-trend-table td{text-align:left;padding:5px 10px;border-bottom:1px solid #edf2f3}.tqm-trend-table th{color:#718187;font-weight:800;text-transform:uppercase;font-size:9.5px}
 .tqm-gantt{overflow-x:auto;padding:0 16px 18px}.tqm-gantt-head,.tqm-gantt-row{min-width:860px;display:grid;grid-template-columns:240px 1fr}.tqm-gantt-head>div{font-size:10px;font-weight:900;color:#607279;padding:9px}.tqm-gantt-head{grid-template-columns:240px repeat(15,1fr);border-bottom:1px solid #e3eaec}.tqm-gantt-head span{font-size:9px;text-align:center;padding:9px 2px;color:#71838a}.tqm-gantt-row{min-height:54px;border-bottom:1px solid #edf2f3}.tqm-gantt-name{padding:9px;display:grid;align-content:center}.tqm-gantt-name strong{font-size:10.5px}.tqm-gantt-name small{font-size:9px;color:#7a8b91;margin-top:3px}.tqm-gantt-grid{position:relative;display:grid;grid-template-columns:repeat(15,1fr)}.tqm-gantt-grid>i{border-left:1px solid #edf2f3}.tqm-gantt-bar{position:absolute;top:15px;height:24px;border-radius:7px;overflow:hidden;box-shadow:0 4px 10px rgba(20,50,58,.12)}.tqm-gantt-bar em{display:block;height:100%;background:rgba(255,255,255,.28)}
 @media(max-width:700px){.tqm-gantt-head,.tqm-gantt-row{grid-template-columns:170px 1fr;min-width:980px}.tqm-gantt-head{grid-template-columns:170px repeat(15,1fr)}.tqm-gantt-name{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid #e3eaec}.tqm-gantt-head>div{position:sticky;left:0;z-index:3;background:#fff;border-right:1px solid #e3eaec}.tqm-donut-wrap{grid-template-columns:1fr}.tqm-donut{width:170px;height:170px}.tqm-donut-hole{width:110px;height:110px}.tqm-hbar-row{grid-template-columns:100px 1fr 34px}.tqm-gantt{padding-inline:8px}}

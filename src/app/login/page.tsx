@@ -7,7 +7,10 @@ export default function LoginPage(){
     <section className="login-hero">
       <div className="login-hero-decor" aria-hidden="true"></div>
       <div className="login-hero-inner">
-        <Image className="login-brand-logo" src="/brand/qarica-logo-light.svg" alt="QARICA" width={240} height={72} priority />
+        <div className="login-brand-row">
+          <Image src="/brand/qarica-mark-v2.svg" alt="" width={56} height={56} priority aria-hidden="true" />
+          <strong className="login-brand-word">QARICA</strong>
+        </div>
         <p className="login-tagline">QUALITY · RISK · INCIDENT · COMPLIANCE</p>
       </div>
     </section>

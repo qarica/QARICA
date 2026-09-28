@@ -90,9 +90,6 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
   border-color:#CFE2FF!important;border-left-color:var(--qms-primary)!important;font-weight:800!important;
 }
 .workspace-app .nav-link.active svg{color:var(--qms-primary-dark)!important}
-.workspace-app .nav-link[href="/incidents"]{background:var(--qms-danger-soft)!important;color:#842029!important}
-.workspace-app .nav-link[href="/incidents"] svg{color:var(--qms-danger)!important}
-.workspace-app .nav-link[href="/incidents"].active{border-color:#F5C2C7!important;border-left-color:var(--qms-danger)!important;background:#F8D7DA!important;color:#842029!important}
 .workspace-app .sidebar-footer{background:linear-gradient(180deg,rgba(241,243,245,0),var(--qms-sidebar) 28%)!important}
 .workspace-app .scope-chip{background:#fff!important;border-color:var(--qms-line)!important;color:#6C757D!important}
 

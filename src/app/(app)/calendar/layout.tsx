@@ -7,6 +7,7 @@ const TABS = [
   { href: "/calendar/recurring", label: "Công việc định kỳ" },
   { href: "/calendar/blueprint", label: "Bộ lịch nền & nguồn" },
   { href: "/calendar/gantt", label: "Gantt tiến độ" },
+  { href: "/calendar/my-work", label: "Việc của tôi" },
 ];
 
 export default function CalendarModuleLayout({ children }: { children: React.ReactNode }) {

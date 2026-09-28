@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { useEmrCreateSignal } from "@/components/emr-create-context";
 import { Icon } from "@/components/icon";
 import { EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
 
@@ -73,6 +74,12 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
     setCreating(true);
     setEditing(null);
   }
+
+  const { openSignal } = useEmrCreateSignal();
+  useEffect(() => {
+    if (openSignal > 0) openCreate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSignal]);
 
   function openEdit(item: Item) {
     const details: Record<string, string> = {};
@@ -173,16 +180,15 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
   return (
     <div className="page-stack">
       {kpis.length ? <section className="kpis" style={{ display: "grid", gridTemplateColumns: `repeat(${kpis.length},minmax(0,1fr))`, gap: 12 }}>
-        {kpis.map((k) => <article className="kpi-card" key={k.bucket} style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)" }}>
-          <div style={{ display: "flex", marginBottom: 12 }}><span className={`emr-cat-kpi-icon ${KPI_TONE[k.bucket]}`}><Icon name={KPI_ICON[k.bucket]} size={18} /></span></div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{bucketCount(k.bucket, items, hasBlockedBucket)}</div>
-          <div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>{k.label}</div>
+        {kpis.map((k) => <article className="kpi-card" key={k.bucket} style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <span className={`emr-cat-kpi-icon ${KPI_TONE[k.bucket]}`}><Icon name={KPI_ICON[k.bucket]} size={19} /></span>
+          <div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{bucketCount(k.bucket, items, hasBlockedBucket)}</div>
+          <div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>{k.label}</div></div>
         </article>)}
-        <style>{`.emr-cat-kpi-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}.emr-cat-kpi-icon.blue{background:#3b82f6}.emr-cat-kpi-icon.green{background:#22c55e}.emr-cat-kpi-icon.amber{background:#f59e0b}.emr-cat-kpi-icon.red{background:#ef4444}.emr-cat-kpi-icon.slate{background:#64748b}`}</style>
+        <style>{`.emr-cat-kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}.emr-cat-kpi-icon.blue{background:#dbeafe;color:#2563eb}.emr-cat-kpi-icon.green{background:#dcfce7;color:#16a34a}.emr-cat-kpi-icon.amber{background:#fef3c7;color:#b45309}.emr-cat-kpi-icon.red{background:#fee2e2;color:#dc2626}.emr-cat-kpi-icon.slate{background:#e2e8f0;color:#475569}`}</style>
       </section> : null}
       <div className="toolbar" style={{ padding: "0 0 4px" }}>
         <div className="toolbar-left"><div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Tìm trong ${categoryLabel.toLowerCase()}...`} /></div></div>
-        {canManage ? <button type="button" className="button primary" onClick={openCreate}>+ Thêm mục {categoryLabel.toLowerCase()}</button> : null}
       </div>
       {error ? <div className="alert error">{error}</div> : null}
       {loading ? (
