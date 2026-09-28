@@ -142,6 +142,38 @@
     gap: 12px !important;
   }
 
+  /* PageHeader (src/components/page-header.tsx) is shared by every module,
+     including Analytics and Admin. Its desktop sizing (44px icon, 27px h1,
+     8px paragraph margin) is proportionate on a wide screen but on a phone
+     the hero alone can consume a third of the viewport before any real
+     content appears. Compact it in one shared place rather than per-page. */
+  .workspace-app .page-header-icon {
+    width: 36px !important;
+    height: 36px !important;
+    flex: 0 0 36px !important;
+    border-radius: 10px !important;
+  }
+
+  .workspace-app .page-header-main {
+    gap: 10px !important;
+  }
+
+  .workspace-app .eyebrow {
+    font-size: 9px !important;
+  }
+
+  .workspace-app .page-header h1 {
+    font-size: 19px !important;
+    line-height: 1.25 !important;
+    margin: 2px 0 0 !important;
+  }
+
+  .workspace-app .page-header p {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    margin: 5px 0 0 !important;
+  }
+
   .workspace-app .page-actions {
     width: 100% !important;
     max-width: 100% !important;
@@ -334,6 +366,39 @@
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
+  }
+
+  /* The single-column stack above fixes overflow, but on a phone each KPI
+     card still carries its desktop padding/icon/type-scale (verified against
+     real-device screenshots of Báo cáo & Phân tích QLCL and Cấu hình hệ
+     thống): 44px icon, 26px value, 16px padding per card, 6 cards stacked
+     one per row. That reads as oversized, mostly-empty tiles rather than a
+     compact stat row. Both pages already use the same icon-left/value-right
+     composition (.admin-overview .kpi-card and .tqm-analytics .kpi /
+     .exec-kpis .kpi) - this only tightens their existing sizing for mobile,
+     it does not restructure the layout or touch any other .kpi-card usage. */
+  .admin-overview .kpi-card,
+  .tqm-analytics .kpi {
+    padding: 10px 12px !important;
+    gap: 10px !important;
+  }
+
+  .admin-overview .kpi-icon,
+  .tqm-analytics .kpi-icon {
+    width: 30px !important;
+    height: 30px !important;
+    flex: 0 0 30px !important;
+  }
+
+  .admin-overview .kpi-value,
+  .tqm-analytics .kpi strong {
+    font-size: 19px !important;
+  }
+
+  .admin-overview .kpi-title,
+  .tqm-analytics .kpi span,
+  .tqm-analytics .kpi small {
+    font-size: 10.5px !important;
   }
 }
 

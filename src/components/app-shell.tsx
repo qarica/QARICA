@@ -225,14 +225,31 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          a competing "!important" rule, specificity alone never wins — only
          "!important" beats "!important" (then specificity, then source order)
          — so every declaration here needs BOTH the .workspace-app.workspace-app
-         specificity-double AND its own "!important" to be unconditionally safe. */
+         specificity-double AND its own "!important" to be unconditionally safe.
+
+         The same collision also hits layout, not just color: qms-enterprise-
+         redesign.css has its own "!important" .nav-link{margin:2px 6px} and
+         generic .nav-icon{width:27px;height:27px} rules. Without a matching
+         "!important" override here, EVERY promoted single-child link (EMR;
+         Cấu hình hệ thống) and every real child link silently loses its
+         intended margin/icon-size — which is exactly why EMR read as visually
+         indistinguishable from a child row: neither the wider group-link
+         margin nor the smaller child-icon size was ever actually applied. */
       .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#0f172a!important;font-weight:800!important;font-size:13.5px!important;letter-spacing:.01em}
       .workspace-app.workspace-app .nav-group.active-context>.nav-group-header,.workspace-app.workspace-app .nav-group.active-context>.nav-group-header .nav-group-label{color:#1d4ed8!important}
-      .workspace-app.workspace-app .nav-group-link{color:#0f172a!important;font-weight:800!important;font-size:13.5px!important}
+      .workspace-app.workspace-app .nav-group-link{color:#0f172a!important;font-weight:800!important;font-size:13.5px!important;margin:6px 10px!important}
       .workspace-app.workspace-app .nav-group-link .nav-link-label{color:inherit!important;font-weight:inherit!important;font-size:inherit!important}
       .workspace-app.workspace-app .nav-group-link.active,.workspace-app.workspace-app .nav-group-link.active .nav-link-label{background:#eff6ff!important;color:#1d4ed8!important}
       .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#7c8a9a!important;font-weight:600!important;font-size:12px!important}
-      .workspace-app.workspace-app .nav-child-link .nav-icon{color:#94a3b8!important;width:20px;height:20px;flex:0 0 20px}
+      .workspace-app.workspace-app .nav-child-link{margin:1px 10px 1px 26px!important}
+      /* The collapsed-rail flyout popover is a small floating popup, not the
+         full sidebar list — its child links intentionally use a flat, compact
+         margin (no 26px indent, there is no parent row to indent under
+         inside the popover). This needs its own !important + higher
+         specificity, or the generic 26px-indent rule above (now !important
+         to survive qms-enterprise-redesign.css) would leak into it too. */
+      .workspace-app.workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px!important}
+      .workspace-app.workspace-app .nav-child-link .nav-icon{color:#94a3b8!important;width:20px!important;height:20px!important;flex:0 0 20px!important}
       .workspace-app.workspace-app .nav-child-link:hover,.workspace-app.workspace-app .nav-child-link:hover .nav-link-label{color:#0f172a!important}
       .workspace-app.workspace-app .nav-child-link.active,.workspace-app.workspace-app .nav-child-link.active .nav-link-label{background:#eff6ff!important;color:#1d4ed8!important;font-weight:800!important}
       .workspace-app.workspace-app .nav-child-link.active .nav-icon{color:#2563eb!important}

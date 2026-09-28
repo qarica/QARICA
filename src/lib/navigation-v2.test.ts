@@ -191,6 +191,26 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
   });
 
   it("a promoted single-child link reads as Level 1 (bold navy), not Level 2 (light slate)", () => {
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#0f172a!important;font-weight:800!important;font-size:13\.5px!important\}/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#0f172a!important;font-weight:800!important;font-size:13\.5px!important;margin:6px 10px!important\}/);
+  });
+
+  it("survives qms-enterprise-redesign.css's competing !important .nav-link{margin:2px 6px} and generic .nav-icon{width:27px;height:27px} rules — a second real collision found via real-device screenshots after the first fix (colors only) still left EMR/Cấu hình hệ thống visually indistinguishable from a child row, because their margin and icon size were still being silently overridden", () => {
+    // promoted single-child link must align flush with group headers (10px
+    // horizontal margin, same as .nav-group-header) and get the same 6px
+    // vertical breathing room a full group section gets from .nav-group,
+    // which it never inherits since it isn't wrapped in a .nav-group div.
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{[^}]*margin:6px 10px!important/);
+    // real child links must keep their 26px left indent under !important,
+    // not just their color — otherwise indentation-based hierarchy never
+    // actually renders in production.
+    expect(shell).toContain(".workspace-app.workspace-app .nav-child-link{margin:1px 10px 1px 26px!important}");
+    // child icons must actually shrink to 20px under !important — the generic
+    // .nav-icon{width:27px;height:27px!important} rule otherwise forces every
+    // icon (group and child alike) to the same size, erasing the size cue.
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link \.nav-icon\{color:#94a3b8!important;width:20px!important;height:20px!important;flex:0 0 20px!important\}/);
+  });
+
+  it("keeps the collapsed-rail flyout's compact child margin from being overridden by the new !important 26px indent (the flyout is a small popover, not the full list — there is no parent row to indent under inside it)", () => {
+    expect(shell).toContain(".workspace-app.workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px!important}");
   });
 });
