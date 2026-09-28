@@ -205,21 +205,37 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .nav-icon{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex:0 0 26px;border-radius:8px;color:#64748b;background:transparent;transition:color .16s,background .16s}
       .workspace-app .nav-link.active .nav-icon{color:#2563eb;background:transparent}
       .workspace-app .nav-group{margin:6px 0}
-      .workspace-app .nav-group-header{display:flex;align-items:center;gap:11px;width:100%;border-radius:10px;margin:2px 10px;padding:10px 12px;color:#0f172a;border:1px solid transparent;background:transparent;font-weight:800;font-size:13px;text-align:left;transition:background .14s,color .14s}
+      .workspace-app .nav-group-header{display:flex;align-items:center;gap:11px;width:100%;border-radius:10px;margin:2px 10px;padding:10px 12px;border:1px solid transparent;background:transparent;text-align:left;transition:background .14s,color .14s}
       .workspace-app .nav-group-header:hover{background:#f8fafc;border-color:#eef2f7}
       .workspace-app .nav-group.expanded>.nav-group-header{background:#f8fafc}
-      .workspace-app .nav-group.active-context>.nav-group-header{background:#eff6ff;color:#1d4ed8}
-      .workspace-app .nav-group.active-context>.nav-group-header .nav-group-icon{color:#2563eb}
-      .workspace-app .nav-group-label{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;letter-spacing:.03em}
+      .workspace-app .nav-group.active-context>.nav-group-header{background:#eff6ff}
+      .workspace-app .nav-group.active-context>.nav-group-header .nav-group-icon{color:#2563eb!important}
       .workspace-app .nav-group-chevron{flex:0 0 auto;color:#94a3b8;transform:rotate(-90deg);transition:transform .16s}
       .workspace-app .nav-group-chevron.expanded{transform:rotate(0deg)}
       .workspace-app .nav-group-children{display:flex;flex-direction:column;padding-bottom:4px}
       .workspace-app .nav-group-flyout{display:none}
       .workspace-app .nav-group-flyout-title{padding:6px 10px 8px;font-size:10.5px;font-weight:800;letter-spacing:.06em;color:#94a3b8;text-transform:uppercase}
-      .workspace-app .nav-child-link{margin:1px 10px 1px 26px;padding:7px 10px;font-weight:600;font-size:12.5px;color:#64748b}
-      .workspace-app .nav-child-link .nav-icon{width:22px;height:22px;flex:0 0 22px}
-      .workspace-app .nav-child-link.active{font-weight:800}
+      .workspace-app .nav-child-link{margin:1px 10px 1px 26px;padding:7px 10px}
       .workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px}
+      /* Level-1 (group header / single-child promoted link) vs Level-2 (child)
+         must read as unmistakably different weights — bold navy vs lighter,
+         smaller slate. Several legacy theme files apply "!important" color
+         overrides to the shared .nav-link class (which .nav-child-link and
+         .nav-group-link both also carry, for their :active styling). Against
+         a competing "!important" rule, specificity alone never wins — only
+         "!important" beats "!important" (then specificity, then source order)
+         — so every declaration here needs BOTH the .workspace-app.workspace-app
+         specificity-double AND its own "!important" to be unconditionally safe. */
+      .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#0f172a!important;font-weight:800!important;font-size:13.5px!important;letter-spacing:.01em}
+      .workspace-app.workspace-app .nav-group.active-context>.nav-group-header,.workspace-app.workspace-app .nav-group.active-context>.nav-group-header .nav-group-label{color:#1d4ed8!important}
+      .workspace-app.workspace-app .nav-group-link{color:#0f172a!important;font-weight:800!important;font-size:13.5px!important}
+      .workspace-app.workspace-app .nav-group-link .nav-link-label{color:inherit!important;font-weight:inherit!important;font-size:inherit!important}
+      .workspace-app.workspace-app .nav-group-link.active,.workspace-app.workspace-app .nav-group-link.active .nav-link-label{background:#eff6ff!important;color:#1d4ed8!important}
+      .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#7c8a9a!important;font-weight:600!important;font-size:12px!important}
+      .workspace-app.workspace-app .nav-child-link .nav-icon{color:#94a3b8!important;width:20px;height:20px;flex:0 0 20px}
+      .workspace-app.workspace-app .nav-child-link:hover,.workspace-app.workspace-app .nav-child-link:hover .nav-link-label{color:#0f172a!important}
+      .workspace-app.workspace-app .nav-child-link.active,.workspace-app.workspace-app .nav-child-link.active .nav-link-label{background:#eff6ff!important;color:#1d4ed8!important;font-weight:800!important}
+      .workspace-app.workspace-app .nav-child-link.active .nav-icon{color:#2563eb!important}
       @media(max-width:860px){
         .workspace-app .nav-group-flyout{display:none!important}
         .workspace-app .nav-group-header{min-height:46px;padding:11px 12px}
@@ -257,7 +273,14 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
     {navigating ? <div className="route-progress" aria-label="Đang chuyển trang"><span /></div> : null}
     <aside className={`sidebar ${mobileOpen ? "open" : ""} ${sidebarCollapsed ? "collapsed" : ""}`}>
       <div className="sidebar-brand"><div className="brand-mark"><Image src="/brand/qarica-mark-v2.svg" alt="" width={32} height={32} aria-hidden="true" /></div><div className="sidebar-brand-copy"><strong>QARICA</strong><span>Quality</span></div><button className="icon-button sidebar-collapse" onClick={toggleSidebarCollapsed} title={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"} aria-label={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"}><Icon name={sidebarCollapsed ? "panel-left-open" : "panel-left-close"} size={18} /></button><button className="icon-button sidebar-close" onClick={() => setMobileOpen(false)} aria-label="Đóng menu"><Icon name="x" /></button></div>
-      <nav className="sidebar-nav" aria-label="Điều hướng chính">{navGroups.map((group) => { const expanded = expandedGroupId === group.id; const isActiveGroup = group.children.some((child) => isChildActive(pathname, child, currentWorkspaceRoot)); function renderChild(item: NavItem) { const baseHref = item.href.split("?")[0]; const itemRoot = item.workspaceRoot || baseHref; const active = isChildActive(pathname, item, currentWorkspaceRoot); const badge = attention[itemRoot]; return <Link key={`${itemRoot}:${item.label}`} href={item.href} prefetch={true} className={`nav-link nav-child-link ${active ? "active" : ""}`} title={`${item.label}${badge?.count ? ` · ${badge.count} việc cần chú ý` : ""}`} onMouseEnter={() => router.prefetch(item.href)} onFocus={() => router.prefetch(item.href)} onClick={() => startNavigation(item.href)}><span className={`nav-icon ${NAV_ICON_TONE[itemRoot] || "overview"}`} aria-hidden="true"><Icon name={item.icon} size={18} /></span><span className="nav-link-label">{item.label}</span>{renderBadge(badge)}</Link>; } return <div className={`nav-group ${expanded ? "expanded" : ""} ${isActiveGroup ? "active-context" : ""}`} key={group.id}><button type="button" className="nav-group-header" aria-expanded={expanded} onClick={() => toggleGroup(group.id)}><span className="nav-icon nav-group-icon" aria-hidden="true"><Icon name={group.icon} size={18} /></span><span className="nav-group-label">{group.label}</span><Icon name="chevron-down" size={15} className={`nav-group-chevron ${expanded ? "expanded" : ""}`} /></button><div className="nav-group-children" aria-hidden={!expanded}>{expanded ? group.children.map(renderChild) : null}</div><div className="nav-group-flyout"><div className="nav-group-flyout-title">{group.label}</div>{group.children.map(renderChild)}</div></div>; })}</nav>
+      <nav className="sidebar-nav" aria-label="Điều hướng chính">{navGroups.map((group) => { const expanded = expandedGroupId === group.id; const isActiveGroup = group.children.some((child) => isChildActive(pathname, child, currentWorkspaceRoot)); function renderChild(item: NavItem, asGroupLink?: boolean) { const baseHref = item.href.split("?")[0]; const itemRoot = item.workspaceRoot || baseHref; const active = isChildActive(pathname, item, currentWorkspaceRoot); const badge = attention[itemRoot]; return <Link key={`${itemRoot}:${item.label}`} href={item.href} prefetch={true} className={asGroupLink ? `nav-link nav-group-link ${active ? "active" : ""}` : `nav-link nav-child-link ${active ? "active" : ""}`} title={`${item.label}${badge?.count ? ` · ${badge.count} việc cần chú ý` : ""}`} onMouseEnter={() => router.prefetch(item.href)} onFocus={() => router.prefetch(item.href)} onClick={() => startNavigation(item.href)}><span className={`nav-icon ${asGroupLink ? "nav-group-icon" : ""} ${NAV_ICON_TONE[itemRoot] || "overview"}`} aria-hidden="true"><Icon name={item.icon} size={18} /></span><span className="nav-link-label">{item.label}</span>{renderBadge(badge)}</Link>; }
+        // A group with exactly one authorized child (EMR; Cấu hình hệ thống)
+        // has nothing to expand — showing it as a collapsible accordion with a
+        // chevron promises children that never appear. Promote it to a plain
+        // top-level link instead, styled like a Level-1 item, so there is
+        // never an "expand reveals only 1 item" moment.
+        if (group.children.length === 1) return renderChild(group.children[0], true);
+        return <div className={`nav-group ${expanded ? "expanded" : ""} ${isActiveGroup ? "active-context" : ""}`} key={group.id}><button type="button" className="nav-group-header" aria-expanded={expanded} onClick={() => toggleGroup(group.id)}><span className="nav-icon nav-group-icon" aria-hidden="true"><Icon name={group.icon} size={18} /></span><span className="nav-group-label">{group.label}</span><Icon name="chevron-down" size={15} className={`nav-group-chevron ${expanded ? "expanded" : ""}`} /></button><div className="nav-group-children" aria-hidden={!expanded}>{expanded ? group.children.map((c) => renderChild(c)) : null}</div><div className="nav-group-flyout"><div className="nav-group-flyout-title">{group.label}</div>{group.children.map((c) => renderChild(c))}</div></div>; })}</nav>
       <div className="sidebar-footer"><div className="scope-chip">{user.scopeTypes.includes("HOSPITAL") ? "Phạm vi: Toàn viện" : `Phạm vi: ${user.primaryDepartmentName || "Được phân công"}`}</div><button type="button" className="sidebar-collapse-text" onClick={toggleSidebarCollapsed}><Icon name="panel-left-close" size={16} /><span>Thu gọn</span></button></div>
     </aside>
     {mobileOpen ? <button className="sidebar-overlay" onClick={() => setMobileOpen(false)} aria-label="Đóng menu" /> : null}

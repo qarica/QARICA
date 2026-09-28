@@ -170,9 +170,27 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain(".workspace-app .nav-child-link{min-height:44px;padding:11px 10px}");
   });
 
-  it("gives the parent group header stronger visual weight than child links (Level 1 vs Level 2)", () => {
+  it("gives the parent group header stronger visual weight than child links (Level 1 vs Level 2), with high-specificity colors that survive legacy theme !important overrides on the shared .nav-link class", () => {
     expect(shell).toContain(".nav-group-header{");
-    expect(shell).toMatch(/\.nav-group-header\{[^}]*font-weight:800/);
     expect(shell).toContain(".nav-group.active-context>.nav-group-header{");
+    // .workspace-app.workspace-app doubles specificity so these always win,
+    // regardless of stylesheet load order against other files' `.nav-link{color:...!important}` rules
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-header,\.workspace-app\.workspace-app \.nav-group-label\{color:#0f172a!important;font-weight:800!important;font-size:13\.5px!important/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link,\.workspace-app\.workspace-app \.nav-child-link \.nav-link-label\{color:#7c8a9a!important;font-weight:600!important;font-size:12px!important\}/);
+    // parent (13.5px/800) must be strictly bolder AND larger than child (12px/600)
+    expect(13.5).toBeGreaterThan(12);
+    expect(800).toBeGreaterThan(600);
+  });
+
+  it("promotes a single-child group (EMR; Cấu hình hệ thống) to a plain top-level link instead of a chevron accordion with nothing to expand", () => {
+    expect(shell).toContain("if (group.children.length === 1) return renderChild(group.children[0], true);");
+    expect(shell).toContain("nav-link nav-group-link");
+    // the promoted link still carries .nav-link so it inherits the same
+    // collapsed-rail / active-state / touch-target machinery as every other item
+    expect(shell).toContain("asGroupLink ? `nav-link nav-group-link");
+  });
+
+  it("a promoted single-child link reads as Level 1 (bold navy), not Level 2 (light slate)", () => {
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#0f172a!important;font-weight:800!important;font-size:13\.5px!important\}/);
   });
 });
