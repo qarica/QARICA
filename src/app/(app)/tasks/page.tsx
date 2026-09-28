@@ -132,6 +132,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   .tqm-my-work .my-work-header-side{display:flex;align-items:center;gap:14px;flex:0 0 auto}
   .tqm-my-work .my-work-quote{max-width:200px;margin:0;padding:12px 14px;border-radius:14px;background:#eff6ff;color:#1e40af;font-size:11.5px;font-weight:600;font-style:italic;line-height:1.4}
   @media(max-width:900px){.tqm-my-work .my-work-header{flex-direction:column;align-items:flex-start}.tqm-my-work .my-work-header-side{display:none}}
+  @media(max-width:760px){.tqm-my-work .work-tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}.tqm-my-work .work-tab{flex:0 0 auto;white-space:nowrap}.tqm-my-work .work-search-row .search-box{max-width:none}}
   .tqm-my-work .work-pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;flex-wrap:wrap;font-size:11px;color:#64748b}.tqm-my-work .work-pagination-pages{display:flex;gap:5px}
   .tqm-my-work .mini-cal{padding:13px 14px}.tqm-my-work .mini-cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.tqm-my-work .mini-cal-head strong{font-size:12px;color:#243247}.tqm-my-work .mini-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}.tqm-my-work .mini-cal-wd{font-size:9px;font-weight:800;color:#94a3b8;padding:3px 0}.tqm-my-work .mini-cal-day{position:relative;font-size:10.5px;padding:5px 0;border-radius:7px;color:#334155}.tqm-my-work .mini-cal-day.today{background:#2563eb;color:#fff;font-weight:800}.tqm-my-work .mini-cal-day.has-event:not(.today):after{content:"";position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:#2563eb}
   .tqm-my-work .upcoming-list{display:grid;padding:4px 0}.tqm-my-work .upcoming-item{display:flex;justify-content:space-between;gap:8px;padding:9px 14px;border-top:1px solid #eef2f3;font-size:11px}.tqm-my-work .upcoming-item strong{display:block;font-size:11.5px;color:#243247;font-weight:700}.tqm-my-work .upcoming-item small{color:#94a3b8}.tqm-my-work .upcoming-item small.overdue{color:#c43232;font-weight:800}
@@ -168,7 +169,12 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
    <div style={{display:"grid",gap:14}}>
     <PersonalReminders initialRows={personalReminders} organizationId={user.organizationId!} userId={user.id}/>
     <WorkRowSelectionProvider>
-    <section id="all-work" className="work-section desktop-only">
+    {/* Tabs/search/pagination are plain query-string links + a GET form (no
+        client state), so there is no reason they were desktop-only — that
+        left mobile with no way to filter by tab, search, or reach page 2+.
+        Only the TABLE vs CARD-LIST body actually needs to differ by
+        viewport; the surrounding controls now render on both. */}
+    <section id="all-work" className="work-section">
      <nav className="work-tabs" aria-label="Lọc việc được giao">
       <Link href={tabHref("ALL")} className={`work-tab ${tab==="ALL"?"active":""}`}>Tất cả · {allWorkRows.length}</Link>
       <Link href={tabHref("REMINDER")} className={`work-tab ${tab==="REMINDER"?"active":""}`}>Note cá nhân · {unifiedReminderRows.length}</Link>
@@ -182,11 +188,11 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
       <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm công việc..."/></div>
       <button type="submit" className="button secondary small">Lọc</button>
      </form>
-     <div className="table-wrap all-table"><table><thead><tr><th></th><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Liên quan đến</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th><th>Người giao</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td><WorkRowCheckbox rowKey={r.key}/></td><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td><Link className="table-link" href={r.href}>{r.title}</Link></td><td>{r.typeLabel}</td><td>{r.relatedTo}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":""}>{r.dueDate?formatDate(r.dueDate):"—"}</td><td><StatusBadge status={r.statusLabel}/></td><td>{r.assignedBy}</td><td>{r.source==="reminder"?<ReminderRowDelete id={r.key.slice(2)} title={r.title}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={10}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
+     <div className="table-wrap all-table desktop-only"><table><thead><tr><th></th><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Liên quan đến</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th><th>Người giao</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td><WorkRowCheckbox rowKey={r.key}/></td><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td><Link className="table-link" href={r.href}>{r.title}</Link></td><td>{r.typeLabel}</td><td>{r.relatedTo}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":""}>{r.dueDate?formatDate(r.dueDate):"—"}</td><td><StatusBadge status={r.statusLabel}/></td><td>{r.assignedBy}</td><td>{r.source==="reminder"?<ReminderRowDelete id={r.key.slice(2)} title={r.title}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={10}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
+     <div className="mobile-only work-card-list">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.title}</strong><small>{r.typeLabel} · {r.dueDate?formatDate(r.dueDate):"Không có hạn"}</small><Link className="button primary small" href={r.href}>Mở</Link></article>)}{!tableRowsPage.length?<div className="empty-state">Không có việc phù hợp.</div>:null}</div>
      {searched.length?<div className="work-pagination"><span>Hiển thị {(currentPage-1)*PAGE_SIZE+1}-{Math.min(currentPage*PAGE_SIZE,searched.length)} của {searched.length} bản ghi</span><div className="work-pagination-pages">{Array.from({length:totalPages},(_,i)=>i+1).map(p=><Link key={p} href={pageHref(p)} className={`button small ${p===currentPage?"primary":"secondary"}`}>{p}</Link>)}</div></div>:null}
     </section>
     </WorkRowSelectionProvider>
-    <section className="mobile-only">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.title}</strong><small>{r.typeLabel} · {r.dueDate?formatDate(r.dueDate):"Không có hạn"}</small><Link className="button primary small" href={r.href}>Mở</Link></article>)}</section>
    </div>
    <div style={{display:"grid",gap:14}}>
     <section className="work-section desktop-only">
