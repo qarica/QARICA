@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 // This repo's test convention avoids importing modules that reach across the
 // "@/" path alias (Vitest here has no tsconfig-paths resolution — only
-// Next's own build does), so Navigation V2 is verified the same way the rest
+// Next's own build does), so Navigation V3 is verified the same way the rest
 // of this codebase verifies non-trivially-unit-testable app/route wiring:
 // structural assertions against the real source (see emr-security.test.ts,
 // calendar-kind-filter.test.ts for the established pattern).
@@ -12,10 +12,12 @@ const workspaceNav = readFileSync("src/lib/workspace-navigation.ts", "utf8");
 const layout = readFileSync("src/app/(app)/layout.tsx", "utf8");
 const shell = readFileSync("src/components/app-shell.tsx", "utf8");
 
+const GROUP_IDS = ["operations", "quality-management", "digital-systems", "system-config"];
+
 function groupBlock(source: string, id: string) {
   const start = source.indexOf(`id: "${id}"`);
   expect(start, `group "${id}" not found`).toBeGreaterThanOrEqual(0);
-  const nextGroupStarts = ["operations", "quality-management", "digital-systems"]
+  const nextGroupStarts = GROUP_IDS
     .filter((other) => other !== id)
     .map((other) => source.indexOf(`id: "${other}"`, start + 1))
     .filter((i) => i > start);
@@ -23,18 +25,18 @@ function groupBlock(source: string, id: string) {
   return source.slice(start, end);
 }
 
-describe("Navigation V2 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 3 primary groups", () => {
-    const ids = ["operations", "quality-management", "digital-systems"];
-    for (const id of ids) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no fourth group id besides these three
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(3);
+describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
+  it("defines exactly 4 primary groups", () => {
+    for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
+    // no fifth group id besides these four
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(4);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "CHUYỂN ĐỔI SỐ & HỆ THỐNG"');
+    expect(navigation).toContain('label: "CẤU HÌNH HỆ THỐNG"');
   });
 
-  it("assigns the correct children to Group A — ĐIỀU HÀNH CHẤT LƯỢNG", () => {
+  it("assigns the correct children to Group 1 — ĐIỀU HÀNH CHẤT LƯỢNG", () => {
     const block = groupBlock(navigation, "operations");
     for (const label of ["Tổng quan QLCL", "Việc của tôi", "Lịch QLCL", "Kế hoạch & Điều hành"]) {
       expect(block).toContain(`label: "${label}"`);
@@ -43,7 +45,7 @@ describe("Navigation V2 — data model (src/lib/navigation.ts)", () => {
     expect(block).not.toContain("EMR");
   });
 
-  it("assigns the correct children to Group B — QUẢN LÝ CHẤT LƯỢNG", () => {
+  it("assigns the correct children to Group 2 — QUẢN LÝ CHẤT LƯỢNG", () => {
     const block = groupBlock(navigation, "quality-management");
     for (const label of [
       "Đo lường & Giám sát", "Đánh giá & Kiểm tra", "Sự cố & Phản ánh", "Rủi ro & FMEA",
@@ -55,10 +57,17 @@ describe("Navigation V2 — data model (src/lib/navigation.ts)", () => {
     expect(block).not.toContain("Tổng quan QLCL");
   });
 
-  it("assigns the correct children to Group C — CHUYỂN ĐỔI SỐ & HỆ THỐNG", () => {
+  it("Group 3 — CHUYỂN ĐỔI SỐ & HỆ THỐNG contains EMR only (Cấu hình hệ thống is no longer here)", () => {
     const block = groupBlock(navigation, "digital-systems");
     expect(block).toContain('label: "EMR", href: "/emr"');
-    expect(block).toContain('label: "Cấu hình hệ thống", href: "/admin"');
+    expect(block).not.toContain("Cấu hình hệ thống");
+    expect(block).not.toContain("workspaceRoot: \"/admin\"");
+  });
+
+  it("Group 4 — CẤU HÌNH HỆ THỐNG is its own primary group, mapping to the existing Admin workspace", () => {
+    const block = groupBlock(navigation, "system-config");
+    expect(block).toContain('label: "Cấu hình hệ thống"');
+    expect(block).toContain('workspaceRoot: "/admin"');
   });
 
   it("filters children by permission/anyPermissions and hides empty groups (RBAC preserved, never loosened)", () => {
@@ -70,10 +79,14 @@ describe("Navigation V2 — data model (src/lib/navigation.ts)", () => {
   it("resolves workspace-backed children via the existing workspaceLandingHref (no re-declared route/href for them)", () => {
     expect(navigation).toContain('import { workspaceLandingHref } from "@/lib/workspace-navigation";');
     expect(navigation).toContain("const landing = workspaceLandingHref(child.workspaceRoot, user);");
-    for (const root of ["/plans", "/indicators", "/assessments", "/incidents", "/risks", "/findings", "/improvement/projects", "/evidence"]) {
+    for (const root of ["/plans", "/indicators", "/assessments", "/incidents", "/risks", "/findings", "/improvement/projects", "/evidence", "/admin"]) {
       expect(navigation).toContain(`workspaceRoot: "${root}"`);
       expect(workspaceNav).toContain(`root: "${root}"`);
     }
+  });
+
+  it("Admin sidebar entry is workspaceRoot-based, not a hand-maintained permission list (single source of truth)", () => {
+    expect(navigation).not.toContain('anyPermissions: ["users.manage", "departments.manage", "permissions.manage", "system.manage"]');
   });
 
   it("collapses EMR to a single sidebar entry — the 9 EMR subcategories are not exposed in the main sidebar", () => {
@@ -82,11 +95,14 @@ describe("Navigation V2 — data model (src/lib/navigation.ts)", () => {
   });
 
   it("does not duplicate Admin's internal tabs into the main sidebar", () => {
-    expect(navigation.match(/href: "\/admin/g)?.length).toBe(1);
+    expect(navigation.match(/workspaceRoot: "\/admin"/g)?.length).toBe(1);
+    for (const adminTabLabel of ["Người dùng", "Nhóm phân công", "Khoa / Phòng", "Vai trò & Phân quyền", "Danh mục", "Nhật ký hệ thống"]) {
+      expect(navigation).not.toContain(adminTabLabel);
+    }
   });
 });
 
-describe("Navigation V2 — layout wiring", () => {
+describe("Navigation V3 — layout wiring", () => {
   it("the protected layout supplies groups (not the old flat NAV_SECTIONS) to AppShell", () => {
     expect(layout).toContain("visibleNavGroups");
     expect(layout).not.toContain("visibleNav(");
@@ -94,7 +110,7 @@ describe("Navigation V2 — layout wiring", () => {
   });
 });
 
-describe("Navigation V2 — accordion behavior (src/components/app-shell.tsx)", () => {
+describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", () => {
   it("keeps a single expanded-group id (true accordion, not independent per-group booleans)", () => {
     expect(shell).toContain("expandedGroupId");
     expect(shell.match(/useState<string \| null>/g)?.length).toBe(1);
@@ -105,12 +121,18 @@ describe("Navigation V2 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain("useEffect(() => { setExpandedGroupId(resolveActiveGroupId(pathname, navGroups, workspaceRootForPath(pathname))); }, [pathname, navGroups]);");
   });
 
+  it("does not hard-code a 3-group assumption — group rendering is generic over navGroups", () => {
+    expect(shell).toContain("navGroups.map((group) =>");
+    expect(shell).not.toMatch(/navGroups\.length\s*===\s*3/);
+    expect(shell).not.toMatch(/navGroups\[0\]|navGroups\[1\]|navGroups\[2\]/);
+  });
+
   it("toggling a group collapses it when already expanded, and never navigates", () => {
     expect(shell).toContain('function toggleGroup(id: string) { setExpandedGroupId((current) => (current === id ? null : id)); }');
     expect(shell).toContain('<button type="button" className="nav-group-header"');
   });
 
-  it("renders child links from existing routes only (no new routes minted for the 3 parent groups)", () => {
+  it("renders child links from existing routes only (no new routes minted for the parent groups)", () => {
     expect(shell).toContain('href={item.href}');
     expect(shell).not.toMatch(/href="\/nav-group|href=\{`\/group/);
   });
@@ -136,10 +158,21 @@ describe("Navigation V2 — accordion behavior (src/components/app-shell.tsx)", 
   });
 
   it("keeps flyouts off the mobile drawer breakpoint to avoid off-viewport popovers", () => {
-    expect(shell).toContain("@media(max-width:860px){.workspace-app .nav-group-flyout{display:none!important}}");
+    expect(shell).toContain("@media(max-width:860px){");
+    expect(shell).toContain(".workspace-app .nav-group-flyout{display:none!important}");
   });
 
   it("does not reintroduce a separate AdminTabs component", () => {
     expect(shell).not.toContain("AdminTabs");
+  });
+
+  it("mobile drawer child touch targets meet the ~44px minimum", () => {
+    expect(shell).toContain(".workspace-app .nav-child-link{min-height:44px;padding:11px 10px}");
+  });
+
+  it("gives the parent group header stronger visual weight than child links (Level 1 vs Level 2)", () => {
+    expect(shell).toContain(".nav-group-header{");
+    expect(shell).toMatch(/\.nav-group-header\{[^}]*font-weight:800/);
+    expect(shell).toContain(".nav-group.active-context>.nav-group-header{");
   });
 });

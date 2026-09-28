@@ -22,7 +22,13 @@ export async function GET(req: NextRequest) {
   const from = DATE_RE.test(rawFrom) ? rawFrom : "";
   const to = DATE_RE.test(rawTo) && (!from || rawTo >= from) ? rawTo : "";
   const dateFilterActive = !!(from || to);
-  const items = dateFilterActive ? allItems.filter(x => !!x.due_date && (!from || x.due_date >= from) && (!to || x.due_date <= to)) : allItems;
+  // Items with no due_date (e.g. Quy trình/Biểu mẫu reference records that
+  // aren't deadline-driven) have no date to test against the window, so the
+  // filter must keep them rather than silently drop them — otherwise the
+  // overview would undercount categories the detail page (which never
+  // date-filters) still shows in full, exactly the "Chưa có dữ liệu" vs
+  // "has real data" mismatch this guards against.
+  const items = dateFilterActive ? allItems.filter(x => !x.due_date || ((!from || x.due_date >= from) && (!to || x.due_date <= to))) : allItems;
   const now = Date.now();
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
   const counts = { TODO: 0, IN_PROGRESS: 0, DONE: 0, BLOCKED: 0 } as Record<string, number>;

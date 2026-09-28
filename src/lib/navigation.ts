@@ -11,11 +11,14 @@ function isWorkspaceChild(child: ChildDef): child is WorkspaceChildDef {
 
 type NavGroupDef = { id: string; label: string; icon: string; children: ChildDef[] };
 
-// Navigation V2: main sidebar presentation only. Groups children under three
+// Navigation V3: main sidebar presentation only. Groups children under four
 // accordion sections; underlying routes/permissions/workspace semantics are
 // unchanged. EMR and Admin keep their own internal navigation (EMR command
 // center readiness grid, Admin workspace-strip) — those screens are reached
-// through their single sidebar entry, not duplicated here.
+// through their single sidebar entry, not duplicated here. Admin's entry is
+// workspaceRoot-based (not a hand-maintained anyPermissions list) so its
+// visibility always tracks the real per-tab permissions declared once in
+// workspace-navigation.ts — one source of truth for who can see it.
 const NAV_GROUPS: NavGroupDef[] = [
   {
     id: "operations",
@@ -49,7 +52,14 @@ const NAV_GROUPS: NavGroupDef[] = [
     icon: "network",
     children: [
       { label: "EMR", href: "/emr", icon: "layout-dashboard", permission: "emr.view" },
-      { label: "Cấu hình hệ thống", href: "/admin", icon: "settings", anyPermissions: ["users.manage", "departments.manage", "permissions.manage", "system.manage"] },
+    ],
+  },
+  {
+    id: "system-config",
+    label: "CẤU HÌNH HỆ THỐNG",
+    icon: "settings",
+    children: [
+      { label: "Cấu hình hệ thống", icon: "settings", workspaceRoot: "/admin" },
     ],
   },
 ];

@@ -204,10 +204,11 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .nav-link.active:before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:#2563eb}
       .workspace-app .nav-icon{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex:0 0 26px;border-radius:8px;color:#64748b;background:transparent;transition:color .16s,background .16s}
       .workspace-app .nav-link.active .nav-icon{color:#2563eb;background:transparent}
-      .workspace-app .nav-group{margin:2px 0}
-      .workspace-app .nav-group-header{display:flex;align-items:center;gap:11px;width:100%;border-radius:10px;margin:2px 10px;padding:9px 12px;color:#1e293b;border:1px solid transparent;background:transparent;font-weight:800;font-size:13px;text-align:left}
+      .workspace-app .nav-group{margin:6px 0}
+      .workspace-app .nav-group-header{display:flex;align-items:center;gap:11px;width:100%;border-radius:10px;margin:2px 10px;padding:10px 12px;color:#0f172a;border:1px solid transparent;background:transparent;font-weight:800;font-size:13px;text-align:left;transition:background .14s,color .14s}
       .workspace-app .nav-group-header:hover{background:#f8fafc;border-color:#eef2f7}
-      .workspace-app .nav-group.active-context>.nav-group-header{color:#1d4ed8}
+      .workspace-app .nav-group.expanded>.nav-group-header{background:#f8fafc}
+      .workspace-app .nav-group.active-context>.nav-group-header{background:#eff6ff;color:#1d4ed8}
       .workspace-app .nav-group.active-context>.nav-group-header .nav-group-icon{color:#2563eb}
       .workspace-app .nav-group-label{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;letter-spacing:.03em}
       .workspace-app .nav-group-chevron{flex:0 0 auto;color:#94a3b8;transform:rotate(-90deg);transition:transform .16s}
@@ -219,7 +220,11 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .nav-child-link .nav-icon{width:22px;height:22px;flex:0 0 22px}
       .workspace-app .nav-child-link.active{font-weight:800}
       .workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px}
-      @media(max-width:860px){.workspace-app .nav-group-flyout{display:none!important}}
+      @media(max-width:860px){
+        .workspace-app .nav-group-flyout{display:none!important}
+        .workspace-app .nav-group-header{min-height:46px;padding:11px 12px}
+        .workspace-app .nav-child-link{min-height:44px;padding:11px 10px}
+      }
       .workspace-app .nav-attention-badge{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;font-size:11px;font-weight:800;line-height:1;color:#fff;flex:0 0 auto}
       .workspace-app .nav-attention-badge.warning{background:#d97706}
       .workspace-app .nav-attention-badge.urgent{background:#dc2626}

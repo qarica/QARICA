@@ -166,6 +166,34 @@
     min-height: 42px !important;
   }
 
+  /* Admin (and every other workspace-root module) shares this one strip —
+     workspace-shell.css's own comment already flags that .workspace-tabs
+     previously had no layout rule at all; its current flex-wrap:wrap keeps it
+     safe from page overflow but turns Admin's 8 tabs into a tall multi-row
+     block on a phone. A horizontally-scrolling strip, same pattern as
+     .tabs/.modern-tabs below, keeps it to one compact row. */
+  .workspace-app .workspace-strip-inner {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 14px !important;
+  }
+
+  .workspace-app .workspace-context {
+    flex: 0 0 auto !important;
+  }
+
+  .workspace-app .workspace-tabs {
+    flex-wrap: nowrap !important;
+    flex: 0 0 auto !important;
+  }
+
+  .workspace-app .workspace-tab {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+    min-height: 40px !important;
+  }
+
   .workspace-app .tabs,
   .workspace-app .modern-tabs {
     width: 100% !important;
@@ -196,6 +224,116 @@
     max-width: 100% !important;
     overscroll-behavior-x: contain !important;
     -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Desktop dashboard/report grids must reflow to one column, not squeeze.
+     .kpi-grid's own @620px rule in globals.css still forces 2 columns; .exec-kpis
+     (Analytics' 5 executive KPI cards) and .legacy-grid3 (Dashboard's
+     "Tiến độ kế hoạch chất lượng năm" + "Gantt đề án cải tiến trọng tâm" /
+     "Điểm nóng cần chú ý" rows) have no responsive rule at all — the latter is
+     also pinned to a hard-coded inline 0.7fr/1.3fr split, which only a
+     stylesheet !important rule loaded after it (this file) can override.
+
+     The bare .kpis class (and its per-module namesakes .cs-kpis, .av2-kpis,
+     .ops-kpis, .rp-kpis, .tqm-registry-kpis used respectively by CorrectiveSafetyOverview,
+     AssessmentInspectionOverviewV2, OperationsObligationsOverview, RiskProactiveOverview
+     and TqmRegistryOverview — the shared overview components behind
+     RegistryModulePage, i.e. Đánh giá & Kiểm tra, Findings/Feedback,
+     Directives/Reports, FMEA, and every other registry module) repeats the
+     exact same defect on every page that defines it (Việc của tôi, Kế hoạch &
+     Điều hành, Sự cố & Phản ánh, Rủi ro & FMEA, Cải tiến chất lượng, Kho minh
+     chứng, plus all five overview components above): one tablet breakpoint
+     collapses the row from 4-6 columns down to 2, and then NO further
+     breakpoint ever reaches 1 column, so it stays 2-up all the way to 320px. */
+  .workspace-app .kpi-grid,
+  .workspace-app .exec-kpis,
+  .workspace-app .legacy-grid3,
+  .workspace-app .grid2,
+  .workspace-app .grid2b,
+  .workspace-app .grid3b,
+  .workspace-app .kpis,
+  .workspace-app .cs-kpis,
+  .workspace-app .av2-kpis,
+  .workspace-app .ops-kpis,
+  .workspace-app .rp-kpis,
+  .workspace-app .tqm-registry-kpis {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .workspace-app .kpi-grid > *,
+  .workspace-app .exec-kpis > *,
+  .workspace-app .legacy-grid3 > *,
+  .workspace-app .grid2 > *,
+  .workspace-app .grid2b > *,
+  .workspace-app .grid3b > *,
+  .workspace-app .kpis > *,
+  .workspace-app .cs-kpis > *,
+  .workspace-app .av2-kpis > *,
+  .workspace-app .ops-kpis > *,
+  .workspace-app .rp-kpis > *,
+  .workspace-app .tqm-registry-kpis > * {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* recurring-work-client.tsx (Lịch QLCL's "Định kỳ" view) already sets its
+     own !important 2-column rule at 900px with the same specificity as the
+     generic .workspace-app .kpis rule above — tie-break on source order is
+     unreliable between a <head> stylesheet and a component's own <style>, so
+     this one needs the extra .recurring-work-client qualifier to unambiguously
+     win on specificity instead. */
+  .workspace-app .recurring-work-client .kpis {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Lịch QLCL (calendar/page.tsx) is otherwise a well-built mobile page — it
+     swaps its 7-column month grid for a dedicated .calendar-mobile-agenda list
+     below 760px rather than trying to shrink a calendar grid — but its own
+     .quality-calendar-page .kpi-grid rule at that same breakpoint has the same
+     "collapses to 2 columns and stops" bug, and its extra page-scope class
+     gives it higher specificity than the generic .workspace-app .kpi-grid
+     rule above, so it needs its own equally (or more) specific override. */
+  .workspace-app .quality-calendar-page .kpi-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Generic safety net: a flex/grid child's default min-width is auto (its
+     content's intrinsic width), which is the single most common cause of a
+     component refusing to shrink and forcing page-level horizontal scroll. */
+  .workspace-app .panel,
+  .workspace-app .kpi-card,
+  .workspace-app .kpi,
+  .workspace-app .exec-kpis .kpi-body {
+    min-width: 0 !important;
+  }
+
+  /* Same fix, verified case-by-case for other module KPI/summary-card rows
+     that also have no responsive rule of their own: Đo lường & Giám sát's
+     6-KPI row and donut+trend row, and EMR's category readiness grid. A
+     generic "*-grid"/"*-kpis" wildcard was considered and rejected here —
+     this codebase also has many *-grid classes that are real multi-column
+     visualizations (calendar-grid, tqm-gantt-grid, risk-heatmap-grid,
+     fishbone-grid, …) that must keep their own column math, so each wrapper
+     is listed by name after confirming it is a plain card row, not a diagram. */
+  .workspace-app .iq-kpis,
+  .workspace-app .iq-grid,
+  .workspace-app .readiness-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .workspace-app .iq-kpis > *,
+  .workspace-app .iq-grid > *,
+  .workspace-app .readiness-grid > * {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
   }
 }
 

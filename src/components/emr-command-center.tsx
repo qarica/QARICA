@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
+import { EmrWorkspaceNav } from "@/components/emr-workspace-nav";
 import { Icon } from "@/components/icon";
 
 type Cat={slug:string;code:string;label:string;description:string;icon:string;total:number;done:number;blocked:number;completion:number|null};
@@ -53,6 +54,7 @@ export function EmrCommandCenter(){
     {data.filter?.active ? <button type="button" className="button tertiary small" onClick={()=>{setFrom("");setTo("");load("","");}}>Xóa lọc</button> : null}
    </form>
   </div>
+  <EmrWorkspaceNav/>
   {data.filter?.active ? <div className="emr-filter-note"><Icon name="info" size={14}/> Đang lọc theo hạng mục có hạn xử lý (due date) trong khoảng {data.filter.from||"…"} — {data.filter.to||"…"}.</div> : null}
   <div className="emr-kpis">
    <Kpi icon="gauge" label="Mức độ triển khai EMR" value={data.completion===null?"—":`${data.completion}%`} note={`${done}/${data.total} hạng mục hoàn tất`} tone="blue"/>
