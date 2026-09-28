@@ -1,13 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
   <title id="title">QARICA</title>
-  <desc id="desc">Biểu tượng QARICA — chữ Q cách điệu dạng xoáy, biểu trưng vòng lặp kiểm soát chất lượng liên tục.</desc>
+  <desc id="desc">Biểu tượng QARICA — chữ Q cách điệu từ vòng tròn mở và nét chéo, gradient xanh dương đậm sang xanh ngọc.</desc>
   <defs>
-    <linearGradient id="qarica-mark-grad" x1="12" y1="12" x2="116" y2="116" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#1d4ed8"/>
-      <stop offset="1" stop-color="#60a5fa"/>
+    <linearGradient id="qarica-mark-grad" x1="18" y1="14" x2="112" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b1e46"/>
+      <stop offset="0.38" stop-color="#1450c9"/>
+      <stop offset="0.7" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#2dd4bf"/>
     </linearGradient>
   </defs>
   <rect x="4" y="4" width="120" height="120" rx="28" fill="#eaf2ff"/>
-  <path d="M64 22a42 42 0 1 0 29.7 71.7" fill="none" stroke="url(#qarica-mark-grad)" stroke-width="15" stroke-linecap="round"/>
-  <path d="M70 60 L100 90" fill="none" stroke="url(#qarica-mark-grad)" stroke-width="15" stroke-linecap="round"/>
+  <path d="M84 29.36 A40 40 0 1 1 44 29.36" fill="none" stroke="url(#qarica-mark-grad)" stroke-width="16" stroke-linecap="round"/>
+  <path d="M75.31 75.31 L106.43 106.43" fill="none" stroke="url(#qarica-mark-grad)" stroke-width="16" stroke-linecap="round"/>
 </svg>

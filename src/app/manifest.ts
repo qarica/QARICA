@@ -9,14 +9,14 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#edf3fa",
-    theme_color: "#1d3f73",
+    background_color: "#ffffff",
+    theme_color: "#0b1e46",
     lang: "vi",
     icons: [
-      { src: "/icons/icon-192.png?v=4", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/icon-512.png?v=4", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/icons/icon-maskable-192.png?v=4", sizes: "192x192", type: "image/png", purpose: "maskable" },
-      { src: "/icons/icon-maskable-512.png?v=4", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icons/icon-192.png?v=5", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-512.png?v=5", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-maskable-192.png?v=5", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/icons/icon-maskable-512.png?v=5", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
