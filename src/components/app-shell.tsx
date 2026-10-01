@@ -10,7 +10,6 @@ import { adminLandingHref, isWorkspaceTabActive, visibleWorkspaceForPath, worksp
 import { Icon } from "@/components/icon";
 import { YearSelector } from "@/components/year-selector";
 import { NotificationBell } from "@/components/notification-bell";
-import { TopSearchBox } from "@/components/top-search-box";
 
 type AttentionState = Record<string, { count: number; urgent: boolean }>;
 
@@ -141,7 +140,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .main-shell.sidebar-collapsed{margin-left:var(--sidebar-collapsed-width)}
       .workspace-app .sidebar{width:var(--sidebar-width);transition:width .2s,transform .2s}
       .workspace-app .sidebar.collapsed{width:var(--sidebar-collapsed-width)}
-      .workspace-app .sidebar.collapsed .sidebar-brand-copy,.workspace-app .sidebar.collapsed .nav-label,.workspace-app .sidebar.collapsed .nav-link-label,.workspace-app .sidebar.collapsed .sidebar-footer{display:none}
+      .workspace-app .sidebar.collapsed .sidebar-brand-copy,.workspace-app .sidebar.collapsed .nav-label,.workspace-app .sidebar.collapsed .nav-link-label,.workspace-app .sidebar.collapsed .nav-group-label,.workspace-app .sidebar.collapsed .sidebar-footer,.workspace-app .sidebar.collapsed .sidebar-illustration{display:none}
       .workspace-app .sidebar.collapsed .sidebar-brand{padding:14px 8px;justify-content:center}
       .workspace-app .sidebar.collapsed .brand-mark{width:38px;height:38px}
       .workspace-app .sidebar.collapsed .brand-mark img{width:38px;height:38px}
@@ -208,8 +207,8 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .nav-group-header{display:flex;align-items:center;gap:11px;width:100%;border-radius:10px;margin:2px 10px;padding:10px 12px;border:1px solid transparent;background:transparent;text-align:left;transition:background .14s,color .14s}
       .workspace-app .nav-group-header:hover{background:#f8fafc;border-color:#eef2f7}
       .workspace-app .nav-group.expanded>.nav-group-header{background:#f8fafc}
-      .workspace-app .nav-group.active-context>.nav-group-header{background:#eff6ff}
-      .workspace-app .nav-group.active-context>.nav-group-header .nav-group-icon{color:#2563eb!important}
+      .workspace-app .nav-group.active-context>.nav-group-header{background:#f5f3ff}
+      .workspace-app .nav-group.active-context>.nav-group-header .nav-group-icon{color:#7c3aed!important}
       .workspace-app .nav-group-chevron{flex:0 0 auto;color:#94a3b8;transform:rotate(-90deg);transition:transform .16s}
       .workspace-app .nav-group-chevron.expanded{transform:rotate(0deg)}
       .workspace-app .nav-group-children{display:flex;flex-direction:column;padding-bottom:4px}
@@ -235,12 +234,12 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          intended margin/icon-size — which is exactly why EMR read as visually
          indistinguishable from a child row: neither the wider group-link
          margin nor the smaller child-icon size was ever actually applied. */
-      .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#0f172a!important;font-weight:800!important;font-size:13.5px!important;letter-spacing:.01em}
-      .workspace-app.workspace-app .nav-group.active-context>.nav-group-header,.workspace-app.workspace-app .nav-group.active-context>.nav-group-header .nav-group-label{color:#1d4ed8!important}
-      .workspace-app.workspace-app .nav-group-link{color:#0f172a!important;font-weight:800!important;font-size:13.5px!important;margin:6px 10px!important}
+      .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#7c3aed!important;font-weight:800!important;font-size:13.5px!important;letter-spacing:.01em}
+      .workspace-app.workspace-app .nav-group.active-context>.nav-group-header,.workspace-app.workspace-app .nav-group.active-context>.nav-group-header .nav-group-label{color:#6d28d9!important}
+      .workspace-app.workspace-app .nav-group-link{color:#7c3aed!important;font-weight:800!important;font-size:13.5px!important;margin:6px 10px!important}
       .workspace-app.workspace-app .nav-group-link .nav-link-label{color:inherit!important;font-weight:inherit!important;font-size:inherit!important}
-      .workspace-app.workspace-app .nav-group-link.active,.workspace-app.workspace-app .nav-group-link.active .nav-link-label{background:#eff6ff!important;color:#1d4ed8!important}
-      .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#7c8a9a!important;font-weight:600!important;font-size:12px!important}
+      .workspace-app.workspace-app .nav-group-link.active,.workspace-app.workspace-app .nav-group-link.active .nav-link-label{background:#f5f3ff!important;color:#6d28d9!important}
+      .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#60a5fa!important;font-weight:600!important;font-size:12px!important}
       .workspace-app.workspace-app .nav-child-link{margin:1px 10px 1px 26px!important}
       /* The collapsed-rail flyout popover is a small floating popup, not the
          full sidebar list — its child links intentionally use a flat, compact
@@ -249,8 +248,8 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          specificity, or the generic 26px-indent rule above (now !important
          to survive qms-enterprise-redesign.css) would leak into it too. */
       .workspace-app.workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px!important}
-      .workspace-app.workspace-app .nav-child-link .nav-icon{color:#94a3b8!important;width:20px!important;height:20px!important;flex:0 0 20px!important}
-      .workspace-app.workspace-app .nav-child-link:hover,.workspace-app.workspace-app .nav-child-link:hover .nav-link-label{color:#0f172a!important}
+      .workspace-app.workspace-app .nav-child-link .nav-icon{color:#60a5fa!important;width:20px!important;height:20px!important;flex:0 0 20px!important}
+      .workspace-app.workspace-app .nav-child-link:hover,.workspace-app.workspace-app .nav-child-link:hover .nav-link-label{color:#1d4ed8!important}
       .workspace-app.workspace-app .nav-child-link.active,.workspace-app.workspace-app .nav-child-link.active .nav-link-label{background:#eff6ff!important;color:#1d4ed8!important;font-weight:800!important}
       .workspace-app.workspace-app .nav-child-link.active .nav-icon{color:#2563eb!important}
       @media(max-width:860px){
@@ -264,6 +263,8 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .sidebar.collapsed .nav-attention-badge{position:absolute;right:5px;top:4px;min-width:16px;height:16px;padding:0 4px;font-size:9px;border:2px solid #fff}
       .workspace-app .sidebar.collapsed .nav-group-flyout .nav-attention-badge{position:static;min-width:20px;height:20px;padding:0 6px;font-size:11px;border:0}
       .workspace-app .sidebar-footer{border-top:1px solid #f1f5f9;padding:12px 14px}
+      .workspace-app .sidebar-illustration{margin-top:24px;padding:18px 20px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;opacity:.9}
+      .workspace-app .sidebar-illustration-caption{margin:0;font-size:11px;line-height:1.5;color:#93a5c2;max-width:180px}
       .workspace-app .scope-chip{color:#64748b;font-size:11px;margin-bottom:8px}
       .workspace-app .sidebar-collapse-text{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:#64748b;font-size:12.5px;font-weight:700;padding:6px 4px;cursor:pointer;border-radius:8px}
       .workspace-app .sidebar-collapse-text:hover{background:#f8fafc;color:#0f172a}
@@ -297,12 +298,32 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
         // top-level link instead, styled like a Level-1 item, so there is
         // never an "expand reveals only 1 item" moment.
         if (group.children.length === 1) return renderChild(group.children[0], true);
-        return <div className={`nav-group ${expanded ? "expanded" : ""} ${isActiveGroup ? "active-context" : ""}`} key={group.id}><button type="button" className="nav-group-header" aria-expanded={expanded} onClick={() => toggleGroup(group.id)}><span className="nav-icon nav-group-icon" aria-hidden="true"><Icon name={group.icon} size={18} /></span><span className="nav-group-label">{group.label}</span><Icon name="chevron-down" size={15} className={`nav-group-chevron ${expanded ? "expanded" : ""}`} /></button><div className="nav-group-children" aria-hidden={!expanded}>{expanded ? group.children.map((c) => renderChild(c)) : null}</div><div className="nav-group-flyout"><div className="nav-group-flyout-title">{group.label}</div>{group.children.map((c) => renderChild(c))}</div></div>; })}</nav>
+        return <div className={`nav-group ${expanded ? "expanded" : ""} ${isActiveGroup ? "active-context" : ""}`} key={group.id}><button type="button" className="nav-group-header" aria-expanded={expanded} onClick={() => toggleGroup(group.id)}><span className="nav-icon nav-group-icon" aria-hidden="true"><Icon name={group.icon} size={18} /></span><span className="nav-group-label">{group.label}</span><Icon name="chevron-down" size={15} className={`nav-group-chevron ${expanded ? "expanded" : ""}`} /></button><div className="nav-group-children" aria-hidden={!expanded}>{expanded ? group.children.map((c) => renderChild(c)) : null}</div><div className="nav-group-flyout"><div className="nav-group-flyout-title">{group.label}</div>{group.children.map((c) => renderChild(c))}</div></div>; })}
+      <div className="sidebar-illustration" aria-hidden="true">
+        <svg width="140" height="104" viewBox="0 0 140 104" fill="none">
+          <rect x="26" y="28" width="88" height="68" rx="6" fill="#eff6ff" stroke="#bfdbfe" strokeWidth="2"/>
+          <rect x="52" y="8" width="36" height="24" rx="4" fill="#dbeafe" stroke="#bfdbfe" strokeWidth="2"/>
+          <rect x="64" y="13" width="12" height="12" fill="#2563eb"/>
+          <rect x="68" y="9" width="4" height="20" fill="#fff"/>
+          <rect x="58" y="17" width="20" height="4" fill="#fff"/>
+          <rect x="36" y="42" width="11" height="11" rx="2" fill="#93c5fd"/>
+          <rect x="55" y="42" width="11" height="11" rx="2" fill="#93c5fd"/>
+          <rect x="74" y="42" width="11" height="11" rx="2" fill="#93c5fd"/>
+          <rect x="93" y="42" width="11" height="11" rx="2" fill="#93c5fd"/>
+          <rect x="36" y="61" width="11" height="11" rx="2" fill="#93c5fd"/>
+          <rect x="74" y="61" width="11" height="11" rx="2" fill="#93c5fd"/>
+          <rect x="93" y="61" width="11" height="11" rx="2" fill="#93c5fd"/>
+          <rect x="58" y="76" width="24" height="20" rx="2" fill="#2563eb"/>
+          <path d="M14 96h112" stroke="#dbeafe" strokeWidth="3" strokeLinecap="round"/>
+        </svg>
+        <p className="sidebar-illustration-caption">QARICA đồng hành cùng hành trình chất lượng của bệnh viện bạn.</p>
+      </div>
+      </nav>
       <div className="sidebar-footer"><div className="scope-chip">{user.scopeTypes.includes("HOSPITAL") ? "Phạm vi: Toàn viện" : `Phạm vi: ${user.primaryDepartmentName || "Được phân công"}`}</div><button type="button" className="sidebar-collapse-text" onClick={toggleSidebarCollapsed}><Icon name="panel-left-close" size={16} /><span>Thu gọn</span></button></div>
     </aside>
     {mobileOpen ? <button className="sidebar-overlay" onClick={() => setMobileOpen(false)} aria-label="Đóng menu" /> : null}
     <div className={`main-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-      <header className="topbar qarica-topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Mở menu"><Icon name="menu" /></button><div className="qarica-header-brand"><Image className="qarica-header-mark" src="/brand/qarica-mark-v2.svg" alt="" width={26} height={26} aria-hidden="true" /><strong className="qarica-header-name">QARICA</strong><span className="qarica-header-divider" aria-hidden="true"/></div><TopSearchBox /></div><div className="topbar-right">{organization?.name ? <span className="org-pill"><Icon name="building-2" size={14} />{organization.name}</span> : null}<YearSelector value={year} /><NotificationBell />{adminHref ? <Link href={adminHref} className={`icon-button header-icon admin-launcher ${pathname.startsWith("/admin") ? "active" : ""}`} onClick={() => startNavigation(adminHref)} title="Quản trị hệ thống" aria-label="Quản trị hệ thống"><Icon name="settings" size={18} /></Link> : null}<div className="profile-menu-wrap"><button className="profile-button" onClick={() => setProfileOpen((value) => !value)} aria-expanded={profileOpen}><span className="avatar">{initials}</span><span className="profile-copy"><strong>{displayName}</strong><small>{user.roleNames[0] || user.roleCodes[0] || user.primaryDepartmentName || user.email}</small></span><Icon name="chevron-down" size={16} /></button>{profileOpen ? <div className="profile-dropdown"><div className="profile-dropdown-head"><strong>{displayName}</strong><span>{user.roleNames.join(" · ") || user.roleCodes.join(" · ") || "USER"}</span></div><button onClick={logout}><Icon name="logout" size={17} /> Đăng xuất</button></div> : null}</div></div></header>
+      <header className="topbar qarica-topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Mở menu"><Icon name="menu" /></button><div className="qarica-header-brand"><Image className="qarica-header-mark" src="/brand/qarica-mark-v2.svg" alt="" width={26} height={26} aria-hidden="true" /><strong className="qarica-header-name">QARICA</strong><span className="qarica-header-divider" aria-hidden="true"/></div></div><div className="topbar-right">{organization?.name ? <span className="org-pill"><Icon name="building-2" size={14} />{organization.name}</span> : null}<YearSelector value={year} /><NotificationBell />{adminHref ? <Link href={adminHref} className={`icon-button header-icon admin-launcher ${pathname.startsWith("/admin") ? "active" : ""}`} onClick={() => startNavigation(adminHref)} title="Quản trị hệ thống" aria-label="Quản trị hệ thống"><Icon name="settings" size={18} /></Link> : null}<div className="profile-menu-wrap"><button className="profile-button" onClick={() => setProfileOpen((value) => !value)} aria-expanded={profileOpen}><span className="avatar">{initials}</span><span className="profile-copy"><strong>{displayName}</strong><small>{user.roleNames[0] || user.roleCodes[0] || user.primaryDepartmentName || user.email}</small></span><Icon name="chevron-down" size={16} /></button>{profileOpen ? <div className="profile-dropdown"><div className="profile-dropdown-head"><strong>{displayName}</strong><span>{user.roleNames.join(" · ") || user.roleCodes.join(" · ") || "USER"}</span></div><button onClick={logout}><Icon name="logout" size={17} /> Đăng xuất</button></div> : null}</div></div></header>
       {workspace && workspace.tabs.length > 1 ? <div className="workspace-strip"><div className="workspace-strip-inner"><div className="workspace-context"><span>{workspace.eyebrow}</span><strong>{workspace.title}</strong></div><nav className="workspace-tabs" aria-label={`Chức năng ${workspace.title}`}>{workspace.tabs.map((tab) => { const active = isWorkspaceTabActive(pathname, tab.href); return <Link key={tab.href} href={tab.href} className={`workspace-tab ${active ? "active" : ""}`} onClick={() => startNavigation(tab.href)}>{tab.label}</Link>; })}</nav></div></div> : null}
       <main className="content">{children}</main>
     </div>

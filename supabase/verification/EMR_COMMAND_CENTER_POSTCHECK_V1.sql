@@ -13,7 +13,7 @@ where n.nspname='public' and c.relname='emr_rollout_items';
 select column_name
 from information_schema.columns
 where table_schema='public' and table_name='emr_rollout_items'
-  and column_name in ('organization_id','department_id','owner_user_id','due_date','priority','is_go_live_gate','evidence_url','verified_at','verified_by')
+  and column_name in ('organization_id','department_ids','owner_user_id','due_date','priority','is_go_live_gate','evidence_url','verified_at','verified_by')
 order by column_name;
 
 -- 3) Verify EMR permissions exist and are active.

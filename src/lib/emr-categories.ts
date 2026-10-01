@@ -1,13 +1,13 @@
 export type EmrCategoryCode =
   | "CHU_KY_SO"
-  | "NHAP_LIEU"
   | "DAO_TAO"
   | "THIET_BI_YTE"
   | "QUY_TRINH"
   | "BIEU_MAU"
   | "LOI"
   | "THIET_BI_CNTT"
-  | "PATIENT_PORTAL";
+  | "PATIENT_PORTAL"
+  | "TAI_LIEU_HUONG_DAN";
 
 export type EmrCategory = {
   slug: string;
@@ -15,18 +15,26 @@ export type EmrCategory = {
   label: string;
   description: string;
   icon: string;
+  // Override for the generic "Mô tả" field's label on the create/edit form
+  // and table header for this category — the underlying column (and its
+  // value) is unchanged, only the label shown to the user differs, since
+  // what that free-text field is actually used for varies by category
+  // (e.g. Biểu mẫu uses it to cite the reference document/circular).
+  descriptionLabel?: string;
 };
 
+// Order here drives the EMR workspace nav strip and overview grid order —
+// set per explicit user request, not alphabetical/insertion order.
 export const EMR_CATEGORIES: EmrCategory[] = [
-  { slug: "chu-ky-so", code: "CHU_KY_SO", label: "Chữ ký số", description: "Theo dõi cấp phát, hiệu lực và sự cố chữ ký số phục vụ bệnh án điện tử.", icon: "key-round" },
-  { slug: "nhap-lieu", code: "NHAP_LIEU", label: "Nhập liệu", description: "Tiến độ và vướng mắc nhập liệu hồ sơ vào hệ thống EMR.", icon: "file-text" },
-  { slug: "dao-tao", code: "DAO_TAO", label: "Đào tạo", description: "Kế hoạch và tình trạng đào tạo sử dụng EMR cho nhân viên.", icon: "book-open" },
-  { slug: "thiet-bi-yte", code: "THIET_BI_YTE", label: "Thiết bị y tế", description: "Thiết bị y tế cần kết nối/tương thích với hệ thống EMR.", icon: "network" },
   { slug: "quy-trinh", code: "QUY_TRINH", label: "Quy trình", description: "Quy trình nghiệp vụ cần điều chỉnh khi triển khai EMR.", icon: "workflow" },
-  { slug: "bieu-mau", code: "BIEU_MAU", label: "Biểu mẫu", description: "Biểu mẫu giấy cần số hóa/điện tử hóa trong EMR.", icon: "file-input" },
+  { slug: "bieu-mau", code: "BIEU_MAU", label: "Biểu mẫu", description: "Biểu mẫu giấy cần số hóa/điện tử hóa trong EMR.", icon: "file-input", descriptionLabel: "Nguồn tham chiếu" },
   { slug: "loi", code: "LOI", label: "Lỗi", description: "Lỗi và sự cố phát sinh trong quá trình triển khai EMR.", icon: "circle-alert" },
-  { slug: "thiet-bi-cntt", code: "THIET_BI_CNTT", label: "Thiết bị CNTT", description: "Máy tính, mạng và hạ tầng CNTT phục vụ EMR.", icon: "cog" },
+  { slug: "dao-tao", code: "DAO_TAO", label: "Đào tạo", description: "Kế hoạch và tình trạng đào tạo sử dụng EMR cho nhân viên.", icon: "book-open" },
   { slug: "patient-portal", code: "PATIENT_PORTAL", label: "Patient Portal", description: "Triển khai cổng thông tin tra cứu, đăng ký và kết quả dành cho người bệnh.", icon: "smartphone" },
+  { slug: "chu-ky-so", code: "CHU_KY_SO", label: "Chữ ký số", description: "Theo dõi cấp phát, hiệu lực và sự cố chữ ký số phục vụ bệnh án điện tử.", icon: "key-round" },
+  { slug: "thiet-bi-cntt", code: "THIET_BI_CNTT", label: "Thiết bị CNTT", description: "Máy tính, mạng và hạ tầng CNTT phục vụ EMR.", icon: "cog" },
+  { slug: "thiet-bi-yte", code: "THIET_BI_YTE", label: "Thiết bị y tế", description: "Thiết bị y tế cần kết nối/tương thích với hệ thống EMR.", icon: "network" },
+  { slug: "tai-lieu-huong-dan", code: "TAI_LIEU_HUONG_DAN", label: "Tài liệu hướng dẫn", description: "Tài liệu hướng dẫn sử dụng, có thể liên kết tới một biểu mẫu cụ thể (không bắt buộc).", icon: "file-text" },
 ];
 
 export function emrCategoryBySlug(slug: string): EmrCategory | undefined {
@@ -45,12 +53,6 @@ export const EMR_CATEGORY_KPIS: Record<EmrCategoryCode, EmrKpi[]> = {
     { bucket: "CERT_VALID", label: "Còn hiệu lực" },
     { bucket: "CERT_EXPIRING", label: "Sắp hết hạn (<30 ngày)" },
     { bucket: "CERT_EXPIRED", label: "Đã hết hạn" },
-  ],
-  NHAP_LIEU: [
-    { bucket: "TOTAL", label: "Tổng hồ sơ" },
-    { bucket: "DONE", label: "Đã nhập" },
-    { bucket: "IN_PROGRESS", label: "Đang nhập" },
-    { bucket: "TODO", label: "Chưa nhập" },
   ],
   DAO_TAO: [
     { bucket: "TOTAL", label: "Tổng lớp" },
@@ -96,6 +98,12 @@ export const EMR_CATEGORY_KPIS: Record<EmrCategoryCode, EmrKpi[]> = {
     { bucket: "TODO", label: "Chưa triển khai" },
     { bucket: "BLOCKED", label: "Lỗi / feedback" },
   ],
+  TAI_LIEU_HUONG_DAN: [
+    { bucket: "TOTAL", label: "Tổng tài liệu" },
+    { bucket: "DONE", label: "Đã ban hành" },
+    { bucket: "IN_PROGRESS", label: "Đang soạn" },
+    { bucket: "TODO", label: "Chưa soạn" },
+  ],
 };
 
 export const EMR_STATUS_LABELS: Record<string, string> = {
@@ -105,8 +113,55 @@ export const EMR_STATUS_LABELS: Record<string, string> = {
   BLOCKED: "Bị chặn",
 };
 
-export type EmrFieldType = "text" | "date" | "number" | "select";
-export type EmrField = { key: string; label: string; type: EmrFieldType; options?: string[]; showBeforeTitle?: boolean };
+export type EmrFieldType = "text" | "textarea" | "date" | "number" | "select" | "multiselect" | "reference" | "sequence" | "boolean";
+export type EmrField = {
+  key: string;
+  label: string;
+  type: EmrFieldType;
+  options?: string[];
+  showBeforeTitle?: boolean;
+  // For type "reference": this field stores the id of an item in ANOTHER
+  // category (e.g. a Lỗi item pointing at the Biểu mẫu item it was filed
+  // against). The picker's options are the live items of that category for
+  // this organization, fetched the same generic way every category's own
+  // list already is (/api/emr/items?category=...) — not a hard-coded list.
+  referenceCategory?: EmrCategoryCode;
+};
+
+// For type "sequence": an ORDERED list of role picks (e.g. "1. Điều dưỡng
+// ký -> 2. Bác sĩ ký -> 3. Trưởng khoa ký"), stored as a single string with
+// steps joined by SEQUENCE_SEPARATOR — not free text, each step must be one
+// of the field's `options`. Order = array order (no sorting).
+export const SEQUENCE_SEPARATOR = " → ";
+export function sequenceSteps(raw: unknown): string[] {
+  return String(raw ?? "").split(SEQUENCE_SEPARATOR).map((s) => s.trim()).filter(Boolean);
+}
+export function formatSequenceValue(raw: unknown): string {
+  const steps = sequenceSteps(raw);
+  if (!steps.length) return "—";
+  return steps.map((s, i) => `${i + 1}. ${s}`).join(SEQUENCE_SEPARATOR);
+}
+
+// For type "boolean": a single tick (e.g. "Hiển thị trên Patient Portal?"),
+// stored as the literal string "true"/"false" — not "" — so an explicit
+// "no" is distinguishable from "field was never set" once saved.
+export function formatBooleanValue(raw: unknown): string {
+  return raw === "true" ? "Có" : "Không";
+}
+
+// Which OTHER categories have a "reference" field pointing at `targetCode`.
+// Lets a category's own page show "N lỗi liên quan" style reverse-links
+// without either side hard-coding the other's existence beyond the one
+// `referenceCategory` declaration on the referencing field.
+export function categoriesReferencing(targetCode: EmrCategoryCode): { category: EmrCategoryCode; field: EmrField }[] {
+  const results: { category: EmrCategoryCode; field: EmrField }[] = [];
+  for (const code of Object.keys(EMR_CATEGORY_FIELDS) as EmrCategoryCode[]) {
+    for (const field of EMR_CATEGORY_FIELDS[code]) {
+      if (field.type === "reference" && field.referenceCategory === targetCode) results.push({ category: code, field });
+    }
+  }
+  return results;
+}
 
 // Mỗi danh mục theo dõi một loại thông tin khác nhau trong triển khai EMR thật - không dùng
 // chung 1 form cho cả 8 danh mục. Người phụ trách/khoa-phòng/ưu tiên/Go-live gate đã có sẵn
@@ -115,10 +170,6 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
   CHU_KY_SO: [
     { key: "certificate_expiry", label: "Ngày hết hạn chứng thư số", type: "date" },
     { key: "ca_provider", label: "Nhà cung cấp chứng thư số", type: "text" },
-  ],
-  NHAP_LIEU: [
-    { key: "record_count", label: "Số hồ sơ đã nhập", type: "number" },
-    { key: "data_source", label: "Nguồn dữ liệu gốc", type: "text" },
   ],
   DAO_TAO: [
     { key: "training_date", label: "Ngày đào tạo", type: "date" },
@@ -135,10 +186,25 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
   ],
   BIEU_MAU: [
     { key: "form_code", label: "Mã biểu mẫu", type: "text", showBeforeTitle: true },
+    { key: "binding_group", label: "Nhóm gáy", type: "text" },
     { key: "digitized", label: "Tình trạng số hóa", type: "select", options: ["Đã số hóa", "Chưa số hóa"] },
+    // Giai đoạn triển khai sau khi số hóa: Demo -> UAT -> Chạy chính thức.
+    // Giữ nguyên tắc hạn chế nhập tự do (như QLCL) — chọn từ danh sách cố
+    // định, không phải ô text, nên reuse "select" sẵn có thay vì tạo loại
+    // field mới.
+    { key: "deployment_phase", label: "Giai đoạn triển khai", type: "select", options: ["Demo", "UAT", "Chạy chính thức"] },
+    { key: "execution_platform", label: "Nơi thực hiện", type: "text" },
     { key: "training_required", label: "Yêu cầu đào tạo", type: "select", options: ["Cần đào tạo", "Không cần đào tạo"] },
+    { key: "target_roles", label: "Đối tượng thực hiện", type: "multiselect", options: ["Bác sĩ", "Điều dưỡng", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Khác"] },
+    // Một số biểu mẫu còn cần đóng mộc như một bước trong trình tự ký (sau
+    // chữ ký của người có thẩm quyền) — nên "Đóng mộc" là một lựa chọn bước,
+    // không phải "Đối tượng thực hiện" (target_roles không có mục này).
+    { key: "signing_sequence", label: "Trình tự ký", type: "sequence", options: ["Bác sĩ", "Điều dưỡng", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Đóng mộc", "Khác"] },
+    { key: "notes", label: "Ghi chú", type: "textarea" },
+    { key: "patient_portal_visible", label: "Hiển thị trên Patient Portal", type: "boolean" },
   ],
   LOI: [
+    { key: "related_form_id", label: "Biểu mẫu liên quan", type: "reference", referenceCategory: "BIEU_MAU" },
     { key: "severity", label: "Mức độ", type: "select", options: ["Thấp", "Trung bình", "Cao", "Nghiêm trọng"] },
   ],
   THIET_BI_CNTT: [
@@ -148,5 +214,13 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
   PATIENT_PORTAL: [
     { key: "portal_module", label: "Chức năng cổng", type: "text" },
     { key: "rollout_status", label: "Tình trạng triển khai", type: "select", options: ["Đã triển khai", "Đang thử nghiệm", "Chưa triển khai"] },
+  ],
+  // related_form_id is optional ("không bắt buộc") the same way every other
+  // "reference" field already is — the UI never requires a selection and the
+  // generic sanitizeDetails() only stores it when a value was actually
+  // picked, so a guide document can stand alone or cover a whole process
+  // rather than one specific form.
+  TAI_LIEU_HUONG_DAN: [
+    { key: "related_form_id", label: "Biểu mẫu liên quan", type: "reference", referenceCategory: "BIEU_MAU" },
   ],
 };

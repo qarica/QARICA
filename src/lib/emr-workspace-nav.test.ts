@@ -4,20 +4,26 @@ import { describe, expect, it } from "vitest";
 const navComponent = readFileSync("src/components/emr-workspace-nav.tsx", "utf8");
 const overviewPage = readFileSync("src/components/emr-command-center.tsx", "utf8");
 const categoryPage = readFileSync("src/app/(app)/emr/[category]/page.tsx", "utf8");
+const timelinePage = readFileSync("src/app/(app)/emr/timeline/page.tsx", "utf8");
 const categories = readFileSync("src/lib/emr-categories.ts", "utf8");
 
-describe("EMR workspace navigation — 10 destinations reachable on every device", () => {
-  it("exposes exactly 10 destinations: Tổng quan EMR + the 9 real EMR_CATEGORIES", () => {
+describe("EMR workspace navigation — 11 destinations reachable on every device", () => {
+  // NHAP_LIEU was removed and TAI_LIEU_HUONG_DAN was added afterwards at
+  // explicit user request — see emr-nhap-lieu-removal.test.ts and
+  // emr-nav-order.test.ts. 9 real categories + overview + Timeline = 11.
+  it("exposes exactly 11 destinations: Tổng quan EMR + the 9 real EMR_CATEGORIES + Timeline", () => {
     expect(navComponent).toContain('{ slug: "", label: "Tổng quan EMR"');
     expect(navComponent).toContain("...EMR_CATEGORIES.map(");
+    expect(navComponent).toContain('{ slug: "timeline", label: "Timeline"');
     const codeCount = (categories.match(/code: "[A-Z_]+"/g) ?? []).length;
     expect(codeCount).toBe(9);
   });
 
-  it("is wired into both the EMR overview and every category detail page (same component, no drift between them)", () => {
+  it("is wired into the EMR overview, every category detail page, and the timeline page (same component, no drift between them)", () => {
     expect(overviewPage).toContain("<EmrWorkspaceNav");
     expect(overviewPage).toContain('import { EmrWorkspaceNav } from "@/components/emr-workspace-nav";');
     expect(categoryPage).toContain("<EmrWorkspaceNav");
+    expect(timelinePage).toContain("<EmrWorkspaceNav");
   });
 
   it("scrolls horizontally instead of wrapping into a multi-row/accordion block", () => {

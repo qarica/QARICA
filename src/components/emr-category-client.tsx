@@ -1,10 +1,13 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useEmrCreateSignal } from "@/components/emr-create-context";
 import { Icon } from "@/components/icon";
-import { EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
+import { categoriesReferencing, EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, formatBooleanValue, formatSequenceValue, sequenceSteps, SEQUENCE_SEPARATOR, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
 
-type Item = { id: string; category: string; title: string; description: string | null; status: string; department_id:string|null; owner_user_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; created_at: string; updated_at: string };
+type Item = { id: string; category: string; title: string; description: string | null; status: string; department_ids:string[]; owner_user_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; created_at: string; updated_at: string };
+
+function toggleId(ids: string[], id: string) { return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]; }
 
 const KPI_TONE: Record<EmrKpiBucket, string> = { TOTAL: "blue", DONE: "green", IN_PROGRESS: "amber", TODO: "slate", BLOCKED: "red", OVERDUE: "red", CERT_VALID: "green", CERT_EXPIRING: "amber", CERT_EXPIRED: "red" };
 const KPI_ICON: Record<EmrKpiBucket, string> = { TOTAL: "list-checks", DONE: "badge-check", IN_PROGRESS: "refresh-cw", TODO: "calendar-days", BLOCKED: "circle-alert", OVERDUE: "triangle-alert", CERT_VALID: "shield-check", CERT_EXPIRING: "triangle-alert", CERT_EXPIRED: "circle-alert" };
@@ -28,20 +31,34 @@ function bucketCount(bucket: EmrKpiBucket, items: Item[], hasBlockedBucket: bool
   }
 }
 
-export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { categoryCode: string; categoryLabel: string; canManage: boolean }) {
+export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, descriptionLabel }: { categoryCode: string; categoryLabel: string; canManage: boolean; descriptionLabel?: string }) {
+  const descLabel = descriptionLabel || "Mô tả";
   const extraFields = EMR_CATEGORY_FIELDS[categoryCode as keyof typeof EMR_CATEGORY_FIELDS] || [];
   const beforeTitleFields = extraFields.filter((f) => f.showBeforeTitle);
   const afterTitleFields = extraFields.filter((f) => !f.showBeforeTitle);
+  // Forward: this category's own fields that point at another category's
+  // items (e.g. Lỗi's "Biểu mẫu liên quan"). Reverse: other categories whose
+  // fields point back AT this one (e.g. Biểu mẫu learning that Lỗi links to
+  // it), so a form's row can surface "N lỗi liên quan" without Biểu mẫu's
+  // config knowing Lỗi exists beyond that one declared reference.
+  const referenceFields = extraFields.filter((f) => f.type === "reference" && f.referenceCategory);
+  const incomingReferences = categoriesReferencing(categoryCode as EmrCategoryCode);
+  const [refItems, setRefItems] = useState<Record<string, { id: string; title: string; details: Record<string, unknown> }[]>>({});
+  const slugForCode = (code: string) => EMR_CATEGORIES.find((c) => c.code === code)?.slug || "";
   const kpis = EMR_CATEGORY_KPIS[categoryCode as EmrCategoryCode] || [];
   const hasBlockedBucket = kpis.some((k) => k.bucket === "BLOCKED");
   const [items, setItems] = useState<Item[]>([]);
   const [search, setSearch] = useState("");
+  // "default" keeps the API's own order (newest first, i.e. STT/creation
+  // order as loaded) — clicking the Tiêu đề header cycles STT -> A-Z -> Z-A.
+  const [titleSort, setTitleSort] = useState<"default" | "asc" | "desc">("default");
+  function cycleTitleSort() { setTitleSort((s) => (s === "default" ? "asc" : s === "asc" ? "desc" : "default")); }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Item | null>(null);
   const [creating, setCreating] = useState(false);
   const emptyDetails = () => Object.fromEntries(extraFields.map((f) => [f.key, ""])) as Record<string, string>;
-  const [form, setForm] = useState({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_id:"", owner_user_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
+  const [form, setForm] = useState({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_ids:[] as string[], owner_user_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
   const [saving, setSaving] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [departments,setDepartments]=useState<{id:string;name:string;short_name:string|null}[]>([]);
@@ -68,8 +85,22 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryCode]);
 
+  useEffect(() => {
+    const relatedCodes = Array.from(new Set([
+      ...referenceFields.map((f) => f.referenceCategory as string),
+      ...incomingReferences.map((r) => r.category as string),
+    ]));
+    if (!relatedCodes.length) { setRefItems({}); return; }
+    let cancelled = false;
+    Promise.all(relatedCodes.map((code) =>
+      fetch(`/api/emr/items?category=${encodeURIComponent(code)}`).then((r) => r.json()).then((j) => [code, j.ok ? j.items : []] as const).catch(() => [code, []] as const)
+    )).then((results) => { if (!cancelled) setRefItems(Object.fromEntries(results)); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryCode]);
+
   function openCreate() {
-    setForm({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_id:"", owner_user_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
+    setForm({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_ids:[], owner_user_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
     setPendingFile(null);
     setCreating(true);
     setEditing(null);
@@ -84,7 +115,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
   function openEdit(item: Item) {
     const details: Record<string, string> = {};
     for (const f of extraFields) details[f.key] = item.details?.[f.key] != null ? String(item.details[f.key]) : "";
-    setForm({ title: item.title, description: item.description || "", status: item.status, priority: item.priority || "MEDIUM", due_date: item.due_date || "", department_id:item.department_id||"", owner_user_id:item.owner_user_id||"", is_go_live_gate: !!item.is_go_live_gate, evidence_url: item.evidence_url || "", verify_completed:!!item.verified_at, details });
+    setForm({ title: item.title, description: item.description || "", status: item.status, priority: item.priority || "MEDIUM", due_date: item.due_date || "", department_ids: item.department_ids || [], owner_user_id:item.owner_user_id||"", is_go_live_gate: !!item.is_go_live_gate, evidence_url: item.evidence_url || "", verify_completed:!!item.verified_at, details });
     setEditing(item);
     setCreating(false);
   }
@@ -175,7 +206,12 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
     }
   }
 
-  const filtered = useMemo(() => { const text = search.trim().toLowerCase(); if (!text) return items; return items.filter((i) => `${i.title} ${i.description || ""}`.toLowerCase().includes(text)); }, [items, search]);
+  const filtered = useMemo(() => {
+    const text = search.trim().toLowerCase();
+    const rows = text ? items.filter((i) => `${i.title} ${i.description || ""}`.toLowerCase().includes(text)) : items;
+    if (titleSort === "default") return rows;
+    return [...rows].sort((a, b) => titleSort === "asc" ? a.title.localeCompare(b.title, "vi") : b.title.localeCompare(a.title, "vi"));
+  }, [items, search, titleSort]);
 
   return (
     <div className="page-stack">
@@ -202,7 +238,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Tiêu đề</th><th>Mô tả</th>{afterTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Tệp đính kèm</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th><th></th></tr>
+                <tr><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th><th>{descLabel}</th>{afterTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}{incomingReferences.map((ref)=><th key={ref.category}>{ref.field.label}</th>)}<th>Tệp đính kèm</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th><th></th></tr>
               </thead>
               <tbody>
                 {filtered.map((item, idx) => (
@@ -211,7 +247,33 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
                     {beforeTitleFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
                     <td><strong>{item.title}</strong></td>
                     <td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>
-                    {afterTitleFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
+                    {afterTitleFields.map((f)=>{
+                      const value = item.details?.[f.key];
+                      const hasValue = value!=null && value!=="";
+                      if (f.type === "reference" && f.referenceCategory) {
+                        const target = hasValue ? (refItems[f.referenceCategory]||[]).find((r)=>r.id===value) : null;
+                        return <td key={f.key}>{target ? <Link className="table-link" href={`/emr/${slugForCode(f.referenceCategory)}`}>{target.title}</Link> : "—"}</td>;
+                      }
+                      if (f.type === "sequence") {
+                        const steps = sequenceSteps(value);
+                        return <td key={f.key}>{steps.length ? <>{formatSequenceValue(value)}<div><small>{steps.length} chữ ký</small></div></> : "—"}</td>;
+                      }
+                      if (f.type === "boolean") {
+                        const isTrue = value === "true";
+                        return <td key={f.key}>{formatBooleanValue(value)}{f.key === "patient_portal_visible" && isTrue ? <div><Link className="table-link" href="/emr/patient-portal">Xem Patient Portal →</Link></div> : null}</td>;
+                      }
+                      // Whichever form declares it needs training should link
+                      // straight across to the Đào tạo (training) category
+                      // instead of leaving the two menus disconnected — keyed
+                      // by field key/value so it applies to any category that
+                      // uses this same "training_required" convention.
+                      const isTrainingLink = f.key==="training_required" && value==="Cần đào tạo";
+                      return <td key={f.key}>{hasValue ? String(value) : "—"}{isTrainingLink ? <div><Link className="table-link" href="/emr/dao-tao">Xem Đào tạo →</Link></div> : null}</td>;
+                    })}
+                    {incomingReferences.map((ref) => {
+                      const count = (refItems[ref.category]||[]).filter((r)=>r.details?.[ref.field.key]===item.id).length;
+                      return <td key={ref.category}>{count ? <Link className="table-link" href={`/emr/${slugForCode(ref.category)}`}>{count} {ref.field.label.toLowerCase()} →</Link> : <Link className="table-link" href={`/emr/${slugForCode(ref.category)}`}>Ghi nhận →</Link>}</td>;
+                    })}
                     <td>{item.details?.file_name ? <button type="button" className="button tertiary small" onClick={() => viewFile(item)}>📎 {String(item.details.file_name)}</button> : "—"}</td>
                     <td><span className={`status-badge ${item.priority==="CRITICAL"?"danger":item.priority==="HIGH"?"warning":"muted"}`}>{{LOW:"Thấp",MEDIUM:"Trung bình",HIGH:"Cao",CRITICAL:"Nghiêm trọng"}[item.priority]||item.priority}</span></td><td>{item.due_date || "—"}</td>
                     <td>{EMR_STATUS_LABELS[item.status] || item.status}{item.verified_at ? <div><small>Đã xác minh</small></div> : null}</td>
@@ -235,24 +297,113 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
               <label>Tiêu đề *
                 <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
               </label>
-              <label>Mô tả
+              <label>{descLabel}
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
               </label>
               {extraFields.map((f) => (
-                <label key={f.key}>{f.label}
-                  {f.type === "select" ? (
-                    <select value={form.details[f.key] || ""} onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.value } })}>
-                      <option value="">— Chưa chọn —</option>
-                      {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  ) : (
-                    <input
-                      type={f.type === "date" ? "date" : f.type === "number" ? "number" : "text"}
-                      value={form.details[f.key] || ""}
-                      onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.value } })}
-                    />
-                  )}
-                </label>
+                f.type === "boolean" ? (
+                  <div key={f.key}>
+                    <label className="inline-check">
+                      <input
+                        type="checkbox"
+                        checked={form.details[f.key] === "true"}
+                        onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.checked ? "true" : "false" } })}
+                      /> {f.label}
+                    </label>
+                    {f.key === "patient_portal_visible" && form.details[f.key] === "true" ? <Link className="table-link" href="/emr/patient-portal">Xem Patient Portal →</Link> : null}
+                  </div>
+                ) : f.type === "sequence" ? (
+                  <fieldset key={f.key}>
+                    <legend>{f.label} {(() => { const n = sequenceSteps(form.details[f.key]).length; return n ? <span className="status-badge muted">{n} chữ ký</span> : null; })()}</legend>
+                    <div className="sequence-steps">
+                      {sequenceSteps(form.details[f.key]).map((step, i, steps) => (
+                        <div className="sequence-step-row" key={i}>
+                          <span className="sequence-step-no">{i + 1}</span>
+                          <select
+                            value={step}
+                            onChange={(e) => {
+                              const next = [...steps];
+                              next[i] = e.target.value;
+                              setForm({ ...form, details: { ...form.details, [f.key]: next.join(SEQUENCE_SEPARATOR) } });
+                            }}
+                          >
+                            <option value="">— Chọn —</option>
+                            {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                          <button type="button" className="button tertiary small" disabled={i === 0} onClick={() => {
+                            const next = [...steps];
+                            [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                            setForm({ ...form, details: { ...form.details, [f.key]: next.join(SEQUENCE_SEPARATOR) } });
+                          }}>↑</button>
+                          <button type="button" className="button tertiary small" disabled={i === steps.length - 1} onClick={() => {
+                            const next = [...steps];
+                            [next[i + 1], next[i]] = [next[i], next[i + 1]];
+                            setForm({ ...form, details: { ...form.details, [f.key]: next.join(SEQUENCE_SEPARATOR) } });
+                          }}>↓</button>
+                          <button type="button" className="button tertiary small" onClick={() => {
+                            const next = steps.filter((_, idx) => idx !== i);
+                            setForm({ ...form, details: { ...form.details, [f.key]: next.join(SEQUENCE_SEPARATOR) } });
+                          }}>Xoá bước</button>
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button" className="button secondary small" onClick={() => {
+                      const next = [...sequenceSteps(form.details[f.key]), (f.options || [])[0] || ""];
+                      setForm({ ...form, details: { ...form.details, [f.key]: next.join(SEQUENCE_SEPARATOR) } });
+                    }}>+ Thêm bước ký</button>
+                  </fieldset>
+                ) : f.type === "multiselect" ? (
+                  <fieldset key={f.key}>
+                    <legend>{f.label}</legend>
+                    <div className="check-grid">
+                      {(f.options || []).map((o) => {
+                        const selected = (form.details[f.key] || "").split(",").map((s) => s.trim()).filter(Boolean);
+                        return (
+                          <label className="check-card" key={o}>
+                            <input
+                              type="checkbox"
+                              checked={selected.includes(o)}
+                              onChange={(e) => {
+                                const next = e.target.checked ? [...selected, o] : selected.filter((v) => v !== o);
+                                setForm({ ...form, details: { ...form.details, [f.key]: next.join(", ") } });
+                              }}
+                            />
+                            <span><strong>{o}</strong></span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                ) : (
+                  <label key={f.key}>{f.label}
+                    {f.type === "select" ? (
+                      <>
+                        <select value={form.details[f.key] || ""} onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.value } })}>
+                          <option value="">— Chưa chọn —</option>
+                          {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                        {f.key==="training_required" && form.details[f.key]==="Cần đào tạo" ? <Link className="table-link" href="/emr/dao-tao">Xem danh mục Đào tạo →</Link> : null}
+                      </>
+                    ) : f.type === "reference" && f.referenceCategory ? (
+                      <select value={form.details[f.key] || ""} onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.value } })}>
+                        <option value="">— Chưa chọn —</option>
+                        {(refItems[f.referenceCategory] || []).map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+                      </select>
+                    ) : f.type === "textarea" ? (
+                      <textarea
+                        value={form.details[f.key] || ""}
+                        onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.value } })}
+                        rows={3}
+                      />
+                    ) : (
+                      <input
+                        type={f.type === "date" ? "date" : f.type === "number" ? "number" : "text"}
+                        value={form.details[f.key] || ""}
+                        onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.value } })}
+                      />
+                    )}
+                  </label>
+                )
               ))}
 
               <label>Tệp đính kèm (biểu mẫu, chứng thư, minh chứng...)
@@ -278,7 +429,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
                 )}
               </label>
 
-              <label>Trạng thái
+              <label>Trạng thái triển khai
                 <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
                   {Object.entries(EMR_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
@@ -286,7 +437,23 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage }: { 
               <label>Mức ưu tiên
                 <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}><option value="LOW">Thấp</option><option value="MEDIUM">Trung bình</option><option value="HIGH">Cao</option><option value="CRITICAL">Nghiêm trọng</option></select>
               </label>
-              <label>Khoa/phòng<select value={form.department_id} onChange={(e)=>setForm({...form,department_id:e.target.value})}><option value="">— Chưa gán —</option>{departments.map(d=><option key={d.id} value={d.id}>{d.short_name||d.name}</option>)}</select></label>
+              <fieldset>
+                <legend>Khoa/phòng</legend>
+                {departments.length ? (
+                  <div className="department-checks">
+                    {departments.map((d) => (
+                      <label key={d.id}>
+                        <input
+                          type="checkbox"
+                          checked={form.department_ids.includes(d.id)}
+                          onChange={() => setForm({ ...form, department_ids: toggleId(form.department_ids, d.id) })}
+                        /> {d.short_name || d.name}
+                      </label>
+                    ))}
+                  </div>
+                ) : null}
+                <small>Không chọn khoa/phòng nào nghĩa là áp dụng toàn viện. Chọn một hoặc nhiều khoa/phòng cụ thể nếu hạng mục không áp dụng cho toàn viện.</small>
+              </fieldset>
               <label>Người phụ trách<select value={form.owner_user_id} onChange={(e)=>setForm({...form,owner_user_id:e.target.value})}><option value="">— Chưa gán —</option>{users.map(u=><option key={u.user_id} value={u.user_id}>{u.full_name||u.email}</option>)}</select></label>
               <label>Hạn hoàn thành<input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></label>
               <label className="inline-check"><input type="checkbox" checked={form.is_go_live_gate} onChange={(e) => setForm({ ...form, is_go_live_gate: e.target.checked })} /> Điều kiện bắt buộc trước Go-live</label>
