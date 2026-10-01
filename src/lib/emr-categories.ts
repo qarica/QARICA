@@ -30,11 +30,11 @@ export const EMR_CATEGORIES: EmrCategory[] = [
   { slug: "bieu-mau", code: "BIEU_MAU", label: "Biểu mẫu", description: "Biểu mẫu giấy cần số hóa/điện tử hóa trong EMR.", icon: "file-input", descriptionLabel: "Nguồn tham chiếu" },
   { slug: "loi", code: "LOI", label: "Lỗi", description: "Lỗi và sự cố phát sinh trong quá trình triển khai EMR.", icon: "circle-alert" },
   { slug: "dao-tao", code: "DAO_TAO", label: "Đào tạo", description: "Kế hoạch và tình trạng đào tạo sử dụng EMR cho nhân viên.", icon: "book-open" },
+  { slug: "tai-lieu-huong-dan", code: "TAI_LIEU_HUONG_DAN", label: "Tài liệu hướng dẫn", description: "Tài liệu hướng dẫn sử dụng, có thể liên kết tới một biểu mẫu cụ thể (không bắt buộc).", icon: "file-text" },
   { slug: "patient-portal", code: "PATIENT_PORTAL", label: "Patient Portal", description: "Triển khai cổng thông tin tra cứu, đăng ký và kết quả dành cho người bệnh.", icon: "smartphone" },
   { slug: "chu-ky-so", code: "CHU_KY_SO", label: "Chữ ký số", description: "Theo dõi cấp phát, hiệu lực và sự cố chữ ký số phục vụ bệnh án điện tử.", icon: "key-round" },
   { slug: "thiet-bi-cntt", code: "THIET_BI_CNTT", label: "Thiết bị CNTT", description: "Máy tính, mạng và hạ tầng CNTT phục vụ EMR.", icon: "cog" },
   { slug: "thiet-bi-yte", code: "THIET_BI_YTE", label: "Thiết bị y tế", description: "Thiết bị y tế cần kết nối/tương thích với hệ thống EMR.", icon: "network" },
-  { slug: "tai-lieu-huong-dan", code: "TAI_LIEU_HUONG_DAN", label: "Tài liệu hướng dẫn", description: "Tài liệu hướng dẫn sử dụng, có thể liên kết tới một biểu mẫu cụ thể (không bắt buộc).", icon: "file-text" },
 ];
 
 export function emrCategoryBySlug(slug: string): EmrCategory | undefined {
@@ -126,6 +126,19 @@ export type EmrField = {
   // this organization, fetched the same generic way every category's own
   // list already is (/api/emr/items?category=...) — not a hard-coded list.
   referenceCategory?: EmrCategoryCode;
+  // A category with many fields turns into an unreadable wall of table
+  // columns (each cell wrapping to several lines). `compact: true` keeps a
+  // field fully editable in the create/edit modal but moves it out of its
+  // own <th>/<td> column into a per-row expandable "Chi tiết" panel instead
+  // — applies to any category, not just the one that first needed it.
+  compact?: boolean;
+  // Pulls a field out of the normal top-to-bottom modal field order and
+  // renders it immediately next to the generic "Trạng thái triển khai"
+  // select instead — for a field whose meaning is easily confused with the
+  // generic status unless shown side by side (e.g. Biểu mẫu's
+  // deployment_phase, a MORE SPECIFIC lifecycle stage, not a duplicate of
+  // the generic TODO/IN_PROGRESS/DONE/BLOCKED status).
+  pairWithStatus?: boolean;
 };
 
 // For type "sequence": an ORDERED list of role picks (e.g. "1. Điều dưỡng
@@ -172,6 +185,11 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
     { key: "ca_provider", label: "Nhà cung cấp chứng thư số", type: "text" },
   ],
   DAO_TAO: [
+    // Lets a Biểu mẫu marked "Cần đào tạo" create a pre-filled nhiệm vụ đào
+    // tạo here (see EmrCreateProvider's prefill mechanism) instead of the
+    // trainer re-typing the same form name — the reverse reference back to
+    // Biểu mẫu (categoriesReferencing) is what shows "N biểu mẫu liên quan".
+    { key: "related_form_id", label: "Biểu mẫu liên quan", type: "reference", referenceCategory: "BIEU_MAU" },
     { key: "training_date", label: "Ngày đào tạo", type: "date" },
     { key: "pass_status", label: "Kết quả", type: "select", options: ["Đạt", "Chưa đạt", "Chưa thi"] },
   ],
@@ -192,16 +210,17 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
     // Giữ nguyên tắc hạn chế nhập tự do (như QLCL) — chọn từ danh sách cố
     // định, không phải ô text, nên reuse "select" sẵn có thay vì tạo loại
     // field mới.
-    { key: "deployment_phase", label: "Giai đoạn triển khai", type: "select", options: ["Demo", "UAT", "Chạy chính thức"] },
-    { key: "execution_platform", label: "Nơi thực hiện", type: "text" },
+    { key: "deployment_phase", label: "Giai đoạn triển khai", type: "select", options: ["Demo", "UAT", "Chạy chính thức"], pairWithStatus: true },
+    { key: "execution_platform", label: "Nơi thực hiện", type: "text", compact: true },
     { key: "training_required", label: "Yêu cầu đào tạo", type: "select", options: ["Cần đào tạo", "Không cần đào tạo"] },
-    { key: "target_roles", label: "Đối tượng thực hiện", type: "multiselect", options: ["Bác sĩ", "Điều dưỡng", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Khác"] },
+    { key: "target_roles", label: "Đối tượng thực hiện", type: "multiselect", options: ["Bác sĩ", "Điều dưỡng", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Phòng hành chính (đóng dấu)", "Khác"], compact: true },
     // Một số biểu mẫu còn cần đóng mộc như một bước trong trình tự ký (sau
     // chữ ký của người có thẩm quyền) — nên "Đóng mộc" là một lựa chọn bước,
     // không phải "Đối tượng thực hiện" (target_roles không có mục này).
-    { key: "signing_sequence", label: "Trình tự ký", type: "sequence", options: ["Bác sĩ", "Điều dưỡng", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Đóng mộc", "Khác"] },
-    { key: "notes", label: "Ghi chú", type: "textarea" },
-    { key: "patient_portal_visible", label: "Hiển thị trên Patient Portal", type: "boolean" },
+    { key: "signing_sequence", label: "Trình tự ký", type: "sequence", options: ["Bác sĩ", "Điều dưỡng", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Phòng hành chính (đóng dấu)", "Đóng mộc", "Khác"], compact: true },
+    { key: "storage_format", label: "Hình thức lưu trữ", type: "multiselect", options: ["Bản điện tử", "Bản giấy", "Scan"], compact: true },
+    { key: "notes", label: "Ghi chú", type: "textarea", compact: true },
+    { key: "patient_portal_visible", label: "Hiển thị trên Patient Portal", type: "boolean", compact: true },
   ],
   LOI: [
     { key: "related_form_id", label: "Biểu mẫu liên quan", type: "reference", referenceCategory: "BIEU_MAU" },

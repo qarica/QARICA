@@ -39,13 +39,17 @@ describe("EMR — Lỗi (LOI) links to the specific Biểu mẫu it was filed ag
     expect(client).toContain("(refItems[f.referenceCategory] || []).map((r) => <option key={r.id} value={r.id}>{r.title}</option>)");
   });
 
-  it("resolves a stored reference id to the target item's title (not a raw uuid) when displaying it in the table", () => {
-    expect(client).toContain("const target = hasValue ? (refItems[f.referenceCategory]||[]).find((r)=>r.id===value) : null;");
-    expect(client).toContain("{target ? <Link className=\"table-link\" href={`/emr/${slugForCode(f.referenceCategory)}`}>{target.title}</Link> : \"—\"}");
+  it("resolves a stored reference id to the target item's title (not a raw uuid) when displaying it in the table, via the shared fieldDisplayContent() helper", () => {
+    expect(client).toContain("const target = hasValue ? (refItems[f.referenceCategory] || []).find((r) => r.id === value) : null;");
+    expect(client).toContain("return target ? <Link className=\"table-link\" href={`/emr/${slugForCode(f.referenceCategory)}`}>{target.title}</Link> : \"—\";");
   });
 
+  // DAO_TAO is excluded from this generic "N liên quan" column because it is
+  // rendered specially inline in the training_required cell instead (see
+  // emr-signing-sequence/emr-notification-reminders-style tests) — LOI still
+  // goes through the generic path.
   it("shows a reverse-link count (or a prompt to record one) on the referenced category's own table — e.g. Biểu mẫu shows how many Lỗi reference each row", () => {
-    expect(client).toContain("incomingReferences.map((ref) => {");
+    expect(client).toContain("genericIncomingReferences.map((ref) => {");
     expect(client).toContain("r.details?.[ref.field.key]===item.id");
     expect(client).toContain(">Ghi nhận →</Link>");
   });

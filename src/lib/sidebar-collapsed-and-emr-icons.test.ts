@@ -9,8 +9,21 @@ const shell = readFileSync("src/components/app-shell.tsx", "utf8");
 // full multi-word label inside the narrow 76px collapsed rail, wrapping
 // across several lines and overlapping the icon.
 describe("sidebar collapsed state hides group header labels too", () => {
-  it("adds .nav-group-label (and .sidebar-illustration) to the collapsed-state hide list alongside .nav-link-label", () => {
-    expect(shell).toContain(".workspace-app .sidebar.collapsed .sidebar-brand-copy,.workspace-app .sidebar.collapsed .nav-label,.workspace-app .sidebar.collapsed .nav-link-label,.workspace-app .sidebar.collapsed .nav-group-label,.workspace-app .sidebar.collapsed .sidebar-footer,.workspace-app .sidebar.collapsed .sidebar-illustration{display:none}");
+  it("adds .nav-group-label to the collapsed-state hide list alongside .nav-link-label", () => {
+    expect(shell).toContain(".workspace-app .sidebar.collapsed .sidebar-brand-copy,.workspace-app .sidebar.collapsed .nav-label,.workspace-app .sidebar.collapsed .nav-link-label,.workspace-app .sidebar.collapsed .nav-group-label,.workspace-app .sidebar.collapsed .sidebar-bottom{display:none}");
+  });
+
+  // Regression: the illustration previously lived inside the scrollable
+  // .sidebar-nav flow (as the last child after the nav groups), so its
+  // vertical position jumped depending on how many menu items were
+  // rendered/expanded. Moved it — together with .sidebar-footer — into a
+  // single .sidebar-bottom wrapper pinned to the bottom of the sidebar, so
+  // it never moves regardless of menu length.
+  it("pins the illustration+footer to the bottom of the sidebar via a dedicated wrapper, not sidebar-nav's scroll flow", () => {
+    expect(shell).toContain('.workspace-app .sidebar-bottom{position:absolute;left:0;right:0;bottom:0;background:#fff}');
+    expect(shell).toContain('.workspace-app .sidebar-footer{position:static;');
+    expect(shell).toMatch(/<\/nav>\s*<div className="sidebar-bottom">/);
+    expect(shell).toContain('<div className="sidebar-illustration" aria-hidden="true">');
   });
 });
 
