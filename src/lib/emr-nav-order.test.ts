@@ -9,20 +9,21 @@ import { describe, expect, it } from "vitest";
 // so this only needs to assert the order of the real categories; both the
 // workspace nav strip and the dashboard readiness grid derive their order
 // directly from this same array (no separate hardcoded order to drift).
-// Tài liệu hướng dẫn was added afterwards with no requested position, so it
-// is appended at the end rather than disturbing the order above.
+// Tài liệu hướng dẫn was added afterwards, first appended at the end, then
+// explicitly moved to right after Đào tạo per a follow-up request ("menu tào
+// liệu hướng dẫn sau menu đào tạo").
 describe("EMR — category order matches the requested menu layout", () => {
-  it("lists categories in the exact requested order, with later additions appended at the end", () => {
+  it("lists categories in the exact requested order, with Tài liệu hướng dẫn right after Đào tạo", () => {
     expect(EMR_CATEGORIES.map((c) => c.code)).toEqual([
       "QUY_TRINH",
       "BIEU_MAU",
       "LOI",
       "DAO_TAO",
+      "TAI_LIEU_HUONG_DAN",
       "PATIENT_PORTAL",
       "CHU_KY_SO",
       "THIET_BI_CNTT",
       "THIET_BI_YTE",
-      "TAI_LIEU_HUONG_DAN",
     ]);
   });
 });

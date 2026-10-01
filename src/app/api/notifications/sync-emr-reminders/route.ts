@@ -66,19 +66,31 @@ export async function POST() {
   if (!auth.user) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   const userId = auth.user.id;
 
-  // RLS already scopes this to the caller's own organization; filtering by
-  // owner_user_id here keeps each reminder pointed at the person actually
-  // responsible for the item, the same single-owner pattern Actions use.
-  const { data: items, error } = await supabase
-    .from("emr_rollout_items")
-    .select("id,category,title,status,due_date,owner_user_id,details")
-    .eq("owner_user_id", userId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  // "Người phụ trách" (a single person) was replaced by "Đơn vị phụ trách"
+  // (owner_department_id) — reminders now go to the HEAD/QUALITY_NETWORK_MEMBER
+  // of that department, the same department-wide escalation audience
+  // sync-action-reminders already uses for DEPARTMENT-assigned Actions,
+  // rather than a single named owner.
+  const { data: profile } = await supabase.from("profiles").select("primary_department_id").eq("user_id", userId).maybeSingle();
+  const primaryDepartmentId = profile?.primary_department_id || null;
+  let items: { id: string; category: string; title: string; status: string; due_date: string | null; details: Record<string, unknown> | null }[] = [];
+  if (primaryDepartmentId) {
+    const { data: roles, error: rolesError } = await supabase.from("department_user_roles").select("role_type").eq("department_id", primaryDepartmentId).eq("user_id", userId).eq("is_active", true).in("role_type", ["HEAD", "QUALITY_NETWORK_MEMBER"]);
+    if (rolesError) return NextResponse.json({ error: rolesError.message }, { status: 400 });
+    if ((roles ?? []).length) {
+      const { data, error } = await supabase
+        .from("emr_rollout_items")
+        .select("id,category,title,status,due_date,owner_department_id,details")
+        .eq("owner_department_id", primaryDepartmentId);
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      items = data ?? [];
+    }
+  }
 
   const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
   const payload: NotificationPayload[] = [];
 
-  for (const item of items ?? []) {
+  for (const item of items) {
     const category = EMR_CATEGORIES.find((c) => c.code === item.category);
     const categoryLabel = category?.label || String(item.category);
     const route = category ? `/emr/${category.slug}` : "/emr";

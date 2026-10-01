@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   if (pe) return NextResponse.json({ error: pe.message }, { status: 400 });
   if (!profile?.organization_id) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
   const { data, error } = await admin.from("emr_rollout_items")
-    .select("id,category,title,description,status,department_ids,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,created_at,updated_at")
+    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,created_at,updated_at")
     .eq("organization_id", profile.organization_id).order("updated_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   const allItems = data ?? [];
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   const overdue = items.filter(x => x.status !== "DONE" && x.due_date && x.due_date < today).length;
   const gates = items.filter(x => x.is_go_live_gate);
   const gatesPassed = gates.filter(x => x.status === "DONE" && !!x.evidence_url && !!x.verified_at).length;
-  const unassigned = items.filter(x => x.status !== "DONE" && (!x.owner_user_id || !x.department_ids?.length)).length;
+  const unassigned = items.filter(x => x.status !== "DONE" && (!x.owner_department_id || !x.department_ids?.length)).length;
   const criticalOpen = items.filter(x => x.status !== "DONE" && x.priority === "CRITICAL").length;
   const gateEvidenceMissing = gates.filter(x => x.status === "DONE" && (!x.evidence_url || !x.verified_at)).length;
   const stale = items.filter(x => x.status !== "DONE" && now - new Date(x.updated_at).getTime() > 7 * 86400000).length;
@@ -77,15 +77,15 @@ export async function GET(req: NextRequest) {
   const escalation = items.filter(x => x.status !== "DONE").map(x => {
     const isOverdue = !!x.due_date && x.due_date < today;
     const isStale = now - new Date(x.updated_at).getTime() > 7 * 86400000;
-    const reasons = [x.status === "BLOCKED" ? "BLOCKED" : null, x.priority === "CRITICAL" ? "CRITICAL" : null, isOverdue ? "OVERDUE" : null, x.is_go_live_gate ? "GO_LIVE_GATE" : null, !x.owner_user_id ? "NO_OWNER" : null, isStale ? "STALE" : null].filter(Boolean);
-    const score = (x.status === "BLOCKED" ? 50 : 0) + (x.priority === "CRITICAL" ? 40 : 0) + (isOverdue ? 30 : 0) + (x.is_go_live_gate ? 20 : 0) + (!x.owner_user_id ? 10 : 0) + (isStale ? 5 : 0);
+    const reasons = [x.status === "BLOCKED" ? "BLOCKED" : null, x.priority === "CRITICAL" ? "CRITICAL" : null, isOverdue ? "OVERDUE" : null, x.is_go_live_gate ? "GO_LIVE_GATE" : null, !x.owner_department_id ? "NO_OWNER" : null, isStale ? "STALE" : null].filter(Boolean);
+    const score = (x.status === "BLOCKED" ? 50 : 0) + (x.priority === "CRITICAL" ? 40 : 0) + (isOverdue ? 30 : 0) + (x.is_go_live_gate ? 20 : 0) + (!x.owner_department_id ? 10 : 0) + (isStale ? 5 : 0);
     return { ...x, reasons, score };
   }).filter(x => x.score > 0).sort((a,b) => b.score-a.score || new Date(a.updated_at).getTime()-new Date(b.updated_at).getTime()).slice(0,10);
 
   const openItems = items.filter(x => x.status !== "DONE");
   const doneGates = gates.filter(x => x.status === "DONE");
   const controlCoverage = {
-    owner: openItems.length ? Math.round(openItems.filter(x => !!x.owner_user_id).length * 100 / openItems.length) : null,
+    owner: openItems.length ? Math.round(openItems.filter(x => !!x.owner_department_id).length * 100 / openItems.length) : null,
     department: openItems.length ? Math.round(openItems.filter(x => !!x.department_ids?.length).length * 100 / openItems.length) : null,
     deadline: openItems.length ? Math.round(openItems.filter(x => !!x.due_date).length * 100 / openItems.length) : null,
     gateEvidence: doneGates.length ? Math.round(doneGates.filter(x => !!x.evidence_url && !!x.verified_at).length * 100 / doneGates.length) : null,

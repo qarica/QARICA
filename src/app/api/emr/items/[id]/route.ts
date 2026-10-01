@@ -72,7 +72,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if ("error" in departmentIdsResult) return NextResponse.json({ error: departmentIdsResult.error }, { status: 400 });
     patch.department_ids = departmentIdsResult.ids;
   }
-  if (typeof body.owner_user_id === "string" || body.owner_user_id === null) { const v=body.owner_user_id||null; if(v){const {data:u}=await admin.from("profiles").select("user_id").eq("user_id",v).eq("organization_id",organizationId).eq("is_active",true).maybeSingle(); if(!u)return NextResponse.json({error:"Người phụ trách không hợp lệ."},{status:400});} patch.owner_user_id=v; }
+  if (typeof body.owner_department_id === "string" || body.owner_department_id === null) { const v=body.owner_department_id||null; if(v){const {data:d}=await admin.from("departments").select("id").eq("id",v).eq("organization_id",organizationId).eq("is_active",true).maybeSingle(); if(!d)return NextResponse.json({error:"Đơn vị phụ trách không hợp lệ."},{status:400});} patch.owner_department_id=v; }
   if (typeof body.is_go_live_gate === "boolean") patch.is_go_live_gate = body.is_go_live_gate;
   if (typeof body.evidence_url === "string" || body.evidence_url === null) { patch.evidence_url = body.evidence_url ? String(body.evidence_url).trim() : null; if (!patch.evidence_url) { patch.verified_at = null; patch.verified_by = null; } }
   if (body.verify_completed === true) { const effectiveStatus = typeof body.status === "string" ? body.status : existing.status; const effectiveEvidence = (typeof body.evidence_url === "string" || body.evidence_url === null) ? (body.evidence_url ? String(body.evidence_url).trim() : null) : existing.evidence_url; if (effectiveStatus !== "DONE" || !effectiveEvidence) return NextResponse.json({ error: "Chỉ xác minh khi hạng mục DONE và có minh chứng." }, { status: 400 }); patch.verified_at = new Date().toISOString(); patch.verified_by = auth.user.id; }
@@ -83,7 +83,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .from("emr_rollout_items")
     .update(patch)
     .eq("id", id)
-    .select("id,category,title,description,status,department_ids,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
+    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 

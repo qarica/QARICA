@@ -15,8 +15,8 @@ import { EMR_CATEGORIES } from "@/lib/emr-categories";
 // separate mobile-only mechanism to drift out of sync).
 const DESTINATIONS = [
   { slug: "", label: "Tổng quan EMR", icon: "layout-dashboard" },
-  ...EMR_CATEGORIES.map((c) => ({ slug: c.slug, label: c.label, icon: c.icon })),
   { slug: "timeline", label: "Timeline", icon: "chart-spline" },
+  ...EMR_CATEGORIES.map((c) => ({ slug: c.slug, label: c.label, icon: c.icon })),
 ];
 
 export function EmrWorkspaceNav() {

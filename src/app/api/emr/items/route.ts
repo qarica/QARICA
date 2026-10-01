@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await admin
     .from("emr_rollout_items")
-    .select("id,category,title,description,status,department_ids,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
+    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
     .eq("organization_id", profile.organization_id)
     .eq("category", category)
     .order("created_at", { ascending: false });
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   const dueDate = body.due_date ? String(body.due_date) : null;
   const isGoLiveGate = body.is_go_live_gate === true;
   const evidenceUrl = body.evidence_url ? String(body.evidence_url).trim() : null;
-  const ownerUserId = body.owner_user_id ? String(body.owner_user_id) : null;
+  const ownerDepartmentId = body.owner_department_id ? String(body.owner_department_id) : null;
 
   if (!EMR_CATEGORIES.some((c) => c.code === category)) return NextResponse.json({ error: "Danh mục không hợp lệ." }, { status: 400 });
   if (!title) return NextResponse.json({ error: "Cần nhập tiêu đề." }, { status: 400 });
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
 
   const departmentIdsResult = await sanitizeDepartmentIds(admin, profile.organization_id, body.department_ids);
   if ("error" in departmentIdsResult) return NextResponse.json({ error: departmentIdsResult.error }, { status: 400 });
-  if (ownerUserId) { const { data: u } = await admin.from("profiles").select("user_id").eq("user_id", ownerUserId).eq("organization_id", profile.organization_id).eq("is_active", true).maybeSingle(); if (!u) return NextResponse.json({ error: "Người phụ trách không hợp lệ." }, { status: 400 }); }
+  if (ownerDepartmentId) { const { data: d } = await admin.from("departments").select("id").eq("id", ownerDepartmentId).eq("organization_id", profile.organization_id).eq("is_active", true).maybeSingle(); if (!d) return NextResponse.json({ error: "Đơn vị phụ trách không hợp lệ." }, { status: 400 }); }
 
   const { data, error } = await admin
     .from("emr_rollout_items")
@@ -100,12 +100,12 @@ export async function POST(request: Request) {
       title,
       description,
       status,
-      priority, due_date: dueDate, department_ids: departmentIdsResult.ids, owner_user_id: ownerUserId, is_go_live_gate: isGoLiveGate, evidence_url: evidenceUrl,
+      priority, due_date: dueDate, department_ids: departmentIdsResult.ids, owner_department_id: ownerDepartmentId, is_go_live_gate: isGoLiveGate, evidence_url: evidenceUrl,
       details: sanitizeDetails(category, body.details),
       created_by: auth.user.id,
       updated_by: auth.user.id,
     })
-    .select("id,category,title,description,status,department_ids,owner_user_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
+    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
