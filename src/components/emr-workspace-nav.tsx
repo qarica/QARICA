@@ -5,17 +5,18 @@ import { useEffect, useRef } from "react";
 import { Icon } from "@/components/icon";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
 
-// EMR's 10 workspace destinations (Tổng quan EMR + 9 categories) live outside
-// the shared workspace-navigation.ts/workspace-strip mechanism — EMR was
-// deliberately kept off that registry (see src/lib/navigation.ts) so its
-// single main-sidebar entry doesn't explode into 10 sidebar rows. This strip
-// is EMR's own Level-2 navigation, rendered once and shared by the overview
-// and every category page so all 10 stay reachable on desktop AND mobile via
-// one horizontally-scrollable row (no separate mobile-only mechanism to drift
-// out of sync).
+// EMR's 11 workspace destinations (Tổng quan EMR + 9 categories + Timeline)
+// live outside the shared workspace-navigation.ts/workspace-strip mechanism —
+// EMR was deliberately kept off that registry (see src/lib/navigation.ts) so
+// its single main-sidebar entry doesn't explode into 11 sidebar rows. This
+// strip is EMR's own Level-2 navigation, rendered once and shared by the
+// overview, every category page, and the timeline page so all 11 stay
+// reachable on desktop AND mobile via one horizontally-scrollable row (no
+// separate mobile-only mechanism to drift out of sync).
 const DESTINATIONS = [
   { slug: "", label: "Tổng quan EMR", icon: "layout-dashboard" },
   ...EMR_CATEGORIES.map((c) => ({ slug: c.slug, label: c.label, icon: c.icon })),
+  { slug: "timeline", label: "Timeline", icon: "chart-spline" },
 ];
 
 export function EmrWorkspaceNav() {

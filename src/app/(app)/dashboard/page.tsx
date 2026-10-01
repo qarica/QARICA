@@ -306,7 +306,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <form className="scope-controls" method="get">
         <input type="date" name="from" defaultValue={from} max={today} className="button secondary" title="Từ ngày" />
         <input type="date" name="asOf" defaultValue={today} max={todayHcm()} className="button secondary" title="Đến ngày" />
-        {isHospitalScope ? <select name="dept" defaultValue={selectedDept} className="button secondary"><option value="">Toàn bệnh viện</option>{((departmentsRes.data ?? []) as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select> : <span className="button secondary" style={{ pointerEvents: "none" }}>{user.primaryDepartmentName || "Phạm vi được phân công"}</span>}
+        {isHospitalScope ? <select name="dept" defaultValue={selectedDept} className="button secondary"><option value="">Toàn bệnh viện</option>{((departmentsRes.data ?? []) as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select> : null}
         <button type="submit" className="button primary">Áp dụng</button>
       </form>
     </div>
