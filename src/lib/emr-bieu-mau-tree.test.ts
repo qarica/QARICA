@@ -5,8 +5,13 @@ import { describe, expect, it } from "vitest";
 // tree) view for Biểu mẫu, grouped by Nhóm gáy (binding_group) — reusing the
 // real emr_rollout_items data already entered for BIEU_MAU, not a separately
 // maintained form catalog (single source of truth per CLAUDE.md).
+//
+// Later turned into a client component (EmrBieuMauTreeClient) so a manager
+// can declare new Nhóm gáy names and reassign a form's group inline — see
+// emr-bieu-mau-binding-groups.test.ts for that follow-up regression.
 describe("EMR — Biểu mẫu master tree view", () => {
   const treePage = readFileSync("src/app/(app)/emr/bieu-mau/tree/page.tsx", "utf8");
+  const treeClient = readFileSync("src/components/emr-bieu-mau-tree-client.tsx", "utf8");
   const categoryPage = readFileSync("src/app/(app)/emr/[category]/page.tsx", "utf8");
 
   it("enforces emr.view permission like every other EMR page", () => {
@@ -14,12 +19,12 @@ describe("EMR — Biểu mẫu master tree view", () => {
   });
 
   it("queries only BIEU_MAU items — the real data, not an invented separate tree dataset", () => {
-    expect(treePage).toContain('.eq("category", "BIEU_MAU")');
+    expect(treeClient).toContain('fetch("/api/emr/items?category=BIEU_MAU")');
   });
 
   it("groups items by details.binding_group (Nhóm gáy), with an explicit fallback bucket instead of silently dropping ungrouped forms", () => {
-    expect(treePage).toContain('const key = String(item.details?.binding_group || "").trim() || UNGROUPED;');
-    expect(treePage).toContain('const UNGROUPED = "Chưa phân nhóm";');
+    expect(treeClient).toContain('const key = String(item.details?.binding_group || "").trim() || UNGROUPED;');
+    expect(treeClient).toContain('const UNGROUPED = "Chưa phân nhóm";');
   });
 
   it("is reachable via a 'Xem cây biểu mẫu' button shown only on the Biểu mẫu category page, not every category", () => {

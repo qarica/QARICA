@@ -44,8 +44,8 @@ describe("EMR Biểu mẫu — target_roles and binding_group fields", () => {
   it("renders a checkbox group (not a single-choice select) for multiselect fields in the create/edit modal", () => {
     expect(client).toContain('f.type === "multiselect"');
     expect(client).toContain("<fieldset key={f.key}>");
-    expect(client).toContain('className="check-grid"');
-    expect(client).toContain('className="check-card"');
+    expect(client).toContain('className="check-grid emr-role-check-grid"');
+    expect(client).toContain('className="check-card emr-role-check-card"');
   });
 
   it("stores and re-parses the selected roles as a comma-separated string in details, consistent with the generic string-based sanitizeDetails() on the server", () => {
@@ -111,9 +111,10 @@ describe("EMR Biểu mẫu — target_roles and binding_group fields", () => {
     expect(field?.options).toBeUndefined();
   });
 
-  it("links a 'Cần đào tạo' training_required value across to the Đào tạo category, in both the table row and the edit modal", () => {
-    expect(client).toContain('f.key==="training_required" && value==="Cần đào tạo"');
+  it("links a 'Cần đào tạo' training_required value across to the Đào tạo category, in both the table row (via fieldDisplayContent) and the edit modal", () => {
+    expect(client).toContain('if (f.key === "training_required" && value === "Cần đào tạo")');
     expect(client).toContain('f.key==="training_required" && form.details[f.key]==="Cần đào tạo"');
-    expect(client.match(/href="\/emr\/dao-tao"/g)?.length).toBe(2);
+    expect(client).toContain('const href = existing ? "/emr/dao-tao" :');
+    expect(client).toContain('href="/emr/dao-tao">Xem danh mục Đào tạo →</Link>');
   });
 });

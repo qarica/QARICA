@@ -33,8 +33,13 @@ describe("EMR — due-date and certificate-expiry reminders", () => {
     expect(route).toContain('code: "CERT_EXPIRED"');
   });
 
-  it("only notifies the item's own owner (single-owner pattern, like Actions) — never a department-wide broadcast", () => {
-    expect(route).toContain('.eq("owner_user_id", userId)');
+  // "Người phụ trách" (a single named owner) was later replaced by "Đơn vị
+  // phụ trách" (owner_department_id) — reminders now go to the
+  // HEAD/QUALITY_NETWORK_MEMBER of that department, the same department-wide
+  // escalation audience sync-action-reminders already uses.
+  it("notifies the HEAD/QUALITY_NETWORK_MEMBER of the item's owner_department_id, the same department-escalation pattern Actions use", () => {
+    expect(route).toContain('.eq("owner_department_id", primaryDepartmentId)');
+    expect(route).toContain('.in("role_type", ["HEAD", "QUALITY_NETWORK_MEMBER"])');
   });
 
   it("excludes DONE items from due-date reminders (a finished item has nothing left to be overdue on)", () => {

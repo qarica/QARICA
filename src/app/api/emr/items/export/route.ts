@@ -29,20 +29,18 @@ export async function GET(request: Request) {
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!caller?.organization_id) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
-  const [itemsRes, departmentsRes, usersRes] = await Promise.all([
+  const [itemsRes, departmentsRes] = await Promise.all([
     admin
       .from("emr_rollout_items")
-      .select("title,description,status,department_ids,owner_user_id,due_date,priority,is_go_live_gate,details,created_at")
+      .select("title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,details,created_at")
       .eq("organization_id", caller.organization_id)
       .eq("category", category.code)
       .order("created_at", { ascending: false }),
     admin.from("departments").select("id,name").eq("organization_id", caller.organization_id),
-    admin.from("profiles").select("user_id,full_name,email").eq("organization_id", caller.organization_id),
   ]);
   if (itemsRes.error) return NextResponse.json({ error: itemsRes.error.message }, { status: 400 });
 
   const deptName = new Map((departmentsRes.data ?? []).map((d: any) => [d.id, d.name]));
-  const userName = new Map((usersRes.data ?? []).map((u: any) => [u.user_id, u.full_name || u.email]));
   const extraFields = EMR_CATEGORY_FIELDS[category.code as keyof typeof EMR_CATEGORY_FIELDS] || [];
   const items = itemsRes.data ?? [];
 
@@ -56,7 +54,7 @@ export async function GET(request: Request) {
   function rowHtml(it: any, i: number) {
     const extraCells = extraFields.map((f) => `<td>${cellValue(f, it)}</td>`).join("");
     const departmentLabel = (it.department_ids ?? []).length ? (it.department_ids as string[]).map((id) => deptName.get(id) || "—").join(", ") : "Toàn viện";
-    return `<tr><td>${i + 1}</td><td>${esc(it.title)}</td><td>${esc(it.description || "")}</td>${extraCells}<td>${esc(departmentLabel)}</td><td>${esc(userName.get(it.owner_user_id) || "")}</td><td>${esc(PRIORITY_LABELS[it.priority] || it.priority)}</td><td>${esc(it.due_date || "")}</td><td>${esc(EMR_STATUS_LABELS[it.status] || it.status)}</td><td>${it.is_go_live_gate ? "Có" : ""}</td></tr>`;
+    return `<tr><td>${i + 1}</td><td>${esc(it.title)}</td><td>${esc(it.description || "")}</td>${extraCells}<td>${esc(departmentLabel)}</td><td>${esc(deptName.get(it.owner_department_id) || "")}</td><td>${esc(PRIORITY_LABELS[it.priority] || it.priority)}</td><td>${esc(it.due_date || "")}</td><td>${esc(EMR_STATUS_LABELS[it.status] || it.status)}</td><td>${it.is_go_live_gate ? "Có" : ""}</td></tr>`;
   }
 
   const extraHeaders = extraFields.map((f) => `<th>${esc(f.label)}</th>`).join("");
@@ -89,7 +87,7 @@ export async function GET(request: Request) {
       table{border-collapse:collapse;font-family:Arial;font-size:10pt}th,td{border:1px solid #777;padding:5px;vertical-align:top;white-space:pre-wrap}th{background:#e5e7eb;font-weight:bold}
     </style></head><body>
       <table>
-        <thead><tr><th>STT</th><th>Tiêu đề</th><th>${esc(descriptionLabel)}</th>${extraHeaders}<th>Khoa/Phòng</th><th>Người phụ trách</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th><th>Go-live gate</th></tr></thead>
+        <thead><tr><th>STT</th><th>Tiêu đề</th><th>${esc(descriptionLabel)}</th>${extraHeaders}<th>Khoa/Phòng</th><th>Đơn vị phụ trách</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th><th>Go-live gate</th></tr></thead>
         <tbody>${rows || `<tr><td colspan="${colCount}">Chưa có dữ liệu.</td></tr>`}</tbody>
       </table>
     </body></html>`;

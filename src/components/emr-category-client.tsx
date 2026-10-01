@@ -1,11 +1,11 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useEmrCreateSignal } from "@/components/emr-create-context";
 import { Icon } from "@/components/icon";
 import { categoriesReferencing, EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, formatBooleanValue, formatSequenceValue, sequenceSteps, SEQUENCE_SEPARATOR, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
 
-type Item = { id: string; category: string; title: string; description: string | null; status: string; department_ids:string[]; owner_user_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; created_at: string; updated_at: string };
+type Item = { id: string; category: string; title: string; description: string | null; status: string; department_ids:string[]; owner_department_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; created_at: string; updated_at: string };
 
 function toggleId(ids: string[], id: string) { return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]; }
 
@@ -36,6 +36,13 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   const extraFields = EMR_CATEGORY_FIELDS[categoryCode as keyof typeof EMR_CATEGORY_FIELDS] || [];
   const beforeTitleFields = extraFields.filter((f) => f.showBeforeTitle);
   const afterTitleFields = extraFields.filter((f) => !f.showBeforeTitle);
+  // A category with many fields turns into an unreadable wall of table
+  // columns — compact fields stay fully editable in the modal but only show
+  // in a per-row expandable "Chi tiết" panel instead of their own column.
+  const columnFields = afterTitleFields.filter((f) => !f.compact);
+  const detailFields = afterTitleFields.filter((f) => f.compact);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  function toggleExpanded(id: string) { setExpandedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
   // Forward: this category's own fields that point at another category's
   // items (e.g. Lỗi's "Biểu mẫu liên quan"). Reverse: other categories whose
   // fields point back AT this one (e.g. Biểu mẫu learning that Lỗi links to
@@ -43,8 +50,13 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   // config knowing Lỗi exists beyond that one declared reference.
   const referenceFields = extraFields.filter((f) => f.type === "reference" && f.referenceCategory);
   const incomingReferences = categoriesReferencing(categoryCode as EmrCategoryCode);
+  // DAO_TAO's reverse reference is rendered as the "Tạo/Duyệt đào tạo" link
+  // right in the training_required cell instead of a generic "N liên quan"
+  // column, so it isn't shown twice.
+  const genericIncomingReferences = incomingReferences.filter((r) => r.category !== "DAO_TAO");
   const [refItems, setRefItems] = useState<Record<string, { id: string; title: string; details: Record<string, unknown> }[]>>({});
   const slugForCode = (code: string) => EMR_CATEGORIES.find((c) => c.code === code)?.slug || "";
+  const categoryLabelFor = (code: string) => EMR_CATEGORIES.find((c) => c.code === code)?.label || code;
   const kpis = EMR_CATEGORY_KPIS[categoryCode as EmrCategoryCode] || [];
   const hasBlockedBucket = kpis.some((k) => k.bucket === "BLOCKED");
   const [items, setItems] = useState<Item[]>([]);
@@ -58,11 +70,10 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   const [editing, setEditing] = useState<Item | null>(null);
   const [creating, setCreating] = useState(false);
   const emptyDetails = () => Object.fromEntries(extraFields.map((f) => [f.key, ""])) as Record<string, string>;
-  const [form, setForm] = useState({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_ids:[] as string[], owner_user_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
+  const [form, setForm] = useState({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_ids:[] as string[], owner_department_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
   const [saving, setSaving] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [departments,setDepartments]=useState<{id:string;name:string;short_name:string|null}[]>([]);
-  const [users,setUsers]=useState<{user_id:string;full_name:string|null;email:string}[]>([]);
 
   async function load() {
     setLoading(true);
@@ -81,7 +92,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
 
   useEffect(() => {
     load();
-    fetch("/api/emr/options").then(r=>r.json()).then(j=>{if(j.ok){setDepartments(j.departments||[]);setUsers(j.users||[])}}).catch(()=>{});
+    fetch("/api/emr/options").then(r=>r.json()).then(j=>{if(j.ok){setDepartments(j.departments||[])}}).catch(()=>{});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryCode]);
 
@@ -100,7 +111,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   }, [categoryCode]);
 
   function openCreate() {
-    setForm({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_ids:[], owner_user_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
+    setForm({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_ids:[], owner_department_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
     setPendingFile(null);
     setCreating(true);
     setEditing(null);
@@ -112,10 +123,28 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openSignal]);
 
+  // Lets another category's row (e.g. Biểu mẫu's "Cần đào tạo") deep-link
+  // into THIS category's create modal with a reference field already set —
+  // generic for any category/reference field, not hardcoded to Đào tạo:
+  // ?ref_field=<a declared field key>&ref_id=<source item id>&ref_title=...
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const refField = params.get("ref_field");
+    const refId = params.get("ref_id");
+    if (refField && refId && extraFields.some((f) => f.key === refField)) {
+      setForm({ title: params.get("ref_title") || "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_ids: [], owner_department_id: "", is_go_live_gate: false, evidence_url: "", verify_completed: false, details: { ...emptyDetails(), [refField]: refId } });
+      setPendingFile(null);
+      setCreating(true);
+      setEditing(null);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function openEdit(item: Item) {
     const details: Record<string, string> = {};
     for (const f of extraFields) details[f.key] = item.details?.[f.key] != null ? String(item.details[f.key]) : "";
-    setForm({ title: item.title, description: item.description || "", status: item.status, priority: item.priority || "MEDIUM", due_date: item.due_date || "", department_ids: item.department_ids || [], owner_user_id:item.owner_user_id||"", is_go_live_gate: !!item.is_go_live_gate, evidence_url: item.evidence_url || "", verify_completed:!!item.verified_at, details });
+    setForm({ title: item.title, description: item.description || "", status: item.status, priority: item.priority || "MEDIUM", due_date: item.due_date || "", department_ids: item.department_ids || [], owner_department_id:item.owner_department_id||"", is_go_live_gate: !!item.is_go_live_gate, evidence_url: item.evidence_url || "", verify_completed:!!item.verified_at, details });
     setEditing(item);
     setCreating(false);
   }
@@ -213,6 +242,35 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     return [...rows].sort((a, b) => titleSort === "asc" ? a.title.localeCompare(b.title, "vi") : b.title.localeCompare(a.title, "vi"));
   }, [items, search, titleSort]);
 
+  // Shared by both the regular table columns and the compact-fields detail
+  // panel, so the two never render a field differently.
+  function fieldDisplayContent(f: (typeof extraFields)[number], item: Item) {
+    const value = item.details?.[f.key];
+    const hasValue = value != null && value !== "";
+    if (f.type === "reference" && f.referenceCategory) {
+      const target = hasValue ? (refItems[f.referenceCategory] || []).find((r) => r.id === value) : null;
+      return target ? <Link className="table-link" href={`/emr/${slugForCode(f.referenceCategory)}`}>{target.title}</Link> : "—";
+    }
+    if (f.type === "sequence") {
+      const steps = sequenceSteps(value);
+      return steps.length ? <>{formatSequenceValue(value)}<div><small>{steps.length} chữ ký</small></div></> : "—";
+    }
+    if (f.type === "boolean") {
+      const isTrue = value === "true";
+      return <>{formatBooleanValue(value)}{f.key === "patient_portal_visible" && isTrue ? <div><Link className="table-link" href="/emr/patient-portal">Xem Patient Portal →</Link></div> : null}</>;
+    }
+    // A form marked "Cần đào tạo" can spawn a pre-filled nhiệm vụ đào tạo in
+    // Đào tạo (no re-typing the form name) — or, once one already exists,
+    // link straight to it so the trainer just needs to approve/update it.
+    if (f.key === "training_required" && value === "Cần đào tạo") {
+      const trainingRef = incomingReferences.find((r) => r.category === "DAO_TAO");
+      const existing = trainingRef ? (refItems.DAO_TAO || []).find((r) => r.details?.[trainingRef.field.key] === item.id) : null;
+      const href = existing ? "/emr/dao-tao" : trainingRef ? `/emr/dao-tao?ref_field=${trainingRef.field.key}&ref_id=${item.id}&ref_title=${encodeURIComponent(item.title)}` : "/emr/dao-tao";
+      return <>{String(value)}<div><Link className="table-link" href={href}>{existing ? "Duyệt đào tạo →" : "Tạo nhiệm vụ đào tạo →"}</Link></div></>;
+    }
+    return hasValue ? String(value) : "—";
+  }
+
   return (
     <div className="page-stack">
       {kpis.length ? <section className="kpis" style={{ display: "grid", gridTemplateColumns: `repeat(${kpis.length},minmax(0,1fr))`, gap: 12 }}>
@@ -238,41 +296,21 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th><th>{descLabel}</th>{afterTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}{incomingReferences.map((ref)=><th key={ref.category}>{ref.field.label}</th>)}<th>Tệp đính kèm</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th><th></th></tr>
+                <tr>{detailFields.length ? <th style={{ width: 30 }}></th> : null}<th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th><th>{descLabel}</th>{columnFields.map((f)=><th key={f.key}>{f.label}</th>)}{genericIncomingReferences.map((ref)=><th key={ref.category}>{categoryLabelFor(ref.category)} liên quan</th>)}<th>Tệp đính kèm</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th><th></th></tr>
               </thead>
               <tbody>
                 {filtered.map((item, idx) => (
-                  <tr key={item.id}>
+                  <Fragment key={item.id}>
+                  <tr>
+                    {detailFields.length ? <td><button type="button" className="icon-button" onClick={() => toggleExpanded(item.id)} aria-label={expandedIds.has(item.id) ? "Thu gọn chi tiết" : "Xem chi tiết"} aria-expanded={expandedIds.has(item.id)}>{expandedIds.has(item.id) ? "▾" : "▸"}</button></td> : null}
                     <td>{idx + 1}</td>
                     {beforeTitleFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
                     <td><strong>{item.title}</strong></td>
                     <td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>
-                    {afterTitleFields.map((f)=>{
-                      const value = item.details?.[f.key];
-                      const hasValue = value!=null && value!=="";
-                      if (f.type === "reference" && f.referenceCategory) {
-                        const target = hasValue ? (refItems[f.referenceCategory]||[]).find((r)=>r.id===value) : null;
-                        return <td key={f.key}>{target ? <Link className="table-link" href={`/emr/${slugForCode(f.referenceCategory)}`}>{target.title}</Link> : "—"}</td>;
-                      }
-                      if (f.type === "sequence") {
-                        const steps = sequenceSteps(value);
-                        return <td key={f.key}>{steps.length ? <>{formatSequenceValue(value)}<div><small>{steps.length} chữ ký</small></div></> : "—"}</td>;
-                      }
-                      if (f.type === "boolean") {
-                        const isTrue = value === "true";
-                        return <td key={f.key}>{formatBooleanValue(value)}{f.key === "patient_portal_visible" && isTrue ? <div><Link className="table-link" href="/emr/patient-portal">Xem Patient Portal →</Link></div> : null}</td>;
-                      }
-                      // Whichever form declares it needs training should link
-                      // straight across to the Đào tạo (training) category
-                      // instead of leaving the two menus disconnected — keyed
-                      // by field key/value so it applies to any category that
-                      // uses this same "training_required" convention.
-                      const isTrainingLink = f.key==="training_required" && value==="Cần đào tạo";
-                      return <td key={f.key}>{hasValue ? String(value) : "—"}{isTrainingLink ? <div><Link className="table-link" href="/emr/dao-tao">Xem Đào tạo →</Link></div> : null}</td>;
-                    })}
-                    {incomingReferences.map((ref) => {
+                    {columnFields.map((f)=><td key={f.key}>{fieldDisplayContent(f, item)}</td>)}
+                    {genericIncomingReferences.map((ref) => {
                       const count = (refItems[ref.category]||[]).filter((r)=>r.details?.[ref.field.key]===item.id).length;
-                      return <td key={ref.category}>{count ? <Link className="table-link" href={`/emr/${slugForCode(ref.category)}`}>{count} {ref.field.label.toLowerCase()} →</Link> : <Link className="table-link" href={`/emr/${slugForCode(ref.category)}`}>Ghi nhận →</Link>}</td>;
+                      return <td key={ref.category}>{count ? <Link className="table-link" href={`/emr/${slugForCode(ref.category)}`}>{count} {categoryLabelFor(ref.category).toLowerCase()} →</Link> : <Link className="table-link" href={`/emr/${slugForCode(ref.category)}`}>Ghi nhận →</Link>}</td>;
                     })}
                     <td>{item.details?.file_name ? <button type="button" className="button tertiary small" onClick={() => viewFile(item)}>📎 {String(item.details.file_name)}</button> : "—"}</td>
                     <td><span className={`status-badge ${item.priority==="CRITICAL"?"danger":item.priority==="HIGH"?"warning":"muted"}`}>{{LOW:"Thấp",MEDIUM:"Trung bình",HIGH:"Cao",CRITICAL:"Nghiêm trọng"}[item.priority]||item.priority}</span></td><td>{item.due_date || "—"}</td>
@@ -282,6 +320,16 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                       <button type="button" className="button tertiary small" onClick={() => remove(item)}>Xoá</button>
                     </> : <small>Chỉ xem</small>}</td>
                   </tr>
+                  {detailFields.length && expandedIds.has(item.id) ? (
+                    <tr>
+                      <td colSpan={20}>
+                        <div className="emr-detail-grid">
+                          {detailFields.map((f) => <div key={f.key}><label>{f.label}</label><div>{fieldDisplayContent(f, item)}</div></div>)}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -300,7 +348,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
               <label>{descLabel}
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
               </label>
-              {extraFields.map((f) => (
+              {extraFields.filter((f) => !f.pairWithStatus).map((f) => (
                 f.type === "boolean" ? (
                   <div key={f.key}>
                     <label className="inline-check">
@@ -355,11 +403,11 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                 ) : f.type === "multiselect" ? (
                   <fieldset key={f.key}>
                     <legend>{f.label}</legend>
-                    <div className="check-grid">
+                    <div className="check-grid emr-role-check-grid">
                       {(f.options || []).map((o) => {
                         const selected = (form.details[f.key] || "").split(",").map((s) => s.trim()).filter(Boolean);
                         return (
-                          <label className="check-card" key={o}>
+                          <label className="check-card emr-role-check-card" key={o}>
                             <input
                               type="checkbox"
                               checked={selected.includes(o)}
@@ -434,11 +482,19 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                   {Object.entries(EMR_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
+              {extraFields.filter((f) => f.pairWithStatus).map((f) => (
+                <label key={f.key}>{f.label}
+                  <select value={form.details[f.key] || ""} onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.value } })}>
+                    <option value="">— Chưa chọn —</option>
+                    {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </label>
+              ))}
               <label>Mức ưu tiên
                 <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}><option value="LOW">Thấp</option><option value="MEDIUM">Trung bình</option><option value="HIGH">Cao</option><option value="CRITICAL">Nghiêm trọng</option></select>
               </label>
               <fieldset>
-                <legend>Khoa/phòng</legend>
+                <legend>Khoa/phòng — Phạm vi áp dụng</legend>
                 {departments.length ? (
                   <div className="department-checks">
                     {departments.map((d) => (
@@ -454,7 +510,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                 ) : null}
                 <small>Không chọn khoa/phòng nào nghĩa là áp dụng toàn viện. Chọn một hoặc nhiều khoa/phòng cụ thể nếu hạng mục không áp dụng cho toàn viện.</small>
               </fieldset>
-              <label>Người phụ trách<select value={form.owner_user_id} onChange={(e)=>setForm({...form,owner_user_id:e.target.value})}><option value="">— Chưa gán —</option>{users.map(u=><option key={u.user_id} value={u.user_id}>{u.full_name||u.email}</option>)}</select></label>
+              <label>Đơn vị phụ trách<select value={form.owner_department_id} onChange={(e)=>setForm({...form,owner_department_id:e.target.value})}><option value="">— Chưa gán —</option>{departments.map(d=><option key={d.id} value={d.id}>{d.short_name||d.name}</option>)}</select></label>
               <label>Hạn hoàn thành<input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></label>
               <label className="inline-check"><input type="checkbox" checked={form.is_go_live_gate} onChange={(e) => setForm({ ...form, is_go_live_gate: e.target.checked })} /> Điều kiện bắt buộc trước Go-live</label>
               <label>Minh chứng / liên kết xác minh<input value={form.evidence_url} onChange={(e) => setForm({ ...form, evidence_url: e.target.value, verify_completed:false })} placeholder="URL hoặc tham chiếu minh chứng" /></label>

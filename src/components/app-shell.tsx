@@ -110,7 +110,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
         const currentRecordIds = new Set((recordsRes.data ?? []).map((x: any) => x.id)); const inCurrentYear = (recordId: string | null | undefined) => !!recordId && currentRecordIds.has(recordId); const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()); const todayMs = Date.parse(`${today}T00:00:00+07:00`); const daysTo = (value: string | null | undefined) => { if (!value) return null; const date = String(value).slice(0, 10); const targetMs = Date.parse(`${date}T00:00:00+07:00`); if (!Number.isFinite(targetMs) || !Number.isFinite(todayMs)) return null; return Math.round((targetMs - todayMs) / 86400000); }; const mine = (ownerUserId?: string | null, departmentId?: string | null) => ownerUserId === user.id || (!!user.primaryDepartmentId && departmentId === user.primaryDepartmentId);
         const notificationRows = (noticesRes.data ?? []) as AttentionNotification[]; const recordIds = Array.from(new Set(notificationRows.map((notice) => notice.target_record_id).filter(Boolean))) as string[]; const recordTypeById = new Map<string, string>(); if (recordIds.length) { const { data: records } = await supabase.from("records").select("id,record_type").in("id", recordIds); (records ?? []).forEach((record: any) => recordTypeById.set(record.id, record.record_type)); }
         for (const notice of notificationRows) { const priority = String(notice.priority || "").toUpperCase(); if (!["HIGH", "URGENT", "CRITICAL"].includes(priority)) continue; let href = normalizeNavRoute(notice.target_route, navGroups); if (!href && notice.target_record_id) href = RECORD_TYPE_NAV[recordTypeById.get(notice.target_record_id) || ""] || null; addActionable(href, `notice:${notice.id}`, true); }
-        for (const task of (tasksRes.data ?? []) as any[]) { const assignedToMe = task.assignee_user_id === user.id || (task.assignment_target_type === "GROUP" && myGroupActionRecordIds.has(task.record_id)) || (task.assignment_target_type === "DEPARTMENT" && myDepartmentActionIds.has(task.action_id)); const days = Number(task.days_to_due); const dueToday = Number.isFinite(days) && days === 0; const returned = task.workflow_status === "RETURNED"; const overdue = Boolean(task.is_overdue); const needsVerification = canVerifyTasks && ["EVIDENCE_SUBMITTED", "VERIFYING"].includes(task.workflow_status); if ((assignedToMe && (overdue || dueToday || returned)) || needsVerification) addActionable("/tasks", `task:${task.action_id}`, overdue || returned); }
+        for (const task of (tasksRes.data ?? []) as any[]) { if (["COMPLETED", "CANCELLED", "NOT_APPLICABLE"].includes(String(task.workflow_status))) continue; const assignedToMe = task.assignee_user_id === user.id || (task.assignment_target_type === "GROUP" && myGroupActionRecordIds.has(task.record_id)) || (task.assignment_target_type === "DEPARTMENT" && myDepartmentActionIds.has(task.action_id)); const days = Number(task.days_to_due); const dueToday = Number.isFinite(days) && days === 0; const returned = task.workflow_status === "RETURNED"; const overdue = Boolean(task.is_overdue); const needsVerification = canVerifyTasks && ["EVIDENCE_SUBMITTED", "VERIFYING"].includes(task.workflow_status); if ((assignedToMe && (overdue || dueToday || returned)) || needsVerification) addActionable("/tasks", `task:${task.action_id}`, overdue || returned); }
         for (const round of (monitoringRes.data ?? []) as any[]) { if (!inCurrentYear(round.record_id)) continue; if (round.workflow_status === "AWAITING_CONFIRMATION" && canConfirmMonitoring) { addActionable("/monitoring", `monitoring:${round.id}`, false); continue; } if (round.lead_assessor_id !== user.id) continue; if (round.workflow_status === "IN_PROGRESS") { addActionable("/monitoring", `monitoring:${round.id}`, true); continue; } if (round.workflow_status === "SCHEDULED" && round.scheduled_date && round.scheduled_date <= today) addActionable("/monitoring", `monitoring:${round.id}`, round.scheduled_date < today); }
         for (const directive of (directivesRes.data ?? []) as any[]) { if (!inCurrentYear(directive.record_id) || ["COMPLETED", "CANCELLED"].includes(String(directive.workflow_status))) continue; if (!canManageDirectives && !mine(directive.owner_user_id, directive.lead_department_id)) continue; const days = daysTo(directive.report_due_date || directive.implementation_due_date); if (days !== null && days <= 7) addActionable("/directives", `directive:${directive.id}`, days < 0); }
         for (const report of (reportsRes.data ?? []) as any[]) { if (!inCurrentYear(report.record_id) || ["COMPLETED", "CANCELLED"].includes(String(report.workflow_status))) continue; if (!canManageReports && !mine(report.preparer_user_id, report.preparing_department_id)) continue; const days = daysTo(report.due_date); if (days !== null && days <= 7) addActionable("/reports", `report:${report.id}`, days < 0); }
@@ -140,7 +140,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .main-shell.sidebar-collapsed{margin-left:var(--sidebar-collapsed-width)}
       .workspace-app .sidebar{width:var(--sidebar-width);transition:width .2s,transform .2s}
       .workspace-app .sidebar.collapsed{width:var(--sidebar-collapsed-width)}
-      .workspace-app .sidebar.collapsed .sidebar-brand-copy,.workspace-app .sidebar.collapsed .nav-label,.workspace-app .sidebar.collapsed .nav-link-label,.workspace-app .sidebar.collapsed .nav-group-label,.workspace-app .sidebar.collapsed .sidebar-footer,.workspace-app .sidebar.collapsed .sidebar-illustration{display:none}
+      .workspace-app .sidebar.collapsed .sidebar-brand-copy,.workspace-app .sidebar.collapsed .nav-label,.workspace-app .sidebar.collapsed .nav-link-label,.workspace-app .sidebar.collapsed .nav-group-label,.workspace-app .sidebar.collapsed .sidebar-bottom{display:none}
       .workspace-app .sidebar.collapsed .sidebar-brand{padding:14px 8px;justify-content:center}
       .workspace-app .sidebar.collapsed .brand-mark{width:38px;height:38px}
       .workspace-app .sidebar.collapsed .brand-mark img{width:38px;height:38px}
@@ -262,9 +262,11 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .nav-attention-badge.urgent{background:#dc2626}
       .workspace-app .sidebar.collapsed .nav-attention-badge{position:absolute;right:5px;top:4px;min-width:16px;height:16px;padding:0 4px;font-size:9px;border:2px solid #fff}
       .workspace-app .sidebar.collapsed .nav-group-flyout .nav-attention-badge{position:static;min-width:20px;height:20px;padding:0 6px;font-size:11px;border:0}
-      .workspace-app .sidebar-footer{border-top:1px solid #f1f5f9;padding:12px 14px}
-      .workspace-app .sidebar-illustration{margin-top:24px;padding:18px 20px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;opacity:.9}
+      .workspace-app .sidebar-bottom{position:absolute;left:0;right:0;bottom:0;background:#fff}
+      .workspace-app .sidebar-footer{position:static;border-top:1px solid #f1f5f9;padding:12px 14px}
+      .workspace-app .sidebar-illustration{margin:0;padding:16px 20px 4px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;opacity:.9}
       .workspace-app .sidebar-illustration-caption{margin:0;font-size:11px;line-height:1.5;color:#93a5c2;max-width:180px}
+      .workspace-app .sidebar-nav{padding-bottom:240px}
       .workspace-app .scope-chip{color:#64748b;font-size:11px;margin-bottom:8px}
       .workspace-app .sidebar-collapse-text{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:#64748b;font-size:12.5px;font-weight:700;padding:6px 4px;cursor:pointer;border-radius:8px}
       .workspace-app .sidebar-collapse-text:hover{background:#f8fafc;color:#0f172a}
@@ -299,27 +301,53 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
         // never an "expand reveals only 1 item" moment.
         if (group.children.length === 1) return renderChild(group.children[0], true);
         return <div className={`nav-group ${expanded ? "expanded" : ""} ${isActiveGroup ? "active-context" : ""}`} key={group.id}><button type="button" className="nav-group-header" aria-expanded={expanded} onClick={() => toggleGroup(group.id)}><span className="nav-icon nav-group-icon" aria-hidden="true"><Icon name={group.icon} size={18} /></span><span className="nav-group-label">{group.label}</span><Icon name="chevron-down" size={15} className={`nav-group-chevron ${expanded ? "expanded" : ""}`} /></button><div className="nav-group-children" aria-hidden={!expanded}>{expanded ? group.children.map((c) => renderChild(c)) : null}</div><div className="nav-group-flyout"><div className="nav-group-flyout-title">{group.label}</div>{group.children.map((c) => renderChild(c))}</div></div>; })}
-      <div className="sidebar-illustration" aria-hidden="true">
-        <svg width="140" height="104" viewBox="0 0 140 104" fill="none">
-          <rect x="26" y="28" width="88" height="68" rx="6" fill="#eff6ff" stroke="#bfdbfe" strokeWidth="2"/>
-          <rect x="52" y="8" width="36" height="24" rx="4" fill="#dbeafe" stroke="#bfdbfe" strokeWidth="2"/>
-          <rect x="64" y="13" width="12" height="12" fill="#2563eb"/>
-          <rect x="68" y="9" width="4" height="20" fill="#fff"/>
-          <rect x="58" y="17" width="20" height="4" fill="#fff"/>
-          <rect x="36" y="42" width="11" height="11" rx="2" fill="#93c5fd"/>
-          <rect x="55" y="42" width="11" height="11" rx="2" fill="#93c5fd"/>
-          <rect x="74" y="42" width="11" height="11" rx="2" fill="#93c5fd"/>
-          <rect x="93" y="42" width="11" height="11" rx="2" fill="#93c5fd"/>
-          <rect x="36" y="61" width="11" height="11" rx="2" fill="#93c5fd"/>
-          <rect x="74" y="61" width="11" height="11" rx="2" fill="#93c5fd"/>
-          <rect x="93" y="61" width="11" height="11" rx="2" fill="#93c5fd"/>
-          <rect x="58" y="76" width="24" height="20" rx="2" fill="#2563eb"/>
-          <path d="M14 96h112" stroke="#dbeafe" strokeWidth="3" strokeLinecap="round"/>
-        </svg>
-        <p className="sidebar-illustration-caption">QARICA đồng hành cùng hành trình chất lượng của bệnh viện bạn.</p>
-      </div>
       </nav>
-      <div className="sidebar-footer"><div className="scope-chip">{user.scopeTypes.includes("HOSPITAL") ? "Phạm vi: Toàn viện" : `Phạm vi: ${user.primaryDepartmentName || "Được phân công"}`}</div><button type="button" className="sidebar-collapse-text" onClick={toggleSidebarCollapsed}><Icon name="panel-left-close" size={16} /><span>Thu gọn</span></button></div>
+      <div className="sidebar-bottom">
+        <div className="sidebar-illustration" aria-hidden="true">
+          <svg width="150" height="110" viewBox="0 0 150 110" fill="none">
+            <defs>
+              <linearGradient id="sbHospBody" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="#eff6ff"/>
+                <stop offset="1" stopColor="#dbeafe"/>
+              </linearGradient>
+              <linearGradient id="sbHospTower" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="#dbeafe"/>
+                <stop offset="1" stopColor="#bfdbfe"/>
+              </linearGradient>
+            </defs>
+            <path d="M8 100h134" stroke="#dbeafe" strokeWidth="3" strokeLinecap="round"/>
+            <circle cx="20" cy="78" r="12" fill="#bbf7d0"/>
+            <rect x="18" y="88" width="4" height="12" rx="1" fill="#86efac"/>
+            <rect x="30" y="58" width="34" height="42" rx="4" fill="url(#sbHospBody)" stroke="#bfdbfe" strokeWidth="2"/>
+            <rect x="58" y="22" width="56" height="78" rx="5" fill="url(#sbHospTower)" stroke="#93c5fd" strokeWidth="2"/>
+            <rect x="108" y="58" width="30" height="42" rx="4" fill="url(#sbHospBody)" stroke="#bfdbfe" strokeWidth="2"/>
+            <circle cx="86" cy="14" r="11" fill="#fff" stroke="#60a5fa" strokeWidth="2"/>
+            <rect x="83" y="8" width="6" height="12" rx="1" fill="#2563eb"/>
+            <rect x="80" y="11" width="12" height="6" rx="1" fill="#2563eb"/>
+            <rect x="65" y="34" width="9" height="9" rx="2" fill="#60a5fa"/>
+            <rect x="81" y="34" width="9" height="9" rx="2" fill="#60a5fa"/>
+            <rect x="97" y="34" width="9" height="9" rx="2" fill="#60a5fa"/>
+            <rect x="65" y="50" width="9" height="9" rx="2" fill="#60a5fa"/>
+            <rect x="81" y="50" width="9" height="9" rx="2" fill="#60a5fa"/>
+            <rect x="97" y="50" width="9" height="9" rx="2" fill="#60a5fa"/>
+            <rect x="65" y="66" width="9" height="9" rx="2" fill="#93c5fd"/>
+            <rect x="97" y="66" width="9" height="9" rx="2" fill="#93c5fd"/>
+            <rect x="78" y="80" width="16" height="20" rx="2" fill="#2563eb"/>
+            <rect x="36" y="66" width="8" height="8" rx="2" fill="#93c5fd"/>
+            <rect x="50" y="66" width="8" height="8" rx="2" fill="#93c5fd"/>
+            <rect x="36" y="80" width="8" height="8" rx="2" fill="#93c5fd"/>
+            <rect x="50" y="80" width="8" height="8" rx="2" fill="#93c5fd"/>
+            <rect x="114" y="66" width="8" height="8" rx="2" fill="#93c5fd"/>
+            <rect x="126" y="66" width="8" height="8" rx="2" fill="#93c5fd"/>
+            <rect x="114" y="80" width="8" height="8" rx="2" fill="#93c5fd"/>
+            <rect x="126" y="80" width="8" height="8" rx="2" fill="#93c5fd"/>
+            <circle cx="132" cy="80" r="9" fill="#bbf7d0"/>
+            <rect x="130" y="88" width="3" height="10" rx="1" fill="#86efac"/>
+          </svg>
+          <p className="sidebar-illustration-caption">QARICA đồng hành cùng hành trình chất lượng của bệnh viện bạn.</p>
+        </div>
+        <div className="sidebar-footer"><div className="scope-chip">{user.scopeTypes.includes("HOSPITAL") ? "Phạm vi: Toàn viện" : `Phạm vi: ${user.primaryDepartmentName || "Được phân công"}`}</div><button type="button" className="sidebar-collapse-text" onClick={toggleSidebarCollapsed}><Icon name="panel-left-close" size={16} /><span>Thu gọn</span></button></div>
+      </div>
     </aside>
     {mobileOpen ? <button className="sidebar-overlay" onClick={() => setMobileOpen(false)} aria-label="Đóng menu" /> : null}
     <div className={`main-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
