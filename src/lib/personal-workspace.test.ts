@@ -29,7 +29,7 @@ describe("Personal workspace is scoped to the user only, never to an organizatio
   });
 
   it("is reachable from every logged-in user — no permission gate on the nav entry", () => {
-    expect(nav).toContain('{ label: "Không gian riêng", href: "/me", icon: "book-open" },');
+    expect(nav).toContain('{ label: "Cá nhân", href: "/me", icon: "book-open" },');
   });
 });
 
