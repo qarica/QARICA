@@ -29,11 +29,46 @@ const NAV_GROUPS: NavGroupDef[] = [
       { label: "Việc của tôi", href: "/tasks", icon: "inbox", permission: "tasks.view" },
       { label: "Lịch QLCL", href: "/calendar", icon: "calendar-days", permission: "dashboard.view" },
       { label: "Kế hoạch & Điều hành", icon: "target", workspaceRoot: "/plans" },
-      { label: "Đề xuất mua sắm/sửa chữa", href: "/procurement", icon: "list-checks", permission: "procurement.view" },
-      { label: "Theo dõi hành nghề bác sĩ", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" },
+    ],
+  },
+  {
+    id: "procurement",
+    label: "Mua sắm & Sửa chữa",
+    icon: "list-checks",
+    children: [
+      { label: "Mua sắm & Sửa chữa", href: "/procurement", icon: "list-checks", permission: "procurement.view" },
+    ],
+  },
+  {
+    id: "physician-license",
+    label: "Quản lý hành nghề",
+    icon: "badge-check",
+    children: [
+      { label: "Quản lý hành nghề", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" },
+    ],
+  },
+  {
+    id: "incoming-documents",
+    label: "Công văn đến",
+    icon: "file-input",
+    children: [
       { label: "Công văn đến", href: "/incoming-documents", icon: "file-input", permission: "incoming_documents.view" },
-      { label: "Theo dõi quy trình đào tạo", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" },
-      { label: "Không gian riêng", href: "/me", icon: "book-open" },
+    ],
+  },
+  {
+    id: "procedure-training",
+    label: "Đào tạo quy trình",
+    icon: "book-open",
+    children: [
+      { label: "Đào tạo quy trình", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" },
+    ],
+  },
+  {
+    id: "personal-workspace",
+    label: "Cá nhân",
+    icon: "book-open",
+    children: [
+      { label: "Cá nhân", href: "/me", icon: "book-open" },
     ],
   },
   {

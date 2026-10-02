@@ -12,7 +12,17 @@ const workspaceNav = readFileSync("src/lib/workspace-navigation.ts", "utf8");
 const layout = readFileSync("src/app/(app)/layout.tsx", "utf8");
 const shell = readFileSync("src/components/app-shell.tsx", "utf8");
 
-const GROUP_IDS = ["operations", "quality-management", "digital-systems", "system-config"];
+const GROUP_IDS = [
+  "operations",
+  "procurement",
+  "physician-license",
+  "incoming-documents",
+  "procedure-training",
+  "personal-workspace",
+  "quality-management",
+  "digital-systems",
+  "system-config",
+];
 
 function groupBlock(source: string, id: string) {
   const start = source.indexOf(`id: "${id}"`);
@@ -26,23 +36,40 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 4 primary groups", () => {
+  it("defines exactly 9 primary groups — 5 single-item groups promoted out of ĐIỀU HÀNH CHẤT LƯỢNG per explicit request (mobile sidebar screenshot)", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no fifth group id besides these four
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(4);
+    // no tenth group id besides these nine
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(9);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "CHUYỂN ĐỔI SỐ & HỆ THỐNG"');
     expect(navigation).toContain('label: "CẤU HÌNH HỆ THỐNG"');
   });
 
-  it("assigns the correct children to Group 1 — ĐIỀU HÀNH CHẤT LƯỢNG", () => {
+  it("assigns the correct children to Group 1 — ĐIỀU HÀNH CHẤT LƯỢNG (the 5 single-item groups no longer live here)", () => {
     const block = groupBlock(navigation, "operations");
     for (const label of ["Tổng quan QLCL", "Việc của tôi", "Lịch QLCL", "Kế hoạch & Điều hành"]) {
       expect(block).toContain(`label: "${label}"`);
     }
     expect(block).not.toContain("Đo lường & Giám sát");
     expect(block).not.toContain("EMR");
+    for (const moved of ["Mua sắm & Sửa chữa", "Quản lý hành nghề", "Công văn đến", "Đào tạo quy trình", "Cá nhân"]) {
+      expect(block).not.toContain(`label: "${moved}"`);
+    }
+  });
+
+  it("promotes Mua sắm & Sửa chữa, Quản lý hành nghề, Công văn đến, Đào tạo quy trình and Cá nhân to their own top-level single-item groups", () => {
+    const expectations: [string, string, string][] = [
+      ["procurement", "Mua sắm & Sửa chữa", "/procurement"],
+      ["physician-license", "Quản lý hành nghề", "/physician-license"],
+      ["incoming-documents", "Công văn đến", "/incoming-documents"],
+      ["procedure-training", "Đào tạo quy trình", "/procedure-trainings"],
+      ["personal-workspace", "Cá nhân", "/me"],
+    ];
+    for (const [id, label, href] of expectations) {
+      const block = groupBlock(navigation, id);
+      expect(block).toContain(`label: "${label}", href: "${href}"`);
+    }
   });
 
   it("assigns the correct children to Group 2 — QUẢN LÝ CHẤT LƯỢNG", () => {
