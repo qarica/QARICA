@@ -211,8 +211,20 @@
     gap: 14px !important;
   }
 
+  /* workspace-shell.css's own @media(max-width:760px) sets
+     .workspace-context{width:100%!important} for ITS wrap-based layout
+     (context on its own row, tabs wrapping below). Here the strip is
+     instead a single non-wrapping scrollable row (flex-wrap:nowrap above),
+     so that 100% width survives unopposed and makes the context label
+     claim the entire row before any tab is visible — exactly the "chỉ
+     thấy nửa màn hình" bug where only the eyebrow/title showed and every
+     tab (Kế hoạch/Lịch QLCL/...) was scrolled off past the right edge.
+     Must explicitly reset width back to auto here, not just flex-basis —
+     an explicit width wins over a flex-basis of "auto". */
   .workspace-app .workspace-context {
     flex: 0 0 auto !important;
+    width: auto !important;
+    max-width: 60% !important;
   }
 
   .workspace-app .workspace-tabs {
