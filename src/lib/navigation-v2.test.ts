@@ -18,7 +18,6 @@ const GROUP_IDS = [
   "physician-license",
   "incoming-documents",
   "procedure-training",
-  "personal-workspace",
   "quality-management",
   "digital-systems",
   "system-config",
@@ -36,35 +35,36 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 9 primary groups — 5 single-item groups promoted out of ĐIỀU HÀNH CHẤT LƯỢNG per explicit request (mobile sidebar screenshot)", () => {
+  it("defines exactly 8 primary groups — 4 single-item groups promoted out of ĐIỀU HÀNH CHẤT LƯỢNG per explicit request (mobile sidebar screenshot); CÁ NHÂN stays inside ĐIỀU HÀNH CHẤT LƯỢNG, next to Việc của tôi, not as its own common top-level menu", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no tenth group id besides these nine
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(9);
+    // no ninth group id besides these eight
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(8);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "CHUYỂN ĐỔI SỐ & HỆ THỐNG"');
     expect(navigation).toContain('label: "CẤU HÌNH HỆ THỐNG"');
   });
 
-  it("assigns the correct children to Group 1 — ĐIỀU HÀNH CHẤT LƯỢNG (the 5 single-item groups no longer live here)", () => {
+  it("assigns the correct children to Group 1 — ĐIỀU HÀNH CHẤT LƯỢNG, including Cá nhân right after Việc của tôi (4 single-item groups no longer live here; Cá nhân was moved OUT of being a standalone top-level menu and placed here instead, per explicit request)", () => {
     const block = groupBlock(navigation, "operations");
-    for (const label of ["Tổng quan QLCL", "Việc của tôi", "Lịch QLCL", "Kế hoạch & Điều hành"]) {
+    for (const label of ["Tổng quan QLCL", "Việc của tôi", "Cá nhân", "Lịch QLCL", "Kế hoạch & Điều hành"]) {
       expect(block).toContain(`label: "${label}"`);
     }
     expect(block).not.toContain("Đo lường & Giám sát");
     expect(block).not.toContain("EMR");
-    for (const moved of ["Mua sắm & Sửa chữa", "Quản lý hành nghề", "Công văn đến", "Đào tạo quy trình", "Cá nhân"]) {
+    expect(block.indexOf('label: "Việc của tôi"')).toBeLessThan(block.indexOf('label: "Cá nhân"'));
+    for (const moved of ["MUA SẮM & SỬA CHỮA", "QUẢN LÝ HÀNH NGHỀ", "CÔNG VĂN ĐẾN", "ĐÀO TẠO QUY TRÌNH"]) {
       expect(block).not.toContain(`label: "${moved}"`);
     }
+    expect(block).not.toContain('label: "CÁ NHÂN"');
   });
 
-  it("promotes Mua sắm & Sửa chữa, Quản lý hành nghề, Công văn đến, Đào tạo quy trình and Cá nhân to their own top-level single-item groups", () => {
+  it("promotes MUA SẮM & SỬA CHỮA, QUẢN LÝ HÀNH NGHỀ, CÔNG VĂN ĐẾN and ĐÀO TẠO QUY TRÌNH to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
     const expectations: [string, string, string][] = [
-      ["procurement", "Mua sắm & Sửa chữa", "/procurement"],
-      ["physician-license", "Quản lý hành nghề", "/physician-license"],
-      ["incoming-documents", "Công văn đến", "/incoming-documents"],
-      ["procedure-training", "Đào tạo quy trình", "/procedure-trainings"],
-      ["personal-workspace", "Cá nhân", "/me"],
+      ["procurement", "MUA SẮM & SỬA CHỮA", "/procurement"],
+      ["physician-license", "QUẢN LÝ HÀNH NGHỀ", "/physician-license"],
+      ["incoming-documents", "CÔNG VĂN ĐẾN", "/incoming-documents"],
+      ["procedure-training", "ĐÀO TẠO QUY TRÌNH", "/procedure-trainings"],
     ];
     for (const [id, label, href] of expectations) {
       const block = groupBlock(navigation, id);

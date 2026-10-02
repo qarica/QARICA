@@ -21,7 +21,6 @@ export default async function PhysicianLicensePage() {
   return (
     <div className="page-stack physician-license-page">
       <PageHeader
-        eyebrow="Điều hành chất lượng"
         title="Theo dõi hành nghề bác sĩ"
         description="Theo dõi hạn đăng ký hành nghề trên cổng SYT/BHYT cho từng bác sĩ — tránh xuất toán BHYT do sai/thiếu chứng chỉ hành nghề."
         icon="list-checks"

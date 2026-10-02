@@ -27,48 +27,41 @@ const NAV_GROUPS: NavGroupDef[] = [
     children: [
       { label: "Tổng quan QLCL", href: "/dashboard", icon: "layout-dashboard", permission: "dashboard.view" },
       { label: "Việc của tôi", href: "/tasks", icon: "inbox", permission: "tasks.view" },
+      { label: "Cá nhân", href: "/me", icon: "book-open" },
       { label: "Lịch QLCL", href: "/calendar", icon: "calendar-days", permission: "dashboard.view" },
       { label: "Kế hoạch & Điều hành", icon: "target", workspaceRoot: "/plans" },
     ],
   },
   {
     id: "procurement",
-    label: "Mua sắm & Sửa chữa",
+    label: "MUA SẮM & SỬA CHỮA",
     icon: "list-checks",
     children: [
-      { label: "Mua sắm & Sửa chữa", href: "/procurement", icon: "list-checks", permission: "procurement.view" },
+      { label: "MUA SẮM & SỬA CHỮA", href: "/procurement", icon: "list-checks", permission: "procurement.view" },
     ],
   },
   {
     id: "physician-license",
-    label: "Quản lý hành nghề",
+    label: "QUẢN LÝ HÀNH NGHỀ",
     icon: "badge-check",
     children: [
-      { label: "Quản lý hành nghề", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" },
+      { label: "QUẢN LÝ HÀNH NGHỀ", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" },
     ],
   },
   {
     id: "incoming-documents",
-    label: "Công văn đến",
+    label: "CÔNG VĂN ĐẾN",
     icon: "file-input",
     children: [
-      { label: "Công văn đến", href: "/incoming-documents", icon: "file-input", permission: "incoming_documents.view" },
+      { label: "CÔNG VĂN ĐẾN", href: "/incoming-documents", icon: "file-input", permission: "incoming_documents.view" },
     ],
   },
   {
     id: "procedure-training",
-    label: "Đào tạo quy trình",
+    label: "ĐÀO TẠO QUY TRÌNH",
     icon: "book-open",
     children: [
-      { label: "Đào tạo quy trình", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" },
-    ],
-  },
-  {
-    id: "personal-workspace",
-    label: "Cá nhân",
-    icon: "book-open",
-    children: [
-      { label: "Cá nhân", href: "/me", icon: "book-open" },
+      { label: "ĐÀO TẠO QUY TRÌNH", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" },
     ],
   },
   {
