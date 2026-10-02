@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiPermission } from "@/lib/api-auth";
+import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_STATUS_LABELS, emrCategoryBySlug, formatBooleanValue, formatSequenceValue } from "@/lib/emr-categories";
 
@@ -25,18 +25,18 @@ export async function GET(request: Request) {
   const UNGROUPED = "Chưa phân nhóm";
 
   const admin = createAdminClient();
-  const { data: caller, error: callerError } = await admin.from("profiles").select("organization_id").eq("user_id", auth.user.id).maybeSingle();
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
-  if (!caller?.organization_id) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const [itemsRes, departmentsRes] = await Promise.all([
     admin
       .from("emr_rollout_items")
       .select("title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,details,created_at")
-      .eq("organization_id", caller.organization_id)
+      .eq("organization_id", organizationId)
       .eq("category", category.code)
       .order("created_at", { ascending: false }),
-    admin.from("departments").select("id,name").eq("organization_id", caller.organization_id),
+    admin.from("departments").select("id,name").eq("organization_id", organizationId),
   ]);
   if (itemsRes.error) return NextResponse.json({ error: itemsRes.error.message }, { status: 400 });
 

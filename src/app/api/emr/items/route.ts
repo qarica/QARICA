@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiPermission } from "@/lib/api-auth";
+import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EMR_CATEGORIES, EMR_CATEGORY_FIELDS } from "@/lib/emr-categories";
 
@@ -27,18 +27,14 @@ export async function GET(request: Request) {
   }
 
   const admin = createAdminClient();
-  const { data: profile, error: profileError } = await admin
-    .from("profiles")
-    .select("organization_id")
-    .eq("user_id", auth.user.id)
-    .maybeSingle();
-  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 400 });
-  if (!profile?.organization_id) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const { data, error } = await admin
     .from("emr_rollout_items")
     .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
-    .eq("organization_id", profile.organization_id)
+    .eq("organization_id", organizationId)
     .eq("category", category)
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -80,22 +76,18 @@ export async function POST(request: Request) {
   if (!["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(priority)) return NextResponse.json({ error: "Mức ưu tiên không hợp lệ." }, { status: 400 });
 
   const admin = createAdminClient();
-  const { data: profile, error: profileError } = await admin
-    .from("profiles")
-    .select("organization_id")
-    .eq("user_id", auth.user.id)
-    .maybeSingle();
-  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 400 });
-  if (!profile?.organization_id) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
-  const departmentIdsResult = await sanitizeDepartmentIds(admin, profile.organization_id, body.department_ids);
+  const departmentIdsResult = await sanitizeDepartmentIds(admin, organizationId, body.department_ids);
   if ("error" in departmentIdsResult) return NextResponse.json({ error: departmentIdsResult.error }, { status: 400 });
-  if (ownerDepartmentId) { const { data: d } = await admin.from("departments").select("id").eq("id", ownerDepartmentId).eq("organization_id", profile.organization_id).eq("is_active", true).maybeSingle(); if (!d) return NextResponse.json({ error: "Đơn vị phụ trách không hợp lệ." }, { status: 400 }); }
+  if (ownerDepartmentId) { const { data: d } = await admin.from("departments").select("id").eq("id", ownerDepartmentId).eq("organization_id", organizationId).eq("is_active", true).maybeSingle(); if (!d) return NextResponse.json({ error: "Đơn vị phụ trách không hợp lệ." }, { status: 400 }); }
 
   const { data, error } = await admin
     .from("emr_rollout_items")
     .insert({
-      organization_id: profile.organization_id,
+      organization_id: organizationId,
       category,
       title,
       description,

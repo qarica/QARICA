@@ -15,7 +15,7 @@ describe("Tổng quan EMR — Đầu việc dự án (Timeline) shown as its own
 
   it("the dashboard route queries emr_timeline_milestones separately from emr_rollout_items", () => {
     expect(route).toContain('.from("emr_timeline_milestones")');
-    expect(route).toContain('.select("id,status").eq("organization_id", profile.organization_id);');
+    expect(route).toContain('.select("id,status").eq("organization_id", organizationId);');
   });
 
   it("milestone stats are returned as their own `milestones` field, not merged into `completion`/`counts`", () => {

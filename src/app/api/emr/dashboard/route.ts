@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiPermission } from "@/lib/api-auth";
+import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
 
@@ -9,12 +9,12 @@ export async function GET(req: NextRequest) {
   const auth = await requireApiPermission("emr.view");
   if (!auth.ok) return auth.response;
   const admin = createAdminClient();
-  const { data: profile, error: pe } = await admin.from("profiles").select("organization_id").eq("user_id", auth.user.id).maybeSingle();
-  if (pe) return NextResponse.json({ error: pe.message }, { status: 400 });
-  if (!profile?.organization_id) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
   const { data, error } = await admin.from("emr_rollout_items")
     .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,created_at,updated_at")
-    .eq("organization_id", profile.organization_id).order("updated_at", { ascending: false });
+    .eq("organization_id", organizationId).order("updated_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   const allItems = data ?? [];
   const rawFrom = req.nextUrl.searchParams.get("from") || "";
@@ -54,14 +54,14 @@ export async function GET(req: NextRequest) {
   // and mixing the two would make that gate's number impossible to audit.
   // Surfaced as its own distinct KPI instead.
   const { data: milestoneRows, error: me } = await admin.from("emr_timeline_milestones")
-    .select("id,status").eq("organization_id", profile.organization_id);
+    .select("id,status").eq("organization_id", organizationId);
   if (me) return NextResponse.json({ error: me.message }, { status: 400 });
   const milestones = milestoneRows ?? [];
   const milestonesDone = milestones.filter(x => x.status === "DONE").length;
   const milestoneStats = { total: milestones.length, done: milestonesDone, completion: milestones.length ? Math.round(milestonesDone * 100 / milestones.length) : null };
 
   const { data: departments, error: de } = await admin.from("departments")
-    .select("id,name,short_name").eq("organization_id", profile.organization_id).eq("is_active", true).order("name");
+    .select("id,name,short_name").eq("organization_id", organizationId).eq("is_active", true).order("name");
   if (de) return NextResponse.json({ error: de.message }, { status: 400 });
 
   const departmentMatrix = (departments ?? []).map(d => {
