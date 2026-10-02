@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiPermission } from "@/lib/api-auth";
+import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadPlanExportData } from "@/lib/plan-export-data";
 
@@ -19,11 +19,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!auth.ok) return auth.response;
   const { id } = await params;
   const admin = createAdminClient();
-  const { data: caller } = await admin.from("profiles").select("organization_id").eq("user_id", auth.user.id).maybeSingle();
-  if (!caller?.organization_id) return NextResponse.json({ error: "Tài khoản chưa gắn bệnh viện." }, { status: 403 });
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn bệnh viện." }, { status: 403 });
 
   try {
-    const data = await loadPlanExportData(id, caller.organization_id);
+    const data = await loadPlanExportData(id, organizationId);
     const rows = data.tasks.map((t:any, i:number)=>`<tr><td>${i+1}</td><td>${nl(t.title)}</td><td>${nl(t.expectedResult)}</td><td>${viDate(t.startDate)}</td><td>${viDate(t.dueDate)}</td></tr>`).join("");
     const refs = data.references.map((ref:any) => [ref.authority, ref.number, ref.title, ref.issuedDate ? `ngày ${viDate(ref.issuedDate)}` : ""].filter(Boolean).join(" · ")).join("\n");
     const specifics = data.specifics.join("\n");

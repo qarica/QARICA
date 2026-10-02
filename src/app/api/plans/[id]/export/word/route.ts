@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiPermission } from "@/lib/api-auth";
+import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadPlanExportData } from "@/lib/plan-export-data";
 
@@ -19,11 +19,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!auth.ok) return auth.response;
   const { id } = await params;
   const admin = createAdminClient();
-  const { data: caller } = await admin.from("profiles").select("organization_id").eq("user_id", auth.user.id).maybeSingle();
-  if (!caller?.organization_id) return NextResponse.json({ error: "Tài khoản chưa gắn bệnh viện." }, { status: 403 });
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn bệnh viện." }, { status: 403 });
 
   try {
-    const data = await loadPlanExportData(id, caller.organization_id);
+    const data = await loadPlanExportData(id, organizationId);
     const specifics = data.specifics.length ? `<ol>${data.specifics.map((x:string)=>`<li>${nl(x)}</li>`).join("")}</ol>` : "";
     const requirements = String(data.program.requirements || "").trim();
     const departments = data.departmentNames.length ? data.departmentNames.join("; ") : "—";
