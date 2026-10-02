@@ -41,6 +41,20 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   // in a per-row expandable "Chi tiết" panel instead of their own column.
   const columnFields = afterTitleFields.filter((f) => !f.compact && !f.hideFromGrid);
   const detailFields = afterTitleFields.filter((f) => f.compact && !f.hideFromGrid);
+  // A category whose fields mix static reference info (e.g. Biểu mẫu's mã
+  // biểu mẫu/nguồn tham chiếu/tình trạng số hóa) with rollout-tracking fields
+  // (giai đoạn triển khai, yêu cầu đào tạo) gets a "Thông tin" / "Tiến độ
+  // triển khai" tab switcher so the grid doesn't force both concerns onto one
+  // screen — generic: a category with no progressField fields (the default)
+  // renders exactly as before, no switcher, nothing hidden.
+  const infoColumns = columnFields.filter((f) => !f.progressField);
+  const progressColumns = columnFields.filter((f) => f.progressField);
+  const hasProgressSplit = progressColumns.length > 0;
+  const [view, setView] = useState<"info" | "progress">("info");
+  const showDescription = !(hasProgressSplit && view === "progress");
+  const showPriorityDueStatus = !(hasProgressSplit && view === "info");
+  const visibleInfoColumns = hasProgressSplit && view === "progress" ? [] : infoColumns;
+  const visibleProgressColumns = hasProgressSplit && view === "info" ? [] : progressColumns;
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   function toggleExpanded(id: string) { setExpandedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
   // Forward: this category's own fields that point at another category's
@@ -75,8 +89,12 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [departments,setDepartments]=useState<{id:string;name:string;short_name:string|null}[]>([]);
 
-  async function load() {
-    setLoading(true);
+  // Every post-save refresh (create/edit/delete/upload) used to flip `loading`
+  // back to true each time, unmounting the whole table for a moment — on
+  // mobile that reset the page's scroll to the top after every single tick.
+  // `silent` keeps the current table on screen while the refetch resolves.
+  async function load(opts?: { silent?: boolean }) {
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/emr/items?category=${encodeURIComponent(categoryCode)}`);
@@ -86,7 +104,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     } catch (e) {
       setError(e instanceof Error ? e.message : "Có lỗi xảy ra.");
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }
 
@@ -173,7 +191,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
         await uploadFile(json.item.id, pendingFile);
       }
       closeModal();
-      await load();
+      await load({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
     } finally {
@@ -187,7 +205,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "DELETE" });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "Không xoá được.");
-      await load();
+      await load({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
     }
@@ -213,7 +231,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
       const res = await fetch(`/api/emr/items/${itemId}/file`, { method: "POST", body });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "Không tải lên được.");
-      await load();
+      await load({ silent: true });
       setEditing((prev) => (prev && prev.id === itemId ? { ...prev, details: { ...prev.details, file_name: json.file_name } } : prev));
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -228,7 +246,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
       const res = await fetch(`/api/emr/items/${itemId}/file`, { method: "DELETE" });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "Không xoá được file.");
-      await load();
+      await load({ silent: true });
       setEditing((prev) => { if (!prev || prev.id !== itemId) return prev; const d = { ...prev.details }; delete d.file_name; delete d.file_path; return { ...prev, details: d }; });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -283,6 +301,12 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
       </section> : null}
       <div className="toolbar" style={{ padding: "0 0 4px" }}>
         <div className="toolbar-left"><div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Tìm trong ${categoryLabel.toLowerCase()}...`} /></div></div>
+        {hasProgressSplit ? (
+          <div className="toolbar-right" style={{ display: "flex", gap: 6 }}>
+            <button type="button" className={`button ${view === "info" ? "primary" : "tertiary"} small`} onClick={() => setView("info")}>Thông tin {categoryLabel.toLowerCase()}</button>
+            <button type="button" className={`button ${view === "progress" ? "primary" : "tertiary"} small`} onClick={() => setView("progress")}>Tiến độ triển khai</button>
+          </div>
+        ) : null}
       </div>
       {error ? <div className="alert error">{error}</div> : null}
       {loading ? (
@@ -296,7 +320,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr><th style={{ width: 30 }}></th><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th><th>{descLabel}</th>{columnFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th><th></th></tr>
+                <tr><th style={{ width: 30 }}></th><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th>{showDescription?<th>{descLabel}</th>:null}{visibleInfoColumns.map((f)=><th key={f.key}>{f.label}</th>)}{visibleProgressColumns.map((f)=><th key={f.key}>{f.label}</th>)}{showPriorityDueStatus?<><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th></>:null}<th></th></tr>
               </thead>
               <tbody>
                 {filtered.map((item, idx) => (
@@ -306,10 +330,13 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                     <td>{idx + 1}</td>
                     {beforeTitleFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
                     <td><strong>{item.title}</strong></td>
-                    <td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>
-                    {columnFields.map((f)=><td key={f.key}>{fieldDisplayContent(f, item)}</td>)}
+                    {showDescription?<td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>:null}
+                    {visibleInfoColumns.map((f)=><td key={f.key}>{fieldDisplayContent(f, item)}</td>)}
+                    {visibleProgressColumns.map((f)=><td key={f.key}>{fieldDisplayContent(f, item)}</td>)}
+                    {showPriorityDueStatus?<>
                     <td><span className={`status-badge ${item.priority==="CRITICAL"?"danger":item.priority==="HIGH"?"warning":"muted"}`}>{{LOW:"Thấp",MEDIUM:"Trung bình",HIGH:"Cao",CRITICAL:"Nghiêm trọng"}[item.priority]||item.priority}</span></td><td>{item.due_date || "—"}</td>
                     <td>{EMR_STATUS_LABELS[item.status] || item.status}{item.verified_at ? <div><small>Đã xác minh</small></div> : null}</td>
+                    </>:null}
                     <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>{canManage ? <>
                       <button type="button" className="button tertiary small" onClick={() => openEdit(item)}>Sửa</button>
                       <button type="button" className="button tertiary small" onClick={() => remove(item)}>Xoá</button>

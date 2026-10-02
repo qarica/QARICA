@@ -146,6 +146,16 @@ export type EmrField = {
   // page for declaring/assigning groups), so the grid itself doesn't need to
   // surface it at all.
   hideFromGrid?: boolean;
+  // Groups this field under the generic "Tiến độ triển khai" (rollout
+  // progress) view instead of the default "Thông tin [category]" (reference/
+  // catalog) view — for a category whose fields mix static reference info
+  // (e.g. Biểu mẫu's form_code, Nguồn tham chiếu, Tình trạng số hóa) with
+  // rollout-tracking fields (giai đoạn triển khai, yêu cầu đào tạo, cộng với
+  // the generic Ưu tiên/Hạn/Trạng thái triển khai), so the grid doesn't force
+  // both concerns into the same screen. Any category can opt in; a category
+  // with no progressField fields renders exactly as before (single view, no
+  // tab switcher).
+  progressField?: boolean;
 };
 
 // For type "sequence": an ORDERED list of role picks (e.g. "1. Điều dưỡng
@@ -212,14 +222,22 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
   BIEU_MAU: [
     { key: "form_code", label: "Mã biểu mẫu", type: "text", showBeforeTitle: true },
     { key: "binding_group", label: "Nhóm gáy", type: "text", hideFromGrid: true },
+    // Thứ tự biểu mẫu này nằm ở vị trí nào trong gáy (gáy là 1 tập giấy đóng
+    // theo thứ tự trang vật lý) — quản lý trực tiếp trong "Xem cây biểu mẫu"
+    // cùng với việc gán nhóm, không phải cột riêng trong lưới chính.
+    { key: "binding_group_order", label: "Thứ tự trong gáy", type: "number", hideFromGrid: true },
+    // Hồ sơ bệnh án đóng gáy riêng theo loại: Khám bệnh/Ngoại trú/Cấp cứu/Nội
+    // trú/Điều trị ban ngày — 1 biểu mẫu có thể dùng chung cho nhiều loại hồ
+    // sơ nên tick chọn (multiselect), không phải 1 lựa chọn duy nhất.
+    { key: "record_types", label: "Loại hồ sơ áp dụng", type: "multiselect", options: ["Khám bệnh", "Ngoại trú", "Cấp cứu", "Nội trú", "Điều trị ban ngày"], compact: true },
     { key: "digitized", label: "Tình trạng số hóa", type: "select", options: ["Đã số hóa", "Chưa số hóa"] },
     // Giai đoạn triển khai sau khi số hóa: Demo -> UAT -> Chạy chính thức.
     // Giữ nguyên tắc hạn chế nhập tự do (như QLCL) — chọn từ danh sách cố
     // định, không phải ô text, nên reuse "select" sẵn có thay vì tạo loại
     // field mới.
-    { key: "deployment_phase", label: "Giai đoạn triển khai", type: "select", options: ["Demo", "UAT", "Chạy chính thức"], pairWithStatus: true },
+    { key: "deployment_phase", label: "Giai đoạn triển khai", type: "select", options: ["Demo", "UAT", "Chạy chính thức"], pairWithStatus: true, progressField: true },
     { key: "execution_platform", label: "Nơi thực hiện", type: "text", compact: true },
-    { key: "training_required", label: "Yêu cầu đào tạo", type: "select", options: ["Cần đào tạo", "Không cần đào tạo"] },
+    { key: "training_required", label: "Yêu cầu đào tạo", type: "select", options: ["Cần đào tạo", "Không cần đào tạo"], progressField: true },
     { key: "target_roles", label: "Đối tượng thực hiện", type: "multiselect", options: ["Bác sĩ", "Điều dưỡng", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Phòng hành chính (đóng dấu)", "Khác"], compact: true },
     // Một số biểu mẫu còn cần đóng mộc như một bước trong trình tự ký (sau
     // chữ ký của người có thẩm quyền) — nên "Đóng mộc" là một lựa chọn bước,

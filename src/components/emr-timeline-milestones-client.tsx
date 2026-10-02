@@ -1,11 +1,12 @@
 "use client";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { TqmGantt } from "@/components/tqm-charts";
-import { EMR_STATUS_LABELS } from "@/lib/emr-categories";
+import { EMR_CATEGORIES, EMR_STATUS_LABELS } from "@/lib/emr-categories";
 
-type Milestone = { id: string; parent_id: string | null; title: string; start_date: string | null; end_date: string | null; status: string; sort_order: number; created_at: string };
-type FormState = { title: string; start_date: string; end_date: string; status: string };
-const EMPTY_FORM: FormState = { title: "", start_date: "", end_date: "", status: "TODO" };
+type Milestone = { id: string; parent_id: string | null; title: string; start_date: string | null; end_date: string | null; status: string; category: string | null; sort_order: number; created_at: string };
+type FormState = { title: string; start_date: string; end_date: string; status: string; category: string };
+const EMPTY_FORM: FormState = { title: "", start_date: "", end_date: "", status: "TODO", category: "" };
+function categoryLabel(code: string | null) { return EMR_CATEGORIES.find((c) => c.code === code)?.label || null; }
 
 function statusTone(status: string): "red" | "green" | "blue" | "slate" {
   return status === "BLOCKED" ? "red" : status === "DONE" ? "green" : status === "IN_PROGRESS" ? "blue" : "slate";
@@ -21,10 +22,17 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<{ mode: "create-parent" | "create-child" | "edit"; parentId?: string; target?: Milestone } | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  // Only used in "create-parent": lets anh declare the parent AND its đầu
+  // việc con together in one Lưu, instead of saving the parent then having to
+  // reopen "+ Đầu việc con" separately for every child.
+  const [childDrafts, setChildDrafts] = useState<FormState[]>([]);
   const [saving, setSaving] = useState(false);
 
-  async function load() {
-    setLoading(true);
+  // Post-save refreshes stay silent (no loading flash) so the page doesn't
+  // unmount the list and jump the scroll position back to the top after
+  // every single create/edit/delete.
+  async function load(opts?: { silent?: boolean }) {
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/emr/timeline-milestones");
@@ -34,7 +42,7 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
     } catch (e) {
       setError(e instanceof Error ? e.message : "Có lỗi xảy ra.");
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }
   useEffect(() => { load(); }, []);
@@ -49,26 +57,43 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
 
   function toggleExpanded(id: string) { setExpanded((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
 
-  function openCreateParent() { setForm(EMPTY_FORM); setModal({ mode: "create-parent" }); }
+  function openCreateParent() { setForm(EMPTY_FORM); setChildDrafts([{ ...EMPTY_FORM }]); setModal({ mode: "create-parent" }); }
   function openCreateChild(parentId: string) { setForm(EMPTY_FORM); setModal({ mode: "create-child", parentId }); }
-  function openEdit(target: Milestone) { setForm({ title: target.title, start_date: target.start_date || "", end_date: target.end_date || "", status: target.status }); setModal({ mode: "edit", target }); }
+  function openEdit(target: Milestone) { setForm({ title: target.title, start_date: target.start_date || "", end_date: target.end_date || "", status: target.status, category: target.category || "" }); setModal({ mode: "edit", target }); }
   function closeModal() { setModal(null); }
+  function addChildDraft() { setChildDrafts((prev) => [...prev, { ...EMPTY_FORM }]); }
+  function updateChildDraft(index: number, patch: Partial<FormState>) { setChildDrafts((prev) => prev.map((d, i) => (i === index ? { ...d, ...patch } : d))); }
+  function removeChildDraft(index: number) { setChildDrafts((prev) => prev.filter((_, i) => i !== index)); }
+
+  async function postMilestone(body: Record<string, unknown>) {
+    const res = await fetch("/api/emr/timeline-milestones", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const json = await res.json();
+    if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+    return json.milestone as Milestone;
+  }
 
   async function save() {
     if (!modal) return;
     if (!form.title.trim()) { window.alert("Cần nhập tên đầu việc."); return; }
     setSaving(true);
     try {
-      const isEdit = modal.mode === "edit";
-      const res = await fetch(isEdit ? `/api/emr/timeline-milestones/${modal.target!.id}` : "/api/emr/timeline-milestones", {
-        method: isEdit ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isEdit ? form : { ...form, parent_id: modal.mode === "create-child" ? modal.parentId : null }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      if (modal.mode === "edit") {
+        const res = await fetch(`/api/emr/timeline-milestones/${modal.target!.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+        const json = await res.json();
+        if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      } else if (modal.mode === "create-child") {
+        await postMilestone({ ...form, parent_id: modal.parentId });
+      } else {
+        // Thêm đầu việc lớn + các đầu việc con khai báo kèm (nếu có) trong
+        // cùng 1 lần Lưu — dòng con bỏ trống tên thì bỏ qua, không báo lỗi.
+        const parent = await postMilestone({ ...form, parent_id: null });
+        for (const child of childDrafts) {
+          if (!child.title.trim()) continue;
+          await postMilestone({ ...child, parent_id: parent.id });
+        }
+      }
       closeModal();
-      await load();
+      await load({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
     } finally {
@@ -84,7 +109,7 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
       const res = await fetch(`/api/emr/timeline-milestones/${target.id}`, { method: "DELETE" });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "Không xoá được.");
-      await load();
+      await load({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
     }
@@ -129,7 +154,7 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
                     <Fragment key={p.id}>
                       <tr>
                         <td>{kids.length ? <button type="button" className="icon-button" onClick={() => toggleExpanded(p.id)} aria-expanded={isOpen} aria-label={isOpen ? "Thu gọn" : "Mở rộng"}>{isOpen ? "▾" : "▸"}</button> : null}</td>
-                        <td><strong>{p.title}</strong>{kids.length ? <small> ({kids.length} đầu việc con)</small> : null}</td>
+                        <td><strong>{p.title}</strong>{kids.length ? <small> ({kids.length} đầu việc con)</small> : null}{categoryLabel(p.category) ? <div><small className="status-badge muted">{categoryLabel(p.category)}</small></div> : null}</td>
                         <td>{p.start_date || "—"}</td>
                         <td>{p.end_date || "—"}</td>
                         <td><span className={`status-badge ${p.status === "DONE" ? "success" : p.status === "BLOCKED" ? "danger" : p.status === "IN_PROGRESS" ? "warning" : "muted"}`}>{EMR_STATUS_LABELS[p.status] || p.status}</span></td>
@@ -144,7 +169,7 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
                       {isOpen ? kids.map((k) => (
                         <tr key={k.id} className="emr-timeline-child-row">
                           <td></td>
-                          <td style={{ paddingLeft: 28 }}>↳ {k.title}</td>
+                          <td style={{ paddingLeft: 28 }}>↳ {k.title}{categoryLabel(k.category) ? <div><small className="status-badge muted">{categoryLabel(k.category)}</small></div> : null}</td>
                           <td>{k.start_date || "—"}</td>
                           <td>{k.end_date || "—"}</td>
                           <td><span className={`status-badge ${k.status === "DONE" ? "success" : k.status === "BLOCKED" ? "danger" : k.status === "IN_PROGRESS" ? "warning" : "muted"}`}>{EMR_STATUS_LABELS[k.status] || k.status}</span></td>
@@ -178,6 +203,37 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
                   {Object.entries(EMR_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
+              <label>Gắn với danh mục EMR (tuỳ chọn)
+                <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                  <option value="">— Không gắn —</option>
+                  {EMR_CATEGORIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+                </select>
+              </label>
+              {modal.mode === "create-parent" ? (
+                <fieldset>
+                  <legend>Đầu việc con (tuỳ chọn — có thể thêm ngay hoặc bổ sung sau)</legend>
+                  {childDrafts.map((child, i) => (
+                    <div key={i} className="emr-timeline-child-draft">
+                      <label>Tên việc con<input value={child.title} onChange={(e) => updateChildDraft(i, { title: e.target.value })} /></label>
+                      <label>Bắt đầu<input type="date" value={child.start_date} onChange={(e) => updateChildDraft(i, { start_date: e.target.value })} /></label>
+                      <label>Kết thúc<input type="date" value={child.end_date} onChange={(e) => updateChildDraft(i, { end_date: e.target.value })} /></label>
+                      <label>Trạng thái
+                        <select value={child.status} onChange={(e) => updateChildDraft(i, { status: e.target.value })}>
+                          {Object.entries(EMR_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                        </select>
+                      </label>
+                      <label>Danh mục EMR
+                        <select value={child.category} onChange={(e) => updateChildDraft(i, { category: e.target.value })}>
+                          <option value="">— Không gắn —</option>
+                          {EMR_CATEGORIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+                        </select>
+                      </label>
+                      <button type="button" className="button tertiary small" onClick={() => removeChildDraft(i)}>Bỏ dòng này</button>
+                    </div>
+                  ))}
+                  <button type="button" className="button secondary small" onClick={addChildDraft}>+ Thêm dòng việc con</button>
+                </fieldset>
+              ) : null}
             </div>
             <div className="modal-footer">
               <button type="button" className="button tertiary" onClick={closeModal} disabled={saving}>Huỷ</button>
@@ -186,6 +242,7 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
           </div>
         </div>
       ) : null}
+      <style>{`.emr-timeline-child-draft{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:10px 0;border-bottom:1px solid #edf2f3}.emr-timeline-child-draft:last-of-type{border-bottom:none}.emr-timeline-child-draft label{flex:1 1 140px;min-width:120px}`}</style>
     </section>
   );
 }

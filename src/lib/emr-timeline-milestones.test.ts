@@ -58,8 +58,8 @@ describe("EMR Timeline — declare đầu việc lớn / đầu việc con", () 
     expect(migration).toContain("on delete cascade");
   });
 
-  it("the Timeline page renders the milestones client above the existing auto rollup, which keeps its own section heading", () => {
+  it("the Timeline page renders the milestones client — the earlier auto-rollup-by-category section was removed per explicit request (manual declaration replaces it, not supplements it)", () => {
     expect(page).toContain("<EmrTimelineMilestonesClient canManage={canManage} year={year} />");
-    expect(page).toContain("Tổng hợp theo danh mục EMR (tự động)");
+    expect(page).not.toContain("Tổng hợp theo danh mục EMR (tự động)");
   });
 });
