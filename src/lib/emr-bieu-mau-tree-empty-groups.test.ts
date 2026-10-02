@@ -10,9 +10,9 @@ import { describe, expect, it } from "vitest";
 describe("EMR Biểu mẫu tree — a declared gáy with zero forms still shows up", () => {
   const client = readFileSync("src/components/emr-bieu-mau-tree-client.tsx", "utf8");
 
-  it("seeds groupMap with every declared group name, not only names that already have an item", () => {
+  it("seeds groupMap with every declared, still-active group name, not only names that already have an item", () => {
     expect(client).toContain("for (const g of groups) {");
-    expect(client).toContain("if (!groupMap.has(g.name)) groupMap.set(g.name, []);");
+    expect(client).toContain("if (g.is_active && !groupMap.has(g.name)) groupMap.set(g.name, []);");
   });
 
   it("the whole-page empty state only fires when there are neither items nor declared groups", () => {
