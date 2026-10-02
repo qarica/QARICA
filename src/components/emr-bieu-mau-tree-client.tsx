@@ -17,6 +17,10 @@ type Group = { id: string; name: string; sort_order: number };
 // order), sheet "BIỂU MẪU" numbers every form with a continuous Số TT within
 // its gáy — reproduced here as emr_binding_groups.sort_order (group order)
 // and details.binding_group_order (form order within its gáy).
+//
+// Each group's forms render as a real <table> (same table/th/td CSS every
+// other grid in the app already uses) instead of a bare <ul><li> — the list
+// previously had NO styling of its own at all, so columns never lined up.
 export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
   const [items, setItems] = useState<TreeItem[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -29,11 +33,17 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [renaming, setRenaming] = useState(false);
+  // Saving a number input on every keystroke (onChange) fired a network
+  // round-trip per digit, which refreshed the list mid-typing and made
+  // multi-digit numbers almost impossible to type. These hold the in-progress
+  // text locally and only save once anh rời khỏi ô nhập (onBlur), and only if
+  // the value actually changed.
+  const [groupOrderDrafts, setGroupOrderDrafts] = useState<Record<string, string>>({});
+  const [itemOrderDrafts, setItemOrderDrafts] = useState<Record<string, string>>({});
 
-  // Reusing this for every post-save refresh (not just the initial mount)
-  // used to flip `loading` back to true each time, which unmounted the whole
-  // tree for a moment and reset the page's scroll to the top after every tick
-  // — `silent` keeps the existing tree on screen while the refetch resolves.
+  // Post-save refreshes stay silent (no loading flash) so the page doesn't
+  // unmount the whole tree and reset the page's scroll to the top after
+  // every single tick/edit.
   async function loadAll(opts?: { silent?: boolean }) {
     if (!opts?.silent) setLoading(true);
     setError(null);
@@ -166,7 +176,7 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
           </div>
         </form>
       ) : null}
-      <div className="panel" style={{ padding: 8 }}>
+      <div className="bieu-mau-tree-groups">
         {sortedGroupNames.map((groupName) => {
           const group = groupByName.get(groupName);
           // "Số TT biểu mẫu" numbers forms continuously within their own gáy —
@@ -178,72 +188,114 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
             return a.title.localeCompare(b.title, "vi");
           });
           return (
-            <details key={groupName} open className="bieu-mau-tree-group">
-              <summary>
+            <details key={groupName} open className="panel bieu-mau-tree-group">
+              <summary className="bieu-mau-tree-group-head">
                 {canManage && group ? (
-                  <input
-                    type="number"
-                    aria-label="Số thứ tự nhóm gáy"
-                    value={group.sort_order}
-                    disabled={reorderingGroupId === group.id}
-                    onClick={(e) => e.preventDefault()}
-                    onChange={(e) => setGroupOrder(group, Number(e.target.value))}
-                    className="bieu-mau-tree-group-order"
-                  />
+                  <label className="bieu-mau-tree-group-order" onClick={(e) => e.preventDefault()}>
+                    <span>STT nhóm</span>
+                    <input
+                      type="number"
+                      aria-label="Số thứ tự nhóm gáy"
+                      value={groupOrderDrafts[group.id] ?? String(group.sort_order)}
+                      disabled={reorderingGroupId === group.id}
+                      onChange={(e) => setGroupOrderDrafts((prev) => ({ ...prev, [group.id]: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                      onBlur={(e) => {
+                        const next = Number(e.target.value);
+                        if (Number.isFinite(next) && next !== group.sort_order) setGroupOrder(group, next);
+                        setGroupOrderDrafts((prev) => { const copy = { ...prev }; delete copy[group.id]; return copy; });
+                      }}
+                    />
+                  </label>
                 ) : null}
-                {group && renamingGroupId === group.id ? (
-                  <span className="bieu-mau-tree-rename" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                    <input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} disabled={renaming} aria-label="Tên nhóm gáy mới" />
-                    <button type="button" className="button primary small" disabled={renaming} onClick={() => saveRename(group)}>{renaming ? "..." : "Lưu"}</button>
-                    <button type="button" className="button tertiary small" disabled={renaming} onClick={cancelRename}>Huỷ</button>
-                  </span>
-                ) : (
-                  <>
-                    <strong>{groupName}</strong>
-                    {canManage && group ? <button type="button" className="button tertiary small" onClick={(e) => { e.preventDefault(); startRename(group); }}>Sửa tên</button> : null}
-                  </>
-                )}
+                <div className="bieu-mau-tree-group-name">
+                  {group && renamingGroupId === group.id ? (
+                    <span className="bieu-mau-tree-rename" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                      <input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} disabled={renaming} aria-label="Tên nhóm gáy mới" />
+                      <button type="button" className="button primary small" disabled={renaming} onClick={() => saveRename(group)}>{renaming ? "..." : "Lưu"}</button>
+                      <button type="button" className="button tertiary small" disabled={renaming} onClick={cancelRename}>Huỷ</button>
+                    </span>
+                  ) : (
+                    <>
+                      <strong>{groupName}</strong>
+                      {canManage && group ? <button type="button" className="button tertiary small" onClick={(e) => { e.preventDefault(); startRename(group); }}>Sửa tên</button> : null}
+                    </>
+                  )}
+                </div>
                 <span className="status-badge muted">{groupItems.length} biểu mẫu</span>
               </summary>
-              <ul className="bieu-mau-tree-list">
-                {groupItems.map((item) => (
-                  <li key={item.id}>
-                    {canManage ? (
-                      <input
-                        type="number"
-                        aria-label="Số thứ tự biểu mẫu trong gáy"
-                        title="Số thứ tự trong gáy"
-                        value={item.details?.binding_group_order != null && item.details?.binding_group_order !== "" ? String(item.details.binding_group_order) : ""}
-                        placeholder="STT"
-                        disabled={savingId === item.id}
-                        onChange={(e) => updateItemDetails(item, { binding_group_order: e.target.value })}
-                        className="bieu-mau-tree-item-order"
-                      />
-                    ) : null}
-                    <span className="bieu-mau-tree-code">{item.details?.form_code ? String(item.details.form_code) : "—"}</span>
-                    <span className="bieu-mau-tree-title">{item.title}</span>
-                    {canManage ? (
-                      <select
-                        value={groupName === UNGROUPED ? "" : groupName}
-                        disabled={savingId === item.id}
-                        onChange={(e) => updateItemDetails(item, { binding_group: e.target.value })}
-                        style={{ minHeight: 30, fontSize: 11 }}
-                        aria-label="Nhóm gáy"
-                      >
-                        <option value="">— Chưa phân nhóm —</option>
-                        {!declaredNames.has(groupName) && groupName !== UNGROUPED ? <option value={groupName}>{groupName} (chưa khai báo)</option> : null}
-                        {groups.map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
-                      </select>
-                    ) : null}
-                    <span className={`status-badge ${item.status === "DONE" ? "success" : item.status === "BLOCKED" ? "danger" : "muted"}`}>{EMR_STATUS_LABELS[item.status] || item.status}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      {canManage ? <th style={{ width: 70 }}>STT</th> : null}
+                      <th style={{ width: 110 }}>Mã biểu mẫu</th>
+                      <th>Tên biểu mẫu</th>
+                      {canManage ? <th style={{ width: 200 }}>Nhóm gáy</th> : null}
+                      <th style={{ width: 120 }}>Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groupItems.map((item) => (
+                      <tr key={item.id}>
+                        {canManage ? (
+                          <td>
+                            <input
+                              type="number"
+                              aria-label="Số thứ tự biểu mẫu trong gáy"
+                              title="Số thứ tự trong gáy"
+                              value={itemOrderDrafts[item.id] ?? (item.details?.binding_group_order != null && item.details?.binding_group_order !== "" ? String(item.details.binding_group_order) : "")}
+                              disabled={savingId === item.id}
+                              onChange={(e) => setItemOrderDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                              onBlur={(e) => {
+                                const raw = e.target.value;
+                                const current = item.details?.binding_group_order != null && item.details?.binding_group_order !== "" ? String(item.details.binding_group_order) : "";
+                                if (raw !== current) updateItemDetails(item, { binding_group_order: raw });
+                                setItemOrderDrafts((prev) => { const copy = { ...prev }; delete copy[item.id]; return copy; });
+                              }}
+                              className="bieu-mau-tree-item-order"
+                            />
+                          </td>
+                        ) : null}
+                        <td>{item.details?.form_code ? String(item.details.form_code) : "—"}</td>
+                        <td>{item.title}</td>
+                        {canManage ? (
+                          <td>
+                            <select
+                              value={groupName === UNGROUPED ? "" : groupName}
+                              disabled={savingId === item.id}
+                              onChange={(e) => updateItemDetails(item, { binding_group: e.target.value })}
+                              aria-label="Nhóm gáy"
+                            >
+                              <option value="">— Chưa phân nhóm —</option>
+                              {!declaredNames.has(groupName) && groupName !== UNGROUPED ? <option value={groupName}>{groupName} (chưa khai báo)</option> : null}
+                              {groups.map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
+                            </select>
+                          </td>
+                        ) : null}
+                        <td><span className={`status-badge ${item.status === "DONE" ? "success" : item.status === "BLOCKED" ? "danger" : "muted"}`}>{EMR_STATUS_LABELS[item.status] || item.status}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </details>
           );
         })}
       </div>
-      <style>{`.bieu-mau-tree-group-order{width:46px;min-height:26px;padding:2px 6px;font-size:11px;margin-right:8px}.bieu-mau-tree-item-order{width:44px;min-height:26px;padding:2px 4px;font-size:11px}.bieu-mau-tree-rename{display:inline-flex;align-items:center;gap:6px}.bieu-mau-tree-rename input{min-height:30px;font-size:12px;width:180px}`}</style>
+      <style>{`
+        .bieu-mau-tree-groups{display:flex;flex-direction:column;gap:12px}
+        .bieu-mau-tree-group{padding:0}
+        .bieu-mau-tree-group-head{display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer}
+        .bieu-mau-tree-group-order{display:flex;flex-direction:column;gap:2px;font-size:9px;font-weight:700;color:#7b8b91;text-transform:uppercase}
+        .bieu-mau-tree-group-order input{width:60px;min-height:32px;padding:4px 6px;font-size:12px}
+        .bieu-mau-tree-group-name{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+        .bieu-mau-tree-group-name strong{font-size:13px}
+        .bieu-mau-tree-rename{display:inline-flex;align-items:center;gap:6px}
+        .bieu-mau-tree-rename input{min-height:32px;font-size:12px;width:200px}
+        .bieu-mau-tree-item-order{width:100%;min-height:32px;padding:4px 6px;font-size:12px;text-align:center}
+      `}</style>
     </>
   );
 }

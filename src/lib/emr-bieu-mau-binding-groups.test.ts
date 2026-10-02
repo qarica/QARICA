@@ -46,6 +46,6 @@ describe("EMR Biểu mẫu — Nhóm gáy declared catalog (master tree page)", 
   });
 
   it("the group-assign control is only rendered for managers (emr.manage), not every viewer", () => {
-    expect(client).toMatch(/canManage \? \(\s*<select/);
+    expect(client).toMatch(/canManage \? \(\s*<td>\s*<select/);
   });
 });
