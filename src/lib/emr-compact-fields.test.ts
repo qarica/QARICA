@@ -13,9 +13,9 @@ import { EMR_CATEGORY_FIELDS } from "./emr-categories";
 describe("EMR — compact fields move into a per-row expandable detail panel", () => {
   const client = readFileSync("src/components/emr-category-client.tsx", "utf8");
 
-  it("splits afterTitleFields into columnFields (!compact) and detailFields (compact)", () => {
-    expect(client).toContain("const columnFields = afterTitleFields.filter((f) => !f.compact);");
-    expect(client).toContain("const detailFields = afterTitleFields.filter((f) => f.compact);");
+  it("splits afterTitleFields into columnFields (!compact) and detailFields (compact), both excluding hideFromGrid fields", () => {
+    expect(client).toContain("const columnFields = afterTitleFields.filter((f) => !f.compact && !f.hideFromGrid);");
+    expect(client).toContain("const detailFields = afterTitleFields.filter((f) => f.compact && !f.hideFromGrid);");
   });
 
   it("marks Biểu mẫu's secondary fields compact (execution_platform, target_roles, signing_sequence, storage_format, notes, patient_portal_visible), keeping the key status fields as real columns", () => {
@@ -28,8 +28,8 @@ describe("EMR — compact fields move into a per-row expandable detail panel", (
     }
   });
 
-  it("renders an expand/collapse toggle column only when the category actually has compact fields", () => {
-    expect(client).toContain("{detailFields.length ? <th style={{ width: 30 }}></th> : null}");
+  it("always renders the expand/collapse toggle column — every category's detail panel now also carries Tệp đính kèm and any incoming references", () => {
+    expect(client).toContain('<tr><th style={{ width: 30 }}></th><th>#</th>');
     expect(client).toContain("function toggleExpanded(id: string)");
   });
 

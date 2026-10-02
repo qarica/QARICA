@@ -39,8 +39,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   // A category with many fields turns into an unreadable wall of table
   // columns — compact fields stay fully editable in the modal but only show
   // in a per-row expandable "Chi tiết" panel instead of their own column.
-  const columnFields = afterTitleFields.filter((f) => !f.compact);
-  const detailFields = afterTitleFields.filter((f) => f.compact);
+  const columnFields = afterTitleFields.filter((f) => !f.compact && !f.hideFromGrid);
+  const detailFields = afterTitleFields.filter((f) => f.compact && !f.hideFromGrid);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   function toggleExpanded(id: string) { setExpandedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
   // Forward: this category's own fields that point at another category's
@@ -296,23 +296,18 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr>{detailFields.length ? <th style={{ width: 30 }}></th> : null}<th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th><th>{descLabel}</th>{columnFields.map((f)=><th key={f.key}>{f.label}</th>)}{genericIncomingReferences.map((ref)=><th key={ref.category}>{categoryLabelFor(ref.category)} liên quan</th>)}<th>Tệp đính kèm</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th><th></th></tr>
+                <tr><th style={{ width: 30 }}></th><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th><th>{descLabel}</th>{columnFields.map((f)=><th key={f.key}>{f.label}</th>)}<th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th><th></th></tr>
               </thead>
               <tbody>
                 {filtered.map((item, idx) => (
                   <Fragment key={item.id}>
                   <tr>
-                    {detailFields.length ? <td><button type="button" className="icon-button" onClick={() => toggleExpanded(item.id)} aria-label={expandedIds.has(item.id) ? "Thu gọn chi tiết" : "Xem chi tiết"} aria-expanded={expandedIds.has(item.id)}>{expandedIds.has(item.id) ? "▾" : "▸"}</button></td> : null}
+                    <td><button type="button" className="icon-button" onClick={() => toggleExpanded(item.id)} aria-label={expandedIds.has(item.id) ? "Thu gọn chi tiết" : "Xem chi tiết"} aria-expanded={expandedIds.has(item.id)}>{expandedIds.has(item.id) ? "▾" : "▸"}</button></td>
                     <td>{idx + 1}</td>
                     {beforeTitleFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
                     <td><strong>{item.title}</strong></td>
                     <td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>
                     {columnFields.map((f)=><td key={f.key}>{fieldDisplayContent(f, item)}</td>)}
-                    {genericIncomingReferences.map((ref) => {
-                      const count = (refItems[ref.category]||[]).filter((r)=>r.details?.[ref.field.key]===item.id).length;
-                      return <td key={ref.category}>{count ? <Link className="table-link" href={`/emr/${slugForCode(ref.category)}`}>{count} {categoryLabelFor(ref.category).toLowerCase()} →</Link> : <Link className="table-link" href={`/emr/${slugForCode(ref.category)}`}>Ghi nhận →</Link>}</td>;
-                    })}
-                    <td>{item.details?.file_name ? <button type="button" className="button tertiary small" onClick={() => viewFile(item)}>📎 {String(item.details.file_name)}</button> : "—"}</td>
                     <td><span className={`status-badge ${item.priority==="CRITICAL"?"danger":item.priority==="HIGH"?"warning":"muted"}`}>{{LOW:"Thấp",MEDIUM:"Trung bình",HIGH:"Cao",CRITICAL:"Nghiêm trọng"}[item.priority]||item.priority}</span></td><td>{item.due_date || "—"}</td>
                     <td>{EMR_STATUS_LABELS[item.status] || item.status}{item.verified_at ? <div><small>Đã xác minh</small></div> : null}</td>
                     <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>{canManage ? <>
@@ -320,11 +315,16 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                       <button type="button" className="button tertiary small" onClick={() => remove(item)}>Xoá</button>
                     </> : <small>Chỉ xem</small>}</td>
                   </tr>
-                  {detailFields.length && expandedIds.has(item.id) ? (
+                  {expandedIds.has(item.id) ? (
                     <tr>
                       <td colSpan={20}>
                         <div className="emr-detail-grid">
                           {detailFields.map((f) => <div key={f.key}><label>{f.label}</label><div>{fieldDisplayContent(f, item)}</div></div>)}
+                          {genericIncomingReferences.map((ref) => {
+                            const count = (refItems[ref.category]||[]).filter((r)=>r.details?.[ref.field.key]===item.id).length;
+                            return <div key={ref.category}><label>{categoryLabelFor(ref.category)} liên quan</label><div>{count ? <Link className="table-link" href={`/emr/${slugForCode(ref.category)}`}>{count} {categoryLabelFor(ref.category).toLowerCase()} →</Link> : <Link className="table-link" href={`/emr/${slugForCode(ref.category)}`}>Ghi nhận →</Link>}</div></div>;
+                          })}
+                          <div><label>Tệp đính kèm</label><div>{item.details?.file_name ? <button type="button" className="button tertiary small" onClick={() => viewFile(item)}>📎 {String(item.details.file_name)}</button> : "—"}</div></div>
                         </div>
                       </td>
                     </tr>

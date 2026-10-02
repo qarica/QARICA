@@ -18,6 +18,7 @@ describe("EMR — Đơn vị phụ trách (owner_department_id) replaces Ngườ
   const dashboardRoute = readFileSync("src/app/api/emr/dashboard/route.ts", "utf8");
   const syncRoute = readFileSync("src/app/api/notifications/sync-emr-reminders/route.ts", "utf8");
   const optionsRoute = readFileSync("src/app/api/emr/options/route.ts", "utf8");
+  const commandCenter = readFileSync("src/components/emr-command-center.tsx", "utf8");
 
   it("adds owner_department_id (fk to departments) and drops owner_user_id, with a best-effort backfill from the old owner's own primary department", () => {
     expect(migration).toContain("alter table public.emr_rollout_items add column if not exists owner_department_id uuid references public.departments(id);");
@@ -56,5 +57,17 @@ describe("EMR — Đơn vị phụ trách (owner_department_id) replaces Ngườ
   it("the EMR reminder sync route notifies the department's HEAD/QUALITY_NETWORK_MEMBER instead of a single named owner, since there is no longer one person to notify directly", () => {
     expect(syncRoute).toContain('.eq("owner_department_id", primaryDepartmentId)');
     expect(syncRoute).not.toContain("owner_user_id");
+  });
+
+  // Regression: the Tổng quan EMR command center's compliance panel was
+  // missed in the original rename pass and still said "Có người phụ trách" /
+  // "Chưa có người phụ trách" even though the underlying metric
+  // (controlCoverage.owner / NO_OWNER) has tracked owner_department_id since
+  // the rename — misleading, since it reads as tracking a named person again.
+  it("the command center's compliance panel and escalation reason label say Đơn vị phụ trách, not Người phụ trách", () => {
+    expect(commandCenter).toContain('label="Có đơn vị phụ trách"');
+    expect(commandCenter).toContain('NO_OWNER:"Chưa có đơn vị phụ trách"');
+    expect(commandCenter).not.toContain("Có người phụ trách");
+    expect(commandCenter).not.toContain("Chưa có người phụ trách");
   });
 });

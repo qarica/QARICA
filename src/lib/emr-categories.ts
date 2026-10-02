@@ -139,6 +139,13 @@ export type EmrField = {
   // deployment_phase, a MORE SPECIFIC lifecycle stage, not a duplicate of
   // the generic TODO/IN_PROGRESS/DONE/BLOCKED status).
   pairWithStatus?: boolean;
+  // Field stays fully editable in the create/edit modal but is excluded from
+  // BOTH the table column and the compact-fields detail panel — for a field
+  // whose real "view" page is somewhere else entirely (e.g. Biểu mẫu's
+  // binding_group, which already has its own dedicated "Xem cây biểu mẫu"
+  // page for declaring/assigning groups), so the grid itself doesn't need to
+  // surface it at all.
+  hideFromGrid?: boolean;
 };
 
 // For type "sequence": an ORDERED list of role picks (e.g. "1. Điều dưỡng
@@ -204,7 +211,7 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
   ],
   BIEU_MAU: [
     { key: "form_code", label: "Mã biểu mẫu", type: "text", showBeforeTitle: true },
-    { key: "binding_group", label: "Nhóm gáy", type: "text" },
+    { key: "binding_group", label: "Nhóm gáy", type: "text", hideFromGrid: true },
     { key: "digitized", label: "Tình trạng số hóa", type: "select", options: ["Đã số hóa", "Chưa số hóa"] },
     // Giai đoạn triển khai sau khi số hóa: Demo -> UAT -> Chạy chính thức.
     // Giữ nguyên tắc hạn chế nhập tự do (như QLCL) — chọn từ danh sách cố

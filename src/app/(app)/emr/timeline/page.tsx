@@ -1,14 +1,16 @@
 import { PageHeader } from "@/components/page-header";
 import { EmrWorkspaceNav } from "@/components/emr-workspace-nav";
+import { EmrTimelineMilestonesClient } from "@/components/emr-timeline-milestones-client";
 import { TQM_CHART_CSS, TqmGantt } from "@/components/tqm-charts";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
-import { requirePermission, requireUserContext } from "@/lib/auth";
+import { hasPermission, requirePermission, requireUserContext } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getWorkYear } from "@/lib/work-year";
 
 export default async function EmrTimelinePage() {
   const { user } = await requireUserContext();
   requirePermission(user, "emr.view");
+  const canManage = hasPermission(user, "emr.manage");
   const year = await getWorkYear();
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("organization_id").eq("user_id", user.id).maybeSingle();
@@ -40,10 +42,12 @@ export default async function EmrTimelinePage() {
   return (
     <div className="page-stack">
       <style>{TQM_CHART_CSS}</style>
-      <PageHeader eyebrow="TRIỂN KHAI EMR" title="Timeline & Gantt" description="Đầu mục lớn theo từng nhóm EMR (Quy trình, Biểu mẫu, Đào tạo, Chữ ký số...), tiến độ = số hạng mục hoàn tất / tổng — không liệt kê từng biểu mẫu riêng lẻ." icon="chart-spline" />
+      <PageHeader eyebrow="TRIỂN KHAI EMR" title="Timeline & Gantt" description="Khai báo đầu việc lớn và đầu việc con cho dự án, cộng với bảng tổng hợp tự động theo từng nhóm EMR." icon="chart-spline" />
       <EmrWorkspaceNav />
+      <EmrTimelineMilestonesClient canManage={canManage} year={year} />
       {error ? <div className="alert error">Không tải được dữ liệu: {error.message}</div> : null}
       <section className="panel">
+        <div className="toolbar" style={{ padding: "14px 16px 4px" }}><div className="toolbar-left"><strong>Tổng hợp theo danh mục EMR (tự động)</strong></div></div>
         {rows.length ? <TqmGantt year={year} rows={rows} /> : <div className="empty-state">Chưa có hạng mục EMR nào để dựng timeline.</div>}
       </section>
     </div>
