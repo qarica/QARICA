@@ -20,7 +20,6 @@ export default async function ProcedureTrainingsPage() {
   return (
     <div className="page-stack procedure-trainings-page">
       <PageHeader
-        eyebrow="Điều hành chất lượng"
         title="Theo dõi quy trình đào tạo"
         description="Theo dõi việc phổ biến/đào tạo quy trình, biểu mẫu mới ban hành cho các đơn vị — đào tạo lần 1 và lần 2 nếu cần đào tạo lại."
         icon="list-checks"

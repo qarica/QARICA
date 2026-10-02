@@ -23,7 +23,6 @@ export default async function ProcurementPage() {
   return (
     <div className="page-stack procurement-page">
       <PageHeader
-        eyebrow="Điều hành chất lượng"
         title="Đề xuất mua sắm / sửa chữa"
         description="Tiếp nhận đề xuất từ khoa/phòng, duyệt 2 cấp (BGĐ → TGĐ) và thông báo kết quả."
         icon="list-checks"

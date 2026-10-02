@@ -15,7 +15,7 @@ describe("Physician license tracking module security and control gates", () => {
 
   it("is reachable from the sidebar only behind physician_license.view", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "Quản lý hành nghề", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" }');
+    expect(nav).toContain('{ label: "QUẢN LÝ HÀNH NGHỀ", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" }');
   });
 
   it("keeps every write tenant-scoped by organization_id", () => {

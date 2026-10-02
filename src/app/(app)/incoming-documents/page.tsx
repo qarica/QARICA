@@ -23,7 +23,6 @@ export default async function IncomingDocumentsPage() {
   return (
     <div className="page-stack incoming-documents-page">
       <PageHeader
-        eyebrow="Điều hành chất lượng"
         title="Công văn đến"
         description="Tiếp nhận công văn, ghi bút phê chỉ đạo, triển khai xuống đơn vị và theo dõi tiến độ hoàn thành theo hạn xử lý."
         icon="list-checks"
