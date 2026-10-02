@@ -34,18 +34,31 @@ describe("EMR Biểu mẫu — Nhóm gáy declared catalog (master tree page)", 
     expect(route).toContain('ignoreDuplicates: true');
   });
 
-  it("the tree page lets a manager declare a new group and reassign a form's group inline", () => {
+  it("the tree page lets a manager declare a new group and reassign a form's group", () => {
     expect(client).toContain('fetch("/api/emr/binding-groups")');
     expect(client).toContain("function declareGroup(e: React.FormEvent)");
-    expect(client).toContain("onChange={(e) => updateItemDetails(item, { binding_group: e.target.value })}");
   });
 
-  it("reassigning a form's group (or its order within the gáy) sends its FULL existing details, not just the one changed key — the generic PATCH route replaces the whole details object", () => {
-    expect(client).toContain("async function updateItemDetails(item: TreeItem, patch: Record<string, unknown>)");
+  // Follow-up, explicit request: "về menu gáy a nghĩ cần làm 1 nút riêng chứ
+  // không nên sửa trực tiếp" — a bare <select onChange=...> saved the
+  // instant anh touched it, with no confirm step and no way to back out of
+  // an accidental tap. Reassigning now goes through a dedicated "Đổi nhóm"
+  // button first (mirroring the existing group-rename flow), which opens
+  // the select plus explicit Lưu/Huỷ actions — selecting a new value no
+  // longer saves by itself.
+  it("reassigning a form's group requires a dedicated 'Đổi nhóm' button, not a bare select that saves on change", () => {
+    expect(client).toContain("function startChangeGroup(item: TreeItem, currentGroupName: string)");
+    expect(client).toContain("async function saveChangeGroup(item: TreeItem)");
+    expect(client).toContain('onChange={(e) => setPendingGroupValue(e.target.value)}');
+    expect(client).not.toMatch(/onChange=\{\(e\) => updateItemDetails\(item, \{ binding_group: e\.target\.value \}\)\}/);
+  });
+
+  it("reassigning a form's group sends its FULL existing details, not just the one changed key — the generic PATCH route replaces the whole details object", () => {
+    expect(client).toContain("async function updateItemDetails(item: TreeItem, patch: Record<string, unknown>, onSuccess?: () => void)");
     expect(client).toContain("body: JSON.stringify({ details: { ...item.details, ...patch } }),");
   });
 
   it("the group-assign control is only rendered for managers (emr.manage), not every viewer", () => {
-    expect(client).toMatch(/canManage \? \(\s*<td>\s*<select/);
+    expect(client).toMatch(/canManage \? \(\s*<td>\s*\{changingGroupItemId/);
   });
 });
