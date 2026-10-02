@@ -1,0 +1,125 @@
+import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+
+const read = (p: string) => fs.readFileSync(path.join(process.cwd(), p), "utf8");
+
+// HSBA quality-check module: deliberately standalone, not routed through the
+// generic findings/CAPA pipeline — explicit product decision (not the usual
+// "reuse existing engine" default), because checklist + error-handling volume
+// (per-hồ-sơ, daily) doesn't fit the periodic assessment-round shape. Same
+// view/manage permission boundary discipline as EMR (CLAUDE.md principle 4).
+describe("HSBA audit module security and control gates", () => {
+  it("separates view and manage permissions at API boundaries", () => {
+    expect(read("src/app/api/hsba-audit/checklist-items/route.ts")).toContain('requireApiPermission("hsba_audit.view")');
+    expect(read("src/app/api/hsba-audit/checklist-items/route.ts")).toContain('requireApiPermission("hsba_audit.manage")');
+    expect(read("src/app/api/hsba-audit/checklist-items/[id]/route.ts")).toContain('requireApiPermission("hsba_audit.manage")');
+    expect(read("src/app/api/hsba-audit/audits/route.ts")).toContain('requireApiPermission("hsba_audit.view")');
+    expect(read("src/app/api/hsba-audit/audits/route.ts")).toContain('requireApiPermission("hsba_audit.manage")');
+    expect(read("src/app/api/hsba-audit/findings/route.ts")).toContain('requireApiPermission("hsba_audit.view")');
+    expect(read("src/app/api/hsba-audit/findings/[id]/route.ts")).toContain('requireApiPermission("hsba_audit.manage")');
+  });
+
+  it("is reachable from the sidebar only behind hsba_audit.view", () => {
+    const nav = read("src/lib/navigation.ts");
+    expect(nav).toContain('{ label: "Audit nội bộ KHTH", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" }');
+  });
+
+  it("keeps every write tenant-scoped by organization_id", () => {
+    expect(read("src/app/api/hsba-audit/checklist-items/route.ts")).toContain('organization_id: organizationId');
+    expect(read("src/app/api/hsba-audit/audits/route.ts")).toContain('organization_id: organizationId');
+    expect(read("src/app/api/hsba-audit/checklist-items/[id]/route.ts")).toContain('.eq("organization_id", organizationId)');
+    expect(read("src/app/api/hsba-audit/findings/[id]/route.ts")).toContain('.eq("organization_id", organizationId)');
+  });
+
+  it("never stores clinical content — only the HSBA's mã/số hồ sơ as text", () => {
+    const migration = read("supabase/migrations/20261012_hsba_audit_module_v1.sql");
+    expect(migration).toContain("record_reference text not null");
+    expect(migration).toContain("never clinical content");
+  });
+
+  it("stays off the generic findings/CAPA tables — its own tables, its own workflow", () => {
+    const migration = read("supabase/migrations/20261012_hsba_audit_module_v1.sql");
+    expect(migration).toContain("create table if not exists public.hsba_audit_findings");
+    expect(migration).not.toContain("public.findings");
+    expect(migration).not.toContain("public.capas");
+  });
+});
+
+describe("HSBA finding workflow transitions", () => {
+  const route = read("src/app/api/hsba-audit/findings/[id]/route.ts");
+
+  it("defines the exact state machine: OPEN -> SENT_TO_DEPT -> (ACK | DISPUTE) -> ... -> RESOLVED", () => {
+    expect(route).toContain('SEND: { from: ["OPEN"], to: "SENT_TO_DEPT" }');
+    expect(route).toContain('ACK: { from: ["SENT_TO_DEPT"], to: "DEPT_ACKNOWLEDGED" }');
+    expect(route).toContain('DISPUTE: { from: ["SENT_TO_DEPT"], to: "DEPT_DISPUTED" }');
+    expect(route).toContain('DECIDE: { from: ["DEPT_DISPUTED"], to: "HEAD_APPROVED" }');
+    expect(route).toContain('RESOLVE: { from: ["DEPT_ACKNOWLEDGED", "HEAD_APPROVED"], to: "RESOLVED" }');
+  });
+
+  it("rejects a transition attempted from the wrong current status", () => {
+    expect(route).toContain("if (!transition.from.includes(current.status))");
+  });
+
+  it("requires a department_response note before ACK or DISPUTE", () => {
+    expect(route).toContain('if (action === "ACK" || action === "DISPUTE")');
+    expect(route).toContain("Khoa cần nhập nội dung phản hồi.");
+  });
+
+  it("requires an explicit head_decision (UPHELD or WAIVED) before DECIDE", () => {
+    expect(route).toContain('body.head_decision === "WAIVED"');
+    expect(route).toContain('body.head_decision === "UPHELD"');
+  });
+});
+
+describe("HSBA audit creation auto-generates findings only for FAIL results", () => {
+  const route = read("src/app/api/hsba-audit/audits/route.ts");
+
+  it("computes overall_result FAIL if any checklist item failed", () => {
+    expect(route).toContain('normalizedResults.some((r) => r.result === "FAIL") ? "FAIL" : "PASS"');
+  });
+
+  it("creates one finding per FAIL item result, not per PASS", () => {
+    expect(route).toContain('const failedResults = (itemResults ?? []).filter((r: any) => r.result === "FAIL");');
+    expect(route).toContain("hsba_audit_findings");
+  });
+});
+
+// Generalized into a shared "Audit nội bộ KHTH" engine (explicit request:
+// "Giám sát phác đồ điều trị & QTKT nội trú" reuses the exact same
+// checklist/audit/finding shape as HSBA, via an audit_type discriminator,
+// instead of a second set of near-duplicate tables).
+describe("Audit nội bộ KHTH is generalized across audit_type, not duplicated per kind", () => {
+  it("adds audit_type to the existing tables instead of creating parallel ones", () => {
+    const migration = read("supabase/migrations/20261013_hsba_audit_type_generalization_v1.sql");
+    expect(migration).toContain("alter table public.hsba_checklist_items add column if not exists audit_type");
+    expect(migration).toContain("alter table public.hsba_audits add column if not exists audit_type");
+    expect(migration).toContain("alter table public.hsba_audit_findings add column if not exists audit_type");
+    expect(migration).toContain("check (audit_type in ('HSBA','PHAC_DO_DIEU_TRI'))");
+  });
+
+  it("defines the shared type list once and reuses it everywhere (checklist-items, audits, findings routes)", () => {
+    const types = read("src/lib/internal-audit-types.ts");
+    expect(types).toContain('export const INTERNAL_AUDIT_TYPES = ["HSBA", "PHAC_DO_DIEU_TRI"] as const;');
+    for (const route of [
+      "src/app/api/hsba-audit/checklist-items/route.ts",
+      "src/app/api/hsba-audit/audits/route.ts",
+      "src/app/api/hsba-audit/findings/route.ts",
+    ]) {
+      expect(read(route)).toContain('from "@/lib/internal-audit-types"');
+      expect(read(route)).toContain('.eq("audit_type", auditType)');
+    }
+  });
+
+  it("scopes a new audit's checklist-item lookup to the same audit_type (no cross-type mismatch)", () => {
+    const route = read("src/app/api/hsba-audit/audits/route.ts");
+    expect(route).toContain('.eq("organization_id", organizationId)\n    .eq("audit_type", auditType)\n    .in("id", itemIds);');
+  });
+
+  it("the workspace nav lets the user switch audit_type and preserves it across the 3 sub-pages", () => {
+    const nav = read("src/components/hsba-audit-workspace-nav.tsx");
+    expect(nav).toContain("INTERNAL_AUDIT_TYPES.map((type) =>");
+    expect(nav).toContain('params.set("type", type);');
+    expect(nav).toContain("href = `${d.slug ? `/hsba-audit/${d.slug}` : \"/hsba-audit\"}?type=${auditType}`;");
+  });
+});

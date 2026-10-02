@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DomainRecordDetail } from "@/components/domain-record-detail";
 import { DomainWorkflowPanel } from "@/components/domain-workflow-panel";
+import { ExternalAssessmentDelegatesClient } from "@/components/external-assessment-delegates-client";
 import { IncidentCapaLinkClient } from "@/components/incident-capa-link-client";
 import { IncidentLessonsLearnedClient } from "@/components/incident-lessons-learned-client";
 import { IncidentPrintActions } from "@/components/incident-print-actions";
@@ -103,6 +104,9 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
     </> : <>
       {meta}
       <DomainRecordDetail recordType={record.record_type} recordId={record.id} />
+      {record.record_type === "EXTERNAL_ASSESSMENT" ? (
+        <ExternalAssessmentDelegatesClient recordId={record.id} canManage={hasAnyPermission(user, ["criteria.manage", "criteria.review"])} />
+      ) : null}
       <QualityRecordEditPanel recordId={record.id} recordType={record.record_type} />
       <DomainWorkflowPanel recordId={record.id} recordType={record.record_type} />
       {showSharedDomains ? <RecordQualityDomainsClient recordId={record.id} canManage={canManageDomains} /> : null}
