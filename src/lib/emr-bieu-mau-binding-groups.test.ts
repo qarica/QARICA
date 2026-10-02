@@ -37,11 +37,12 @@ describe("EMR Biểu mẫu — Nhóm gáy declared catalog (master tree page)", 
   it("the tree page lets a manager declare a new group and reassign a form's group inline", () => {
     expect(client).toContain('fetch("/api/emr/binding-groups")');
     expect(client).toContain("function declareGroup(e: React.FormEvent)");
-    expect(client).toContain("function assignGroup(item: TreeItem, groupName: string)");
+    expect(client).toContain("onChange={(e) => updateItemDetails(item, { binding_group: e.target.value })}");
   });
 
-  it("reassigning a form's group sends its FULL existing details, not just binding_group — the generic PATCH route replaces the whole details object", () => {
-    expect(client).toContain("details: { ...item.details, binding_group: groupName }");
+  it("reassigning a form's group (or its order within the gáy) sends its FULL existing details, not just the one changed key — the generic PATCH route replaces the whole details object", () => {
+    expect(client).toContain("async function updateItemDetails(item: TreeItem, patch: Record<string, unknown>)");
+    expect(client).toContain("body: JSON.stringify({ details: { ...item.details, ...patch } }),");
   });
 
   it("the group-assign control is only rendered for managers (emr.manage), not every viewer", () => {

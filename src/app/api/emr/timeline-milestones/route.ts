@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { EMR_CATEGORIES } from "@/lib/emr-categories";
 
 const STATUSES = ["TODO", "IN_PROGRESS", "DONE", "BLOCKED"];
 
@@ -18,7 +19,7 @@ export async function GET() {
 
   const { data, error } = await admin
     .from("emr_timeline_milestones")
-    .select("id,parent_id,title,start_date,end_date,status,sort_order,created_at")
+    .select("id,parent_id,title,start_date,end_date,status,category,sort_order,created_at")
     .eq("organization_id", organizationId)
     .order("sort_order")
     .order("created_at");
@@ -45,6 +46,8 @@ export async function POST(request: Request) {
   const startDate = body.start_date ? String(body.start_date) : null;
   const endDate = body.end_date ? String(body.end_date) : null;
   const parentId = body.parent_id ? String(body.parent_id) : null;
+  const category = body.category ? String(body.category) : null;
+  if (category && !EMR_CATEGORIES.some((c) => c.code === category)) return NextResponse.json({ error: "Danh mục EMR không hợp lệ." }, { status: 400 });
 
   if (parentId) {
     const { data: parent } = await admin.from("emr_timeline_milestones").select("id,parent_id").eq("id", parentId).eq("organization_id", organizationId).maybeSingle();
@@ -64,10 +67,11 @@ export async function POST(request: Request) {
       start_date: startDate,
       end_date: endDate,
       status,
+      category,
       sort_order: count ?? 0,
       created_by: auth.user.id,
     })
-    .select("id,parent_id,title,start_date,end_date,status,sort_order,created_at")
+    .select("id,parent_id,title,start_date,end_date,status,category,sort_order,created_at")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true, milestone: data });
