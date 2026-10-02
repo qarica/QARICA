@@ -35,11 +35,19 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
   const [renaming, setRenaming] = useState(false);
   // Saving a number input on every keystroke (onChange) fired a network
   // round-trip per digit, which refreshed the list mid-typing and made
-  // multi-digit numbers almost impossible to type. These hold the in-progress
-  // text locally and only save once anh rời khỏi ô nhập (onBlur), and only if
-  // the value actually changed.
+  // multi-digit numbers almost impossible to type. This holds the in-progress
+  // text locally and only saves once anh rời khỏi ô nhập (onBlur), and only if
+  // the value actually changed. (Only the group's own STT still uses a typed
+  // number — the in-gáy form order was replaced by move up/down buttons,
+  // see moveItemOrder below.)
   const [groupOrderDrafts, setGroupOrderDrafts] = useState<Record<string, string>>({});
-  const [itemOrderDrafts, setItemOrderDrafts] = useState<Record<string, string>>({});
+  // "Nhóm gáy" per biểu mẫu used to be a bare <select onChange=...> that
+  // saved the instant anh touched it — a single accidental tap could move a
+  // form into the wrong gáy with no confirm step. Requested: a dedicated
+  // button to enter edit mode first, mirroring the existing rename flow
+  // (startRename/saveRename below) instead of editing directly.
+  const [changingGroupItemId, setChangingGroupItemId] = useState<string | null>(null);
+  const [pendingGroupValue, setPendingGroupValue] = useState("");
 
   // Post-save refreshes stay silent (no loading flash) so the page doesn't
   // unmount the whole tree and reset the page's scroll to the top after
@@ -119,7 +127,10 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
   // Shared by group-name assignment and in-gáy order — the generic PATCH
   // route replaces `details` wholesale, so every caller sends the full
   // existing details plus the one changed key, never just the key itself.
-  async function updateItemDetails(item: TreeItem, patch: Record<string, unknown>) {
+  // `onSuccess` only fires once the save actually lands (mirrors saveRename
+  // below), so a caller using this to close its own edit-mode state leaves
+  // that state open for retry if the request fails instead of closing early.
+  async function updateItemDetails(item: TreeItem, patch: Record<string, unknown>, onSuccess?: () => void) {
     setSavingId(item.id);
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, {
@@ -129,6 +140,46 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "Không cập nhật được.");
+      onSuccess?.();
+      await loadAll({ silent: true });
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  function startChangeGroup(item: TreeItem, currentGroupName: string) { setChangingGroupItemId(item.id); setPendingGroupValue(currentGroupName === UNGROUPED ? "" : currentGroupName); }
+  function cancelChangeGroup() { setChangingGroupItemId(null); }
+  async function saveChangeGroup(item: TreeItem) {
+    await updateItemDetails(item, { binding_group: pendingGroupValue }, () => setChangingGroupItemId(null));
+  }
+
+  // Requested: moving a biểu mẫu up/down within its gáy should renumber
+  // automatically instead of anh typing an exact STT by hand. Renumbers the
+  // WHOLE gáy sequentially (1..N) after the swap so the numbers always stay
+  // clean and contiguous, regardless of whatever gaps/duplicates existed
+  // before (e.g. forms that never had an order set yet).
+  async function moveItemOrder(groupItems: TreeItem[], item: TreeItem, direction: "up" | "down") {
+    const idx = groupItems.findIndex((i) => i.id === item.id);
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= groupItems.length) return;
+    const reordered = [...groupItems];
+    [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+    setSavingId(item.id);
+    try {
+      for (const [i, it] of reordered.entries()) {
+        const newOrder = i + 1;
+        const current = Number(it.details?.binding_group_order);
+        if (current === newOrder) continue;
+        const res = await fetch(`/api/emr/items/${it.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ details: { ...it.details, binding_group_order: newOrder } }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) throw new Error(json.error || "Không cập nhật được thứ tự.");
+      }
       await loadAll({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -139,7 +190,7 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
 
   if (loading) return <div className="empty-state">Đang tải...</div>;
   if (error) return <div className="alert error">Không tải được dữ liệu: {error}</div>;
-  if (!items.length) return <div className="empty-state">Chưa có biểu mẫu nào để dựng cây.</div>;
+  if (!items.length && !groups.length) return <div className="empty-state">Chưa có biểu mẫu nào để dựng cây.</div>;
 
   const groupMap = new Map<string, TreeItem[]>();
   for (const item of items) {
@@ -147,6 +198,13 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
     const list = groupMap.get(key) || [];
     list.push(item);
     groupMap.set(key, list);
+  }
+  // Requested: "có 1 số gáy đã khai báo nhưng chưa có biểu mẫu trong đó nên
+  // không hiện gáy trong cây biểu mẫu là chưa đúng" — a declared gáy with
+  // zero forms assigned yet must still show up (as an empty group ready to
+  // receive forms), not stay invisible until its first form is assigned.
+  for (const g of groups) {
+    if (!groupMap.has(g.name)) groupMap.set(g.name, []);
   }
   const groupByName = new Map(groups.map((g) => [g.name, g]));
   // Declared groups first, ordered by their own sort_order (the real-world
@@ -236,42 +294,42 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {groupItems.map((item) => (
+                    {groupItems.length === 0 ? (
+                      <tr><td colSpan={canManage ? 5 : 3} className="empty-state" style={{ padding: "14px 12px" }}>Chưa có biểu mẫu nào trong nhóm gáy này.</td></tr>
+                    ) : null}
+                    {groupItems.map((item, idx) => (
                       <tr key={item.id}>
                         {canManage ? (
                           <td>
-                            <input
-                              type="number"
-                              aria-label="Số thứ tự biểu mẫu trong gáy"
-                              title="Số thứ tự trong gáy"
-                              value={itemOrderDrafts[item.id] ?? (item.details?.binding_group_order != null && item.details?.binding_group_order !== "" ? String(item.details.binding_group_order) : "")}
-                              disabled={savingId === item.id}
-                              onChange={(e) => setItemOrderDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                              onBlur={(e) => {
-                                const raw = e.target.value;
-                                const current = item.details?.binding_group_order != null && item.details?.binding_group_order !== "" ? String(item.details.binding_group_order) : "";
-                                if (raw !== current) updateItemDetails(item, { binding_group_order: raw });
-                                setItemOrderDrafts((prev) => { const copy = { ...prev }; delete copy[item.id]; return copy; });
-                              }}
-                              className="bieu-mau-tree-item-order"
-                            />
+                            <div className="bieu-mau-tree-order-controls">
+                              <span className="bieu-mau-tree-order-value">{idx + 1}</span>
+                              <div className="bieu-mau-tree-order-buttons">
+                                <button type="button" className="button tertiary small" disabled={savingId === item.id || idx === 0} onClick={() => moveItemOrder(groupItems, item, "up")} aria-label="Di chuyển lên" title="Di chuyển lên">↑</button>
+                                <button type="button" className="button tertiary small" disabled={savingId === item.id || idx === groupItems.length - 1} onClick={() => moveItemOrder(groupItems, item, "down")} aria-label="Di chuyển xuống" title="Di chuyển xuống">↓</button>
+                              </div>
+                            </div>
                           </td>
                         ) : null}
                         <td>{item.details?.form_code ? String(item.details.form_code) : "—"}</td>
                         <td>{item.title}</td>
                         {canManage ? (
                           <td>
-                            <select
-                              value={groupName === UNGROUPED ? "" : groupName}
-                              disabled={savingId === item.id}
-                              onChange={(e) => updateItemDetails(item, { binding_group: e.target.value })}
-                              aria-label="Nhóm gáy"
-                            >
-                              <option value="">— Chưa phân nhóm —</option>
-                              {!declaredNames.has(groupName) && groupName !== UNGROUPED ? <option value={groupName}>{groupName} (chưa khai báo)</option> : null}
-                              {groups.map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
-                            </select>
+                            {changingGroupItemId === item.id ? (
+                              <span className="bieu-mau-tree-rename">
+                                <select value={pendingGroupValue} disabled={savingId === item.id} onChange={(e) => setPendingGroupValue(e.target.value)} aria-label="Nhóm gáy mới">
+                                  <option value="">— Chưa phân nhóm —</option>
+                                  {!declaredNames.has(groupName) && groupName !== UNGROUPED ? <option value={groupName}>{groupName} (chưa khai báo)</option> : null}
+                                  {groups.map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
+                                </select>
+                                <button type="button" className="button primary small" disabled={savingId === item.id} onClick={() => saveChangeGroup(item)}>{savingId === item.id ? "..." : "Lưu"}</button>
+                                <button type="button" className="button tertiary small" disabled={savingId === item.id} onClick={cancelChangeGroup}>Huỷ</button>
+                              </span>
+                            ) : (
+                              <span className="bieu-mau-tree-group-cell">
+                                <span>{groupName === UNGROUPED ? "— Chưa phân nhóm —" : groupName}</span>
+                                <button type="button" className="button tertiary small" onClick={() => startChangeGroup(item, groupName)}>Đổi nhóm</button>
+                              </span>
+                            )}
                           </td>
                         ) : null}
                         <td><span className={`status-badge ${item.status === "DONE" ? "success" : item.status === "BLOCKED" ? "danger" : "muted"}`}>{EMR_STATUS_LABELS[item.status] || item.status}</span></td>
@@ -292,9 +350,15 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
         .bieu-mau-tree-group-order input{width:60px;min-height:32px;padding:4px 6px;font-size:12px}
         .bieu-mau-tree-group-name{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
         .bieu-mau-tree-group-name strong{font-size:13px}
-        .bieu-mau-tree-rename{display:inline-flex;align-items:center;gap:6px}
-        .bieu-mau-tree-rename input{min-height:32px;font-size:12px;width:200px}
-        .bieu-mau-tree-item-order{width:100%;min-height:32px;padding:4px 6px;font-size:12px;text-align:center}
+        .bieu-mau-tree-rename{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+        .bieu-mau-tree-rename input,.bieu-mau-tree-rename select{min-height:32px;font-size:12px}
+        .bieu-mau-tree-rename input{width:200px}
+        .bieu-mau-tree-order-controls{display:flex;align-items:center;gap:6px;justify-content:center}
+        .bieu-mau-tree-order-value{font-weight:800;min-width:16px;text-align:center}
+        .bieu-mau-tree-order-buttons{display:flex;flex-direction:column;gap:2px}
+        .bieu-mau-tree-order-buttons button{min-height:0;padding:1px 6px;line-height:1.3}
+        .bieu-mau-tree-group-cell{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+        .bieu-mau-tree-group-cell>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       `}</style>
     </>
   );

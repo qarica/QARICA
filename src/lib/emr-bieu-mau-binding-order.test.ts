@@ -56,8 +56,15 @@ describe("EMR Biểu mẫu — Nhóm gáy order + in-gáy form order", () => {
     expect(client).toContain("const va = Number.isFinite(oa) ? oa : Infinity, vb = Number.isFinite(ob) ? ob : Infinity;");
   });
 
-  it("both the group order and the in-gáy form order are plain editable number inputs for a manager, not up/down-swap buttons", () => {
+  // Follow-up, explicit request: "về thứ tự biểu mẫu khi di chuyển lên xuống
+  // tự động cập nhật số thứ tự sẽ ok hơn" — only the group's own STT is
+  // still a typed number input; the in-gáy form order was replaced by
+  // move up/down buttons that auto-renumber the whole gáy (see
+  // emr-bieu-mau-tree-move-order.test.ts).
+  it("the group order is still a plain editable number input; the in-gáy form order is now move up/down buttons, not a typed number", () => {
     expect(client).toContain('aria-label="Số thứ tự nhóm gáy"');
-    expect(client).toContain('aria-label="Số thứ tự biểu mẫu trong gáy"');
+    expect(client).not.toContain('aria-label="Số thứ tự biểu mẫu trong gáy"');
+    expect(client).toContain('aria-label="Di chuyển lên"');
+    expect(client).toContain('aria-label="Di chuyển xuống"');
   });
 });
