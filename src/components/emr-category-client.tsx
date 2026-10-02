@@ -305,6 +305,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
           <div className="toolbar-right" style={{ display: "flex", gap: 6 }}>
             <button type="button" className={`button ${view === "info" ? "primary" : "tertiary"} small`} onClick={() => setView("info")}>Thông tin {categoryLabel.toLowerCase()}</button>
             <button type="button" className={`button ${view === "progress" ? "primary" : "tertiary"} small`} onClick={() => setView("progress")}>Tiến độ triển khai</button>
+            {categoryCode === "BIEU_MAU" ? <Link className="button secondary small" href="/emr/bieu-mau/tree">Cây biểu mẫu</Link> : null}
           </div>
         ) : null}
       </div>

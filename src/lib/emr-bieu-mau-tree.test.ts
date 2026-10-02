@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 describe("EMR — Biểu mẫu master tree view", () => {
   const treePage = readFileSync("src/app/(app)/emr/bieu-mau/tree/page.tsx", "utf8");
   const treeClient = readFileSync("src/components/emr-bieu-mau-tree-client.tsx", "utf8");
-  const categoryPage = readFileSync("src/app/(app)/emr/[category]/page.tsx", "utf8");
+  const categoryClient = readFileSync("src/components/emr-category-client.tsx", "utf8");
 
   it("enforces emr.view permission like every other EMR page", () => {
     expect(treePage).toContain('requirePermission(user, "emr.view");');
@@ -27,8 +27,13 @@ describe("EMR — Biểu mẫu master tree view", () => {
     expect(treeClient).toContain('const UNGROUPED = "Chưa phân nhóm";');
   });
 
-  it("is reachable via a 'Xem cây biểu mẫu' button shown only on the Biểu mẫu category page, not every category", () => {
-    expect(categoryPage).toContain('category.code === "BIEU_MAU" ? <Link className="button secondary" href="/emr/bieu-mau/tree">Xem cây biểu mẫu</Link> : null');
+  // Originally sat up in the PageHeader actions row (next to "Xuất Excel");
+  // moved down level with the "Thông tin biểu mẫu" / "Tiến độ triển khai"
+  // view-switch buttons per explicit request, so all three Biểu mẫu views
+  // (info, progress, tree) read as one row of alternatives instead of the
+  // tree link looking like an unrelated header action.
+  it("is reachable via a 'Cây biểu mẫu' button shown only on the Biểu mẫu category page, level with the Thông tin/Tiến độ triển khai view switch", () => {
+    expect(categoryClient).toContain('categoryCode === "BIEU_MAU" ? <Link className="button secondary small" href="/emr/bieu-mau/tree">Cây biểu mẫu</Link> : null');
   });
 
   it("shares the same EMR workspace nav strip (no separate/duplicate navigation mechanism)", () => {
