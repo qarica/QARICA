@@ -220,11 +220,22 @@
      thấy nửa màn hình" bug where only the eyebrow/title showed and every
      tab (Kế hoạch/Lịch QLCL/...) was scrolled off past the right edge.
      Must explicitly reset width back to auto here, not just flex-basis —
-     an explicit width wins over a flex-basis of "auto". */
+     an explicit width wins over a flex-basis of "auto". A percentage
+     max-width alone isn't enough: a longer module title (e.g. "Đo lường
+     chất lượng") still wraps inside that percentage, making the row tall
+     and pushing the vertically-centered tabs visually below the context
+     text like a second, broken row. The strip already scrolls
+     horizontally, so there is no need to wrap the context text at all —
+     keep it single-line/compact instead, same as every tab already is. */
   .workspace-app .workspace-context {
     flex: 0 0 auto !important;
     width: auto !important;
-    max-width: 60% !important;
+    max-width: 80vw !important;
+  }
+
+  .workspace-app .workspace-context span,
+  .workspace-app .workspace-context strong {
+    white-space: nowrap !important;
   }
 
   .workspace-app .workspace-tabs {

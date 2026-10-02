@@ -61,6 +61,32 @@ describe("Mobile — workspace-strip's context label no longer claims the whole 
 
   it("resets .workspace-context back to its natural (auto) width under the nowrap/scrollable mobile strip", () => {
     expect(css).toContain(".workspace-app .workspace-context {");
-    expect(css).toMatch(/\.workspace-app \.workspace-context \{\s*flex: 0 0 auto !important;\s*width: auto !important;\s*max-width: 60% !important;\s*\}/);
+    expect(css).toMatch(/\.workspace-app \.workspace-context \{\s*flex: 0 0 auto !important;\s*width: auto !important;\s*max-width: 80vw !important;\s*\}/);
+  });
+
+  // Follow-up: a flat max-width % alone wasn't enough — on a longer module
+  // title ("Đo lường chất lượng" vs "Điều hành QLCL") the context text still
+  // wrapped inside that percentage, making the row tall and the vertically-
+  // centered tabs look like a second, broken row below it (reported as
+  // "Chỉ số chất lượng / Danh mục chỉ số..." still cut off even after the
+  // width fix). The strip already scrolls horizontally, so the context never
+  // needs to wrap at all — force it single-line instead.
+  it("keeps the context eyebrow/title single-line so a long title can't make the row tall and shove the tabs below it", () => {
+    expect(css).toMatch(/\.workspace-app \.workspace-context span,\s*\n\s*\.workspace-app \.workspace-context strong \{\s*white-space: nowrap !important;\s*\}/);
+  });
+});
+
+// Follow-up: the Gantt tiến độ screenshot also showed calendar/layout.tsx's
+// own secondary nav ("Lịch tổng hợp / Bộ lịch nền & nguồn / ...") rendering
+// as a tall, sparsely-spaced single column instead of a compact 2-column
+// grid — the exact same CSS Grid bug class just fixed in EmrCommandCenter:
+// `grid-template-columns:1fr 1fr` (no minmax(0,...)) lets a track's
+// automatic minimum content size win and push a column off-screen instead
+// of shrinking/wrapping it.
+describe("Mobile — calendar module nav grid can't blow out the same way EmrCommandCenter's did", () => {
+  const layout = readFileSync("src/app/(app)/calendar/layout.tsx", "utf8");
+
+  it("uses minmax(0,1fr) tracks instead of bare 1fr so a long label wraps inside its cell instead of overflowing", () => {
+    expect(layout).toContain("grid-template-columns:repeat(2,minmax(0,1fr))");
   });
 });
