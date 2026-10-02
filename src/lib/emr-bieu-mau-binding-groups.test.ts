@@ -5,11 +5,15 @@ import { describe, expect, it } from "vitest";
 // text, so every form re-typed its own spelling of the same group name with
 // no guarantee of consistency. The user asked for a declared catalog (one
 // place to name a group once) and a select-from-list when assigning it to a
-// form, with edit rights directly from the master tree page. Per CLAUDE.md
-// principle 1, group names are per-hospital master data, not a fixed
-// business taxonomy — hence a real small catalog table, not a hard-coded
-// option list.
-describe("EMR Biểu mẫu — Nhóm gáy declared catalog (master tree page)", () => {
+// form. Per CLAUDE.md principle 1, group names are per-hospital master
+// data, not a fixed business taxonomy — hence a real small catalog table,
+// not a hard-coded option list.
+//
+// Follow-up, explicit request: declaring/renaming/reordering/deactivating/
+// deleting the catalog itself moved to a dedicated "Quản lý nhóm gáy"
+// screen (emr-bieu-mau-groups-client.test.ts) — this tree page only
+// assigns which already-declared gáy a form belongs to.
+describe("EMR Biểu mẫu — Nhóm gáy declared catalog, assigned from the master tree page", () => {
   const migration = readFileSync("supabase/migrations/20261004_emr_binding_groups_v1.sql", "utf8");
   const route = readFileSync("src/app/api/emr/binding-groups/route.ts", "utf8");
   const client = readFileSync("src/components/emr-bieu-mau-tree-client.tsx", "utf8");
@@ -34,18 +38,11 @@ describe("EMR Biểu mẫu — Nhóm gáy declared catalog (master tree page)", 
     expect(route).toContain('ignoreDuplicates: true');
   });
 
-  it("the tree page lets a manager declare a new group and reassign a form's group", () => {
+  it("the tree page reads the declared catalog to assign/sort by it, but does not declare new groups itself", () => {
     expect(client).toContain('fetch("/api/emr/binding-groups")');
-    expect(client).toContain("function declareGroup(e: React.FormEvent)");
+    expect(client).not.toContain("function declareGroup");
   });
 
-  // Follow-up, explicit request: "về menu gáy a nghĩ cần làm 1 nút riêng chứ
-  // không nên sửa trực tiếp" — a bare <select onChange=...> saved the
-  // instant anh touched it, with no confirm step and no way to back out of
-  // an accidental tap. Reassigning now goes through a dedicated "Đổi nhóm"
-  // button first (mirroring the existing group-rename flow), which opens
-  // the select plus explicit Lưu/Huỷ actions — selecting a new value no
-  // longer saves by itself.
   it("reassigning a form's group requires a dedicated 'Đổi nhóm' button, not a bare select that saves on change", () => {
     expect(client).toContain("function startChangeGroup(item: TreeItem, currentGroupName: string)");
     expect(client).toContain("async function saveChangeGroup(item: TreeItem)");
@@ -60,5 +57,10 @@ describe("EMR Biểu mẫu — Nhóm gáy declared catalog (master tree page)", 
 
   it("the group-assign control is only rendered for managers (emr.manage), not every viewer", () => {
     expect(client).toMatch(/canManage \? \(\s*<td>\s*\{changingGroupItemId/);
+  });
+
+  it("only offers active declared groups as new-assignment options, plus the item's current group so switching away from it is never blocked", () => {
+    expect(client).toContain("function groupOptions(currentGroupName: string) {");
+    expect(client).toContain("const names = groups.filter((g) => g.is_active).map((g) => g.name);");
   });
 });
