@@ -23,7 +23,7 @@ describe("EMR security and control gates", () => {
     expect(dashboard).toContain('x.due_date < today');
   });
   it("keeps dashboard and mutations tenant-scoped", () => {
-    expect(read("src/app/api/emr/dashboard/route.ts")).toContain('.eq("organization_id", profile.organization_id)');
+    expect(read("src/app/api/emr/dashboard/route.ts")).toContain('.eq("organization_id", organizationId)');
     expect(read("src/app/api/emr/items/[id]/route.ts")).toContain('existing.organization_id !== organizationId');
   });
   it("requires DONE plus evidence before verification", () => {

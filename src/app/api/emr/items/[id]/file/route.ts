@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
-import { requireApiPermission } from "@/lib/api-auth";
+import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EVIDENCE_ALLOWED_EXTENSIONS, evidenceFilePolicy } from "@/lib/evidence-file-policy";
 
@@ -36,13 +36,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   const admin = createAdminClient();
-  const { data: caller, error: callerError } = await admin.from("profiles").select("organization_id").eq("user_id", auth.user.id).maybeSingle();
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
-  if (!caller?.organization_id) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const { data: item, error: itemError } = await loadItem(admin, id);
   if (itemError) return NextResponse.json({ error: itemError.message }, { status: 400 });
-  if (!item || item.organization_id !== caller.organization_id) return NextResponse.json({ error: "Không tìm thấy mục này." }, { status: 404 });
+  if (!item || item.organization_id !== organizationId) return NextResponse.json({ error: "Không tìm thấy mục này." }, { status: 404 });
 
   const formData = await request.formData();
   const fileValue = formData.get("file");
@@ -57,7 +57,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const storedFileName = safeFileName(originalFileName);
-  const storagePath = `${caller.organization_id}/emr/${item.category}/${id}/${randomUUID()}-${storedFileName}`;
+  const storagePath = `${organizationId}/emr/${item.category}/${id}/${randomUUID()}-${storedFileName}`;
   const fileBuffer = Buffer.from(await fileValue.arrayBuffer());
   const { error: uploadError } = await admin.storage.from(BUCKET).upload(storagePath, fileBuffer, { contentType: filePolicy.mimeType, upsert: false });
   if (uploadError) return NextResponse.json({ error: `Không tải được file: ${uploadError.message}` }, { status: 400 });
@@ -80,13 +80,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   const admin = createAdminClient();
-  const { data: caller, error: callerError } = await admin.from("profiles").select("organization_id").eq("user_id", auth.user.id).maybeSingle();
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
-  if (!caller?.organization_id) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const { data: item, error: itemError } = await loadItem(admin, id);
   if (itemError) return NextResponse.json({ error: itemError.message }, { status: 400 });
-  if (!item || item.organization_id !== caller.organization_id) return NextResponse.json({ error: "Không tìm thấy mục này." }, { status: 404 });
+  if (!item || item.organization_id !== organizationId) return NextResponse.json({ error: "Không tìm thấy mục này." }, { status: 404 });
 
   const storagePath = (item.details as Record<string, unknown> | null)?.file_path;
   if (!storagePath || typeof storagePath !== "string") return NextResponse.json({ error: "Mục này chưa có file đính kèm." }, { status: 404 });
@@ -103,13 +103,13 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { id } = await params;
 
   const admin = createAdminClient();
-  const { data: caller, error: callerError } = await admin.from("profiles").select("organization_id").eq("user_id", auth.user.id).maybeSingle();
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
-  if (!caller?.organization_id) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const { data: item, error: itemError } = await loadItem(admin, id);
   if (itemError) return NextResponse.json({ error: itemError.message }, { status: 400 });
-  if (!item || item.organization_id !== caller.organization_id) return NextResponse.json({ error: "Không tìm thấy mục này." }, { status: 404 });
+  if (!item || item.organization_id !== organizationId) return NextResponse.json({ error: "Không tìm thấy mục này." }, { status: 404 });
 
   const storagePath = (item.details as Record<string, unknown> | null)?.file_path;
   const nextDetails = { ...(item.details as Record<string, unknown> || {}) };

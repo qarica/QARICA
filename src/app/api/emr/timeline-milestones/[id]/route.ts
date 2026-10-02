@@ -1,21 +1,17 @@
 import { NextResponse } from "next/server";
-import { requireApiPermission } from "@/lib/api-auth";
+import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
 
 const STATUSES = ["TODO", "IN_PROGRESS", "DONE", "BLOCKED"];
-
-async function callerOrganizationId(admin: ReturnType<typeof createAdminClient>, userId: string) {
-  const { data } = await admin.from("profiles").select("organization_id").eq("user_id", userId).maybeSingle();
-  return data?.organization_id ?? null;
-}
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("emr.manage");
   if (!auth.ok) return auth.response;
   const { id } = await params;
   const admin = createAdminClient();
-  const organizationId = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const body = await request.json().catch(() => ({}));
@@ -48,7 +44,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (!auth.ok) return auth.response;
   const { id } = await params;
   const admin = createAdminClient();
-  const organizationId = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const { error } = await admin.from("emr_timeline_milestones").delete().eq("id", id).eq("organization_id", organizationId);

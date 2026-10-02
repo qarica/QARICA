@@ -1,20 +1,16 @@
 import { NextResponse } from "next/server";
-import { requireApiPermission } from "@/lib/api-auth";
+import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
 
 const STATUSES = ["TODO", "IN_PROGRESS", "DONE", "BLOCKED"];
 
-async function callerOrganizationId(admin: ReturnType<typeof createAdminClient>, userId: string) {
-  const { data } = await admin.from("profiles").select("organization_id").eq("user_id", userId).maybeSingle();
-  return data?.organization_id ?? null;
-}
-
 export async function GET() {
   const auth = await requireApiPermission("emr.view");
   if (!auth.ok) return auth.response;
   const admin = createAdminClient();
-  const organizationId = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const { data, error } = await admin
@@ -35,7 +31,8 @@ export async function POST(request: Request) {
   const auth = await requireApiPermission("emr.manage");
   if (!auth.ok) return auth.response;
   const admin = createAdminClient();
-  const organizationId = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const body = await request.json().catch(() => ({}));

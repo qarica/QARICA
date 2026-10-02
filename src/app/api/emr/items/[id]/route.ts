@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiPermission } from "@/lib/api-auth";
+import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EMR_CATEGORY_FIELDS } from "@/lib/emr-categories";
 
@@ -19,11 +19,6 @@ function sanitizeDetails(category: string, raw: unknown): Record<string, unknown
 async function loadItemOrganization(admin: ReturnType<typeof createAdminClient>, id: string) {
   const { data, error } = await admin.from("emr_rollout_items").select("id,organization_id,status,evidence_url,category").eq("id", id).maybeSingle();
   return { data, error };
-}
-
-async function callerOrganizationId(admin: ReturnType<typeof createAdminClient>, userId: string) {
-  const { data, error } = await admin.from("profiles").select("organization_id").eq("user_id", userId).maybeSingle();
-  return { organizationId: data?.organization_id ?? null, error };
 }
 
 // Mirrors items/route.ts's sanitizeDepartmentIds: body.department_ids: string[],
