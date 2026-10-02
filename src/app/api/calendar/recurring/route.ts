@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiPermission } from "@/lib/api-auth";
+import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncRecurringTemplateNow } from "@/lib/recurring-sync";
 
@@ -67,17 +67,18 @@ export async function POST(request: Request) {
   if (automationKind === "REPORT" && !automationReportMethod) return NextResponse.json({ error: "Báo cáo định kỳ cần phương thức gửi." }, { status: 400 });
 
   const admin = createAdminClient();
-  const { data: caller, error: callerError } = await admin.from("profiles").select("organization_id").eq("user_id", auth.user.id).maybeSingle();
-  if (callerError || !caller?.organization_id) return NextResponse.json({ error: callerError?.message || "Tài khoản chưa gắn bệnh viện." }, { status: 400 });
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn bệnh viện." }, { status: 400 });
 
-  const { data: department, error: departmentError } = await admin.from("departments").select("id,organization_id,is_active").eq("id", leadDepartmentId).eq("organization_id", caller.organization_id).maybeSingle();
+  const { data: department, error: departmentError } = await admin.from("departments").select("id,organization_id,is_active").eq("id", leadDepartmentId).eq("organization_id", organizationId).maybeSingle();
   if (departmentError || !department?.is_active) return NextResponse.json({ error: "Khoa/phòng chủ trì không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
 
   if (assignmentTargetType === "USER") {
-    const { data: assignee, error: assigneeError } = await admin.from("profiles").select("user_id,organization_id,is_active").eq("user_id", assigneeUserId).eq("organization_id", caller.organization_id).maybeSingle();
+    const { data: assignee, error: assigneeError } = await admin.from("profiles").select("user_id,organization_id,is_active").eq("user_id", assigneeUserId).eq("organization_id", organizationId).maybeSingle();
     if (assigneeError || !assignee?.is_active) return NextResponse.json({ error: "Cá nhân phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
   } else {
-    const { data: group, error: groupError } = await admin.from("work_groups").select("id,is_active").eq("id", assigneeGroupId).eq("organization_id", caller.organization_id).maybeSingle();
+    const { data: group, error: groupError } = await admin.from("work_groups").select("id,is_active").eq("id", assigneeGroupId).eq("organization_id", organizationId).maybeSingle();
     if (groupError || !group?.is_active) return NextResponse.json({ error: "Nhóm phụ trách không hợp lệ hoặc đã ngưng hoạt động." }, { status: 400 });
     const { count: memberCount } = await admin.from("work_group_members").select("id", { count: "exact", head: true }).eq("group_id", assigneeGroupId).eq("is_active", true);
     if (!memberCount) return NextResponse.json({ error: "Nhóm phụ trách chưa có thành viên hoạt động." }, { status: 400 });
@@ -87,19 +88,19 @@ export async function POST(request: Request) {
     const [{ data: checklistVersion }, { data: targetDepartment }] = await Promise.all([
       admin.from("checklist_versions").select("id,checklist_template_id,status").eq("id", automationRefId).maybeSingle(),
       automationTargetDepartmentId
-        ? admin.from("departments").select("id,is_active").eq("id", automationTargetDepartmentId).eq("organization_id", caller.organization_id).maybeSingle()
+        ? admin.from("departments").select("id,is_active").eq("id", automationTargetDepartmentId).eq("organization_id", organizationId).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ] as any);
     if (!checklistVersion || checklistVersion.status !== "PUBLISHED") return NextResponse.json({ error: "Bảng kiểm tự động không hợp lệ hoặc chưa phát hành." }, { status: 400 });
     if (automationTargetDepartmentId && !targetDepartment?.is_active) return NextResponse.json({ error: "Khoa/phòng được giám sát không hợp lệ." }, { status: 400 });
     const { data: checklistTemplate } = await admin.from("checklist_templates").select("id,organization_id,is_active").eq("id", checklistVersion.checklist_template_id).maybeSingle();
-    if (!checklistTemplate?.is_active || (checklistTemplate.organization_id && checklistTemplate.organization_id !== caller.organization_id)) {
+    if (!checklistTemplate?.is_active || (checklistTemplate.organization_id && checklistTemplate.organization_id !== organizationId)) {
       return NextResponse.json({ error: "Bảng kiểm tự động nằm ngoài phạm vi bệnh viện." }, { status: 400 });
     }
   }
 
   const { data: template, error } = await admin.from("recurring_work_templates").insert({
-    organization_id: caller.organization_id,
+    organization_id: organizationId,
     title,
     description,
     recurrence_rule: recurrenceRule,
@@ -134,7 +135,7 @@ export async function POST(request: Request) {
   const sync = isActive ? await syncRecurringTemplateNow({
     admin,
     templateId: template.id,
-    organizationId: caller.organization_id,
+    organizationId,
     actorUserId: auth.user.id,
     horizonDays: 90,
   }) : null;

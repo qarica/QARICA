@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiUser } from "@/lib/api-auth";
+import { callerOrganizationId, requireApiUser } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { routeForRecord } from "@/lib/record-route";
 
@@ -30,15 +30,15 @@ export async function GET(request: Request) {
   if (q.length < 2) return NextResponse.json({ ok: true, results: [] });
 
   const admin = createAdminClient();
-  const { data: profile, error: profileError } = await admin.from("profiles").select("organization_id").eq("user_id", auth.user.id).maybeSingle();
-  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 400 });
-  if (!profile?.organization_id) return NextResponse.json({ ok: true, results: [] });
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ ok: true, results: [] });
 
   const escaped = q.replace(/[%_]/g, (m) => `\\${m}`);
   const { data, error } = await admin
     .from("records")
     .select("id,record_type,record_code,title")
-    .eq("organization_id", profile.organization_id)
+    .eq("organization_id", organizationId)
     .or(`title.ilike.%${escaped}%,record_code.ilike.%${escaped}%`)
     .order("created_at", { ascending: false })
     .limit(8);
