@@ -29,6 +29,7 @@ const NAV_GROUPS: NavGroupDef[] = [
       { label: "Việc của tôi", href: "/tasks", icon: "inbox", permission: "tasks.view" },
       { label: "Lịch QLCL", href: "/calendar", icon: "calendar-days", permission: "dashboard.view" },
       { label: "Kế hoạch & Điều hành", icon: "target", workspaceRoot: "/plans" },
+      { label: "Không gian riêng", href: "/me", icon: "book-open" },
     ],
   },
   {
