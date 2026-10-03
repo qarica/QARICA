@@ -63,7 +63,7 @@ export function HsbaAuditWorkspaceNav() {
           ))}
         </div>
       </div>
-      <nav style={panelStyle} aria-label="Điều hướng Audit nội bộ KHTH">
+      <nav style={panelStyle} aria-label="Điều hướng Audit HSBA">
         <div style={railStyle}>
           {DESTINATIONS.map((d) => {
             const href = `${d.slug ? `/hsba-audit/${d.slug}` : "/hsba-audit"}?type=${auditType}`;

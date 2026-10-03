@@ -53,7 +53,7 @@ describe("HSBA audit module security and control gates", () => {
 
   it("is reachable from the sidebar only behind hsba_audit.view, as its own top-level menu (not nested under Quản lý chất lượng — explicit request)", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "AUDIT NỘI BỘ KHTH", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" }');
+    expect(nav).toContain('{ label: "AUDIT HSBA", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" }');
   });
 
   it("keeps every write tenant-scoped by organization_id", () => {
