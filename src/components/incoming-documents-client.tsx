@@ -124,7 +124,7 @@ export function IncomingDocumentsClient({
     <div className="incoming-doc-overview">
       {canManage ? (
         <section className="panel">
-          <div className="section-head">
+          <div className="panel-title">
             <div>
               <h2>Tiếp nhận công văn mới</h2>
               <p>Ghi nhận công văn đến từ SYT, cơ quan khác, thư tay hoặc email.</p>
@@ -147,7 +147,7 @@ export function IncomingDocumentsClient({
       ) : null}
 
       <section className="panel">
-        <div className="section-head">
+        <div className="panel-title">
           <h2>Danh sách công văn</h2>
         </div>
         <div className="table-wrap">

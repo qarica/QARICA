@@ -78,7 +78,7 @@ export default async function HsbaReportPage({ searchParams }: { searchParams: P
       </div>
 
       <section className="panel">
-        <div className="section-head">
+        <div className="panel-title">
           <h2>Lỗi theo khoa/phòng — kỳ {period}</h2>
         </div>
         <div className="table-wrap">
@@ -111,7 +111,7 @@ export default async function HsbaReportPage({ searchParams }: { searchParams: P
       </section>
 
       <section className="panel">
-        <div className="section-head">
+        <div className="panel-title">
           <h2>Nhân viên vi phạm lặp lại (≥2 lần trong kỳ) — gửi Phòng Nhân sự</h2>
         </div>
         <div className="table-wrap">

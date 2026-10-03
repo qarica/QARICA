@@ -132,7 +132,7 @@ export function HsbaAuditOverviewClient({
     <div className="hsba-audit-overview">
       {canManage ? (
         <section className="panel hsba-form-panel">
-          <div className="section-head">
+          <div className="panel-title">
             <div>
               <h2>Tạo lượt kiểm tra mới</h2>
               <p>Chấm theo bảng kiểm — tiêu chí chưa đạt sẽ tự tạo lỗi gửi khoa.</p>
@@ -205,7 +205,7 @@ export function HsbaAuditOverviewClient({
       ) : null}
 
       <section className="panel">
-        <div className="section-head">
+        <div className="panel-title">
           <div>
             <h2>Lỗi cần xử lý</h2>
             <p>Theo dõi lỗi từ khi phát hiện đến khi khắc phục xong.</p>

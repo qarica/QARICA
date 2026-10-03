@@ -132,6 +132,20 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
   const displayName = user.fullName || (user.email ? user.email.split("@")[0] : "Người dùng");
   function startNavigation(href: string) { const target = href.split("?")[0]; if (target !== pathname) setNavigating(true); setMobileOpen(false); }
   function renderBadge(badge: { count: number; urgent: boolean } | undefined, className = "nav-attention-badge") { if (!badge?.count) return null; return <span className={`${className} ${badge.urgent ? "urgent" : "warning"}`}>{badge.count > 99 ? "99+" : badge.count}</span>; }
+  function renderChild(item: NavItem, asGroupLink?: boolean) { const baseHref = item.href.split("?")[0]; const itemRoot = item.workspaceRoot || baseHref; const active = isChildActive(pathname, item, currentWorkspaceRoot); const badge = attention[itemRoot]; return <Link key={`${itemRoot}:${item.label}`} href={item.href} prefetch={true} className={asGroupLink ? `nav-link nav-group-link ${active ? "active" : ""}` : `nav-link nav-child-link ${active ? "active" : ""}`} title={`${item.label}${badge?.count ? ` · ${badge.count} việc cần chú ý` : ""}`} onMouseEnter={() => router.prefetch(item.href)} onFocus={() => router.prefetch(item.href)} onClick={() => startNavigation(item.href)}><span className={`nav-icon ${asGroupLink ? "nav-group-icon" : ""} ${NAV_ICON_TONE[itemRoot] || "overview"}`} aria-hidden="true"><Icon name={item.icon} size={18} /></span><span className="nav-link-label">{item.label}</span>{renderBadge(badge)}</Link>; }
+  // A group with exactly one authorized child (EMR; Cấu hình hệ thống) has
+  // nothing to expand — showing it as a collapsible accordion with a chevron
+  // promises children that never appear. Promote it to a plain top-level link
+  // instead, styled like a Level-1 item, so there is never an "expand reveals
+  // only 1 item" moment.
+  function renderGroup(group: NavGroup) {
+    const expanded = expandedGroupId === group.id;
+    const isActiveGroup = group.children.some((child) => isChildActive(pathname, child, currentWorkspaceRoot));
+    if (group.children.length === 1) return renderChild(group.children[0], true);
+    return <div className={`nav-group ${expanded ? "expanded" : ""} ${isActiveGroup ? "active-context" : ""}`} key={group.id}><button type="button" className="nav-group-header" aria-expanded={expanded} onClick={() => toggleGroup(group.id)}><span className="nav-icon nav-group-icon" aria-hidden="true"><Icon name={group.icon} size={18} /></span><span className="nav-group-label">{group.label}</span><Icon name="chevron-down" size={15} className={`nav-group-chevron ${expanded ? "expanded" : ""}`} /></button><div className="nav-group-children" aria-hidden={!expanded}>{expanded ? group.children.map((c) => renderChild(c)) : null}</div><div className="nav-group-flyout"><div className="nav-group-flyout-title">{group.label}</div>{group.children.map((c) => renderChild(c))}</div></div>;
+  }
+  const mainNavGroups = navGroups.filter((group) => !group.footer);
+  const footerNavGroups = navGroups.filter((group) => group.footer);
 
   return <div className="app-root workspace-app" style={{ ["--brand" as string]: organization?.primary_color || "#2563eb" }}>
     <style>{`
@@ -264,9 +278,8 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .sidebar.collapsed .nav-group-flyout .nav-attention-badge{position:static;min-width:20px;height:20px;padding:0 6px;font-size:11px;border:0}
       .workspace-app .sidebar-bottom{position:absolute;left:0;right:0;bottom:0;background:#fff}
       .workspace-app .sidebar-footer{position:static;border-top:1px solid #f1f5f9;padding:12px 14px}
-      .workspace-app .sidebar-illustration{margin:0;padding:16px 20px 4px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;opacity:.9}
-      .workspace-app .sidebar-illustration-caption{margin:0;font-size:11px;line-height:1.5;color:#93a5c2;max-width:180px}
-      .workspace-app .sidebar-nav{padding-bottom:240px}
+      .workspace-app .nav-footer-divider{height:1px;background:#eef2f7;margin:10px 14px}
+      .workspace-app .sidebar-nav{padding-bottom:110px}
       .workspace-app .scope-chip{color:#64748b;font-size:11px;margin-bottom:8px}
       .workspace-app .sidebar-collapse-text{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:#64748b;font-size:12.5px;font-weight:700;padding:6px 4px;cursor:pointer;border-radius:8px}
       .workspace-app .sidebar-collapse-text:hover{background:#f8fafc;color:#0f172a}
@@ -293,59 +306,12 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
     {navigating ? <div className="route-progress" aria-label="Đang chuyển trang"><span /></div> : null}
     <aside className={`sidebar ${mobileOpen ? "open" : ""} ${sidebarCollapsed ? "collapsed" : ""}`}>
       <div className="sidebar-brand"><div className="brand-mark"><Image src="/brand/qarica-mark-v2.svg" alt="" width={32} height={32} aria-hidden="true" /></div><div className="sidebar-brand-copy"><strong>QARICA</strong><span>Quality</span></div><button className="icon-button sidebar-collapse" onClick={toggleSidebarCollapsed} title={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"} aria-label={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"}><Icon name={sidebarCollapsed ? "panel-left-open" : "panel-left-close"} size={18} /></button><button className="icon-button sidebar-close" onClick={() => setMobileOpen(false)} aria-label="Đóng menu"><Icon name="x" /></button></div>
-      <nav className="sidebar-nav" aria-label="Điều hướng chính">{navGroups.map((group) => { const expanded = expandedGroupId === group.id; const isActiveGroup = group.children.some((child) => isChildActive(pathname, child, currentWorkspaceRoot)); function renderChild(item: NavItem, asGroupLink?: boolean) { const baseHref = item.href.split("?")[0]; const itemRoot = item.workspaceRoot || baseHref; const active = isChildActive(pathname, item, currentWorkspaceRoot); const badge = attention[itemRoot]; return <Link key={`${itemRoot}:${item.label}`} href={item.href} prefetch={true} className={asGroupLink ? `nav-link nav-group-link ${active ? "active" : ""}` : `nav-link nav-child-link ${active ? "active" : ""}`} title={`${item.label}${badge?.count ? ` · ${badge.count} việc cần chú ý` : ""}`} onMouseEnter={() => router.prefetch(item.href)} onFocus={() => router.prefetch(item.href)} onClick={() => startNavigation(item.href)}><span className={`nav-icon ${asGroupLink ? "nav-group-icon" : ""} ${NAV_ICON_TONE[itemRoot] || "overview"}`} aria-hidden="true"><Icon name={item.icon} size={18} /></span><span className="nav-link-label">{item.label}</span>{renderBadge(badge)}</Link>; }
-        // A group with exactly one authorized child (EMR; Cấu hình hệ thống)
-        // has nothing to expand — showing it as a collapsible accordion with a
-        // chevron promises children that never appear. Promote it to a plain
-        // top-level link instead, styled like a Level-1 item, so there is
-        // never an "expand reveals only 1 item" moment.
-        if (group.children.length === 1) return renderChild(group.children[0], true);
-        return <div className={`nav-group ${expanded ? "expanded" : ""} ${isActiveGroup ? "active-context" : ""}`} key={group.id}><button type="button" className="nav-group-header" aria-expanded={expanded} onClick={() => toggleGroup(group.id)}><span className="nav-icon nav-group-icon" aria-hidden="true"><Icon name={group.icon} size={18} /></span><span className="nav-group-label">{group.label}</span><Icon name="chevron-down" size={15} className={`nav-group-chevron ${expanded ? "expanded" : ""}`} /></button><div className="nav-group-children" aria-hidden={!expanded}>{expanded ? group.children.map((c) => renderChild(c)) : null}</div><div className="nav-group-flyout"><div className="nav-group-flyout-title">{group.label}</div>{group.children.map((c) => renderChild(c))}</div></div>; })}
+      <nav className="sidebar-nav" aria-label="Điều hướng chính">
+        {mainNavGroups.map(renderGroup)}
+        <div className="nav-footer-divider" aria-hidden="true" />
+        {footerNavGroups.map(renderGroup)}
       </nav>
       <div className="sidebar-bottom">
-        <div className="sidebar-illustration" aria-hidden="true">
-          <svg width="150" height="110" viewBox="0 0 150 110" fill="none">
-            <defs>
-              <linearGradient id="sbHospBody" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#eff6ff"/>
-                <stop offset="1" stopColor="#dbeafe"/>
-              </linearGradient>
-              <linearGradient id="sbHospTower" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#dbeafe"/>
-                <stop offset="1" stopColor="#bfdbfe"/>
-              </linearGradient>
-            </defs>
-            <path d="M8 100h134" stroke="#dbeafe" strokeWidth="3" strokeLinecap="round"/>
-            <circle cx="20" cy="78" r="12" fill="#bbf7d0"/>
-            <rect x="18" y="88" width="4" height="12" rx="1" fill="#86efac"/>
-            <rect x="30" y="58" width="34" height="42" rx="4" fill="url(#sbHospBody)" stroke="#bfdbfe" strokeWidth="2"/>
-            <rect x="58" y="22" width="56" height="78" rx="5" fill="url(#sbHospTower)" stroke="#93c5fd" strokeWidth="2"/>
-            <rect x="108" y="58" width="30" height="42" rx="4" fill="url(#sbHospBody)" stroke="#bfdbfe" strokeWidth="2"/>
-            <circle cx="86" cy="14" r="11" fill="#fff" stroke="#60a5fa" strokeWidth="2"/>
-            <rect x="83" y="8" width="6" height="12" rx="1" fill="#2563eb"/>
-            <rect x="80" y="11" width="12" height="6" rx="1" fill="#2563eb"/>
-            <rect x="65" y="34" width="9" height="9" rx="2" fill="#60a5fa"/>
-            <rect x="81" y="34" width="9" height="9" rx="2" fill="#60a5fa"/>
-            <rect x="97" y="34" width="9" height="9" rx="2" fill="#60a5fa"/>
-            <rect x="65" y="50" width="9" height="9" rx="2" fill="#60a5fa"/>
-            <rect x="81" y="50" width="9" height="9" rx="2" fill="#60a5fa"/>
-            <rect x="97" y="50" width="9" height="9" rx="2" fill="#60a5fa"/>
-            <rect x="65" y="66" width="9" height="9" rx="2" fill="#93c5fd"/>
-            <rect x="97" y="66" width="9" height="9" rx="2" fill="#93c5fd"/>
-            <rect x="78" y="80" width="16" height="20" rx="2" fill="#2563eb"/>
-            <rect x="36" y="66" width="8" height="8" rx="2" fill="#93c5fd"/>
-            <rect x="50" y="66" width="8" height="8" rx="2" fill="#93c5fd"/>
-            <rect x="36" y="80" width="8" height="8" rx="2" fill="#93c5fd"/>
-            <rect x="50" y="80" width="8" height="8" rx="2" fill="#93c5fd"/>
-            <rect x="114" y="66" width="8" height="8" rx="2" fill="#93c5fd"/>
-            <rect x="126" y="66" width="8" height="8" rx="2" fill="#93c5fd"/>
-            <rect x="114" y="80" width="8" height="8" rx="2" fill="#93c5fd"/>
-            <rect x="126" y="80" width="8" height="8" rx="2" fill="#93c5fd"/>
-            <circle cx="132" cy="80" r="9" fill="#bbf7d0"/>
-            <rect x="130" y="88" width="3" height="10" rx="1" fill="#86efac"/>
-          </svg>
-          <p className="sidebar-illustration-caption">QARICA đồng hành cùng hành trình chất lượng của bệnh viện bạn.</p>
-        </div>
         <div className="sidebar-footer"><div className="scope-chip">{user.scopeTypes.includes("HOSPITAL") ? "Phạm vi: Toàn viện" : `Phạm vi: ${user.primaryDepartmentName || "Được phân công"}`}</div><button type="button" className="sidebar-collapse-text" onClick={toggleSidebarCollapsed}><Icon name="panel-left-close" size={16} /><span>Thu gọn</span></button></div>
       </div>
     </aside>

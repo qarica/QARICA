@@ -17,7 +17,7 @@ describe("Incoming documents module security and control gates", () => {
 
   it("is reachable from the sidebar only behind incoming_documents.view", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "CÔNG VĂN ĐẾN", href: "/incoming-documents", icon: "file-input", permission: "incoming_documents.view" }');
+    expect(nav).toContain('{ label: "QUẢN LÝ CÔNG VĂN", href: "/incoming-documents", icon: "file-input", permission: "incoming_documents.view" }');
   });
 
   it("keeps every write tenant-scoped by organization_id", () => {

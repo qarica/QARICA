@@ -8,7 +8,6 @@ export default async function HsbaAuditLayout({ children }: { children: React.Re
   return (
     <div className="page-stack hsba-audit-page">
       <PageHeader
-        eyebrow="Quản lý chất lượng"
         title="Audit nội bộ KHTH"
         description="Bảng kiểm, lượt kiểm tra và theo dõi khắc phục lỗi cho HSBA và Phác đồ điều trị/QTKT nội trú — module riêng, không dùng chung dữ liệu với findings/CAPA của QLCL."
         icon="list-checks"

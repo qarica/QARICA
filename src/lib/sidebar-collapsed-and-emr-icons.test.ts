@@ -13,17 +13,23 @@ describe("sidebar collapsed state hides group header labels too", () => {
     expect(shell).toContain(".workspace-app .sidebar.collapsed .sidebar-brand-copy,.workspace-app .sidebar.collapsed .nav-label,.workspace-app .sidebar.collapsed .nav-link-label,.workspace-app .sidebar.collapsed .nav-group-label,.workspace-app .sidebar.collapsed .sidebar-bottom{display:none}");
   });
 
-  // Regression: the illustration previously lived inside the scrollable
-  // .sidebar-nav flow (as the last child after the nav groups), so its
-  // vertical position jumped depending on how many menu items were
-  // rendered/expanded. Moved it — together with .sidebar-footer — into a
-  // single .sidebar-bottom wrapper pinned to the bottom of the sidebar, so
-  // it never moves regardless of menu length.
-  it("pins the illustration+footer to the bottom of the sidebar via a dedicated wrapper, not sidebar-nav's scroll flow", () => {
+  // Regression: the footer (scope chip + collapse button) previously lived
+  // inside the scrollable .sidebar-nav flow (as the last child after the nav
+  // groups), so its vertical position jumped depending on how many menu
+  // items were rendered/expanded. Moved it into a single .sidebar-bottom
+  // wrapper pinned to the bottom of the sidebar, so it never moves regardless
+  // of menu length.
+  it("pins the footer to the bottom of the sidebar via a dedicated wrapper, not sidebar-nav's scroll flow", () => {
     expect(shell).toContain('.workspace-app .sidebar-bottom{position:absolute;left:0;right:0;bottom:0;background:#fff}');
     expect(shell).toContain('.workspace-app .sidebar-footer{position:static;');
     expect(shell).toMatch(/<\/nav>\s*<div className="sidebar-bottom">/);
-    expect(shell).toContain('<div className="sidebar-illustration" aria-hidden="true">');
+  });
+
+  // Explicit request: remove the decorative hospital-building illustration
+  // that used to sit above the footer (scope chip + collapse button).
+  it("no longer renders the hospital-building illustration", () => {
+    expect(shell).not.toContain("sidebar-illustration");
+    expect(shell).not.toContain("sbHospBody");
   });
 });
 
