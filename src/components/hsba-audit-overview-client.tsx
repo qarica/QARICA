@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { InternalAuditType } from "@/lib/internal-audit-types";
+import { INTERNAL_AUDIT_TYPE_LABEL, type InternalAuditType } from "@/lib/internal-audit-types";
 
 type Department = { id: string; name: string };
 type ChecklistItem = { id: string; content: string; category: string | null };
@@ -97,11 +97,17 @@ export function HsbaAuditOverviewClient({
       setError(body.error || "Không lưu được lượt kiểm tra.");
       return;
     }
-    setMessage(`Đã lưu lượt kiểm tra "${recordReference.trim()}" — ${body.findings_created || 0} lỗi được tạo.`);
+    // Chỉ HSBA mới có "lỗi gửi khoa"; Phác đồ/QTKT là kiểm bổ sung không bắt
+    // buộc, Không đạt chỉ được ghi nhận vào báo cáo, không trả về khoa.
+    setMessage(
+      auditType === "HSBA"
+        ? `Đã lưu lượt kiểm tra "${recordReference.trim()}" — ${body.findings_created || 0} lỗi được tạo và gửi khoa.`
+        : `Đã ghi nhận kết quả chấm "${recordReference.trim()}" — ${body.failed_count || 0}/${results.length} tiêu chí không đạt (chỉ tính vào báo cáo, không gửi khoa).`,
+    );
     setRecordReference("");
     setResultsByItem({});
     setNotesByItem({});
-    if (body.findings_created) {
+    if (auditType === "HSBA" && body.findings_created) {
       const refreshed = await fetch(`/api/hsba-audit/findings?audit_type=${auditType}`).then((r) => r.json()).catch(() => null);
       if (refreshed?.ok) setFindings(refreshed.findings.filter((f: Finding) => f.status !== "RESOLVED"));
     }
@@ -205,6 +211,7 @@ export function HsbaAuditOverviewClient({
         </section>
       ) : null}
 
+      {auditType === "HSBA" ? (
       <section className="panel">
         <div className="panel-title">
           <div>
@@ -270,6 +277,18 @@ export function HsbaAuditOverviewClient({
           {!findings.length ? <div className="empty-state compact">Không có lỗi nào cần xử lý.</div> : null}
         </div>
       </section>
+      ) : (
+        <section className="panel">
+          <div className="panel-title">
+            <div>
+              <h2>Kết quả chấm</h2>
+              <p>
+                {INTERNAL_AUDIT_TYPE_LABEL[auditType]} là kiểm bổ sung không bắt buộc — kết quả Không đạt chỉ được ghi nhận vào báo cáo tháng, không tạo lỗi gửi khoa xử lý như bảng kiểm Hồ sơ bệnh án.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
       <style jsx>{`
         .hsba-audit-overview {
           display: grid;
