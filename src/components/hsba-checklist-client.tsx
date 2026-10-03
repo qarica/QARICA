@@ -117,7 +117,11 @@ export function HsbaChecklistClient({ auditType, canManage }: { auditType: Inter
             {declaring ? "Đang lưu..." : "+ Thêm tiêu chí"}
           </button>
         </form>
-      ) : null}
+      ) : (
+        <div className="alert" style={{ margin: "12px 12px 4px" }}>
+          Tài khoản của bạn chưa có quyền &quot;Quản lý kiểm tra chất lượng HSBA&quot; nên không thể khai báo/sửa tiêu chí bảng kiểm. Liên hệ quản trị viên để được cấp quyền này trong Cấu hình hệ thống → Vai trò & Phân quyền.
+        </div>
+      )}
       {!items.length ? (
         <div className="empty-state">Chưa có tiêu chí nào trong bảng kiểm.</div>
       ) : (

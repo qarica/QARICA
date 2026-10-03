@@ -36,6 +36,21 @@ describe("HSBA audit module security and control gates", () => {
     expect(route).toContain("profile.primary_department_id !== current.department_id");
   });
 
+  // Real bug found by the user: a view-only account (hsba_audit.view without
+  // hsba_audit.manage, the common case for a department/ward-level reviewer)
+  // was told by the Overview tab to "go to Bảng kiểm to declare", then found
+  // the declare form silently hidden there with no explanation — a dead end.
+  // Both messages must now state the actual missing permission instead of
+  // sending a view-only user on a wild goose chase.
+  it("explains the missing hsba_audit.manage permission instead of silently hiding the declare form or sending the user on a dead-end hint", () => {
+    const checklistClient = read("src/components/hsba-checklist-client.tsx");
+    expect(checklistClient).toContain("Tài khoản của bạn chưa có quyền");
+    expect(checklistClient).toContain("Quản lý kiểm tra chất lượng HSBA");
+    const overviewClient = read("src/components/hsba-audit-overview-client.tsx");
+    expect(overviewClient).toContain("canManage\n                        ?");
+    expect(overviewClient).toContain('Việc khai báo cần quyền "Quản lý kiểm tra chất lượng HSBA"');
+  });
+
   it("is reachable from the sidebar only behind hsba_audit.view, as its own top-level menu (not nested under Quản lý chất lượng — explicit request)", () => {
     const nav = read("src/lib/navigation.ts");
     expect(nav).toContain('{ label: "AUDIT NỘI BỘ KHTH", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" }');
