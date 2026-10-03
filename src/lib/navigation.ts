@@ -84,6 +84,14 @@ const NAV_GROUPS: NavGroupDef[] = [
     ],
   },
   {
+    id: "document-publications",
+    label: "PHÁT HÀNH VĂN BẢN",
+    icon: "file-text",
+    children: [
+      { label: "PHÁT HÀNH VĂN BẢN", href: "/document-publications", icon: "file-text", permission: "document_publication.view" },
+    ],
+  },
+  {
     id: "procedure-training",
     label: "ĐÀO TẠO QUY TRÌNH",
     icon: "book-open",

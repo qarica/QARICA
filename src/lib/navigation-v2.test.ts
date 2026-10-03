@@ -19,6 +19,7 @@ const GROUP_IDS = [
   "digital-systems",
   "physician-license",
   "incoming-documents",
+  "document-publications",
   "procedure-training",
   "procurement",
   "my-work",
@@ -40,19 +41,20 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 11 primary groups: the main master-menu modules in the requested order, plus 3 footer groups (Việc của tôi, Cá nhân, Cấu hình hệ thống) separated out at the bottom", () => {
+  it("defines exactly 12 primary groups: the main master-menu modules in the requested order, plus 3 footer groups (Việc của tôi, Cá nhân, Cấu hình hệ thống) separated out at the bottom", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no twelfth group id besides these eleven
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(11);
+    // no thirteenth group id besides these twelve
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(12);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "AUDIT NỘI BỘ KHTH"');
     expect(navigation).toContain('label: "BỆNH ÁN ĐIỆN TỬ"');
+    expect(navigation).toContain('label: "PHÁT HÀNH VĂN BẢN"');
     expect(navigation).toContain('label: "CẤU HÌNH HỆ THỐNG"');
   });
 
-  it("orders the main (non-footer) groups exactly as requested: điều hành chất lượng, quản lý chất lượng, audit nội bộ KHTH, bệnh án điện tử, theo dõi hành nghề, quản lý công văn, đào tạo quy trình, mua sắm & sửa chữa", () => {
-    const mainOrder = ["operations", "quality-management", "hsba-audit", "digital-systems", "physician-license", "incoming-documents", "procedure-training", "procurement"];
+  it("orders the main (non-footer) groups exactly as requested: điều hành chất lượng, quản lý chất lượng, audit nội bộ KHTH, bệnh án điện tử, theo dõi hành nghề, quản lý công văn, phát hành văn bản, đào tạo quy trình, mua sắm & sửa chữa", () => {
+    const mainOrder = ["operations", "quality-management", "hsba-audit", "digital-systems", "physician-license", "incoming-documents", "document-publications", "procedure-training", "procurement"];
     const positions = mainOrder.map((id) => navigation.indexOf(`id: "${id}"`));
     for (const position of positions) expect(position).toBeGreaterThanOrEqual(0);
     for (let i = 1; i < positions.length; i += 1) expect(positions[i]).toBeGreaterThan(positions[i - 1]);
@@ -78,16 +80,17 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     }
     expect(block).not.toContain("Đo lường & Giám sát");
     expect(block).not.toContain("EMR");
-    for (const moved of ["Việc của tôi", "Cá nhân", "MUA SẮM & SỬA CHỮA", "THEO DÕI HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "ĐÀO TẠO QUY TRÌNH", "AUDIT NỘI BỘ KHTH"]) {
+    for (const moved of ["Việc của tôi", "Cá nhân", "MUA SẮM & SỬA CHỮA", "THEO DÕI HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "PHÁT HÀNH VĂN BẢN", "ĐÀO TẠO QUY TRÌNH", "AUDIT NỘI BỘ KHTH"]) {
       expect(block).not.toContain(`label: "${moved}"`);
     }
   });
 
-  it("promotes MUA SẮM & SỬA CHỮA, THEO DÕI HÀNH NGHỀ, QUẢN LÝ CÔNG VĂN, ĐÀO TẠO QUY TRÌNH and AUDIT NỘI BỘ KHTH to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
+  it("promotes MUA SẮM & SỬA CHỮA, THEO DÕI HÀNH NGHỀ, QUẢN LÝ CÔNG VĂN, PHÁT HÀNH VĂN BẢN, ĐÀO TẠO QUY TRÌNH and AUDIT NỘI BỘ KHTH to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
     const expectations: [string, string, string][] = [
       ["procurement", "MUA SẮM & SỬA CHỮA", "/procurement"],
       ["physician-license", "THEO DÕI HÀNH NGHỀ", "/physician-license"],
       ["incoming-documents", "QUẢN LÝ CÔNG VĂN", "/incoming-documents"],
+      ["document-publications", "PHÁT HÀNH VĂN BẢN", "/document-publications"],
       ["procedure-training", "ĐÀO TẠO QUY TRÌNH", "/procedure-trainings"],
       ["hsba-audit", "AUDIT NỘI BỘ KHTH", "/hsba-audit"],
     ];
