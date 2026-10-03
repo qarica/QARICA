@@ -94,8 +94,13 @@ export async function POST(request: Request) {
     .select("id,checklist_item_id,result,note");
   if (itemResultsError) return NextResponse.json({ error: itemResultsError.message }, { status: 400 });
 
+  // Explicit business rule: chỉ bảng kiểm HSBA mới trả lỗi về khoa xử lý.
+  // Phác đồ điều trị và QTKT nội trú là kiểm bổ sung không bắt buộc, không
+  // tạo "lỗi" gửi khoa — kết quả Không đạt của 2 loại này chỉ nằm trong
+  // hsba_audit_item_results để tính vào báo cáo tháng, không có vòng đời
+  // finding/SEND nào cả.
   const failedResults = (itemResults ?? []).filter((r: any) => r.result === "FAIL");
-  if (failedResults.length) {
+  if (auditType === "HSBA" && failedResults.length) {
     const findingsPayload = failedResults.map((r: any) => ({
       organization_id: organizationId,
       audit_id: audit.id,
@@ -109,5 +114,5 @@ export async function POST(request: Request) {
     if (findingsError) return NextResponse.json({ error: findingsError.message }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, audit, results: itemResults, findings_created: failedResults.length });
+  return NextResponse.json({ ok: true, audit, results: itemResults, failed_count: failedResults.length, findings_created: auditType === "HSBA" ? failedResults.length : 0 });
 }

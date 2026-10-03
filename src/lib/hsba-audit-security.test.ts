@@ -95,6 +95,15 @@ describe("HSBA audit creation auto-generates findings only for FAIL results", ()
     expect(route).toContain('normalizedResults.some((r) => r.result === "FAIL") ? "FAIL" : "PASS"');
   });
 
+  // Explicit business rule: Phác đồ điều trị và QTKT nội trú là kiểm bổ sung
+  // không bắt buộc — Không đạt chỉ ghi nhận vào báo cáo (hsba_audit_item_results),
+  // KHÔNG tạo "lỗi" gửi khoa như HSBA. Chỉ audit_type HSBA mới có vòng đời
+  // finding/SEND-to-department.
+  it("only creates findings (sent to department) for audit_type HSBA — Phác đồ/QTKT fails are recorded but never become a sendable finding", () => {
+    expect(route).toContain('if (auditType === "HSBA" && failedResults.length)');
+    expect(route).toContain("findings_created: auditType === \"HSBA\" ? failedResults.length : 0");
+  });
+
   it("creates one finding per FAIL item result, not per PASS", () => {
     expect(route).toContain('const failedResults = (itemResults ?? []).filter((r: any) => r.result === "FAIL");');
     expect(route).toContain("hsba_audit_findings");
