@@ -162,6 +162,23 @@ describe("Audit nội bộ KHTH is generalized across audit_type, not duplicated
     expect(nav).toContain('params.set("type", type);');
     expect(nav).toContain("href = `${d.slug ? `/hsba-audit/${d.slug}` : \"/hsba-audit\"}?type=${auditType}`;");
   });
+
+  // Real bug reported from screenshots: the "Tổng quan / Bảng kiểm / Báo
+  // cáo tháng" sub-nav rendered as plain unstyled text in production — no
+  // visible button/pill boundary at all — so users never realized it was
+  // clickable and never found the "Bảng kiểm" tab where checklist items
+  // get declared. Root cause: this nav reused the exact same class names
+  // (.emr-workspace-nav, .emr-tab) as the unrelated EMR module's own nav
+  // component (emr-workspace-nav.tsx), each scoping its own <style jsx> —
+  // in production the <Link>-based row lost its styling. Fixed by dropping
+  // scoped CSS for this nav entirely in favor of inline styles.
+  it("styles its tabs with inline styles, not scoped <style jsx> that collides with emr-workspace-nav.tsx's identically-named classes", () => {
+    const nav = read("src/components/hsba-audit-workspace-nav.tsx");
+    expect(nav).not.toContain("<style jsx>{`");
+    expect(nav).toContain("function tabStyle(active: boolean): CSSProperties {");
+    expect(nav).toContain("style={tabStyle(auditType === type)}");
+    expect(nav).toContain("style={tabStyle(active)}");
+  });
 });
 
 // Explicit request: "Audit KHTH ko có nút khai báo bảng kiểm chất lượng hsba,
