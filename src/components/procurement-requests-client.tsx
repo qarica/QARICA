@@ -101,7 +101,7 @@ export function ProcurementRequestsClient({
     <div className="procurement-overview">
       {canManage ? (
         <section className="panel">
-          <div className="section-head">
+          <div className="panel-title">
             <div>
               <h2>Tiếp nhận đề xuất mới</h2>
               <p>Ghi nhận đề xuất mua sắm/sửa chữa từ khoa/phòng để trình duyệt.</p>
@@ -137,7 +137,7 @@ export function ProcurementRequestsClient({
       ) : null}
 
       <section className="panel">
-        <div className="section-head">
+        <div className="panel-title">
           <h2>Danh sách đề xuất</h2>
         </div>
         <div className="work-list">

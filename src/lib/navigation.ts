@@ -9,7 +9,7 @@ function isWorkspaceChild(child: ChildDef): child is WorkspaceChildDef {
   return "workspaceRoot" in child;
 }
 
-type NavGroupDef = { id: string; label: string; icon: string; children: ChildDef[] };
+type NavGroupDef = { id: string; label: string; icon: string; children: ChildDef[]; footer?: boolean };
 
 // Navigation V3: main sidebar presentation only. Groups children under four
 // accordion sections; underlying routes/permissions/workspace semantics are
@@ -19,6 +19,12 @@ type NavGroupDef = { id: string; label: string; icon: string; children: ChildDef
 // workspaceRoot-based (not a hand-maintained anyPermissions list) so its
 // visibility always tracks the real per-tab permissions declared once in
 // workspace-navigation.ts — one source of truth for who can see it.
+//
+// `footer: true` groups render in a visually separated block at the bottom
+// of the sidebar's main menu list (below a divider), not interleaved with
+// the organization-wide business modules above — explicit request: personal/
+// utility destinations (Việc của tôi, Cá nhân, Cấu hình hệ thống) read as a
+// distinct tier from the shared QLCL/EMR/procurement-style modules.
 const NAV_GROUPS: NavGroupDef[] = [
   {
     id: "operations",
@@ -26,42 +32,8 @@ const NAV_GROUPS: NavGroupDef[] = [
     icon: "layout-dashboard",
     children: [
       { label: "Tổng quan QLCL", href: "/dashboard", icon: "layout-dashboard", permission: "dashboard.view" },
-      { label: "Việc của tôi", href: "/tasks", icon: "inbox", permission: "tasks.view" },
-      { label: "Cá nhân", href: "/me", icon: "book-open" },
       { label: "Lịch QLCL", href: "/calendar", icon: "calendar-days", permission: "dashboard.view" },
       { label: "Kế hoạch & Điều hành", icon: "target", workspaceRoot: "/plans" },
-    ],
-  },
-  {
-    id: "procurement",
-    label: "MUA SẮM & SỬA CHỮA",
-    icon: "list-checks",
-    children: [
-      { label: "MUA SẮM & SỬA CHỮA", href: "/procurement", icon: "list-checks", permission: "procurement.view" },
-    ],
-  },
-  {
-    id: "physician-license",
-    label: "QUẢN LÝ HÀNH NGHỀ",
-    icon: "badge-check",
-    children: [
-      { label: "QUẢN LÝ HÀNH NGHỀ", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" },
-    ],
-  },
-  {
-    id: "incoming-documents",
-    label: "CÔNG VĂN ĐẾN",
-    icon: "file-input",
-    children: [
-      { label: "CÔNG VĂN ĐẾN", href: "/incoming-documents", icon: "file-input", permission: "incoming_documents.view" },
-    ],
-  },
-  {
-    id: "procedure-training",
-    label: "ĐÀO TẠO QUY TRÌNH",
-    icon: "book-open",
-    children: [
-      { label: "ĐÀO TẠO QUY TRÌNH", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" },
     ],
   },
   {
@@ -76,24 +48,82 @@ const NAV_GROUPS: NavGroupDef[] = [
       { label: "Khắc phục & CAPA", icon: "refresh-cw", workspaceRoot: "/findings" },
       { label: "Cải tiến chất lượng", icon: "lightbulb", workspaceRoot: "/improvement/projects" },
       { label: "Kho minh chứng", icon: "folder-check", workspaceRoot: "/evidence" },
-      { label: "Audit nội bộ KHTH", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" },
       { label: "Báo cáo & Phân tích QLCL", href: "/analytics", icon: "trending-up", permission: "reports.analytics" },
     ],
   },
   {
+    id: "hsba-audit",
+    label: "AUDIT NỘI BỘ KHTH",
+    icon: "list-checks",
+    children: [
+      { label: "AUDIT NỘI BỘ KHTH", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" },
+    ],
+  },
+  {
     id: "digital-systems",
-    label: "CHUYỂN ĐỔI SỐ & HỆ THỐNG",
+    label: "BỆNH ÁN ĐIỆN TỬ",
     icon: "network",
     children: [
-      { label: "EMR", href: "/emr", icon: "layout-dashboard", permission: "emr.view" },
+      { label: "BỆNH ÁN ĐIỆN TỬ", href: "/emr", icon: "layout-dashboard", permission: "emr.view" },
+    ],
+  },
+  {
+    id: "physician-license",
+    label: "THEO DÕI HÀNH NGHỀ",
+    icon: "badge-check",
+    children: [
+      { label: "THEO DÕI HÀNH NGHỀ", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" },
+    ],
+  },
+  {
+    id: "incoming-documents",
+    label: "QUẢN LÝ CÔNG VĂN",
+    icon: "file-input",
+    children: [
+      { label: "QUẢN LÝ CÔNG VĂN", href: "/incoming-documents", icon: "file-input", permission: "incoming_documents.view" },
+    ],
+  },
+  {
+    id: "procedure-training",
+    label: "ĐÀO TẠO QUY TRÌNH",
+    icon: "book-open",
+    children: [
+      { label: "ĐÀO TẠO QUY TRÌNH", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" },
+    ],
+  },
+  {
+    id: "procurement",
+    label: "MUA SẮM & SỬA CHỮA",
+    icon: "list-checks",
+    children: [
+      { label: "MUA SẮM & SỬA CHỮA", href: "/procurement", icon: "list-checks", permission: "procurement.view" },
+    ],
+  },
+  {
+    id: "my-work",
+    label: "VIỆC CỦA TÔI",
+    icon: "inbox",
+    footer: true,
+    children: [
+      { label: "VIỆC CỦA TÔI", href: "/tasks", icon: "inbox", permission: "tasks.view" },
+    ],
+  },
+  {
+    id: "personal-workspace",
+    label: "CÁ NHÂN",
+    icon: "book-open",
+    footer: true,
+    children: [
+      { label: "CÁ NHÂN", href: "/me", icon: "book-open" },
     ],
   },
   {
     id: "system-config",
     label: "CẤU HÌNH HỆ THỐNG",
     icon: "settings",
+    footer: true,
     children: [
-      { label: "Cấu hình hệ thống", icon: "settings", workspaceRoot: "/admin" },
+      { label: "CẤU HÌNH HỆ THỐNG", icon: "settings", workspaceRoot: "/admin" },
     ],
   },
 ];
@@ -114,6 +144,7 @@ export function visibleNavGroups(user: UserContext): NavGroup[] {
     id: group.id,
     label: group.label,
     icon: group.icon,
+    footer: group.footer,
     children: group.children.map((child) => resolveChild(child, user)).filter((item): item is NavItem => item !== null),
   })).filter((group) => group.children.length > 0);
 }

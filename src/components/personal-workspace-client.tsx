@@ -278,34 +278,6 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
           grid-template-columns: 1fr 1fr;
           gap: 8px;
         }
-        .work-list {
-          display: grid;
-        }
-        .work-row {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 12px 14px;
-          border-bottom: 1px solid var(--line);
-        }
-        .work-row:last-child {
-          border-bottom: 0;
-        }
-        .work-main {
-          flex: 1;
-          min-width: 0;
-        }
-        .work-main strong {
-          display: block;
-          font-size: 13px;
-          overflow-wrap: anywhere;
-        }
-        .work-main small {
-          display: block;
-          margin-top: 4px;
-          color: #64748b;
-          font-size: 11px;
-        }
         .pw-row {
           align-items: flex-start;
         }

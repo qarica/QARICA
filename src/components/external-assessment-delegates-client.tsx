@@ -131,7 +131,7 @@ export function ExternalAssessmentDelegatesClient({ recordId, canManage }: { rec
 
   return (
     <section className="panel">
-      <div className="section-head">
+      <div className="panel-title">
         <div>
           <h2>Đoàn thẩm định / Tiếp đoàn</h2>
           <p>Danh sách thành viên đoàn và phân công nhân sự tiếp đón.</p>

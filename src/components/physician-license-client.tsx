@@ -105,7 +105,7 @@ export function PhysicianLicenseClient({
     <div className="physician-license-overview">
       {canManage ? (
         <section className="panel">
-          <div className="section-head">
+          <div className="panel-title">
             <div>
               <h2>Khai báo đăng ký hành nghề</h2>
               <p>Hạn tự tính: GĐTT/Trưởng khoa 14 ngày, Bác sĩ 60 ngày kể từ ngày hiệu lực; luân chuyển nội bộ phải đăng ký trước 10 ngày.</p>
@@ -143,7 +143,7 @@ export function PhysicianLicenseClient({
       ) : null}
 
       <section className="panel">
-        <div className="section-head">
+        <div className="panel-title">
           <h2>Danh sách theo dõi</h2>
           <label className="inline-check">
             <input type="checkbox" checked={onlyPending} onChange={(e) => setOnlyPending(e.target.checked)} /> Chỉ hiện chưa đăng ký

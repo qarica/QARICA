@@ -14,14 +14,19 @@ const shell = readFileSync("src/components/app-shell.tsx", "utf8");
 
 const GROUP_IDS = [
   "operations",
-  "procurement",
+  "quality-management",
+  "hsba-audit",
+  "digital-systems",
   "physician-license",
   "incoming-documents",
   "procedure-training",
-  "quality-management",
-  "digital-systems",
+  "procurement",
+  "my-work",
+  "personal-workspace",
   "system-config",
 ];
+
+const FOOTER_GROUP_IDS = ["my-work", "personal-workspace", "system-config"];
 
 function groupBlock(source: string, id: string) {
   const start = source.indexOf(`id: "${id}"`);
@@ -35,36 +40,56 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 8 primary groups — 4 single-item groups promoted out of ĐIỀU HÀNH CHẤT LƯỢNG per explicit request (mobile sidebar screenshot); CÁ NHÂN stays inside ĐIỀU HÀNH CHẤT LƯỢNG, next to Việc của tôi, not as its own common top-level menu", () => {
+  it("defines exactly 11 primary groups: the main master-menu modules in the requested order, plus 3 footer groups (Việc của tôi, Cá nhân, Cấu hình hệ thống) separated out at the bottom", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no ninth group id besides these eight
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(8);
+    // no twelfth group id besides these eleven
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(11);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
-    expect(navigation).toContain('label: "CHUYỂN ĐỔI SỐ & HỆ THỐNG"');
+    expect(navigation).toContain('label: "AUDIT NỘI BỘ KHTH"');
+    expect(navigation).toContain('label: "BỆNH ÁN ĐIỆN TỬ"');
     expect(navigation).toContain('label: "CẤU HÌNH HỆ THỐNG"');
   });
 
-  it("assigns the correct children to Group 1 — ĐIỀU HÀNH CHẤT LƯỢNG, including Cá nhân right after Việc của tôi (4 single-item groups no longer live here; Cá nhân was moved OUT of being a standalone top-level menu and placed here instead, per explicit request)", () => {
+  it("orders the main (non-footer) groups exactly as requested: điều hành chất lượng, quản lý chất lượng, audit nội bộ KHTH, bệnh án điện tử, theo dõi hành nghề, quản lý công văn, đào tạo quy trình, mua sắm & sửa chữa", () => {
+    const mainOrder = ["operations", "quality-management", "hsba-audit", "digital-systems", "physician-license", "incoming-documents", "procedure-training", "procurement"];
+    const positions = mainOrder.map((id) => navigation.indexOf(`id: "${id}"`));
+    for (const position of positions) expect(position).toBeGreaterThanOrEqual(0);
+    for (let i = 1; i < positions.length; i += 1) expect(positions[i]).toBeGreaterThan(positions[i - 1]);
+  });
+
+  it("marks exactly the 3 personal/utility groups as footer groups, ordered last", () => {
+    for (const id of FOOTER_GROUP_IDS) {
+      const block = groupBlock(navigation, id);
+      expect(block).toContain("footer: true");
+    }
+    for (const id of GROUP_IDS.filter((groupId) => !FOOTER_GROUP_IDS.includes(groupId))) {
+      const block = groupBlock(navigation, id);
+      expect(block).not.toContain("footer: true");
+    }
+    const lastMainPosition = navigation.indexOf('id: "procurement"');
+    for (const id of FOOTER_GROUP_IDS) expect(navigation.indexOf(`id: "${id}"`)).toBeGreaterThan(lastMainPosition);
+  });
+
+  it("assigns the correct children to Group 1 — ĐIỀU HÀNH CHẤT LƯỢNG (Việc của tôi and Cá nhân moved out to the footer; the other single-item modules were never here)", () => {
     const block = groupBlock(navigation, "operations");
-    for (const label of ["Tổng quan QLCL", "Việc của tôi", "Cá nhân", "Lịch QLCL", "Kế hoạch & Điều hành"]) {
+    for (const label of ["Tổng quan QLCL", "Lịch QLCL", "Kế hoạch & Điều hành"]) {
       expect(block).toContain(`label: "${label}"`);
     }
     expect(block).not.toContain("Đo lường & Giám sát");
     expect(block).not.toContain("EMR");
-    expect(block.indexOf('label: "Việc của tôi"')).toBeLessThan(block.indexOf('label: "Cá nhân"'));
-    for (const moved of ["MUA SẮM & SỬA CHỮA", "QUẢN LÝ HÀNH NGHỀ", "CÔNG VĂN ĐẾN", "ĐÀO TẠO QUY TRÌNH"]) {
+    for (const moved of ["Việc của tôi", "Cá nhân", "MUA SẮM & SỬA CHỮA", "THEO DÕI HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "ĐÀO TẠO QUY TRÌNH", "AUDIT NỘI BỘ KHTH"]) {
       expect(block).not.toContain(`label: "${moved}"`);
     }
-    expect(block).not.toContain('label: "CÁ NHÂN"');
   });
 
-  it("promotes MUA SẮM & SỬA CHỮA, QUẢN LÝ HÀNH NGHỀ, CÔNG VĂN ĐẾN and ĐÀO TẠO QUY TRÌNH to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
+  it("promotes MUA SẮM & SỬA CHỮA, THEO DÕI HÀNH NGHỀ, QUẢN LÝ CÔNG VĂN, ĐÀO TẠO QUY TRÌNH and AUDIT NỘI BỘ KHTH to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
     const expectations: [string, string, string][] = [
       ["procurement", "MUA SẮM & SỬA CHỮA", "/procurement"],
-      ["physician-license", "QUẢN LÝ HÀNH NGHỀ", "/physician-license"],
-      ["incoming-documents", "CÔNG VĂN ĐẾN", "/incoming-documents"],
+      ["physician-license", "THEO DÕI HÀNH NGHỀ", "/physician-license"],
+      ["incoming-documents", "QUẢN LÝ CÔNG VĂN", "/incoming-documents"],
       ["procedure-training", "ĐÀO TẠO QUY TRÌNH", "/procedure-trainings"],
+      ["hsba-audit", "AUDIT NỘI BỘ KHTH", "/hsba-audit"],
     ];
     for (const [id, label, href] of expectations) {
       const block = groupBlock(navigation, id);
@@ -72,7 +97,14 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     }
   });
 
-  it("assigns the correct children to Group 2 — QUẢN LÝ CHẤT LƯỢNG", () => {
+  it("promotes Việc của tôi and Cá nhân to their own top-level single-item footer groups, written in caps to match the other level-1 menus (explicit request: a personal space should not sit inside the shared QLCL menu)", () => {
+    const myWorkBlock = groupBlock(navigation, "my-work");
+    expect(myWorkBlock).toContain('label: "VIỆC CỦA TÔI", href: "/tasks"');
+    const personalBlock = groupBlock(navigation, "personal-workspace");
+    expect(personalBlock).toContain('label: "CÁ NHÂN", href: "/me"');
+  });
+
+  it("assigns the correct children to Group 2 — QUẢN LÝ CHẤT LƯỢNG (Audit nội bộ KHTH was moved OUT to its own top-level menu, not shared under Quản lý chất lượng, per explicit request)", () => {
     const block = groupBlock(navigation, "quality-management");
     for (const label of [
       "Đo lường & Giám sát", "Đánh giá & Kiểm tra", "Sự cố & Phản ánh", "Rủi ro & FMEA",
@@ -82,25 +114,31 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     }
     expect(block).not.toContain('label: "EMR"');
     expect(block).not.toContain("Tổng quan QLCL");
+    expect(block).not.toContain("Audit nội bộ KHTH");
+    expect(block).not.toContain("hsba_audit.view");
   });
 
-  it("Group 3 — CHUYỂN ĐỔI SỐ & HỆ THỐNG contains EMR only (Cấu hình hệ thống is no longer here)", () => {
+  it("Group 3 — BỆNH ÁN ĐIỆN TỬ (renamed from the raw EMR acronym) contains the EMR route only", () => {
     const block = groupBlock(navigation, "digital-systems");
-    expect(block).toContain('label: "EMR", href: "/emr"');
+    expect(block).toContain('label: "BỆNH ÁN ĐIỆN TỬ", href: "/emr"');
     expect(block).not.toContain("Cấu hình hệ thống");
     expect(block).not.toContain("workspaceRoot: \"/admin\"");
   });
 
-  it("Group 4 — CẤU HÌNH HỆ THỐNG is its own primary group, mapping to the existing Admin workspace", () => {
+  it("Group — CẤU HÌNH HỆ THỐNG is a footer group, mapping to the existing Admin workspace, with a caps label matching the other level-1 menus", () => {
     const block = groupBlock(navigation, "system-config");
-    expect(block).toContain('label: "Cấu hình hệ thống"');
-    expect(block).toContain('workspaceRoot: "/admin"');
+    expect(block).toContain('label: "CẤU HÌNH HỆ THỐNG", icon: "settings", workspaceRoot: "/admin"');
+    expect(block).toContain("footer: true");
   });
 
   it("filters children by permission/anyPermissions and hides empty groups (RBAC preserved, never loosened)", () => {
     expect(navigation).toContain("if (child.permission && !permissionSet.has(child.permission)) return null;");
     expect(navigation).toContain("if (child.anyPermissions?.length && !child.anyPermissions.some((permission) => permissionSet.has(permission))) return null;");
     expect(navigation).toContain(".filter((group) => group.children.length > 0)");
+  });
+
+  it("passes the footer flag through visibleNavGroups so app-shell can split main vs footer groups", () => {
+    expect(navigation).toContain("footer: group.footer,");
   });
 
   it("resolves workspace-backed children via the existing workspaceLandingHref (no re-declared route/href for them)", () => {
@@ -148,10 +186,24 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain("useEffect(() => { setExpandedGroupId(resolveActiveGroupId(pathname, navGroups, workspaceRootForPath(pathname))); }, [pathname, navGroups]);");
   });
 
-  it("does not hard-code a 3-group assumption — group rendering is generic over navGroups", () => {
-    expect(shell).toContain("navGroups.map((group) =>");
+  it("does not hard-code a 3-group assumption — group rendering is generic over navGroups, split into main vs footer groups", () => {
+    expect(shell).toContain("mainNavGroups.map(renderGroup)");
+    expect(shell).toContain("footerNavGroups.map(renderGroup)");
+    expect(shell).toContain("const mainNavGroups = navGroups.filter((group) => !group.footer);");
+    expect(shell).toContain("const footerNavGroups = navGroups.filter((group) => group.footer);");
     expect(shell).not.toMatch(/navGroups\.length\s*===\s*3/);
     expect(shell).not.toMatch(/navGroups\[0\]|navGroups\[1\]|navGroups\[2\]/);
+  });
+
+  it("renders a visual divider between the main menu and the footer groups (Việc của tôi/Cá nhân/Cấu hình hệ thống read as a separate tier, per explicit request)", () => {
+    expect(shell).toContain('<div className="nav-footer-divider" aria-hidden="true" />');
+    expect(shell).toContain(".nav-footer-divider{");
+  });
+
+  it("no longer renders the hospital building illustration at the bottom of the sidebar (explicit request to remove it)", () => {
+    expect(shell).not.toContain("sidebar-illustration");
+    expect(shell).not.toContain("sbHospBody");
+    expect(shell).not.toContain("bệnh viện bạn");
   });
 
   it("toggling a group collapses it when already expanded, and never navigates", () => {

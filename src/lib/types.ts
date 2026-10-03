@@ -39,4 +39,5 @@ export type NavGroup = {
   label: string;
   icon: string;
   children: NavItem[];
+  footer?: boolean;
 };

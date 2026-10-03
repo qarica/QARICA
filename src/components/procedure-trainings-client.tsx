@@ -109,7 +109,7 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
     <div className="pt-overview">
       {canManage ? (
         <section className="panel">
-          <div className="section-head">
+          <div className="panel-title">
             <div>
               <h2>Khai báo quy trình mới cần đào tạo</h2>
               <p>Mỗi quy trình/biểu mẫu mới ban hành là 1 dòng theo dõi đào tạo.</p>
@@ -131,7 +131,7 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
       ) : null}
 
       <section className="panel">
-        <div className="section-head">
+        <div className="panel-title">
           <h2>Danh sách quy trình</h2>
         </div>
         <div className="table-wrap">
