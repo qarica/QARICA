@@ -16,7 +16,7 @@ describe("Procurement request module security and control gates", () => {
 
   it("is reachable from the sidebar only behind procurement.view", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "MUA SẮM & SỬA CHỮA", href: "/procurement", icon: "list-checks", permission: "procurement.view" }');
+    expect(nav).toContain('{ label: "MUA SẮM & SỬA CHỮA", href: "/procurement", icon: "archive", permission: "procurement.view" }');
   });
 
   it("keeps every write tenant-scoped by organization_id", () => {
