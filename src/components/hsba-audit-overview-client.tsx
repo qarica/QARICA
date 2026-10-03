@@ -139,7 +139,8 @@ export function HsbaAuditOverviewClient({
             </div>
           </div>
           <div className="hsba-form-row">
-            <select className="input" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
+            <select className="input" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={!departments.length}>
+              {departments.length ? null : <option value="">— Chưa có khoa/phòng nào —</option>}
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -198,7 +199,7 @@ export function HsbaAuditOverviewClient({
           </div>
           {error ? <div className="alert error">{error}</div> : null}
           {message ? <div className="alert success">{message}</div> : null}
-          <button className="button primary" disabled={busy || !checklistItems.length} onClick={() => void submitAudit()}>
+          <button className="button primary" disabled={busy || !checklistItems.length || !departmentId} onClick={() => void submitAudit()}>
             Lưu lượt kiểm tra
           </button>
         </section>

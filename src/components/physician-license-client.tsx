@@ -114,7 +114,8 @@ export function PhysicianLicenseClient({
           <div className="pl-form">
             <input className="input" placeholder="Tên bác sĩ..." value={physicianName} onChange={(e) => setPhysicianName(e.target.value)} />
             <div className="pl-form-row">
-              <select className="input" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
+              <select className="input" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={!departments.length}>
+                {departments.length ? null : <option value="">— Chưa có khoa/phòng nào —</option>}
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
@@ -135,7 +136,7 @@ export function PhysicianLicenseClient({
               <input className="input" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
             </div>
             {error ? <div className="alert error">{error}</div> : null}
-            <button className="button primary" disabled={busy || !physicianName.trim() || !effectiveDate} onClick={() => void submit()}>
+            <button className="button primary" disabled={busy || !physicianName.trim() || !effectiveDate || !departmentId} onClick={() => void submit()}>
               Khai báo
             </button>
           </div>
