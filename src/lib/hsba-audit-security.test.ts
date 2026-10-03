@@ -116,7 +116,7 @@ describe("Audit nội bộ KHTH is generalized across audit_type, not duplicated
 
   it("defines the shared type list once and reuses it everywhere (checklist-items, audits, findings routes)", () => {
     const types = read("src/lib/internal-audit-types.ts");
-    expect(types).toContain('export const INTERNAL_AUDIT_TYPES = ["HSBA", "PHAC_DO_DIEU_TRI"] as const;');
+    expect(types).toContain('export const INTERNAL_AUDIT_TYPES = ["HSBA", "PHAC_DO_DIEU_TRI", "QTKT_NOI_TRU"] as const;');
     for (const route of [
       "src/app/api/hsba-audit/checklist-items/route.ts",
       "src/app/api/hsba-audit/audits/route.ts",
@@ -137,5 +137,30 @@ describe("Audit nội bộ KHTH is generalized across audit_type, not duplicated
     expect(nav).toContain("INTERNAL_AUDIT_TYPES.map((type) =>");
     expect(nav).toContain('params.set("type", type);');
     expect(nav).toContain("href = `${d.slug ? `/hsba-audit/${d.slug}` : \"/hsba-audit\"}?type=${auditType}`;");
+  });
+});
+
+// Explicit request: "Audit KHTH ko có nút khai báo bảng kiểm chất lượng hsba,
+// bảng kiểm phác đồ, bảng kiểm qtkt" — the combined "Phác đồ & QTKT nội trú"
+// audit_type didn't give QTKT its own checklist/declare button. Split it into
+// its own third audit_type (QTKT_NOI_TRU) alongside HSBA and the now
+// phác-đồ-only PHAC_DO_DIEU_TRI, reusing the same shared engine — no new
+// tables, just a third discriminator value, so the workspace nav's generic
+// `INTERNAL_AUDIT_TYPES.map(...)` picks it up automatically.
+describe("Audit nội bộ KHTH splits QTKT nội trú into its own third audit_type", () => {
+  it("widens the CHECK constraint on all 3 shared tables to accept QTKT_NOI_TRU", () => {
+    const migration = read("supabase/migrations/20261019_hsba_audit_type_split_qtkt_v1.sql");
+    for (const table of ["hsba_checklist_items", "hsba_audits", "hsba_audit_findings"]) {
+      expect(migration).toContain(`alter table public.${table} drop constraint if exists ${table}_audit_type_check;`);
+      expect(migration).toContain(`check (audit_type in ('HSBA','PHAC_DO_DIEU_TRI','QTKT_NOI_TRU'));`);
+    }
+  });
+
+  it("labels each of the 3 types distinctly, no longer combining phác đồ and QTKT under one label", () => {
+    const types = read("src/lib/internal-audit-types.ts");
+    expect(types).toContain('HSBA: "Hồ sơ bệnh án",');
+    expect(types).toContain('PHAC_DO_DIEU_TRI: "Phác đồ điều trị",');
+    expect(types).toContain('QTKT_NOI_TRU: "QTKT nội trú",');
+    expect(types).not.toContain("Phác đồ & QTKT nội trú");
   });
 });
