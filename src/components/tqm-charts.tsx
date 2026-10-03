@@ -10,7 +10,7 @@ import React, { useId, useState } from "react";
 //    chọn mã nào (đây là giới hạn vật lý của phổ màu, không phải lỗi chọn màu) —
 //    vì vậy mọi nơi dùng 2 màu này PHẢI luôn kèm số liệu/nhãn chữ nhìn thấy được,
 //    không được chỉ dựa vào màu sắc để phân biệt tốt/xấu.
-type Tone = "brand" | "blue" | "amber" | "red" | "green" | "slate";
+export type Tone = "brand" | "blue" | "amber" | "red" | "green" | "slate";
 const COLORS: Record<Tone,string> = {
   brand:"#0b8a7f", blue:"#2a78d6", amber:"#c9860a", red:"#d03b3b", green:"#0ca30c", slate:"#93a1a6"
 };

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend, type Tone } from "@/components/tqm-charts";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
@@ -106,10 +106,11 @@ export default async function FiveSSummaryPage() {
     const agg = perArea.get(code)!;
     const total = agg.pass + agg.fail;
     const pct = total ? Math.round((agg.pass / total) * 100) : 0;
+    const tone: Tone = total === 0 ? "slate" : pct >= 90 ? "green" : pct >= 75 ? "blue" : pct >= 60 ? "amber" : "red";
     return {
       label: AREA_LABEL[code] || code,
       value: pct,
-      tone: (total === 0 ? "muted" : pct >= 90 ? "green" : pct >= 75 ? "blue" : pct >= 60 ? "amber" : "red") as any,
+      tone,
       caption: total ? `${total} mục đã chấm · ${agg.roundCount} đợt` : "Chưa có đợt giám sát",
     };
   });
