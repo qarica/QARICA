@@ -53,10 +53,10 @@ const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     id: "hsba-audit",
-    label: "AUDIT NỘI BỘ KHTH",
+    label: "AUDIT HSBA",
     icon: "list-checks",
     children: [
-      { label: "AUDIT NỘI BỘ KHTH", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" },
+      { label: "AUDIT HSBA", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" },
     ],
   },
   {

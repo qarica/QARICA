@@ -8,7 +8,7 @@ export default async function HsbaAuditLayout({ children }: { children: React.Re
   return (
     <div className="page-stack hsba-audit-page">
       <PageHeader
-        title="Audit nội bộ KHTH"
+        title="Audit HSBA"
         description="Bảng kiểm, lượt kiểm tra và theo dõi khắc phục lỗi cho Hồ sơ bệnh án, Phác đồ điều trị và QTKT nội trú — mỗi loại có bảng kiểm riêng, module độc lập, không dùng chung dữ liệu với findings/CAPA của QLCL."
         icon="list-checks"
       />
