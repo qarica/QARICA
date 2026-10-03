@@ -11,7 +11,7 @@ export default async function HsbaAuditOverviewPage({ searchParams }: { searchPa
   const supabase = await createClient();
 
   const [departmentsRes, checklistRes, findingsRes] = await Promise.all([
-    supabase.from("departments").select("id,name").eq("organization_id", user.organizationId).eq("is_active", true).order("name"),
+    supabase.from("departments").select("id,name").eq("is_active", true).order("name"),
     supabase
       .from("hsba_checklist_items")
       .select("id,content,category")
