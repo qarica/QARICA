@@ -1,10 +1,22 @@
 "use client";
 import { useEffect, useState } from "react";
 import { EMR_STATUS_LABELS } from "@/lib/emr-categories";
+import { Icon } from "@/components/icon";
 
 const UNGROUPED = "Chưa phân nhóm";
 type TreeItem = { id: string; title: string; status: string; details: Record<string, unknown> };
 type Group = { id: string; name: string; sort_order: number; is_active: boolean };
+
+// Live STT preview while dragging: the dragged row shows the hovered
+// position, and every row between its original and hovered spot shifts by
+// one to make room — same visual as any standard drag-reorder list.
+function reorderedPreviewIndex(drag: { fromIndex: number; overIndex: number }, idx: number) {
+  const { fromIndex, overIndex } = drag;
+  if (idx === fromIndex) return overIndex;
+  if (fromIndex < overIndex && idx > fromIndex && idx <= overIndex) return idx - 1;
+  if (fromIndex > overIndex && idx >= overIndex && idx < fromIndex) return idx + 1;
+  return idx;
+}
 
 // "Nhóm gáy" is per-org master data (see supabase/migrations/20261004_emr_binding_groups_v1.sql),
 // not a fixed list. Declaring/renaming/reordering/deactivating/deleting a
@@ -36,6 +48,13 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
   // rename flow instead of editing directly.
   const [changingGroupItemId, setChangingGroupItemId] = useState<string | null>(null);
   const [pendingGroupValue, setPendingGroupValue] = useState("");
+  // Drag-and-drop reorder state (replaces the old ↑/↓ buttons — explicit
+  // request, since those don't work well on the phones anh/chị test with).
+  // Pointer events (not HTML5 draggable) so this works with touch, not just
+  // mouse. `items`/`groupName` are snapshotted at drag start since the list
+  // itself doesn't change mid-drag.
+  const [drag, setDrag] = useState<{ groupName: string; items: TreeItem[]; fromIndex: number; overIndex: number } | null>(null);
+  const [reorderingGroup, setReorderingGroup] = useState<string | null>(null);
 
   // Post-save refreshes stay silent (no loading flash) so the page doesn't
   // unmount the whole tree and reset the page's scroll to the top after
@@ -91,18 +110,13 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
     await updateItemDetails(item, { binding_group: pendingGroupValue }, () => setChangingGroupItemId(null));
   }
 
-  // Requested: moving a biểu mẫu up/down within its gáy should renumber
+  // Requested: reordering a biểu mẫu within its gáy should renumber
   // automatically instead of anh typing an exact STT by hand. Renumbers the
-  // WHOLE gáy sequentially (1..N) after the swap so the numbers always stay
+  // WHOLE gáy sequentially (1..N) after the drop so the numbers always stay
   // clean and contiguous, regardless of whatever gaps/duplicates existed
   // before (e.g. forms that never had an order set yet).
-  async function moveItemOrder(groupItems: TreeItem[], item: TreeItem, direction: "up" | "down") {
-    const idx = groupItems.findIndex((i) => i.id === item.id);
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (idx < 0 || swapIdx < 0 || swapIdx >= groupItems.length) return;
-    const reordered = [...groupItems];
-    [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
-    setSavingId(item.id);
+  async function commitOrder(groupName: string, reordered: TreeItem[]) {
+    setReorderingGroup(groupName);
     try {
       for (const [i, it] of reordered.entries()) {
         const newOrder = i + 1;
@@ -120,8 +134,33 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
     } finally {
-      setSavingId(null);
+      setReorderingGroup(null);
     }
+  }
+
+  function startDrag(e: React.PointerEvent, groupName: string, groupItems: TreeItem[], fromIndex: number) {
+    if (reorderingGroup) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setDrag({ groupName, items: groupItems, fromIndex, overIndex: fromIndex });
+  }
+  function onDragPointerMove(e: React.PointerEvent) {
+    if (!drag) return;
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const rowEl = target?.closest<HTMLElement>("tr[data-row-index]");
+    if (!rowEl || rowEl.dataset.groupName !== drag.groupName) return;
+    const overIndex = Number(rowEl.dataset.rowIndex);
+    if (overIndex !== drag.overIndex) setDrag({ ...drag, overIndex });
+  }
+  async function onDragPointerUp() {
+    if (!drag) return;
+    const { groupName, items: groupItems, fromIndex, overIndex } = drag;
+    setDrag(null);
+    if (fromIndex === overIndex) return;
+    const reordered = [...groupItems];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(overIndex, 0, moved);
+    await commitOrder(groupName, reordered);
   }
 
   if (loading) return <div className="empty-state">Đang tải...</div>;
@@ -187,6 +226,7 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
                   <strong>{groupName}</strong>
                 </div>
                 <span className="status-badge muted">{groupItems.length} biểu mẫu</span>
+                {reorderingGroup === groupName ? <span className="status-badge info">Đang lưu thứ tự...</span> : null}
               </summary>
               <div className="table-wrap">
                 <table>
@@ -203,16 +243,33 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
                     {groupItems.length === 0 ? (
                       <tr><td colSpan={canManage ? 5 : 3} className="empty-state" style={{ padding: "14px 12px" }}>Chưa có biểu mẫu nào trong nhóm gáy này.</td></tr>
                     ) : null}
-                    {groupItems.map((item, idx) => (
-                      <tr key={item.id}>
+                    {groupItems.map((item, idx) => {
+                      const displayIdx = drag && drag.groupName === groupName ? reorderedPreviewIndex(drag, idx) : idx;
+                      return (
+                      <tr
+                        key={item.id}
+                        data-row-index={idx}
+                        data-group-name={groupName}
+                        className={drag?.groupName === groupName && drag.fromIndex === idx ? "bieu-mau-tree-row-dragging" : drag?.groupName === groupName && drag.overIndex === idx ? "bieu-mau-tree-row-drag-over" : ""}
+                      >
                         {canManage ? (
                           <td>
                             <div className="bieu-mau-tree-order-controls">
-                              <span className="bieu-mau-tree-order-value">{idx + 1}</span>
-                              <div className="bieu-mau-tree-order-buttons">
-                                <button type="button" className="button tertiary small" disabled={savingId === item.id || idx === 0} onClick={() => moveItemOrder(groupItems, item, "up")} aria-label="Di chuyển lên" title="Di chuyển lên">↑</button>
-                                <button type="button" className="button tertiary small" disabled={savingId === item.id || idx === groupItems.length - 1} onClick={() => moveItemOrder(groupItems, item, "down")} aria-label="Di chuyển xuống" title="Di chuyển xuống">↓</button>
-                              </div>
+                              <span className="bieu-mau-tree-order-value">{displayIdx + 1}</span>
+                              <span
+                                className="bieu-mau-tree-drag-handle"
+                                role="button"
+                                tabIndex={reorderingGroup ? -1 : 0}
+                                aria-label="Kéo để đổi thứ tự"
+                                title="Kéo để đổi thứ tự"
+                                aria-disabled={!!reorderingGroup}
+                                onPointerDown={(e) => startDrag(e, groupName, groupItems, idx)}
+                                onPointerMove={onDragPointerMove}
+                                onPointerUp={onDragPointerUp}
+                                onPointerCancel={onDragPointerUp}
+                              >
+                                <Icon name="grip-vertical" size={16} />
+                              </span>
                             </div>
                           </td>
                         ) : null}
@@ -239,7 +296,8 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
                         ) : null}
                         <td><span className={`status-badge ${item.status === "DONE" ? "success" : item.status === "BLOCKED" ? "danger" : "muted"}`}>{EMR_STATUS_LABELS[item.status] || item.status}</span></td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -255,10 +313,13 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
         .bieu-mau-tree-group-name strong{font-size:13px}
         .bieu-mau-tree-rename{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
         .bieu-mau-tree-rename select{min-height:32px;font-size:12px}
-        .bieu-mau-tree-order-controls{display:flex;align-items:center;gap:6px;justify-content:center}
+        .bieu-mau-tree-order-controls{display:flex;align-items:center;gap:8px;justify-content:center}
         .bieu-mau-tree-order-value{font-weight:800;min-width:16px;text-align:center}
-        .bieu-mau-tree-order-buttons{display:flex;flex-direction:column;gap:2px}
-        .bieu-mau-tree-order-buttons button{min-height:0;padding:1px 6px;line-height:1.3}
+        .bieu-mau-tree-drag-handle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;color:#8a989d;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+        .bieu-mau-tree-drag-handle:hover{background:#f1f4f5;color:#46555c}
+        .bieu-mau-tree-drag-handle[aria-disabled="true"]{cursor:not-allowed;opacity:.5}
+        .bieu-mau-tree-row-dragging{opacity:.45}
+        .bieu-mau-tree-row-drag-over{box-shadow:inset 0 2px 0 var(--brand),inset 0 -2px 0 var(--brand)}
         .bieu-mau-tree-group-cell{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
         .bieu-mau-tree-group-cell>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       `}</style>

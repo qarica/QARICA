@@ -65,9 +65,13 @@ describe("EMR Biểu mẫu — Nhóm gáy order + in-gáy form order", () => {
     expect(treeClient).not.toContain('aria-label="Số thứ tự nhóm gáy"');
   });
 
-  it("the in-gáy form order is move up/down buttons, not a typed number", () => {
+  // Follow-up, explicit request: "bỏ mũi tên" — the up/down buttons didn't
+  // work well on the phones anh/chị test with, replaced by touch-friendly
+  // drag-and-drop (see emr-bieu-mau-tree-move-order.test.ts).
+  it("the in-gáy form order is drag-and-drop, not a typed number or up/down buttons", () => {
     expect(treeClient).not.toContain('aria-label="Số thứ tự biểu mẫu trong gáy"');
-    expect(treeClient).toContain('aria-label="Di chuyển lên"');
-    expect(treeClient).toContain('aria-label="Di chuyển xuống"');
+    expect(treeClient).not.toContain('aria-label="Di chuyển lên"');
+    expect(treeClient).not.toContain('aria-label="Di chuyển xuống"');
+    expect(treeClient).toContain('aria-label="Kéo để đổi thứ tự"');
   });
 });
