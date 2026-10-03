@@ -9,7 +9,7 @@ export default async function ProcurementPage() {
   const supabase = await createClient();
 
   const [departmentsRes, requestsRes] = await Promise.all([
-    supabase.from("departments").select("id,name").eq("organization_id", user.organizationId).eq("is_active", true).order("name"),
+    supabase.from("departments").select("id,name").eq("is_active", true).order("name"),
     supabase
       .from("procurement_requests")
       .select(

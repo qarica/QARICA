@@ -9,7 +9,7 @@ export default async function PhysicianLicensePage() {
   const supabase = await createClient();
 
   const [departmentsRes, registrationsRes] = await Promise.all([
-    supabase.from("departments").select("id,name").eq("organization_id", user.organizationId).eq("is_active", true).order("name"),
+    supabase.from("departments").select("id,name").eq("is_active", true).order("name"),
     supabase
       .from("physician_license_registrations")
       .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status,registered_at,notes")

@@ -20,7 +20,7 @@ export default async function HsbaReportPage({ searchParams }: { searchParams: P
       .eq("organization_id", user.organizationId)
       .eq("audit_type", auditType)
       .eq("period", period),
-    supabase.from("departments").select("id,name").eq("organization_id", user.organizationId),
+    supabase.from("departments").select("id,name"),
   ]);
 
   const audits = auditsRes.data ?? [];
