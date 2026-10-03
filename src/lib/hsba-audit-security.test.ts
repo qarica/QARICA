@@ -17,7 +17,23 @@ describe("HSBA audit module security and control gates", () => {
     expect(read("src/app/api/hsba-audit/audits/route.ts")).toContain('requireApiPermission("hsba_audit.view")');
     expect(read("src/app/api/hsba-audit/audits/route.ts")).toContain('requireApiPermission("hsba_audit.manage")');
     expect(read("src/app/api/hsba-audit/findings/route.ts")).toContain('requireApiPermission("hsba_audit.view")');
-    expect(read("src/app/api/hsba-audit/findings/[id]/route.ts")).toContain('requireApiPermission("hsba_audit.manage")');
+  });
+
+  // Fixed real bug found by a full-app review: the "Khoa phản hồi" (ACK/
+  // DISPUTE) button is shown to every viewer (department staff only ever
+  // hold hsba_audit.view, never .manage — see role_permissions mapping in
+  // 20261012_hsba_audit_module_v1.sql), but the route used to gate itself
+  // entirely behind hsba_audit.manage — department staff clicking their own
+  // "Đồng thuận"/"Giải trình" button got a silent 403. Base gate is now
+  // .view; SEND/DECIDE/RESOLVE still require .manage, ACK/DISPUTE additionally
+  // accept the caller's own department matching the finding's department.
+  it("PATCH findings/[id] lets department staff (hsba_audit.view only) respond to their own department's finding, while SEND/DECIDE/RESOLVE stay manage-only", () => {
+    const route = read("src/app/api/hsba-audit/findings/[id]/route.ts");
+    expect(route).toContain('requireApiPermission("hsba_audit.view")');
+    expect(route).not.toContain('requireApiPermission("hsba_audit.manage")');
+    expect(route).toContain('const DEPARTMENT_SELF_RESPONSE_ACTIONS = new Set(["ACK", "DISPUTE"]);');
+    expect(route).toContain('has_permission", { p_permission_code: "hsba_audit.manage" }');
+    expect(route).toContain("profile.primary_department_id !== current.department_id");
   });
 
   it("is reachable from the sidebar only behind hsba_audit.view, as its own top-level menu (not nested under Quản lý chất lượng — explicit request)", () => {
