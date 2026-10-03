@@ -109,6 +109,7 @@ export default async function CancelledRecordsPage({ searchParams }: { searchPar
       eyebrow={`TRA CỨU · NĂM ${year}`}
       title="Hồ sơ đã hủy"
       description="Kho tra cứu riêng. Hồ sơ/tác vụ đã hủy không còn xuất hiện trong Dashboard, Việc của tôi và các danh sách vận hành thông thường."
+      icon="archive"
     />
 
     <section className="cancelled-hero">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icon } from "@/components/icon";
 import { createClient } from "@/lib/supabase/server";
 
 type Pillar = {
@@ -15,6 +16,23 @@ type Recommendation = {
   href: string;
   severity: "critical" | "warning" | "info";
   rank: number;
+};
+
+const PILLAR_TONE: Record<string, string> = {
+  customer: "red",
+  process: "teal",
+  improvement: "orange",
+  data: "blue",
+  participation: "purple",
+  leadership: "green",
+};
+const PILLAR_ICON: Record<string, string> = {
+  customer: "shield-check",
+  process: "workflow",
+  improvement: "refresh-cw",
+  data: "chart-no-axes-column-increasing",
+  participation: "users",
+  leadership: "target",
 };
 
 const CLOSED_RECORD = new Set(["CANCELLED", "ARCHIVED", "INACTIVE", "RETIRED"]);
@@ -35,6 +53,12 @@ function hcmToday() {
 function dueBeforeToday(date: unknown, today: string) {
   if (!date) return false;
   return String(date).slice(0, 10) < today;
+}
+
+function severityLabel(severity: Recommendation["severity"]) {
+  if (severity === "critical") return "Nghiêm trọng";
+  if (severity === "warning") return "Cần chú ý";
+  return "Tham khảo";
 }
 
 function scoreLabel(score: number | null) {
@@ -425,6 +449,8 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
         .tqm-pillar-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
         .tqm-pillar{border:1px solid #e0e9eb;border-radius:16px;background:#fff;padding:14px}
         .tqm-pillar-top{display:flex;justify-content:space-between;gap:8px;align-items:start}
+        .tqm-pillar-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 34px;margin-bottom:8px}
+        .tqm-pillar-icon.red{background:#fee2e2;color:#dc2626}.tqm-pillar-icon.teal{background:#ccfbf1;color:#0f766e}.tqm-pillar-icon.orange{background:#ffedd5;color:#c2410c}.tqm-pillar-icon.blue{background:#dbeafe;color:#2563eb}.tqm-pillar-icon.purple{background:#ede9fe;color:#7c3aed}.tqm-pillar-icon.green{background:#dcfce7;color:#16a34a}
         .tqm-pillar h4{margin:0;font-size:12px;line-height:1.35}
         .tqm-pillar strong{font-size:18px}
         .tqm-pillar p{margin:7px 0 0;color:#6b7d83;font-size:10px;line-height:1.45}
@@ -438,6 +464,8 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
         .tqm-smart-action i{width:8px;height:38px;border-radius:999px;background:#2563eb}
         .tqm-smart-action.critical i{background:#dc2626}.tqm-smart-action.warning i{background:#d97706}
         .tqm-smart-action strong{display:block;font-size:11px}.tqm-smart-action span{display:block;color:#6b7d83;font-size:9.5px;margin-top:3px;line-height:1.4}
+        .tqm-smart-action-severity{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:800;color:#1d4ed8;margin-bottom:4px}
+        .tqm-smart-action.critical .tqm-smart-action-severity{color:#a72b35}.tqm-smart-action.warning .tqm-smart-action-severity{color:#9a5a05}
         .tqm-smart-empty{padding:14px;border:1px dashed #cbd7da;border-radius:12px;color:#6b7d83;font-size:11px;text-align:center}
         .tqm-smart-error{padding:10px 12px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a4b0a;font-size:10px}
         @media(max-width:980px){.tqm-smart-head{grid-template-columns:1fr}.tqm-pillar-grid{grid-template-columns:1fr 1fr}}
@@ -485,6 +513,7 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
       <div className="tqm-pillar-grid">
         {pillars.map((pillar) => (
           <article className="tqm-pillar" key={pillar.key}>
+            <span className={`tqm-pillar-icon ${PILLAR_TONE[pillar.key]}`}><Icon name={PILLAR_ICON[pillar.key]} size={17} /></span>
             <div className="tqm-pillar-top">
               <h4>{pillar.label}</h4>
               <strong>{pillar.score === null ? "—" : `${pillar.score}%`}</strong>
@@ -506,9 +535,6 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
             <h3>Ưu tiên hệ thống đề xuất</h3>
             <p>Luật quyết định minh bạch, dựa trên dữ liệu; không tự thay người dùng ra quyết định nghiệp vụ.</p>
           </div>
-          <Link href="/assistant" className="button secondary small">
-            Mở Trợ lý QLCL
-          </Link>
         </div>
 
         <div className="tqm-smart-action-list">
@@ -516,6 +542,7 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
             <div className={`tqm-smart-action ${item.severity}`} key={item.key}>
               <i />
               <div>
+                <span className="tqm-smart-action-severity">{severityLabel(item.severity)}</span>
                 <strong>{item.title}</strong>
                 <span>{item.detail}</span>
               </div>

@@ -13,8 +13,11 @@
 // - Chỉ cache-first cho tài nguyên tĩnh (icon, manifest); network-first cho
 //   HTML để không giữ người dùng kẹt ở bản trang cũ khi có mạng trở lại.
 
-const CACHE_NAME = "qarica-5s-shell-v1";
-const STATIC_ALLOWLIST = [/^\/icons\//, /^\/manifest\.webmanifest$/, /^\/apple-icon\.svg$/, /^\/icon\.svg$/];
+// v2: bumped after the QARICA brand refresh (checkmark -> Q mark) so any client that
+// already cached the old icon.svg/apple-icon/manifest under v1 gets the new assets —
+// the activate handler below purges every cache key that isn't CACHE_NAME.
+const CACHE_NAME = "qarica-5s-shell-v2";
+const STATIC_ALLOWLIST = [/^\/icons\//, /^\/manifest\.webmanifest$/, /^\/apple-icon\.png$/, /^\/icon\.svg$/];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();

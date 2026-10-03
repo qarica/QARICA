@@ -1,0 +1,108 @@
+import { NextRequest, NextResponse } from "next/server";
+import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { EMR_CATEGORIES } from "@/lib/emr-categories";
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function GET(req: NextRequest) {
+  const auth = await requireApiPermission("emr.view");
+  if (!auth.ok) return auth.response;
+  const admin = createAdminClient();
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+  const { data, error } = await admin.from("emr_rollout_items")
+    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,created_at,updated_at")
+    .eq("organization_id", organizationId).order("updated_at", { ascending: false });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  const allItems = data ?? [];
+  const rawFrom = req.nextUrl.searchParams.get("from") || "";
+  const rawTo = req.nextUrl.searchParams.get("to") || "";
+  const from = DATE_RE.test(rawFrom) ? rawFrom : "";
+  const to = DATE_RE.test(rawTo) && (!from || rawTo >= from) ? rawTo : "";
+  const dateFilterActive = !!(from || to);
+  // Items with no due_date (e.g. Quy trình/Biểu mẫu reference records that
+  // aren't deadline-driven) have no date to test against the window, so the
+  // filter must keep them rather than silently drop them — otherwise the
+  // overview would undercount categories the detail page (which never
+  // date-filters) still shows in full, exactly the "Chưa có dữ liệu" vs
+  // "has real data" mismatch this guards against.
+  const items = dateFilterActive ? allItems.filter(x => !x.due_date || ((!from || x.due_date >= from) && (!to || x.due_date <= to))) : allItems;
+  const now = Date.now();
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+  const counts = { TODO: 0, IN_PROGRESS: 0, DONE: 0, BLOCKED: 0 } as Record<string, number>;
+  items.forEach((x) => { counts[x.status] = (counts[x.status] || 0) + 1; });
+  const categories = EMR_CATEGORIES.map(c => {
+    const rows = items.filter(x => x.category === c.code);
+    const done = rows.filter(x => x.status === "DONE").length;
+    const blocked = rows.filter(x => x.status === "BLOCKED").length;
+    return { ...c, total: rows.length, done, blocked, completion: rows.length ? Math.round(done * 100 / rows.length) : null };
+  });
+  const overdue = items.filter(x => x.status !== "DONE" && x.due_date && x.due_date < today).length;
+  const gates = items.filter(x => x.is_go_live_gate);
+  const gatesPassed = gates.filter(x => x.status === "DONE" && !!x.evidence_url && !!x.verified_at).length;
+  const unassigned = items.filter(x => x.status !== "DONE" && (!x.owner_department_id || !x.department_ids?.length)).length;
+  const criticalOpen = items.filter(x => x.status !== "DONE" && x.priority === "CRITICAL").length;
+  const gateEvidenceMissing = gates.filter(x => x.status === "DONE" && (!x.evidence_url || !x.verified_at)).length;
+  const stale = items.filter(x => x.status !== "DONE" && now - new Date(x.updated_at).getTime() > 7 * 86400000).length;
+
+  // Đầu việc dự án (Timeline, emr_timeline_milestones) is a SEPARATE,
+  // manually-declared tracking structure — deliberately NOT folded into
+  // `completion` above (which measures the 9 fixed EMR_CATEGORIES and backs
+  // the Go-live gate), since milestones aren't standardized checklist items
+  // and mixing the two would make that gate's number impossible to audit.
+  // Surfaced as its own distinct KPI instead.
+  const { data: milestoneRows, error: me } = await admin.from("emr_timeline_milestones")
+    .select("id,status").eq("organization_id", organizationId);
+  if (me) return NextResponse.json({ error: me.message }, { status: 400 });
+  const milestones = milestoneRows ?? [];
+  const milestonesDone = milestones.filter(x => x.status === "DONE").length;
+  const milestoneStats = { total: milestones.length, done: milestonesDone, completion: milestones.length ? Math.round(milestonesDone * 100 / milestones.length) : null };
+
+  const { data: departments, error: de } = await admin.from("departments")
+    .select("id,name,short_name").eq("organization_id", organizationId).eq("is_active", true).order("name");
+  if (de) return NextResponse.json({ error: de.message }, { status: 400 });
+
+  const departmentMatrix = (departments ?? []).map(d => {
+    // An item scoped to several departments (department_ids.length > 1)
+    // counts toward EVERY one of those departments' matrix row — it is
+    // genuinely each department's responsibility, not split/divided between
+    // them, so this is intentional fan-out, not double-counting a bug.
+    const rows = items.filter(x => x.department_ids?.includes(d.id));
+    const doneRows = rows.filter(x => x.status === "DONE").length;
+    const openRows = rows.filter(x => x.status !== "DONE");
+    const overdueRows = openRows.filter(x => x.due_date && x.due_date < today).length;
+    const blockers = openRows.filter(x => x.status === "BLOCKED").length;
+    const gateRows = rows.filter(x => x.is_go_live_gate);
+    const passedGates = gateRows.filter(x => x.status === "DONE" && !!x.evidence_url && !!x.verified_at).length;
+    const domains = EMR_CATEGORIES.map(c => {
+      const domainRows = rows.filter(x => x.category === c.code);
+      const domainDone = domainRows.filter(x => x.status === "DONE").length;
+      return { code:c.code, slug:c.slug, label:c.label, total:domainRows.length, done:domainDone, blocked:domainRows.filter(x => x.status === "BLOCKED").length, completion:domainRows.length ? Math.round(domainDone*100/domainRows.length) : null };
+    });
+    return { id:d.id, name:d.short_name || d.name, total:rows.length, done:doneRows, open:openRows.length, overdue:overdueRows, blockers, gates:gateRows.length, gatesPassed:passedGates, completion:rows.length ? Math.round(doneRows*100/rows.length) : null, domains };
+  }).filter(d => d.total > 0).sort((a,b) => b.blockers-a.blockers || b.overdue-a.overdue || (a.completion ?? 101)-(b.completion ?? 101));
+
+  const upcoming = items.filter(x => x.status !== "DONE" && x.due_date && x.due_date >= today)
+    .sort((a,b) => String(a.due_date).localeCompare(String(b.due_date))).slice(0,6);
+
+  const escalation = items.filter(x => x.status !== "DONE").map(x => {
+    const isOverdue = !!x.due_date && x.due_date < today;
+    const isStale = now - new Date(x.updated_at).getTime() > 7 * 86400000;
+    const reasons = [x.status === "BLOCKED" ? "BLOCKED" : null, x.priority === "CRITICAL" ? "CRITICAL" : null, isOverdue ? "OVERDUE" : null, x.is_go_live_gate ? "GO_LIVE_GATE" : null, !x.owner_department_id ? "NO_OWNER" : null, isStale ? "STALE" : null].filter(Boolean);
+    const score = (x.status === "BLOCKED" ? 50 : 0) + (x.priority === "CRITICAL" ? 40 : 0) + (isOverdue ? 30 : 0) + (x.is_go_live_gate ? 20 : 0) + (!x.owner_department_id ? 10 : 0) + (isStale ? 5 : 0);
+    return { ...x, reasons, score };
+  }).filter(x => x.score > 0).sort((a,b) => b.score-a.score || new Date(a.updated_at).getTime()-new Date(b.updated_at).getTime()).slice(0,10);
+
+  const openItems = items.filter(x => x.status !== "DONE");
+  const doneGates = gates.filter(x => x.status === "DONE");
+  const controlCoverage = {
+    owner: openItems.length ? Math.round(openItems.filter(x => !!x.owner_department_id).length * 100 / openItems.length) : null,
+    department: openItems.length ? Math.round(openItems.filter(x => !!x.department_ids?.length).length * 100 / openItems.length) : null,
+    deadline: openItems.length ? Math.round(openItems.filter(x => !!x.due_date).length * 100 / openItems.length) : null,
+    gateEvidence: doneGates.length ? Math.round(doneGates.filter(x => !!x.evidence_url && !!x.verified_at).length * 100 / doneGates.length) : null,
+  };
+
+  return NextResponse.json({ ok: true, generatedAt: new Date().toISOString(), filter: { from, to, active: dateFilterActive }, total: items.length, counts, completion: items.length ? Math.round(counts.DONE * 100 / items.length) : null, categories, stale, overdue, unassigned, criticalOpen, controlCoverage, gates: { total: gates.length, passed: gatesPassed, evidenceMissing: gateEvidenceMissing }, milestones: milestoneStats, departmentMatrix, upcoming, escalation, attention: items.filter(x => x.status === "BLOCKED" || x.priority === "CRITICAL" || (x.due_date && x.status !== "DONE" && x.due_date < today) || x.status === "TODO").slice(0, 8) });
+}

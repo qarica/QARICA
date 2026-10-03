@@ -30,7 +30,7 @@ export const requireUserContext = cache(async (): Promise<{
         .maybeSingle(),
       supabase
         .from("user_roles")
-        .select("role_id,roles(code)")
+        .select("role_id,roles(code,name)")
         .eq("user_id", userId),
       supabase
         .from("user_permissions")
@@ -50,6 +50,9 @@ export const requireUserContext = cache(async (): Promise<{
   const roleIds = userRoles.map((row) => row.role_id).filter(Boolean);
   const roleCodes = userRoles
     .map((row) => row.roles?.code)
+    .filter(Boolean) as string[];
+  const roleNames = userRoles
+    .map((row) => row.roles?.name)
     .filter(Boolean) as string[];
 
   const [rolePermissionsResult, organizationResult] = await Promise.all([
@@ -92,6 +95,7 @@ export const requireUserContext = cache(async (): Promise<{
       primaryDepartmentId: profile?.primary_department_id ?? null,
       primaryDepartmentName: profile?.departments?.name ?? null,
       roleCodes,
+      roleNames,
       permissions: Array.from(rolePermissions).sort(),
       scopeTypes: scopes.map((s) => s.scope_type),
       organizationId: profile?.organization_id ?? null,

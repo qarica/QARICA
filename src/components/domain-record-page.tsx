@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DomainRecordDetail } from "@/components/domain-record-detail";
 import { DomainWorkflowPanel } from "@/components/domain-workflow-panel";
+import { ExternalAssessmentDelegatesClient } from "@/components/external-assessment-delegates-client";
 import { IncidentCapaLinkClient } from "@/components/incident-capa-link-client";
 import { IncidentLessonsLearnedClient } from "@/components/incident-lessons-learned-client";
 import { IncidentPrintActions } from "@/components/incident-print-actions";
@@ -21,6 +22,13 @@ import { createClient } from "@/lib/supabase/server";
 
 const STANDARD_PRINT_TYPES = new Set(["FINDING", "CAPA", "RISK", "AUDIT"]);
 const SHARED_DOMAIN_TYPES = new Set(["INCIDENT", "CAPA", "RISK", "FMEA", "INDICATOR_MEASUREMENT", "IMPROVEMENT_PROPOSAL", "IMPROVEMENT_PROJECT"]);
+const RECORD_TYPE_ICON: Record<string, string> = {
+  INCIDENT: "shield-alert", CAPA: "workflow", RISK: "triangle-alert", FMEA: "workflow",
+  AUDIT: "search-check", INSPECTION: "clipboard-search", FINDING: "circle-alert", FEEDBACK: "message-circle-warning",
+  DIRECTIVE: "file-input", REPORT: "send", ASSESSMENT: "badge-check", EXTERNAL_ASSESSMENT: "search-check",
+  INDICATOR_MEASUREMENT: "chart-no-axes-column-increasing", IMPROVEMENT_PROJECT: "lightbulb",
+  IMPROVEMENT_PROPOSAL: "file-input", SAFETY_ALERT: "megaphone",
+};
 
 function SpecCard({ title, items }: { title: string; items: string[] }) {
   return <article className="operating-spec-card"><div className="operating-spec-title">{title}</div><ul>{items.map((item, index) => <li key={`${title}-${index}`}>{item}</li>)}</ul></article>;
@@ -72,7 +80,7 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
       {isIncident && hasAnyPermission(user,["incident.view_case","incident.triage","incident.investigate","incident.close"])?<IncidentPrintActions recordId={record.id} compact/>:null}
       {STANDARD_PRINT_TYPES.has(record.record_type)?<Link className="button secondary small" href={`${listHref}/${record.id}/print`} target="_blank">Mở bản in / PDF</Link>:null}
     </div>
-    <PageHeader eyebrow={record.record_code} title={record.title} description={`${moduleTitle} · Năm ${record.work_year}`} />
+    <PageHeader eyebrow={record.record_code} title={record.title} description={`${moduleTitle} · Năm ${record.work_year}`} icon={RECORD_TYPE_ICON[record.record_type]} />
 
     {isPriorityWorkflow ? <>
       <div className="priority-context"><strong>Ưu tiên xử lý:</strong> {isIncident ? "xem bước nghiệp vụ hiện tại trước; báo cáo gốc và audit trail vẫn được giữ nguyên. Hoàn tất điều tra/RCA và Action/CAPA áp dụng trước khi qua gate đóng." : "thực hiện theo chuỗi RCA → Corrective/Preventive Action → minh chứng → đánh giá hiệu lực → đóng. Không đóng CAPA chỉ vì Action đã hoàn tất."}</div>
@@ -96,6 +104,9 @@ export async function DomainRecordPage({ id, moduleTitle, listHref, permissions 
     </> : <>
       {meta}
       <DomainRecordDetail recordType={record.record_type} recordId={record.id} />
+      {record.record_type === "EXTERNAL_ASSESSMENT" ? (
+        <ExternalAssessmentDelegatesClient recordId={record.id} canManage={hasAnyPermission(user, ["criteria.manage", "criteria.review"])} />
+      ) : null}
       <QualityRecordEditPanel recordId={record.id} recordType={record.record_type} />
       <DomainWorkflowPanel recordId={record.id} recordType={record.record_type} />
       {showSharedDomains ? <RecordQualityDomainsClient recordId={record.id} canManage={canManageDomains} /> : null}

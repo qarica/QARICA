@@ -6,6 +6,7 @@ export type UserContext = {
   primaryDepartmentId: string | null;
   primaryDepartmentName: string | null;
   roleCodes: string[];
+  roleNames: string[];
   permissions: string[];
   scopeTypes: string[];
   organizationId: string | null;
@@ -33,7 +34,10 @@ export type NavItem = {
   workspaceRoot?: string;
 };
 
-export type NavSection = {
+export type NavGroup = {
+  id: string;
   label: string;
-  items: NavItem[];
+  icon: string;
+  children: NavItem[];
+  footer?: boolean;
 };

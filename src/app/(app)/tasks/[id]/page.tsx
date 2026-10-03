@@ -123,6 +123,7 @@ export default async function TaskDetailPage({ params, searchParams }: { params:
       eyebrow={`CÔNG VIỆC · ${record.record_code}`}
       title={record.title}
       description={`Năm ${record.work_year}${sourcePlan ? ` · Thuộc ${sourcePlan.code}` : ""}`}
+      icon="inbox"
       actions={<div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
         {sourcePlan ? <Link className="button secondary" href={`/plans/${sourcePlan.id}`}>← Kế hoạch nguồn</Link> : <Link className="button secondary" href="/tasks">← Việc của tôi</Link>}
         <TaskWorkflowClient recordId={recordId} currentStatus={action.workflow_status} canOperate={canOperate} canVerify={canVerify} evidenceCount={evidenceItems.length} departmentExecutionId={isDepartmentAssignment ? ((departmentExecution as any)?.id || null) : null} departmentExecutionStatus={isDepartmentAssignment ? ((departmentExecution as any)?.workflow_status || null) : null} />

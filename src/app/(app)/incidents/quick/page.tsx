@@ -23,6 +23,7 @@ export default async function IncidentQuickReportPage() {
         eyebrow="SỰ CỐ & PHẢN ÁNH"
         title="Báo cáo sự cố nhanh"
         description="Chỉ ghi nhận nhanh khoa/phòng và mô tả ban đầu để không bỏ lỡ thời điểm. Bổ sung chi tiết đầy đủ (người báo cáo, người bệnh, xử trí ban đầu...) trong hồ sơ sau."
+        icon="shield-alert"
       />
       <IncidentQuickReportClient
         departments={(departments ?? []).map((d: any) => ({ id: d.id, label: d.short_name || d.name }))}

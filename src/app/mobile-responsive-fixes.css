@@ -71,9 +71,9 @@
     flex: 0 0 42px !important;
     width: 42px !important;
     height: 42px !important;
-    color: #ffffff !important;
-    background: rgba(255,255,255,.08) !important;
-    border: 1px solid rgba(255,255,255,.14) !important;
+    color: #172126 !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #e5eaf2 !important;
   }
 
   .workspace-app .sidebar-close {
@@ -142,6 +142,38 @@
     gap: 12px !important;
   }
 
+  /* PageHeader (src/components/page-header.tsx) is shared by every module,
+     including Analytics and Admin. Its desktop sizing (44px icon, 27px h1,
+     8px paragraph margin) is proportionate on a wide screen but on a phone
+     the hero alone can consume a third of the viewport before any real
+     content appears. Compact it in one shared place rather than per-page. */
+  .workspace-app .page-header-icon {
+    width: 36px !important;
+    height: 36px !important;
+    flex: 0 0 36px !important;
+    border-radius: 10px !important;
+  }
+
+  .workspace-app .page-header-main {
+    gap: 10px !important;
+  }
+
+  .workspace-app .eyebrow {
+    font-size: 9px !important;
+  }
+
+  .workspace-app .page-header h1 {
+    font-size: 19px !important;
+    line-height: 1.25 !important;
+    margin: 2px 0 0 !important;
+  }
+
+  .workspace-app .page-header p {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    margin: 5px 0 0 !important;
+  }
+
   .workspace-app .page-actions {
     width: 100% !important;
     max-width: 100% !important;
@@ -164,6 +196,57 @@
   .workspace-app .page-actions > * {
     flex: 0 0 auto !important;
     min-height: 42px !important;
+  }
+
+  /* Admin (and every other workspace-root module) shares this one strip —
+     workspace-shell.css's own comment already flags that .workspace-tabs
+     previously had no layout rule at all; its current flex-wrap:wrap keeps it
+     safe from page overflow but turns Admin's 8 tabs into a tall multi-row
+     block on a phone. A horizontally-scrolling strip, same pattern as
+     .tabs/.modern-tabs below, keeps it to one compact row. */
+  .workspace-app .workspace-strip-inner {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 14px !important;
+  }
+
+  /* workspace-shell.css's own @media(max-width:760px) sets
+     .workspace-context{width:100%!important} for ITS wrap-based layout
+     (context on its own row, tabs wrapping below). Here the strip is
+     instead a single non-wrapping scrollable row (flex-wrap:nowrap above),
+     so that 100% width survives unopposed and makes the context label
+     claim the entire row before any tab is visible — exactly the "chỉ
+     thấy nửa màn hình" bug where only the eyebrow/title showed and every
+     tab (Kế hoạch/Lịch QLCL/...) was scrolled off past the right edge.
+     Must explicitly reset width back to auto here, not just flex-basis —
+     an explicit width wins over a flex-basis of "auto". A percentage
+     max-width alone isn't enough: a longer module title (e.g. "Đo lường
+     chất lượng") still wraps inside that percentage, making the row tall
+     and pushing the vertically-centered tabs visually below the context
+     text like a second, broken row. The strip already scrolls
+     horizontally, so there is no need to wrap the context text at all —
+     keep it single-line/compact instead, same as every tab already is. */
+  .workspace-app .workspace-context {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    max-width: 80vw !important;
+  }
+
+  .workspace-app .workspace-context span,
+  .workspace-app .workspace-context strong {
+    white-space: nowrap !important;
+  }
+
+  .workspace-app .workspace-tabs {
+    flex-wrap: nowrap !important;
+    flex: 0 0 auto !important;
+  }
+
+  .workspace-app .workspace-tab {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+    min-height: 40px !important;
   }
 
   .workspace-app .tabs,
@@ -196,6 +279,149 @@
     max-width: 100% !important;
     overscroll-behavior-x: contain !important;
     -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Desktop dashboard/report grids must reflow to one column, not squeeze.
+     .kpi-grid's own @620px rule in globals.css still forces 2 columns; .exec-kpis
+     (Analytics' 5 executive KPI cards) and .legacy-grid3 (Dashboard's
+     "Tiến độ kế hoạch chất lượng năm" + "Gantt đề án cải tiến trọng tâm" /
+     "Điểm nóng cần chú ý" rows) have no responsive rule at all — the latter is
+     also pinned to a hard-coded inline 0.7fr/1.3fr split, which only a
+     stylesheet !important rule loaded after it (this file) can override.
+
+     The bare .kpis class (and its per-module namesakes .cs-kpis, .av2-kpis,
+     .ops-kpis, .rp-kpis, .tqm-registry-kpis used respectively by CorrectiveSafetyOverview,
+     AssessmentInspectionOverviewV2, OperationsObligationsOverview, RiskProactiveOverview
+     and TqmRegistryOverview — the shared overview components behind
+     RegistryModulePage, i.e. Đánh giá & Kiểm tra, Findings/Feedback,
+     Directives/Reports, FMEA, and every other registry module) repeats the
+     exact same defect on every page that defines it (Việc của tôi, Kế hoạch &
+     Điều hành, Sự cố & Phản ánh, Rủi ro & FMEA, Cải tiến chất lượng, Kho minh
+     chứng, plus all five overview components above): one tablet breakpoint
+     collapses the row from 4-6 columns down to 2, and then NO further
+     breakpoint ever reaches 1 column, so it stays 2-up all the way to 320px. */
+  .workspace-app .kpi-grid,
+  .workspace-app .exec-kpis,
+  .workspace-app .legacy-grid3,
+  .workspace-app .grid2,
+  .workspace-app .grid2b,
+  .workspace-app .grid3b,
+  .workspace-app .kpis,
+  .workspace-app .cs-kpis,
+  .workspace-app .av2-kpis,
+  .workspace-app .ops-kpis,
+  .workspace-app .rp-kpis,
+  .workspace-app .tqm-registry-kpis {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .workspace-app .kpi-grid > *,
+  .workspace-app .exec-kpis > *,
+  .workspace-app .legacy-grid3 > *,
+  .workspace-app .grid2 > *,
+  .workspace-app .grid2b > *,
+  .workspace-app .grid3b > *,
+  .workspace-app .kpis > *,
+  .workspace-app .cs-kpis > *,
+  .workspace-app .av2-kpis > *,
+  .workspace-app .ops-kpis > *,
+  .workspace-app .rp-kpis > *,
+  .workspace-app .tqm-registry-kpis > * {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* recurring-work-client.tsx (Lịch QLCL's "Định kỳ" view) already sets its
+     own !important 2-column rule at 900px with the same specificity as the
+     generic .workspace-app .kpis rule above — tie-break on source order is
+     unreliable between a <head> stylesheet and a component's own <style>, so
+     this one needs the extra .recurring-work-client qualifier to unambiguously
+     win on specificity instead. */
+  .workspace-app .recurring-work-client .kpis {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Lịch QLCL (calendar/page.tsx) is otherwise a well-built mobile page — it
+     swaps its 7-column month grid for a dedicated .calendar-mobile-agenda list
+     below 760px rather than trying to shrink a calendar grid — but its own
+     .quality-calendar-page .kpi-grid rule at that same breakpoint has the same
+     "collapses to 2 columns and stops" bug, and its extra page-scope class
+     gives it higher specificity than the generic .workspace-app .kpi-grid
+     rule above, so it needs its own equally (or more) specific override. */
+  .workspace-app .quality-calendar-page .kpi-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Generic safety net: a flex/grid child's default min-width is auto (its
+     content's intrinsic width), which is the single most common cause of a
+     component refusing to shrink and forcing page-level horizontal scroll. */
+  .workspace-app .panel,
+  .workspace-app .kpi-card,
+  .workspace-app .kpi,
+  .workspace-app .exec-kpis .kpi-body {
+    min-width: 0 !important;
+  }
+
+  /* Same fix, verified case-by-case for other module KPI/summary-card rows
+     that also have no responsive rule of their own: Đo lường & Giám sát's
+     6-KPI row and donut+trend row, and EMR's category readiness grid. A
+     generic "*-grid"/"*-kpis" wildcard was considered and rejected here —
+     this codebase also has many *-grid classes that are real multi-column
+     visualizations (calendar-grid, tqm-gantt-grid, risk-heatmap-grid,
+     fishbone-grid, …) that must keep their own column math, so each wrapper
+     is listed by name after confirming it is a plain card row, not a diagram. */
+  .workspace-app .iq-kpis,
+  .workspace-app .iq-grid,
+  .workspace-app .readiness-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .workspace-app .iq-kpis > *,
+  .workspace-app .iq-grid > *,
+  .workspace-app .readiness-grid > * {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* The single-column stack above fixes overflow, but on a phone each KPI
+     card still carries its desktop padding/icon/type-scale (verified against
+     real-device screenshots of Báo cáo & Phân tích QLCL and Cấu hình hệ
+     thống): 44px icon, 26px value, 16px padding per card, 6 cards stacked
+     one per row. That reads as oversized, mostly-empty tiles rather than a
+     compact stat row. Both pages already use the same icon-left/value-right
+     composition (.admin-overview .kpi-card and .tqm-analytics .kpi /
+     .exec-kpis .kpi) - this only tightens their existing sizing for mobile,
+     it does not restructure the layout or touch any other .kpi-card usage. */
+  .admin-overview .kpi-card,
+  .tqm-analytics .kpi {
+    padding: 10px 12px !important;
+    gap: 10px !important;
+  }
+
+  .admin-overview .kpi-icon,
+  .tqm-analytics .kpi-icon {
+    width: 30px !important;
+    height: 30px !important;
+    flex: 0 0 30px !important;
+  }
+
+  .admin-overview .kpi-value,
+  .tqm-analytics .kpi strong {
+    font-size: 19px !important;
+  }
+
+  .admin-overview .kpi-title,
+  .tqm-analytics .kpi span,
+  .tqm-analytics .kpi small {
+    font-size: 10.5px !important;
   }
 }
 

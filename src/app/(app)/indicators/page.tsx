@@ -5,7 +5,7 @@ export default function IndicatorsPage() {
   return (
     <div className="page-stack">
       <div style={{display:"flex",justifyContent:"flex-end"}}>
-        <Link className="btn btn-secondary" href="/indicators/manage">Quản lý chỉ số</Link>
+        <Link className="button secondary" href="/indicators/manage">Quản lý chỉ số</Link>
       </div>
       <RegistryModulePage
         config={{

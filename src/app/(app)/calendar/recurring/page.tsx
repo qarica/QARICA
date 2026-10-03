@@ -93,6 +93,7 @@ export default async function RecurringWorkPage() {
       eyebrow="LỊCH CÔNG TÁC QLCL · ENGINE ĐỊNH KỲ"
       title="Công việc định kỳ"
       description="Định nghĩa một lần lịch lặp ngày/tuần/tháng/quý/năm. REMINDER chỉ tạo mốc nhắc việc trên lịch; ACTION/MONITORING/REPORT mới sinh hồ sơ nghiệp vụ tương ứng."
+      icon="calendar-days"
       actions={<Link className="button secondary" href="/calendar">← Lịch công tác QLCL</Link>}
     />
 

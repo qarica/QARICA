@@ -7,5 +7,6 @@ export default function ExternalAssessmentsPage() {
     description: "Theo dõi kết quả đoàn ngoài, điểm số và chênh lệch so với tự đánh giá nội bộ để ưu tiên khắc phục.",
     permissions: ["criteria.view", "criteria.review", "criteria.manage"],
     recordTypes: ["EXTERNAL_ASSESSMENT"],
+    icon: "search-check",
   }} />;
 }
