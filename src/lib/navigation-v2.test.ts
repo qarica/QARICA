@@ -180,6 +180,19 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(shell).toContain(".workspace-app.workspace-app .nav-group-link .nav-link-label{color:inherit!important;font-weight:inherit!important;font-size:inherit!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important");
   });
 
+  // Real bug reported from a screenshot: the active item's icon in the
+  // sidebar was invisible — a colored pill with nothing inside. Root cause:
+  // final-visual-lock.css (loaded last) carries a same-specificity
+  // "!important" `.nav-link.active svg{color:#ffffff}` rule designed for its
+  // own solid-blue active background; it sets the <svg>'s own color directly,
+  // which always beats a rule that only targets the wrapping .nav-icon span
+  // (an inherited value never outranks a rule matching the element itself).
+  // A fix must target `svg` directly with matching specificity+importance.
+  it("gives both the promoted single-child link and a real child link an explicit active-icon color targeting svg directly, not just the wrapping .nav-icon span (a span-only override loses to final-visual-lock.css's .nav-link.active svg{color:#ffffff!important})", () => {
+    expect(shell).toContain(".workspace-app.workspace-app .nav-group-link.active .nav-icon,.workspace-app.workspace-app .nav-group-link.active svg{color:#6d28d9!important}");
+    expect(shell).toContain(".workspace-app.workspace-app .nav-child-link.active .nav-icon,.workspace-app.workspace-app .nav-child-link.active svg{color:#2563eb!important}");
+  });
+
   it("collapses EMR to a single sidebar entry — the EMR subcategories are not exposed in the main sidebar", () => {
     expect(navigation).not.toContain("EMR_CATEGORIES");
     expect(navigation.match(/href: "\/emr/g)?.length).toBe(1);
