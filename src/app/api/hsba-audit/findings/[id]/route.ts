@@ -13,8 +13,16 @@ const TRANSITIONS: Record<string, { from: string[]; to: string }> = {
   RESOLVE: { from: ["DEPT_ACKNOWLEDGED", "HEAD_APPROVED"], to: "RESOLVED" },
 };
 
+// ACK/DISPUTE are the department's own response to a finding sent to them —
+// department staff only ever hold hsba_audit.view (granted off tasks.view),
+// never hsba_audit.manage (granted off plans.manage, QLCL/leads only). The
+// "Khoa phản hồi" button is shown to every viewer, so gating the whole route
+// behind .manage silently 403'd the exact department staff the button is
+// for. SEND/DECIDE/RESOLVE stay manage-only (QLCL-side actions).
+const DEPARTMENT_SELF_RESPONSE_ACTIONS = new Set(["ACK", "DISPUTE"]);
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireApiPermission("hsba_audit.manage");
+  const auth = await requireApiPermission("hsba_audit.view");
   if (!auth.ok) return auth.response;
   const { id } = await params;
   const admin = createAdminClient();
@@ -29,7 +37,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { data: current, error: currentError } = await admin
     .from("hsba_audit_findings")
-    .select("id,status")
+    .select("id,status,department_id")
     .eq("id", id)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -37,6 +45,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!current) return NextResponse.json({ error: "Không tìm thấy lỗi." }, { status: 404 });
   if (!transition.from.includes(current.status)) {
     return NextResponse.json({ error: `Trạng thái hiện tại (${current.status}) không cho phép thao tác này.` }, { status: 400 });
+  }
+
+  const { data: canManage } = await auth.supabase.rpc("has_permission", { p_permission_code: "hsba_audit.manage" });
+  if (!canManage) {
+    if (!DEPARTMENT_SELF_RESPONSE_ACTIONS.has(action)) {
+      return NextResponse.json({ error: "Chỉ người quản lý mới được thực hiện thao tác này." }, { status: 403 });
+    }
+    const { data: profile } = await admin.from("profiles").select("primary_department_id").eq("user_id", auth.user.id).maybeSingle();
+    if (!profile?.primary_department_id || profile.primary_department_id !== current.department_id) {
+      return NextResponse.json({ error: "Bạn không thuộc khoa/phòng được gửi lỗi này." }, { status: 403 });
+    }
   }
 
   const update: Record<string, unknown> = { status: transition.to, updated_at: new Date().toISOString() };
