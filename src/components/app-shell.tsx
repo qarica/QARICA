@@ -261,6 +261,15 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          HỆ THỐNG) were silently losing their tail behind "..." until this. */
       .workspace-app.workspace-app .nav-group-link .nav-link-label{color:inherit!important;font-weight:inherit!important;font-size:inherit!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.25!important}
       .workspace-app.workspace-app .nav-group-link.active,.workspace-app.workspace-app .nav-group-link.active .nav-link-label{background:#f5f3ff!important;color:#6d28d9!important}
+      /* final-visual-lock.css (loaded last) sets a blanket
+         .nav-link.active svg{color:#ffffff!important} for its own solid-blue
+         active background — but .nav-group-link.active here uses a near-white
+         violet tint instead, so that white icon silently disappears into it.
+         Real bug reported from a screenshot: the active item in the collapsed
+         rail showed a colored pill with no visible icon at all. .nav-child-link
+         already has its own active-icon override (line below); the promoted
+         single-child link never did. */
+      .workspace-app.workspace-app .nav-group-link.active .nav-icon,.workspace-app.workspace-app .nav-group-link.active svg{color:#6d28d9!important}
       .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#60a5fa!important;font-weight:600!important;font-size:12px!important}
       .workspace-app.workspace-app .nav-child-link{margin:1px 10px 1px 26px!important}
       /* The collapsed-rail flyout popover is a small floating popup, not the
@@ -273,7 +282,14 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app.workspace-app .nav-child-link .nav-icon{color:#60a5fa!important;width:20px!important;height:20px!important;flex:0 0 20px!important}
       .workspace-app.workspace-app .nav-child-link:hover,.workspace-app.workspace-app .nav-child-link:hover .nav-link-label{color:#1d4ed8!important}
       .workspace-app.workspace-app .nav-child-link.active,.workspace-app.workspace-app .nav-child-link.active .nav-link-label{background:#eff6ff!important;color:#1d4ed8!important;font-weight:800!important}
-      .workspace-app.workspace-app .nav-child-link.active .nav-icon{color:#2563eb!important}
+      /* Same white-icon-on-light-background bug as nav-group-link.active
+         above: qms-enterprise-redesign.css / qarica-design-system.css /
+         final-visual-lock.css all carry a same-specificity "!important"
+         .nav-link.active svg{color:...} rule (teal, dark blue, then white —
+         last loaded wins), which sets the <svg>'s own color directly and so
+         always beats a rule that only targets the wrapping .nav-icon span,
+         no matter how specific that span rule is. Must target svg itself. */
+      .workspace-app.workspace-app .nav-child-link.active .nav-icon,.workspace-app.workspace-app .nav-child-link.active svg{color:#2563eb!important}
       @media(max-width:860px){
         .workspace-app .nav-group-flyout{display:none!important}
         .workspace-app .nav-group-header{min-height:46px;padding:11px 12px}
