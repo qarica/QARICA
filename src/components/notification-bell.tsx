@@ -79,12 +79,16 @@ export function NotificationBell() {
     if (now - lastQualitySyncRef.current >= QUALITY_SYNC_INTERVAL_MS) {
       lastQualitySyncRef.current = now;
       try {
-        const [qualityRes, actionRes] = await Promise.all([
+        const [qualityRes, actionRes, emrRes] = await Promise.all([
           fetch("/api/notifications/sync-quality-attention", {
             method: "POST",
             cache: "no-store",
           }),
           fetch("/api/notifications/sync-action-reminders", {
+            method: "POST",
+            cache: "no-store",
+          }),
+          fetch("/api/notifications/sync-emr-reminders", {
             method: "POST",
             cache: "no-store",
           }),
@@ -96,6 +100,10 @@ export function NotificationBell() {
         if (actionRes.ok) {
           const actions = await actionRes.json();
           syncedNew = syncedNew || Number(actions?.created || 0) > 0;
+        }
+        if (emrRes.ok) {
+          const emr = await emrRes.json();
+          syncedNew = syncedNew || Number(emr?.created || 0) > 0;
         }
       } catch {
         // Cross-module attention is supplemental; never block the notification bell.

@@ -238,6 +238,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
       eyebrow={`KẾ HOẠCH · ${recordRes.data.record_code}`}
       title={recordRes.data.title}
       description={`${TYPE_LABELS[program.program_type] || program.program_type} · Năm ${recordRes.data.work_year}`}
+      icon="calendar-range"
       actions={<div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
         <Link className="button secondary" href="/plans">← Danh sách kế hoạch</Link>
         <PlanPrintActions planId={id} compact />

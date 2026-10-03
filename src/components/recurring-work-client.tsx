@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Icon } from "@/components/icon";
 import {
   AssignmentTargetSelect,
   assignmentTargetToken,
@@ -146,6 +147,16 @@ function cadenceLabel(rule: string) {
   return rule;
 }
 
+type CadenceBucket = "ALL" | "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
+function cadenceBucket(rule: string): Exclude<CadenceBucket, "ALL"> {
+  if (rule.startsWith("FREQ=DAILY")) return "DAILY";
+  if (rule.startsWith("FREQ=WEEKLY")) return "WEEKLY";
+  if (rule.startsWith("FREQ=YEARLY")) return "YEARLY";
+  if (rule.includes("FREQ=MONTHLY;INTERVAL=3")) return "QUARTERLY";
+  return "MONTHLY";
+}
+const CADENCE_TABS: [CadenceBucket, string][] = [["ALL", "Tất cả"], ["DAILY", "Ngày"], ["WEEKLY", "Tuần"], ["MONTHLY", "Tháng"], ["QUARTERLY", "Quý"], ["YEARLY", "Năm"]];
+
 function parseRule(rule: string, startDate?: string | null): Pick<FormState, "cadence" | "weekday" | "monthDay" | "weekOfMonth"> {
   const day = rule.match(/BYDAY=([A-Z]{2})/)?.[1] || "MO";
   const monthDay = rule.match(/BYMONTHDAY=(\d{1,2})/)?.[1] || String(Number(startDate?.slice(-2) || "1"));
@@ -194,6 +205,21 @@ export function RecurringWorkClient({
   checklists: ChecklistOption[];
 }) {
   const router = useRouter();
+  const todayIso = useMemo(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()), []);
+  const kpi = useMemo(() => {
+    const total = templates.length;
+    const expired = templates.filter((t) => t.is_active && t.end_date && t.end_date < todayIso).length;
+    const paused = templates.filter((t) => !t.is_active).length;
+    const active = total - expired - paused;
+    return { total, active, paused, expired };
+  }, [templates, todayIso]);
+  const [cadenceFilter, setCadenceFilter] = useState<CadenceBucket>("ALL");
+  const cadenceCounts = useMemo(() => {
+    const counts = new Map<CadenceBucket, number>([["ALL", templates.length]]);
+    for (const t of templates) { const b = cadenceBucket(t.recurrence_rule); counts.set(b, (counts.get(b) || 0) + 1); }
+    return counts;
+  }, [templates]);
+  const filteredTemplates = useMemo(() => cadenceFilter === "ALL" ? templates : templates.filter((t) => cadenceBucket(t.recurrence_rule) === cadenceFilter), [templates, cadenceFilter]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<TemplateRow | null>(null);
   const [form, setForm] = useState<FormState>(defaultForm());
@@ -458,16 +484,25 @@ export function RecurringWorkClient({
   return <div className="recurring-work-client">
     <style>{`
       .recurring-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid #eef2f3;flex-wrap:wrap}
+      .recurring-cadence-tabs{display:flex;flex-wrap:wrap;gap:7px;padding:12px 15px;border-bottom:1px solid #eef2f3}.recurring-cadence-tab{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:6px 12px;border:1px solid #d7e1e5;border-radius:999px;background:#fff;color:#52656d;font-weight:800;font-size:11px;cursor:pointer}.recurring-cadence-tab:hover{border-color:#94a3b8;background:#f8fafc}.recurring-cadence-tab.active{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}.recurring-cadence-tab b{font-weight:900}
       .recurring-toolbar-copy{display:grid;gap:3px}.recurring-toolbar-copy strong{font-size:14px;color:#243247}.recurring-toolbar-copy span{font-size:10.5px;color:#64748b}.recurring-toolbar-actions{display:flex;gap:8px;flex-wrap:wrap}
       .recurring-title{display:grid;gap:3px}.recurring-title strong{font-size:13px}.recurring-title small{font-size:10px;color:#64748b;line-height:1.35}.recurring-muted{color:#64748b;font-size:11px}.recurring-run-stat{display:grid;gap:2px}.recurring-run-stat strong{font-size:12px}.recurring-run-stat span{font-size:9.5px;color:#64748b}
       .recurring-status{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;padding:4px 7px;border-radius:999px}.recurring-status.active{background:#ecfdf5;color:#166534}.recurring-status.inactive{background:#f1f5f9;color:#64748b}
       .recurring-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}.recurring-actions .button{min-height:34px}
       .recurring-help{padding:12px 14px;border-top:1px solid #eef2f3;background:#f8fafc;color:#64748b;font-size:10.5px;line-height:1.5}.recurring-help strong{color:#334155}.blueprint-panel{margin-bottom:14px;overflow:hidden}.blueprint-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:15px 16px;border-bottom:1px solid #e6edf3;background:linear-gradient(135deg,#f8fbff,#eef5fb)}.blueprint-head h2{margin:0;color:#173b64;font-size:15px}.blueprint-head p{margin:4px 0 0;color:#64748b;font-size:10.5px;line-height:1.45}.blueprint-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;padding:12px}.blueprint-card{border:1px solid #dde7ef;border-radius:13px;padding:11px;background:#fff;display:grid;gap:8px}.blueprint-card.done{background:#f7faf9;border-color:#cde4d8}.blueprint-code{display:inline-flex;width:max-content;padding:3px 6px;border-radius:999px;background:#eaf2fb;color:#315f91;font-size:9px;font-weight:900;letter-spacing:.04em}.blueprint-card.done .blueprint-code{background:#e7f4ed;color:#26704c}.blueprint-title{font-size:11.5px;font-weight:850;color:#25384c;line-height:1.35}.blueprint-meta{font-size:9.5px;color:#6b7d8e;line-height:1.45}.blueprint-note{font-size:9.5px;border-radius:9px;padding:7px 8px;background:#fff8ea;color:#7a571e}.blueprint-actions{display:flex;justify-content:space-between;align-items:center;gap:8px}.blueprint-done{font-size:9.5px;color:#2b6d4f;font-weight:850}
-      .recurring-modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.recurring-modal-grid .span-2{grid-column:1/-1}.recurring-field{display:grid;gap:5px}.recurring-field label{font-size:10px;font-weight:850;color:#475569}.recurring-field small{font-size:9px;color:#64748b;line-height:1.35}.recurring-field input,.recurring-field select,.recurring-field textarea{width:100%}.recurring-field textarea{min-height:80px;resize:vertical}.recurring-inline{display:grid;grid-template-columns:1fr 1fr;gap:8px}.recurring-switch{display:flex;align-items:center;gap:8px;padding:10px 11px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;font-size:11px;font-weight:750}.recurring-switch input{width:auto}
+      .recurring-modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.recurring-modal-grid .span-2{grid-column:1/-1}.recurring-field{display:grid;gap:5px}.recurring-field label{font-size:10px;font-weight:850;color:#475569}.recurring-field small{font-size:9px;color:#64748b;line-height:1.35}.recurring-field input,.recurring-field select,.recurring-field textarea{width:100%}.recurring-field textarea{min-height:80px;resize:vertical}.recurring-inline{display:grid;grid-template-columns:1fr 1fr;gap:8px}.recurring-switch{display:flex;align-items:center;gap:8px;padding:10px 11px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;font-size:11px;font-weight:750}.recurring-switch input{width:auto;min-height:0}
       @media(max-width:1050px){.blueprint-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.blueprint-grid{grid-template-columns:1fr}.recurring-toolbar{align-items:stretch}.recurring-toolbar-actions{display:grid;grid-template-columns:1fr;width:100%}.recurring-toolbar-actions .button{width:100%;justify-content:center;min-height:42px}.recurring-work-client .table-wrap{overflow:visible!important;padding:0 10px 10px}.recurring-work-client table,.recurring-work-client tbody{display:block;width:100%}.recurring-work-client thead{display:none}.recurring-work-client tbody tr{display:block;margin:10px 0;border:1px solid #e2e8f0;border-left:4px solid #2563eb;border-radius:14px;background:#fff;overflow:hidden}.recurring-work-client tbody tr:has(.recurring-status.inactive){border-left-color:#94a3b8}.recurring-work-client tbody td{display:grid;grid-template-columns:90px minmax(0,1fr);gap:8px;padding:8px 11px;border:0;border-bottom:1px solid #eef2f3;white-space:normal}.recurring-work-client tbody td:last-child{border-bottom:0}.recurring-work-client tbody td::before{font-size:9px;font-weight:850;color:#7b8794;text-transform:uppercase;letter-spacing:.04em}.recurring-work-client tbody td:nth-child(1)::before{content:"Công việc"}.recurring-work-client tbody td:nth-child(2)::before{content:"Chu kỳ"}.recurring-work-client tbody td:nth-child(3)::before{content:"Phụ trách"}.recurring-work-client tbody td:nth-child(4)::before{content:"Run"}.recurring-work-client tbody td:nth-child(5)::before{content:"Trạng thái"}.recurring-work-client tbody td:nth-child(6)::before{content:"Thao tác"}.recurring-actions{justify-content:flex-start}.recurring-modal-grid{grid-template-columns:1fr}.recurring-modal-grid .span-2{grid-column:auto}.recurring-inline{grid-template-columns:1fr}}
     `}</style>
 
     {message ? <div className={`alert ${message.tone === "error" ? "error" : message.tone === "success" ? "success" : "info"}`} style={{ margin: "0 0 10px" }}>{message.text}</div> : null}
+
+    <section className="kpis" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 14 }}>
+      <article className="kpi-card" style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}><span className="recurring-kpi-icon blue"><Icon name="calendar-days" size={19} /></span><div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{kpi.total}</div><div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>Tổng số công việc</div></div></article>
+      <article className="kpi-card" style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}><span className="recurring-kpi-icon green"><Icon name="refresh-cw" size={19} /></span><div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{kpi.active}</div><div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>Đang kích hoạt</div></div></article>
+      <article className="kpi-card" style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}><span className="recurring-kpi-icon amber"><Icon name="circle-alert" size={19} /></span><div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{kpi.paused}</div><div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>Tạm dừng</div></div></article>
+      <article className="kpi-card" style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}><span className="recurring-kpi-icon red"><Icon name="triangle-alert" size={19} /></span><div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{kpi.expired}</div><div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>Hết hiệu lực</div></div></article>
+      <style>{`.recurring-kpi-icon{width:40px;height:40px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.recurring-kpi-icon.blue{background:#dbeafe;color:#2563eb}.recurring-kpi-icon.green{background:#dcfce7;color:#16a34a}.recurring-kpi-icon.amber{background:#fef3c7;color:#b45309}.recurring-kpi-icon.red{background:#fee2e2;color:#dc2626}@media(max-width:900px){.recurring-work-client .kpis{grid-template-columns:repeat(2,1fr)!important}}`}</style>
+    </section>
 
     <section className="panel blueprint-panel">
       <div className="blueprint-head"><div><h2>QARICA gợi ý từ Kế hoạch/Sổ tay tác nghiệp</h2><p>Không nhập lại từ đầu: chọn một đầu việc nguồn, QARICA điền sẵn nội dung, đơn vị, đối tượng phụ trách (cá nhân hoặc nhóm), kết quả và minh chứng. Phần nguồn chưa quy định ngày cụ thể sẽ yêu cầu xác nhận đúng 1 lần.</p></div><span className="recurring-status active">{blueprints.filter((x) => x.already_configured).length}/{blueprints.length} đã cấu hình</span></div>
@@ -487,8 +522,9 @@ export function RecurringWorkClient({
         <div className="recurring-toolbar-copy"><strong>Recurring Work Engine</strong><span>Mỗi mẫu chỉ định nghĩa một lần; khi lưu/kích hoạt, hệ thống tự đồng bộ 90 ngày tới vào Lịch chất lượng và chống trùng theo từng kỳ.</span></div>
         {canManage ? <div className="recurring-toolbar-actions"><button className="button secondary" disabled={busy} onClick={sync}>Đồng bộ lại 90 ngày</button><button className="button primary" disabled={busy} onClick={openCreate}>+ Tạo công việc định kỳ</button></div> : null}
       </div>
+      <nav className="recurring-cadence-tabs" aria-label="Lọc theo chu kỳ">{CADENCE_TABS.map(([value, label]) => <button type="button" key={value} className={`recurring-cadence-tab ${cadenceFilter === value ? "active" : ""}`} onClick={() => setCadenceFilter(value)}>{label} <b>{cadenceCounts.get(value) || 0}</b></button>)}</nav>
       <div className="table-wrap"><table><thead><tr><th>Công việc</th><th>Chu kỳ</th><th>Phụ trách</th><th>Run</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-        {templates.map((row) => <tr key={row.id}>
+        {filteredTemplates.map((row) => <tr key={row.id}>
           <td><div className="recurring-title"><strong>{row.title}</strong><small>{row.expected_result || "Chưa mô tả kết quả mong đợi"}</small></div></td>
           <td><strong>{cadenceLabel(row.recurrence_rule)}</strong><div className="recurring-muted">{fmtDate(row.start_date)}{row.end_date ? ` → ${fmtDate(row.end_date)}` : " → không giới hạn"} · hạn +{row.due_offset_days || 0} ngày</div></td>
           <td><strong>{row.department_name || "—"}</strong><div className="recurring-muted">{row.assignment_target_type === "GROUP" ? "Nhóm · " : "Cá nhân · "}{row.assignee_name || "Chưa phân công"}</div></td>
@@ -496,7 +532,7 @@ export function RecurringWorkClient({
           <td><span className={`recurring-status ${row.is_active ? "active" : "inactive"}`}>{row.is_active ? "Đang bật" : "Đã ngưng"}</span></td>
           <td><div className="recurring-actions">{canManage ? <><button className="button tertiary small" disabled={busy} onClick={() => openEdit(row)}>Sửa</button><button className="button secondary small" disabled={busy} onClick={() => toggle(row)}>{row.is_active ? "Ngưng" : "Kích hoạt"}</button></> : <span className="recurring-muted">Chỉ xem</span>}</div></td>
         </tr>)}
-        {!templates.length ? <tr><td colSpan={6}><div className="empty-state"><strong>Chưa có công việc định kỳ.</strong><p>Tạo mẫu đầu tiên rồi dùng “Đồng bộ 90 ngày tới” để sinh Action thật.</p></div></td></tr> : null}
+        {!templates.length ? <tr><td colSpan={6}><div className="empty-state"><strong>Chưa có công việc định kỳ.</strong><p>Tạo mẫu đầu tiên rồi dùng “Đồng bộ 90 ngày tới” để sinh Action thật.</p></div></td></tr> : !filteredTemplates.length ? <tr><td colSpan={6}><div className="empty-state"><strong>Không có công việc định kỳ theo chu kỳ này.</strong></div></td></tr> : null}
       </tbody></table></div>
       <div className="recurring-help"><strong>Nguyên tắc:</strong> Ngưng mẫu không xóa các Action đã sinh. Đồng bộ chỉ tạo kỳ từ hôm nay trở đi; không tự dựng lịch sử quá khứ. Nếu một kỳ đã tồn tại, hệ thống bỏ qua để tránh tạo trùng.</div>
     </section>

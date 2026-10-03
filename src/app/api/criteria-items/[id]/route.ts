@@ -39,6 +39,13 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
     if(code){const {data:dup}=await admin.from("criteria_items").select("id").eq("criteria_version_id",version.id).eq("code",code).neq("id",id).maybeSingle();if(dup)return NextResponse.json({error:"Mã tiêu chí đã tồn tại trong phiên bản này."},{status:409});}
     patch.code=code;
   }
+  if(Object.prototype.hasOwnProperty.call(body,"owner_department_id")){
+    const departmentId=clean(body.owner_department_id)||null;
+    if(!departmentId)return NextResponse.json({error:"Khoa/phòng phụ trách tiêu chí là bắt buộc."},{status:400});
+    const {data:department}=await admin.from("departments").select("id").eq("id",departmentId).eq("organization_id",set.organization_id).eq("is_active",true).maybeSingle();
+    if(!department)return NextResponse.json({error:"Khoa/phòng phụ trách không hợp lệ."},{status:400});
+    patch.owner_department_id=departmentId;
+  }
   if(Object.prototype.hasOwnProperty.call(body,"chapter_code"))patch.chapter_code=clean(body.chapter_code)||null;
   if(Object.prototype.hasOwnProperty.call(body,"chapter_name"))patch.chapter_name=clean(body.chapter_name)||null;
   if(Object.prototype.hasOwnProperty.call(body,"score_weight"))patch.score_weight=Math.max(1,Number(body.score_weight)||1);

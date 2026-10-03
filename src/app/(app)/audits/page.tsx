@@ -7,5 +7,6 @@ export default function AuditsPage() {
     description: "Theo dõi audit, tracer, đơn vị được đánh giá và các follow-up phát sinh.",
     permissions: ["audit.view", "audit.perform", "audit.manage"],
     recordTypes: ["AUDIT"],
+    icon: "search-check",
   }} />;
 }

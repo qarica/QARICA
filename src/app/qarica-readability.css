@@ -278,5 +278,4 @@
   .workspace-app .tqm-dashboard .kpis{grid-template-columns:1fr}
   .workspace-app .tqm-dashboard .priority-items{grid-template-columns:1fr 1fr}
   .workspace-app .tqm-dashboard .priority-item{min-height:68px}
-  .login-slogan-en{font-size:14px!important}
-}
+  }

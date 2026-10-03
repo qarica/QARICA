@@ -63,6 +63,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
   const [roots, setRoots] = useState<RootRow[]>([emptyRoot()]);
   const [editable, setEditable] = useState(false);
   const [status, setStatus] = useState("NOT_STARTED");
+  const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -93,6 +94,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
 
       setEditable(!!json.editable);
       setStatus(String(json.status || "NOT_STARTED"));
+      setRevision(Number(json.revision || 0));
 
       const loadedTimeline = Array.isArray(json.timeline) ? json.timeline.map((row: any) => ({
         event_time: localInput(row.event_time),
@@ -170,6 +172,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
       );
 
       const payload = {
+        expected_revision: revision,
         timeline: timeline
           .filter((row) => row.event_title.trim())
           .map((row) => ({
@@ -226,7 +229,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
         .incident-rca label{display:grid;gap:4px;font-size:10px;font-weight:750;color:#44545a}.incident-rca input,.incident-rca textarea,.incident-rca select{width:100%}
         .incident-rca .why-grid{display:grid;gap:8px}.incident-rca .why-card{display:grid;grid-template-columns:72px 1fr 1fr;gap:8px;align-items:start;border:1px solid #dfe8ea;border-radius:10px;padding:9px}.incident-rca .why-level{font-size:11px;font-weight:900;color:#1d4ed8;padding-top:8px}
         .incident-rca .fishbone-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.incident-rca .fishbone-card{border:1px solid #dfe8ea;border-radius:10px;padding:9px;background:#fff}.incident-rca .fishbone-card strong{display:block;font-size:10px;margin-bottom:5px}.incident-rca .fishbone-card small{display:block;color:#718087;font-size:9px;margin-top:4px}
-        .incident-rca .root-grid{display:grid;grid-template-columns:220px 1fr;gap:8px}.incident-rca .root-grid .wide{grid-column:1/-1}.incident-rca .root-check{display:flex;align-items:center;gap:6px!important}.incident-rca .root-check input{width:auto}
+        .incident-rca .root-grid{display:grid;grid-template-columns:220px 1fr;gap:8px}.incident-rca .root-grid .wide{grid-column:1/-1}.incident-rca .root-check{display:flex;align-items:center;gap:6px!important}.incident-rca .root-check input{width:auto;min-height:0}
         .incident-rca .row-actions,.incident-rca .rca-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:8px}.incident-rca .rca-actions{justify-content:space-between;border-top:1px solid #edf2f3;padding-top:12px;margin-top:14px}.incident-rca .rca-help{font-size:9px;color:#718087}
         @media(max-width:800px){.incident-rca .rca-gates,.incident-rca .fishbone-grid{grid-template-columns:1fr 1fr}.incident-rca .timeline-grid,.incident-rca .why-card,.incident-rca .root-grid{grid-template-columns:1fr}.incident-rca .timeline-grid .wide,.incident-rca .root-grid .wide{grid-column:auto}.incident-rca .rca-head,.incident-rca .rca-actions{display:grid}}
       `}</style>

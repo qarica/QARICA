@@ -179,6 +179,7 @@ export default async function SafetyAlertsPage() {
         title="Kho bài học / Cảnh báo"
         description="Bài học đã duyệt từ sự cố tự xuất hiện tại đây, không cần nhập lại thành một hồ sơ khác. Cảnh báo an toàn vẫn giữ luồng soạn → rà soát → phát hành riêng khi cần."
         actions={canManage ? <DomainCreateClient recordType="SAFETY_ALERT" workYear={year} /> : null}
+        icon="megaphone"
       />
 
       {recordsRes.error || incidentsRes.error || alertsRes.error || lessonsRes.error ? (

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
@@ -110,6 +111,8 @@ export default async function QualityGanttPage(){
   return <div className="page-stack quality-gantt-page">
     <style>{`
       .quality-gantt-page{max-width:1600px;margin:0 auto;gap:14px!important}
+      .quality-gantt-page .kpi-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:11px}
+      .quality-gantt-page .kpi-icon.blue{background:#dbeafe;color:#2563eb}.quality-gantt-page .kpi-icon.purple{background:#ede9fe;color:#7c3aed}.quality-gantt-page .kpi-icon.green{background:#dcfce7;color:#16a34a}.quality-gantt-page .kpi-icon.amber{background:#fef3c7;color:#b45309}
       .gantt-shell{overflow:hidden;border:1px solid #dbe5ea;border-radius:14px;background:#fff}
       .gantt-scroll{overflow-x:auto}
       .gantt-grid{min-width:1100px}
@@ -134,15 +137,16 @@ export default async function QualityGanttPage(){
       eyebrow={`KẾ HOẠCH & ĐIỀU HÀNH · CHU KỲ ${workYear}`}
       title="Gantt tiến độ"
       description="Hiển thị trực tiếp Plan và Action có ngày thực tế trong hệ thống. Nếu hồ sơ chỉ có một mốc ngày, Gantt hiển thị milestone một ngày và không tự suy diễn ngày còn thiếu."
+      icon="calendar-days"
       actions={<Link className="button secondary" href="/calendar">← Lịch công tác</Link>}
     />
 
     {firstError?<div className="alert error">Một phần dữ liệu Gantt chưa tải được: {firstError.message}</div>:null}
     <section className="kpi-grid">
-      <article className="kpi-card info"><span>Kế hoạch có mốc</span><strong>{planCount}</strong><small>Plan trong chu kỳ</small></article>
-      <article className="kpi-card neutral"><span>Action có mốc</span><strong>{actionCount}</strong><small>Action năm công tác</small></article>
-      <article className="kpi-card success"><span>Tổng dòng Gantt</span><strong>{rows.length}</strong><small>Không sinh dữ liệu giả</small></article>
-      <article className="kpi-card warning"><span>Chu kỳ hiển thị</span><strong>{workYear}–{workYear+1}</strong><small>Đến hết tháng 03</small></article>
+      <article className="kpi-card info"><span className="kpi-icon blue"><Icon name="calendar-range" size={17}/></span><span>Kế hoạch có mốc</span><strong>{planCount}</strong><small>Plan trong chu kỳ</small></article>
+      <article className="kpi-card neutral"><span className="kpi-icon purple"><Icon name="workflow" size={17}/></span><span>Action có mốc</span><strong>{actionCount}</strong><small>Action năm công tác</small></article>
+      <article className="kpi-card success"><span className="kpi-icon green"><Icon name="list-checks" size={17}/></span><span>Tổng dòng Gantt</span><strong>{rows.length}</strong><small>Không sinh dữ liệu giả</small></article>
+      <article className="kpi-card warning"><span className="kpi-icon amber"><Icon name="calendar-days" size={17}/></span><span>Chu kỳ hiển thị</span><strong>{workYear}–{workYear+1}</strong><small>Đến hết tháng 03</small></article>
     </section>
 
     <section className="gantt-shell">

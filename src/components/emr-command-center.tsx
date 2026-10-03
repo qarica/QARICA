@@ -1,0 +1,124 @@
+"use client";
+import Link from "next/link";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { EmrWorkspaceNav } from "@/components/emr-workspace-nav";
+import { Icon } from "@/components/icon";
+
+type Cat={slug:string;code:string;label:string;description:string;icon:string;total:number;done:number;blocked:number;completion:number|null};
+type Item={id:string;category:string;title:string;description:string|null;status:string;priority?:string;due_date?:string|null;updated_at:string};
+type DomainCell={code:string;slug:string;label:string;total:number;done:number;blocked:number;completion:number|null};
+type Dept={id:string;name:string;total:number;done:number;open:number;overdue:number;blockers:number;gates:number;gatesPassed:number;completion:number|null;domains:DomainCell[]};
+type Escalation=Item & {reasons:string[];score:number};
+type Data={generatedAt:string;filter?:{from:string;to:string;active:boolean};total:number;completion:number|null;stale:number;overdue:number;controlCoverage:{owner:number|null;department:number|null;deadline:number|null;gateEvidence:number|null};gates:{total:number;passed:number;evidenceMissing:number};milestones:{total:number;done:number;completion:number|null};unassigned:number;criticalOpen:number;counts:Record<string,number>;categories:Cat[];attention:Item[];departmentMatrix:Dept[];upcoming:Item[];escalation:Escalation[]};
+const REASON_VISUAL:Record<string,{icon:string;tone:string}>={
+ BLOCKED:{icon:"circle-alert",tone:"a0"},
+ CRITICAL:{icon:"triangle-alert",tone:"a0"},
+ OVERDUE:{icon:"calendar-days",tone:"a1"},
+ GO_LIVE_GATE:{icon:"shield-alert",tone:"a3"},
+ NO_OWNER:{icon:"building-2",tone:"a2"},
+ STALE:{icon:"refresh-cw",tone:"a2"},
+};
+const REASON_LABEL:Record<string,string>={
+ BLOCKED:"Bị chặn",
+ CRITICAL:"Mức ưu tiên nghiêm trọng",
+ OVERDUE:"Quá hạn",
+ GO_LIVE_GATE:"Điều kiện Go-live",
+ NO_OWNER:"Chưa có đơn vị phụ trách",
+ STALE:"Chưa cập nhật lâu ngày",
+};
+function reasonVisual(reasons:string[]){for(const r of reasons){if(REASON_VISUAL[r])return REASON_VISUAL[r];}return {icon:"circle-alert",tone:"a0"};}
+function reasonLabel(reasons:string[]){return reasons.slice(0,2).map(r=>REASON_LABEL[r]||r).join(" · ");}
+function readinessTone(c:{blocked:number;completion:number|null}){if(c.blocked>0)return "red";if(c.completion===null)return "slate";if(c.completion===100)return "green";return "blue";}
+function hcmToday(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh"}).format(new Date());}
+export function EmrCommandCenter(){
+ const [data,setData]=useState<Data|null>(null); const [error,setError]=useState("");
+ // Default to "đầu năm -> hôm nay" instead of unfiltered, but both fields
+ // stay fully editable/clearable like any other filter.
+ const todayKey=hcmToday();
+ const [from,setFrom]=useState(`${todayKey.slice(0,4)}-01-01`); const [to,setTo]=useState(todayKey);
+ function load(f:string,t:string){
+  const qs=new URLSearchParams(); if(f)qs.set("from",f); if(t)qs.set("to",t);
+  fetch(`/api/emr/dashboard${qs.toString()?`?${qs.toString()}`:""}`).then(r=>r.json()).then(j=>{if(!j.ok)throw new Error(j.error);setData(j)}).catch(e=>setError(e.message));
+ }
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ useEffect(()=>{load(from,to)},[]);
+ function applyFilter(e:FormEvent){e.preventDefault();load(from,to);}
+ if(error)return <div className="alert error">{error}</div>; if(!data)return <div className="empty-state">Đang tổng hợp dữ liệu EMR...</div>;
+ const blocked=data.counts.BLOCKED||0, active=data.counts.IN_PROGRESS||0, todo=data.counts.TODO||0, done=data.counts.DONE||0;
+ const donutTotal=Math.max(1,data.total); const doneDeg=done/donutTotal*360; const activeDeg=(done+active)/donutTotal*360; const todoDeg=(done+active+todo)/donutTotal*360;
+ const totalDepartmentsWithData=data.departmentMatrix.length;
+ const liveDepartments=data.departmentMatrix.filter(d=>d.total>0&&d.completion===100).length;
+ const signatureCategory=data.categories.find(c=>c.code==="CHU_KY_SO");
+ return <div className="emr-command">
+  <div className="emr-title"><div className="title-with-icon"><span className="icon-badge"><Icon name="building-2" size={20}/></span><div><div className="crumb">EMR <b>›</b> Tổng quan</div><h2>Trung tâm Điều hành Bệnh án điện tử (EMR)</h2><p>Theo dõi tiến độ triển khai, vận hành và tuân thủ bệnh án điện tử</p></div></div>
+   <form className="emr-filters" onSubmit={applyFilter}>
+    <span><Icon name="calendar-days" size={15}/> Cập nhật {new Date(data.generatedAt).toLocaleString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
+    <label className="emr-filter-field">Từ ngày<input type="date" value={from} max={to||undefined} onChange={(e)=>setFrom(e.target.value)}/></label>
+    <label className="emr-filter-field">Đến ngày<input type="date" value={to} min={from||undefined} onChange={(e)=>setTo(e.target.value)}/></label>
+    <button type="submit" className="button primary small">Áp dụng</button>
+    {data.filter?.active ? <button type="button" className="button tertiary small" onClick={()=>{setFrom("");setTo("");load("","");}}>Xóa lọc</button> : null}
+   </form>
+  </div>
+  <EmrWorkspaceNav/>
+  {data.filter?.active ? <div className="emr-filter-note"><Icon name="info" size={14}/> Đang lọc theo hạng mục có hạn xử lý (due date) trong khoảng {data.filter.from||"…"} — {data.filter.to||"…"}.</div> : null}
+  <div className="emr-kpis">
+   <Kpi icon="gauge" label="Mức độ triển khai EMR" value={data.completion===null?"—":`${data.completion}%`} note={`${done}/${data.total} hạng mục hoàn tất`} tone="blue"/>
+   <Kpi icon="building-2" label="Khoa đã Go-live" value={`${liveDepartments}/${totalDepartmentsWithData}`} note="Đã hoàn tất 100% hạng mục" tone="green"/>
+   <Kpi icon="workflow" label="Đang thực hiện" value={String(active)} note="Hạng mục đang triển khai" tone="orange"/>
+   <Kpi icon="key-round" label="Tỷ lệ ký số" value={signatureCategory?.completion===null?"—":`${signatureCategory?.completion??0}%`} note="Hạng mục Chữ ký số hoàn tất" tone="purple"/>
+   <Kpi icon="calendar-days" label="Quá hạn" value={String(data.overdue)} note={`${data.stale} việc >7 ngày chưa cập nhật`} tone="cyan"/>
+   <Kpi icon="circle-alert" label="Vấn đề cần xử lý" value={String(blocked+data.criticalOpen)} note={`${blocked} blocker · ${data.criticalOpen} critical`} tone="red"/>
+   <Kpi icon="list-checks" label="Đầu việc dự án" value={data.milestones.total?`${data.milestones.done}/${data.milestones.total}`:"—"} note={data.milestones.total?"Đầu việc khai báo ở Timeline đã hoàn tất":"Chưa khai báo đầu việc nào"} tone="blue"/>
+  </div>
+
+  <div className="hero-grid">
+   <section className="emr-panel emr-trend"><PanelHead title="Xu hướng triển khai EMR" sub="Tiến độ theo thời gian sẽ hiển thị khi có dữ liệu lịch sử"/><div className="chart-shell"><div className="yaxis"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div><div className="chart-area"><div className="gridlines"/><div className="empty-chart"><Icon name="chart-no-axes-column-increasing" size={30}/><b>Chưa có dữ liệu lịch sử</b><span>Dashboard không tạo số liệu minh họa giả.</span></div></div></div><div className="emr-legend"><i className="lg total"/>Tổng hạng mục <i className="lg complete"/>Hoàn tất <i className="lg line"/>Tỷ lệ hoàn thành</div></section>
+   <section className="emr-panel emr-distribution"><PanelHead title="Tình trạng triển khai" sub="Phân bố hạng mục theo trạng thái"/><div className="donut-row"><div className="donut" style={{background:`conic-gradient(#22c55e 0 ${doneDeg}deg,#3b82f6 ${doneDeg}deg ${activeDeg}deg,#f59e0b ${activeDeg}deg ${todoDeg}deg,#ef4444 ${todoDeg}deg 360deg)`}}><div><b>{data.total}</b><span>Tổng hạng mục</span></div></div><div className="donut-legend"><Legend c="#22c55e" l="Hoàn tất" v={done}/><Legend c="#3b82f6" l="Đang thực hiện" v={active}/><Legend c="#f59e0b" l="Chưa bắt đầu" v={todo}/><Legend c="#ef4444" l="Bị chặn" v={blocked}/></div></div></section>
+  </div>
+
+  <div className="mid-grid">
+   <section className="emr-panel"><PanelHead title="Tình trạng sẵn sàng các cấu phần EMR" sub="Tổng hợp trực tiếp từ các module nguồn"/><div className="readiness-grid">{data.categories.map((c)=><Link href={`/emr/${c.slug}`} className="ready-card" key={c.code}><div className={`ready-icon ${readinessTone(c)}`}><Icon name={c.icon} size={18}/></div><div className="ready-main"><span>{c.label}</span><strong>{c.completion===null?"—":`${c.completion}%`}</strong><div className="emr-progress"><i style={{width:`${c.completion??0}%`}}/></div></div><em className={c.blocked?"warn":c.completion===100?"ok":"work"}>{c.total===0?"Chưa có dữ liệu":c.blocked?`${c.blocked} blocker`:c.completion===100?"Ổn định":"Đang triển khai"}</em></Link>)}</div></section>
+   <section className="emr-panel"><PanelHead title="Chỉ số tuân thủ & dữ liệu điều hành" sub="Độ phủ metadata phục vụ kiểm soát"/><div className="emr-compliance"><Compliance icon="building-2" label="Có đơn vị phụ trách" value={data.controlCoverage.owner}/><Compliance icon="building-2" label="Có khoa/phòng" value={data.controlCoverage.department}/><Compliance icon="calendar-days" label="Có deadline" value={data.controlCoverage.deadline}/><Compliance icon="badge-check" label="Gate DONE đã xác minh" value={data.controlCoverage.gateEvidence}/></div></section>
+  </div>
+
+  <div className="bottom-grid">
+   <section className="emr-panel emr-matrix-panel"><PanelHead title="Tình trạng triển khai EMR theo khoa/phòng" sub="Ma trận tiến độ, cấu phần và Go-live gate"/>{data.departmentMatrix.length?<div className="table-wrap"><table><thead><tr><th>#</th><th>Khoa/Phòng</th><th>Tiến độ</th>{data.categories.slice(0,6).map(c=><th key={c.code}>{c.label}</th>)}<th>Gate</th><th>Vấn đề</th></tr></thead><tbody>{data.departmentMatrix.slice(0,10).map((d,idx)=><tr key={d.id}><td>{idx+1}</td><td><strong>{d.name}</strong></td><td><b>{d.completion===null?"—":`${d.completion}%`}</b></td>{d.domains.slice(0,6).map(c=><td key={c.code}><span className={`status-dot ${c.blocked?"bad":c.completion===100?"good":c.total?"mid":"none"}`}/></td>)}<td><span className={d.gates&&d.gatesPassed===d.gates?"pill good":"pill mid"}>{d.gatesPassed}/{d.gates}</span></td><td className={d.blockers||d.overdue?"danger":""}>{d.blockers+d.overdue}</td></tr>)}</tbody></table></div>:<div className="zero-table"><Icon name="building-2" size={28}/><b>Chưa có dữ liệu khoa/phòng</b><span>Khi hạng mục được gán khoa/phòng, ma trận sẽ tự động hiển thị tại đây.</span></div>}</section>
+   <section className="emr-panel emr-action"><PanelHead title="Cảnh báo & công việc cần xử lý" sub="Ưu tiên theo blocker, critical, quá hạn và Go-live gate"/><div className="action-list">{data.escalation.length?data.escalation.slice(0,6).map((x)=>{const c=data.categories.find(y=>y.code===x.category);const rv=reasonVisual(x.reasons);return <Link href={`/emr/${c?.slug||""}`} key={x.id}><span className={`action-icon ${rv.tone}`}><Icon name={rv.icon} size={17}/></span><div><strong>{x.title}</strong><small>{c?.label} · {reasonLabel(x.reasons)}</small></div><b>{x.score}</b><Icon name="chevron-right" size={15}/></Link>}):<div className="zero-action"><span className="action-icon ok"><Icon name="badge-check" size={18}/></span><div><strong>Không có cảnh báo đang mở</strong><small>Dữ liệu nguồn hiện chưa có backlog/blocker cần escalation.</small></div></div>}</div></section>
+  </div>
+  <div className="principle"><Icon name="info" size={16}/><span><b>Nguyên tắc kiểm soát:</b> Tiến độ công việc không đồng nghĩa Go-live readiness. Gate chỉ PASS khi DONE + có bằng chứng + đã xác minh.</span></div>
+  <style>{`
+   .emr-command{display:grid;isolation:isolate;gap:14px;color:#102a56}.emr-command>*{min-width:0}.emr-command .emr-title{display:flex;justify-content:space-between;align-items:flex-end;gap:18px}.emr-command .title-with-icon{display:flex;align-items:center;gap:12px}.emr-command .icon-badge{width:40px;height:40px;border-radius:12px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;flex:0 0 40px}.emr-command .emr-title h2{font-size:22px;margin:3px 0 0;color:#092b68}.emr-command .crumb{font-size:11px;color:#4f83d1;font-weight:800;margin-bottom:4px}.emr-command .crumb b{margin:0 7px;color:#9eb4d2}.emr-command .emr-title p{margin:5px 0 0;color:#7183a1;font-size:13px}.emr-command .emr-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}.emr-command .emr-filters span{display:flex;align-items:center;gap:6px;padding:9px 12px;background:#fff;border:1px solid #dbe7f4;border-radius:9px;font-size:11px;color:#234a80;box-shadow:0 2px 8px rgba(20,60,110,.03)}.emr-command .emr-filter-field{display:flex;flex-direction:column;gap:3px;font-size:9.5px;font-weight:700;color:#52709a}.emr-command .emr-filter-field input{padding:7px 9px;border:1px solid #dbe7f4;border-radius:8px;font-size:11px;color:#234a80;min-height:auto}.emr-command .emr-filter-note{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#f0f7ff;border:1px solid #d6e6fb;border-radius:9px;color:#1e5aa8;font-size:11px}
+   .emr-command .emr-kpis{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}.emr-command .emr-kpi{background:#fff;border:1px solid #dfe9f5;border-radius:11px;padding:13px;box-shadow:0 5px 16px rgba(30,80,140,.05);min-height:82px}.emr-command .emr-kpi-top{display:flex;gap:10px;align-items:center}.emr-command .emr-kpi label{display:block;font-size:10px;font-weight:800;color:#52709a}.emr-command .emr-kpi strong{display:block;font-size:24px;line-height:1.05;margin-top:3px;color:#082b6c}.emr-command .emr-kpi small{display:block;margin-top:8px;font-size:10px;color:#7890ad}
+   .emr-command .emr-panel{background:#fff;border:1px solid #dce7f4;border-radius:11px;box-shadow:0 5px 18px rgba(28,73,128,.05);padding:13px}.emr-command .emr-panel-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}.emr-command .emr-panel-head h2{font-size:15px;margin:0;color:#0a2d69}.emr-command .emr-panel-head p{font-size:10px;color:#7b8da8;margin:3px 0 0}.emr-command .hero-grid,.emr-command .mid-grid,.emr-command .bottom-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,.9fr);gap:12px}.emr-command .chart-shell{height:170px;display:grid;grid-template-columns:40px 1fr}.emr-command .yaxis{display:flex;flex-direction:column;justify-content:space-between;color:#7890ad;font-size:9px;padding:4px 6px 12px 0;text-align:right}.emr-command .chart-area{position:relative;border-left:1px solid #e5edf7;border-bottom:1px solid #e5edf7}.emr-command .gridlines{position:absolute;inset:0;background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(25% - 1px),#edf3f9 25%)}.emr-command .empty-chart{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#9aabc0;gap:5px}.emr-command .empty-chart b{font-size:12px;color:#5d7393}.emr-command .empty-chart span{font-size:10px}.emr-command .emr-legend{display:flex;justify-content:center;align-items:center;gap:7px;font-size:9px;color:#6d829f;margin-top:8px}.emr-command .lg{width:10px;height:7px;border-radius:2px}.emr-command .lg.total{background:#b9dcff}.emr-command .lg.complete{background:#398fe8}.emr-command .lg.line{height:2px;width:18px;background:#246ed4}.emr-command .donut-row{height:190px;display:flex;align-items:center;justify-content:center;gap:24px}.emr-command .donut{width:138px;height:138px;border-radius:50%;display:grid;place-items:center;position:relative}.emr-command .donut:after{content:"";position:absolute;width:88px;height:88px;background:#fff;border-radius:50%}.emr-command .donut>div{z-index:1;text-align:center}.emr-command .donut b{display:block;font-size:23px;color:#092d70}.emr-command .donut span{font-size:9px;color:#8294ad}.emr-command .donut-legend{display:grid;gap:10px;min-width:135px}.emr-command .legend-row{display:grid;grid-template-columns:9px 1fr auto;align-items:center;gap:7px;font-size:10px}.emr-command .legend-row i{width:8px;height:8px;border-radius:50%}.emr-command .legend-row b{font-size:12px;color:#12356d}
+   .emr-command .readiness-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.emr-command .ready-card{position:relative;display:grid;grid-template-columns:34px 1fr;gap:8px;padding:10px;border:1px solid #e2ebf5;border-radius:9px;text-decoration:none;color:inherit;background:#fcfdff;min-height:70px}.emr-command .ready-icon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:#edf6ff;color:#2681e8}.emr-command .ready-icon.slate{background:#eef1f5;color:#5b6b82}.emr-command .ready-icon.blue{background:#e8f3ff;color:#2681e8}.emr-command .ready-icon.green{background:#e7f8f0;color:#139467}.emr-command .ready-icon.red{background:#fff0ee;color:#dc4b42}.emr-command .ready-main span{font-size:10px;color:#4d6991}.emr-command .ready-main strong{display:block;font-size:16px;color:#092d70;margin-top:2px}.emr-command .emr-progress{height:5px;background:#e9eff6;border-radius:99px;overflow:hidden;margin-top:6px}.emr-command .emr-progress i{display:block;height:100%;background:#24bb83;border-radius:99px}.emr-command .ready-card em{position:absolute;right:8px;top:8px;font-size:8px;font-style:normal;padding:3px 6px;border-radius:99px}.emr-command .ready-card em.ok{background:#e7f8f0;color:#139467}.emr-command .ready-card em.warn{background:#fff0ee;color:#dc4b42}.emr-command .ready-card em.work{background:#fff5df;color:#c77b12}.emr-command .emr-compliance{display:grid;gap:7px}.emr-command .emr-compliance-row{display:grid;grid-template-columns:30px 1fr 42px;gap:8px;align-items:center;border:1px solid #e3ebf5;border-radius:8px;padding:8px}.emr-command .emr-compliance-row label{font-size:10px;color:#526c91}.emr-command .emr-compliance-row .emr-bar{height:6px;background:#e8eef5;border-radius:99px;overflow:hidden;margin-top:5px}.emr-command .emr-compliance-row .emr-bar i{display:block;height:100%;background:#22b983}.emr-command .emr-compliance-row b{text-align:right;color:#0a2d69;font-size:14px}
+   .emr-command .emr-matrix-panel table{width:100%;border-collapse:collapse;font-size:9px;min-width:720px}.emr-command .emr-matrix-panel th{background:#f5f9fe;color:#3e5f8d;font-weight:800;padding:7px;border-bottom:1px solid #dfe8f3;white-space:nowrap}.emr-command .emr-matrix-panel td{text-align:center;padding:8px 6px;border-bottom:1px solid #edf2f7;color:#415d84}.emr-command .emr-matrix-panel th:nth-child(2),.emr-command .emr-matrix-panel td:nth-child(2){text-align:left}.emr-command .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%}.emr-command .status-dot.good{background:#20b87b}.emr-command .status-dot.mid{background:#f5ad2d}.emr-command .status-dot.bad{background:#ef5252}.emr-command .status-dot.none{background:#aeb9c7}.emr-command .pill{padding:3px 6px;border-radius:99px;font-size:8px}.emr-command .pill.good{background:#e7f8f0;color:#138a61}.emr-command .pill.mid{background:#fff3dd;color:#b66c0e}.emr-command .danger{color:#e44343!important;font-weight:900}.emr-command .zero-table{height:160px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;color:#9aabc0}.emr-command .zero-table b{font-size:12px;color:#526b8e}.emr-command .zero-table span{font-size:9px}.emr-command .action-list{display:grid}.emr-command .action-list>a,.emr-command .zero-action{display:grid;grid-template-columns:32px 1fr auto 14px;gap:8px;align-items:center;padding:9px 3px;border-bottom:1px solid #edf2f7;text-decoration:none;color:inherit}.emr-command .action-list strong{font-size:10px;display:block;color:#173967}.emr-command .action-list small{font-size:8px;color:#7d90aa;display:block;margin-top:2px}.emr-command .action-list>a>b{font-size:10px;color:#e04b4b}.emr-command .action-icon{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#fff0ef;color:#ef4d4d}.emr-command .action-icon.a1{background:#fff6df;color:#d99417}.emr-command .action-icon.a2{background:#edf5ff;color:#2c7fe5}.emr-command .action-icon.a3{background:#f2edff;color:#7955dc}.emr-command .action-icon.ok{background:#e8f8f1;color:#16996a}.emr-command .zero-action{grid-template-columns:32px 1fr}.emr-command .principle{display:flex;gap:8px;align-items:center;padding:9px 12px;border:1px solid #dce8f5;background:#f7fbff;border-radius:9px;color:#607896;font-size:10px}
+   @media(max-width:1450px){.emr-command .emr-kpis{grid-template-columns:repeat(3,1fr)}.emr-command .readiness-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:1050px){.emr-command .hero-grid,.emr-command .mid-grid,.emr-command .bottom-grid{grid-template-columns:1fr}.emr-command .emr-title{align-items:flex-start;flex-direction:column}.emr-command .emr-filters{width:100%}}@media(max-width:700px){.emr-command .emr-kpis{grid-template-columns:1fr 1fr}.emr-command .readiness-grid{grid-template-columns:1fr}.emr-command .emr-title h2{font-size:22px}.emr-command .donut-row{flex-direction:column;height:auto;padding:10px}.emr-command .emr-filters span{flex:1}.emr-command .emr-trend{display:none}}`}</style>
+ </div>
+}
+function PanelHead({title,sub}:{title:string;sub:string}){return <div className="emr-panel-head"><div><h2>{title}</h2><p>{sub}</p></div></div>}
+function Legend({c,l,v}:{c:string;l:string;v:number}){return <div className="legend-row" style={{display:"grid",gridTemplateColumns:"9px 1fr auto",alignItems:"center",gap:7,fontSize:10}}><i style={{background:c,width:8,height:8,borderRadius:"50%",display:"block"}}/><span>{l}</span><b style={{fontSize:12,color:"#12356d"}}>{v}</b></div>}
+// This component used to style itself with styled-jsx's scoped style tag,
+// but that scoping only covers elements written directly in the JSX of the
+// component that owns the tag — Kpi/Compliance/PanelHead are separate functions, so every
+// rule targeting their output (card chrome, icon badges, typography) silently
+// never matched, and it isn't limited to those three: the same tag was also
+// suspected of not reliably applying to this component's OWN directly-written
+// markup (ready-card, action-list) in production. The whole file was switched
+// to a plain <style> tag with every selector explicitly prefixed by
+// `.emr-command ` instead (the same manual-scoping convention every other
+// page in this codebase already uses, e.g. analytics/page.tsx's
+// `.tqm-analytics` prefix) — removing the bug class entirely rather than
+// patching it element-by-element as new instances were found. Icon tone
+// colors stay inline (KPI_TONE_COLORS/KPI_ICON_BASE_STYLE below) since that
+// code already worked and there's no reason to churn it.
+const KPI_TONE_COLORS: Record<string,{bg:string;color:string}> = {
+  blue:{bg:"#dbeafe",color:"#2563eb"},
+  green:{bg:"#dcfce7",color:"#16a34a"},
+  orange:{bg:"#ffedd5",color:"#ea580c"},
+  purple:{bg:"#ede9fe",color:"#7c3aed"},
+  cyan:{bg:"#cffafe",color:"#0e7490"},
+  red:{bg:"#fee2e2",color:"#dc2626"},
+};
+const KPI_ICON_BASE_STYLE:CSSProperties={width:40,height:40,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",flex:"0 0 40px"};
+function Compliance({icon,label,value}:{icon:string;label:string;value:number|null}){return <div className="emr-compliance-row"><span className="emr-compliance-icon" style={{...KPI_ICON_BASE_STYLE,width:28,height:28,borderRadius:7,background:"#eaf8f2",color:"#17a675"}}><Icon name={icon} size={15}/></span><div><label style={{display:"block"}}>{label}</label><div className="emr-bar"><i style={{width:`${value??0}%`}}/></div></div><b>{value===null?"—":`${value}%`}</b></div>}
+function Kpi({icon,label,value,note,tone}:{icon:string;label:string;value:string;note:string;tone:string}){const c=KPI_TONE_COLORS[tone]||KPI_TONE_COLORS.blue;return <div className={`emr-kpi ${tone}`}><div className="emr-kpi-top"><span className="emr-kpi-icon" style={{...KPI_ICON_BASE_STYLE,background:c.bg,color:c.color}}><Icon name={icon} size={18}/></span><div><label style={{display:"block"}}>{label}</label><strong style={{display:"block"}}>{value}</strong></div></div><small style={{display:"block"}}>{note}</small></div>}

@@ -2,10 +2,12 @@
    One click from the main menu to each operational function.
    Section headers organize information; they are not intermediate pages. */
 
-/* Direct sidebar makes the duplicated workspace tab strip unnecessary. */
-.workspace-app .workspace-strip{
-  display:none!important;
-}
+/* NOTE: this rule previously hid .workspace-strip site-wide on the theory
+   that the sidebar covers the same ground. It does not: several routes
+   (/directives, /reports and other workspace sibling tabs) are reachable
+   ONLY through this strip and have no sidebar entry of their own — hiding
+   it made those pages unreachable through normal navigation. Do not
+   re-hide this without first adding every sibling tab to the sidebar. */
 
 /* Desktop: compact enough for a professional operations menu,
    but preserve readable labels and an independent scroll area. */

@@ -63,6 +63,9 @@ export function humanStatus(status?: string | null) {
     AWAITING_CLOSURE: "Chờ kết thúc",
     OVERDUE: "Quá hạn",
     LOCKED: "Đã khóa",
+    ROOT_CAUSE_ANALYSIS: "Đang phân tích RCA",
+    EFFECTIVENESS_REVIEW: "Đánh giá hiệu lực",
+    PLANNED: "Đã lên kế hoạch",
   };
   return map[status] || status.replaceAll("_", " ");
 }

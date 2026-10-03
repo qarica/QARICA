@@ -32,3 +32,5 @@ const map: Record<string, ModuleUx> = {
 export function getModuleUx(recordTypes: string[]): ModuleUx {
   return map[recordTypes[0]] || { workflow: ["Ghi nhận", "Phân công", "Thực hiện", "Minh chứng", "Xác nhận", "Đóng"], principle: "Hồ sơ phải có owner, trạng thái, bằng chứng và lịch sử thay đổi rõ ràng.", related: common };
 }
+
+export const MODULE_UX_TYPE_COUNT = Object.keys(map).length;

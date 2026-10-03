@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">QARICA</title>
+  <desc id="desc">Canonical QARICA Q mark — vòng tròn mở (ring) và nét chéo cắt qua tạo thành chữ Q, gradient xanh dương đậm sang xanh ngọc. Không nền: dùng làm nguồn hình học duy nhất để tạo favicon, app icon và splash.</desc>
+  <defs>
+    <linearGradient id="qarica-q-grad" x1="18" y1="14" x2="112" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b1e46"/>
+      <stop offset="0.38" stop-color="#1450c9"/>
+      <stop offset="0.7" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#2dd4bf"/>
+    </linearGradient>
+  </defs>
+  <path d="M84 29.36 A40 40 0 1 1 44 29.36" fill="none" stroke="url(#qarica-q-grad)" stroke-width="16" stroke-linecap="round"/>
+  <path d="M75.31 75.31 L106.43 106.43" fill="none" stroke="url(#qarica-q-grad)" stroke-width="16" stroke-linecap="round"/>
+</svg>

@@ -8,5 +8,6 @@ export default function AssessmentsPage() {
     permissions: ["criteria.view", "criteria.assess", "criteria.review", "criteria.manage"],
     recordTypes: ["ASSESSMENT"],
     tabs: [{label:"Quản lý bộ tiêu chí",href:"/assessments/catalog"}],
+    icon: "badge-check",
   }} />;
 }
