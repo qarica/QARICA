@@ -251,7 +251,15 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#7c3aed!important;font-weight:800!important;font-size:13.5px!important;letter-spacing:.01em}
       .workspace-app.workspace-app .nav-group.active-context>.nav-group-header,.workspace-app.workspace-app .nav-group.active-context>.nav-group-header .nav-group-label{color:#6d28d9!important}
       .workspace-app.workspace-app .nav-group-link{color:#7c3aed!important;font-weight:800!important;font-size:13.5px!important;margin:6px 10px!important}
-      .workspace-app.workspace-app .nav-group-link .nav-link-label{color:inherit!important;font-weight:inherit!important;font-size:inherit!important}
+      /* brand-overrides.css's generic .nav-link-label{overflow:hidden;
+         text-overflow:ellipsis;white-space:nowrap} truncates a promoted
+         single-child group's label the same as a real (level-2) child link —
+         but a promoted link reads as a Level-1 item and should wrap onto a
+         second line instead, exactly like a real multi-child .nav-group-label
+         already does (it was never given that nowrap/ellipsis rule). Long
+         Vietnamese labels (THEO DÕI HÀNH NGHỀ, MUA SẮM & SỬA CHỮA, CẤU HÌNH
+         HỆ THỐNG) were silently losing their tail behind "..." until this. */
+      .workspace-app.workspace-app .nav-group-link .nav-link-label{color:inherit!important;font-weight:inherit!important;font-size:inherit!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.25!important}
       .workspace-app.workspace-app .nav-group-link.active,.workspace-app.workspace-app .nav-group-link.active .nav-link-label{background:#f5f3ff!important;color:#6d28d9!important}
       .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#60a5fa!important;font-weight:600!important;font-size:12px!important}
       .workspace-app.workspace-app .nav-child-link{margin:1px 10px 1px 26px!important}

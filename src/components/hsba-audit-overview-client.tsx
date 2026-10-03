@@ -196,7 +196,9 @@ export function HsbaAuditOverviewClient({
                 {!checklistItems.length ? (
                   <tr>
                     <td colSpan={3} className="empty-state compact">
-                      Chưa có tiêu chí nào — vào tab &quot;Bảng kiểm&quot; để khai báo.
+                      {canManage
+                        ? 'Chưa có tiêu chí nào — vào tab "Bảng kiểm" để khai báo.'
+                        : 'Chưa có tiêu chí nào. Việc khai báo cần quyền "Quản lý kiểm tra chất lượng HSBA" — liên hệ quản trị viên.'}
                     </td>
                   </tr>
                 ) : null}

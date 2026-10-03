@@ -64,7 +64,7 @@ const NAV_GROUPS: NavGroupDef[] = [
     label: "BỆNH ÁN ĐIỆN TỬ",
     icon: "network",
     children: [
-      { label: "BỆNH ÁN ĐIỆN TỬ", href: "/emr", icon: "layout-dashboard", permission: "emr.view" },
+      { label: "BỆNH ÁN ĐIỆN TỬ", href: "/emr", icon: "network", permission: "emr.view" },
     ],
   },
   {
@@ -102,9 +102,9 @@ const NAV_GROUPS: NavGroupDef[] = [
   {
     id: "procurement",
     label: "MUA SẮM & SỬA CHỮA",
-    icon: "list-checks",
+    icon: "archive",
     children: [
-      { label: "MUA SẮM & SỬA CHỮA", href: "/procurement", icon: "list-checks", permission: "procurement.view" },
+      { label: "MUA SẮM & SỬA CHỮA", href: "/procurement", icon: "archive", permission: "procurement.view" },
     ],
   },
   {
@@ -119,10 +119,10 @@ const NAV_GROUPS: NavGroupDef[] = [
   {
     id: "personal-workspace",
     label: "CÁ NHÂN",
-    icon: "book-open",
+    icon: "users",
     footer: true,
     children: [
-      { label: "CÁ NHÂN", href: "/me", icon: "book-open" },
+      { label: "CÁ NHÂN", href: "/me", icon: "users" },
     ],
   },
   {

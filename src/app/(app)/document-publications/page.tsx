@@ -8,15 +8,16 @@ export default async function DocumentPublicationsPage() {
   const canManage = hasPermission(user, "document_publication.manage");
   const supabase = await createClient();
 
-  const [departmentsRes, documentsRes] = await Promise.all([
+  const [departmentsRes, documentsRes, acknowledgmentsRes] = await Promise.all([
     supabase.from("departments").select("id,name").eq("is_active", true).order("name"),
     supabase
       .from("document_publications")
       .select(
-        "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,created_at",
+        "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,created_at",
       )
       .order("created_at", { ascending: false })
       .limit(300),
+    supabase.from("document_publication_acknowledgments").select("document_publication_id,user_id").limit(5000),
   ]);
 
   return (
@@ -29,6 +30,8 @@ export default async function DocumentPublicationsPage() {
       <DocumentPublicationsClient
         departments={(departmentsRes.data ?? []) as any}
         initialDocuments={(documentsRes.data ?? []) as any}
+        acknowledgments={(acknowledgmentsRes.data ?? []) as any}
+        currentUserId={user.id}
         canManage={canManage}
       />
     </div>

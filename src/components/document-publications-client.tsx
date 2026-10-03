@@ -2,14 +2,18 @@
 
 import { useState } from "react";
 import {
+  DISSEMINATION_TYPE_LABEL,
+  DISSEMINATION_TYPES,
   DOCUMENT_TYPE_LABEL,
   DOCUMENT_TYPES,
   STAGE_LABEL,
+  type DisseminationType,
   type DocumentPublicationStage,
   type DocumentPublicationType,
 } from "@/lib/document-publication-types";
 
 type Department = { id: string; name: string };
+type Acknowledgment = { document_publication_id: string; user_id: string };
 type DocumentPublication = {
   id: string;
   title: string;
@@ -24,6 +28,7 @@ type DocumentPublication = {
   document_code: string | null;
   effective_date: string | null;
   review_date: string | null;
+  dissemination_type: DisseminationType | null;
   created_at: string;
 };
 
@@ -39,13 +44,18 @@ function formatDate(value: string | null) {
 export function DocumentPublicationsClient({
   departments,
   initialDocuments,
+  acknowledgments,
+  currentUserId,
   canManage,
 }: {
   departments: Department[];
   initialDocuments: DocumentPublication[];
+  acknowledgments: Acknowledgment[];
+  currentUserId: string;
   canManage: boolean;
 }) {
   const [documents, setDocuments] = useState(initialDocuments);
+  const [acks, setAcks] = useState(acknowledgments);
   const [title, setTitle] = useState("");
   const [documentType, setDocumentType] = useState<DocumentPublicationType>(DOCUMENT_TYPES[0]);
   const [draftingDepartmentId, setDraftingDepartmentId] = useState(departments[0]?.id || "");
@@ -56,11 +66,28 @@ export function DocumentPublicationsClient({
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [documentCode, setDocumentCode] = useState("");
   const [effectiveDate, setEffectiveDate] = useState("");
+  const [disseminationType, setDisseminationType] = useState<DisseminationType>(DISSEMINATION_TYPES[0]);
+  const [acknowledging, setAcknowledging] = useState<string | null>(null);
 
   const today = hcmToday();
   const departmentName = (id: string | null) => departments.find((d) => d.id === id)?.name || "—";
   const inProgress = documents.filter((d) => d.stage !== "PUBLISHED").sort((a, b) => (a.stage_due_date || "9999").localeCompare(b.stage_due_date || "9999"));
   const published = documents.filter((d) => d.stage === "PUBLISHED").sort((a, b) => (b.effective_date || "").localeCompare(a.effective_date || ""));
+  const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId).length;
+  const hasAcked = (documentId: string) => acks.some((a) => a.document_publication_id === documentId && a.user_id === currentUserId);
+
+  async function acknowledge(doc: DocumentPublication) {
+    setAcknowledging(doc.id);
+    setError("");
+    const res = await fetch(`/api/document-publications/${doc.id}/acknowledge`, { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    setAcknowledging(null);
+    if (!res.ok) {
+      setError(body.error || "Không xác nhận được.");
+      return;
+    }
+    setAcks((v) => [...v, { document_publication_id: doc.id, user_id: currentUserId }]);
+  }
 
   async function submit() {
     if (!title.trim()) {
@@ -112,12 +139,14 @@ export function DocumentPublicationsClient({
     setPublishingId(null);
     setDocumentCode("");
     setEffectiveDate("");
+    setDisseminationType(DISSEMINATION_TYPES[0]);
   }
 
   function startPublish(doc: DocumentPublication) {
     setPublishingId(doc.id);
     setDocumentCode("");
     setEffectiveDate(today);
+    setDisseminationType(DISSEMINATION_TYPES[0]);
   }
 
   return (
@@ -178,11 +207,18 @@ export function DocumentPublicationsClient({
                     <div className="dp-publish-form">
                       <input className="input" placeholder="Mã văn bản..." value={documentCode} onChange={(e) => setDocumentCode(e.target.value)} />
                       <input className="input" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+                      <select className="input dp-publish-dissemination" value={disseminationType} onChange={(e) => setDisseminationType(e.target.value as DisseminationType)}>
+                        {DISSEMINATION_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {DISSEMINATION_TYPE_LABEL[t]}
+                          </option>
+                        ))}
+                      </select>
                       <div className="dp-publish-actions">
                         <button
                           className="button primary small"
                           disabled={!documentCode.trim() || !effectiveDate}
-                          onClick={() => void advance(d, { document_code: documentCode.trim(), effective_date: effectiveDate })}
+                          onClick={() => void advance(d, { document_code: documentCode.trim(), effective_date: effectiveDate, dissemination_type: disseminationType })}
                         >
                           Xác nhận phát hành
                         </button>
@@ -226,6 +262,7 @@ export function DocumentPublicationsClient({
                 <th>Loại</th>
                 <th>Ngày hiệu lực</th>
                 <th>Ngày xem xét lại</th>
+                <th>Phổ biến</th>
               </tr>
             </thead>
             <tbody>
@@ -236,11 +273,31 @@ export function DocumentPublicationsClient({
                   <td>{DOCUMENT_TYPE_LABEL[d.document_type]}</td>
                   <td>{formatDate(d.effective_date)}</td>
                   <td>{formatDate(d.review_date)}</td>
+                  <td>
+                    {d.dissemination_type === "TRAINING_REQUIRED" ? (
+                      <a href="/procedure-trainings" className="dp-dissemination-link">
+                        Cần đào tạo — xem tiến độ →
+                      </a>
+                    ) : d.dissemination_type === "SELF_READ" ? (
+                      <div className="dp-ack">
+                        <span className="status-badge success">{ackCount(d.id)} đã xác nhận</span>
+                        {hasAcked(d.id) ? (
+                          <span className="dp-ack-done">✓ Bạn đã xác nhận</span>
+                        ) : (
+                          <button type="button" className="button secondary small" disabled={acknowledging === d.id} onClick={() => void acknowledge(d)}>
+                            {acknowledging === d.id ? "..." : "Tôi đã đọc và hiểu"}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                 </tr>
               ))}
               {!published.length ? (
                 <tr>
-                  <td colSpan={5} className="empty-state">
+                  <td colSpan={6} className="empty-state">
                     Chưa có văn bản nào được phát hành.
                   </td>
                 </tr>
@@ -267,7 +324,7 @@ export function DocumentPublicationsClient({
         }
         .dp-publish-form {
           display: grid;
-          grid-template-columns: 1fr 160px;
+          grid-template-columns: 1fr 160px 180px;
           gap: 6px;
           margin-top: 6px;
         }
@@ -279,6 +336,20 @@ export function DocumentPublicationsClient({
         .dp-actions {
           display: flex;
           align-items: flex-start;
+        }
+        .dp-ack {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .dp-ack-done {
+          font-size: 12px;
+          color: var(--muted);
+        }
+        .dp-dissemination-link {
+          font-size: 13px;
+          font-weight: 600;
         }
         @media (max-width: 760px) {
           .dp-form-row,

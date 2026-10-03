@@ -157,6 +157,29 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(navigation).not.toContain('anyPermissions: ["users.manage", "departments.manage", "permissions.manage", "system.manage"]');
   });
 
+  // Real bug found from a screenshot: in the collapsed sidebar rail, icons
+  // are the only identifying cue (labels are hidden) — but EMR reused
+  // Điều hành's "layout-dashboard", Mua sắm reused Audit's "list-checks",
+  // and Cá nhân reused Đào tạo's "book-open", making those pairs
+  // indistinguishable without hovering for the flyout.
+  it("never assigns the same icon to two different top-level sidebar entries (collapsed rail relies on icons alone)", () => {
+    const topLevelIcons = GROUP_IDS.map((id) => {
+      const block = groupBlock(navigation, id);
+      const icons = [...block.matchAll(/icon: "([a-z-]+)"/g)].map((m) => m[1]);
+      // A promoted single-child group (exactly 2 icon occurrences: the
+      // group's own unused `icon:` field, then its one child's) renders its
+      // CHILD's icon in the sidebar — see app-shell.tsx renderGroup():
+      // `if (group.children.length === 1) return renderChild(...)`. A real
+      // multi-child group renders its own header icon (the first match).
+      return icons.length === 2 ? icons[1] : icons[0];
+    });
+    expect(new Set(topLevelIcons).size).toBe(topLevelIcons.length);
+  });
+
+  it("lets a promoted single-child group's label wrap onto a second line instead of truncating with an ellipsis (long Vietnamese labels like THEO DÕI HÀNH NGHỀ were losing their tail behind generic .nav-link-label{white-space:nowrap} from brand-overrides.css)", () => {
+    expect(shell).toContain(".workspace-app.workspace-app .nav-group-link .nav-link-label{color:inherit!important;font-weight:inherit!important;font-size:inherit!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important");
+  });
+
   it("collapses EMR to a single sidebar entry — the EMR subcategories are not exposed in the main sidebar", () => {
     expect(navigation).not.toContain("EMR_CATEGORIES");
     expect(navigation.match(/href: "\/emr/g)?.length).toBe(1);
