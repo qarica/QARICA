@@ -59,6 +59,20 @@ export function isDocumentPublicationType(value: unknown): value is DocumentPubl
   return typeof value === "string" && (DOCUMENT_TYPES as readonly string[]).includes(value);
 }
 
+// Hình thức phổ biến, chọn lúc Phát hành — mô phỏng lại "Phiếu xác nhận
+// thông hiểu tài liệu" thực tế (2 hình thức: Tự đọc hiểu / Được đào tạo).
+export const DISSEMINATION_TYPES = ["SELF_READ", "TRAINING_REQUIRED"] as const;
+export type DisseminationType = (typeof DISSEMINATION_TYPES)[number];
+
+export const DISSEMINATION_TYPE_LABEL: Record<DisseminationType, string> = {
+  SELF_READ: "Tự đọc hiểu",
+  TRAINING_REQUIRED: "Cần đào tạo",
+};
+
+export function isDisseminationType(value: unknown): value is DisseminationType {
+  return typeof value === "string" && (DISSEMINATION_TYPES as readonly string[]).includes(value);
+}
+
 export function nextStage(stage: DocumentPublicationStage): DocumentPublicationStage | null {
   const idx = DOCUMENT_PUBLICATION_STAGES.indexOf(stage);
   if (idx < 0 || idx === DOCUMENT_PUBLICATION_STAGES.length - 1) return null;

@@ -9,7 +9,7 @@ function addDaysISO(days: number) {
 }
 
 const SELECT_COLUMNS =
-  "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,created_at";
+  "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,created_at";
 
 export async function GET(request: Request) {
   const auth = await requireApiPermission("document_publication.view");

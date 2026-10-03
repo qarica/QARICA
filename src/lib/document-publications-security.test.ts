@@ -81,3 +81,55 @@ describe("Document publications 6-stage pipeline (src/lib/document-publication-t
     expect(route).toContain("update.review_date = addDaysISO(effectiveDate, 730);");
   });
 });
+
+// Phổ biến tài liệu sau khi phát hành: mô phỏng lại "Phiếu xác nhận thông
+// hiểu tài liệu" thực tế (2 hình thức, chọn lúc Phát hành — thời điểm chốt
+// nội dung cuối): SELF_READ (từng nhân viên tự xác nhận, theo dõi theo
+// người) và TRAINING_REQUIRED (tự tạo 1 dòng Đào tạo quy trình, tái dùng
+// workflow đào tạo sẵn có thay vì xây lại theo dõi đào tạo riêng cho văn bản).
+describe("Document publications: phổ biến (dissemination) sau khi phát hành", () => {
+  const patchRoute = read("src/app/api/document-publications/[id]/route.ts");
+
+  it("requires an explicit dissemination_type (SELF_READ or TRAINING_REQUIRED) before PUBLISHED, same as document_code/effective_date", () => {
+    expect(patchRoute).toContain('if (!isDisseminationType(disseminationType)) return NextResponse.json({ error: "Chưa chọn hình thức phổ biến." }, { status: 400 });');
+    expect(patchRoute).toContain("update.dissemination_type = disseminationType;");
+  });
+
+  it("TRAINING_REQUIRED auto-creates a procedure_trainings row linked back via document_publication_id, instead of building a separate training workflow for documents", () => {
+    expect(patchRoute).toContain('if (disseminationType === "TRAINING_REQUIRED") {');
+    expect(patchRoute).toContain('admin.from("procedure_trainings").insert({');
+    expect(patchRoute).toContain("document_publication_id: id,");
+  });
+
+  it("SELF_READ acknowledgment only requires document_publication.view (any staff can self-confirm, not just managers) and only applies to a PUBLISHED, SELF_READ document", () => {
+    const ackRoute = read("src/app/api/document-publications/[id]/acknowledge/route.ts");
+    expect(ackRoute).toContain('requireApiPermission("document_publication.view")');
+    expect(ackRoute).not.toContain('requireApiPermission("document_publication.manage")');
+    expect(ackRoute).toContain('if (doc.stage !== "PUBLISHED" || doc.dissemination_type !== "SELF_READ")');
+  });
+
+  it("identity for an acknowledgment comes from auth.uid(), never hand-typed name/employee code/email like the old paper form", () => {
+    const ackRoute = read("src/app/api/document-publications/[id]/acknowledge/route.ts");
+    expect(ackRoute).toContain("user_id: auth.user.id,");
+    expect(ackRoute).not.toContain("body.employee_code");
+    expect(ackRoute).not.toContain("body.full_name");
+  });
+
+  it("acknowledging twice is idempotent (unique document_publication_id+user_id, upsert ignores duplicates) rather than erroring or double-counting", () => {
+    const ackRoute = read("src/app/api/document-publications/[id]/acknowledge/route.ts");
+    expect(ackRoute).toContain('{ onConflict: "document_publication_id,user_id", ignoreDuplicates: true }');
+  });
+
+  it("the acknowledgments table is tenant-scoped and tracks per-employee department for coverage reporting", () => {
+    const migration = read("supabase/migrations/20261021_document_publication_dissemination_v1.sql");
+    expect(migration).toContain("create table if not exists public.document_publication_acknowledgments");
+    expect(migration).toContain("unique (document_publication_id, user_id)");
+    expect(migration).toContain("department_id uuid references public.departments(id)");
+  });
+
+  it("the create-request form offers no dissemination_type field (it is chosen only at Phát hành, the moment content is finalized)", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    const formSection = client.slice(client.indexOf("Đề nghị văn bản mới"), client.indexOf("Đang xử lý"));
+    expect(formSection).not.toContain("disseminationType");
+  });
+});
