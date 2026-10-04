@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/page-header";
 import { requireUserContext } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { routeForRecord } from "@/lib/record-route";
+import { canViewRecordType } from "@/lib/record-view-permissions";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 
@@ -58,7 +59,12 @@ export default async function CancelledRecordsPage({ searchParams }: { searchPar
     .order("updated_at", { ascending: false })
     .limit(1000);
 
-  const all = (recordsRes.data ?? []) as CancelledRecord[];
+  // Trang này chỉ đòi quyền rộng dashboard.view, nhưng mỗi record_type thuộc
+  // về 1 module có quyền xem riêng hẹp hơn — lọc ngay tại đây để người chỉ
+  // được xem Dashboard tổng hợp không đọc được lý do hủy/người phụ trách của
+  // hồ sơ CAPA/Risk/Incident... mà họ không có quyền xem riêng.
+  const all = ((recordsRes.data ?? []) as CancelledRecord[]).filter((row) => canViewRecordType(user, row.record_type));
+  const visibleTypeLabels = Object.fromEntries(Object.entries(TYPE_LABELS).filter(([key]) => canViewRecordType(user, key)));
   const departmentIds = Array.from(new Set(all.map((row) => row.owner_department_id).filter((value): value is string => Boolean(value))));
   const ownerIds = Array.from(new Set(all.map((row) => row.owner_user_id).filter((value): value is string => Boolean(value))));
   const recordIds = all.map((row) => row.id);
@@ -122,7 +128,7 @@ export default async function CancelledRecordsPage({ searchParams }: { searchPar
     <section className="panel">
       <form className="cancelled-toolbar" method="get">
         <input name="q" defaultValue={query.q || ""} placeholder="Tìm mã, tiêu đề, đơn vị, người phụ trách, lý do hủy..." />
-        <select name="type" defaultValue={type}><option value="">Tất cả loại hồ sơ</option>{Object.entries(TYPE_LABELS).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select>
+        <select name="type" defaultValue={type}><option value="">Tất cả loại hồ sơ</option>{Object.entries(visibleTypeLabels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select>
         <button className="button secondary" type="submit">Lọc / Tìm</button>
       </form>
       <div className="table-wrap"><table><thead><tr><th>Mã</th><th>Hồ sơ / tác vụ</th><th>Loại</th><th>Đơn vị / người phụ trách</th><th>Lý do hủy</th><th>Cập nhật</th><th></th></tr></thead><tbody>
