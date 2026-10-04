@@ -59,7 +59,7 @@ describe("HSBA audit module security and control gates", () => {
     expect(checklistClient).toContain("Tài khoản của bạn chưa có quyền");
     expect(checklistClient).toContain("Quản lý kiểm tra chất lượng HSBA");
     const overviewClient = read("src/components/hsba-audit-overview-client.tsx");
-    expect(overviewClient).toContain("canManage\n                        ?");
+    expect(overviewClient).toContain("? canManage\n");
     expect(overviewClient).toContain('Việc khai báo cần quyền "Quản lý kiểm tra chất lượng HSBA"');
   });
 
@@ -153,19 +153,25 @@ describe("Audit nội bộ KHTH is generalized across audit_type, not duplicated
   it("defines the shared type list once and reuses it everywhere (checklist-items, audits, findings routes)", () => {
     const types = read("src/lib/internal-audit-types.ts");
     expect(types).toContain('export const INTERNAL_AUDIT_TYPES = ["HSBA", "PHAC_DO_DIEU_TRI", "QTKT_NOI_TRU"] as const;');
-    for (const route of [
-      "src/app/api/hsba-audit/checklist-items/route.ts",
-      "src/app/api/hsba-audit/audits/route.ts",
-      "src/app/api/hsba-audit/findings/route.ts",
-    ]) {
+    for (const route of ["src/app/api/hsba-audit/audits/route.ts", "src/app/api/hsba-audit/findings/route.ts"]) {
       expect(read(route)).toContain('from "@/lib/internal-audit-types"');
       expect(read(route)).toContain('.eq("audit_type", auditType)');
     }
+    // checklist-items/route.ts no longer filters by audit_type directly — it
+    // is scoped by checklist_version_id, whose template already pins audit_type
+    // (see the multi-template describe block below).
+    expect(read("src/app/api/hsba-audit/checklist-items/route.ts")).toContain("checklist_version_id");
   });
 
-  it("scopes a new audit's checklist-item lookup to the same audit_type (no cross-type mismatch)", () => {
+  // Replaced by the multi-template architecture below: a new audit now pins
+  // to an exact checklist_version_id (validated to belong to the caller's org
+  // AND match audit_type AND be PUBLISHED) instead of inferring item scope
+  // from organization_id+audit_type alone — see the describe block below.
+  it("scopes a new audit's checklist-item lookup to its checklist_version_id, itself validated against org + audit_type + PUBLISHED status", () => {
     const route = read("src/app/api/hsba-audit/audits/route.ts");
-    expect(route).toContain('.eq("organization_id", organizationId)\n    .eq("audit_type", auditType)\n    .in("id", itemIds);');
+    expect(route).toContain('.eq("checklist_version_id", checklistVersionId)\n    .in("id", itemIds);');
+    expect(route).toContain("versionTemplate.organization_id !== organizationId || versionTemplate.audit_type !== auditType");
+    expect(route).toContain('if (version.status !== "PUBLISHED")');
   });
 
   it("the workspace nav lets the user switch audit_type and preserves it across the 3 sub-pages", () => {
@@ -215,5 +221,80 @@ describe("Audit nội bộ KHTH splits QTKT nội trú into its own third audit_
     expect(types).toContain('PHAC_DO_DIEU_TRI: "Phác đồ điều trị",');
     expect(types).toContain('QTKT_NOI_TRU: "QTKT nội trú",');
     expect(types).not.toContain("Phác đồ & QTKT nội trú");
+  });
+});
+
+// Explicit request: "Audit hsba có nhiều loại bảng kiểm khác nhau chứ ko phải
+// 1 loại như đang thiết kế" — reuses the Giám sát module's own architecture
+// (Template -> Version DRAFT/PUBLISHED/RETIRED -> Items), simplified (no
+// sections/answer_type/scoring, still flat PASS/FAIL) since HSBA's checklist
+// is intentionally simpler. Applies to all 3 audit_types; the user picks a
+// PUBLISHED template from a dropdown when starting a new audit round.
+describe("HSBA audit supports multiple named checklist templates per audit_type (Template -> Version -> Items)", () => {
+  it("creates templates/versions tables pinned to a published version per audit, so later template edits never change historical audits", () => {
+    const migration = read("supabase/migrations/20261022_hsba_checklist_templates_v1.sql");
+    expect(migration).toContain("create table if not exists public.hsba_checklist_templates");
+    expect(migration).toContain("check (audit_type in ('HSBA','PHAC_DO_DIEU_TRI','QTKT_NOI_TRU'))");
+    expect(migration).toContain("create table if not exists public.hsba_checklist_versions");
+    expect(migration).toContain("check (status in ('DRAFT','PUBLISHED','RETIRED'))");
+    expect(migration).toContain("unique(checklist_template_id, version_no)");
+    expect(migration).toContain("alter table public.hsba_checklist_items\n  add column if not exists checklist_version_id");
+    expect(migration).toContain("alter table public.hsba_audits\n  add column if not exists checklist_version_id");
+  });
+
+  it("defines 3 atomic security-definer RPCs for create/clone/publish, each revoked from authenticated and granted only to service_role", () => {
+    const migration = read("supabase/migrations/20261022_hsba_checklist_templates_v1.sql");
+    for (const fn of [
+      "qlcl_create_hsba_checklist_template_v1",
+      "qlcl_clone_hsba_checklist_version_v1",
+      "qlcl_publish_hsba_checklist_version_v1",
+    ]) {
+      expect(migration).toContain(`create or replace function public.${fn}(`);
+      expect(migration).toContain(`revoke all on function public.${fn}`);
+      expect(migration).toContain(`grant execute on function public.${fn}`);
+    }
+    expect(migration).toContain("security definer");
+    expect(migration).toContain("set search_path to ''");
+  });
+
+  it("publish requires at least 1 active item and auto-retires the template's previously PUBLISHED version — only one live version at a time", () => {
+    const migration = read("supabase/migrations/20261022_hsba_checklist_templates_v1.sql");
+    expect(migration).toContain("if v_item_count < 1 then");
+    expect(migration).toContain("raise exception 'Phiên bản cần ít nhất 1 tiêu chí đang dùng trước khi phát hành';");
+    expect(migration).toContain("set status = 'RETIRED'\n  where checklist_template_id = p_template_id\n    and status = 'PUBLISHED'");
+  });
+
+  it("gates template list/create behind hsba_audit.view/manage, and version-clone/publish behind hsba_audit.manage", () => {
+    const list = read("src/app/api/hsba-audit/checklist-templates/route.ts");
+    expect(list).toContain('requireApiPermission("hsba_audit.view")');
+    expect(list).toContain('requireApiPermission("hsba_audit.manage")');
+    expect(read("src/app/api/hsba-audit/checklist-templates/[id]/route.ts")).toContain('requireApiPermission("hsba_audit.manage")');
+    expect(read("src/app/api/hsba-audit/checklist-templates/[id]/versions/route.ts")).toContain('requireApiPermission("hsba_audit.manage")');
+    expect(read("src/app/api/hsba-audit/checklist-templates/[id]/publish/route.ts")).toContain('requireApiPermission("hsba_audit.manage")');
+  });
+
+  it("only allows adding/editing/deleting checklist items while their version is still DRAFT", () => {
+    const createRoute = read("src/app/api/hsba-audit/checklist-items/route.ts");
+    expect(createRoute).toContain('if (version.status !== "DRAFT")');
+    const itemRoute = read("src/app/api/hsba-audit/checklist-items/[id]/route.ts");
+    expect(itemRoute).toContain('itemVersion.versionStatus !== "DRAFT"');
+    expect(itemRoute).toContain("Chỉ được sửa tiêu chí khi phiên bản đang ở trạng thái Nháp.");
+    expect(itemRoute).toContain("Chỉ được xoá tiêu chí khi phiên bản đang ở trạng thái Nháp.");
+  });
+
+  it("requires a template dropdown in the new-audit form, scoped to PUBLISHED versions of the current audit_type", () => {
+    const page = read("src/app/(app)/hsba-audit/page.tsx");
+    expect(page).toContain('find((v: any) => v.status === "PUBLISHED")');
+    const client = read("src/components/hsba-audit-overview-client.tsx");
+    expect(client).toContain("templates: ChecklistTemplateOption[]");
+    expect(client).toContain("checklist_version_id: selectedTemplate.versionId");
+  });
+
+  it("the Bảng kiểm tab lists templates with their DRAFT/PUBLISHED version status and offers clone + publish actions", () => {
+    const client = read("src/components/hsba-checklist-client.tsx");
+    expect(client).toContain("/api/hsba-audit/checklist-templates?audit_type=");
+    expect(client).toContain("/versions`, { method: \"POST\" }");
+    expect(client).toContain("/publish`, {");
+    expect(client).toContain("CHECKLIST_VERSION_STATUS_LABEL");
   });
 });

@@ -2,6 +2,20 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+async function loadItemVersionStatus(admin: ReturnType<typeof createAdminClient>, itemId: string, organizationId: string) {
+  const { data: item } = await admin
+    .from("hsba_checklist_items")
+    .select("id,organization_id,checklist_version_id,hsba_checklist_versions(status,checklist_template_id,hsba_checklist_templates(organization_id))")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (!item || item.organization_id !== organizationId) return null;
+  const version = (item as any).hsba_checklist_versions;
+  if (!version) return { versionStatus: null as string | null };
+  const template = version.hsba_checklist_templates;
+  if (!template || template.organization_id !== organizationId) return null;
+  return { versionStatus: version.status as string };
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("hsba_audit.manage");
   if (!auth.ok) return auth.response;
@@ -10,6 +24,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+
+  const itemVersion = await loadItemVersionStatus(admin, id, organizationId);
+  if (!itemVersion) return NextResponse.json({ error: "Không tìm thấy tiêu chí." }, { status: 404 });
+  if (itemVersion.versionStatus && itemVersion.versionStatus !== "DRAFT") {
+    return NextResponse.json({ error: "Chỉ được sửa tiêu chí khi phiên bản đang ở trạng thái Nháp." }, { status: 409 });
+  }
 
   const body = await request.json().catch(() => ({}));
   const update: Record<string, unknown> = {};
@@ -29,7 +49,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .update(update)
     .eq("id", id)
     .eq("organization_id", organizationId)
-    .select("id,content,category,sort_order,is_active,audit_type")
+    .select("id,content,category,sort_order,is_active,audit_type,checklist_version_id")
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (!data) return NextResponse.json({ error: "Không tìm thấy tiêu chí." }, { status: 404 });
@@ -45,14 +65,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
-  const { data: current, error: currentError } = await admin
-    .from("hsba_checklist_items")
-    .select("id")
-    .eq("id", id)
-    .eq("organization_id", organizationId)
-    .maybeSingle();
-  if (currentError) return NextResponse.json({ error: currentError.message }, { status: 400 });
-  if (!current) return NextResponse.json({ error: "Không tìm thấy tiêu chí." }, { status: 404 });
+  const itemVersion = await loadItemVersionStatus(admin, id, organizationId);
+  if (!itemVersion) return NextResponse.json({ error: "Không tìm thấy tiêu chí." }, { status: 404 });
+  if (itemVersion.versionStatus && itemVersion.versionStatus !== "DRAFT") {
+    return NextResponse.json({ error: "Chỉ được xoá tiêu chí khi phiên bản đang ở trạng thái Nháp." }, { status: 409 });
+  }
 
   const { count, error: countError } = await admin
     .from("hsba_audit_item_results")
