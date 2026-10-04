@@ -17,6 +17,18 @@ describe("HSBA audit module security and control gates", () => {
     expect(read("src/app/api/hsba-audit/audits/route.ts")).toContain('requireApiPermission("hsba_audit.view")');
     expect(read("src/app/api/hsba-audit/audits/route.ts")).toContain('requireApiPermission("hsba_audit.manage")');
     expect(read("src/app/api/hsba-audit/findings/route.ts")).toContain('requireApiPermission("hsba_audit.view")');
+    expect(read("src/app/api/hsba-audit/audits/export/route.ts")).toContain('requireApiPermission("hsba_audit.view")');
+  });
+
+  it("exports audit results as UTF-8 BOM CSV (same convention as incidents/export, plans export) scoped to audit_type + optional period, with per-audit pass/fail item counts", () => {
+    const route = read("src/app/api/hsba-audit/audits/export/route.ts");
+    expect(route).toContain('"Content-Type": "text/csv; charset=utf-8"');
+    expect(route).toContain("const bom = ");
+    expect(route).toContain(".eq(\"audit_type\", auditType)");
+    expect(route).toContain("passCountByAudit");
+    expect(route).toContain("failCountByAudit");
+    const reportPage = read("src/app/(app)/hsba-audit/report/page.tsx");
+    expect(reportPage).toContain("/api/hsba-audit/audits/export?audit_type=${auditType}&period=${period}");
   });
 
   // Fixed real bug found by a full-app review: the "Khoa phản hồi" (ACK/
