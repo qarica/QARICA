@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { requireUserContext } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
+import { canViewRecordType } from "@/lib/record-view-permissions";
 import { routeForRecord } from "@/lib/record-route";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
@@ -58,18 +59,35 @@ export default async function QualityAssistantPage() {
   const year = await getWorkYear();
   const today = hcmToday();
 
+  // Trợ lý QLCL chỉ gắn quyền rộng dashboard.view ở layout, nhưng mỗi loại
+  // việc dưới đây thuộc về 1 module có quyền xem riêng hẹp hơn — dùng chung
+  // RECORD_VIEW_PERMISSIONS (khớp đúng permissions mỗi trang module tự đòi
+  // hỏi) để không lộ nội dung Finding/CAPA/Risk/... cho người chỉ có quyền
+  // xem Dashboard tổng hợp.
+  const canSeeTasks = canViewRecordType(user, "ACTION");
+  const canSeeFindings = canViewRecordType(user, "FINDING");
+  const canSeeCapa = canViewRecordType(user, "CAPA");
+  const canSeeReports = canViewRecordType(user, "REPORT");
+  const canSeeDirectives = canViewRecordType(user, "DIRECTIVE");
+  const canSeeInspections = canViewRecordType(user, "INSPECTION");
+  const canSeeRisks = canViewRecordType(user, "RISK");
+  const canSeeIndicators = canViewRecordType(user, "INDICATOR_MEASUREMENT");
+  const canSeeFeedback = canViewRecordType(user, "FEEDBACK");
+  const canSeeMonitoring = canViewRecordType(user, "MONITORING");
+  const EMPTY_RES = Promise.resolve({ data: [] as any[], error: null });
+
   const [recordsRes, actionsRes, findingsRes, capasRes, reportsRes, directivesRes, inspectionsRes, risksRes, indicatorsRes, feedbackRes, monitoringRes] = await Promise.all([
     supabase.from("records").select("id,record_type,record_code,title,lifecycle_status,owner_department_id,owner_user_id,updated_at").eq("work_year", year),
-    supabase.from("vw_actions_dashboard").select("action_id,record_id,record_code,title,lead_department_id,assignee_user_id,workflow_status,priority,due_date,is_overdue,days_to_due").eq("work_year", year),
-    supabase.from("findings").select("id,record_id,workflow_status,due_date,severity"),
-    supabase.from("capas").select("id,record_id,workflow_status,effectiveness_due_date,priority"),
-    supabase.from("reporting_obligations").select("id,record_id,due_date,workflow_status,recipient_name"),
-    supabase.from("external_directives").select("id,record_id,workflow_status,implementation_due_date,report_due_date,priority"),
-    supabase.from("inspection_events").select("id,record_id,visit_date,workflow_status,authority"),
-    supabase.from("risks").select("id,record_id,workflow_status,next_review_date"),
-    supabase.from("indicator_measurements").select("id,record_id,workflow_status,result_level,period_end"),
-    supabase.from("feedback_records").select("id,record_id,workflow_status,response_due_at"),
-    supabase.from("monitoring_rounds").select("id,record_id,scheduled_date,workflow_status"),
+    canSeeTasks ? supabase.from("vw_actions_dashboard").select("action_id,record_id,record_code,title,lead_department_id,assignee_user_id,workflow_status,priority,due_date,is_overdue,days_to_due").eq("work_year", year) : EMPTY_RES,
+    canSeeFindings ? supabase.from("findings").select("id,record_id,workflow_status,due_date,severity") : EMPTY_RES,
+    canSeeCapa ? supabase.from("capas").select("id,record_id,workflow_status,effectiveness_due_date,priority") : EMPTY_RES,
+    canSeeReports ? supabase.from("reporting_obligations").select("id,record_id,due_date,workflow_status,recipient_name") : EMPTY_RES,
+    canSeeDirectives ? supabase.from("external_directives").select("id,record_id,workflow_status,implementation_due_date,report_due_date,priority") : EMPTY_RES,
+    canSeeInspections ? supabase.from("inspection_events").select("id,record_id,visit_date,workflow_status,authority") : EMPTY_RES,
+    canSeeRisks ? supabase.from("risks").select("id,record_id,workflow_status,next_review_date") : EMPTY_RES,
+    canSeeIndicators ? supabase.from("indicator_measurements").select("id,record_id,workflow_status,result_level,period_end") : EMPTY_RES,
+    canSeeFeedback ? supabase.from("feedback_records").select("id,record_id,workflow_status,response_due_at") : EMPTY_RES,
+    canSeeMonitoring ? supabase.from("monitoring_rounds").select("id,record_id,scheduled_date,workflow_status") : EMPTY_RES,
   ]);
 
   const errors = [recordsRes, actionsRes, findingsRes, capasRes, reportsRes, directivesRes, inspectionsRes, risksRes, indicatorsRes, feedbackRes, monitoringRes]
