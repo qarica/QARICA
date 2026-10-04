@@ -17,7 +17,7 @@ function sanitizeDetails(category: string, raw: unknown): Record<string, unknown
 }
 
 async function loadItemOrganization(admin: ReturnType<typeof createAdminClient>, id: string) {
-  const { data, error } = await admin.from("emr_rollout_items").select("id,organization_id,status,evidence_url,category").eq("id", id).maybeSingle();
+  const { data, error } = await admin.from("emr_rollout_items").select("id,organization_id,status,evidence_url,category,updated_by").eq("id", id).maybeSingle();
   return { data, error };
 }
 
@@ -70,7 +70,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (typeof body.owner_department_id === "string" || body.owner_department_id === null) { const v=body.owner_department_id||null; if(v){const {data:d}=await admin.from("departments").select("id").eq("id",v).eq("organization_id",organizationId).eq("is_active",true).maybeSingle(); if(!d)return NextResponse.json({error:"Đơn vị phụ trách không hợp lệ."},{status:400});} patch.owner_department_id=v; }
   if (typeof body.is_go_live_gate === "boolean") patch.is_go_live_gate = body.is_go_live_gate;
   if (typeof body.evidence_url === "string" || body.evidence_url === null) { patch.evidence_url = body.evidence_url ? String(body.evidence_url).trim() : null; if (!patch.evidence_url) { patch.verified_at = null; patch.verified_by = null; } }
-  if (body.verify_completed === true) { const effectiveStatus = typeof body.status === "string" ? body.status : existing.status; const effectiveEvidence = (typeof body.evidence_url === "string" || body.evidence_url === null) ? (body.evidence_url ? String(body.evidence_url).trim() : null) : existing.evidence_url; if (effectiveStatus !== "DONE" || !effectiveEvidence) return NextResponse.json({ error: "Chỉ xác minh khi hạng mục DONE và có minh chứng." }, { status: 400 }); patch.verified_at = new Date().toISOString(); patch.verified_by = auth.user.id; }
+  if (body.verify_completed === true) {
+    const effectiveStatus = typeof body.status === "string" ? body.status : existing.status;
+    const effectiveEvidence = (typeof body.evidence_url === "string" || body.evidence_url === null) ? (body.evidence_url ? String(body.evidence_url).trim() : null) : existing.evidence_url;
+    if (effectiveStatus !== "DONE" || !effectiveEvidence) return NextResponse.json({ error: "Chỉ xác minh khi hạng mục DONE và có minh chứng." }, { status: 400 });
+    // Kiểm soát "4 mắt": người xác minh phải khác người vừa cập nhật hạng mục
+    // này gần nhất (thường là người đã chuyển sang DONE) — không được tự xác
+    // minh việc do chính mình thực hiện, kể cả khi chuyển DONE và xác minh
+    // trong cùng một request.
+    const selfTransitionToDone = typeof body.status === "string" && body.status === "DONE";
+    if (selfTransitionToDone || existing.updated_by === auth.user.id) {
+      return NextResponse.json({ error: "Người xác minh phải khác người vừa cập nhật hạng mục này — không thể tự xác minh việc do chính mình thực hiện." }, { status: 403 });
+    }
+    patch.verified_at = new Date().toISOString();
+    patch.verified_by = auth.user.id;
+  }
   if (body.verify_completed === false || (body.status && body.status !== "DONE")) { patch.verified_at = null; patch.verified_by = null; }
   if (body.details !== undefined) patch.details = sanitizeDetails(existing.category, body.details);
 

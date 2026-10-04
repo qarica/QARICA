@@ -173,7 +173,8 @@ export function MonitoringRecheckClient({ roundId, status, canPerform, rows, are
   const validationModal = validation && typeof document !== "undefined" ? createPortal(
     <div className="modal-backdrop" style={{ padding: 18, display: "grid", placeItems: "center" }} onMouseDown={(e) => { if (e.target === e.currentTarget) closeValidation(); }}>
       <div className="modal-card" role="alertdialog" aria-modal="true" style={{ width: "min(430px, calc(100vw - 36px))", borderRadius: 18 }}>
-        <div style={{ padding: "20px 20px 12px" }}><div className="eyebrow" style={{ color: "#b45309" }}>CẦN BỔ SUNG</div><h3 style={{ margin: "5px 0 8px", fontSize: 21 }}>Chưa đủ thông tin</h3><p style={{ margin: 0, color: "#5e6d73", lineHeight: 1.55 }}>{validation.text}</p></div>
+        <div className="modal-head"><div><div className="eyebrow" style={{ color: "#b45309" }}>CẦN BỔ SUNG</div><h2>Chưa đủ thông tin</h2></div></div>
+        <div style={{ padding: "16px 20px 4px" }}><p style={{ margin: 0, color: "#5e6d73", lineHeight: 1.55 }}>{validation.text}</p></div>
         <div style={{ padding: "12px 20px 20px", display: "flex", justifyContent: "flex-end" }}><button type="button" className="button primary" onClick={closeValidation}>Đã hiểu</button></div>
       </div>
     </div>, document.body,

@@ -23,7 +23,7 @@ function useSelection() {
 
 export function WorkRowCheckbox({ rowKey }: { rowKey: string }) {
   const { selected, toggle } = useSelection();
-  return <input type="checkbox" aria-label="Chọn dòng" checked={selected.has(rowKey)} onChange={() => toggle(rowKey)} />;
+  return <span className="inline-check"><input type="checkbox" aria-label="Chọn dòng" checked={selected.has(rowKey)} onChange={() => toggle(rowKey)} /></span>;
 }
 
 export function WorkSelectionCount() {

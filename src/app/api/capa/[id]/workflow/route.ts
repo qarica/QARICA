@@ -21,7 +21,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id: recordId } = await params;
   const body: any = await request.json().catch(() => ({}));
   const command = String(body.action || "").toUpperCase();
-  const { data: visible } = await supabase.from("records").select("id,lifecycle_status,owner_user_id").eq("id", recordId).eq("record_type", "CAPA").maybeSingle();
+  const { data: visible } = await supabase.from("records").select("id,lifecycle_status,owner_user_id,created_by").eq("id", recordId).eq("record_type", "CAPA").maybeSingle();
   if (!visible) return NextResponse.json({ error: "Không tìm thấy CAPA hoặc ngoài phạm vi truy cập." }, { status: 404 });
   if (visible.lifecycle_status !== "ACTIVE") return NextResponse.json({ error: "CAPA không còn hoạt động." }, { status: 409 });
 
@@ -32,6 +32,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const reason = String(body.comment || "").trim() || null;
 
   if (command === "START" || command === "APPROVE") {
+    // Kiểm soát "4 mắt": người đề xuất CAPA (records.created_by) không được
+    // tự phê duyệt chính CAPA mình đã tạo — tách bạch lập/duyệt.
+    if (command === "APPROVE" && visible.created_by && visible.created_by === auth.user.id) {
+      return NextResponse.json({ error: "Người phê duyệt phải khác người đã tạo/đề xuất CAPA này." }, { status: 403 });
+    }
     const { data: tx, error: txError } = await admin.rpc(CORE_TRANSITION_RPC, {
       p_capa_record_id: recordId,
       p_actor_user_id: auth.user.id,
