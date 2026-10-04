@@ -54,7 +54,7 @@ export function IncidentQuickReportClient({
           work_year: workYear,
           fields: {
             report_type: "VOLUNTARY",
-            incident_location_department_id: departmentId,
+            incident_location_primary_department_id: departmentId,
             occurred_at: nowIso,
             reported_at: nowIso,
             initial_description: description.trim(),
