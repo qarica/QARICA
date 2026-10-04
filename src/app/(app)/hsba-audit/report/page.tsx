@@ -56,6 +56,9 @@ export default async function HsbaReportPage({ searchParams }: { searchParams: P
         <button type="submit" className="button secondary small">
           Xem
         </button>
+        <a className="button tertiary small" href={`/api/hsba-audit/audits/export?audit_type=${auditType}&period=${period}`}>
+          Xuất Excel
+        </a>
       </form>
 
       <div className="hsba-report-kpis">
