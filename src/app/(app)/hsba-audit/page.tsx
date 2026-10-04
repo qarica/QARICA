@@ -10,16 +10,15 @@ export default async function HsbaAuditOverviewPage({ searchParams }: { searchPa
   const auditType = normalizeInternalAuditType(type);
   const supabase = await createClient();
 
-  const [departmentsRes, checklistRes, findingsRes] = await Promise.all([
+  const [departmentsRes, templatesRes, findingsRes] = await Promise.all([
     supabase.from("departments").select("id,name").eq("is_active", true).order("name"),
     supabase
-      .from("hsba_checklist_items")
-      .select("id,content,category")
+      .from("hsba_checklist_templates")
+      .select("id,name,hsba_checklist_versions(id,status,version_no)")
       .eq("organization_id", user.organizationId)
       .eq("audit_type", auditType)
       .eq("is_active", true)
-      .order("sort_order")
-      .order("content"),
+      .order("name"),
     supabase
       .from("hsba_audit_findings")
       .select(
@@ -32,11 +31,18 @@ export default async function HsbaAuditOverviewPage({ searchParams }: { searchPa
       .limit(100),
   ]);
 
+  const templates = ((templatesRes.data ?? []) as any[])
+    .map((t) => {
+      const published = (t.hsba_checklist_versions ?? []).find((v: any) => v.status === "PUBLISHED");
+      return published ? { id: t.id, name: t.name, versionId: published.id, versionNo: published.version_no } : null;
+    })
+    .filter((t): t is { id: string; name: string; versionId: string; versionNo: number } => t !== null);
+
   return (
     <HsbaAuditOverviewClient
       auditType={auditType}
       departments={(departmentsRes.data ?? []) as any}
-      checklistItems={(checklistRes.data ?? []) as any}
+      templates={templates}
       initialFindings={(findingsRes.data ?? []) as any}
       canManage={canManage}
     />

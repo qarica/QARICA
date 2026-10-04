@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
   let query = admin
     .from("hsba_audits")
-    .select("id,department_id,record_reference,period,audited_by,audited_at,overall_result,status,audit_type")
+    .select("id,department_id,record_reference,period,audited_by,audited_at,overall_result,status,audit_type,checklist_version_id")
     .eq("organization_id", organizationId)
     .eq("audit_type", auditType)
     .order("audited_at", { ascending: false })
@@ -44,19 +44,31 @@ export async function POST(request: Request) {
   const recordReference = String(body.record_reference || "").trim();
   const period = String(body.period || "").trim();
   const auditType = normalizeInternalAuditType(body.audit_type);
+  const checklistVersionId = String(body.checklist_version_id || "").trim();
   const results: Array<{ checklist_item_id?: string; result?: string; note?: string }> = Array.isArray(body.results) ? body.results : [];
 
   if (!departmentId) return NextResponse.json({ error: "Chưa chọn khoa/phòng." }, { status: 400 });
   if (!recordReference) return NextResponse.json({ error: "Chưa nhập mã/số hồ sơ." }, { status: 400 });
   if (!PERIOD_RE.test(period)) return NextResponse.json({ error: "Kỳ báo cáo không hợp lệ (định dạng YYYY-MM)." }, { status: 400 });
+  if (!checklistVersionId) return NextResponse.json({ error: "Chưa chọn mẫu bảng kiểm." }, { status: 400 });
   if (!results.length) return NextResponse.json({ error: "Chưa chấm tiêu chí nào." }, { status: 400 });
+
+  const { data: version } = await admin
+    .from("hsba_checklist_versions")
+    .select("id,status,hsba_checklist_templates!inner(id,organization_id,audit_type)")
+    .eq("id", checklistVersionId)
+    .maybeSingle();
+  const versionTemplate = version ? (version as any).hsba_checklist_templates : null;
+  if (!version || !versionTemplate || versionTemplate.organization_id !== organizationId || versionTemplate.audit_type !== auditType) {
+    return NextResponse.json({ error: "Mẫu bảng kiểm không hợp lệ." }, { status: 400 });
+  }
+  if (version.status !== "PUBLISHED") return NextResponse.json({ error: "Chỉ được dùng phiên bản bảng kiểm đã phát hành." }, { status: 409 });
 
   const itemIds = results.map((r: any) => String(r.checklist_item_id || "")).filter(Boolean);
   const { data: items, error: itemsError } = await admin
     .from("hsba_checklist_items")
     .select("id,content")
-    .eq("organization_id", organizationId)
-    .eq("audit_type", auditType)
+    .eq("checklist_version_id", checklistVersionId)
     .in("id", itemIds);
   if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 400 });
   const itemContentById = new Map((items ?? []).map((i: any) => [i.id, i.content]));
@@ -83,8 +95,9 @@ export async function POST(request: Request) {
       overall_result: overallResult,
       status: "OPEN",
       audit_type: auditType,
+      checklist_version_id: checklistVersionId,
     })
-    .select("id,department_id,record_reference,period,audited_by,audited_at,overall_result,status,audit_type")
+    .select("id,department_id,record_reference,period,audited_by,audited_at,overall_result,status,audit_type,checklist_version_id")
     .single();
   if (auditError) return NextResponse.json({ error: auditError.message }, { status: 400 });
 

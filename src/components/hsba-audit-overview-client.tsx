@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { INTERNAL_AUDIT_TYPE_LABEL, type InternalAuditType } from "@/lib/internal-audit-types";
 
 type Department = { id: string; name: string };
-type ChecklistItem = { id: string; content: string; category: string | null };
+type ChecklistItem = { id: string; content: string; category: string | null; is_active: boolean };
+type ChecklistTemplateOption = { id: string; name: string; versionId: string; versionNo: number };
 type Finding = {
   id: string;
   audit_id: string;
@@ -36,17 +37,20 @@ function currentPeriod() {
 export function HsbaAuditOverviewClient({
   auditType,
   departments,
-  checklistItems,
+  templates,
   initialFindings,
   canManage,
 }: {
   auditType: InternalAuditType;
   departments: Department[];
-  checklistItems: ChecklistItem[];
+  templates: ChecklistTemplateOption[];
   initialFindings: Finding[];
   canManage: boolean;
 }) {
   const [departmentId, setDepartmentId] = useState(departments[0]?.id || "");
+  const [templateId, setTemplateId] = useState(templates[0]?.id || "");
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
   const [recordReference, setRecordReference] = useState("");
   const [period, setPeriod] = useState(currentPeriod());
   const [resultsByItem, setResultsByItem] = useState<Record<string, "PASS" | "FAIL">>({});
@@ -57,6 +61,36 @@ export function HsbaAuditOverviewClient({
   const [findings, setFindings] = useState(initialFindings);
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const [responseText, setResponseText] = useState("");
+
+  const selectedTemplate = templates.find((t) => t.id === templateId) || null;
+
+  useEffect(() => {
+    setTemplateId(templates[0]?.id || "");
+  }, [templates]);
+
+  useEffect(() => {
+    if (!selectedTemplate) {
+      setChecklistItems([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingItems(true);
+    fetch(`/api/hsba-audit/checklist-items?checklist_version_id=${selectedTemplate.versionId}`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (cancelled) return;
+        setChecklistItems(res.ok ? (res.items || []).filter((i: ChecklistItem) => i.is_active) : []);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingItems(false);
+      });
+    setResultsByItem({});
+    setNotesByItem({});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTemplate?.versionId]);
 
   // Switching audit_type (via the workspace nav) re-runs the server page with
   // new initialFindings props but keeps this same client component instance
@@ -75,6 +109,10 @@ export function HsbaAuditOverviewClient({
     const results = checklistItems
       .filter((i) => resultsByItem[i.id])
       .map((i) => ({ checklist_item_id: i.id, result: resultsByItem[i.id], note: notesByItem[i.id] || "" }));
+    if (!selectedTemplate) {
+      setError("Chưa chọn mẫu bảng kiểm.");
+      return;
+    }
     if (!recordReference.trim()) {
       setError("Chưa nhập mã/số hồ sơ.");
       return;
@@ -89,7 +127,14 @@ export function HsbaAuditOverviewClient({
     const res = await fetch("/api/hsba-audit/audits", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ department_id: departmentId, record_reference: recordReference.trim(), period, results, audit_type: auditType }),
+      body: JSON.stringify({
+        department_id: departmentId,
+        record_reference: recordReference.trim(),
+        period,
+        results,
+        audit_type: auditType,
+        checklist_version_id: selectedTemplate.versionId,
+      }),
     });
     const body = await res.json().catch(() => ({}));
     setBusy(false);
@@ -145,6 +190,14 @@ export function HsbaAuditOverviewClient({
             </div>
           </div>
           <div className="hsba-form-row">
+            <select className="input" value={templateId} onChange={(e) => setTemplateId(e.target.value)} disabled={!templates.length}>
+              {templates.length ? null : <option value="">— Chưa có mẫu bảng kiểm đã phát hành —</option>}
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} (v{t.versionNo})
+                </option>
+              ))}
+            </select>
             <select className="input" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={!departments.length}>
               {departments.length ? null : <option value="">— Chưa có khoa/phòng nào —</option>}
               {departments.map((d) => (
@@ -166,7 +219,14 @@ export function HsbaAuditOverviewClient({
                 </tr>
               </thead>
               <tbody>
-                {checklistItems.map((item) => (
+                {loadingItems ? (
+                  <tr>
+                    <td colSpan={3} className="empty-state compact">
+                      Đang tải tiêu chí...
+                    </td>
+                  </tr>
+                ) : null}
+                {!loadingItems && checklistItems.map((item) => (
                   <tr key={item.id}>
                     <td>{item.content}</td>
                     <td>
@@ -193,12 +253,16 @@ export function HsbaAuditOverviewClient({
                     </td>
                   </tr>
                 ))}
-                {!checklistItems.length ? (
+                {!loadingItems && !checklistItems.length ? (
                   <tr>
                     <td colSpan={3} className="empty-state compact">
-                      {canManage
-                        ? 'Chưa có tiêu chí nào — vào tab "Bảng kiểm" để khai báo.'
-                        : 'Chưa có tiêu chí nào. Việc khai báo cần quyền "Quản lý kiểm tra chất lượng HSBA" — liên hệ quản trị viên.'}
+                      {!templates.length
+                        ? canManage
+                          ? 'Chưa có mẫu bảng kiểm nào đã phát hành — vào tab "Bảng kiểm" để tạo và phát hành.'
+                          : 'Chưa có mẫu bảng kiểm nào đã phát hành. Liên hệ quản trị viên.'
+                        : canManage
+                          ? 'Mẫu bảng kiểm này chưa có tiêu chí nào — vào tab "Bảng kiểm" để khai báo.'
+                          : 'Chưa có tiêu chí nào. Việc khai báo cần quyền "Quản lý kiểm tra chất lượng HSBA" — liên hệ quản trị viên.'}
                     </td>
                   </tr>
                 ) : null}
@@ -207,7 +271,7 @@ export function HsbaAuditOverviewClient({
           </div>
           {error ? <div className="alert error">{error}</div> : null}
           {message ? <div className="alert success">{message}</div> : null}
-          <button className="button primary" disabled={busy || !checklistItems.length || !departmentId} onClick={() => void submitAudit()}>
+          <button className="button primary" disabled={busy || !checklistItems.length || !departmentId || !selectedTemplate} onClick={() => void submitAudit()}>
             Lưu lượt kiểm tra
           </button>
         </section>
@@ -298,7 +362,7 @@ export function HsbaAuditOverviewClient({
         }
         .hsba-form-row {
           display: grid;
-          grid-template-columns: 1fr 1fr 160px;
+          grid-template-columns: 1fr 1fr 1fr 160px;
           gap: 8px;
           padding: 0 12px 12px;
         }
