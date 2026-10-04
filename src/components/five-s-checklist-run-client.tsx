@@ -262,9 +262,8 @@ export function FiveSChecklistRunClient({ templateId, versionId, templateCode, s
   const validationModal = validationPopup && typeof document !== "undefined" ? createPortal(
     <div className="modal-backdrop" style={{ padding: 18, display: "grid", placeItems: "center" }} onMouseDown={(e) => { if (e.target === e.currentTarget) closeValidation(); }}>
       <div role="alertdialog" aria-modal="true" aria-labelledby="validation-title" className="modal-card" style={{ width: "min(430px, calc(100vw - 36px))", borderRadius: 18 }}>
-        <div style={{ padding: "20px 20px 12px" }}>
-          <div className="eyebrow" style={{ color: "#b45309" }}>CẦN BỔ SUNG</div>
-          <h3 id="validation-title" style={{ margin: "5px 0 8px", fontSize: 21 }}>{validationPopup.title}</h3>
+        <div className="modal-head"><div><div className="eyebrow" style={{ color: "#b45309" }}>CẦN BỔ SUNG</div><h2 id="validation-title">{validationPopup.title}</h2></div></div>
+        <div style={{ padding: "16px 20px 4px" }}>
           <p style={{ margin: 0, color: "#5e6d73", lineHeight: 1.55 }}>{validationPopup.text}</p>
         </div>
         <div style={{ padding: "12px 20px 20px", display: "flex", justifyContent: "flex-end" }}><button type="button" className="button primary" autoFocus onClick={closeValidation}>Đã hiểu</button></div>

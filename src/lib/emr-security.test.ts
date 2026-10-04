@@ -32,6 +32,20 @@ describe("EMR security and control gates", () => {
     expect(route).toContain('patch.verified_at = null');
   });
 
+  // Real finding from a full-app security review: emr.manage was shared by
+  // whoever moves an item to DONE and whoever verifies it, with no check
+  // that they differ — one person could flag their own work DONE and
+  // immediately self-verify the go-live gate. Block both the same-request
+  // combo (status->DONE + verify_completed in one call) and the two-call
+  // case (verifier is the same person who last touched the item).
+  it("blocks self-verification of the go-live gate (verifier must differ from whoever last updated the item)", () => {
+    const route = read("src/app/api/emr/items/[id]/route.ts");
+    expect(route).toContain('select("id,organization_id,status,evidence_url,category,updated_by")');
+    expect(route).toContain("const selfTransitionToDone = typeof body.status === \"string\" && body.status === \"DONE\";");
+    expect(route).toContain("selfTransitionToDone || existing.updated_by === auth.user.id");
+    expect(route).toContain("Người xác minh phải khác người vừa cập nhật hạng mục này");
+  });
+
   it("legacy prototype tables are quarantined", () => {
     const migration = read("supabase/migrations/20260926_emr_legacy_quarantine_v1.sql");
     expect(migration).toContain("revoke all privileges");
