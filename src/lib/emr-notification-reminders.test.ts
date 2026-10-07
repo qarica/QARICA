@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 // (Chữ ký số) is folded into the SAME route/table rather than a separate
 // certificate-specific reminder mechanism, per the one-source-of-truth rule.
 describe("EMR — due-date and certificate-expiry reminders", () => {
-  const route = readFileSync("src/app/api/notifications/sync-emr-reminders/route.ts", "utf8");
+  const route = readFileSync("src/lib/notification-sync.ts", "utf8");
   const bell = readFileSync("src/components/notification-bell.tsx", "utf8");
   const myWork = readFileSync("src/components/my-work-sync-client.tsx", "utf8");
 

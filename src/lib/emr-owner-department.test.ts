@@ -16,7 +16,7 @@ describe("EMR — Đơn vị phụ trách (owner_department_id) replaces Ngườ
   const patchRoute = readFileSync("src/app/api/emr/items/[id]/route.ts", "utf8");
   const exportRoute = readFileSync("src/app/api/emr/items/export/route.ts", "utf8");
   const dashboardRoute = readFileSync("src/app/api/emr/dashboard/route.ts", "utf8");
-  const syncRoute = readFileSync("src/app/api/notifications/sync-emr-reminders/route.ts", "utf8");
+  const syncRoute = readFileSync("src/lib/notification-sync.ts", "utf8");
   const optionsRoute = readFileSync("src/app/api/emr/options/route.ts", "utf8");
   const commandCenter = readFileSync("src/components/emr-command-center.tsx", "utf8");
 
@@ -55,8 +55,9 @@ describe("EMR — Đơn vị phụ trách (owner_department_id) replaces Ngườ
   });
 
   it("the EMR reminder sync route notifies the department's HEAD/QUALITY_NETWORK_MEMBER instead of a single named owner, since there is no longer one person to notify directly", () => {
-    expect(syncRoute).toContain('.eq("owner_department_id", primaryDepartmentId)');
-    expect(syncRoute).not.toContain("owner_user_id");
+    const emrSyncFn = syncRoute.slice(syncRoute.indexOf("export async function syncEmrRemindersForUser"), syncRoute.indexOf("export async function syncMonitoringOverdueForUser"));
+    expect(emrSyncFn).toContain('.eq("owner_department_id", primaryDepartmentId)');
+    expect(emrSyncFn).not.toContain("owner_user_id");
   });
 
   // Regression: the Tổng quan EMR command center's compliance panel was
