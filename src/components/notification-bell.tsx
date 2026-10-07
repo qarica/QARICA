@@ -79,7 +79,7 @@ export function NotificationBell() {
     if (now - lastQualitySyncRef.current >= QUALITY_SYNC_INTERVAL_MS) {
       lastQualitySyncRef.current = now;
       try {
-        const [qualityRes, actionRes, emrRes] = await Promise.all([
+        const [qualityRes, actionRes, emrRes, physicianLicenseRes] = await Promise.all([
           fetch("/api/notifications/sync-quality-attention", {
             method: "POST",
             cache: "no-store",
@@ -89,6 +89,10 @@ export function NotificationBell() {
             cache: "no-store",
           }),
           fetch("/api/notifications/sync-emr-reminders", {
+            method: "POST",
+            cache: "no-store",
+          }),
+          fetch("/api/notifications/sync-physician-license-reminders", {
             method: "POST",
             cache: "no-store",
           }),
@@ -104,6 +108,10 @@ export function NotificationBell() {
         if (emrRes.ok) {
           const emr = await emrRes.json();
           syncedNew = syncedNew || Number(emr?.created || 0) > 0;
+        }
+        if (physicianLicenseRes.ok) {
+          const physicianLicense = await physicianLicenseRes.json();
+          syncedNew = syncedNew || Number(physicianLicense?.created || 0) > 0;
         }
       } catch {
         // Cross-module attention is supplemental; never block the notification bell.

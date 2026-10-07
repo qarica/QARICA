@@ -19,11 +19,16 @@ type Registration = {
 const ROLE_LABEL: Record<string, string> = { GDTT_TK: "GĐTT / Trưởng khoa", BS: "Bác sĩ" };
 const CASE_LABEL: Record<string, string> = { NEW_HIRE: "Nhân sự mới", INTERNAL_TRANSFER: "Luân chuyển nội bộ" };
 
+const DUE_SOON_WINDOW_DAYS = 5;
+
 function today() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
 }
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short" }).format(new Date(`${value}T00:00:00`));
+}
+function daysUntil(deadline: string, now: string) {
+  return Math.round((Date.parse(`${deadline}T00:00:00+07:00`) - Date.parse(`${now}T00:00:00+07:00`)) / 86400000);
 }
 
 export function PhysicianLicenseClient({
@@ -166,6 +171,7 @@ export function PhysicianLicenseClient({
             <tbody>
               {visible.map((r) => {
                 const overdue = r.status === "PENDING" && r.deadline < now;
+                const dueSoon = r.status === "PENDING" && !overdue && daysUntil(r.deadline, now) <= DUE_SOON_WINDOW_DAYS;
                 return (
                   <tr key={r.id}>
                     <td>
@@ -177,8 +183,8 @@ export function PhysicianLicenseClient({
                     <td>{CASE_LABEL[r.case_type]}</td>
                     <td>{formatDate(r.deadline)}</td>
                     <td>
-                      <span className={`status-badge ${r.status === "REGISTERED" ? "success" : overdue ? "danger" : "warning"}`}>
-                        {r.status === "REGISTERED" ? "Đã đăng ký" : overdue ? "Quá hạn" : "Chưa đăng ký"}
+                      <span className={`status-badge ${r.status === "REGISTERED" ? "success" : overdue ? "danger" : dueSoon ? "warning" : "info"}`}>
+                        {r.status === "REGISTERED" ? "Đã đăng ký" : overdue ? "Quá hạn" : dueSoon ? "Sắp hết hạn" : "Chưa đăng ký"}
                       </span>
                     </td>
                     {canManage ? (

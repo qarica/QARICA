@@ -518,6 +518,52 @@ export async function syncQualityAttentionForUser(admin: AdminClient, userId: st
   return { created: inserted?.length || 0, candidates: payload.length, warnings: queryErrors.slice(0, 3) };
 }
 
+// --- Physician license registration reminders --------------------------------
+//
+// physician-license-client.tsx only ever showed "Quá hạn" AFTER the deadline
+// had already passed (deadline < today, computed client-side) — nothing
+// warned proactively while there was still time to act, even though the
+// registration windows here are short (10/14/60 ngày) and missing one risks
+// BHYT xuất toán. Folded into the same notifications pipeline/thresholds as
+// every other due-date reminder rather than inventing a separate mechanism.
+export async function syncPhysicianLicenseRemindersForUser(admin: AdminClient, userId: string) {
+  if (!(await userHasPermission(admin, userId, "physician_license.manage"))) return { created: 0, candidates: 0 };
+
+  const { data: profile } = await admin.from("profiles").select("organization_id").eq("user_id", userId).maybeSingle();
+  if (!profile?.organization_id) return { created: 0, candidates: 0 };
+
+  const { data: registrations, error } = await admin
+    .from("physician_license_registrations")
+    .select("id,physician_name,deadline")
+    .eq("organization_id", profile.organization_id)
+    .eq("status", "PENDING");
+  if (error) return { error: error.message };
+  if (!registrations?.length) return { created: 0, candidates: 0 };
+
+  const today = hcmToday();
+  const payload: any[] = [];
+  for (const row of registrations as any[]) {
+    const phase = attentionPhaseFor(row.deadline, today, 5);
+    if (!phase) continue;
+    payload.push({
+      recipient_user_id: userId,
+      notification_type: `PHYSICIAN_LICENSE_${phase.phase}`,
+      priority: phase.priority,
+      title: phase.phase === "OVERDUE" ? "Đăng ký hành nghề quá hạn" : "Đăng ký hành nghề sắp đến hạn",
+      message: `${row.physician_name}: ${attentionDueMessage(phase.phase, row.deadline, "Hạn đăng ký hành nghề")}`,
+      target_record_id: null,
+      target_route: "/physician-license",
+      notification_event_key: `physician_license:${row.id}:${phase.phase}:deadline:${String(row.deadline).slice(0, 10)}`,
+      is_read: false,
+    });
+  }
+
+  if (!payload.length) return { created: 0, candidates: 0 };
+  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id");
+  if (insertError) return { error: insertError.message };
+  return { created: inserted?.length || 0, candidates: payload.length };
+}
+
 // --- Personal reminders ("Đặt nhắc nhở" cá nhân) -----------------------------
 //
 // personal_reminders.remind_at was written on create/edit but never read back

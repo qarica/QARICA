@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getWorkYear } from "@/lib/work-year";
-import { syncActionRemindersForUser, syncEmrRemindersForUser, syncMonitoringOverdueForUser, syncQualityAttentionForUser, syncPersonalRemindersForUser } from "@/lib/notification-sync";
+import { syncActionRemindersForUser, syncEmrRemindersForUser, syncMonitoringOverdueForUser, syncQualityAttentionForUser, syncPersonalRemindersForUser, syncPhysicianLicenseRemindersForUser } from "@/lib/notification-sync";
 
 // Every /api/notifications/sync-* route only ever fires for the user whose
 // browser is currently polling it (notification-bell.tsx's setInterval) — a
@@ -43,6 +43,7 @@ export async function GET(request: Request) {
       syncMonitoringOverdueForUser(admin, userId),
       syncQualityAttentionForUser(admin, userId, year),
       syncPersonalRemindersForUser(admin, userId),
+      syncPhysicianLicenseRemindersForUser(admin, userId),
     ]);
     usersProcessed += 1;
     for (const result of results) {

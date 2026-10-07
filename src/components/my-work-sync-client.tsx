@@ -19,6 +19,7 @@ export function MyWorkSyncClient() {
           fetch("/api/notifications/sync-action-reminders", { method: "POST", cache: "no-store" }),
           fetch("/api/notifications/sync-monitoring-overdue", { method: "POST", cache: "no-store" }),
           fetch("/api/notifications/sync-emr-reminders", { method: "POST", cache: "no-store" }),
+          fetch("/api/notifications/sync-physician-license-reminders", { method: "POST", cache: "no-store" }),
         ]);
         let created = 0;
         for (const result of results) {
