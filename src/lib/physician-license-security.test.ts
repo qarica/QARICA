@@ -70,6 +70,22 @@ describe("Physician license proactive due-soon warning (not just after-the-fact 
     expect(shared).toContain('onConflict: "recipient_user_id,notification_event_key"');
   });
 
+  // Real finding from a full-app review: physician_license.view was granted
+  // broadly (backfilled onto every role that already had tasks.view) with no
+  // department scope at all — any view-only account could see every
+  // physician's registration hospital-wide, not just its own khoa/phòng.
+  // Only physician_license.manage (Tổ Hành chính, who must track compliance
+  // across the whole hospital) legitimately needs the full list.
+  it("view-only callers (no physician_license.manage) are scoped to their own khoa/phòng, in both the API route and the SSR page", () => {
+    const route = read("src/app/api/physician-license/registrations/route.ts");
+    expect(route).toContain('has_permission", { p_permission_code: "physician_license.manage" }');
+    expect(route).toContain('query = query.eq("department_id", profile?.primary_department_id');
+
+    const page = read("src/app/(app)/physician-license/page.tsx");
+    expect(page).toContain("if (!canManage) {");
+    expect(page).toContain('registrationsQuery.eq("department_id", user.primaryDepartmentId)');
+  });
+
   it("the reminder sync is wired into both existing polling entry points and the background cron", () => {
     const route = read("src/app/api/notifications/sync-physician-license-reminders/route.ts");
     expect(route).toContain("syncPhysicianLicenseRemindersForUser(admin, auth.user.id)");

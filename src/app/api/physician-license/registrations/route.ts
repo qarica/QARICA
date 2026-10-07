@@ -23,6 +23,13 @@ export async function GET(request: Request) {
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
+  // A view-only caller (physician_license.view, granted broadly alongside
+  // tasks.view when this module shipped) only sees its own khoa/phòng's
+  // registrations — not every physician in the hospital. Only
+  // physician_license.manage (Tổ Hành chính) keeps the full organization list.
+  const { data: canManageData } = await auth.supabase.rpc("has_permission", { p_permission_code: "physician_license.manage" });
+  const canManage = !!canManageData;
+
   const status = new URL(request.url).searchParams.get("status");
   let query = admin
     .from("physician_license_registrations")
@@ -31,6 +38,10 @@ export async function GET(request: Request) {
     .order("deadline", { ascending: true })
     .limit(300);
   if (status) query = query.eq("status", status);
+  if (!canManage) {
+    const { data: profile } = await admin.from("profiles").select("primary_department_id").eq("user_id", auth.user.id).maybeSingle();
+    query = query.eq("department_id", profile?.primary_department_id || "00000000-0000-0000-0000-000000000000");
+  }
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
