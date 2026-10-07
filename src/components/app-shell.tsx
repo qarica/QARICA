@@ -147,7 +147,15 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
   const mainNavGroups = navGroups.filter((group) => !group.footer);
   const footerNavGroups = navGroups.filter((group) => group.footer);
 
-  return <div className="app-root workspace-app" style={{ ["--brand" as string]: organization?.primary_color || "#2563eb" }}>
+  // Default must match globals.css's --brand (#0D6EFD): that stylesheet value
+  // is now the only non-important declaration left after removing the 3
+  // competing !important overrides (workspace-shell.css, qarica-design-
+  // system.css, qms-enterprise-redesign.css) that used to silently beat this
+  // inline style regardless of organization.primary_color — the per-org
+  // custom brand color never actually took effect before. Keeping this
+  // default in sync with globals.css means organizations that haven't set a
+  // custom color see the exact same blue as before.
+  return <div className="app-root workspace-app" style={{ ["--brand" as string]: organization?.primary_color || "#0D6EFD" }}>
     <style>{`
       .workspace-app{--sidebar-width:266px;--sidebar-collapsed-width:76px;background:#f5f8fc;color:#0f172a}
       .workspace-app .main-shell{margin-left:var(--sidebar-width);padding-top:68px;transition:margin-left .2s}

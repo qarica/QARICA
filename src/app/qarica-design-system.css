@@ -44,9 +44,7 @@ body{font-feature-settings:"kern" 1,"liga" 1}
   --text:var(--qarica-text)!important;
   --muted:var(--qarica-muted)!important;
   --line:var(--qarica-line)!important;
-  --brand:var(--qarica-blue-700)!important;
-  --brand-dark:var(--qarica-navy-900)!important;
-  --brand-soft:var(--qarica-blue-100)!important;
+  /* --brand/--brand-dark/--brand-soft now live only in globals.css. */
   background:var(--qarica-bg)!important;
 }
 .workspace-app .sidebar{
