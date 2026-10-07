@@ -6,12 +6,65 @@
 // PHẠM VI CÓ CHỦ ĐÍCH GIỚI HẠN (đọc trước khi mở rộng):
 // - KHÔNG cache bất kỳ request nào tới /api/** — dữ liệu chấm điểm luôn phải
 //   là dữ liệu mới nhất từ server, không phục vụ từ cache.
-// - KHÔNG có hàng đợi ghi offline (offline write queue) cho kết quả chấm điểm
-//   — nếu mất mạng ngay lúc bấm lưu, người dùng vẫn cần thử lại khi có mạng.
-//   Đây là việc cần làm thêm ở bản sau (IndexedDB + background sync) và PHẢI
-//   kiểm thử trên thiết bị thật trước khi coi là hoàn chỉnh.
 // - Chỉ cache-first cho tài nguyên tĩnh (icon, manifest); network-first cho
 //   HTML để không giữ người dùng kẹt ở bản trang cũ khi có mạng trở lại.
+//
+// Hàng đợi ghi offline (IndexedDB "qlcl-offline-queue", store
+// "pending-submissions") giờ có — xem src/lib/offline-submission-queue.ts,
+// đó mới là bản mô tả đầy đủ/có thẩm quyền của luồng này. Đường chính (mọi
+// trình duyệt, kể cả iOS Safari không có Background Sync) là retry từ chính
+// tab đang mở: sự kiện "online" + poll định kỳ, trong
+// initOfflineQueueAutoFlush(). Handler "sync" dưới đây chỉ là lớp tăng cường
+// tốt-nhất-có-thể cho các trình duyệt có hỗ trợ Background Sync
+// (Chrome/Android) khi tab đã đóng — cố tình trùng lặp logic mở
+// IndexedDB/gửi lại tối thiểu ở đây vì service worker không import được
+// module TS; KHÔNG sửa logic nghiệp vụ ở một bên mà quên bên kia.
+const OFFLINE_QUEUE_DB_NAME = "qlcl-offline-queue";
+const OFFLINE_QUEUE_STORE_NAME = "pending-submissions";
+
+function openOfflineQueueDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(OFFLINE_QUEUE_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(OFFLINE_QUEUE_STORE_NAME)) db.createObjectStore(OFFLINE_QUEUE_STORE_NAME, { keyPath: "id" });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function flushOfflineQueueFromServiceWorker() {
+  const db = await openOfflineQueueDb();
+  const items = await new Promise((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_QUEUE_STORE_NAME, "readonly");
+    const request = tx.objectStore(OFFLINE_QUEUE_STORE_NAME).getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+  for (const item of items) {
+    try {
+      const formData = new FormData();
+      for (const [k, v] of Object.entries(item.fields || {})) formData.append(k, v);
+      for (const f of item.files || []) formData.append(f.key, f.file);
+      const res = await fetch(item.endpoint, { method: "POST", body: formData });
+      if (!res.ok) continue;
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(OFFLINE_QUEUE_STORE_NAME, "readwrite");
+        tx.objectStore(OFFLINE_QUEUE_STORE_NAME).delete(item.id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch {
+      break; // vẫn mất mạng — dừng lại, lần sync sau thử lại từ đầu
+    }
+  }
+  db.close();
+}
+
+self.addEventListener("sync", (event) => {
+  if (event.tag === "qlcl-offline-queue-flush") event.waitUntil(flushOfflineQueueFromServiceWorker());
+});
 
 // v2: bumped after the QARICA brand refresh (checkmark -> Q mark) so any client that
 // already cached the old icon.svg/apple-icon/manifest under v1 gets the new assets —

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { prepareChecklistPhoto, type PreparedPhoto } from "@/lib/checklist-photo";
 import { clearDraftPhotos, loadDraftPhotos, saveDraftPhotos } from "@/lib/monitoring-draft";
+import { countPendingSubmissions, enqueueSubmission, initOfflineQueueAutoFlush, isNetworkError, requestBackgroundSync } from "@/lib/offline-submission-queue";
 
 type Item = { id: string; content: string; metadata?: any };
 type Section = { id: string; title: string; items: Item[] };
@@ -60,6 +61,7 @@ export function FiveSChecklistRunClient({ templateId, versionId, templateCode, s
   const [validationPopup, setValidationPopup] = useState<ValidationPopup | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [pendingOffline, setPendingOffline] = useState(0);
 
   const items = useMemo(() => sections.flatMap((section) => section.items.map((item) => ({ ...item, sectionTitle: section.title }))), [sections]);
   const metadataAreas = items.find((item) => Array.isArray(item.metadata?.area_options))?.metadata?.area_options as string[] | undefined;
@@ -137,6 +139,25 @@ export function FiveSChecklistRunClient({ templateId, versionId, templateCode, s
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void countPendingSubmissions().then((n) => { if (!cancelled) setPendingOffline(n); });
+    const stop = initOfflineQueueAutoFlush({
+      onSuccess: (item, data) => {
+        void countPendingSubmissions().then((n) => { if (!cancelled) setPendingOffline(n); });
+        if (cancelled || item.meta.draftKey !== draftKey) return;
+        void clearDraft();
+        setMessage({ tone: "success", text: data.fail_count > 0 ? `Đã gửi bảng kiểm lưu ngoại tuyến (${data.record_code}). Có ${data.fail_count} nội dung Không đạt; hạn kiểm tra lại được tự động tính +05 phút.` : `Đã gửi bảng kiểm lưu ngoại tuyến (${data.record_code}). Không có nội dung Không đạt; hồ sơ chuyển Phòng QLCL xác nhận.` });
+        if (data.round_id) setTimeout(() => router.push(`/monitoring/${data.round_id}`), 550);
+      },
+      onFailure: () => {
+        void countPendingSubmissions().then((n) => { if (!cancelled) setPendingOffline(n); });
+      },
+    });
+    return () => { cancelled = true; stop(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
 
   if (!templateCode || !FIVE_S_FAMILY_CODES.has(templateCode) || !canPerform) return null;
 
@@ -227,16 +248,16 @@ export function FiveSChecklistRunClient({ templateId, versionId, templateCode, s
 
     setBusy(true);
     try {
-      const formData = new FormData();
+      const files: { key: string; file: File }[] = [];
       const imageMeta: any[] = [];
       for (const item of items) {
         (photos[item.id] || []).forEach((photo, index) => {
           const key = `img_${item.id}_${index}`;
-          formData.append(key, photo.file);
+          files.push({ key, file: photo.file });
           imageMeta.push({ key, item_id: item.id, captured_at: photo.capturedAt, latitude: photo.geo.latitude, longitude: photo.geo.longitude, accuracy: photo.geo.accuracy, source: photo.source, stage: "INITIAL" });
         });
       }
-      formData.append("payload", JSON.stringify({
+      const payloadJson = JSON.stringify({
         monitoring_date: monitoringDate,
         staff_name: staffName.trim(),
         selected_areas: selectedAreas,
@@ -244,9 +265,24 @@ export function FiveSChecklistRunClient({ templateId, versionId, templateCode, s
         images: imageMeta,
         responses: items.map((item) => ({ item_id: item.id, result: results[item.id], note: notes[item.id]?.trim() || null })),
         ...(roundId ? {} : { template_id: templateId, version_id: versionId }),
-      }));
+      });
       const endpoint = roundId ? `/api/monitoring/rounds/${roundId}/5s-results` : "/api/monitoring/rounds/5s";
-      const res = await fetch(endpoint, { method: "POST", body: formData });
+      const fields = { payload: payloadJson };
+
+      let res: Response;
+      try {
+        const formData = new FormData();
+        formData.append("payload", payloadJson);
+        for (const f of files) formData.append(f.key, f.file);
+        res = await fetch(endpoint, { method: "POST", body: formData });
+      } catch (fetchError) {
+        if (!isNetworkError(fetchError)) throw fetchError;
+        await enqueueSubmission({ endpoint, fields, files, meta: { draftKey } });
+        requestBackgroundSync();
+        setPendingOffline((n) => n + 1);
+        setMessage({ tone: "success", text: "Đang ngoại tuyến — đã lưu bảng kiểm vào hàng đợi trên thiết bị này, sẽ tự động gửi ngay khi có mạng trở lại. Không tắt ứng dụng khi còn trong hàng đợi." });
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Không thể lưu bảng kiểm 5S.");
       await clearDraft();
@@ -319,7 +355,7 @@ export function FiveSChecklistRunClient({ templateId, versionId, templateCode, s
     `}</style>
     {validationModal}
     <section className="panel five-s-run-panel">
-      <div className="panel-title"><div><div className="eyebrow">BẢNG KIỂM ĐANG THỰC HIỆN · {templateCode}</div><h2>Giám sát 5S - Khu vực: Bên ngoài bệnh viện</h2><p>Chấm, ghi chú và chụp/tải ảnh cho từng tiêu chí. Bản nháp được tự lưu trên thiết bị trong khi chưa lưu chính thức.</p></div><div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}><span className="status-badge info">Đang kiểm</span>{dirty ? <span className="status-badge success" role="status" aria-live="polite">Đã tự lưu nháp</span> : null}</div></div>
+      <div className="panel-title"><div><div className="eyebrow">BẢNG KIỂM ĐANG THỰC HIỆN · {templateCode}</div><h2>Giám sát 5S - Khu vực: Bên ngoài bệnh viện</h2><p>Chấm, ghi chú và chụp/tải ảnh cho từng tiêu chí. Bản nháp được tự lưu trên thiết bị trong khi chưa lưu chính thức.</p></div><div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}><span className="status-badge info">Đang kiểm</span>{dirty ? <span className="status-badge success" role="status" aria-live="polite">Đã tự lưu nháp</span> : null}{pendingOffline > 0 ? <span className="status-badge warning" role="status" aria-live="polite">{pendingOffline} bảng kiểm đang chờ gửi (ngoại tuyến)</span> : null}</div></div>
       <div style={{ padding: "0 18px 18px", display: "grid", gap: 18 }}>
         {message ? <div className={`alert ${message.tone}`}>{message.text}</div> : null}
         <div data-validation-target="areas"><strong>Khu vực đánh giá</strong><div className="check-grid" style={{ marginTop: 10 }}>
