@@ -37,4 +37,24 @@ describe("Procedure trainings module security and control gates", () => {
     const route = read("src/app/api/procedure-trainings/[id]/route.ts");
     expect(route).toContain('if (!["TRAINED", "PLANNED", "NOT_PLANNED"].includes(body.status))');
   });
+
+  // Real finding from a full-app review: the edit form built editDraft state
+  // for trainer, feedback_qlcl, session_2_* and notes (all processed fine by
+  // this same PATCH route and all selected back from the DB) but never
+  // rendered an <input> for any of them — a classic UI-form-state-exists-but-
+  // no-field-renders bug (CLAUDE.md principle 5: UI form state -> submitted
+  // body -> API handling -> SELECT must all agree). Fixed by adding the 4
+  // missing columns/inputs.
+  it("the edit UI actually renders inputs for trainer, session 2, feedback_qlcl and notes (not just tracked in state)", () => {
+    const client = read("src/components/procedure-trainings-client.tsx");
+    expect(client).toContain('placeholder="Người đào tạo..."');
+    expect(client).toContain("editDraft.trainer");
+    expect(client).toContain("editDraft.session_2_time");
+    expect(client).toContain("editDraft.session_2_location");
+    expect(client).toContain("editDraft.session_2_method");
+    expect(client).toContain('placeholder="Phản hồi QLCL..."');
+    expect(client).toContain("editDraft.feedback_qlcl");
+    expect(client).toContain('placeholder="Ghi chú..."');
+    expect(client).toContain("editDraft.notes");
+  });
 });

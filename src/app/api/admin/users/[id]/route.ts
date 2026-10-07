@@ -77,6 +77,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       const { error: activeError } = await admin.from("profiles").update({ is_active: body.is_active }).eq("user_id", id);
       if (activeError) return NextResponse.json({ error: "Đã lưu phân quyền nhưng không cập nhật được trạng thái hoạt động: " + activeError.message }, { status: 500 });
     }
+    await admin.from("audit_logs").insert({
+      actor_user_id: permissionCheck.user.id,
+      table_name: "profiles",
+      row_id: id,
+      action_type: typeof body.is_active === "boolean" ? (body.is_active ? "USER_REACTIVATE" : "USER_DEACTIVATE") : "USER_ACCESS_UPDATE",
+      new_value: { full_name: fullName, role_ids: roleIds, effective_permission_ids: effectivePermissionIds, scope_mode: scopeMode, scope_department_ids: scopeDepartmentIds, primary_department_id: primaryDepartmentId, is_active: typeof body.is_active === "boolean" ? body.is_active : undefined },
+      reason: "Cập nhật phân quyền/thông tin người dùng.",
+      request_meta: { source: "qlcl-ui" },
+    });
     return NextResponse.json({ ok: true, transaction: "atomic", result: tx });
   }
 

@@ -142,8 +142,12 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
                 <th>Tên quy trình</th>
                 <th>Đơn vị soạn thảo</th>
                 <th>Hiệu lực</th>
+                <th>Người đào tạo</th>
                 <th>Đào tạo lần 1</th>
                 <th>Trạng thái</th>
+                <th>Đào tạo lần 2</th>
+                <th>Phản hồi QLCL</th>
+                <th>Ghi chú</th>
                 {canManage ? <th>Thao tác</th> : null}
               </tr>
             </thead>
@@ -156,6 +160,18 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
                     <td>{t.procedure_name}</td>
                     <td>{t.drafting_unit || "—"}</td>
                     <td>{formatDate(t.effective_date)}</td>
+                    <td>
+                      {editing ? (
+                        <input
+                          className="input"
+                          placeholder="Người đào tạo..."
+                          value={String(editDraft.trainer ?? "")}
+                          onChange={(e) => setEditDraft((v) => ({ ...v, trainer: e.target.value }))}
+                        />
+                      ) : (
+                        t.trainer || "—"
+                      )}
+                    </td>
                     <td>
                       {editing ? (
                         <div className="pt-session-edit">
@@ -197,6 +213,58 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
                         <span className={`status-badge ${STATUS_TONE[t.status]}`}>{STATUS_LABEL[t.status]}</span>
                       )}
                     </td>
+                    <td>
+                      {editing ? (
+                        <div className="pt-session-edit">
+                          <input
+                            className="input"
+                            placeholder="Thời gian..."
+                            value={String(editDraft.session_2_time ?? "")}
+                            onChange={(e) => setEditDraft((v) => ({ ...v, session_2_time: e.target.value }))}
+                          />
+                          <input
+                            className="input"
+                            placeholder="Địa điểm..."
+                            value={String(editDraft.session_2_location ?? "")}
+                            onChange={(e) => setEditDraft((v) => ({ ...v, session_2_location: e.target.value }))}
+                          />
+                          <input
+                            className="input"
+                            placeholder="Cách thức..."
+                            value={String(editDraft.session_2_method ?? "")}
+                            onChange={(e) => setEditDraft((v) => ({ ...v, session_2_method: e.target.value }))}
+                          />
+                        </div>
+                      ) : (
+                        <small>
+                          {t.session_2_time || "—"} · {t.session_2_location || "—"} · {t.session_2_method || "—"}
+                        </small>
+                      )}
+                    </td>
+                    <td>
+                      {editing ? (
+                        <input
+                          className="input"
+                          placeholder="Phản hồi QLCL..."
+                          value={String(editDraft.feedback_qlcl ?? "")}
+                          onChange={(e) => setEditDraft((v) => ({ ...v, feedback_qlcl: e.target.value }))}
+                        />
+                      ) : (
+                        t.feedback_qlcl || "—"
+                      )}
+                    </td>
+                    <td>
+                      {editing ? (
+                        <input
+                          className="input"
+                          placeholder="Ghi chú..."
+                          value={String(editDraft.notes ?? "")}
+                          onChange={(e) => setEditDraft((v) => ({ ...v, notes: e.target.value }))}
+                        />
+                      ) : (
+                        t.notes || "—"
+                      )}
+                    </td>
                     {canManage ? (
                       <td>
                         {editing ? (
@@ -220,7 +288,7 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
               })}
               {!trainings.length ? (
                 <tr>
-                  <td colSpan={canManage ? 7 : 6} className="empty-state compact">
+                  <td colSpan={canManage ? 11 : 10} className="empty-state compact">
                     Chưa có quy trình nào.
                   </td>
                 </tr>

@@ -25,7 +25,7 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
 
   const {data:department,error:departmentError}=await admin
     .from("departments")
-    .select("id,organization_id")
+    .select("id,organization_id,code,name,short_name,department_type,parent_department_id,is_active")
     .eq("id",id)
     .eq("organization_id",caller.organization_id)
     .maybeSingle();
@@ -62,5 +62,18 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
 
   if(error)return NextResponse.json({error:error.code==="23505"?"Mã đơn vị đã tồn tại.":error.message},{status:400});
   if(!updated)return NextResponse.json({error:"Đơn vị đã thay đổi hoặc không còn thuộc tổ chức hiện tại."},{status:409});
+
+  const nextIsActive=body.is_active!==false;
+  const {error:auditError}=await admin.from("audit_logs").insert({
+    actor_user_id:auth.user.id,
+    table_name:"departments",
+    row_id:id,
+    action_type:department.is_active&&!nextIsActive?"DEPARTMENT_DEACTIVATE":"DEPARTMENT_UPDATE",
+    old_value:{code:department.code,name:department.name,short_name:department.short_name,department_type:department.department_type,parent_department_id:department.parent_department_id,is_active:department.is_active},
+    new_value:{code,name,short_name:body.short_name||null,department_type:body.department_type||null,parent_department_id:parentDepartmentId,is_active:nextIsActive},
+    reason:"Cập nhật khoa/phòng.",
+    request_meta:{source:"qlcl-ui"},
+  });
+  if(auditError)return NextResponse.json({error:`Đã cập nhật nhưng không ghi được audit trail: ${auditError.message}`},{status:500});
   return NextResponse.json({ok:true});
 }

@@ -84,7 +84,18 @@ export async function POST(request: Request) {
     },
   });
 
-  if (!txError) return NextResponse.json({ ok: true, user_id: userId, login_name: loginName, transaction: "atomic", result: tx });
+  if (!txError) {
+    await admin.from("audit_logs").insert({
+      actor_user_id: a.user.id,
+      table_name: "profiles",
+      row_id: userId,
+      action_type: "USER_CREATE",
+      new_value: { login_name: loginName, full_name: fullName, role_ids: roleIds, effective_permission_ids: effectivePermissionIds, scope_mode: scopeMode, scope_department_ids: scopeDepartmentIds, primary_department_id: primaryDepartmentId },
+      reason: "Tạo người dùng mới.",
+      request_meta: { source: "qlcl-ui" },
+    });
+    return NextResponse.json({ ok: true, user_id: userId, login_name: loginName, transaction: "atomic", result: tx });
+  }
 
   await admin.auth.admin.deleteUser(userId);
 
