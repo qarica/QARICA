@@ -10,6 +10,9 @@ type Req = {
   urgency: "NORMAL" | "URGENT";
   title: string;
   description: string | null;
+  quantity: number | null;
+  unit_price: number | null;
+  estimated_cost: number | null;
   submitted_at: string;
   status: "SUBMITTED" | "BGD_APPROVED" | "BGD_REJECTED" | "TGD_APPROVED" | "TGD_REJECTED" | "NOTIFIED";
   bgd_note: string | null;
@@ -17,6 +20,7 @@ type Req = {
 };
 
 const TYPE_LABEL: Record<string, string> = { NEW_PURCHASE: "Mua mới", REPAIR: "Sửa chữa", TRANSFER: "Điều chuyển kho" };
+const currency = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 const STATUS_LABEL: Record<string, string> = {
   SUBMITTED: "Chờ BGĐ duyệt",
   BGD_APPROVED: "BGĐ đã duyệt — chờ TGĐ",
@@ -30,10 +34,14 @@ export function ProcurementRequestsClient({
   departments,
   initialRequests,
   canManage,
+  canApproveBgd,
+  canApproveTgd,
 }: {
   departments: Department[];
   initialRequests: Req[];
   canManage: boolean;
+  canApproveBgd: boolean;
+  canApproveTgd: boolean;
 }) {
   const [requests, setRequests] = useState(initialRequests);
   const [departmentId, setDepartmentId] = useState(departments[0]?.id || "");
@@ -41,6 +49,8 @@ export function ProcurementRequestsClient({
   const [urgency, setUrgency] = useState<"NORMAL" | "URGENT">("NORMAL");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [unitPrice, setUnitPrice] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notingId, setNotingId] = useState<string | null>(null);
@@ -59,7 +69,15 @@ export function ProcurementRequestsClient({
     const res = await fetch("/api/procurement/requests", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ department_id: departmentId, request_type: requestType, urgency, title: title.trim(), description: description.trim() || null }),
+      body: JSON.stringify({
+        department_id: departmentId,
+        request_type: requestType,
+        urgency,
+        title: title.trim(),
+        description: description.trim() || null,
+        quantity: quantity.trim() || null,
+        unit_price: unitPrice.trim() || null,
+      }),
     });
     const body = await res.json().catch(() => ({}));
     setBusy(false);
@@ -71,6 +89,8 @@ export function ProcurementRequestsClient({
     setTitle("");
     setDescription("");
     setUrgency("NORMAL");
+    setQuantity("");
+    setUnitPrice("");
   }
 
   async function act(req: Req, action: string, note?: string) {
@@ -129,6 +149,11 @@ export function ProcurementRequestsClient({
               </select>
             </div>
             <textarea className="input" rows={2} placeholder="Mô tả chi tiết (tùy chọn)..." value={description} onChange={(e) => setDescription(e.target.value)} />
+            <div className="procurement-form-row">
+              <input className="input" type="number" min="1" step="1" placeholder="Số lượng (tùy chọn)" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+              <input className="input" type="number" min="0" step="1000" placeholder="Đơn giá — VNĐ (tùy chọn)" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
+              <input className="input" disabled value={quantity && unitPrice ? currency.format(Number(quantity) * Number(unitPrice)) : "Chi phí dự kiến"} />
+            </div>
             {error ? <div className="alert error">{error}</div> : null}
             <button className="button primary" disabled={busy || !title.trim() || !departmentId} onClick={() => void submit()}>
               Gửi đề xuất
@@ -148,6 +173,9 @@ export function ProcurementRequestsClient({
                 <strong>{r.title}</strong>
                 <small>
                   {departmentName(r.department_id)} · {TYPE_LABEL[r.request_type]} · {r.urgency === "URGENT" ? "Khẩn" : "Thường quy"} · {STATUS_LABEL[r.status]}
+                  {r.quantity ? ` · SL: ${r.quantity}` : ""}
+                  {r.unit_price ? ` · Đơn giá: ${currency.format(r.unit_price)}` : ""}
+                  {r.estimated_cost ? ` · Dự kiến: ${currency.format(r.estimated_cost)}` : ""}
                   {r.bgd_note ? ` · BGĐ: ${r.bgd_note}` : ""}
                   {r.tgd_note ? ` · TGĐ: ${r.tgd_note}` : ""}
                 </small>
@@ -165,9 +193,9 @@ export function ProcurementRequestsClient({
                   </div>
                 ) : null}
               </div>
-              {canManage && notingId !== r.id ? (
+              {(canManage || canApproveBgd || canApproveTgd) && notingId !== r.id ? (
                 <div className="procurement-actions">
-                  {r.status === "SUBMITTED" ? (
+                  {r.status === "SUBMITTED" && canApproveBgd ? (
                     <>
                       <button className="button primary small" onClick={() => startNote(r, "BGD_APPROVE")}>
                         BGĐ duyệt
@@ -177,7 +205,7 @@ export function ProcurementRequestsClient({
                       </button>
                     </>
                   ) : null}
-                  {r.status === "BGD_APPROVED" ? (
+                  {r.status === "BGD_APPROVED" && canApproveTgd ? (
                     <>
                       <button className="button primary small" onClick={() => startNote(r, "TGD_APPROVE")}>
                         TGĐ duyệt
@@ -187,7 +215,7 @@ export function ProcurementRequestsClient({
                       </button>
                     </>
                   ) : null}
-                  {["TGD_APPROVED", "BGD_REJECTED", "TGD_REJECTED"].includes(r.status) ? (
+                  {["TGD_APPROVED", "BGD_REJECTED", "TGD_REJECTED"].includes(r.status) && canManage ? (
                     <button className="button secondary small" onClick={() => void act(r, "NOTIFY")}>
                       Thông báo đơn vị
                     </button>

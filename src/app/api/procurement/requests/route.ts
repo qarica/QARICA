@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   let query = admin
     .from("procurement_requests")
     .select(
-      "id,department_id,request_type,urgency,title,description,submitted_by,submitted_at,status,bgd_decided_at,bgd_note,tgd_decided_at,tgd_note,notified_at",
+      "id,department_id,request_type,urgency,title,description,quantity,unit_price,estimated_cost,submitted_by,submitted_at,status,bgd_decided_at,bgd_note,tgd_decided_at,tgd_note,notified_at",
     )
     .eq("organization_id", organizationId)
     .order("submitted_at", { ascending: false })
@@ -42,6 +42,12 @@ export async function POST(request: Request) {
   if (!requestType) return NextResponse.json({ error: "Loại đề xuất không hợp lệ." }, { status: 400 });
   if (!title) return NextResponse.json({ error: "Tên đề xuất không được để trống." }, { status: 400 });
 
+  const quantity = body.quantity !== undefined && body.quantity !== null && body.quantity !== "" ? Number(body.quantity) : null;
+  const unitPrice = body.unit_price !== undefined && body.unit_price !== null && body.unit_price !== "" ? Number(body.unit_price) : null;
+  if (quantity !== null && (!Number.isFinite(quantity) || quantity <= 0)) return NextResponse.json({ error: "Số lượng không hợp lệ." }, { status: 400 });
+  if (unitPrice !== null && (!Number.isFinite(unitPrice) || unitPrice < 0)) return NextResponse.json({ error: "Đơn giá không hợp lệ." }, { status: 400 });
+  const estimatedCost = quantity !== null && unitPrice !== null ? quantity * unitPrice : null;
+
   const { data, error } = await admin
     .from("procurement_requests")
     .insert({
@@ -51,11 +57,14 @@ export async function POST(request: Request) {
       urgency: body.urgency === "URGENT" ? "URGENT" : "NORMAL",
       title,
       description: body.description ? String(body.description).trim() || null : null,
+      quantity,
+      unit_price: unitPrice,
+      estimated_cost: estimatedCost,
       submitted_by: auth.user.id,
       status: "SUBMITTED",
     })
     .select(
-      "id,department_id,request_type,urgency,title,description,submitted_by,submitted_at,status,bgd_decided_at,bgd_note,tgd_decided_at,tgd_note,notified_at",
+      "id,department_id,request_type,urgency,title,description,quantity,unit_price,estimated_cost,submitted_by,submitted_at,status,bgd_decided_at,bgd_note,tgd_decided_at,tgd_note,notified_at",
     )
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

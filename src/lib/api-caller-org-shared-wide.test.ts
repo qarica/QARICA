@@ -11,6 +11,13 @@ import { describe, expect, it } from "vitest";
 // each route's own existing status code/message for its "no organization"
 // response (403 vs 400, "chưa gắn tổ chức" vs "chưa gắn bệnh viện" differ
 // intentionally per route and were preserved, not homogenized).
+//
+// admin/departments/[id]/roles/route.ts later graduated OFF this list: its
+// 2-step disable-then-insert was replaced by the atomic qlcl_set_department_roles_v1
+// RPC (see department-roles-atomic.test.ts), which re-derives the caller's
+// organization_id itself inside the security-definer function — same pattern
+// as every other qlcl_*_v1-backed route (CAPA workflow, EMR items), none of
+// which call callerOrganizationId in the route layer either.
 describe("Non-EMR API routes — callerOrganizationId lookup shared, not copy-pasted per route", () => {
   const routePaths = [
     "src/app/api/plans/[id]/export/word/route.ts",
@@ -18,7 +25,6 @@ describe("Non-EMR API routes — callerOrganizationId lookup shared, not copy-pa
     "src/app/api/admin/settings/route.ts",
     "src/app/api/admin/work-calendar-holidays/route.ts",
     "src/app/api/admin/departments/route.ts",
-    "src/app/api/admin/departments/[id]/roles/route.ts",
     "src/app/api/search/route.ts",
     "src/app/api/evidence/[id]/route.ts",
     "src/app/api/calendar/recurring/route.ts",

@@ -52,3 +52,66 @@ describe("Procurement approval state machine", () => {
     expect(route).toContain('"BGD_REJECTED", "TGD_REJECTED"');
   });
 });
+
+// Real finding from a full-app review: both approval tiers were gated by the
+// SAME single procurement.manage permission — anyone who could do one step
+// could do the other, which defeats the entire point of a 2-level BGĐ -> TGĐ
+// chain. Split into procurement.approve_bgd / procurement.approve_tgd
+// (migration: 20261024_procurement_bgd_tgd_split_v1.sql, backfilled onto
+// every role that had procurement.manage so nobody loses access the moment
+// it ships — splitting who actually holds which one is an Admin task after).
+describe("Procurement 2-tier approval requires separate BGĐ/TGĐ permissions", () => {
+  const route = read("src/app/api/procurement/requests/[id]/route.ts");
+
+  it("BGĐ actions require procurement.approve_bgd, TGĐ actions require procurement.approve_tgd — not the same shared permission", () => {
+    expect(route).toContain('has_permission", { p_permission_code: "procurement.approve_bgd" }');
+    expect(route).toContain('has_permission", { p_permission_code: "procurement.approve_tgd" }');
+  });
+
+  it("the new permissions are backfilled onto every role that already had procurement.manage, so the split doesn't lock anyone out on deploy", () => {
+    const migration = read("supabase/migrations/20261024_procurement_bgd_tgd_split_v1.sql");
+    expect(migration).toContain("('procurement.approve_bgd'");
+    expect(migration).toContain("('procurement.approve_tgd'");
+    expect(migration).toContain("p_old.code='procurement.manage'");
+  });
+
+  it("the same person cannot approve their own BGĐ decision again at the TGĐ step, even if they hold both permissions", () => {
+    expect(route).toContain("if (isTgdAction && current.bgd_decided_by && current.bgd_decided_by === auth.user.id)");
+  });
+
+  it("the client only shows each tier's approve/reject buttons to the account that actually holds that tier's permission", () => {
+    const client = read("src/components/procurement-requests-client.tsx");
+    expect(client).toContain("canApproveBgd");
+    expect(client).toContain("canApproveTgd");
+    expect(client).toContain('r.status === "SUBMITTED" && canApproveBgd');
+    expect(client).toContain('r.status === "BGD_APPROVED" && canApproveTgd');
+
+    const page = read("src/app/(app)/procurement/page.tsx");
+    expect(page).toContain('hasPermission(user, "procurement.approve_bgd")');
+    expect(page).toContain('hasPermission(user, "procurement.approve_tgd")');
+  });
+});
+
+// Real finding: BGĐ/TGĐ had to approve a proposal with no quantity, unit
+// price or estimated cost at all — nothing to gauge the spend against.
+describe("Procurement request carries quantity/unit price/estimated cost", () => {
+  it("the migration adds the 3 cost columns", () => {
+    const migration = read("supabase/migrations/20261024_procurement_cost_fields_v1.sql");
+    expect(migration).toContain("add column if not exists quantity integer");
+    expect(migration).toContain("add column if not exists unit_price numeric(14,2)");
+    expect(migration).toContain("add column if not exists estimated_cost numeric(14,2)");
+  });
+
+  it("POST computes estimated_cost from quantity * unit_price server-side rather than trusting a client-sent total", () => {
+    const route = read("src/app/api/procurement/requests/route.ts");
+    expect(route).toContain("const estimatedCost = quantity !== null && unitPrice !== null ? quantity * unitPrice : null;");
+    expect(route).toContain("quantity,\n      unit_price: unitPrice,\n      estimated_cost: estimatedCost,");
+  });
+
+  it("the create form and the list both expose quantity/unit price/estimated cost, not just the API", () => {
+    const client = read("src/components/procurement-requests-client.tsx");
+    expect(client).toContain('placeholder="Số lượng (tùy chọn)"');
+    expect(client).toContain('placeholder="Đơn giá — VNĐ (tùy chọn)"');
+    expect(client).toContain("r.estimated_cost");
+  });
+});

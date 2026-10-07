@@ -1,33 +1,32 @@
 import { NextResponse } from "next/server";
-import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
+import { requireApiPermission } from "@/lib/api-auth";
+import { rpcErrorMessage } from "@/lib/rpc-compat";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const ALLOWED = new Set(["HEAD","QUALITY_NETWORK_MEMBER"]);
+const SET_ROLES_RPC = "qlcl_set_department_roles_v1";
 
-export async function PUT(request:Request,{params}:{params:Promise<{id:string}>}){
-  const auth=await requireApiPermission("departments.manage"); if(!auth.ok)return auth.response;
-  const {id:departmentId}=await params; const body=await request.json();
-  const headUserId=body.head_user_id?String(body.head_user_id):null;
-  const networkUserIds=Array.from(new Set((Array.isArray(body.quality_network_user_ids)?body.quality_network_user_ids:[]).map(String).filter(Boolean)));
-  const admin=createAdminClient();
-  const {organizationId,error:callerError}=await callerOrganizationId(admin,auth.user.id);
-  if(callerError)return NextResponse.json({error:callerError.message},{status:400});
-  if(!organizationId)return NextResponse.json({error:"Tài khoản chưa gắn bệnh viện."},{status:403});
-  const {data:department}=await admin.from("departments").select("id,organization_id,is_active").eq("id",departmentId).maybeSingle();
-  if(!department||department.organization_id!==organizationId)return NextResponse.json({error:"Khoa/Phòng không thuộc bệnh viện hiện tại."},{status:404});
-  const userIds=Array.from(new Set([headUserId,...networkUserIds].filter(Boolean))) as string[];
-  if(userIds.length){
-    const {data:profiles,error}=await admin.from("profiles").select("user_id,organization_id,is_active").in("user_id",userIds);
-    if(error)return NextResponse.json({error:error.message},{status:400});
-    if((profiles??[]).length!==userIds.length||(profiles??[]).some(p=>p.organization_id!==organizationId||!p.is_active))
-      return NextResponse.json({error:"Có người dùng không hợp lệ, đã ngưng hoặc không thuộc bệnh viện."},{status:400});
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireApiPermission("departments.manage");
+  if (!auth.ok) return auth.response;
+  const { id: departmentId } = await params;
+  const body = await request.json();
+  const headUserId = body.head_user_id ? String(body.head_user_id) : null;
+  const networkUserIds = Array.from(new Set((Array.isArray(body.quality_network_user_ids) ? body.quality_network_user_ids : []).map(String).filter(Boolean)));
+
+  const admin = createAdminClient();
+  const { data: tx, error } = await admin.rpc(SET_ROLES_RPC, {
+    p_department_id: departmentId,
+    p_actor_user_id: auth.user.id,
+    p_head_user_id: headUserId,
+    p_network_user_ids: networkUserIds,
+  });
+
+  if (error) {
+    const message = rpcErrorMessage(error, "Không thể lưu nhân sự và vai trò.");
+    const status = /khoa\/phòng không thuộc/i.test(message) ? 404 : /tài khoản không hợp lệ/i.test(message) ? 403 : 400;
+    return NextResponse.json({ error: message }, { status });
   }
-  const now=new Date().toISOString();
-  const {error:disableError}=await admin.from("department_user_roles").update({is_active:false,valid_to:now,updated_at:now}).eq("department_id",departmentId).eq("organization_id",organizationId).in("role_type",Array.from(ALLOWED)).eq("is_active",true);
-  if(disableError)return NextResponse.json({error:disableError.message},{status:400});
-  const rows:any[]=[];
-  if(headUserId)rows.push({organization_id:organizationId,department_id:departmentId,user_id:headUserId,role_type:"HEAD",is_primary:true,is_active:true,valid_from:now,created_by:auth.user.id});
-  for(const userId of networkUserIds)rows.push({organization_id:organizationId,department_id:departmentId,user_id:userId,role_type:"QUALITY_NETWORK_MEMBER",is_primary:false,is_active:true,valid_from:now,created_by:auth.user.id});
-  if(rows.length){const {error}=await admin.from("department_user_roles").insert(rows);if(error)return NextResponse.json({error:error.message},{status:400});}
-  return NextResponse.json({ok:true,complete:!!headUserId&&networkUserIds.length>0});
+
+  const result = tx && typeof tx === "object" ? (tx as Record<string, unknown>) : {};
+  return NextResponse.json({ ok: true, complete: result.complete === true, transaction: "atomic" });
 }
