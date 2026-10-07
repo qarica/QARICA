@@ -71,9 +71,8 @@ body {
   min-height: 100vh;
   background: var(--bg) !important;
   color: var(--text) !important;
-  --brand: var(--navy) !important;
-  --brand-dark: var(--navy-dark) !important;
-  --brand-soft: var(--navy-soft) !important;
+  /* --brand/--brand-dark/--brand-soft now live only in globals.css —
+     see the comment there. Do not redeclare here. */
   /* FIX: --line and --muted were previously self-referencing
      ( --line: var(--line); ) inside this same rule, which the
      CSS spec treats as a cycle -> invalid value at computed time.

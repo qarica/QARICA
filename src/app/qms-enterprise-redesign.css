@@ -30,9 +30,8 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
   --text:var(--qms-text)!important;
   --muted:var(--qms-muted)!important;
   --line:var(--qms-line)!important;
-  --brand:var(--qms-primary)!important;
-  --brand-dark:var(--qms-primary-dark)!important;
-  --brand-soft:var(--qms-primary-soft)!important;
+  /* --brand/--brand-dark/--brand-soft now live only in globals.css (same
+     values as --qms-primary/-dark/-soft below, kept in sync manually). */
   --success:var(--qms-success)!important;
   --warning:var(--qms-warning-text)!important;
   --danger:var(--qms-danger)!important;
