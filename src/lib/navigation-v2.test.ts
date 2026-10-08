@@ -121,9 +121,11 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(block).not.toContain("hsba_audit.view");
   });
 
-  it("Group 3 — BỆNH ÁN ĐIỆN TỬ (renamed from the raw EMR acronym) contains the EMR route only", () => {
+  it("Group 3 — BỆNH ÁN ĐIỆN TỬ expands to all 11 EMR destinations (Tổng quan EMR + Timeline + the 9 EMR_CATEGORIES), generated from EMR_CATEGORIES instead of the old single-route EMR workspace-nav strip", () => {
     const block = groupBlock(navigation, "digital-systems");
-    expect(block).toContain('label: "BỆNH ÁN ĐIỆN TỬ", href: "/emr"');
+    expect(block).toContain('{ label: "Tổng quan EMR", href: "/emr"');
+    expect(block).toContain('{ label: "Timeline", href: "/emr/timeline"');
+    expect(block).toContain("...EMR_CATEGORIES.map(");
     expect(block).not.toContain("Cấu hình hệ thống");
     expect(block).not.toContain("workspaceRoot: \"/admin\"");
   });
@@ -193,9 +195,14 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(shell).toContain(".workspace-app.workspace-app .nav-child-link.active .nav-icon,.workspace-app.workspace-app .nav-child-link.active svg{color:#2563eb!important}");
   });
 
-  it("collapses EMR to a single sidebar entry — the EMR subcategories are not exposed in the main sidebar", () => {
-    expect(navigation).not.toContain("EMR_CATEGORIES");
-    expect(navigation.match(/href: "\/emr/g)?.length).toBe(1);
+  // Reversed per explicit follow-up request: "Đưa tất cả các nút menu con của
+  // emr về thành nút con trong thanh master thay cho thanh trượt ngang" —
+  // EMR's horizontal EmrWorkspaceNav strip is gone; all 11 destinations are
+  // now individual sidebar rows (see Group 3 test above and
+  // emr-workspace-nav.test.ts).
+  it("exposes all 11 EMR destinations as sidebar rows, generated from EMR_CATEGORIES", () => {
+    expect(navigation).toContain("EMR_CATEGORIES");
+    expect(navigation.match(/href: "\/emr/g)?.length).toBe(2);
   });
 
   it("does not duplicate Admin's internal tabs into the main sidebar", () => {

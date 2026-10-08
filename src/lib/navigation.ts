@@ -1,4 +1,5 @@
 import type { NavGroup, NavItem, UserContext } from "@/lib/types";
+import { EMR_CATEGORIES } from "@/lib/emr-categories";
 import { workspaceLandingHref } from "@/lib/workspace-navigation";
 
 type WorkspaceChildDef = { label: string; icon: string; workspaceRoot: string };
@@ -63,8 +64,15 @@ const NAV_GROUPS: NavGroupDef[] = [
     id: "digital-systems",
     label: "BỆNH ÁN ĐIỆN TỬ",
     icon: "network",
+    // Explicit request: show all 11 EMR destinations as individual sidebar
+    // rows instead of EMR's own horizontal EmrWorkspaceNav strip (removed).
+    // Generated from EMR_CATEGORIES (single source of truth, also used by
+    // the EMR dashboard readiness grid) instead of a hand-duplicated list,
+    // so a category added/renamed there never has to be repeated here.
     children: [
-      { label: "BỆNH ÁN ĐIỆN TỬ", href: "/emr", icon: "network", permission: "emr.view" },
+      { label: "Tổng quan EMR", href: "/emr", icon: "layout-dashboard", permission: "emr.view" },
+      { label: "Timeline", href: "/emr/timeline", icon: "chart-spline", permission: "emr.view" },
+      ...EMR_CATEGORIES.map((c) => ({ label: c.label, href: `/emr/${c.slug}`, icon: c.icon, permission: "emr.view" })),
     ],
   },
   {

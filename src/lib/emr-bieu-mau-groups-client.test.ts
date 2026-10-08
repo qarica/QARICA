@@ -16,9 +16,8 @@ describe("EMR Biểu mẫu — Quản lý nhóm gáy (dedicated add/update/delet
   const groupsRoute = readFileSync("src/app/api/emr/binding-groups/route.ts", "utf8");
   const groupItemRoute = readFileSync("src/app/api/emr/binding-groups/[id]/route.ts", "utf8");
 
-  it("the page enforces emr.view like every other EMR page and shares the EMR workspace nav", () => {
+  it("the page enforces emr.view like every other EMR page", () => {
     expect(page).toContain('requirePermission(user, "emr.view");');
-    expect(page).toContain("<EmrWorkspaceNav");
   });
 
   it("the tree page links to the groups screen, and the groups screen links back", () => {

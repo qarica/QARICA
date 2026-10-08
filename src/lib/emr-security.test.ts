@@ -12,10 +12,11 @@ describe("EMR security and control gates", () => {
     expect(items).toContain('requireApiPermission("emr.manage")');
     expect(read("src/app/api/emr/items/[id]/route.ts")).toContain('requireApiPermission("emr.manage")');
   });
-  it("hides EMR navigation from users without emr.view (nav label renamed from the raw EMR acronym to Bệnh án điện tử — explicit request)", () => {
+  it("hides EMR navigation from users without emr.view (nav group label renamed from the raw EMR acronym to Bệnh án điện tử — explicit request; every one of the 11 expanded EMR sidebar rows still requires emr.view)", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "BỆNH ÁN ĐIỆN TỬ", href: "/emr", icon: "network", permission: "emr.view" }');
-    expect(nav).toContain('permission: "emr.view"');
+    expect(nav).toContain('label: "BỆNH ÁN ĐIỆN TỬ"');
+    expect(nav).toContain('{ label: "Tổng quan EMR", href: "/emr", icon: "layout-dashboard", permission: "emr.view" }');
+    expect(nav.match(/permission: "emr\.view"/g)?.length).toBe(3);
   });
   it("uses Vietnam-local calendar dates for deadline control", () => {
     const dashboard = read("src/app/api/emr/dashboard/route.ts");

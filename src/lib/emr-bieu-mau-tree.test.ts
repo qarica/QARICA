@@ -35,8 +35,4 @@ describe("EMR — Biểu mẫu master tree view", () => {
   it("is reachable via a 'Cây biểu mẫu' button shown only on the Biểu mẫu category page, level with the Thông tin/Tiến độ triển khai view switch", () => {
     expect(categoryClient).toContain('categoryCode === "BIEU_MAU" ? <Link className="button secondary small" href="/emr/bieu-mau/tree">Cây biểu mẫu</Link> : null');
   });
-
-  it("shares the same EMR workspace nav strip (no separate/duplicate navigation mechanism)", () => {
-    expect(treePage).toContain("<EmrWorkspaceNav");
-  });
 });
