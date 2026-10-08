@@ -487,7 +487,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
 
   return <div className="page-stack quality-calendar-page">
     <style>{`
-      .quality-calendar-page{max-width:1500px;margin:0 auto;gap:14px!important}
+      .quality-calendar-page{width:100%;max-width:1500px;margin:0 auto;gap:14px!important}
       .quality-calendar-page .kpi-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;margin-bottom:11px}
       .quality-calendar-page .kpi-icon.amber{background:#f59e0b}.quality-calendar-page .kpi-icon.red{background:#ef4444}.quality-calendar-page .kpi-icon.blue{background:#3b82f6}.quality-calendar-page .kpi-icon.green{background:#22c55e}
       .calendar-kind-filters{display:flex;gap:6px;flex-wrap:wrap;padding:0 15px 13px}.calendar-kind-filter{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:5px 9px;border:1px solid #d7e1e5;border-radius:999px;background:#fff;color:#52656d;text-decoration:none;font-size:10px;font-weight:800}.calendar-kind-filter:hover{border-color:#94a3b8;background:#f8fafc}.calendar-kind-filter.active{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}

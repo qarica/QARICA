@@ -88,7 +88,7 @@ export default async function RecurringWorkPage() {
     };
   });
 
-  return <div className="page-stack" style={{ maxWidth: 1360, margin: "0 auto" }}>
+  return <div className="page-stack" style={{ width: "100%", maxWidth: 1360, margin: "0 auto" }}>
     <PageHeader
       eyebrow="LỊCH CÔNG TÁC QLCL · ENGINE ĐỊNH KỲ"
       title="Công việc định kỳ"

@@ -110,11 +110,11 @@ export default async function QualityGanttPage(){
 
   return <div className="page-stack quality-gantt-page">
     <style>{`
-      .quality-gantt-page{max-width:1600px;margin:0 auto;gap:14px!important}
+      .quality-gantt-page{width:100%;max-width:1600px;margin:0 auto;gap:14px!important}
       .quality-gantt-page .kpi-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:11px}
       .quality-gantt-page .kpi-icon.blue{background:#dbeafe;color:#2563eb}.quality-gantt-page .kpi-icon.purple{background:#ede9fe;color:#7c3aed}.quality-gantt-page .kpi-icon.green{background:#dcfce7;color:#16a34a}.quality-gantt-page .kpi-icon.amber{background:#fef3c7;color:#b45309}
       .gantt-shell{overflow:hidden;border:1px solid #dbe5ea;border-radius:14px;background:#fff}
-      .gantt-scroll{overflow-x:auto}
+      .gantt-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
       .gantt-grid{min-width:1100px}
       .gantt-head,.gantt-row{display:grid;grid-template-columns:340px minmax(720px,1fr)}
       .gantt-head{position:sticky;top:0;z-index:5;background:#f8fafc;border-bottom:1px solid #dbe5ea}
