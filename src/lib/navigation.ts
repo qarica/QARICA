@@ -85,10 +85,10 @@ const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     id: "document-publications",
-    label: "PHÁT HÀNH VĂN BẢN",
+    label: "KIỂM SOÁT TÀI LIỆU",
     icon: "file-text",
     children: [
-      { label: "PHÁT HÀNH VĂN BẢN", href: "/document-publications", icon: "file-text", permission: "document_publication.view" },
+      { label: "KIỂM SOÁT TÀI LIỆU", href: "/document-publications", icon: "file-text", permission: "document_publication.view" },
     ],
   },
   {

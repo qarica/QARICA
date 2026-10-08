@@ -32,7 +32,7 @@ describe("Document publications module security and control gates", () => {
 
   it("is reachable from the sidebar only behind document_publication.view", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "PHÁT HÀNH VĂN BẢN", href: "/document-publications", icon: "file-text", permission: "document_publication.view" }');
+    expect(nav).toContain('{ label: "KIỂM SOÁT TÀI LIỆU", href: "/document-publications", icon: "file-text", permission: "document_publication.view" }');
   });
 
   it("keeps every query/write tenant-scoped by organization_id", () => {

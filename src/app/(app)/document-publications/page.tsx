@@ -27,7 +27,7 @@ export default async function DocumentPublicationsPage() {
   return (
     <div className="page-stack document-publications-page">
       <PageHeader
-        title="Phát hành văn bản"
+        title="Kiểm soát tài liệu"
         description="Theo dõi vòng đời văn bản từ đề nghị, soạn thảo, góp ý, rà soát, phê duyệt đến phát hành chính thức."
         icon="file-text"
       />

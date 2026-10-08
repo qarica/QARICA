@@ -49,7 +49,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "AUDIT HSBA"');
     expect(navigation).toContain('label: "BỆNH ÁN ĐIỆN TỬ"');
-    expect(navigation).toContain('label: "PHÁT HÀNH VĂN BẢN"');
+    expect(navigation).toContain('label: "KIỂM SOÁT TÀI LIỆU"');
     expect(navigation).toContain('label: "CẤU HÌNH HỆ THỐNG"');
   });
 
@@ -80,17 +80,17 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     }
     expect(block).not.toContain("Đo lường & Giám sát");
     expect(block).not.toContain("EMR");
-    for (const moved of ["Việc của tôi", "Cá nhân", "MUA SẮM & SỬA CHỮA", "THEO DÕI HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "PHÁT HÀNH VĂN BẢN", "ĐÀO TẠO QUY TRÌNH", "AUDIT HSBA"]) {
+    for (const moved of ["Việc của tôi", "Cá nhân", "MUA SẮM & SỬA CHỮA", "THEO DÕI HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "KIỂM SOÁT TÀI LIỆU", "ĐÀO TẠO QUY TRÌNH", "AUDIT HSBA"]) {
       expect(block).not.toContain(`label: "${moved}"`);
     }
   });
 
-  it("promotes MUA SẮM & SỬA CHỮA, THEO DÕI HÀNH NGHỀ, QUẢN LÝ CÔNG VĂN, PHÁT HÀNH VĂN BẢN, ĐÀO TẠO QUY TRÌNH and AUDIT HSBA to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
+  it("promotes MUA SẮM & SỬA CHỮA, THEO DÕI HÀNH NGHỀ, QUẢN LÝ CÔNG VĂN, KIỂM SOÁT TÀI LIỆU, ĐÀO TẠO QUY TRÌNH and AUDIT HSBA to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
     const expectations: [string, string, string][] = [
       ["procurement", "MUA SẮM & SỬA CHỮA", "/procurement"],
       ["physician-license", "THEO DÕI HÀNH NGHỀ", "/physician-license"],
       ["incoming-documents", "QUẢN LÝ CÔNG VĂN", "/incoming-documents"],
-      ["document-publications", "PHÁT HÀNH VĂN BẢN", "/document-publications"],
+      ["document-publications", "KIỂM SOÁT TÀI LIỆU", "/document-publications"],
       ["procedure-training", "ĐÀO TẠO QUY TRÌNH", "/procedure-trainings"],
       ["hsba-audit", "AUDIT HSBA", "/hsba-audit"],
     ];
