@@ -120,6 +120,18 @@ export function IncomingDocumentsClient({
     setEditingId(null);
   }
 
+  async function removeDocument(doc: Doc) {
+    if (!window.confirm(`Xoá công văn "${doc.summary}"? Không thể hoàn tác.`)) return;
+    setError("");
+    const res = await fetch(`/api/incoming-documents/${doc.id}`, { method: "DELETE" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(body.error || "Không xoá được.");
+      return;
+    }
+    setDocuments((v) => v.filter((d) => d.id !== doc.id));
+  }
+
   return (
     <div className="incoming-doc-overview">
       {canManage ? (
@@ -237,9 +249,14 @@ export function IncomingDocumentsClient({
                             </button>
                           </div>
                         ) : (
-                          <button className="button secondary small" onClick={() => startEdit(doc)}>
-                            Cập nhật
-                          </button>
+                          <div className="doc-edit-actions">
+                            <button className="button secondary small" onClick={() => startEdit(doc)}>
+                              Cập nhật
+                            </button>
+                            <button className="button tertiary small" onClick={() => void removeDocument(doc)}>
+                              Xoá
+                            </button>
+                          </div>
                         )}
                       </td>
                     ) : null}

@@ -42,6 +42,9 @@ export async function POST(request: Request) {
   if (!requestType) return NextResponse.json({ error: "Loại đề xuất không hợp lệ." }, { status: 400 });
   if (!title) return NextResponse.json({ error: "Tên đề xuất không được để trống." }, { status: 400 });
 
+  const { data: department } = await admin.from("departments").select("id").eq("id", departmentId).eq("organization_id", organizationId).eq("is_active", true).maybeSingle();
+  if (!department) return NextResponse.json({ error: "Khoa/phòng đề xuất không hợp lệ." }, { status: 400 });
+
   const quantity = body.quantity !== undefined && body.quantity !== null && body.quantity !== "" ? Number(body.quantity) : null;
   const unitPrice = body.unit_price !== undefined && body.unit_price !== null && body.unit_price !== "" ? Number(body.unit_price) : null;
   if (quantity !== null && (!Number.isFinite(quantity) || quantity <= 0)) return NextResponse.json({ error: "Số lượng không hợp lệ." }, { status: 400 });
@@ -68,5 +71,15 @@ export async function POST(request: Request) {
     )
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  await admin.from("audit_logs").insert({
+    actor_user_id: auth.user.id,
+    table_name: "procurement_requests",
+    row_id: data.id,
+    action_type: "PROCUREMENT_REQUEST_CREATE",
+    new_value: { title: data.title, request_type: data.request_type, department_id: data.department_id, estimated_cost: data.estimated_cost },
+    request_meta: { source: "qlcl-ui" },
+  });
+
   return NextResponse.json({ ok: true, request: data });
 }

@@ -238,6 +238,23 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     }
   }
 
+  // Nút tiện ích trên mỗi hàng: tick hết mọi khoa/phòng cho 1 biểu mẫu thay vì
+  // bấm từng ô — tương đương để department_ids rỗng (toàn viện), lưu tường
+  // minh danh sách đầy đủ để khớp đúng cách các checkbox khác đã xây (tick
+  // từng khoa một cũng ra danh sách tường minh, không tự gộp về rỗng).
+  async function selectAllDepartmentsForItem(item: Item) {
+    const next = departments.map((d) => d.id);
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: next } : i)));
+    try {
+      const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: next }) });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
+      await load({ silent: true });
+    }
+  }
+
   // Ma trận "Phạm vi loại hồ sơ" (chỉ BIEU_MAU, cùng màn hình "Phạm vi áp
   // dụng" với ma trận khoa/phòng ở trên): record_types nằm trong `details`
   // (chuỗi phân tách bằng dấu phẩy), không phải cột riêng như department_ids
@@ -378,23 +395,44 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
       ) : filtered.length === 0 ? (
         <div className="empty-state">Không tìm thấy mục phù hợp với &quot;{search}&quot;.</div>
       ) : view === "scope" ? (
-        <div className="page-stack">
-          <section className="panel">
-            <div className="panel-title"><div><h2>Theo khoa/phòng</h2></div></div>
-            {!departments.length ? (
-              <div className="empty-state">Chưa có khoa/phòng nào để gán phạm vi áp dụng.</div>
-            ) : (
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr><th>Biểu mẫu</th>{departments.map((d) => <th key={d.id}>{d.short_name || d.name}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((item) => (
+        <div className="panel emr-scope-matrix">
+          {!departments.length && !recordTypeOptions.length ? (
+            <div className="empty-state">Chưa có khoa/phòng hoặc loại hồ sơ nào để gán phạm vi áp dụng.</div>
+          ) : (
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th rowSpan={2} className="emr-scope-corner">Biểu mẫu</th>
+                    {departments.length ? <th colSpan={departments.length}>Theo khoa/phòng</th> : null}
+                    {recordTypeOptions.length ? <th colSpan={recordTypeOptions.length}>Theo loại hồ sơ bệnh án</th> : null}
+                  </tr>
+                  <tr>
+                    {departments.map((d) => <th key={d.id}>{d.short_name || d.name}</th>)}
+                    {recordTypeOptions.map((rt) => <th key={rt}>{rt}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((item) => {
+                    const selectedRecordTypes = String(item.details?.record_types || "").split(",").map((s) => s.trim()).filter(Boolean);
+                    const allDeptsChecked = item.department_ids.length === 0;
+                    return (
                       <tr key={item.id}>
-                        <td><strong>{item.title}</strong></td>
+                        <td className="emr-scope-row-head">
+                          <strong>{item.title}</strong>
+                          {departments.length ? (
+                            <button
+                              type="button"
+                              className="button tertiary small"
+                              disabled={!canManage || allDeptsChecked}
+                              onClick={() => selectAllDepartmentsForItem(item)}
+                            >
+                              Chọn tất cả khoa
+                            </button>
+                          ) : null}
+                        </td>
                         {departments.map((d) => {
-                          const checked = item.department_ids.length === 0 || item.department_ids.includes(d.id);
+                          const checked = allDeptsChecked || item.department_ids.includes(d.id);
                           return (
                             <td key={d.id} style={{ textAlign: "center" }}>
                               <span className="inline-check" style={{ justifyContent: "center" }}>
@@ -409,50 +447,37 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                             </td>
                           );
                         })}
+                        {recordTypeOptions.map((rt) => (
+                          <td key={rt} style={{ textAlign: "center" }}>
+                            <span className="inline-check" style={{ justifyContent: "center" }}>
+                              <input
+                                type="checkbox"
+                                checked={selectedRecordTypes.includes(rt)}
+                                disabled={!canManage}
+                                aria-label={`${item.title} — ${rt}`}
+                                onChange={() => toggleRecordTypeCell(item, rt)}
+                              />
+                            </span>
+                          </td>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-          <section className="panel">
-            <div className="panel-title"><div><h2>Theo loại hồ sơ bệnh án</h2></div></div>
-            {!recordTypeOptions.length ? (
-              <div className="empty-state">Danh mục này chưa khai báo loại hồ sơ áp dụng.</div>
-            ) : (
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr><th>Biểu mẫu</th>{recordTypeOptions.map((rt) => <th key={rt}>{rt}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((item) => {
-                      const selected = String(item.details?.record_types || "").split(",").map((s) => s.trim()).filter(Boolean);
-                      return (
-                        <tr key={item.id}>
-                          <td><strong>{item.title}</strong></td>
-                          {recordTypeOptions.map((rt) => (
-                            <td key={rt} style={{ textAlign: "center" }}>
-                              <span className="inline-check" style={{ justifyContent: "center" }}>
-                                <input
-                                  type="checkbox"
-                                  checked={selected.includes(rt)}
-                                  disabled={!canManage}
-                                  aria-label={`${item.title} — ${rt}`}
-                                  onChange={() => toggleRecordTypeCell(item, rt)}
-                                />
-                              </span>
-                            </td>
-                          ))}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <style>{`
+            .emr-scope-matrix .table-wrap{max-height:70vh;overflow:auto}
+            .emr-scope-matrix table{border-collapse:separate;border-spacing:0}
+            .emr-scope-matrix thead th{position:sticky;top:0;z-index:2;background:#f8fafb}
+            .emr-scope-matrix thead tr:first-child th{top:0}
+            .emr-scope-matrix thead tr:nth-child(2) th{top:37px}
+            .emr-scope-matrix td.emr-scope-row-head,.emr-scope-matrix th.emr-scope-corner{position:sticky;left:0;z-index:1;background:#fff;text-align:left;white-space:nowrap}
+            .emr-scope-matrix th.emr-scope-corner{z-index:3;background:#f8fafb}
+            .emr-scope-matrix td.emr-scope-row-head{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+            .emr-scope-matrix tbody tr:hover td.emr-scope-row-head{background:#fbfdfd}
+          `}</style>
         </div>
       ) : (
         <div className="panel">

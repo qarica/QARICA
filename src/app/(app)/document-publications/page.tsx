@@ -8,7 +8,7 @@ export default async function DocumentPublicationsPage() {
   const canManage = hasPermission(user, "document_publication.manage");
   const supabase = await createClient();
 
-  const [departmentsRes, documentsRes, acknowledgmentsRes] = await Promise.all([
+  const [departmentsRes, documentsRes, acknowledgmentsRes, staffRes] = await Promise.all([
     supabase.from("departments").select("id,name").eq("is_active", true).order("name"),
     supabase
       .from("document_publications")
@@ -18,6 +18,10 @@ export default async function DocumentPublicationsPage() {
       .order("created_at", { ascending: false })
       .limit(300),
     supabase.from("document_publication_acknowledgments").select("document_publication_id,user_id").limit(5000),
+    // Trước đây "Tự đọc hiểu" chỉ hiện số lượng đã xác nhận, không biết AI
+    // chưa xác nhận để nhắc — cần toàn bộ nhân sự đang hoạt động của tổ chức
+    // để tính phần bù (chưa xác nhận = toàn bộ - đã xác nhận).
+    supabase.from("profiles").select("user_id,full_name,email").eq("organization_id", user.organizationId).eq("is_active", true).order("full_name"),
   ]);
 
   return (
@@ -31,6 +35,7 @@ export default async function DocumentPublicationsPage() {
         departments={(departmentsRes.data ?? []) as any}
         initialDocuments={(documentsRes.data ?? []) as any}
         acknowledgments={(acknowledgmentsRes.data ?? []) as any}
+        staffRoster={((staffRes.data ?? []) as any[]).map((p) => ({ id: p.user_id, name: p.full_name || p.email || p.user_id }))}
         currentUserId={user.id}
         canManage={canManage}
       />

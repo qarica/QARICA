@@ -32,7 +32,11 @@ describe("Physician license tracking module security and control gates", () => {
 });
 
 describe("Physician license deadline rules", () => {
-  const route = read("src/app/api/physician-license/registrations/route.ts");
+  // computeDeadline moved into a shared lib (src/lib/physician-license.ts) so
+  // both POST (create) and PATCH action=UPDATE (edit a PENDING registration)
+  // use the exact same formula instead of risking it drifting between 2 route
+  // files.
+  const route = read("src/lib/physician-license.ts");
 
   it("gives GĐTT/Trưởng khoa 14 days and bác sĩ 60 days from the effective date for new hires", () => {
     expect(route).toContain('const days = roleType === "GDTT_TK" ? 14 : 60;');
@@ -40,6 +44,13 @@ describe("Physician license deadline rules", () => {
 
   it("requires internal-transfer registrations to complete 10 days BEFORE the effective date, regardless of role", () => {
     expect(route).toContain('if (caseType === "INTERNAL_TRANSFER") return new Date(base.getTime() - 10 * DAY_MS)');
+  });
+
+  it("both POST (create) and PATCH (edit) import the shared formula instead of duplicating it", () => {
+    const postRoute = read("src/app/api/physician-license/registrations/route.ts");
+    const patchRoute = read("src/app/api/physician-license/registrations/[id]/route.ts");
+    expect(postRoute).toContain('import { computeDeadline } from "@/lib/physician-license";');
+    expect(patchRoute).toContain('import { computeDeadline } from "@/lib/physician-license";');
   });
 
   it("rejects marking an already-registered record as registered again", () => {

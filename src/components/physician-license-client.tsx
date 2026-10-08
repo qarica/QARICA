@@ -50,8 +50,73 @@ export function PhysicianLicenseClient({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [onlyPending, setOnlyPending] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{ department_id: string; physician_name: string; physician_code: string; role_type: "GDTT_TK" | "BS"; case_type: "NEW_HIRE" | "INTERNAL_TRANSFER"; effective_date: string; notes: string } | null>(null);
 
   const departmentName = (id: string) => departments.find((d) => d.id === id)?.name || "—";
+
+  function startEdit(reg: Registration) {
+    setError("");
+    setEditingId(reg.id);
+    setEditDraft({
+      department_id: reg.department_id,
+      physician_name: reg.physician_name,
+      physician_code: reg.physician_code || "",
+      role_type: reg.role_type,
+      case_type: reg.case_type,
+      effective_date: reg.effective_date,
+      notes: reg.notes || "",
+    });
+  }
+
+  async function saveEdit(reg: Registration) {
+    if (!editDraft) return;
+    if (!editDraft.physician_name.trim()) {
+      setError("Chưa nhập tên bác sĩ.");
+      return;
+    }
+    if (!editDraft.effective_date) {
+      setError("Chưa chọn ngày hiệu lực.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    const res = await fetch(`/api/physician-license/registrations/${reg.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "UPDATE",
+        department_id: editDraft.department_id,
+        physician_name: editDraft.physician_name.trim(),
+        physician_code: editDraft.physician_code.trim() || null,
+        role_type: editDraft.role_type,
+        case_type: editDraft.case_type,
+        effective_date: editDraft.effective_date,
+        notes: editDraft.notes.trim() || null,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) {
+      setError(body.error || "Không lưu được.");
+      return;
+    }
+    setRegistrations((v) => v.map((r) => (r.id === reg.id ? { ...r, ...body.registration } : r)));
+    setEditingId(null);
+    setEditDraft(null);
+  }
+
+  async function removeRegistration(reg: Registration) {
+    if (!window.confirm(`Xoá khai báo của "${reg.physician_name}"? Không thể hoàn tác.`)) return;
+    setError("");
+    const res = await fetch(`/api/physician-license/registrations/${reg.id}`, { method: "DELETE" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(body.error || "Không xoá được.");
+      return;
+    }
+    setRegistrations((v) => v.filter((r) => r.id !== reg.id));
+  }
 
   async function submit() {
     if (!physicianName.trim()) {
@@ -172,6 +237,41 @@ export function PhysicianLicenseClient({
               {visible.map((r) => {
                 const overdue = r.status === "PENDING" && r.deadline < now;
                 const dueSoon = r.status === "PENDING" && !overdue && daysUntil(r.deadline, now) <= DUE_SOON_WINDOW_DAYS;
+                if (editingId === r.id && editDraft) {
+                  return (
+                    <tr key={r.id}>
+                      <td>
+                        <input className="input" value={editDraft.physician_name} onChange={(e) => setEditDraft({ ...editDraft, physician_name: e.target.value })} placeholder="Tên bác sĩ" style={{ marginBottom: 4 }} />
+                        <input className="input" value={editDraft.physician_code} onChange={(e) => setEditDraft({ ...editDraft, physician_code: e.target.value })} placeholder="Mã nhân viên" />
+                      </td>
+                      <td>
+                        <select className="input" value={editDraft.department_id} onChange={(e) => setEditDraft({ ...editDraft, department_id: e.target.value })}>
+                          {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        </select>
+                      </td>
+                      <td>
+                        <select className="input" value={editDraft.role_type} onChange={(e) => setEditDraft({ ...editDraft, role_type: e.target.value as any })}>
+                          <option value="BS">Bác sĩ</option>
+                          <option value="GDTT_TK">GĐTT / Trưởng khoa</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select className="input" value={editDraft.case_type} onChange={(e) => setEditDraft({ ...editDraft, case_type: e.target.value as any })}>
+                          <option value="NEW_HIRE">Nhân sự mới</option>
+                          <option value="INTERNAL_TRANSFER">Luân chuyển nội bộ</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input className="input" type="date" value={editDraft.effective_date} onChange={(e) => setEditDraft({ ...editDraft, effective_date: e.target.value })} />
+                      </td>
+                      <td>—</td>
+                      <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <button className="button primary small" disabled={busy} onClick={() => void saveEdit(r)}>Lưu</button>
+                        <button className="button tertiary small" disabled={busy} onClick={() => { setEditingId(null); setEditDraft(null); }}>Huỷ</button>
+                      </td>
+                    </tr>
+                  );
+                }
                 return (
                   <tr key={r.id}>
                     <td>
@@ -188,11 +288,15 @@ export function PhysicianLicenseClient({
                       </span>
                     </td>
                     {canManage ? (
-                      <td>
+                      <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         {r.status === "PENDING" ? (
-                          <button className="button primary small" onClick={() => void markRegistered(r)}>
-                            Đánh dấu đã đăng ký
-                          </button>
+                          <>
+                            <button className="button primary small" onClick={() => void markRegistered(r)}>
+                              Đánh dấu đã đăng ký
+                            </button>
+                            <button className="button tertiary small" onClick={() => startEdit(r)}>Sửa</button>
+                            <button className="button tertiary small" onClick={() => void removeRegistration(r)}>Xoá</button>
+                          </>
                         ) : (
                           "—"
                         )}

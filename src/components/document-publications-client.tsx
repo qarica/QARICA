@@ -14,6 +14,7 @@ import {
 
 type Department = { id: string; name: string };
 type Acknowledgment = { document_publication_id: string; user_id: string };
+type Staff = { id: string; name: string };
 type DocumentPublication = {
   id: string;
   title: string;
@@ -45,12 +46,14 @@ export function DocumentPublicationsClient({
   departments,
   initialDocuments,
   acknowledgments,
+  staffRoster,
   currentUserId,
   canManage,
 }: {
   departments: Department[];
   initialDocuments: DocumentPublication[];
   acknowledgments: Acknowledgment[];
+  staffRoster: Staff[];
   currentUserId: string;
   canManage: boolean;
 }) {
@@ -68,6 +71,7 @@ export function DocumentPublicationsClient({
   const [effectiveDate, setEffectiveDate] = useState("");
   const [disseminationType, setDisseminationType] = useState<DisseminationType>(DISSEMINATION_TYPES[0]);
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
+  const [unconfirmedOpenId, setUnconfirmedOpenId] = useState<string | null>(null);
 
   const today = hcmToday();
   const departmentName = (id: string | null) => departments.find((d) => d.id === id)?.name || "—";
@@ -75,6 +79,12 @@ export function DocumentPublicationsClient({
   const published = documents.filter((d) => d.stage === "PUBLISHED").sort((a, b) => (b.effective_date || "").localeCompare(a.effective_date || ""));
   const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId).length;
   const hasAcked = (documentId: string) => acks.some((a) => a.document_publication_id === documentId && a.user_id === currentUserId);
+  // Trước đây chỉ hiện "N đã xác nhận" — không biết AI còn chưa đọc để nhắc.
+  // Chưa xác nhận = toàn bộ nhân sự đang hoạt động - những ai đã có trong acks.
+  const unconfirmedStaff = (documentId: string) => {
+    const ackedIds = new Set(acks.filter((a) => a.document_publication_id === documentId).map((a) => a.user_id));
+    return staffRoster.filter((s) => !ackedIds.has(s.id));
+  };
 
   async function acknowledge(doc: DocumentPublication) {
     setAcknowledging(doc.id);
@@ -140,6 +150,18 @@ export function DocumentPublicationsClient({
     setDocumentCode("");
     setEffectiveDate("");
     setDisseminationType(DISSEMINATION_TYPES[0]);
+  }
+
+  async function removeDocument(doc: DocumentPublication) {
+    if (!window.confirm(`Xoá đề nghị "${doc.title}"? Không thể hoàn tác.`)) return;
+    setError("");
+    const res = await fetch(`/api/document-publications/${doc.id}`, { method: "DELETE" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(body.error || "Không xoá được.");
+      return;
+    }
+    setDocuments((v) => v.filter((d) => d.id !== doc.id));
   }
 
   function startPublish(doc: DocumentPublication) {
@@ -240,6 +262,11 @@ export function DocumentPublicationsClient({
                         Chuyển bước: {STAGE_LABEL[d.stage]} → tiếp theo
                       </button>
                     )}
+                    {d.stage === "REQUESTED" ? (
+                      <button className="button tertiary small" onClick={() => void removeDocument(d)}>
+                        Xoá
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -281,6 +308,11 @@ export function DocumentPublicationsClient({
                     ) : d.dissemination_type === "SELF_READ" ? (
                       <div className="dp-ack">
                         <span className="status-badge success">{ackCount(d.id)} đã xác nhận</span>
+                        {canManage ? (
+                          <button type="button" className="button tertiary small" onClick={() => setUnconfirmedOpenId(unconfirmedOpenId === d.id ? null : d.id)}>
+                            {unconfirmedStaff(d.id).length} chưa xác nhận {unconfirmedOpenId === d.id ? "▾" : "▸"}
+                          </button>
+                        ) : null}
                         {hasAcked(d.id) ? (
                           <span className="dp-ack-done">✓ Bạn đã xác nhận</span>
                         ) : (
@@ -288,6 +320,16 @@ export function DocumentPublicationsClient({
                             {acknowledging === d.id ? "..." : "Tôi đã đọc và hiểu"}
                           </button>
                         )}
+                        {unconfirmedOpenId === d.id ? (
+                          <div className="dp-unconfirmed-list">
+                            {unconfirmedStaff(d.id).length ? (
+                              unconfirmedStaff(d.id).slice(0, 30).map((s) => <span key={s.id} className="chip">{s.name}</span>)
+                            ) : (
+                              <small>Mọi người đã xác nhận.</small>
+                            )}
+                            {unconfirmedStaff(d.id).length > 30 ? <small>+{unconfirmedStaff(d.id).length - 30} người khác</small> : null}
+                          </div>
+                        ) : null}
                       </div>
                     ) : (
                       "—"
@@ -336,6 +378,15 @@ export function DocumentPublicationsClient({
         .dp-actions {
           display: flex;
           align-items: flex-start;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .dp-unconfirmed-list {
+          flex-basis: 100%;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-top: 4px;
         }
         .dp-ack {
           display: flex;

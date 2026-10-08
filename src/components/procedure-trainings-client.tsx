@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -21,6 +22,8 @@ type Training = {
   notes: string | null;
   attendee_total: number;
   attendee_attended: number;
+  document_publication_id: string | null;
+  source_document: { id: string; title: string; document_code: string | null } | null;
 };
 
 type Attendee = {
@@ -325,7 +328,12 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
                 return (
                   <tr key={t.id}>
                     <td>{t.procedure_code || "—"}</td>
-                    <td>{t.procedure_name}</td>
+                    <td>
+                      {t.procedure_name}
+                      {t.source_document ? (
+                        <div><small>Từ văn bản {t.source_document.document_code || ""}{t.source_document.document_code ? " — " : ""}{t.source_document.title} · <Link className="table-link" href="/document-publications">Xem →</Link></small></div>
+                      ) : null}
+                    </td>
                     <td>{t.drafting_unit || "—"}</td>
                     <td>{formatDate(t.effective_date)}</td>
                     <td>

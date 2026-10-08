@@ -86,5 +86,54 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { data, error } = await admin.from("document_publications").update(update).eq("id", id).eq("organization_id", organizationId).select(SELECT_COLUMNS).single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  await admin.from("audit_logs").insert({
+    actor_user_id: auth.user.id,
+    table_name: "document_publications",
+    row_id: id,
+    action_type: `DOCUMENT_PUBLICATION_ADVANCE_${upcoming}`,
+    old_value: { stage: current.stage },
+    new_value: { stage: upcoming },
+    request_meta: { source: "qlcl-ui" },
+  });
+
   return NextResponse.json({ ok: true, document: data });
+}
+
+// Xoá văn bản khai báo nhầm — chỉ cho phép ở bước "Đề nghị" (REQUESTED), vì
+// đây là bước duy nhất chưa ai đầu tư công sức kiểm soát/góp ý/phê duyệt; từ
+// DRAFTING trở đi phải tiếp tục đi hết quy trình, không xoá ngang được.
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireApiPermission("document_publication.manage");
+  if (!auth.ok) return auth.response;
+  const { id } = await params;
+  const admin = createAdminClient();
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+
+  const { data: current, error: currentError } = await admin
+    .from("document_publications")
+    .select("id,title,stage")
+    .eq("id", id)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (currentError) return NextResponse.json({ error: currentError.message }, { status: 400 });
+  if (!current) return NextResponse.json({ error: "Không tìm thấy văn bản." }, { status: 404 });
+  if (current.stage !== "REQUESTED") return NextResponse.json({ error: "Chỉ xoá được văn bản còn ở bước Đề nghị." }, { status: 400 });
+
+  const { error } = await admin.from("document_publications").delete().eq("id", id).eq("organization_id", organizationId);
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  await admin.from("audit_logs").insert({
+    actor_user_id: auth.user.id,
+    table_name: "document_publications",
+    row_id: id,
+    action_type: "DOCUMENT_PUBLICATION_DELETE",
+    old_value: current,
+    reason: "Xoá văn bản khai báo nhầm (còn ở bước Đề nghị).",
+    request_meta: { source: "qlcl-ui" },
+  });
+
+  return NextResponse.json({ ok: true });
 }

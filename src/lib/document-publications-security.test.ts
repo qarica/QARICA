@@ -22,7 +22,11 @@ describe("Document publications module security and control gates", () => {
 
   it("the create-request form in the client renders unconditionally (not gated behind canManage), matching the API's looser .view-only POST", () => {
     const client = read("src/components/document-publications-client.tsx");
-    expect(client).not.toContain("{canManage ? (");
+    // Scoped to the "Đề nghị văn bản mới" section only — canManage legitimately
+    // gates other, unrelated UI further down (Delete button, Xem who-hasn't-
+    // acknowledged-yet toggle), which must stay manager-only.
+    const formSection = client.slice(client.indexOf("Đề nghị văn bản mới"), client.indexOf("Đang xử lý"));
+    expect(formSection).not.toContain("{canManage ? (");
     expect(client).toContain("Đề nghị văn bản mới");
   });
 

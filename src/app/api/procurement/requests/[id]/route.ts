@@ -82,5 +82,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     )
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  await admin.from("audit_logs").insert({
+    actor_user_id: auth.user.id,
+    table_name: "procurement_requests",
+    row_id: id,
+    action_type: `PROCUREMENT_REQUEST_${action}`,
+    old_value: { status: current.status },
+    new_value: { status: transition.to },
+    reason: typeof body.note === "string" ? body.note.trim() || null : null,
+    request_meta: { source: "qlcl-ui" },
+  });
+
   return NextResponse.json({ ok: true, request: data });
 }

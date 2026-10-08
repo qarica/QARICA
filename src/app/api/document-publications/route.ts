@@ -73,5 +73,15 @@ export async function POST(request: Request) {
     .select(SELECT_COLUMNS)
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  await admin.from("audit_logs").insert({
+    actor_user_id: auth.user.id,
+    table_name: "document_publications",
+    row_id: data.id,
+    action_type: "DOCUMENT_PUBLICATION_CREATE",
+    new_value: { title: data.title, document_type: data.document_type, drafting_department_id: data.drafting_department_id },
+    request_meta: { source: "qlcl-ui" },
+  });
+
   return NextResponse.json({ ok: true, document: data });
 }

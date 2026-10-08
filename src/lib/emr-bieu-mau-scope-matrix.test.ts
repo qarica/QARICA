@@ -20,8 +20,8 @@ describe("EMR Khai báo biểu mẫu — ma trận Phạm vi áp dụng tách kh
 
   it("render ma trận hàng=biểu mẫu, cột=khoa/phòng khi view==='scope'", () => {
     expect(client).toContain('view === "scope" ? (');
-    expect(client).toContain("<tr><th>Biểu mẫu</th>{departments.map((d) => <th key={d.id}>{d.short_name || d.name}</th>)}</tr>");
-    expect(client).toContain("{filtered.map((item) => (");
+    expect(client).toContain("{departments.map((d) => <th key={d.id}>{d.short_name || d.name}</th>)}");
+    expect(client).toContain("{filtered.map((item) => {");
   });
 
   it("tick/bỏ tick trong ma trận gọi PATCH department_ids cho đúng item, có cập nhật lạc quan + rollback khi lỗi", () => {
@@ -47,9 +47,9 @@ describe("EMR Khai báo biểu mẫu — ma trận Phạm vi áp dụng tách kh
     expect(patchFn).toContain('requireApiPermission("emr.manage")');
   });
 
-  it("cùng màn hình 'Phạm vi áp dụng' còn có ma trận thứ 2: theo loại hồ sơ bệnh án (không hardcode lại options, lấy từ field record_types)", () => {
+  it("cùng 1 bảng 'Phạm vi áp dụng' còn có nhóm cột thứ 2: theo loại hồ sơ bệnh án (không hardcode lại options, lấy từ field record_types)", () => {
     expect(client).toContain('const recordTypeOptions = extraFields.find((f) => f.key === "record_types")?.options || [];');
-    expect(client).toContain("<tr><th>Biểu mẫu</th>{recordTypeOptions.map((rt) => <th key={rt}>{rt}</th>)}</tr>");
+    expect(client).toContain("{recordTypeOptions.map((rt) => <th key={rt}>{rt}</th>)}");
     expect(client).toContain("async function toggleRecordTypeCell(item: Item, typeValue: string)");
   });
 
