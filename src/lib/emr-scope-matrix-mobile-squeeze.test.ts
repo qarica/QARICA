@@ -46,3 +46,29 @@ describe("EMR Phạm vi áp dụng — tên biểu mẫu dài xuống dòng tron
     expect(client).toContain(".emr-scope-matrix td.emr-scope-row-head,.emr-scope-matrix th.emr-scope-corner{position:sticky;left:0;z-index:1;background:#fff;text-align:left;white-space:normal;word-break:break-word}");
   });
 });
+
+// Phát hiện (báo cáo thực tế: "Bấm chọn tất cả khoa thì ko hủy được"): nút
+// "Chọn tất cả khoa" gán department_ids thành danh sách tường minh đủ mọi
+// khoa (không phải mảng rỗng), nên allDeptsChecked (department_ids.length===0)
+// vẫn là false sau khi bấm — nút không tự vô hiệu hoá, nhưng bấm lại chỉ ghi
+// đè nguyên trạng thái cũ, không có đường lùi lại phạm vi trước đó; muốn hẹp
+// lại phải tự bỏ tick từng khoa một. Sửa bằng cách giữ snapshot department_ids
+// ngay trước khi bấm, nút đổi thành "Hoàn tác" để phục hồi đúng giá trị cũ.
+describe("EMR Phạm vi áp dụng — 'Chọn tất cả khoa' có thể hoàn tác", () => {
+  it("giữ snapshot department_ids trước khi chọn tất cả, theo từng hạng mục", () => {
+    expect(client).toContain("const [scopeUndoSnapshots, setScopeUndoSnapshots] = useState<Record<string, string[]>>({});");
+    expect(client).toContain("setScopeUndoSnapshots((prev) => ({ ...prev, [item.id]: item.department_ids }));");
+  });
+
+  it("có hàm hoàn tác phục hồi đúng department_ids đã lưu và xoá snapshot sau khi dùng", () => {
+    expect(client).toContain("async function undoSelectAllDepartmentsForItem(item: Item) {");
+    expect(client).toContain("const snapshot = scopeUndoSnapshots[item.id];");
+    expect(client).toContain("if (snapshot === undefined) return;");
+  });
+
+  it("nút đổi thành Hoàn tác ngay sau khi chọn tất cả, thay vì chỉ ghi đè lại cùng giá trị", () => {
+    expect(client).toContain("scopeUndoSnapshots[item.id] !== undefined ? (");
+    expect(client).toContain("onClick={() => undoSelectAllDepartmentsForItem(item)}");
+    expect(client).toContain(">\n                                Hoàn tác\n");
+  });
+});

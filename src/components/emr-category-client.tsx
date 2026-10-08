@@ -96,6 +96,13 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   const [saving, setSaving] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [departments,setDepartments]=useState<{id:string;name:string;short_name:string|null}[]>([]);
+  // "Chọn tất cả khoa" từng không có cách lùi lại: 1 click gán department_ids
+  // thành danh sách tường minh đủ mọi khoa, nút vẫn bật (vì danh sách đó
+  // không rỗng nên allDeptsChecked=false) nhưng bấm lại chỉ ghi đè nguyên
+  // trạng thái cũ — không có đường quay về phạm vi trước đó. Giữ snapshot
+  // department_ids ngay trước lúc bấm để nút đổi thành "Hoàn tác" phục hồi
+  // đúng giá trị cũ, theo từng hạng mục (key theo item.id).
+  const [scopeUndoSnapshots, setScopeUndoSnapshots] = useState<Record<string, string[]>>({});
 
   // Every post-save refresh (create/edit/delete/upload) used to flip `loading`
   // back to true each time, unmounting the whole table for a moment — on
@@ -241,12 +248,30 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   // Nút tiện ích trên mỗi hàng: tick hết mọi khoa/phòng cho 1 biểu mẫu thay vì
   // bấm từng ô — tương đương để department_ids rỗng (toàn viện), lưu tường
   // minh danh sách đầy đủ để khớp đúng cách các checkbox khác đã xây (tick
-  // từng khoa một cũng ra danh sách tường minh, không tự gộp về rỗng).
+  // từng khoa một cũng ra danh sách tường minh, không tự gộp về rỗng). Giữ
+  // lại giá trị trước đó để nút đổi thành "Hoàn tác" — bấm nhầm vẫn lùi lại
+  // được đúng phạm vi cũ, không phải tự bỏ tick lại từng khoa một.
   async function selectAllDepartmentsForItem(item: Item) {
     const next = departments.map((d) => d.id);
+    setScopeUndoSnapshots((prev) => ({ ...prev, [item.id]: item.department_ids }));
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: next } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: next }) });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
+      await load({ silent: true });
+    }
+  }
+
+  async function undoSelectAllDepartmentsForItem(item: Item) {
+    const snapshot = scopeUndoSnapshots[item.id];
+    if (snapshot === undefined) return;
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: snapshot } : i)));
+    setScopeUndoSnapshots((prev) => { const next = { ...prev }; delete next[item.id]; return next; });
+    try {
+      const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: snapshot }) });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
     } catch (e) {
@@ -426,14 +451,25 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                         <td className="emr-scope-row-head">
                           <strong>{item.title}</strong>
                           {departments.length ? (
-                            <button
-                              type="button"
-                              className="button tertiary small"
-                              disabled={!canManage || allDeptsChecked}
-                              onClick={() => selectAllDepartmentsForItem(item)}
-                            >
-                              Chọn tất cả khoa
-                            </button>
+                            scopeUndoSnapshots[item.id] !== undefined ? (
+                              <button
+                                type="button"
+                                className="button tertiary small"
+                                disabled={!canManage}
+                                onClick={() => undoSelectAllDepartmentsForItem(item)}
+                              >
+                                Hoàn tác
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="button tertiary small"
+                                disabled={!canManage || allDeptsChecked}
+                                onClick={() => selectAllDepartmentsForItem(item)}
+                              >
+                                Chọn tất cả khoa
+                              </button>
+                            )
                           ) : null}
                         </td>
                         {departments.map((d) => {

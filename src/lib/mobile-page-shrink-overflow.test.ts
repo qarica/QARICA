@@ -56,6 +56,27 @@ describe("Mobile — EmrCommandCenter's grid no longer lets a child blow out pas
   });
 });
 
+// Phát hiện tiếp theo (báo cáo thực tế: "Tình trạng triển khai theo khoa
+// phòng ko kéo sang được bị cứng"): min-width:0 ở trên chỉ áp dụng cho CON
+// TRỰC TIẾP của .emr-command (vd .bottom-grid) — không lan tới CHÁU
+// (.emr-matrix-panel bên trong .bottom-grid). Dưới 1050px, .bottom-grid tự
+// chuyển grid-template-columns:1fr (không phải minmax(0,1fr)) — một track
+// "1fr" trần vẫn giữ nguyên min-width mặc định "auto" (= kích thước nội
+// dung), nên bảng ma trận (min-width:720px, xem rule .emr-matrix-panel
+// table) kéo cả track rộng theo, tràn ra ngoài khung .bottom-grid và bị
+// html,body{overflow-x:hidden} cắt cụt — .table-wrap bên trong bảng không
+// còn gì để cuộn nữa vì chính nó đã render đúng 720px thay vì bị ép hẹp lại.
+// Xác nhận bằng cách dựng lại đúng cấu trúc DOM/CSS và đo trong Chromium ở
+// 390px: trước khi sửa document.body.scrollWidth=774; sau khi sửa =390 và
+// .table-wrap cuộn ngang đúng (clientWidth=310, scrollWidth=720).
+describe("Mobile — EmrCommandCenter's bottom-grid track doesn't let the department matrix table blow out past the viewport", () => {
+  const client = readFileSync("src/components/emr-command-center.tsx", "utf8");
+
+  it("the <=1050px breakpoint uses minmax(0,1fr), not a bare 1fr, so the track itself can shrink below the matrix table's min-content size", () => {
+    expect(client).toContain("@media(max-width:1050px){.emr-command .hero-grid,.emr-command .mid-grid,.emr-command .bottom-grid{grid-template-columns:minmax(0,1fr)}");
+  });
+});
+
 describe("Mobile — workspace-strip's context label no longer claims the whole row and pushes every tab off-screen", () => {
   const css = readFileSync("src/app/mobile-responsive-fixes.css", "utf8");
 
