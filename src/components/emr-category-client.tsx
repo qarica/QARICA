@@ -474,10 +474,10 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
           )}
           <style>{`
             .emr-scope-matrix .table-wrap{max-height:70vh;overflow:auto}
-            .emr-scope-matrix table{border-collapse:separate;border-spacing:0;table-layout:fixed}
+            .emr-scope-matrix table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:auto;min-width:100%}
             .emr-scope-matrix col.emr-scope-corner-col{width:200px}
             .emr-scope-matrix thead th{position:sticky;top:0;z-index:2;background:#f8fafb}
-            .emr-scope-matrix thead tr:first-child th{top:0}
+            .emr-scope-matrix thead tr:first-child th{top:0;height:37px}
             .emr-scope-matrix thead tr:nth-child(2) th{top:37px}
             .emr-scope-matrix th.emr-scope-col-head{width:86px;white-space:normal;word-break:break-word;line-height:1.25;font-size:11px;padding:6px 4px;text-align:center}
             .emr-scope-matrix tbody td{text-overflow:clip}

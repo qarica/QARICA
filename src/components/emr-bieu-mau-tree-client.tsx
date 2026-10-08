@@ -230,7 +230,14 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
                 {reorderingGroup === groupName ? <span className="status-badge info">Đang lưu thứ tự...</span> : null}
               </summary>
               <div className="table-wrap">
-                <table>
+                <table className="bieu-mau-tree-table">
+                  <colgroup>
+                    {canManage ? <col style={{ width: 70 }} /> : null}
+                    <col style={{ width: 110 }} />
+                    <col style={{ width: 220 }} />
+                    {canManage ? <col style={{ width: 200 }} /> : null}
+                    <col style={{ width: 120 }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       {canManage ? <th style={{ width: 70 }}>STT</th> : null}
@@ -308,6 +315,15 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
       </div>
       <style>{`
         .bieu-mau-tree-groups{display:flex;flex-direction:column;gap:12px}
+        /* Phát hiện từ ảnh chụp thực tế trên điện thoại: cột "Tên biểu mẫu"
+           vỡ chữ (xuống dòng từng chữ/âm tiết) và lệch tiêu đề cột trên màn
+           hình hẹp — cùng nguyên nhân với bảng "Phạm vi áp dụng" đã sửa:
+           table-layout mặc định (auto) + width:100% (kế thừa từ rule chung)
+           ép bảng co vừa khung hình thay vì tràn ra và cuộn ngang. Thêm
+           table-layout:fixed + colgroup (width cố định từng cột) +
+           width:auto;min-width:100% để bảng tự nới đúng tổng các cột và
+           tràn ra ngoài khung hẹp, .table-wrap{overflow:auto} cuộn ngang. */
+        .bieu-mau-tree-table{table-layout:fixed;width:auto;min-width:100%}
         .bieu-mau-tree-group{padding:0}
         .bieu-mau-tree-group-head{display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer}
         .bieu-mau-tree-group-name{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
