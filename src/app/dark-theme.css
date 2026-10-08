@@ -29,6 +29,33 @@
   --shadow:0 12px 32px rgba(0,0,0,.45)!important;
 }
 
+/* qarica-design-system.css và qms-enterprise-redesign.css tự định nghĩa LẠI
+   --bg/--surface/--text/--muted/--line... ngay trên chính ".workspace-app"
+   (vd ".workspace-app{--surface:var(--qms-surface)!important}") — vì đây là
+   khai báo trên CHÍNH phần tử .workspace-app (không phải kế thừa từ :root),
+   nó NUỐT MẤT giá trị tối đã đặt ở :root[data-theme="dark"] phía trên cho
+   mọi phần tử con (bao gồm .panel, .kpi-card...) — bất kể các rule đó nạp
+   trước hay sau trong file, vì đây không phải cuộc đua specificity giữa hai
+   rule áp dụng cho CÙNG một phần tử, mà là biến CSS bị gán lại ngay tại gốc
+   kế thừa mới (.workspace-app). Phải gán lại đúng giá trị tối ở đây, ngay
+   trên .workspace-app, để mọi rule dùng var(--surface)/var(--bg)/... bên
+   trong khung ứng dụng (toàn bộ app sau đăng nhập) nhận đúng giá trị — xem
+   src/lib/dark-theme-workspace-app-var-leak.test.ts. */
+[data-theme="dark"] .workspace-app{
+  --bg:#11151a!important;
+  --surface:#1a1f26!important;
+  --text:#e6e9ec!important;
+  --muted:#8d98a3!important;
+  --line:#2a333c!important;
+  --field-line:#3a434d!important;
+  --field-focus:#4f8ff7!important;
+  --brand-soft:#1b2b44!important;
+  --danger-soft:#3a1f20!important;
+  --warning-soft:#3a2f14!important;
+  --success-soft:#163428!important;
+  --info-soft:#17283d!important;
+}
+
 /* ---- Trang/khung chung (globals.css) ---- */
 [data-theme="dark"] .sidebar{background:#161b21!important;color:#c7ced6!important}
 [data-theme="dark"] .sidebar-brand{background:#161b21!important}
@@ -128,3 +155,32 @@
 [data-theme="dark"] .workspace-app .workspace-strip{background:#161b21!important;border-bottom-color:#2a333c!important}
 [data-theme="dark"] .workspace-app .workspace-tab{color:#8d98a3!important}
 [data-theme="dark"] .workspace-app .workspace-tab.active{background:#17263c!important;color:#7eb2fb!important}
+
+/* ---- Bổ sung: nhiều lớp dùng chung bị các file CSS tải TRƯỚC dark-theme.css
+   (qarica-design-system.css, qms-enterprise-redesign.css, final-visual-lock.css)
+   ghi đè nền sáng bằng selector .workspace-app <lớp> có độ đặc hiệu BẰNG hoặc
+   CAO HƠN các khai báo ở trên (vd .workspace-app .toolbar, .workspace-app
+   table, .workspace-app .status-badge.warning) — nếu độ đặc hiệu bằng nhau
+   thì phần thắng chỉ nhờ thứ tự nạp (dark-theme.css nạp sau), rất dễ vỡ khi
+   thứ tự @import đổi; nếu độ đặc hiệu CAO HƠN (vd 3 lớp .workspace-app
+   .status-badge.warning) thì các khai báo generic ở trên THUA bất kể thứ tự
+   nạp — đây là lỗi thật đã phát hiện qua ảnh chụp (toolbar/nút Xuất Excel ở
+   trang Kế hoạch vẫn nền trắng trong dark mode). Mọi rule dưới đây cố tình
+   thêm tiền tố .workspace-app để độ đặc hiệu LUÔN cao hơn bản gốc tương ứng,
+   không phụ thuộc thứ tự nạp. Xem src/lib/dark-theme-shared-class-gaps.test.ts. */
+[data-theme="dark"] .workspace-app table{background:var(--surface)!important}
+[data-theme="dark"] .workspace-app .table-wrap{background:var(--surface)!important;border-color:#2a333c!important}
+[data-theme="dark"] .workspace-app .toolbar{background:var(--surface)!important;border-bottom-color:#2a333c!important}
+[data-theme="dark"] .workspace-app .toolbar-left{background:transparent!important}
+[data-theme="dark"] .workspace-app .search-box:focus-within{background:#1a1f26!important;border-color:#4f8ff7!important}
+[data-theme="dark"] .workspace-app .modal-head{background:#1a1f26!important;border-bottom-color:#2a333c!important}
+[data-theme="dark"] .workspace-app .panel-title{background:transparent!important;border-bottom-color:#2a333c!important}
+[data-theme="dark"] .workspace-app fieldset{background:transparent!important;border-color:#2a333c!important}
+[data-theme="dark"] .workspace-app .main-shell{background:var(--bg)!important}
+[data-theme="dark"] .workspace-app .status-badge.success{background:var(--success-soft)!important;color:#6ee7b7!important;border-color:#1c3a2c!important}
+[data-theme="dark"] .workspace-app .status-badge.danger{background:var(--danger-soft)!important;color:#fca5a5!important;border-color:#4c2224!important}
+[data-theme="dark"] .workspace-app .status-badge.warning{background:var(--warning-soft)!important;color:#fcd34d!important;border-color:#4a3a14!important}
+[data-theme="dark"] .workspace-app .status-badge.info{background:var(--info-soft)!important;color:#7eb2fb!important;border-color:#1c3350!important}
+[data-theme="dark"] .workspace-app .status-badge.muted{background:#242c35!important;color:#aab4bf!important;border-color:#2a333c!important}
+[data-theme="dark"] .workspace-app .sidebar-collapse{background:#1a1f26!important;border-color:#2a333c!important;color:#aab4bf!important}
+[data-theme="dark"] .workspace-app .scope-chip{background:#1f2730!important;border-color:#2a333c!important;color:#8d98a3!important}
