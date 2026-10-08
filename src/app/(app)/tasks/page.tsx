@@ -10,12 +10,16 @@ import { StatusBadge } from "@/components/status-badge";
 import { hasPermission, requirePermission, requireUserContext } from "@/lib/auth";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
 import { formatDate } from "@/lib/format";
+import { hcmDateKey } from "@/lib/hcm-date";
 import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 
 function hcmToday(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh"}).format(new Date())}
-function dateOnly(value:string){return value.length>10?value.slice(0,10):value}
+// Note cá nhân lưu due_at là mốc UTC của "nửa đêm giờ VN" (xem personal-reminders.tsx:
+// new Date(`${due}T00:00:00`).toISOString()) — cắt chuỗi 10 ký tự đầu lấy ngày UTC sẽ lùi
+// 1 ngày so với ngày người dùng chọn (UTC+7). Phải quy đổi theo giờ VN, không cắt chuỗi.
+function dateOnly(value:string){return value.length>10?(hcmDateKey(value)||value.slice(0,10)):value}
 const WEEKDAYS=["T2","T3","T4","T5","T6","T7","CN"];
 const MONTH_NAMES=["Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"];
 function priorityLabel(value?:string|null){if(value==="CRITICAL")return"Rất khẩn";if(value==="URGENT")return"Khẩn";if(value==="HIGH")return"Cao";if(value==="LOW")return"Thấp";return"Bình thường"}

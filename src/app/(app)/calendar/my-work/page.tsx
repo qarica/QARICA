@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/page-header";
 import { PersonalReminders } from "@/components/personal-reminders";
 import { RECORD_TYPE_LABEL } from "@/components/record-traceability-panel";
 import { StatusBadge } from "@/components/status-badge";
+import { hcmDateKey } from "@/lib/hcm-date";
 import { requirePermission, requireUserContext } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { emrCategoryLabel, emrCategorySlug, loadMyAssignedWork } from "@/lib/my-assigned-work";
@@ -15,7 +16,9 @@ import { getWorkYear } from "@/lib/work-year";
 // không tạo bảng/nguồn dữ liệu song song, chỉ là một góc nhìn khác trên cùng dữ liệu.
 function priorityLabel(value?: string | null) { if (value === "CRITICAL") return "Rất khẩn"; if (value === "URGENT") return "Khẩn"; if (value === "HIGH") return "Cao"; if (value === "LOW") return "Thấp"; return "Bình thường"; }
 function priorityTone(value?: string | null) { if (["CRITICAL", "URGENT"].includes(String(value))) return "danger"; if (value === "HIGH") return "warning"; if (value === "LOW") return "muted"; return "info"; }
-function dateOnly(value: string) { return value.length > 10 ? value.slice(0, 10) : value; }
+// due_at là mốc UTC của "nửa đêm giờ VN" (xem personal-reminders.tsx) — phải quy đổi theo
+// giờ VN (hcmDateKey), cắt chuỗi 10 ký tự đầu sẽ lấy nhầm ngày UTC, lùi 1 ngày so với thực tế.
+function dateOnly(value: string) { return value.length > 10 ? (hcmDateKey(value) || value.slice(0, 10)) : value; }
 function hcmToday() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()); }
 
 export default async function CalendarMyWorkPage({ searchParams }: { searchParams: Promise<{ tab?: string; q?: string }> }) {
