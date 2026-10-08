@@ -33,3 +33,16 @@ describe("EMR Phạm vi áp dụng — bảng không bị ép co cột trên mà
     expect(client).toContain(".emr-scope-matrix thead tr:first-child th{top:0;height:37px}");
   });
 });
+
+// Phát hiện từ ảnh chụp thực tế trên điện thoại: tên biểu mẫu dài (vd "...cho
+// trẻ dưới 6 tháng tuổi tại các cơ sở tiêm chủng thuộc bệnh viện") tràn ra
+// ngoài cột sticky bên trái (chỉ rộng 200px) thay vì xuống dòng, đè lên vùng
+// checkbox bên cạnh và làm cả hàng trông như trống rỗng ở trên, chỉ còn vài
+// chữ cuối câu bị cắt hiện ra ở dưới. Nguyên nhân: cột đầu (.emr-scope-row-head)
+// bị ép white-space:nowrap trong khi .emr-scope-col-head (tiêu đề cột) đã
+// đúng từ trước (white-space:normal;word-break:break-word).
+describe("EMR Phạm vi áp dụng — tên biểu mẫu dài xuống dòng trong cột sticky, không tràn ra ngoài", () => {
+  it("cột tên biểu mẫu (sticky trái) cho phép xuống dòng thay vì ép 1 dòng rồi tràn ra ngoài khung 200px", () => {
+    expect(client).toContain(".emr-scope-matrix td.emr-scope-row-head,.emr-scope-matrix th.emr-scope-corner{position:sticky;left:0;z-index:1;background:#fff;text-align:left;white-space:normal;word-break:break-word}");
+  });
+});
