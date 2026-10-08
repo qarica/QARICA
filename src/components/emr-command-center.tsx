@@ -12,9 +12,13 @@ type Dept={id:string;name:string;department_type:string|null;total:number;done:n
 // không tính vào mẫu số/tử số KPI này. Loại trừ đúng 2 loại đã biết
 // (MANAGEMENT/SUPPORT) thay vì chỉ nhận đúng CLINICAL/PARACLINICAL — khoa chưa
 // kịp phân loại (department_type null) vẫn được tính là Khoa thay vì bị loại
-// nhầm khỏi mẫu số.
+// nhầm khỏi mẫu số. Chuẩn hoá trim+uppercase trước khi so khớp — giá trị gán
+// qua Admin > Khoa/Phòng luôn đúng y nguyên "MANAGEMENT"/"SUPPORT", nhưng dữ
+// liệu khai báo trước khi field này tồn tại (import/migration cũ) có thể
+// lệch hoa-thường hoặc dính khoảng trắng, khiến so khớp chuỗi tuyệt đối bỏ
+// sót — ví dụ thực tế: Ban Giám đốc vẫn bị đếm vào KPI dù đã gán đúng loại.
 const NON_CLINICAL_DEPARTMENT_TYPES=new Set(["MANAGEMENT","SUPPORT"]);
-function isClinicalDepartment(d:Dept){return !NON_CLINICAL_DEPARTMENT_TYPES.has(d.department_type||"");}
+function isClinicalDepartment(d:Dept){return !NON_CLINICAL_DEPARTMENT_TYPES.has((d.department_type||"").trim().toUpperCase());}
 type Escalation=Item & {reasons:string[];score:number};
 type Data={generatedAt:string;filter?:{from:string;to:string;active:boolean};total:number;completion:number|null;stale:number;overdue:number;controlCoverage:{owner:number|null;department:number|null;deadline:number|null;gateEvidence:number|null};gates:{total:number;passed:number;evidenceMissing:number};milestones:{total:number;done:number;completion:number|null};unassigned:number;criticalOpen:number;counts:Record<string,number>;categories:Cat[];attention:Item[];departmentMatrix:Dept[];upcoming:Item[];escalation:Escalation[]};
 const REASON_VISUAL:Record<string,{icon:string;tone:string}>={

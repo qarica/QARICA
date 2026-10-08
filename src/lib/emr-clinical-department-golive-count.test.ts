@@ -20,10 +20,32 @@ describe("EMR dashboard — KPI 'Khoa đã Go-live' chỉ đếm Khoa, không đ
 
   it("client loại Phòng (MANAGEMENT/SUPPORT) khỏi mẫu số/tử số KPI Khoa đã Go-live, khoa chưa phân loại (null) vẫn được tính", () => {
     expect(client).toContain('const NON_CLINICAL_DEPARTMENT_TYPES=new Set(["MANAGEMENT","SUPPORT"]);');
-    expect(client).toContain('function isClinicalDepartment(d:Dept){return !NON_CLINICAL_DEPARTMENT_TYPES.has(d.department_type||"");}');
+    expect(client).toContain('function isClinicalDepartment(d:Dept){return !NON_CLINICAL_DEPARTMENT_TYPES.has((d.department_type||"").trim().toUpperCase());}');
     expect(client).toContain("const clinicalDepartments=data.departmentMatrix.filter(isClinicalDepartment);");
     expect(client).toContain("const totalDepartmentsWithData=clinicalDepartments.length;");
     expect(client).toContain("const liveDepartments=clinicalDepartments.filter(d=>d.total>0&&d.completion===100).length;");
+  });
+
+  // Phát hiện tiếp theo (báo cáo thực tế: "Vẫn còn đếm ban giám đốc" sau khi
+  // đã đổ đúng department_type='MANAGEMENT' cho Ban Giám đốc trong Admin >
+  // Khoa/Phòng): so khớp chuỗi tuyệt đối "MANAGEMENT"/"SUPPORT" bỏ sót dữ
+  // liệu lệch hoa-thường hoặc dính khoảng trắng (khai báo trước khi field
+  // department_type tồn tại, qua import/migration cũ) — chuẩn hoá
+  // trim+toUpperCase trước khi so khớp để không phụ thuộc vào việc dữ liệu
+  // luôn sạch tuyệt đối.
+  it("so khớp department_type không phân biệt hoa-thường và bỏ khoảng trắng thừa, phòng dữ liệu cũ lệch định dạng", () => {
+    const fn = client.match(/function isClinicalDepartment\(d:Dept\)\{return ([^}]+);\}/)?.[1] || "";
+    expect(fn).toContain(".trim()");
+    expect(fn).toContain(".toUpperCase()");
+    const isClinicalDepartment = (departmentType: string | null) => {
+      const type = (departmentType || "").trim().toUpperCase();
+      return !new Set(["MANAGEMENT", "SUPPORT"]).has(type);
+    };
+    expect(isClinicalDepartment("management")).toBe(false);
+    expect(isClinicalDepartment(" MANAGEMENT ")).toBe(false);
+    expect(isClinicalDepartment("Support")).toBe(false);
+    expect(isClinicalDepartment("CLINICAL")).toBe(true);
+    expect(isClinicalDepartment(null)).toBe(true);
   });
 
   it("bảng ma trận theo khoa/phòng (data.departmentMatrix đầy đủ, không qua clinicalDepartments) vẫn hiện đủ Khoa lẫn Phòng", () => {
