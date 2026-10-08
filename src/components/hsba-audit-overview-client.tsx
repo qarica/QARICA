@@ -11,6 +11,7 @@ type Finding = {
   audit_id: string;
   department_id: string;
   owner_user_id: string | null;
+  owner_name: string | null;
   description: string;
   status: "OPEN" | "SENT_TO_DEPT" | "DEPT_ACKNOWLEDGED" | "DEPT_DISPUTED" | "HEAD_APPROVED" | "RESOLVED";
   department_response: string | null;
@@ -138,7 +139,8 @@ export function HsbaAuditOverviewClient({
       setError(body.error || "Không gán được nhân viên phụ trách.");
       return;
     }
-    setFindings((v) => v.map((f) => (f.id === finding.id ? { ...f, owner_user_id: body.finding.owner_user_id } : f)));
+    const newOwnerName = ownerUserId ? (staffByDept[finding.department_id] || []).find((s) => s.id === ownerUserId)?.name || null : null;
+    setFindings((v) => v.map((f) => (f.id === finding.id ? { ...f, owner_user_id: body.finding.owner_user_id, owner_name: newOwnerName } : f)));
   }
 
   function setResult(itemId: string, result: "PASS" | "FAIL" | "PARTIAL" | "NA") {
@@ -382,6 +384,12 @@ export function HsbaAuditOverviewClient({
                       onChange={(e) => void assignOwner(f, e.target.value)}
                     >
                       <option value="">— Chưa gán —</option>
+                      {/* Người đã gán trước đó có thể đã ngưng hoạt động hoặc đổi
+                          khoa/phòng — vẫn phải hiện đúng tên hiện lưu trong DB,
+                          không để dropdown trông như "chưa gán" một cách sai lệch. */}
+                      {f.owner_user_id && !(staffByDept[f.department_id] || []).some((s) => s.id === f.owner_user_id) ? (
+                        <option value={f.owner_user_id}>{f.owner_name || f.owner_user_id} (đã ngưng hoạt động/đổi khoa)</option>
+                      ) : null}
                       {(staffByDept[f.department_id] || []).map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.name}

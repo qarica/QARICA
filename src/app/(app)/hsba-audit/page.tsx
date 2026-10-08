@@ -38,12 +38,24 @@ export default async function HsbaAuditOverviewPage({ searchParams }: { searchPa
     })
     .filter((t): t is { id: string; name: string; versionId: string; versionNo: number } => t !== null);
 
+  // "Nhân viên phụ trách" trong dropdown chỉ liệt kê nhân sự ĐANG hoạt động
+  // của đúng khoa (xem department-staff/route.ts) — nếu người đã gán trước đó
+  // đã ngưng hoạt động hoặc đổi khoa/phòng, dropdown sẽ không có option khớp
+  // giá trị owner_user_id hiện tại, hiện ra như "chưa gán" dù DB vẫn lưu đúng.
+  // Resolve tên người đã gán KHÔNG lọc is_active để client luôn hiện đúng,
+  // tương tự quy ước "groupOptions" đã dùng cho Nhóm gáy (luôn giữ giá trị
+  // hiện tại trong danh sách dù không còn đạt điều kiện chọn mới).
+  const ownerIds = Array.from(new Set(((findingsRes.data ?? []) as any[]).map((f) => f.owner_user_id).filter(Boolean)));
+  const ownersRes = ownerIds.length ? await supabase.from("profiles").select("user_id,full_name,email").in("user_id", ownerIds) : { data: [] as any[] };
+  const ownerName = new Map((ownersRes.data ?? []).map((p: any) => [p.user_id, p.full_name || p.email || p.user_id]));
+  const findingsWithOwnerName = ((findingsRes.data ?? []) as any[]).map((f) => ({ ...f, owner_name: f.owner_user_id ? ownerName.get(f.owner_user_id) || null : null }));
+
   return (
     <HsbaAuditOverviewClient
       auditType={auditType}
       departments={(departmentsRes.data ?? []) as any}
       templates={templates}
-      initialFindings={(findingsRes.data ?? []) as any}
+      initialFindings={findingsWithOwnerName as any}
       canManage={canManage}
     />
   );
