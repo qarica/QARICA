@@ -59,6 +59,7 @@ export function RiskScoreCalculatorClient({ scales = BUILT_IN_RISK_SCALES }: { s
       .rsc-factor strong{display:block;font-size:12px;margin-bottom:8px}
       .rsc-options{display:grid;gap:6px}
       .rsc-options label{display:flex;gap:7px;align-items:center;font-size:11.5px;color:#3a4a50}
+      .rsc-options input{width:auto;min-height:0;margin:0;flex:0 0 auto}
       .rsc-result{border:1px solid #e4eaec;border-radius:15px;padding:16px 18px;display:grid;gap:10px}
       .rsc-result.red{border-color:#f2c7cc;background:#fffafb}
       .rsc-result.amber{border-color:#f0d59e;background:#fffdf5}
