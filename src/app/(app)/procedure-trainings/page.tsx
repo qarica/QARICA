@@ -17,6 +17,25 @@ export default async function ProcedureTrainingsPage() {
     .order("created_at", { ascending: false })
     .limit(300);
 
+  // Tỷ lệ hoàn thành (đã đào tạo / tổng số nhân sự đăng ký) — cùng cách tính
+  // tổng hợp 1 query như /api/procedure-trainings, không N+1 theo từng dòng.
+  const trainingIds = (data ?? []).map((t) => t.id);
+  const { data: attendeeRows } = trainingIds.length
+    ? await supabase.from("procedure_training_attendees").select("training_id,attended").in("training_id", trainingIds)
+    : { data: [] as { training_id: string; attended: boolean }[] };
+  const counts = new Map<string, { total: number; attended: number }>();
+  for (const row of attendeeRows ?? []) {
+    const current = counts.get(row.training_id) || { total: 0, attended: 0 };
+    current.total += 1;
+    if (row.attended) current.attended += 1;
+    counts.set(row.training_id, current);
+  }
+  const trainings = (data ?? []).map((t) => ({
+    ...t,
+    attendee_total: counts.get(t.id)?.total || 0,
+    attendee_attended: counts.get(t.id)?.attended || 0,
+  }));
+
   return (
     <div className="page-stack procedure-trainings-page">
       <PageHeader
@@ -24,7 +43,7 @@ export default async function ProcedureTrainingsPage() {
         description="Theo dõi việc phổ biến/đào tạo quy trình, biểu mẫu mới ban hành cho các đơn vị — đào tạo lần 1 và lần 2 nếu cần đào tạo lại."
         icon="list-checks"
       />
-      <ProcedureTrainingsClient initialTrainings={(data ?? []) as any} canManage={canManage} />
+      <ProcedureTrainingsClient initialTrainings={trainings as any} canManage={canManage} />
     </div>
   );
 }

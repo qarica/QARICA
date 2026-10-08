@@ -58,3 +58,45 @@ describe("Procedure trainings module security and control gates", () => {
     expect(client).toContain("editDraft.notes");
   });
 });
+
+// Real finding from a full-app review: status was ONE value for the whole
+// quy trình — no way to answer "bao nhiêu % nhân sự khoa/phòng đã thực sự
+// được đào tạo". Added a per-employee attendee roster (own table, own
+// migration) so a completion rate can be computed, without changing the
+// meaning of the existing overall status field.
+describe("Procedure trainings track per-employee attendance for a real completion rate", () => {
+  it("attendees live in their own table, tenant-scoped and cascade-deleted with their training", () => {
+    const migration = read("supabase/migrations/20261025_procedure_training_attendees_v1.sql");
+    expect(migration).toContain("create table if not exists public.procedure_training_attendees");
+    expect(migration).toContain("references public.procedure_trainings(id) on delete cascade");
+    expect(migration).toContain("organization_id uuid not null references public.organizations(id)");
+  });
+
+  it("attendee routes separate view (list) from manage (add/update/remove), scoped to the parent training's organization", () => {
+    const listRoute = read("src/app/api/procedure-trainings/[id]/attendees/route.ts");
+    expect(listRoute).toContain('requireApiPermission("procedure_training.view")');
+    expect(listRoute).toContain('requireApiPermission("procedure_training.manage")');
+    expect(listRoute).toContain('.eq("id", trainingId).eq("organization_id", organizationId)');
+
+    const itemRoute = read("src/app/api/procedure-trainings/[id]/attendees/[attendeeId]/route.ts");
+    expect(itemRoute).toContain('requireApiPermission("procedure_training.manage")');
+    expect(itemRoute).toContain('.eq("training_id", trainingId)');
+    expect(itemRoute).toContain('.eq("organization_id", organizationId)');
+  });
+
+  it("the main list computes a real completion rate (attended/total) with one aggregate query, not N+1 per row — in both the API and the SSR page", () => {
+    const listApi = read("src/app/api/procedure-trainings/route.ts");
+    expect(listApi).toContain('.from("procedure_training_attendees").select("training_id,attended").in("training_id", trainingIds)');
+    expect(listApi).toContain("attendee_total: counts.get(t.id)?.total || 0");
+
+    const page = read("src/app/(app)/procedure-trainings/page.tsx");
+    expect(page).toContain('.from("procedure_training_attendees").select("training_id,attended").in("training_id", trainingIds)');
+  });
+
+  it("the table shows the completion rate and a roster manager, with add/toggle/remove gated behind canManage (not just viewable)", () => {
+    const client = read("src/components/procedure-trainings-client.tsx");
+    expect(client).toContain("Quản lý nhân sự");
+    expect(client).toContain("t.attendee_attended}/{t.attendee_total}");
+    expect(client).toContain("canManage ? (\n            <div style={{ display: \"grid\", gridTemplateColumns: \"2fr 1fr auto\", gap: 8 }}>");
+  });
+});

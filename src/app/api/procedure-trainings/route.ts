@@ -20,7 +20,27 @@ export async function GET() {
     .order("created_at", { ascending: false })
     .limit(300);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true, trainings: data ?? [] });
+
+  // Tỷ lệ hoàn thành (đã đào tạo / tổng số nhân sự đăng ký) tính từ bảng con
+  // procedure_training_attendees — 1 query tổng hợp thay vì N+1 theo từng dòng.
+  const trainingIds = (data ?? []).map((t) => t.id);
+  const { data: attendeeRows } = trainingIds.length
+    ? await admin.from("procedure_training_attendees").select("training_id,attended").in("training_id", trainingIds)
+    : { data: [] as { training_id: string; attended: boolean }[] };
+  const counts = new Map<string, { total: number; attended: number }>();
+  for (const row of attendeeRows ?? []) {
+    const current = counts.get(row.training_id) || { total: 0, attended: 0 };
+    current.total += 1;
+    if (row.attended) current.attended += 1;
+    counts.set(row.training_id, current);
+  }
+  const trainings = (data ?? []).map((t) => ({
+    ...t,
+    attendee_total: counts.get(t.id)?.total || 0,
+    attendee_attended: counts.get(t.id)?.attended || 0,
+  }));
+
+  return NextResponse.json({ ok: true, trainings });
 }
 
 export async function POST(request: Request) {

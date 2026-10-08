@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type Training = {
   id: string;
@@ -17,6 +18,18 @@ type Training = {
   session_2_time: string | null;
   session_2_location: string | null;
   session_2_method: string | null;
+  notes: string | null;
+  attendee_total: number;
+  attendee_attended: number;
+};
+
+type Attendee = {
+  id: string;
+  training_id: string;
+  employee_name: string;
+  employee_code: string | null;
+  attended: boolean;
+  attended_at: string | null;
   notes: string | null;
 };
 
@@ -42,6 +55,12 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<Training>>({});
+  const [rosterTraining, setRosterTraining] = useState<Training | null>(null);
+  const [rosterAttendees, setRosterAttendees] = useState<Attendee[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [rosterError, setRosterError] = useState("");
+  const [newEmployeeName, setNewEmployeeName] = useState("");
+  const [newEmployeeCode, setNewEmployeeCode] = useState("");
 
   async function submit() {
     if (!procedureName.trim()) {
@@ -105,8 +124,156 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
     setEditingId(null);
   }
 
+  function openRoster(t: Training) {
+    setRosterTraining(t);
+    setRosterError("");
+    setNewEmployeeName("");
+    setNewEmployeeCode("");
+  }
+
+  function closeRoster() {
+    setRosterTraining(null);
+    setRosterAttendees([]);
+  }
+
+  function syncRosterCounts(trainingId: string, list: Attendee[]) {
+    const total = list.length;
+    const attended = list.filter((a) => a.attended).length;
+    setTrainings((v) => v.map((x) => (x.id === trainingId ? { ...x, attendee_total: total, attendee_attended: attended } : x)));
+  }
+
+  useEffect(() => {
+    if (!rosterTraining) return;
+    let cancelled = false;
+    setRosterLoading(true);
+    fetch(`/api/procedure-trainings/${rosterTraining.id}/attendees`)
+      .then((res) => res.json())
+      .then((body) => {
+        if (cancelled) return;
+        setRosterAttendees((body.attendees as Attendee[]) || []);
+      })
+      .catch(() => {
+        if (!cancelled) setRosterError("Không tải được danh sách nhân sự.");
+      })
+      .finally(() => {
+        if (!cancelled) setRosterLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rosterTraining]);
+
+  async function addAttendee() {
+    if (!rosterTraining || !newEmployeeName.trim()) return;
+    setRosterError("");
+    const res = await fetch(`/api/procedure-trainings/${rosterTraining.id}/attendees`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employee_name: newEmployeeName.trim(), employee_code: newEmployeeCode.trim() || null }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setRosterError(body.error || "Không thêm được nhân sự.");
+      return;
+    }
+    const next = [...rosterAttendees, body.attendee as Attendee];
+    setRosterAttendees(next);
+    syncRosterCounts(rosterTraining.id, next);
+    setNewEmployeeName("");
+    setNewEmployeeCode("");
+  }
+
+  async function toggleAttended(attendee: Attendee) {
+    if (!rosterTraining) return;
+    setRosterError("");
+    const res = await fetch(`/api/procedure-trainings/${rosterTraining.id}/attendees/${attendee.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attended: !attendee.attended }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setRosterError(body.error || "Không cập nhật được.");
+      return;
+    }
+    const next = rosterAttendees.map((a) => (a.id === attendee.id ? (body.attendee as Attendee) : a));
+    setRosterAttendees(next);
+    syncRosterCounts(rosterTraining.id, next);
+  }
+
+  async function removeAttendee(attendee: Attendee) {
+    if (!rosterTraining) return;
+    setRosterError("");
+    const res = await fetch(`/api/procedure-trainings/${rosterTraining.id}/attendees/${attendee.id}`, { method: "DELETE" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setRosterError(body.error || "Không xóa được.");
+      return;
+    }
+    const next = rosterAttendees.filter((a) => a.id !== attendee.id);
+    setRosterAttendees(next);
+    syncRosterCounts(rosterTraining.id, next);
+  }
+
+  const rosterModal = rosterTraining && typeof document !== "undefined" ? createPortal(
+    <div className="modal-backdrop" style={{ padding: 18, display: "grid", placeItems: "center" }} onMouseDown={(e) => { if (e.target === e.currentTarget) closeRoster(); }}>
+      <div role="dialog" aria-modal="true" aria-labelledby="roster-title" className="modal-card" style={{ width: "min(560px, calc(100vw - 36px))", maxHeight: "calc(100vh - 48px)", overflow: "auto" }}>
+        <div className="modal-head">
+          <div>
+            <div className="eyebrow">NHÂN SỰ ĐÀO TẠO</div>
+            <h2 id="roster-title">{rosterTraining.procedure_name}</h2>
+          </div>
+          <button className="icon-button" onClick={closeRoster} aria-label="Đóng">×</button>
+        </div>
+        <div style={{ padding: "0 20px 20px", display: "grid", gap: 12 }}>
+          {rosterError ? <div className="alert error">{rosterError}</div> : null}
+          {canManage ? (
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8 }}>
+              <input className="input" placeholder="Tên nhân viên..." value={newEmployeeName} onChange={(e) => setNewEmployeeName(e.target.value)} />
+              <input className="input" placeholder="Mã NV (tùy chọn)" value={newEmployeeCode} onChange={(e) => setNewEmployeeCode(e.target.value)} />
+              <button className="button primary small" disabled={!newEmployeeName.trim()} onClick={() => void addAttendee()}>
+                + Thêm
+              </button>
+            </div>
+          ) : null}
+          {rosterLoading ? (
+            <div className="muted">Đang tải...</div>
+          ) : (
+            <div className="work-list">
+              {rosterAttendees.map((a) => (
+                <div className="work-row" key={a.id}>
+                  <div className="work-main">
+                    <strong>
+                      {a.employee_name}
+                      {a.employee_code ? ` (${a.employee_code})` : ""}
+                    </strong>
+                    <small>{a.attended ? `Đã đào tạo${a.attended_at ? ` · ${formatDate(a.attended_at)}` : ""}` : "Chưa đào tạo"}</small>
+                  </div>
+                  {canManage ? (
+                    <>
+                      <label className="inline-check">
+                        <input type="checkbox" checked={a.attended} onChange={() => void toggleAttended(a)} /> Đã đào tạo
+                      </label>
+                      <button className="button tertiary small" onClick={() => void removeAttendee(a)}>
+                        Xóa
+                      </button>
+                    </>
+                  ) : (
+                    <span className={`status-badge ${a.attended ? "success" : "warning"}`}>{a.attended ? "Đã đào tạo" : "Chưa đào tạo"}</span>
+                  )}
+                </div>
+              ))}
+              {!rosterAttendees.length ? <div className="empty-state compact">Chưa có nhân sự nào trong danh sách.</div> : null}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>, document.body,
+  ) : null;
+
   return (
     <div className="pt-overview">
+      {rosterModal}
       {canManage ? (
         <section className="panel">
           <div className="panel-title">
@@ -148,6 +315,7 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
                 <th>Đào tạo lần 2</th>
                 <th>Phản hồi QLCL</th>
                 <th>Ghi chú</th>
+                <th>Tỷ lệ hoàn thành</th>
                 {canManage ? <th>Thao tác</th> : null}
               </tr>
             </thead>
@@ -265,6 +433,16 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
                         t.notes || "—"
                       )}
                     </td>
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+                        <span>
+                          {t.attendee_attended}/{t.attendee_total} ({t.attendee_total ? Math.round((t.attendee_attended / t.attendee_total) * 100) : 0}%)
+                        </span>
+                        <button className="button tertiary small" onClick={() => openRoster(t)}>
+                          Quản lý nhân sự
+                        </button>
+                      </div>
+                    </td>
                     {canManage ? (
                       <td>
                         {editing ? (
@@ -288,7 +466,7 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
               })}
               {!trainings.length ? (
                 <tr>
-                  <td colSpan={canManage ? 11 : 10} className="empty-state compact">
+                  <td colSpan={canManage ? 12 : 11} className="empty-state compact">
                     Chưa có quy trình nào.
                   </td>
                 </tr>
