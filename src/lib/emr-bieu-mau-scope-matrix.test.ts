@@ -18,9 +18,9 @@ describe("EMR Khai báo biểu mẫu — ma trận Phạm vi áp dụng tách kh
     expect(client).toContain('useState<"info" | "progress" | "scope">("info")');
   });
 
-  it("render ma trận hàng=biểu mẫu, cột=khoa/phòng khi view==='scope'", () => {
+  it("render ma trận hàng=biểu mẫu, cột=khoa khi view==='scope'", () => {
     expect(client).toContain('view === "scope" ? (');
-    expect(client).toContain('{departments.map((d) => <th key={d.id} className="emr-scope-col-head">{d.short_name || d.name}</th>)}');
+    expect(client).toContain('{clinicalDepartments.map((d) => <th key={d.id} className="emr-scope-col-head">{d.short_name || d.name}</th>)}');
     expect(client).toContain("{filtered.map((item) => {");
   });
 

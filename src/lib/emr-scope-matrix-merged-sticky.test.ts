@@ -12,7 +12,7 @@ describe("EMR Phạm vi áp dụng — gộp 1 bảng + sticky header/cột + ch
   it("2 ma trận gộp vào đúng 1 <table>, không còn 2 section .panel tách rời", () => {
     const scopeBlock = client.slice(client.indexOf('view === "scope" ? ('), client.indexOf('view === "scope" ? (') + 4000);
     expect((scopeBlock.match(/<table className="data-table">/g) || []).length).toBe(1);
-    expect(scopeBlock).toContain("Theo khoa/phòng");
+    expect(scopeBlock).toContain("Theo khoa");
     expect(scopeBlock).toContain("Theo loại hồ sơ bệnh án");
   });
 
@@ -21,10 +21,10 @@ describe("EMR Phạm vi áp dụng — gộp 1 bảng + sticky header/cột + ch
     expect(client).toContain(".emr-scope-matrix td.emr-scope-row-head,.emr-scope-matrix th.emr-scope-corner{position:sticky;left:0");
   });
 
-  it("mỗi hàng có nút 'Chọn tất cả khoa' gọi đúng hàm tick hết department_ids cho item đó", () => {
+  it("mỗi hàng có nút 'Chọn tất cả khoa' gọi đúng hàm tick hết department_ids cho item đó (chỉ Khoa, không gồm Phòng)", () => {
     expect(client).toContain("async function selectAllDepartmentsForItem(item: Item)");
     expect(client).toContain("Chọn tất cả khoa");
-    expect(client).toContain("const next = departments.map((d) => d.id);");
+    expect(client).toContain("const next = clinicalDepartments.map((d) => d.id);");
   });
 });
 

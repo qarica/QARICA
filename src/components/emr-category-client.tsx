@@ -95,7 +95,22 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   const [form, setForm] = useState({ title: "", description: "", status: "TODO", priority: "MEDIUM", due_date: "", department_ids:[] as string[], owner_department_id:"", is_go_live_gate: false, evidence_url: "", verify_completed:false, details: emptyDetails() });
   const [saving, setSaving] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [departments,setDepartments]=useState<{id:string;name:string;short_name:string|null}[]>([]);
+  const [departments,setDepartments]=useState<{id:string;name:string;short_name:string|null;department_type:string|null}[]>([]);
+  // Ma trận "Phạm vi áp dụng" chỉ nói về việc biểu mẫu này dùng ở Khoa nào —
+  // Phòng (quản lý/hỗ trợ, vd Ban Giám đốc, Phòng CNTT...) không có hoạt động
+  // lâm sàng nên không bao giờ là nơi áp dụng biểu mẫu bệnh án. Loại trừ đúng
+  // 2 loại đã biết (MANAGEMENT/SUPPORT, cùng tiêu chí với KPI "Khoa đã
+  // Go-live" ở emr-command-center.tsx) thay vì chỉ nhận CLINICAL/PARACLINICAL
+  // — khoa chưa kịp phân loại (department_type null) vẫn hiện trong ma trận
+  // thay vì bị ẩn nhầm. CHỈ áp dụng cho ma trận này — fieldset "Khoa/phòng —
+  // Phạm vi áp dụng" ở modal tạo/sửa (các danh mục khác BIEU_MAU) và ô "Đơn
+  // vị phụ trách" vẫn hiện đủ Khoa lẫn Phòng, vì 1 hạng mục triển khai EMR có
+  // thể do Phòng phụ trách dù không áp dụng tại Phòng đó.
+  const NON_CLINICAL_DEPARTMENT_TYPES = useMemo(() => new Set(["MANAGEMENT", "SUPPORT"]), []);
+  const clinicalDepartments = useMemo(
+    () => departments.filter((d) => !NON_CLINICAL_DEPARTMENT_TYPES.has((d.department_type || "").trim().toUpperCase())),
+    [departments, NON_CLINICAL_DEPARTMENT_TYPES],
+  );
   // "Chọn tất cả khoa" từng không có cách lùi lại: 1 click gán department_ids
   // thành danh sách tường minh đủ mọi khoa, nút vẫn bật (vì danh sách đó
   // không rỗng nên allDeptsChecked=false) nhưng bấm lại chỉ ghi đè nguyên
@@ -232,7 +247,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   // (tick từng khoa một cũng cho ra danh sách tường minh, không tự gộp lại
   // thành rỗng).
   async function toggleScopeCell(item: Item, deptId: string) {
-    const current = item.department_ids.length === 0 ? departments.map((d) => d.id) : item.department_ids;
+    const current = item.department_ids.length === 0 ? clinicalDepartments.map((d) => d.id) : item.department_ids;
     const next = toggleId(current, deptId);
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: next } : i)));
     try {
@@ -252,7 +267,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   // lại giá trị trước đó để nút đổi thành "Hoàn tác" — bấm nhầm vẫn lùi lại
   // được đúng phạm vi cũ, không phải tự bỏ tick lại từng khoa một.
   async function selectAllDepartmentsForItem(item: Item) {
-    const next = departments.map((d) => d.id);
+    const next = clinicalDepartments.map((d) => d.id);
     setScopeUndoSnapshots((prev) => ({ ...prev, [item.id]: item.department_ids }));
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: next } : i)));
     try {
@@ -421,24 +436,24 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
         <div className="empty-state">Không tìm thấy mục phù hợp với &quot;{search}&quot;.</div>
       ) : view === "scope" ? (
         <div className="panel emr-scope-matrix">
-          {!departments.length && !recordTypeOptions.length ? (
-            <div className="empty-state">Chưa có khoa/phòng hoặc loại hồ sơ nào để gán phạm vi áp dụng.</div>
+          {!clinicalDepartments.length && !recordTypeOptions.length ? (
+            <div className="empty-state">Chưa có khoa hoặc loại hồ sơ nào để gán phạm vi áp dụng.</div>
           ) : (
             <div className="table-wrap">
               <table className="data-table">
                 <colgroup>
                   <col className="emr-scope-corner-col" />
-                  {departments.map((d) => <col key={d.id} />)}
+                  {clinicalDepartments.map((d) => <col key={d.id} />)}
                   {recordTypeOptions.map((rt) => <col key={rt} />)}
                 </colgroup>
                 <thead>
                   <tr>
                     <th rowSpan={2} className="emr-scope-corner">Biểu mẫu</th>
-                    {departments.length ? <th colSpan={departments.length}>Theo khoa/phòng</th> : null}
+                    {clinicalDepartments.length ? <th colSpan={clinicalDepartments.length}>Theo khoa</th> : null}
                     {recordTypeOptions.length ? <th colSpan={recordTypeOptions.length}>Theo loại hồ sơ bệnh án</th> : null}
                   </tr>
                   <tr>
-                    {departments.map((d) => <th key={d.id} className="emr-scope-col-head">{d.short_name || d.name}</th>)}
+                    {clinicalDepartments.map((d) => <th key={d.id} className="emr-scope-col-head">{d.short_name || d.name}</th>)}
                     {recordTypeOptions.map((rt) => <th key={rt} className="emr-scope-col-head">{rt}</th>)}
                   </tr>
                 </thead>
@@ -450,7 +465,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                       <tr key={item.id}>
                         <td className="emr-scope-row-head">
                           <strong>{item.title}</strong>
-                          {departments.length ? (
+                          {clinicalDepartments.length ? (
                             scopeUndoSnapshots[item.id] !== undefined ? (
                               <button
                                 type="button"
@@ -472,7 +487,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                             )
                           ) : null}
                         </td>
-                        {departments.map((d) => {
+                        {clinicalDepartments.map((d) => {
                           const checked = allDeptsChecked || item.department_ids.includes(d.id);
                           return (
                             <td key={d.id} style={{ textAlign: "center" }}>
