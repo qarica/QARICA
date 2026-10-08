@@ -51,6 +51,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const body = await request.json().catch(() => ({}));
   const patch: Record<string, unknown> = { updated_by: auth.user.id, updated_at: new Date().toISOString() };
+  let justVerified = false;
   if (typeof body.title === "string") {
     const title = body.title.trim();
     if (!title) return NextResponse.json({ error: "Tiêu đề không được để trống." }, { status: 400 });
@@ -70,7 +71,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   if (typeof body.owner_department_id === "string" || body.owner_department_id === null) { const v=body.owner_department_id||null; if(v){const {data:d}=await admin.from("departments").select("id").eq("id",v).eq("organization_id",organizationId).eq("is_active",true).maybeSingle(); if(!d)return NextResponse.json({error:"Đơn vị phụ trách không hợp lệ."},{status:400});} patch.owner_department_id=v; }
   if (typeof body.is_go_live_gate === "boolean") patch.is_go_live_gate = body.is_go_live_gate;
-  if (typeof body.evidence_url === "string" || body.evidence_url === null) { patch.evidence_url = body.evidence_url ? String(body.evidence_url).trim() : null; if (!patch.evidence_url) { patch.verified_at = null; patch.verified_by = null; } }
+  if (typeof body.evidence_url === "string" || body.evidence_url === null) {
+    patch.evidence_url = body.evidence_url ? String(body.evidence_url).trim() : null;
+    // Phát hiện Trung bình: trước đây chỉ null hoá verified_at/verified_by khi
+    // evidence_url bị XOÁ (rỗng) — đổi sang 1 minh chứng KHÁC (vẫn khác rỗng)
+    // không làm mất hiệu lực xác minh cũ, dù xác minh đó đã chấm trên minh
+    // chứng trước đó, không phải minh chứng mới này. Null hoá bất cứ khi nào
+    // evidence_url thực sự đổi giá trị (rỗng hoặc khác), không chỉ khi rỗng —
+    // nếu request này cũng xác minh lại ngay (verify_completed:true) thì nhánh
+    // bên dưới chạy SAU sẽ set lại verified_at/verified_by dựa trên minh chứng
+    // mới, không mất tính năng xác minh trong cùng 1 request.
+    if (patch.evidence_url !== existing.evidence_url) { patch.verified_at = null; patch.verified_by = null; }
+  }
   if (body.verify_completed === true) {
     const effectiveStatus = typeof body.status === "string" ? body.status : existing.status;
     const effectiveEvidence = (typeof body.evidence_url === "string" || body.evidence_url === null) ? (body.evidence_url ? String(body.evidence_url).trim() : null) : existing.evidence_url;
@@ -79,12 +91,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // này gần nhất (thường là người đã chuyển sang DONE) — không được tự xác
     // minh việc do chính mình thực hiện, kể cả khi chuyển DONE và xác minh
     // trong cùng một request.
-    const selfTransitionToDone = typeof body.status === "string" && body.status === "DONE";
+    //
+    // Phát hiện Cao: trước đây điều kiện này chỉ kiểm tra "request có gửi
+    // status=DONE", không kiểm tra "request có THỰC SỰ đang chuyển sang DONE"
+    // (existing.status khác DONE trước đó) — vì UI luôn gửi nguyên form.status
+    // mỗi lần PATCH kể cả không đổi, nên mọi lượt xác minh trên hạng mục đã
+    // DONE sẵn (trường hợp bình thường nhất) đều rơi vào nhánh này và bị chặn,
+    // dù người xác minh là ai. Thêm điều kiện existing.status khác DONE để chỉ
+    // chặn đúng trường hợp chuyển DONE + xác minh trong cùng 1 request.
+    const selfTransitionToDone = typeof body.status === "string" && body.status === "DONE" && existing.status !== "DONE";
     if (selfTransitionToDone || existing.updated_by === auth.user.id) {
       return NextResponse.json({ error: "Người xác minh phải khác người vừa cập nhật hạng mục này — không thể tự xác minh việc do chính mình thực hiện." }, { status: 403 });
     }
     patch.verified_at = new Date().toISOString();
     patch.verified_by = auth.user.id;
+    justVerified = true;
   }
   if (body.verify_completed === false || (body.status && body.status !== "DONE")) { patch.verified_at = null; patch.verified_by = null; }
   if (body.details !== undefined) patch.details = sanitizeDetails(existing.category, body.details);
@@ -107,6 +128,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_rollout_items", row_id: id, action_type: `EMR_ITEM_STATUS_${body.status}`, old_value: { status: existing.status }, new_value: { status: body.status }, request_meta: { source: "qlcl-ui" } });
     if (auditError) return NextResponse.json({ error: `Đã cập nhật nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
   }
+  // Phát hiện Trung bình: xác minh go-live gate (verify_completed) không luôn
+  // đi kèm đổi status trong cùng request (trường hợp bình thường nhất: hạng
+  // mục đã DONE từ trước, xác minh sau đó) — nhánh audit log ở trên bỏ sót
+  // chính hành động nhạy cảm nhất của cả module. Ghi riêng khi justVerified.
+  if (justVerified) {
+    const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_rollout_items", row_id: id, action_type: "EMR_ITEM_VERIFY", new_value: { evidence_url: patch.evidence_url ?? existing.evidence_url, verified_at: patch.verified_at }, request_meta: { source: "qlcl-ui" } });
+    if (auditError) return NextResponse.json({ error: `Đã cập nhật nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true, item: data });
 }
@@ -127,6 +156,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   const { error } = await admin.from("emr_rollout_items").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_rollout_items", row_id: id, action_type: "EMR_ITEM_DELETE", old_value: { category: existing.category, status: existing.status }, request_meta: { source: "qlcl-ui" } });
+  if (auditError) return NextResponse.json({ error: `Đã xoá nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
 
   return NextResponse.json({ ok: true });
 }

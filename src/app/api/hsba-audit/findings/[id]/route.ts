@@ -50,6 +50,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const { data: ownerProfile } = await admin.from("profiles").select("user_id").eq("user_id", ownerUserId).eq("organization_id", organizationId).eq("is_active", true).maybeSingle();
       if (!ownerProfile) return NextResponse.json({ error: "Nhân viên phụ trách không hợp lệ." }, { status: 400 });
     }
+    const { data: before } = await admin.from("hsba_audit_findings").select("owner_user_id").eq("id", id).eq("organization_id", organizationId).maybeSingle();
     const { data, error } = await admin
       .from("hsba_audit_findings")
       .update({ owner_user_id: ownerUserId, updated_at: new Date().toISOString() })
@@ -60,6 +61,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       )
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "hsba_audit_findings", row_id: id, action_type: "HSBA_FINDING_ASSIGN_OWNER", old_value: { owner_user_id: before?.owner_user_id ?? null }, new_value: { owner_user_id: ownerUserId }, request_meta: { source: "qlcl-ui" } });
+    if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
+
     return NextResponse.json({ ok: true, finding: data });
   }
 
@@ -116,5 +121,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     )
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Mọi bước trong vòng đời finding đều ghi audit_logs — đặc biệt quan trọng
+  // với DECIDE (TP quyết định Giữ nguyên/Miễn lỗi cho nhân viên), vì đây là
+  // quyết định ảnh hưởng trực tiếp trách nhiệm cá nhân, cần truy vết được
+  // ai quyết định và khi nào.
+  const { error: auditError } = await admin.from("audit_logs").insert({
+    actor_user_id: auth.user.id,
+    table_name: "hsba_audit_findings",
+    row_id: id,
+    action_type: `HSBA_FINDING_${action}`,
+    old_value: { status: current.status },
+    new_value: update,
+    request_meta: { source: "qlcl-ui" },
+  });
+  if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
+
   return NextResponse.json({ ok: true, finding: data });
 }

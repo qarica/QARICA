@@ -136,5 +136,15 @@ export async function POST(request: Request) {
     if (findingsError) return NextResponse.json({ error: findingsError.message }, { status: 400 });
   }
 
+  const { error: auditLogError } = await admin.from("audit_logs").insert({
+    actor_user_id: auth.user.id,
+    table_name: "hsba_audits",
+    row_id: audit.id,
+    action_type: "HSBA_AUDIT_CREATE",
+    new_value: { audit_type: auditType, department_id: departmentId, record_reference: recordReference, period, overall_result: overallResult, item_count: normalizedResults.length, findings_created: auditType === "HSBA" ? failedResults.length : 0 },
+    request_meta: { source: "qlcl-ui" },
+  });
+  if (auditLogError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditLogError.message}` }, { status: 500 });
+
   return NextResponse.json({ ok: true, audit, results: itemResults, failed_count: failedResults.length, findings_created: auditType === "HSBA" ? failedResults.length : 0 });
 }

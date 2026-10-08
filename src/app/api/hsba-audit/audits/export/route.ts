@@ -45,14 +45,17 @@ export async function GET(request: Request) {
   const passCountByAudit = new Map<string, number>();
   const partialCountByAudit = new Map<string, number>();
   const failCountByAudit = new Map<string, number>();
+  const naCountByAudit = new Map<string, number>();
   for (const r of itemResultsRes.data ?? []) {
-    // NA không tính vào Đạt/Đạt 1 phần/Không đạt — cùng quy ước loại NA khỏi
-    // mẫu số đã dùng ở module Giám sát/Bảng kiểm chung.
-    const target = r.result === "FAIL" ? failCountByAudit : r.result === "PARTIAL" ? partialCountByAudit : r.result === "PASS" ? passCountByAudit : null;
+    // NA không tính vào mẫu số Đạt/Đạt 1 phần/Không đạt (cùng quy ước đã dùng
+    // ở module Giám sát/Bảng kiểm chung) — nhưng vẫn cần 1 cột riêng đếm NA,
+    // nếu không tổng 3 cột Đạt/Đạt 1 phần/Không đạt sẽ không khớp tổng số
+    // tiêu chí đã chấm của những lượt kiểm có NA (Phác đồ/QTKT nội trú).
+    const target = r.result === "FAIL" ? failCountByAudit : r.result === "PARTIAL" ? partialCountByAudit : r.result === "PASS" ? passCountByAudit : r.result === "NA" ? naCountByAudit : null;
     if (target) target.set(r.audit_id, (target.get(r.audit_id) || 0) + 1);
   }
 
-  const headers = ["Mã/số hồ sơ", "Khoa/phòng", "Kỳ báo cáo", "Người kiểm", "Ngày kiểm", "Số tiêu chí đạt", "Số tiêu chí đạt 1 phần", "Số tiêu chí không đạt", "Kết quả tổng", "Trạng thái"];
+  const headers = ["Mã/số hồ sơ", "Khoa/phòng", "Kỳ báo cáo", "Người kiểm", "Ngày kiểm", "Số tiêu chí đạt", "Số tiêu chí đạt 1 phần", "Số tiêu chí không đạt", "Số tiêu chí không áp dụng", "Kết quả tổng", "Trạng thái"];
   const lines = [headers.map(csvCell).join(",")];
   for (const a of audits ?? []) {
     lines.push(
@@ -65,6 +68,7 @@ export async function GET(request: Request) {
         passCountByAudit.get(a.id) || 0,
         partialCountByAudit.get(a.id) || 0,
         failCountByAudit.get(a.id) || 0,
+        naCountByAudit.get(a.id) || 0,
         RESULT_LABEL[a.overall_result] || a.overall_result,
         a.status,
       ]

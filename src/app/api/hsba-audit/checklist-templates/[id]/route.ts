@@ -13,7 +13,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
-  const { data: template } = await admin.from("hsba_checklist_templates").select("id,organization_id").eq("id", id).maybeSingle();
+  const { data: template } = await admin.from("hsba_checklist_templates").select("id,organization_id,name,description,is_active").eq("id", id).maybeSingle();
   if (!template || template.organization_id !== organizationId) return NextResponse.json({ error: "Không tìm thấy mẫu bảng kiểm." }, { status: 404 });
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -31,5 +31,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { error } = await admin.from("hsba_checklist_templates").update(patch).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Nhất quán với 3 RPC tạo/nhân bản/phát hành cùng nhóm template — đều đã
+  // ghi audit_logs, riêng PATCH đổi tên/ngừng dùng lại bỏ sót.
+  const { error: auditError } = await admin.from("audit_logs").insert({
+    actor_user_id: auth.user.id,
+    table_name: "hsba_checklist_templates",
+    row_id: id,
+    action_type: "HSBA_CHECKLIST_TEMPLATE_UPDATE",
+    old_value: { name: template.name, description: template.description, is_active: template.is_active },
+    new_value: patch,
+    request_meta: { source: "qlcl-ui" },
+  });
+  if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
+
   return NextResponse.json({ ok: true });
 }

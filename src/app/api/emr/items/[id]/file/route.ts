@@ -69,6 +69,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: updateError.message }, { status: 400 });
   }
 
+  const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_rollout_items", row_id: id, action_type: "EMR_ITEM_FILE_UPLOAD", new_value: { file_name: originalFileName }, request_meta: { source: "qlcl-ui" } });
+  if (auditError) return NextResponse.json({ error: `Đã tải lên nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
+
   return NextResponse.json({ ok: true, file_name: originalFileName });
 }
 
@@ -120,6 +123,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
 
   if (storagePath && typeof storagePath === "string") await admin.storage.from(BUCKET).remove([storagePath]);
+
+  const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_rollout_items", row_id: id, action_type: "EMR_ITEM_FILE_REMOVE", old_value: { file_name: (item.details as Record<string, unknown> | null)?.file_name ?? null }, request_meta: { source: "qlcl-ui" } });
+  if (auditError) return NextResponse.json({ error: `Đã xoá file nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
 
   return NextResponse.json({ ok: true });
 }
