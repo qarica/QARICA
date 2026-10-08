@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
   const milestoneStats = { total: milestones.length, done: milestonesDone, completion: milestones.length ? Math.round(milestonesDone * 100 / milestones.length) : null };
 
   const { data: departments, error: de } = await admin.from("departments")
-    .select("id,name,short_name").eq("organization_id", organizationId).eq("is_active", true).order("name");
+    .select("id,name,short_name,department_type").eq("organization_id", organizationId).eq("is_active", true).order("name");
   if (de) return NextResponse.json({ error: de.message }, { status: 400 });
 
   const departmentMatrix = (departments ?? []).map(d => {
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
       const domainDone = domainRows.filter(x => x.status === "DONE").length;
       return { code:c.code, slug:c.slug, label:c.label, total:domainRows.length, done:domainDone, blocked:domainRows.filter(x => x.status === "BLOCKED").length, completion:domainRows.length ? Math.round(domainDone*100/domainRows.length) : null };
     });
-    return { id:d.id, name:d.short_name || d.name, total:rows.length, done:doneRows, open:openRows.length, overdue:overdueRows, blockers, gates:gateRows.length, gatesPassed:passedGates, completion:rows.length ? Math.round(doneRows*100/rows.length) : null, domains };
+    return { id:d.id, name:d.short_name || d.name, department_type:d.department_type, total:rows.length, done:doneRows, open:openRows.length, overdue:overdueRows, blockers, gates:gateRows.length, gatesPassed:passedGates, completion:rows.length ? Math.round(doneRows*100/rows.length) : null, domains };
   }).filter(d => d.total > 0).sort((a,b) => b.blockers-a.blockers || b.overdue-a.overdue || (a.completion ?? 101)-(b.completion ?? 101));
 
   const upcoming = items.filter(x => x.status !== "DONE" && x.due_date && x.due_date >= today)

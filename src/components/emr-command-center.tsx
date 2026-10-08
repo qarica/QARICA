@@ -7,7 +7,15 @@ import { Icon } from "@/components/icon";
 type Cat={slug:string;code:string;label:string;description:string;icon:string;total:number;done:number;blocked:number;completion:number|null};
 type Item={id:string;category:string;title:string;description:string|null;status:string;priority?:string;due_date?:string|null;updated_at:string};
 type DomainCell={code:string;slug:string;label:string;total:number;done:number;blocked:number;completion:number|null};
-type Dept={id:string;name:string;total:number;done:number;open:number;overdue:number;blockers:number;gates:number;gatesPassed:number;completion:number|null;domains:DomainCell[]};
+type Dept={id:string;name:string;department_type:string|null;total:number;done:number;open:number;overdue:number;blockers:number;gates:number;gatesPassed:number;completion:number|null;domains:DomainCell[]};
+// "Khoa đã Go-live" chỉ tính Khoa (lâm sàng/cận lâm sàng) — Phòng (quản lý/hỗ
+// trợ, vd Ban Giám đốc, Phòng Kế hoạch...) không vận hành EMR lâm sàng nên
+// không tính vào mẫu số/tử số KPI này. Loại trừ đúng 2 loại đã biết
+// (MANAGEMENT/SUPPORT) thay vì chỉ nhận đúng CLINICAL/PARACLINICAL — khoa chưa
+// kịp phân loại (department_type null) vẫn được tính là Khoa thay vì bị loại
+// nhầm khỏi mẫu số.
+const NON_CLINICAL_DEPARTMENT_TYPES=new Set(["MANAGEMENT","SUPPORT"]);
+function isClinicalDepartment(d:Dept){return !NON_CLINICAL_DEPARTMENT_TYPES.has(d.department_type||"");}
 type Escalation=Item & {reasons:string[];score:number};
 type Data={generatedAt:string;filter?:{from:string;to:string;active:boolean};total:number;completion:number|null;stale:number;overdue:number;controlCoverage:{owner:number|null;department:number|null;deadline:number|null;gateEvidence:number|null};gates:{total:number;passed:number;evidenceMissing:number};milestones:{total:number;done:number;completion:number|null};unassigned:number;criticalOpen:number;counts:Record<string,number>;categories:Cat[];attention:Item[];departmentMatrix:Dept[];upcoming:Item[];escalation:Escalation[]};
 const REASON_VISUAL:Record<string,{icon:string;tone:string}>={
@@ -46,8 +54,9 @@ export function EmrCommandCenter(){
  if(error)return <div className="alert error">{error}</div>; if(!data)return <div className="empty-state">Đang tổng hợp dữ liệu EMR...</div>;
  const blocked=data.counts.BLOCKED||0, active=data.counts.IN_PROGRESS||0, todo=data.counts.TODO||0, done=data.counts.DONE||0;
  const donutTotal=Math.max(1,data.total); const doneDeg=done/donutTotal*360; const activeDeg=(done+active)/donutTotal*360; const todoDeg=(done+active+todo)/donutTotal*360;
- const totalDepartmentsWithData=data.departmentMatrix.length;
- const liveDepartments=data.departmentMatrix.filter(d=>d.total>0&&d.completion===100).length;
+ const clinicalDepartments=data.departmentMatrix.filter(isClinicalDepartment);
+ const totalDepartmentsWithData=clinicalDepartments.length;
+ const liveDepartments=clinicalDepartments.filter(d=>d.total>0&&d.completion===100).length;
  const signatureCategory=data.categories.find(c=>c.code==="CHU_KY_SO");
  return <div className="emr-command">
   <div className="emr-title"><div className="title-with-icon"><span className="icon-badge"><Icon name="building-2" size={20}/></span><div><div className="crumb">EMR <b>›</b> Tổng quan</div><h2>Trung tâm Điều hành Bệnh án điện tử (EMR)</h2><p>Theo dõi tiến độ triển khai, vận hành và tuân thủ bệnh án điện tử</p></div></div>
