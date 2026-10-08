@@ -34,7 +34,7 @@ describe("EMR Phạm vi áp dụng — chỉ hiện Khoa, ẩn Phòng (MANAGEMEN
 
   it("'Chọn tất cả khoa' và bỏ tick từng ô chỉ thao tác trên Khoa, không vô tình gán luôn Phòng", () => {
     expect(client).toContain("const next = clinicalDepartments.map((d) => d.id);");
-    expect(client).toContain("const current = item.department_ids.length === 0 ? clinicalDepartments.map((d) => d.id) : item.department_ids;");
+    expect(client).toContain("const next = toggleId(item.department_ids, deptId);");
   });
 
   it("fieldset 'Khoa/phòng — Phạm vi áp dụng' (modal, danh mục khác BIEU_MAU) và 'Đơn vị phụ trách' vẫn dùng departments đầy đủ (Khoa lẫn Phòng)", () => {

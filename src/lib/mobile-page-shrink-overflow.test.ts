@@ -95,6 +95,27 @@ describe("Mobile — workspace-strip's context label no longer claims the whole 
   it("keeps the context eyebrow/title single-line so a long title can't make the row tall and shove the tabs below it", () => {
     expect(css).toMatch(/\.workspace-app \.workspace-context span,\s*\n\s*\.workspace-app \.workspace-context strong \{\s*white-space: nowrap !important;\s*\}/);
   });
+
+  // Follow-up report ("Lỗi moblie vẫn ko sửa được", ảnh trang "Đo lường chất
+  // lượng" — chỉ 2 tab): fix ở trên khiến context không còn chiếm hết hàng,
+  // tab bar quả thực CUỘN ĐƯỢC đúng thiết kế (htmlScrollWidth không đổi),
+  // nhưng không có bất kỳ gợi ý thị giác nào (không mờ dần, không thanh
+  // cuộn) nên tab thứ 2 ("Danh mục chỉ số") trông y hệt như bị cắt mất —
+  // xác nhận bằng Playwright dựng lại đúng cấu trúc + CSS thật: workspace-tab
+  // thứ 2 đo được right:591 trong khung nhìn 390px. Với trang chỉ có 1-2 tab,
+  // bọc xuống dòng (quay lại đúng bố cục wrap gốc của workspace-shell.css)
+  // là đủ chỗ cho cả 2 tab mà không cần cuộn — chỉ áp dụng khi KHÔNG có tab
+  // thứ 3 trở lên (:not(:has(.workspace-tab:nth-child(3)))), để không đụng
+  // tới hành vi cuộn ngang của Admin (8 tab) đã đúng từ trước. Xác nhận lại
+  // bằng Playwright sau khi sửa: overflowing=[] (trước đó có workspace-tabs
+  // và workspace-tab "Danh mục chỉ số" tràn khung); trường hợp 8 tab đo lại
+  // vẫn flex-wrap:nowrap;overflow-x:auto, không đổi.
+  it("từ 3 tab trở lên vẫn cuộn ngang như cũ; 1-2 tab thì bọc xuống dòng thay vì cuộn ẩn không có gợi ý", () => {
+    expect(css).toContain(".workspace-app .workspace-strip-inner:not(:has(.workspace-tab:nth-child(3))) {");
+    expect(css).toMatch(/\.workspace-app \.workspace-strip-inner:not\(:has\(\.workspace-tab:nth-child\(3\)\)\) \{\s*flex-wrap: wrap !important;\s*overflow-x: visible !important;\s*\}/);
+    expect(css).toContain(".workspace-app .workspace-strip-inner:not(:has(.workspace-tab:nth-child(3))) .workspace-context {");
+    expect(css).toContain(".workspace-app .workspace-strip-inner:not(:has(.workspace-tab:nth-child(3))) .workspace-tabs {");
+  });
 });
 
 // Follow-up: the Gantt tiến độ screenshot also showed calendar/layout.tsx's

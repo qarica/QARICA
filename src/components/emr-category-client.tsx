@@ -113,13 +113,16 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   );
   // "Chọn tất cả khoa" từng dùng nút "Hoàn tác" phục hồi theo snapshot
   // department_ids ngay trước lúc bấm — gây bất ngờ khi snapshot đó đã có sẵn
-  // một phần khoa được tick (vd chỉ ô vừa thêm đổi, các ô khác "như cũ" vì đã
-  // tick từ trước), khiến người dùng tưởng Hoàn tác chạy sai. Bỏ hẳn cơ chế
-  // snapshot, thay bằng 1 cặp nút tường minh, luôn cho kết quả có thể đoán
-  // trước: "Chọn tất cả khoa" (gán danh sách đủ mọi khoa lâm sàng) và "Bỏ
-  // chọn tất cả" (đặt lại department_ids rỗng = mặc định "toàn viện" — ma
-  // trận vẫn hiện tick hết ở trạng thái này vì "toàn viện" nghĩa là áp dụng
-  // cho MỌI khoa, không phải không áp dụng khoa nào).
+  // một phần khoa được tick, khiến người dùng tưởng Hoàn tác chạy sai. Bỏ hẳn
+  // cơ chế snapshot, thay bằng 1 cặp nút tường minh: "Chọn tất cả khoa" = tick
+  // hết, "Bỏ chọn tất cả" = bỏ tick hết (yêu cầu tường minh của người dùng —
+  // không phải "đặt lại mặc định rồi vẫn hiện tick hết"). Vì vậy BỎ quy ước
+  // cũ "department_ids rỗng hiển thị như mọi ô đều tick" (vốn dùng để biểu thị
+  // "toàn viện") — ma trận giờ hiển thị ĐÚNG theo department_ids: rỗng = mọi
+  // ô bỏ tick, có id nào thì tick đúng id đó. "Toàn viện" (rỗng) vẫn giữ
+  // nguyên Ý NGHĨA DỮ LIỆU ở mọi nơi khác đọc cột này (dashboard, "Việc của
+  // tôi", tự tạo nhiệm vụ đào tạo...) — chỉ riêng CÁCH HIỂN THỊ trong ma trận
+  // này đổi để khớp đúng kỳ vọng "bỏ chọn tất cả = bỏ tick tất cả".
 
   // Every post-save refresh (create/edit/delete/upload) used to flip `loading`
   // back to true each time, unmounting the whole table for a moment — on
@@ -242,15 +245,12 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     }
   }
 
-  // Ma trận "Phạm vi áp dụng" (chỉ BIEU_MAU): department_ids rỗng nghĩa là
-  // toàn viện (xem fieldset gốc) — khi hiện dạng ma trận, "toàn viện" hiển thị
-  // như mọi khoa/phòng đều tick; bỏ tick 1 khoa tức là chuyển sang danh sách
-  // tường minh gồm mọi khoa còn lại, đúng cách fieldset gốc đã xây danh sách
-  // (tick từng khoa một cũng cho ra danh sách tường minh, không tự gộp lại
-  // thành rỗng).
+  // Ma trận "Phạm vi áp dụng" (chỉ BIEU_MAU) hiển thị tick đúng theo
+  // department_ids hiện có (xem giải thích ở khai báo clinicalDepartments) —
+  // tick 1 ô = thêm đúng id đó vào danh sách, không còn "mặc định hiểu rỗng
+  // là đã tick hết rồi mới trừ ra" như bản cũ.
   async function toggleScopeCell(item: Item, deptId: string) {
-    const current = item.department_ids.length === 0 ? clinicalDepartments.map((d) => d.id) : item.department_ids;
-    const next = toggleId(current, deptId);
+    const next = toggleId(item.department_ids, deptId);
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: next } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: next }) });
@@ -462,11 +462,11 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                 <tbody>
                   {filtered.map((item) => {
                     const selectedRecordTypes = String(item.details?.record_types || "").split(",").map((s) => s.trim()).filter(Boolean);
-                    const allDeptsChecked = item.department_ids.length === 0;
-                    // Chỉ coi là "đã chọn tường minh đủ khoa" khi department_ids
-                    // KHÔNG rỗng (khác "toàn viện" mặc định) và chứa đủ mọi khoa
-                    // lâm sàng — dùng để quyết định hiện "Bỏ chọn tất cả" thay
-                    // vì "Chọn tất cả khoa" (đã chọn hết thì không cần chọn nữa).
+                    // Ma trận hiển thị tick ĐÚNG theo department_ids hiện có —
+                    // không còn coi rỗng là "đã tick hết" (xem comment ở khai
+                    // báo clinicalDepartments). "Chọn tất cả khoa" chỉ hiện khi
+                    // CHƯA chọn tường minh đủ mọi khoa; đã chọn hết thì đổi
+                    // thành "Bỏ chọn tất cả".
                     const explicitAllSelected = item.department_ids.length > 0 && clinicalDepartments.length > 0 && clinicalDepartments.every((d) => item.department_ids.includes(d.id));
                     return (
                       <tr key={item.id}>
@@ -486,7 +486,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                               <button
                                 type="button"
                                 className="button tertiary small"
-                                disabled={!canManage || allDeptsChecked}
+                                disabled={!canManage}
                                 onClick={() => selectAllDepartmentsForItem(item)}
                               >
                                 Chọn tất cả khoa
@@ -495,7 +495,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                           ) : null}
                         </td>
                         {clinicalDepartments.map((d) => {
-                          const checked = allDeptsChecked || item.department_ids.includes(d.id);
+                          const checked = item.department_ids.includes(d.id);
                           return (
                             <td key={d.id} style={{ textAlign: "center" }}>
                               <span className="inline-check" style={{ justifyContent: "center" }}>

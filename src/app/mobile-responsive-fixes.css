@@ -249,6 +249,32 @@
     min-height: 40px !important;
   }
 
+  /* Báo cáo thực tế (trang "Đo lường chất lượng", chỉ 2 tab): hàng tab vẫn
+     cuộn ngang đúng như thiết kế ở trên (không tràn trang — htmlScrollWidth
+     đo được không đổi), nhưng KHÔNG có bất kỳ gợi ý thị giác nào cho biết
+     còn tab bị cuộn khuất (không mờ dần ở mép phải, không thanh cuộn) — tab
+     thứ 2 trông như bị cắt mất, giống hệt các lỗi "cứng, không cuộn được"
+     đã sửa trước đó (Gantt, ma trận khoa/phòng), dù bản chất kỹ thuật khác
+     (ở đây cuộn được, chỉ là không ai biết để cuộn). Khi cả hàng chỉ có tối
+     đa 2 tab, bọc xuống dòng thay vì cuộn ẩn là đủ cho dòng thứ 2 (không cần
+     cuộn) — quay lại đúng bố cục gốc của workspace-shell.css (context full
+     width, tab bọc xuống bên dưới) CHỈ cho trường hợp này; từ 3 tab trở lên
+     (vd Admin 8 tab) vẫn giữ nguyên hành vi cuộn ngang ở trên, không đổi. */
+  .workspace-app .workspace-strip-inner:not(:has(.workspace-tab:nth-child(3))) {
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+  }
+
+  .workspace-app .workspace-strip-inner:not(:has(.workspace-tab:nth-child(3))) .workspace-context {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .workspace-app .workspace-strip-inner:not(:has(.workspace-tab:nth-child(3))) .workspace-tabs {
+    flex: 1 1 auto !important;
+    flex-wrap: wrap !important;
+  }
+
   .workspace-app .tabs,
   .workspace-app .modern-tabs {
     width: 100% !important;

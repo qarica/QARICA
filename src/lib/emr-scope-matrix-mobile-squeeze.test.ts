@@ -98,3 +98,30 @@ describe("EMR Phạm vi áp dụng — cặp nút 'Chọn tất cả khoa' / 'B�
     expect(client).toContain(">\n                                Bỏ chọn tất cả\n");
   });
 });
+
+// Phản hồi tiếp theo: "Bỏ chọn tất cả là bỏ tick tất cả khoa. Chọn tất cả là
+// tick hết." — bản trước đó coi department_ids rỗng là "đã tick hết" (quy ước
+// cũ dùng để biểu thị toàn viện), nên sau khi "Bỏ chọn tất cả" đặt về rỗng,
+// ma trận VẪN hiện tick hết — ngược hẳn với tên nút. Bỏ quy ước "rỗng = tick
+// hết" khỏi cách HIỂN THỊ của ma trận này: giờ tick đúng theo department_ids
+// hiện có (rỗng = mọi ô bỏ tick); ý nghĩa dữ liệu "rỗng = toàn viện" ở các nơi
+// khác đọc department_ids (dashboard, "Việc của tôi", đào tạo tự động...)
+// không đổi — chỉ đổi cách hiển thị riêng trong ma trận này.
+describe("EMR Phạm vi áp dụng — 'Bỏ chọn tất cả' phải hiện bỏ tick thật, không còn tự hiện tick hết khi department_ids rỗng", () => {
+  it("ô checkbox tick đúng theo department_ids.includes, không còn quy ước 'rỗng = tick hết'", () => {
+    expect(client).toContain("const checked = item.department_ids.includes(d.id);");
+    expect(client).not.toContain("const checked = allDeptsChecked || item.department_ids.includes(d.id);");
+  });
+
+  it("toggleScopeCell tick/bỏ tick trực tiếp trên department_ids hiện có, không còn tự mở rộng thành danh sách đủ khoa khi đang rỗng", () => {
+    expect(client).toContain("const next = toggleId(item.department_ids, deptId);");
+    expect(client).not.toContain("const current = item.department_ids.length === 0 ? clinicalDepartments.map((d) => d.id) : item.department_ids;");
+  });
+
+  it("nút 'Chọn tất cả khoa' không còn bị disable khi department_ids đang rỗng (rỗng giờ hiện bỏ tick hết, vẫn cần bấm được để tick hết)", () => {
+    const scopeBlock = client.slice(client.indexOf('view === "scope" ? ('), client.indexOf('view === "scope" ? (') + 6000);
+    const selectAllButtonBlock = scopeBlock.slice(scopeBlock.indexOf("onClick={() => selectAllDepartmentsForItem(item)}") - 200, scopeBlock.indexOf("onClick={() => selectAllDepartmentsForItem(item)}"));
+    expect(selectAllButtonBlock).toContain("disabled={!canManage}");
+    expect(selectAllButtonBlock).not.toContain("allDeptsChecked");
+  });
+});
