@@ -547,7 +547,31 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
               <label>{descLabel}
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
               </label>
-              {extraFields.filter((f) => !f.pairWithStatus && !(categoryCode === "BIEU_MAU" && f.key === "record_types")).map((f) => (
+              {categoryCode === "BIEU_MAU" ? (
+                <div className="form-grid two emr-bieu-mau-identity-grid">
+                  <fieldset>
+                    <legend>Cấu trúc gáy HSBA</legend>
+                    <label>Nhóm gáy
+                      <input value={form.details.binding_group || ""} onChange={(e) => setForm({ ...form, details: { ...form.details, binding_group: e.target.value } })} />
+                    </label>
+                    <label>Thứ tự trong gáy
+                      <input type="number" value={form.details.binding_group_order || ""} onChange={(e) => setForm({ ...form, details: { ...form.details, binding_group_order: e.target.value } })} />
+                    </label>
+                    <small className="muted">Quản lý gán nhóm/đổi thứ tự hàng loạt ở màn hình &quot;Cây biểu mẫu&quot;.</small>
+                  </fieldset>
+                  <fieldset>
+                    <legend>Định danh biểu mẫu</legend>
+                    <label>Mã biểu mẫu
+                      <input value={form.details.form_code || ""} onChange={(e) => setForm({ ...form, details: { ...form.details, form_code: e.target.value } })} />
+                    </label>
+                    <label>Mã mẫu tham chiếu hệ thống EMR khác (nếu có)
+                      <input value={form.details.vendor_form_code || ""} onChange={(e) => setForm({ ...form, details: { ...form.details, vendor_form_code: e.target.value } })} />
+                    </label>
+                  </fieldset>
+                  <style>{`.emr-bieu-mau-identity-grid{margin-bottom:13px}.emr-bieu-mau-identity-grid fieldset{display:flex;flex-direction:column;gap:12px;height:100%}`}</style>
+                </div>
+              ) : null}
+              {extraFields.filter((f) => !f.pairWithStatus && !(categoryCode === "BIEU_MAU" && ["record_types", "form_code", "binding_group", "binding_group_order", "vendor_form_code"].includes(f.key))).map((f) => (
                 f.type === "boolean" ? (
                   <div key={f.key}>
                     <label className="inline-check">

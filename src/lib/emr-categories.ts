@@ -226,6 +226,12 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
   ],
   BIEU_MAU: [
     { key: "form_code", label: "Mã biểu mẫu", type: "text", showBeforeTitle: true },
+    // Mã tham chiếu chéo sang hệ thống EMR khác (nếu viện có dùng thêm 1 hệ
+    // thống EMR riêng và cần đối chiếu mã biểu mẫu giữa 2 bên) — để tên field
+    // chung chung, KHÔNG hard-code theo 1 nhà cung cấp cụ thể (CLAUDE.md
+    // nguyên tắc 1), vì mỗi viện có thể dùng nhà cung cấp khác nhau hoặc
+    // không dùng hệ thống nào khác cả.
+    { key: "vendor_form_code", label: "Mã mẫu tham chiếu hệ thống EMR khác (nếu có)", type: "text", hideFromGrid: true },
     { key: "binding_group", label: "Nhóm gáy", type: "text", hideFromGrid: true },
     // Thứ tự biểu mẫu này nằm ở vị trí nào trong gáy (gáy là 1 tập giấy đóng
     // theo thứ tự trang vật lý) — quản lý trực tiếp trong "Xem cây biểu mẫu"

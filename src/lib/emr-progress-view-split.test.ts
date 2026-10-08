@@ -40,6 +40,6 @@ describe("EMR grid — Thông tin / Tiến độ triển khai tab split", () => 
   });
 
   it("the create/edit modal is unaffected by the view split — every field (info or progress) is still editable in one modal", () => {
-    expect(client).toContain('{extraFields.filter((f) => !f.pairWithStatus && !(categoryCode === "BIEU_MAU" && f.key === "record_types")).map((f) => (');
+    expect(client).toContain('{extraFields.filter((f) => !f.pairWithStatus && !(categoryCode === "BIEU_MAU" && ["record_types", "form_code", "binding_group", "binding_group_order", "vendor_form_code"].includes(f.key))).map((f) => (');
   });
 });
