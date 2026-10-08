@@ -13,7 +13,7 @@ import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
-const RESULT_LABELS: Record<string, string> = { PASS: "Đạt", FAIL: "Không đạt", NA: "/", NOT_ASSESSED: "Chưa đánh giá" };
+const RESULT_LABELS: Record<string, string> = { PASS: "Đạt", PARTIAL: "Đạt một phần", FAIL: "Không đạt", NA: "/", NOT_ASSESSED: "Chưa đánh giá" };
 
 function formatHcmDateTime(value?: string | null) {
   if (!value) return "—";
@@ -87,8 +87,12 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
   const isConfirmed = ["CONFIRMED", "CLOSED"].includes(round.workflow_status);
   const assessorName = (assessorRes.data as any)?.full_name || context.assessor_name || null;
   const passCount = rows.filter((x: any) => x.response?.result_status === "PASS").length;
+  const partialCount = rows.filter((x: any) => x.response?.result_status === "PARTIAL").length;
   const failCount = rows.filter((x: any) => x.response?.result_status === "FAIL").length;
   const naCount = rows.filter((x: any) => x.response?.result_status === "NA").length;
+  // "Đạt 1 phần" không tính là Đạt cũng không tính là Không đạt — loại khỏi
+  // mẫu số tỷ lệ đạt giống cách "/" (NA) đã được loại từ trước, không phát
+  // minh quy ước điểm cộng một nửa khi tiêu chuẩn chấm điểm chưa yêu cầu.
   const denominator = passCount + failCount;
   const compliance = denominator ? Math.round((passCount / denominator) * 1000) / 10 : 0;
   const waitingRecheck = round.workflow_status === "IN_PROGRESS" && hasResponses && rows.some((x: any) => x.response?.result_status === "FAIL" && x.response?.answer_value?.followup?.status === "PENDING_RECHECK");
@@ -154,7 +158,7 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
       <section className="kpi-grid print-kpis">
         <article className="kpi-card"><span>Ngày giám sát</span><strong style={{ fontSize: 20 }}>{formatDate(round.scheduled_date)}</strong><small>{context.staff_name ? `Nhân viên thực hiện: ${context.staff_name}` : "—"}</small></article>
         <article className="kpi-card success"><span>Đạt</span><strong>{passCount}</strong><small>{rows.length} nội dung</small></article>
-        <article className="kpi-card warning"><span>Không đạt</span><strong>{failCount}</strong><small>{naCount} nội dung “/”</small></article>
+        <article className="kpi-card warning"><span>Không đạt</span><strong>{failCount}</strong><small>{partialCount} đạt 1 phần · {naCount} nội dung “/”</small></article>
         <article className="kpi-card"><span>Tỷ lệ đạt</span><strong>{compliance}%</strong><small>Đạt / (Đạt + Không đạt)</small></article>
       </section>
 
@@ -162,10 +166,10 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
 
       <section className="panel print-results-panel"><div className="panel-title"><div><h2>Kết quả bảng kiểm</h2><p>Kết quả ban đầu được khóa; phần khắc phục và ảnh sau được lưu riêng để truy vết.</p></div></div>
         <div className="monitoring-result-desktop table-wrap"><table><thead><tr><th>#</th><th>Tiêu chuẩn</th><th>Nội dung</th><th>Kết quả</th><th>Ghi chú / Khắc phục / Hình ảnh</th></tr></thead><tbody>
-          {rows.map((row: any, index: number) => { const value = row.response?.answer_value || {}; const correction = value.correction; const initialImages = Array.isArray(value.initial_images) ? value.initial_images : []; const afterImages = Array.isArray(correction?.images_after) ? correction.images_after : []; return <tr key={row.item.id}><td>{index + 1}</td><td><strong>{row.section?.title || "—"}</strong></td><td>{row.item.content}</td><td><span className={`status-badge ${row.response?.result_status === "PASS" ? "success" : row.response?.result_status === "FAIL" ? "danger" : "muted"}`}>{RESULT_LABELS[row.response?.result_status] || row.response?.result_status}</span></td><td>{row.response?.note || "—"}{correction ? <div className="subline">Khắc phục: {correction.description || "—"} · Kiểm tra: {formatHcmDateTime(correction.rechecked_at)} · {correction.recheck_result === "PASS" ? "Đạt sau khắc phục" : correction.recheck_result === "FAIL" ? "Vẫn không đạt" : "Chưa có kết quả"}</div> : null}<PhotoList title="Ảnh ban đầu" photos={initialImages} /><PhotoList title="Ảnh sau khắc phục" photos={afterImages} /></td></tr>; })}
+          {rows.map((row: any, index: number) => { const value = row.response?.answer_value || {}; const correction = value.correction; const initialImages = Array.isArray(value.initial_images) ? value.initial_images : []; const afterImages = Array.isArray(correction?.images_after) ? correction.images_after : []; return <tr key={row.item.id}><td>{index + 1}</td><td><strong>{row.section?.title || "—"}</strong></td><td>{row.item.content}</td><td><span className={`status-badge ${row.response?.result_status === "PASS" ? "success" : row.response?.result_status === "FAIL" ? "danger" : row.response?.result_status === "PARTIAL" ? "warning" : "muted"}`}>{RESULT_LABELS[row.response?.result_status] || row.response?.result_status}</span></td><td>{row.response?.note || "—"}{correction ? <div className="subline">Khắc phục: {correction.description || "—"} · Kiểm tra: {formatHcmDateTime(correction.rechecked_at)} · {correction.recheck_result === "PASS" ? "Đạt sau khắc phục" : correction.recheck_result === "FAIL" ? "Vẫn không đạt" : "Chưa có kết quả"}</div> : null}<PhotoList title="Ảnh ban đầu" photos={initialImages} /><PhotoList title="Ảnh sau khắc phục" photos={afterImages} /></td></tr>; })}
         </tbody></table></div>
         <div className="monitoring-result-mobile">
-          {rows.map((row: any, index: number) => { const value = row.response?.answer_value || {}; const correction = value.correction; const initialImages = Array.isArray(value.initial_images) ? value.initial_images : []; const afterImages = Array.isArray(correction?.images_after) ? correction.images_after : []; return <article key={row.item.id} className={`monitoring-result-card ${row.response?.result_status === "FAIL" ? "fail" : ""}`}><div className="monitoring-result-card-head"><strong>#{index + 1} · {row.section?.title || "—"}</strong><span className={`status-badge ${row.response?.result_status === "PASS" ? "success" : row.response?.result_status === "FAIL" ? "danger" : "muted"}`}>{RESULT_LABELS[row.response?.result_status] || row.response?.result_status}</span></div><div className="monitoring-result-card-content">{row.item.content}</div>{row.response?.note ? <div className="monitoring-result-card-note"><strong>Ghi chú:</strong> {row.response.note}</div> : null}{correction ? <div className="monitoring-result-card-note"><strong>Khắc phục:</strong> {correction.description || "—"}<br /><strong>Kiểm tra lại:</strong> {formatHcmDateTime(correction.rechecked_at)} · {correction.recheck_result === "PASS" ? "Đạt sau khắc phục" : correction.recheck_result === "FAIL" ? "Vẫn không đạt" : "Chưa có kết quả"}</div> : null}<PhotoList title="Ảnh ban đầu" photos={initialImages} /><PhotoList title="Ảnh sau khắc phục" photos={afterImages} /></article>; })}
+          {rows.map((row: any, index: number) => { const value = row.response?.answer_value || {}; const correction = value.correction; const initialImages = Array.isArray(value.initial_images) ? value.initial_images : []; const afterImages = Array.isArray(correction?.images_after) ? correction.images_after : []; return <article key={row.item.id} className={`monitoring-result-card ${row.response?.result_status === "FAIL" ? "fail" : ""}`}><div className="monitoring-result-card-head"><strong>#{index + 1} · {row.section?.title || "—"}</strong><span className={`status-badge ${row.response?.result_status === "PASS" ? "success" : row.response?.result_status === "FAIL" ? "danger" : row.response?.result_status === "PARTIAL" ? "warning" : "muted"}`}>{RESULT_LABELS[row.response?.result_status] || row.response?.result_status}</span></div><div className="monitoring-result-card-content">{row.item.content}</div>{row.response?.note ? <div className="monitoring-result-card-note"><strong>Ghi chú:</strong> {row.response.note}</div> : null}{correction ? <div className="monitoring-result-card-note"><strong>Khắc phục:</strong> {correction.description || "—"}<br /><strong>Kiểm tra lại:</strong> {formatHcmDateTime(correction.rechecked_at)} · {correction.recheck_result === "PASS" ? "Đạt sau khắc phục" : correction.recheck_result === "FAIL" ? "Vẫn không đạt" : "Chưa có kết quả"}</div> : null}<PhotoList title="Ảnh ban đầu" photos={initialImages} /><PhotoList title="Ảnh sau khắc phục" photos={afterImages} /></article>; })}
         </div>
       </section>
 

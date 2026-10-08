@@ -57,7 +57,7 @@ async function context(recordId: string) {
 
   const { data: incident } = await supabase
     .from("incidents")
-    .select("id,workflow_status,rca_required")
+    .select("id,workflow_status,rca_required,harm_status,serious_event_flag")
     .eq("record_id", recordId)
     .maybeSingle();
 
@@ -117,7 +117,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const fishbone = fishboneRes.data ?? [];
   const rootCauses = rootRes.data ?? [];
   const deepAnalysisUsed = fiveWhys.length > 0;
-  const ready = timeline.length >= 1 && fishbone.length >= 1 && rootCauses.length >= 1 && (!deepAnalysisUsed || fiveWhys.length >= 3);
+  // Five Whys is optional by default, but a sự cố SEVERE/DEATH cannot be
+  // declared "RCA hoàn chỉnh" without it — a severe/fatal event always
+  // requires deep root-cause analysis, not just whatever the investigator
+  // happened to start.
+  const isSeriousEvent = !!incident.serious_event_flag || ["SEVERE", "DEATH"].includes(String(incident.harm_status));
+  const deepAnalysisRequired = isSeriousEvent || deepAnalysisUsed;
+  const ready = timeline.length >= 1 && fishbone.length >= 1 && rootCauses.length >= 1 && (!deepAnalysisRequired || fiveWhys.length >= 3);
 
   let traceState: Record<string, unknown> | null = null;
   const admin = createAdminClient();
@@ -141,6 +147,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     root_causes: rootCauses,
     trace_state: traceState,
     deep_analysis_used: deepAnalysisUsed,
+    deep_analysis_required: deepAnalysisRequired,
     counts: { timeline: timeline.length, five_whys: fiveWhys.length, fishbone: fishbone.length, root_causes: rootCauses.length },
   });
 }

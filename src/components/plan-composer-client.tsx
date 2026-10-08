@@ -649,12 +649,11 @@ export function PlanComposerClient({
                   <div className="task-title-line">
                     <span className="task-index">{row.label}</span>
                     <strong>{row.depth === 1 ? "Nhiệm vụ con" : (row.childCount > 0 ? "Nhiệm vụ lớn" : "Nhiệm vụ")}</strong>
-                    {row.depth === 0 ? <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 700, color: "#52677a" }}>
+                    {row.depth === 0 ? <label className="inline-check" style={{ fontSize: 10, fontWeight: 700, color: "#52677a" }}>
                       <input
                         type="checkbox"
                         checked={row.childCount > 0 || childEnabledIds.includes(task.client_id)}
                         onChange={(e) => setChildMode(task, e.target.checked)}
-                        style={{ width: "auto", minHeight: 0 }}
                       />
                       Có nhiệm vụ con
                     </label> : null}
@@ -901,8 +900,8 @@ export function PlanComposerClient({
                   <span className="tiny muted">Liên quan đến tiêu chí nào trong 83 tiêu chí (không bắt buộc)</span>
                   <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 8, padding: 8, marginTop: 6, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 4 }}>
                     {criteriaItems.map((criterion) => (
-                      <label key={criterion.id} style={{ display: "flex", gap: 6, alignItems: "flex-start", fontSize: 12, fontWeight: 400 }}>
-                        <input type="checkbox" checked={task.criteria_refs.includes(criterion.code)} onChange={() => toggleCriterion(i, criterion.code)} style={{ width: "auto", minHeight: 0, marginTop: 2 }} />
+                      <label key={criterion.id} className="inline-check" style={{ alignItems: "flex-start", fontSize: 12, fontWeight: 400 }}>
+                        <input type="checkbox" checked={task.criteria_refs.includes(criterion.code)} onChange={() => toggleCriterion(i, criterion.code)} />
                         <span><strong>{criterion.code}</strong> — {criterion.title}</span>
                       </label>
                     ))}

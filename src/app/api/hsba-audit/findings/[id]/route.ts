@@ -32,6 +32,37 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const body = await request.json().catch(() => ({}));
   const action = String(body.action || "");
+
+  // ASSIGN_OWNER gán "nhân viên phụ trách" (owner_user_id) cho báo cáo "Nhân
+  // viên vi phạm lặp lại" — không phải một bước trong state machine (không
+  // đổi status), nên không nằm trong TRANSITIONS và được phép ở bất kỳ status
+  // nào. Trước đây owner_user_id chỉ có thể set "ké" vào body của một action
+  // chuyển trạng thái khác — vừa không có UI gọi tới, vừa là một lỗ hổng
+  // quyền: ACK/DISPUTE được phép cho cả nhân viên khoa (không có
+  // hsba_audit.manage), nên khoa có thể tự gán owner_user_id cho lỗi của
+  // chính mình khi phản hồi. Gán phụ trách giờ luôn yêu cầu hsba_audit.manage.
+  if (action === "ASSIGN_OWNER") {
+    const { data: canManage } = await auth.supabase.rpc("has_permission", { p_permission_code: "hsba_audit.manage" });
+    if (!canManage) return NextResponse.json({ error: "Chỉ người quản lý mới được gán nhân viên phụ trách." }, { status: 403 });
+    if (!("owner_user_id" in body)) return NextResponse.json({ error: "Thiếu owner_user_id." }, { status: 400 });
+    const ownerUserId = body.owner_user_id ? String(body.owner_user_id) : null;
+    if (ownerUserId) {
+      const { data: ownerProfile } = await admin.from("profiles").select("user_id").eq("user_id", ownerUserId).eq("organization_id", organizationId).eq("is_active", true).maybeSingle();
+      if (!ownerProfile) return NextResponse.json({ error: "Nhân viên phụ trách không hợp lệ." }, { status: 400 });
+    }
+    const { data, error } = await admin
+      .from("hsba_audit_findings")
+      .update({ owner_user_id: ownerUserId, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("organization_id", organizationId)
+      .select(
+        "id,audit_id,department_id,owner_user_id,description,status,sent_at,department_response,department_responded_at,head_decision,head_decided_at,resolved_at,audit_type",
+      )
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true, finding: data });
+  }
+
   const transition = TRANSITIONS[action];
   if (!transition) return NextResponse.json({ error: "Thao tác không hợp lệ." }, { status: 400 });
 
@@ -74,7 +105,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     update.head_decided_at = new Date().toISOString();
   }
   if (action === "RESOLVE") update.resolved_at = new Date().toISOString();
-  if (body.owner_user_id !== undefined) update.owner_user_id = body.owner_user_id || null;
 
   const { data, error } = await admin
     .from("hsba_audit_findings")

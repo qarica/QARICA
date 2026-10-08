@@ -69,6 +69,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [similarCases, setSimilarCases] = useState<{ record_id: string; record_code: string; title: string; root_causes: { category_code: string | null; cause_statement: string }[] }[]>([]);
+  const [deepAnalysisRequired, setDeepAnalysisRequired] = useState(false);
 
   const counts = useMemo(() => {
     const timelineCount = timeline.filter((row) => row.event_title.trim()).length;
@@ -78,7 +79,12 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
     return { timeline: timelineCount, whys: whyCount, fishbone: fishboneCount, roots: rootCount };
   }, [timeline, whys, fishbone, roots]);
 
-  const ready = counts.timeline >= 1 && counts.fishbone >= 1 && counts.roots >= 1 && (counts.whys === 0 || counts.whys >= 3);
+  // Mirrors the server's gate in src/app/api/incidents/[id]/rca/route.ts:
+  // Five Whys is optional in general, but a sự cố SEVERE/DEATH (reported via
+  // deep_analysis_required from the GET response) must have >=3 whys — it
+  // cannot be declared "RCA hoàn chỉnh" by skipping deep analysis.
+  const requireDeepAnalysis = deepAnalysisRequired || counts.whys > 0;
+  const ready = counts.timeline >= 1 && counts.fishbone >= 1 && counts.roots >= 1 && (!requireDeepAnalysis || counts.whys >= 3);
 
   useEffect(() => {
     onReadyChange?.(ready);
@@ -95,6 +101,7 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
       setEditable(!!json.editable);
       setStatus(String(json.status || "NOT_STARTED"));
       setRevision(Number(json.revision || 0));
+      setDeepAnalysisRequired(!!json.deep_analysis_required);
 
       const loadedTimeline = Array.isArray(json.timeline) ? json.timeline.map((row: any) => ({
         event_time: localInput(row.event_time),
@@ -270,8 +277,8 @@ export function IncidentRcaWorkspaceClient({ recordId, onReadyChange }: { record
         </div>
 
         <div className="rca-section">
-          <h4>2. Five Why · Phân tích sâu (tùy chọn)</h4>
-          <p>Chỉ sử dụng khi cần đào sâu chuỗi nguyên nhân. Nếu bắt đầu dùng Five Why, cần tối thiểu 3 cấp; không bắt buộc dùng cho mọi RCA.</p>
+          <h4>2. Five Why · Phân tích sâu {deepAnalysisRequired ? "(bắt buộc — sự cố mức Nặng/Tử vong)" : "(tùy chọn)"}</h4>
+          <p>{deepAnalysisRequired ? "Sự cố mức Nặng/Tử vong bắt buộc phân tích sâu — cần tối thiểu 3 cấp Why trước khi RCA được xem là hoàn chỉnh." : "Chỉ sử dụng khi cần đào sâu chuỗi nguyên nhân. Nếu bắt đầu dùng Five Why, cần tối thiểu 3 cấp; không bắt buộc dùng cho mọi RCA."}</p>
           <div className="why-grid">
             {whys.map((row) => <div className="why-card" key={row.why_level}>
               <div className="why-level">Why {row.why_level}</div>

@@ -118,8 +118,12 @@ describe("HSBA finding workflow transitions", () => {
 describe("HSBA audit creation auto-generates findings only for FAIL results", () => {
   const route = read("src/app/api/hsba-audit/audits/route.ts");
 
-  it("computes overall_result FAIL if any checklist item failed", () => {
-    expect(route).toContain('normalizedResults.some((r) => r.result === "FAIL") ? "FAIL" : "PASS"');
+  it("computes overall_result FAIL if any checklist item failed, PARTIAL if any item is partial but none failed", () => {
+    // HSBA items only ever resolve to PASS/FAIL (see the audit_type-aware
+    // coalesce above), so this 3-tier formula gives HSBA the exact same
+    // FAIL/PASS result as before — PARTIAL only ever appears for Phác đồ
+    // điều trị/QTKT nội trú, which this same route now also accepts.
+    expect(route).toContain('normalizedResults.some((r) => r.result === "FAIL") ? "FAIL" : normalizedResults.some((r) => r.result === "PARTIAL") ? "PARTIAL" : "PASS"');
   });
 
   // Explicit business rule: Phác đồ điều trị và QTKT nội trú là kiểm bổ sung

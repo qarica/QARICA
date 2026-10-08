@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
+import { AdminRolePermissionsClient } from "@/components/admin-role-permissions-client";
 import { requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -31,6 +32,10 @@ export default async function PermissionsPage() {
     <section className="kpi-grid"><article className="kpi-card"><span>Vai trò</span><strong>{roles.filter((r:any)=>r.is_active).length}</strong><small>Role đang hoạt động</small></article><article className="kpi-card"><span>Quyền chức năng</span><strong>{permissions.length}</strong><small>Permission đang cấu hình</small></article><article className="kpi-card"><span>Gán quyền theo Role</span><strong>{rolePermissions.length}</strong><small>Role permissions</small></article><article className="kpi-card warning"><span>Override theo user</span><strong>{userPermissions.length}</strong><small>Cho phép / từ chối riêng</small></article></section>
     {firstError ? <div className="alert error">Không tải được đầy đủ dữ liệu phân quyền: {firstError.message}</div> : null}
     <section className="panel"><div className="panel-title"><div><h2>Vai trò và số quyền mặc định</h2><p>{roles.filter((r:any)=>!r.is_active).length} vai trò đã ngưng hoạt động đang được ẩn khỏi danh sách này.</p></div></div><div className="table-wrap"><table><thead><tr><th>Mã vai trò</th><th>Tên vai trò</th><th>Số quyền</th><th>Trạng thái</th></tr></thead><tbody>{(roles as any[]).filter((role)=>role.is_active).map((role)=><tr key={role.id}><td><strong>{role.code}</strong></td><td>{role.name}<span className="subline">{role.description || ""}</span></td><td>{rolePermissions.filter((row:any)=>row.role_id===role.id && permissionMap.has(row.permission_id)).length}</td><td>{role.is_active ? "Đang hoạt động" : "Ngưng"}</td></tr>)}</tbody></table></div></section>
-    <section className="panel"><div className="panel-title"><div><h2>Nhóm quyền theo module</h2></div></div><div className="table-wrap"><table><thead><tr><th>Module</th><th>Số quyền</th><th>Quyền</th></tr></thead><tbody>{Array.from(grouped.entries()).map(([module, list])=><tr key={module}><td><strong>{module}</strong></td><td>{list.length}</td><td>{list.map((permission:any)=>permission.code).join(", ")}</td></tr>)}</tbody></table></div></section>
+    <AdminRolePermissionsClient
+      roles={(roles as any[]).filter((r) => r.is_active).map((r) => ({ id: r.id, code: r.code, name: r.name }))}
+      groupedPermissions={Array.from(grouped.entries()) as [string, any[]][]}
+      initialGrants={Object.fromEntries((rolePermissions as any[]).map((row) => [`${row.role_id}:${row.permission_id}`, true]))}
+    />
   </div>;
 }

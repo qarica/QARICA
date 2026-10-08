@@ -17,10 +17,14 @@ describe("navigation route existence", () => {
   });
 
   for (const href of hrefs) {
-    it(`${href} resolves to an app page or workspace directory`, () => {
+    // Real finding: the old assertion accepted a bare directory with no
+    // page.tsx of its own (existsSync(workspaceDir)) as "resolves" — a menu
+    // href pointing at such a directory still 404s when clicked. A direct
+    // nav href must have its own page.tsx, not just a directory that happens
+    // to exist because nested routes live under it.
+    it(`${href} resolves to a real page.tsx, not just a directory`, () => {
       const page = `src/app/(app)${href === "/" ? "" : href}/page.tsx`;
-      const workspaceDir = `src/app/(app)${href}`;
-      expect(existsSync(page) || existsSync(workspaceDir)).toBe(true);
+      expect(existsSync(page)).toBe(true);
     });
   }
 });

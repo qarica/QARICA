@@ -154,6 +154,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (uncoveredRoots > 0) return NextResponse.json({ error: `Còn ${uncoveredRoots} nguyên nhân gốc chưa liên kết Action đang hoạt động.` }, { status: 409 });
       if (tracedActions < 1 || tracedIncomplete > 0) return NextResponse.json({ error: "Action từ RCA chưa đầy đủ hoặc chưa hoàn tất." }, { status: 409 });
       if (ineffectiveCapas > 0) return NextResponse.json({ error: "CAPA liên kết phải được đánh giá EFFECTIVE hoặc CLOSED trước khi chờ đóng." }, { status: 409 });
+    } else if (ids.length > 0 && !noActionRequired) {
+      // Sự cố TRIAGED (không qua điều tra/RCA) vẫn phải chứng minh Action là
+      // biện pháp thật — không chỉ tạo Action cho có để vượt gate đóng. Yêu
+      // cầu ít nhất 1 minh chứng gắn trực tiếp vào chính Action, không chỉ
+      // minh chứng chung chung ở hồ sơ sự cố.
+      const { count: actionEvidenceCount } = await admin.from("evidence_links").select("id", { count: "exact", head: true }).in("record_id", ids);
+      if (!actionEvidenceCount) {
+        return NextResponse.json({ error: "Action phòng ngừa/khắc phục phải có minh chứng riêng gắn vào chính Action (không chỉ minh chứng chung của hồ sơ sự cố) trước khi đóng." }, { status: 409 });
+      }
     }
     newStatus = "AWAITING_CLOSURE";
     reason = reason || (noActionRequired ? `Không cần Action bổ sung: ${noActionReason}` : null);

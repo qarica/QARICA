@@ -29,7 +29,7 @@ export function PersonalReminders({initialRows,organizationId,userId}:{initialRo
   setTitle("");setDue("");setPriority("NORMAL");setCategory("KHAC");setRemindEnabled(false);setRemindTime("08:00");
  }
  async function complete(row:Reminder){const next=row.status==="COMPLETED"?"OPEN":"COMPLETED";const {error}=await supabase.from("personal_reminders").update({status:next,completed_at:next==="COMPLETED"?new Date().toISOString():null,updated_at:new Date().toISOString()}).eq("id",row.id);if(error){setError(error.message);return}setRows(v=>v.map(x=>x.id===row.id?{...x,status:next}:x))}
- async function remove(id:string){const {error}=await supabase.from("personal_reminders").delete().eq("id",id);if(error){setError(error.message);return}setRows(v=>v.filter(x=>x.id!==id))}
+ async function remove(id:string){if(!window.confirm("Xóa note này? Không thể hoàn tác."))return;const {error}=await supabase.from("personal_reminders").delete().eq("id",id);if(error){setError(error.message);return}setRows(v=>v.filter(x=>x.id!==id))}
 
  return <section className="panel pr-section">
   <div className="panel-title"><div><h2>Tạo note việc cá nhân</h2><p>Ghi nhanh công việc cần nhớ, chỉ bạn nhìn thấy. Các note sẽ hiển thị trên Lịch QLCL.</p></div></div>

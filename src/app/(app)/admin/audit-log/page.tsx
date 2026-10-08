@@ -18,11 +18,18 @@ export default async function AdminAuditLogPage({ searchParams }: { searchParams
   // Chỉ đọc audit_logs thật đã được các API route khác ghi trong nghiệp vụ hiện có
   // (record-lifecycle, plans, indicators, criteria, CAPA, ...). Trang này không tạo
   // thêm bản ghi audit nào và không đổi cách audit_logs được ghi ở nơi khác.
+  //
+  // Real finding: searching used to filter only the 300 most-recent rows
+  // already fetched — a match older than that silently reported "chưa có"
+  // even though it existed. actor/record names are resolved via a separate
+  // join below, so they can't be pushed into this query directly; instead,
+  // when actively searching, widen the window substantially (5000 instead of
+  // 300) so a true miss and "just not loaded" are no longer indistinguishable.
   const { data: rows, error } = await supabase
     .from("audit_logs")
     .select("id,actor_user_id,record_id,table_name,row_id,action_type,reason,created_at")
     .order("created_at", { ascending: false })
-    .limit(300);
+    .limit(q ? 5000 : 300);
 
   const logs = (rows ?? []) as any[];
   const actorIds = Array.from(new Set(logs.map((r) => r.actor_user_id).filter(Boolean)));
@@ -82,7 +89,7 @@ export default async function AdminAuditLogPage({ searchParams }: { searchParams
           </tbody>
         </table>
       </div>
-      {filtered.length ? <div className="module-pagination"><span>Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filtered.length)} của {filtered.length} bản ghi (tối đa 300 gần nhất)</span><div className="module-pagination-pages">{Array.from({ length: totalPages }, (_, i) => i + 1).map((pn) => <Link key={pn} className={`button small ${pn === currentPage ? "primary" : "secondary"}`} href={pageHref(pn)}>{pn}</Link>)}</div></div> : null}
+      {filtered.length ? <div className="module-pagination"><span>Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filtered.length)} của {filtered.length} bản ghi (tối đa {q ? "5.000" : "300"} gần nhất)</span><div className="module-pagination-pages">{Array.from({ length: totalPages }, (_, i) => i + 1).map((pn) => <Link key={pn} className={`button small ${pn === currentPage ? "primary" : "secondary"}`} href={pageHref(pn)}>{pn}</Link>)}</div></div> : null}
     </section>
   </div>;
 }

@@ -38,7 +38,7 @@ describe("EMR — compact fields move into a per-row expandable detail panel", (
   });
 
   it("the create/edit modal still renders every field (including compact ones) — compact only affects the table, not editability", () => {
-    expect(client).toContain("{extraFields.filter((f) => !f.pairWithStatus).map((f) => (");
+    expect(client).toContain('{extraFields.filter((f) => !f.pairWithStatus && !(categoryCode === "BIEU_MAU" && f.key === "record_types")).map((f) => (');
     expect(client).not.toContain("extraFields.filter((f) => !f.compact).map((f) => (");
   });
 });

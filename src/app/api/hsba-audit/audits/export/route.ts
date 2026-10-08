@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const csvCell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-const RESULT_LABEL: Record<string, string> = { PASS: "Đạt", FAIL: "Không đạt", PENDING: "Chưa chấm" };
+const RESULT_LABEL: Record<string, string> = { PASS: "Đạt", PARTIAL: "Đạt một phần", FAIL: "Không đạt", PENDING: "Chưa chấm" };
 
 export async function GET(request: Request) {
   const auth = await requireApiPermission("hsba_audit.view");
@@ -43,13 +43,16 @@ export async function GET(request: Request) {
   const departmentName = new Map((departmentsRes.data ?? []).map((d: any) => [d.id, d.name]));
   const auditorName = new Map((profilesRes.data ?? []).map((p: any) => [p.user_id, p.full_name || p.email || p.user_id]));
   const passCountByAudit = new Map<string, number>();
+  const partialCountByAudit = new Map<string, number>();
   const failCountByAudit = new Map<string, number>();
   for (const r of itemResultsRes.data ?? []) {
-    const target = r.result === "FAIL" ? failCountByAudit : passCountByAudit;
-    target.set(r.audit_id, (target.get(r.audit_id) || 0) + 1);
+    // NA không tính vào Đạt/Đạt 1 phần/Không đạt — cùng quy ước loại NA khỏi
+    // mẫu số đã dùng ở module Giám sát/Bảng kiểm chung.
+    const target = r.result === "FAIL" ? failCountByAudit : r.result === "PARTIAL" ? partialCountByAudit : r.result === "PASS" ? passCountByAudit : null;
+    if (target) target.set(r.audit_id, (target.get(r.audit_id) || 0) + 1);
   }
 
-  const headers = ["Mã/số hồ sơ", "Khoa/phòng", "Kỳ báo cáo", "Người kiểm", "Ngày kiểm", "Số tiêu chí đạt", "Số tiêu chí không đạt", "Kết quả tổng", "Trạng thái"];
+  const headers = ["Mã/số hồ sơ", "Khoa/phòng", "Kỳ báo cáo", "Người kiểm", "Ngày kiểm", "Số tiêu chí đạt", "Số tiêu chí đạt 1 phần", "Số tiêu chí không đạt", "Kết quả tổng", "Trạng thái"];
   const lines = [headers.map(csvCell).join(",")];
   for (const a of audits ?? []) {
     lines.push(
@@ -60,6 +63,7 @@ export async function GET(request: Request) {
         auditorName.get(a.audited_by) || a.audited_by,
         a.audited_at,
         passCountByAudit.get(a.id) || 0,
+        partialCountByAudit.get(a.id) || 0,
         failCountByAudit.get(a.id) || 0,
         RESULT_LABEL[a.overall_result] || a.overall_result,
         a.status,

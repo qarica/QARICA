@@ -41,6 +41,9 @@ export function GenericChecklistRunClient({
   }
 
   // Với câu SINGLE_CHOICE: option_value cao nhất = PASS, thấp nhất = FAIL, ở giữa = PARTIAL.
+  // Với câu trả lời mặc định (không có options, vd PASS_FAIL): người chấm chọn
+  // thẳng 1 trong 4 kết quả — Đạt/Đạt 1 phần/Không đạt/Không áp dụng — nút bấm
+  // đã trả đúng code tương ứng (PASS/PARTIAL/FAIL/NA) nên chỉ cần gán điểm quy ước.
   function resolveResultStatus(item: Item, chosenValue: string): { result: string; score: number | null } {
     if (item.answer_type === "SINGLE_CHOICE" && item.options.length) {
       const chosen = item.options.find((o) => o.option_code === chosenValue);
@@ -54,6 +57,7 @@ export function GenericChecklistRunClient({
       return { result: "PARTIAL", score: value };
     }
     if (chosenValue === "NA") return { result: "NA", score: null };
+    if (chosenValue === "PARTIAL") return { result: "PARTIAL", score: 0.5 };
     return { result: chosenValue === "PASS" ? "PASS" : "FAIL", score: chosenValue === "PASS" ? 1 : 0 };
   }
 
@@ -131,6 +135,7 @@ export function GenericChecklistRunClient({
                     ))
                   : [
                       { code: "PASS", label: "Đạt" },
+                      { code: "PARTIAL", label: "Đạt 1 phần" },
                       { code: "FAIL", label: "Không đạt" },
                       ...(item.allow_na ? [{ code: "NA", label: "Không áp dụng" }] : []),
                     ].map((opt) => (

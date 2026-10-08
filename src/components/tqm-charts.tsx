@@ -93,7 +93,7 @@ export function TqmTrend({points,unit="%",targetLine,targetLabel="Mục tiêu"}:
     <button type="button" className="tqm-trend-table-toggle" onClick={()=>setShowTable((v)=>!v)} aria-expanded={showTable}>
       {showTable?"Ẩn bảng số liệu":"Xem bảng số liệu"}
     </button>
-    {showTable?<table className="tqm-trend-table"><thead><tr><th>Kỳ</th><th>Giá trị</th></tr></thead><tbody>{pts.map((p,i)=><tr key={i}><td>{p.label}</td><td>{p.value}{unit}</td></tr>)}</tbody></table>:null}
+    {showTable?<div className="table-wrap"><table className="tqm-trend-table"><thead><tr><th>Kỳ</th><th>Giá trị</th></tr></thead><tbody>{pts.map((p,i)=><tr key={i}><td>{p.label}</td><td>{p.value}{unit}</td></tr>)}</tbody></table></div>:null}
   </div>
 }
 
@@ -125,7 +125,7 @@ export function TqmMultiTrend({series,unit=""}:{series:{label:string;tone:Tone;p
     <button type="button" className="tqm-trend-table-toggle" onClick={()=>setShowTable((v)=>!v)} aria-expanded={showTable}>
       {showTable?"Ẩn bảng số liệu":"Xem bảng số liệu"}
     </button>
-    {showTable?<table className="tqm-trend-table"><thead><tr><th>Kỳ</th>{series.map((s,i)=><th key={i}>{s.label}</th>)}</tr></thead><tbody>{labels.map((l,i)=><tr key={i}><td>{l}</td>{series.map((s,si)=><td key={si}>{s.points[i]?.value ?? 0}{unit}</td>)}</tr>)}</tbody></table>:null}
+    {showTable?<div className="table-wrap"><table className="tqm-trend-table"><thead><tr><th>Kỳ</th>{series.map((s,i)=><th key={i}>{s.label}</th>)}</tr></thead><tbody>{labels.map((l,i)=><tr key={i}><td>{l}</td>{series.map((s,si)=><td key={si}>{s.points[i]?.value ?? 0}{unit}</td>)}</tr>)}</tbody></table></div>:null}
   </div>
 }
 

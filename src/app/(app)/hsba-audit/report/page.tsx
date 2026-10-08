@@ -31,8 +31,12 @@ export default async function HsbaReportPage({ searchParams }: { searchParams: P
     ? await supabase.from("hsba_audit_findings").select("id,department_id,owner_user_id,status").in("audit_id", auditIds)
     : { data: [] as any[] };
   const findings = findingsRes.data ?? [];
+  const ownerIds = Array.from(new Set(findings.map((f: any) => f.owner_user_id).filter(Boolean)));
+  const ownersRes = ownerIds.length ? await supabase.from("profiles").select("user_id,full_name,email").in("user_id", ownerIds) : { data: [] as any[] };
+  const ownerName = new Map((ownersRes.data ?? []).map((p: any) => [p.user_id, p.full_name || p.email || p.user_id]));
 
   const passCount = audits.filter((a: any) => a.overall_result === "PASS").length;
+  const partialCount = audits.filter((a: any) => a.overall_result === "PARTIAL").length;
   const failCount = audits.filter((a: any) => a.overall_result === "FAIL").length;
 
   const findingsByDept = new Map<string, number>();
@@ -70,6 +74,12 @@ export default async function HsbaReportPage({ searchParams }: { searchParams: P
           <span>Đạt</span>
           <strong>{passCount}</strong>
         </div>
+        {auditType !== "HSBA" ? (
+          <div className="kpi-tile">
+            <span>Đạt 1 phần</span>
+            <strong>{partialCount}</strong>
+          </div>
+        ) : null}
         <div className="kpi-tile">
           <span>Chưa đạt</span>
           <strong>{failCount}</strong>
@@ -121,14 +131,14 @@ export default async function HsbaReportPage({ searchParams }: { searchParams: P
           <table>
             <thead>
               <tr>
-                <th>Mã người dùng</th>
+                <th>Nhân viên</th>
                 <th style={{ width: 120 }}>Số lần vi phạm</th>
               </tr>
             </thead>
             <tbody>
               {repeatOffenders.map(([userId, count]) => (
                 <tr key={userId}>
-                  <td>{userId}</td>
+                  <td>{ownerName.get(userId) || userId}</td>
                   <td>{count}</td>
                 </tr>
               ))}

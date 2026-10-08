@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const RESULT_LABELS: Record<string, string> = {
   PASS: "Đạt",
+  PARTIAL: "Đạt một phần",
   FAIL: "Không đạt",
   NA: "/",
   NOT_ASSESSED: "Chưa đánh giá",

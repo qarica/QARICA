@@ -20,7 +20,12 @@ const FALLBACK_ROUTES: Record<string, string> = {
   FEEDBACK: "/feedback/{id}",
 };
 
+// /records/{id} was never implemented (no page.tsx) — a notification whose
+// record_type can't be resolved to a real route (record deleted, type not in
+// FALLBACK_ROUTES, no permission to read record_types) used to land here and
+// hit a genuine 404. Fall back to /dashboard, which always exists.
 export function routeForRecord(recordType: string, id: string, template?: string | null) {
-  const raw = template || FALLBACK_ROUTES[recordType] || "/records/{id}";
+  const raw = template || FALLBACK_ROUTES[recordType];
+  if (!raw) return "/dashboard";
   return raw.replace("{id}", id);
 }

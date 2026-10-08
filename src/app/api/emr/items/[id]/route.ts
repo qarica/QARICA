@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EMR_CATEGORY_FIELDS } from "@/lib/emr-categories";
+import { autoCreateTrainingTaskIfNeeded } from "@/lib/emr-training-auto-create";
 
 function sanitizeDetails(category: string, raw: unknown): Record<string, unknown> {
   const fields = (EMR_CATEGORY_FIELDS as any)[category] || [];
@@ -95,6 +96,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  if (existing.category === "BIEU_MAU") await autoCreateTrainingTaskIfNeeded(admin, organizationId, auth.user.id, data);
 
   // Status transitions are logged into the SAME audit_logs table every other
   // module already writes to (and /admin/audit-log already reads generically

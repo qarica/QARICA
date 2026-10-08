@@ -216,9 +216,9 @@ export function PlanActionCreateClient({
             </section>
 
             <section style={{ borderTop: "1px solid var(--line)", paddingTop: 20 }}>
-              <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 10, padding: "12px 14px", border: "1px solid var(--line)", borderRadius: 11, background: "#f8fafb" }}>
-                <input type="checkbox" style={{ width: 18, height: 18, minHeight: 18, flex: "0 0 auto" }} checked={form.isRequired} onChange={(e) => setForm({ ...form, isRequired: e.target.checked })} />
-                <span style={{ margin: 0 }}>Tính là nhiệm vụ bắt buộc trong tiến độ kế hoạch</span>
+              <label className="check-card" style={{ alignItems: "center" }}>
+                <input type="checkbox" checked={form.isRequired} onChange={(e) => setForm({ ...form, isRequired: e.target.checked })} />
+                <span>Tính là nhiệm vụ bắt buộc trong tiến độ kế hoạch</span>
               </label>
             </section>
           </div>

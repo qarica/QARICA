@@ -13,19 +13,22 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   const body=await request.json().catch(()=>({}));
   const versionId=String(body.version_id||"").trim();
   if(!versionId)return NextResponse.json({error:"Thiếu phiên bản cần phát hành."},{status:400});
+  const expectedTotalScore=body.expected_total_score!==undefined&&body.expected_total_score!==null?Number(body.expected_total_score):null;
+  if(expectedTotalScore!==null&&!Number.isFinite(expectedTotalScore))return NextResponse.json({error:"Tổng điểm kỳ vọng không hợp lệ."},{status:400});
 
   const admin=createAdminClient();
   const {data:tx,error:txError}=await admin.rpc(PUBLISH_RPC,{
     p_criteria_set_id:id,
     p_version_id:versionId,
     p_actor_user_id:auth.user.id,
+    p_expected_total_score:expectedTotalScore,
   });
 
   if(txError){
     const message=rpcErrorMessage(txError,"Không thể phát hành bộ tiêu chí.");
     return NextResponse.json(
       {error:message},
-      {status:/không tìm thấy|nháp|ngưng|chưa có|trạng thái|ngoài phạm vi/i.test(message)?409:400},
+      {status:/không tìm thấy|nháp|ngưng|chưa có|trạng thái|ngoài phạm vi|tổng điểm/i.test(message)?409:400},
     );
   }
 

@@ -34,6 +34,9 @@ function bucketCount(bucket: EmrKpiBucket, items: Item[], hasBlockedBucket: bool
 export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, descriptionLabel }: { categoryCode: string; categoryLabel: string; canManage: boolean; descriptionLabel?: string }) {
   const descLabel = descriptionLabel || "Mô tả";
   const extraFields = EMR_CATEGORY_FIELDS[categoryCode as keyof typeof EMR_CATEGORY_FIELDS] || [];
+  // Lấy đúng danh sách lựa chọn đã khai báo cho record_types thay vì liệt kê
+  // lại — 1 nguồn duy nhất cho options của field này.
+  const recordTypeOptions = extraFields.find((f) => f.key === "record_types")?.options || [];
   const beforeTitleFields = extraFields.filter((f) => f.showBeforeTitle);
   const afterTitleFields = extraFields.filter((f) => !f.showBeforeTitle);
   // A category with many fields turns into an unreadable wall of table
@@ -50,7 +53,12 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   const infoColumns = columnFields.filter((f) => !f.progressField);
   const progressColumns = columnFields.filter((f) => f.progressField);
   const hasProgressSplit = progressColumns.length > 0;
-  const [view, setView] = useState<"info" | "progress">("info");
+  // "scope" is a third view mode, BIEU_MAU-only (see the toolbar button
+  // below): a matrix of biểu mẫu × khoa/phòng replacing the per-item inline
+  // "Khoa/phòng — Phạm vi áp dụng" fieldset in the create/edit modal for this
+  // one category, so scope can be ticked across every form from one screen
+  // instead of opening each item's modal individually.
+  const [view, setView] = useState<"info" | "progress" | "scope">("info");
   const showDescription = !(hasProgressSplit && view === "progress");
   const showPriorityDueStatus = !(hasProgressSplit && view === "info");
   const visibleInfoColumns = hasProgressSplit && view === "progress" ? [] : infoColumns;
@@ -114,16 +122,24 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryCode]);
 
-  useEffect(() => {
-    const relatedCodes = Array.from(new Set([
-      ...referenceFields.map((f) => f.referenceCategory as string),
-      ...incomingReferences.map((r) => r.category as string),
-    ]));
-    if (!relatedCodes.length) { setRefItems({}); return; }
-    let cancelled = false;
-    Promise.all(relatedCodes.map((code) =>
+  const relatedCodes = Array.from(new Set([
+    ...referenceFields.map((f) => f.referenceCategory as string),
+    ...incomingReferences.map((r) => r.category as string),
+  ]));
+  // Dùng lại sau mỗi lần lưu (vd Biểu mẫu "Cần đào tạo" vừa tự tạo xong nhiệm
+  // vụ Đào tạo ở server) để link "Tạo nhiệm vụ đào tạo →" đổi ngay thành
+  // "Duyệt đào tạo →" mà không cần người dùng tự tải lại trang.
+  async function fetchRefItems() {
+    if (!relatedCodes.length) return {};
+    const results = await Promise.all(relatedCodes.map((code) =>
       fetch(`/api/emr/items?category=${encodeURIComponent(code)}`).then((r) => r.json()).then((j) => [code, j.ok ? j.items : []] as const).catch(() => [code, []] as const)
-    )).then((results) => { if (!cancelled) setRefItems(Object.fromEntries(results)); });
+    ));
+    return Object.fromEntries(results);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchRefItems().then((next) => { if (!cancelled) setRefItems(next); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryCode]);
@@ -192,10 +208,54 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
       }
       closeModal();
       await load({ silent: true });
+      // Biểu mẫu "Cần đào tạo" vừa tự tạo nhiệm vụ Đào tạo ở server (nếu có) —
+      // nạp lại refItems để link đổi ngay thành "Duyệt đào tạo →".
+      fetchRefItems().then(setRefItems);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Ma trận "Phạm vi áp dụng" (chỉ BIEU_MAU): department_ids rỗng nghĩa là
+  // toàn viện (xem fieldset gốc) — khi hiện dạng ma trận, "toàn viện" hiển thị
+  // như mọi khoa/phòng đều tick; bỏ tick 1 khoa tức là chuyển sang danh sách
+  // tường minh gồm mọi khoa còn lại, đúng cách fieldset gốc đã xây danh sách
+  // (tick từng khoa một cũng cho ra danh sách tường minh, không tự gộp lại
+  // thành rỗng).
+  async function toggleScopeCell(item: Item, deptId: string) {
+    const current = item.department_ids.length === 0 ? departments.map((d) => d.id) : item.department_ids;
+    const next = toggleId(current, deptId);
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: next } : i)));
+    try {
+      const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: next }) });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
+      await load({ silent: true });
+    }
+  }
+
+  // Ma trận "Phạm vi loại hồ sơ" (chỉ BIEU_MAU, cùng màn hình "Phạm vi áp
+  // dụng" với ma trận khoa/phòng ở trên): record_types nằm trong `details`
+  // (chuỗi phân tách bằng dấu phẩy), không phải cột riêng như department_ids
+  // — nên phải gửi NGUYÊN details hiện có kèm giá trị mới, vì PATCH route
+  // dựng lại details từ đầu theo đúng các field của danh mục (sanitizeDetails),
+  // gửi thiếu field nào sẽ mất field đó.
+  async function toggleRecordTypeCell(item: Item, typeValue: string) {
+    const current = String(item.details?.record_types || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const next = toggleId(current, typeValue);
+    const nextDetails = { ...item.details, record_types: next.join(", ") };
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, details: nextDetails } : i)));
+    try {
+      const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ details: nextDetails }) });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
+      await load({ silent: true });
     }
   }
 
@@ -305,6 +365,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
           <div className="toolbar-right" style={{ display: "flex", gap: 6 }}>
             <button type="button" className={`button ${view === "info" ? "primary" : "tertiary"} small`} onClick={() => setView("info")}>Thông tin {categoryLabel.toLowerCase()}</button>
             <button type="button" className={`button ${view === "progress" ? "primary" : "tertiary"} small`} onClick={() => setView("progress")}>Tiến độ triển khai</button>
+            {categoryCode === "BIEU_MAU" ? <button type="button" className={`button ${view === "scope" ? "primary" : "tertiary"} small`} onClick={() => setView("scope")}>Phạm vi áp dụng</button> : null}
             {categoryCode === "BIEU_MAU" ? <Link className="button secondary small" href="/emr/bieu-mau/tree">Cây biểu mẫu</Link> : null}
           </div>
         ) : null}
@@ -316,6 +377,83 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
         <div className="empty-state">Chưa có mục nào trong &quot;{categoryLabel}&quot;.{canManage ? <> Bấm &quot;+ Thêm mục&quot; để tạo mới.</> : null}</div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">Không tìm thấy mục phù hợp với &quot;{search}&quot;.</div>
+      ) : view === "scope" ? (
+        <div className="page-stack">
+          <section className="panel">
+            <div className="panel-title"><div><h2>Theo khoa/phòng</h2></div></div>
+            {!departments.length ? (
+              <div className="empty-state">Chưa có khoa/phòng nào để gán phạm vi áp dụng.</div>
+            ) : (
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Biểu mẫu</th>{departments.map((d) => <th key={d.id}>{d.short_name || d.name}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((item) => (
+                      <tr key={item.id}>
+                        <td><strong>{item.title}</strong></td>
+                        {departments.map((d) => {
+                          const checked = item.department_ids.length === 0 || item.department_ids.includes(d.id);
+                          return (
+                            <td key={d.id} style={{ textAlign: "center" }}>
+                              <span className="inline-check" style={{ justifyContent: "center" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={!canManage}
+                                  aria-label={`${item.title} — ${d.short_name || d.name}`}
+                                  onChange={() => toggleScopeCell(item, d.id)}
+                                />
+                              </span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+          <section className="panel">
+            <div className="panel-title"><div><h2>Theo loại hồ sơ bệnh án</h2></div></div>
+            {!recordTypeOptions.length ? (
+              <div className="empty-state">Danh mục này chưa khai báo loại hồ sơ áp dụng.</div>
+            ) : (
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Biểu mẫu</th>{recordTypeOptions.map((rt) => <th key={rt}>{rt}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((item) => {
+                      const selected = String(item.details?.record_types || "").split(",").map((s) => s.trim()).filter(Boolean);
+                      return (
+                        <tr key={item.id}>
+                          <td><strong>{item.title}</strong></td>
+                          {recordTypeOptions.map((rt) => (
+                            <td key={rt} style={{ textAlign: "center" }}>
+                              <span className="inline-check" style={{ justifyContent: "center" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selected.includes(rt)}
+                                  disabled={!canManage}
+                                  aria-label={`${item.title} — ${rt}`}
+                                  onChange={() => toggleRecordTypeCell(item, rt)}
+                                />
+                              </span>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
       ) : (
         <div className="panel">
           <div className="table-wrap">
@@ -376,7 +514,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
               <label>{descLabel}
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
               </label>
-              {extraFields.filter((f) => !f.pairWithStatus).map((f) => (
+              {extraFields.filter((f) => !f.pairWithStatus && !(categoryCode === "BIEU_MAU" && f.key === "record_types")).map((f) => (
                 f.type === "boolean" ? (
                   <div key={f.key}>
                     <label className="inline-check">
@@ -521,23 +659,29 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
               <label>Mức ưu tiên
                 <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}><option value="LOW">Thấp</option><option value="MEDIUM">Trung bình</option><option value="HIGH">Cao</option><option value="CRITICAL">Nghiêm trọng</option></select>
               </label>
-              <fieldset>
-                <legend>Khoa/phòng — Phạm vi áp dụng</legend>
-                {departments.length ? (
-                  <div className="department-checks">
-                    {departments.map((d) => (
-                      <label key={d.id}>
-                        <input
-                          type="checkbox"
-                          checked={form.department_ids.includes(d.id)}
-                          onChange={() => setForm({ ...form, department_ids: toggleId(form.department_ids, d.id) })}
-                        /> {d.short_name || d.name}
-                      </label>
-                    ))}
-                  </div>
-                ) : null}
-                <small>Không chọn khoa/phòng nào nghĩa là áp dụng toàn viện. Chọn một hoặc nhiều khoa/phòng cụ thể nếu hạng mục không áp dụng cho toàn viện.</small>
-              </fieldset>
+              {categoryCode !== "BIEU_MAU" ? (
+                <fieldset>
+                  <legend>Khoa/phòng — Phạm vi áp dụng</legend>
+                  {departments.length ? (
+                    <div className="department-checks">
+                      {departments.map((d) => (
+                        <label key={d.id}>
+                          <input
+                            type="checkbox"
+                            checked={form.department_ids.includes(d.id)}
+                            onChange={() => setForm({ ...form, department_ids: toggleId(form.department_ids, d.id) })}
+                          /> {d.short_name || d.name}
+                        </label>
+                      ))}
+                    </div>
+                  ) : null}
+                  <small>Không chọn khoa/phòng nào nghĩa là áp dụng toàn viện. Chọn một hoặc nhiều khoa/phòng cụ thể nếu hạng mục không áp dụng cho toàn viện.</small>
+                </fieldset>
+              ) : (
+                // BIEU_MAU quản lý phạm vi áp dụng qua ma trận riêng (nút "Phạm
+                // vi áp dụng" ở toolbar), không lặp lại ở đây.
+                <small className="muted">Phạm vi áp dụng theo khoa/phòng cho biểu mẫu này được quản lý ở màn hình &quot;Phạm vi áp dụng&quot; (nút trên thanh công cụ), không chỉnh ở đây.</small>
+              )}
               <label>Đơn vị phụ trách<select value={form.owner_department_id} onChange={(e)=>setForm({...form,owner_department_id:e.target.value})}><option value="">— Chưa gán —</option>{departments.map(d=><option key={d.id} value={d.id}>{d.short_name||d.name}</option>)}</select></label>
               <label>Hạn hoàn thành<input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></label>
               <label className="inline-check"><input type="checkbox" checked={form.is_go_live_gate} onChange={(e) => setForm({ ...form, is_go_live_gate: e.target.checked })} /> Điều kiện bắt buộc trước Go-live</label>

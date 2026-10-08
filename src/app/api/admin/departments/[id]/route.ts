@@ -44,6 +44,24 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
     if(!parent||!parent.is_active)return NextResponse.json({error:"Đơn vị cha không hợp lệ, đã ngưng hoặc ngoài tổ chức hiện tại."},{status:400});
   }
 
+  const nextIsActiveRequested=body.is_active!==false;
+  if(department.is_active&&!nextIsActiveRequested&&!body.force_deactivate){
+    const [{count:staffCount},{count:roleCount},{count:emrCount},{count:procurementCount}]=await Promise.all([
+      admin.from("profiles").select("user_id",{count:"exact",head:true}).eq("primary_department_id",id).eq("is_active",true),
+      admin.from("department_user_roles").select("id",{count:"exact",head:true}).eq("department_id",id).eq("is_active",true),
+      admin.from("emr_rollout_items").select("id",{count:"exact",head:true}).eq("owner_department_id",id),
+      admin.from("procurement_requests").select("id",{count:"exact",head:true}).eq("department_id",id).not("status","eq","NOTIFIED"),
+    ]);
+    const totalReferences=(staffCount||0)+(roleCount||0)+(emrCount||0)+(procurementCount||0);
+    if(totalReferences>0){
+      return NextResponse.json({
+        error:`Đơn vị này còn ít nhất ${totalReferences} tham chiếu đang hoạt động (${staffCount||0} nhân sự, ${roleCount||0} vai trò Trưởng/Mạng lưới QLCL, ${emrCount||0} hạng mục EMR, ${procurementCount||0} đề xuất mua sắm chưa xử lý xong). Xác nhận lại nếu vẫn muốn ngưng hoạt động.`,
+        requires_confirmation:true,
+        reference_counts:{staff:staffCount||0,roles:roleCount||0,emr_items:emrCount||0,procurement_requests:procurementCount||0},
+      },{status:409});
+    }
+  }
+
   const {data:updated,error}=await admin
     .from("departments")
     .update({
@@ -63,14 +81,13 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
   if(error)return NextResponse.json({error:error.code==="23505"?"Mã đơn vị đã tồn tại.":error.message},{status:400});
   if(!updated)return NextResponse.json({error:"Đơn vị đã thay đổi hoặc không còn thuộc tổ chức hiện tại."},{status:409});
 
-  const nextIsActive=body.is_active!==false;
   const {error:auditError}=await admin.from("audit_logs").insert({
     actor_user_id:auth.user.id,
     table_name:"departments",
     row_id:id,
-    action_type:department.is_active&&!nextIsActive?"DEPARTMENT_DEACTIVATE":"DEPARTMENT_UPDATE",
+    action_type:department.is_active&&!nextIsActiveRequested?"DEPARTMENT_DEACTIVATE":"DEPARTMENT_UPDATE",
     old_value:{code:department.code,name:department.name,short_name:department.short_name,department_type:department.department_type,parent_department_id:department.parent_department_id,is_active:department.is_active},
-    new_value:{code,name,short_name:body.short_name||null,department_type:body.department_type||null,parent_department_id:parentDepartmentId,is_active:nextIsActive},
+    new_value:{code,name,short_name:body.short_name||null,department_type:body.department_type||null,parent_department_id:parentDepartmentId,is_active:nextIsActiveRequested},
     reason:"Cập nhật khoa/phòng.",
     request_meta:{source:"qlcl-ui"},
   });

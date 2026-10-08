@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, LoaderCircle, User, Lock, ArrowRight } from "lucide-react";
+import { Icon } from "@/components/icon";
 
 export function LoginForm() {
   const router = useRouter();
@@ -67,7 +67,7 @@ export function LoginForm() {
       <label>
         <span>Tài khoản</span>
         <div className="login-input-icon">
-          <User size={16} />
+          <Icon name="user" size={16} />
           <input
             type="text"
             value={login}
@@ -82,7 +82,7 @@ export function LoginForm() {
       <label>
         <span>Mật khẩu</span>
         <div className="password-wrap login-input-icon">
-          <Lock size={16} />
+          <Icon name="lock" size={16} />
           <input
             type={showPassword ? "text" : "password"}
             value={password}
@@ -97,7 +97,7 @@ export function LoginForm() {
             onClick={() => setShowPassword((v) => !v)}
             aria-label="Hiện/ẩn mật khẩu"
           >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            {showPassword ? <Icon name="eye-off" size={18} /> : <Icon name="eye" size={18} />}
           </button>
         </div>
       </label>
@@ -112,10 +112,10 @@ export function LoginForm() {
       <button className="button primary wide" type="submit" disabled={loading}>
         {loading ? (
           <>
-            <LoaderCircle className="spin" size={18} /> Đang đăng nhập...
+            <Icon name="loader-circle" className="spin" size={18} /> Đang đăng nhập...
           </>
         ) : (
-          <>Đăng nhập <ArrowRight size={17} /></>
+          <>Đăng nhập <Icon name="arrow-right" size={17} /></>
         )}
       </button>
 

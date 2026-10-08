@@ -207,6 +207,11 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
     // trainer re-typing the same form name — the reverse reference back to
     // Biểu mẫu (categoriesReferencing) is what shows "N biểu mẫu liên quan".
     { key: "related_form_id", label: "Biểu mẫu liên quan", type: "reference", referenceCategory: "BIEU_MAU" },
+    // Khi tự tạo từ Biểu mẫu "Cần đào tạo" (xem emr-training-auto-create.ts),
+    // đối tượng cần đào tạo được kế thừa thẳng từ "Đối tượng thực hiện" của
+    // biểu mẫu đó — cùng 1 danh sách lựa chọn để giá trị copy sang khớp nguyên
+    // vẹn, không cần người dùng chọn lại.
+    { key: "target_roles", label: "Đối tượng cần đào tạo", type: "multiselect", options: ["Bác sĩ", "Điều dưỡng", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Phòng hành chính (đóng dấu)", "Khác"], compact: true },
     { key: "training_date", label: "Ngày đào tạo", type: "date" },
     { key: "pass_status", label: "Kết quả", type: "select", options: ["Đạt", "Chưa đạt", "Chưa thi"] },
   ],

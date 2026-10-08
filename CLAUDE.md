@@ -42,13 +42,17 @@ lâm sàng.
 
 ## Gotcha kỹ thuật đã gặp (đọc trước khi đụng vào các khu vực này)
 
-- **`emr-command-center.tsx` dùng `<style jsx>` (styled-jsx) nhưng CSS chỉ scope đúng cho
-  các phần tử JSX viết trực tiếp trong component chứa `<style jsx>`.** CSS nhắm vào phần tử
-  do các helper function con (`Kpi`, `Compliance`, `PanelHead`, `Legend`) render ra **không
-  được áp dụng** — vì className scope của styled-jsx không tự động lan qua ranh giới gọi
-  hàm/component khác. Nếu cần style chắc chắn áp dụng cho phần tử trong các hàm con, dùng
-  inline `style={{...}}` thay vì trông chờ vào CSS scoped, hoặc chuyển hẳn sang class CSS
-  global.
+- **`<style jsx>` (styled-jsx) chỉ scope đúng cho các phần tử JSX viết trực tiếp trong
+  component chứa thẻ đó.** CSS nhắm vào phần tử do các helper function con (vd `Kpi`,
+  `Compliance`, `PanelHead`, `Legend`) render ra **không được áp dụng** — vì className scope
+  của styled-jsx không tự động lan qua ranh giới gọi hàm/component khác. `emr-command-center.tsx`
+  từng dính đúng lỗi này (KPI/readiness/compliance/escalation mất hẳn card chrome, lệch
+  typography) và đã được sửa bằng cách **bỏ hẳn `<style jsx>`, chuyển sang thẻ `<style>` thường
+  với mọi selector gắn tiền tố rõ ràng** (vd `.emr-command .kpi-card`), giống quy ước mọi trang
+  khác trong repo này đã dùng (vd `.tqm-analytics` ở `analytics/page.tsx`) — xem
+  `src/lib/emr-command-center-style-scoping.test.ts`. Đây là hướng xử lý đúng khi bug này lặp
+  lại — không dùng inline `style={{...}}` rải rác cho từng phần tử, vì không mở rộng được khi
+  helper function render nhiều phần tử.
 - **`eslint.config.mjs` dùng flat config**: object `{ ignores: [...] }` chỉ ignore toàn cục
   khi nó là object độc lập (không có `rules` cùng object). Nếu gộp `ignores` chung với
   `rules`, ignore đó chỉ áp dụng cho chính object rules đó, các config khác (như
@@ -63,6 +67,13 @@ lâm sàng.
 - **Checkbox dùng class `.inline-check`** (hoặc `.radio-row`/`.check-card`), không để input
   checkbox trần trong `<label>` — CSS mặc định `input,select,textarea{width:100%;min-height:40px}`
   áp dụng luôn cho checkbox, làm nó to bất thường.
+- **Không bootstrap SYSTEM_ADMIN bằng cách hard-code email vào migration mới**
+  (`20260919_system_admin_role_v1.sql`, `20260927_system_admin_role_refresh_v1.sql` là 2
+  migration lịch sử đã chạy — KHÔNG sửa lại, migration không được chỉnh sau khi đã chạy, kể cả
+  khi email trong đó mang domain cũ trước rebrand). Việc gán/thu hồi vai trò SYSTEM_ADMIN cho
+  một tài khoản cụ thể làm qua `/admin/users` (route `src/app/api/admin/users/[id]/route.ts`,
+  đã ghi `audit_logs`) — route này đã hỗ trợ đầy đủ, không cần và không nên thêm migration mới
+  chỉ để gán vai trò cho 1 người.
 
 ## Quy trình bắt buộc trước khi báo "xong"
 

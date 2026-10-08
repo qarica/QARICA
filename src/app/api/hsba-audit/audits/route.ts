@@ -73,16 +73,25 @@ export async function POST(request: Request) {
   if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 400 });
   const itemContentById = new Map((items ?? []).map((i: any) => [i.id, i.content]));
 
+  // HSBA tiếp tục chỉ chấp nhận PASS/FAIL như cũ ("Bảng kiểm thường quy Hồ sơ
+  // bệnh án chưa đụng") — Phác đồ điều trị và QTKT nội trú là kiểm bổ sung,
+  // được chấm thêm PARTIAL (Đạt 1 phần)/NA (Không áp dụng), theo yêu cầu
+  // tường minh của người dùng. Cột result/overall_result đã được nới check
+  // constraint tương ứng (xem migration 20261027_hsba_audit_partial_na_result_v1.sql).
+  const EXTRA_RESULTS = new Set(["PASS", "FAIL", "PARTIAL", "NA"]);
   const normalizedResults = results
     .filter((r: any) => itemContentById.has(r.checklist_item_id))
     .map((r: any) => ({
       checklist_item_id: r.checklist_item_id,
-      result: r.result === "FAIL" ? "FAIL" : "PASS",
+      result: auditType === "HSBA" ? (r.result === "FAIL" ? "FAIL" : "PASS") : (EXTRA_RESULTS.has(r.result) ? r.result : "PASS"),
       note: r.note ? String(r.note).trim() || null : null,
     }));
   if (!normalizedResults.length) return NextResponse.json({ error: "Không có tiêu chí hợp lệ để lưu." }, { status: 400 });
 
-  const overallResult = normalizedResults.some((r) => r.result === "FAIL") ? "FAIL" : "PASS";
+  // Tổng hợp: FAIL nếu có bất kỳ tiêu chí FAIL, PARTIAL nếu không có FAIL
+  // nhưng có tiêu chí PARTIAL, còn lại PASS — HSBA không bao giờ tạo ra
+  // PARTIAL nên công thức này cho HSBA kết quả y hệt trước đây.
+  const overallResult = normalizedResults.some((r) => r.result === "FAIL") ? "FAIL" : normalizedResults.some((r) => r.result === "PARTIAL") ? "PARTIAL" : "PASS";
 
   const { data: audit, error: auditError } = await admin
     .from("hsba_audits")
