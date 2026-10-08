@@ -6,7 +6,7 @@ import { RECORD_TYPE_LABEL } from "@/components/record-traceability-panel";
 import { StatusBadge } from "@/components/status-badge";
 import { requirePermission, requireUserContext } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
-import { isOperationallyHiddenStatus } from "@/lib/operational-record";
+import { emrCategoryLabel, emrCategorySlug, loadMyAssignedWork } from "@/lib/my-assigned-work";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 
@@ -28,21 +28,24 @@ export default async function CalendarMyWorkPage({ searchParams }: { searchParam
   const searchQuery = String(rawQ || "").trim();
   const today = hcmToday();
 
-  const [actionsRes, personalRemindersRes] = await Promise.all([
-    supabase.from("vw_actions_dashboard").select("action_id,record_id,record_code,title,work_year,workflow_status,priority,due_date,is_overdue,days_to_due").eq("work_year", year).eq("assignee_user_id", user.id).order("due_date", { ascending: true, nullsFirst: false }),
+  const [{ actionRows, emrRows, error: workError }, personalRemindersRes] = await Promise.all([
+    loadMyAssignedWork(supabase, { id: user.id, organizationId: user.organizationId, primaryDepartmentId: user.primaryDepartmentId }, year, { includeEmr: true }),
     supabase.from("personal_reminders").select("id,title,note,due_at,priority,status").eq("owner_user_id", user.id).neq("status", "CANCELLED").order("due_at", { ascending: true, nullsFirst: false }),
   ]);
-  const sourceRows = ((actionsRes.data ?? []) as any[]).filter((r) => r.workflow_status !== "CANCELLED");
-  const recordIds = Array.from(new Set(sourceRows.map((r) => r.record_id).filter(Boolean)));
-  const recordRes = recordIds.length ? await supabase.from("records").select("id,lifecycle_status,record_type").in("id", recordIds) : { data: [], error: null };
-  const hidden = new Set(((recordRes.data ?? []) as any[]).filter((r) => isOperationallyHiddenStatus(r.lifecycle_status)).map((r) => r.id));
-  const recordTypeMap = new Map(((recordRes.data ?? []) as any[]).map((r) => [r.id, r.record_type]));
-  const rows = sourceRows.filter((r) => !hidden.has(r.record_id));
+  const recordIds = Array.from(new Set(actionRows.map((r) => r.record_id).filter(Boolean)));
+  const recordTypeRes = recordIds.length ? await supabase.from("records").select("id,record_type").in("id", recordIds) : { data: [], error: null };
+  const recordTypeMap = new Map(((recordTypeRes.data ?? []) as any[]).map((r) => [r.id, r.record_type]));
   const personalReminders = (personalRemindersRes.data ?? []) as any[];
-  const firstError = actionsRes.error || personalRemindersRes.error || recordRes.error;
+  const firstError = workError || personalRemindersRes.error?.message || recordTypeRes.error?.message;
 
   type Row = { key: string; title: string; typeLabel: string; priority: string | null; dueDate: string | null; statusLabel: string; isOverdue: boolean; isDone: boolean; href: string };
-  const assignedRows: Row[] = rows.map((r) => ({ key: `a-${r.action_id}`, title: r.title, typeLabel: RECORD_TYPE_LABEL[recordTypeMap.get(r.record_id) || ""] || "—", priority: r.priority, dueDate: r.due_date, statusLabel: r.is_overdue ? "OVERDUE" : r.workflow_status, isOverdue: !!r.is_overdue, isDone: r.workflow_status === "COMPLETED", href: `/tasks/${r.record_id}` }));
+  const assignedActionRows: Row[] = actionRows.map((r) => ({ key: `a-${r.action_id}`, title: r.title, typeLabel: RECORD_TYPE_LABEL[recordTypeMap.get(r.record_id) || ""] || "—", priority: r.priority, dueDate: r.due_date, statusLabel: r.is_overdue ? "OVERDUE" : r.workflow_status, isOverdue: !!r.is_overdue, isDone: r.workflow_status === "COMPLETED", href: `/tasks/${r.record_id}` }));
+  const assignedEmrRows: Row[] = emrRows.map((item) => {
+    const overdueItem = !!item.due_date && item.due_date < today;
+    const slug = emrCategorySlug(item.category);
+    return { key: `e-${item.id}`, title: item.title, typeLabel: `EMR · ${emrCategoryLabel(item.category)}`, priority: item.priority, dueDate: item.due_date, statusLabel: overdueItem ? "OVERDUE" : item.status, isOverdue: overdueItem, isDone: false, href: slug ? `/emr/${slug}` : "/emr" };
+  });
+  const assignedRows: Row[] = [...assignedActionRows, ...assignedEmrRows];
   const reminderRows: Row[] = personalReminders.map((p) => ({ key: `p-${p.id}`, title: p.title, typeLabel: "Note cá nhân", priority: p.priority, dueDate: p.due_at ? dateOnly(p.due_at) : null, statusLabel: p.status === "COMPLETED" ? "COMPLETED" : (p.due_at && dateOnly(p.due_at) < today ? "OVERDUE" : p.status), isOverdue: p.status === "OPEN" && !!p.due_at && dateOnly(p.due_at) < today, isDone: p.status === "COMPLETED", href: "/calendar/my-work" }));
   const allRows = [...assignedRows, ...reminderRows].sort((a, b) => (a.dueDate || "9999").localeCompare(b.dueDate || "9999"));
   const byTab = tab === "ASSIGNED" ? assignedRows : tab === "REMINDER" ? reminderRows : tab === "DONE" ? allRows.filter((r) => r.isDone) : allRows;
@@ -55,7 +58,7 @@ export default async function CalendarMyWorkPage({ searchParams }: { searchParam
       .calendar-my-work-page .work-search-row{display:flex;gap:8px;align-items:center;padding:10px 16px}.calendar-my-work-page .work-search-row .search-box{flex:1;max-width:280px}
     `}</style>
     <PageHeader eyebrow={`LỊCH QLCL · ${year}`} title="Việc của tôi (trong Lịch QLCL)" description="Danh sách việc được giao và nhắc việc cá nhân có hạn đến hạn. Cùng dữ liệu với Việc của tôi; đây chỉ là một góc nhìn khác gắn với Lịch." icon="inbox" actions={<Link className="button secondary" href="/tasks">Mở Việc của tôi đầy đủ →</Link>} />
-    {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
+    {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError}</div> : null}
 
     <PersonalReminders initialRows={personalReminders} organizationId={user.organizationId!} userId={user.id} />
 
