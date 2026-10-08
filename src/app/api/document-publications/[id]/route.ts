@@ -87,7 +87,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { data, error } = await admin.from("document_publications").update(update).eq("id", id).eq("organization_id", organizationId).select(SELECT_COLUMNS).single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  await admin.from("audit_logs").insert({
+  const { error: auditError } = await admin.from("audit_logs").insert({
     actor_user_id: auth.user.id,
     table_name: "document_publications",
     row_id: id,
@@ -96,6 +96,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     new_value: { stage: upcoming },
     request_meta: { source: "qlcl-ui" },
   });
+  if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
 
   return NextResponse.json({ ok: true, document: data });
 }
@@ -125,7 +126,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { error } = await admin.from("document_publications").delete().eq("id", id).eq("organization_id", organizationId);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  await admin.from("audit_logs").insert({
+  const { error: auditError } = await admin.from("audit_logs").insert({
     actor_user_id: auth.user.id,
     table_name: "document_publications",
     row_id: id,
@@ -134,6 +135,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     reason: "Xoá văn bản khai báo nhầm (còn ở bước Đề nghị).",
     request_meta: { source: "qlcl-ui" },
   });
+  if (auditError) return NextResponse.json({ error: `Đã xoá nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
 
   return NextResponse.json({ ok: true });
 }

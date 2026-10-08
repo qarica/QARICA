@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  await admin.from("audit_logs").insert({
+  const { error: auditError } = await admin.from("audit_logs").insert({
     actor_user_id: auth.user.id,
     table_name: "incoming_documents",
     row_id: data.id,
@@ -64,6 +64,7 @@ export async function POST(request: Request) {
     new_value: { received_no: data.received_no, issuing_authority: data.issuing_authority, summary: data.summary },
     request_meta: { source: "qlcl-ui" },
   });
+  if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
 
   return NextResponse.json({ ok: true, document: data });
 }

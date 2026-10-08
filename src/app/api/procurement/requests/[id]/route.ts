@@ -83,7 +83,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  await admin.from("audit_logs").insert({
+  const { error: auditError } = await admin.from("audit_logs").insert({
     actor_user_id: auth.user.id,
     table_name: "procurement_requests",
     row_id: id,
@@ -93,6 +93,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     reason: typeof body.note === "string" ? body.note.trim() || null : null,
     request_meta: { source: "qlcl-ui" },
   });
+  if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
 
   return NextResponse.json({ ok: true, request: data });
 }

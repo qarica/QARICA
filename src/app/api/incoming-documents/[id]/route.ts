@@ -57,7 +57,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (!data) return NextResponse.json({ error: "Không tìm thấy công văn." }, { status: 404 });
 
-  await admin.from("audit_logs").insert({
+  // "Bút phê GĐ" đọc ngược lại chính bản ghi audit_logs này để biết ai/lúc
+  // nào (xem incoming-documents/page.tsx) — ghi audit_logs thất bại âm thầm
+  // sẽ làm mất luôn thông tin đó, nên phải báo lỗi thay vì bỏ qua.
+  const { error: auditError } = await admin.from("audit_logs").insert({
     actor_user_id: auth.user.id,
     table_name: "incoming_documents",
     row_id: id,
@@ -66,6 +69,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     new_value: update,
     request_meta: { source: "qlcl-ui" },
   });
+  if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
 
   return NextResponse.json({ ok: true, document: data });
 }
@@ -94,7 +98,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { error } = await admin.from("incoming_documents").delete().eq("id", id).eq("organization_id", organizationId);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  await admin.from("audit_logs").insert({
+  const { error: auditError } = await admin.from("audit_logs").insert({
     actor_user_id: auth.user.id,
     table_name: "incoming_documents",
     row_id: id,
@@ -103,6 +107,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     reason: "Xoá công văn khai báo nhầm.",
     request_meta: { source: "qlcl-ui" },
   });
+  if (auditError) return NextResponse.json({ error: `Đã xoá nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
 
   return NextResponse.json({ ok: true });
 }

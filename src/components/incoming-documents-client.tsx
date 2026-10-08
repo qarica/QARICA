@@ -13,6 +13,8 @@ type Doc = {
   summary: string;
   document_type: string | null;
   director_note: string | null;
+  director_note_by: string | null;
+  director_note_at: string | null;
   department_id: string | null;
   deployed_at: string | null;
   due_date: string | null;
@@ -27,6 +29,10 @@ function today() {
 function formatDate(value: string | null) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short" }).format(new Date(`${value}T00:00:00`));
+}
+function formatDateTime(value: string | null) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
 }
 function statusOf(doc: Doc, now: string): { label: string; tone: string } {
   if (doc.completed_at) {
@@ -194,7 +200,12 @@ export function IncomingDocumentsClient({
                           onChange={(e) => setEditDraft((v) => ({ ...v, director_note: e.target.value }))}
                         />
                       ) : (
-                        doc.director_note || "—"
+                        <>
+                          {doc.director_note || "—"}
+                          {doc.director_note && doc.director_note_by ? (
+                            <div><small className="muted">Bởi {doc.director_note_by} · {formatDateTime(doc.director_note_at)}</small></div>
+                          ) : null}
+                        </>
                       )}
                     </td>
                     <td>
