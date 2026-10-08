@@ -21,6 +21,7 @@ export function GlobalRecordLifecycleActions(){
   const eligible=useMemo(()=>DETAIL_RE.test(pathname),[pathname]);
   const [info,setInfo]=useState<LifecycleResponse|null>(null); const [open,setOpen]=useState(false);
   const [reason,setReason]=useState(""); const [busy,setBusy]=useState(false); const [error,setError]=useState("");
+  const [pendingAction,setPendingAction]=useState<"CANCEL"|"RESTORE">("CANCEL");
 
   useEffect(()=>{
     if(!eligible){setInfo(null);return;}
@@ -33,7 +34,12 @@ export function GlobalRecordLifecycleActions(){
   if(!eligible||!info?.record)return null;
   const record=info.record; const isTerminal=TERMINAL.has(record.lifecycle_status);
   const canCancel=!!info.canManage&&!isTerminal&&record.lifecycle_status!=="CLOSED";
-  if(!canCancel)return null;
+  // Trước đây component này ẩn hẳn khi hồ sơ đã hủy (isTerminal true) — không
+  // còn cách nào khôi phục ngoài tạo lại từ đầu. canRestore chỉ áp dụng đúng
+  // trạng thái CANCELLED (không phải ARCHIVED/RETIRED/INACTIVE — những trạng
+  // thái đó chưa có chính sách khôi phục).
+  const canRestore=!!info.canManage&&record.lifecycle_status==="CANCELLED";
+  if(!canCancel&&!canRestore)return null;
   const isIncident=record.record_type==="INCIDENT";
 
   async function submit(){
@@ -41,10 +47,12 @@ export function GlobalRecordLifecycleActions(){
     if(reason.trim().length<3){setError("Vui lòng nhập lý do trước khi thực hiện.");return;}
     setBusy(true);setError("");
     try{
-      const res=await fetch("/api/record-lifecycle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({recordId:record.id,action:"CANCEL",reason:reason.trim()})});
-      const json=await res.json(); if(!res.ok)throw new Error(json.error||"Không hủy được hồ sơ.");
-      setOpen(false); router.push(parentHref(pathname)); router.refresh();
-    }catch(e:any){setError(e?.message||"Không hủy được hồ sơ.");}finally{setBusy(false);}
+      const res=await fetch("/api/record-lifecycle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({recordId:record.id,action:pendingAction,reason:reason.trim()})});
+      const json=await res.json(); if(!res.ok)throw new Error(json.error||(pendingAction==="RESTORE"?"Không khôi phục được hồ sơ.":"Không hủy được hồ sơ."));
+      setOpen(false);
+      if(pendingAction==="CANCEL")router.push(parentHref(pathname));
+      router.refresh();
+    }catch(e:any){setError(e?.message||(pendingAction==="RESTORE"?"Không khôi phục được hồ sơ.":"Không hủy được hồ sơ."));}finally{setBusy(false);}
   }
 
   return <>
@@ -53,29 +61,42 @@ export function GlobalRecordLifecycleActions(){
       .record-danger-zone-copy{display:grid;gap:3px}.record-danger-zone-copy strong{font-size:12px;color:#9f2727}.record-danger-zone-copy span{font-size:11px;color:#7b6262;line-height:1.45}
       .record-danger-zone .record-cancel-button{background:#fff;border-color:#efb9b9;color:#b42318}
       .record-danger-zone .record-cancel-button:hover{background:#fff0f0}
-      @media(max-width:640px){.record-danger-zone{display:grid}.record-danger-zone .record-cancel-button{width:100%}}
+      .record-danger-zone .record-restore-button{background:#eaf7ef;border-color:#bfe8cf;color:#177245}
+      .record-danger-zone .record-restore-button:hover{background:#dcf2e3}
+      @media(max-width:640px){.record-danger-zone{display:grid}.record-danger-zone .record-cancel-button,.record-danger-zone .record-restore-button{width:100%}}
       @media print{.record-danger-zone,.lifecycle-modal-backdrop{display:none!important}}
     `}</style>
     <section className="record-danger-zone" aria-label="Quản trị hồ sơ">
-      <div className="record-danger-zone-copy"><strong>{isIncident?"Quản trị báo cáo sự cố":"Quản trị hồ sơ"}</strong><span>Chỉ hủy khi hồ sơ/tác vụ được tạo nhầm hoặc không còn áp dụng. Dữ liệu và lịch sử vẫn được giữ để truy vết.</span></div>
-      <button type="button" className="button record-cancel-button" onClick={()=>{setError("");setReason("");setOpen(true);}}>{isIncident?"Hủy báo cáo":"Hủy hồ sơ"}</button>
+      <div className="record-danger-zone-copy">
+        <strong>{isIncident?"Quản trị báo cáo sự cố":"Quản trị hồ sơ"}</strong>
+        <span>{canRestore?"Hồ sơ này đã bị hủy — khôi phục sẽ đưa hồ sơ trở lại danh sách vận hành bình thường (Dashboard, Việc của tôi...).":"Chỉ hủy khi hồ sơ/tác vụ được tạo nhầm hoặc không còn áp dụng. Dữ liệu và lịch sử vẫn được giữ để truy vết."}</span>
+      </div>
+      {canRestore ? (
+        <button type="button" className="button record-restore-button" onClick={()=>{setError("");setReason("");setPendingAction("RESTORE");setOpen(true);}}>Khôi phục hồ sơ</button>
+      ) : (
+        <button type="button" className="button record-cancel-button" onClick={()=>{setError("");setReason("");setPendingAction("CANCEL");setOpen(true);}}>{isIncident?"Hủy báo cáo":"Hủy hồ sơ"}</button>
+      )}
     </section>
 
-    {open?<div className="modal-backdrop lifecycle-modal-backdrop" role="dialog" aria-modal="true" aria-label="Hủy hồ sơ">
+    {open?<div className="modal-backdrop lifecycle-modal-backdrop" role="dialog" aria-modal="true" aria-label={pendingAction==="RESTORE"?"Khôi phục hồ sơ":"Hủy hồ sơ"}>
       <div className="modal-card lifecycle-modal-card">
         <div className="modal-head lifecycle-modal-head">
-          <div><div className="eyebrow">{record.record_code}</div><h2>{isIncident?"Hủy báo cáo sự cố":"Hủy hồ sơ / tác vụ"}</h2></div>
+          <div><div className="eyebrow">{record.record_code}</div><h2>{pendingAction==="RESTORE"?"Khôi phục hồ sơ":isIncident?"Hủy báo cáo sự cố":"Hủy hồ sơ / tác vụ"}</h2></div>
           <button className="icon-button" type="button" onClick={()=>!busy&&setOpen(false)} aria-label="Đóng">×</button>
         </div>
         <div className="modal-body lifecycle-modal-body">
-          <div className="alert error"><strong>Không xóa dữ liệu.</strong> Hồ sơ sẽ được ẩn khỏi các danh sách vận hành. Lịch sử và minh chứng vẫn được giữ để tra cứu.</div>
+          {pendingAction==="RESTORE"?(
+            <div className="alert error"><strong>Lưu ý:</strong> trạng thái vận hành nội bộ của hồ sơ (vd đang thực hiện/chờ xác minh) không được lưu lại từ trước khi hủy — sau khi khôi phục, có thể cần vào hồ sơ để cập nhật lại đúng trạng thái hiện tại.</div>
+          ):(
+            <div className="alert error"><strong>Không xóa dữ liệu.</strong> Hồ sơ sẽ được ẩn khỏi các danh sách vận hành. Lịch sử và minh chứng vẫn được giữ để tra cứu.</div>
+          )}
           <div className="lifecycle-record-title"><strong>{record.title}</strong><span>{record.record_type}</span></div>
-          <label className="lifecycle-reason-field"><span>Lý do hủy <b>*</b></span><textarea rows={4} value={reason} onChange={e=>setReason(e.target.value)} placeholder="Ví dụ: Tạo nhầm, thay đổi kế hoạch, yêu cầu không còn áp dụng..." /></label>
+          <label className="lifecycle-reason-field"><span>{pendingAction==="RESTORE"?"Lý do khôi phục":"Lý do hủy"} <b>*</b></span><textarea rows={4} value={reason} onChange={e=>setReason(e.target.value)} placeholder={pendingAction==="RESTORE"?"Ví dụ: Hủy nhầm, cần tiếp tục xử lý...":"Ví dụ: Tạo nhầm, thay đổi kế hoạch, yêu cầu không còn áp dụng..."} /></label>
           {error?<div className="alert error">{error}</div>:null}
         </div>
         <div className="modal-footer lifecycle-modal-footer">
           <button className="button secondary" type="button" disabled={busy} onClick={()=>setOpen(false)}>Không thực hiện</button>
-          <button className="button primary" type="button" disabled={busy||reason.trim().length<3} onClick={submit}>{busy?"Đang xử lý...":"Xác nhận hủy"}</button>
+          <button className="button primary" type="button" disabled={busy||reason.trim().length<3} onClick={submit}>{busy?"Đang xử lý...":pendingAction==="RESTORE"?"Xác nhận khôi phục":"Xác nhận hủy"}</button>
         </div>
       </div>
     </div>:null}

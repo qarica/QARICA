@@ -81,7 +81,7 @@ export async function POST(request: Request) {
   const action = String(body.action || "").toUpperCase();
   const reason = String(body.reason || "").trim();
   if (!UUID_RE.test(recordId)) return NextResponse.json({ error: "ID hồ sơ không hợp lệ." }, { status: 400 });
-  if (!["CANCEL", "ARCHIVE"].includes(action)) return NextResponse.json({ error: "Thao tác không hợp lệ." }, { status: 400 });
+  if (!["CANCEL", "ARCHIVE", "RESTORE"].includes(action)) return NextResponse.json({ error: "Thao tác không hợp lệ." }, { status: 400 });
   if (reason.length < 3) return NextResponse.json({ error: "Vui lòng nhập lý do rõ ràng trước khi thực hiện." }, { status: 400 });
 
   const { record, canManage, permission } = await getRecordAndPermission(supabase, recordId, user.id);
@@ -94,8 +94,9 @@ export async function POST(request: Request) {
   if (action === "CANCEL" && ["CANCELLED", "ARCHIVED", "RETIRED", "INACTIVE"].includes(record.lifecycle_status)) return NextResponse.json({ error: "Hồ sơ này đã ngưng hoạt động nên không thể hủy lại." }, { status: 409 });
   if (action === "CANCEL" && record.lifecycle_status === "CLOSED") return NextResponse.json({ error: "Hồ sơ đã đóng. Nếu cần loại khỏi danh sách vận hành, hãy dùng Lưu trữ." }, { status: 409 });
   if (action === "ARCHIVE" && record.lifecycle_status === "ARCHIVED") return NextResponse.json({ ok: true, status: "ARCHIVED", transaction: "idempotent" });
+  if (action === "RESTORE" && record.lifecycle_status !== "CANCELLED") return NextResponse.json({ error: "Chỉ khôi phục được hồ sơ đang ở trạng thái Đã hủy." }, { status: 409 });
 
-  const targetStatus = action === "CANCEL" ? "CANCELLED" : "ARCHIVED";
+  const targetStatus = action === "CANCEL" ? "CANCELLED" : action === "RESTORE" ? "ACTIVE" : "ARCHIVED";
   const admin = createAdminClient();
 
   const { data: tx, error: txError } = await admin.rpc(LIFECYCLE_RPC, {
@@ -108,6 +109,6 @@ export async function POST(request: Request) {
   const txMessage = rpcErrorMessage(txError, "Không thể cập nhật vòng đời hồ sơ.");
   return NextResponse.json(
     { error: txMessage },
-    { status: /đã ngưng|đã đóng|không hợp lệ|không tìm thấy|ngoài phạm vi|lý do/i.test(txMessage) ? 409 : 400 },
+    { status: /đã ngưng|đã đóng|không hợp lệ|không tìm thấy|ngoài phạm vi|lý do|khôi phục/i.test(txMessage) ? 409 : 400 },
   );
 }
