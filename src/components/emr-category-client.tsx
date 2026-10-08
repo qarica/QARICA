@@ -401,6 +401,11 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
           ) : (
             <div className="table-wrap">
               <table className="data-table">
+                <colgroup>
+                  <col className="emr-scope-corner-col" />
+                  {departments.map((d) => <col key={d.id} />)}
+                  {recordTypeOptions.map((rt) => <col key={rt} />)}
+                </colgroup>
                 <thead>
                   <tr>
                     <th rowSpan={2} className="emr-scope-corner">Biểu mẫu</th>
@@ -408,8 +413,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                     {recordTypeOptions.length ? <th colSpan={recordTypeOptions.length}>Theo loại hồ sơ bệnh án</th> : null}
                   </tr>
                   <tr>
-                    {departments.map((d) => <th key={d.id}>{d.short_name || d.name}</th>)}
-                    {recordTypeOptions.map((rt) => <th key={rt}>{rt}</th>)}
+                    {departments.map((d) => <th key={d.id} className="emr-scope-col-head">{d.short_name || d.name}</th>)}
+                    {recordTypeOptions.map((rt) => <th key={rt} className="emr-scope-col-head">{rt}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -469,10 +474,13 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
           )}
           <style>{`
             .emr-scope-matrix .table-wrap{max-height:70vh;overflow:auto}
-            .emr-scope-matrix table{border-collapse:separate;border-spacing:0}
+            .emr-scope-matrix table{border-collapse:separate;border-spacing:0;table-layout:fixed}
+            .emr-scope-matrix col.emr-scope-corner-col{width:200px}
             .emr-scope-matrix thead th{position:sticky;top:0;z-index:2;background:#f8fafb}
             .emr-scope-matrix thead tr:first-child th{top:0}
             .emr-scope-matrix thead tr:nth-child(2) th{top:37px}
+            .emr-scope-matrix th.emr-scope-col-head{width:86px;white-space:normal;word-break:break-word;line-height:1.25;font-size:11px;padding:6px 4px;text-align:center}
+            .emr-scope-matrix tbody td{text-overflow:clip}
             .emr-scope-matrix td.emr-scope-row-head,.emr-scope-matrix th.emr-scope-corner{position:sticky;left:0;z-index:1;background:#fff;text-align:left;white-space:nowrap}
             .emr-scope-matrix th.emr-scope-corner{z-index:3;background:#f8fafb}
             .emr-scope-matrix td.emr-scope-row-head{display:flex;flex-direction:column;gap:4px;align-items:flex-start}

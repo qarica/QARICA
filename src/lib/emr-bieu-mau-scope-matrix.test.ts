@@ -20,7 +20,7 @@ describe("EMR Khai báo biểu mẫu — ma trận Phạm vi áp dụng tách kh
 
   it("render ma trận hàng=biểu mẫu, cột=khoa/phòng khi view==='scope'", () => {
     expect(client).toContain('view === "scope" ? (');
-    expect(client).toContain("{departments.map((d) => <th key={d.id}>{d.short_name || d.name}</th>)}");
+    expect(client).toContain('{departments.map((d) => <th key={d.id} className="emr-scope-col-head">{d.short_name || d.name}</th>)}');
     expect(client).toContain("{filtered.map((item) => {");
   });
 
@@ -49,7 +49,7 @@ describe("EMR Khai báo biểu mẫu — ma trận Phạm vi áp dụng tách kh
 
   it("cùng 1 bảng 'Phạm vi áp dụng' còn có nhóm cột thứ 2: theo loại hồ sơ bệnh án (không hardcode lại options, lấy từ field record_types)", () => {
     expect(client).toContain('const recordTypeOptions = extraFields.find((f) => f.key === "record_types")?.options || [];');
-    expect(client).toContain("{recordTypeOptions.map((rt) => <th key={rt}>{rt}</th>)}");
+    expect(client).toContain('{recordTypeOptions.map((rt) => <th key={rt} className="emr-scope-col-head">{rt}</th>)}');
     expect(client).toContain("async function toggleRecordTypeCell(item: Item, typeValue: string)");
   });
 
