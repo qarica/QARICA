@@ -24,6 +24,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     update.sort_order = sortOrder;
   }
   if (body.is_active !== undefined) update.is_active = !!body.is_active;
+  if (body.code !== undefined) update.code = String(body.code || "").trim() || null;
 
   const { data: current, error: currentError } = await admin.from("emr_binding_groups").select("id,name").eq("id", id).eq("organization_id", organizationId).maybeSingle();
   if (currentError) return NextResponse.json({ error: currentError.message }, { status: 400 });
@@ -47,7 +48,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .update(update)
     .eq("id", id)
     .eq("organization_id", organizationId)
-    .select("id,name,sort_order,is_active")
+    .select("id,name,code,sort_order,is_active")
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (!data) return NextResponse.json({ error: "Không tìm thấy nhóm gáy." }, { status: 404 });

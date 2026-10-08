@@ -5,7 +5,7 @@ import { Icon } from "@/components/icon";
 
 const UNGROUPED = "Chưa phân nhóm";
 type TreeItem = { id: string; title: string; status: string; details: Record<string, unknown> };
-type Group = { id: string; name: string; sort_order: number; is_active: boolean };
+type Group = { id: string; name: string; code: string | null; sort_order: number; is_active: boolean };
 
 // Live STT preview while dragging: the dragged row shows the hovered
 // position, and every row between its original and hovered spot shifts by
@@ -223,6 +223,7 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
             <details key={groupName} open className="panel bieu-mau-tree-group">
               <summary className="bieu-mau-tree-group-head">
                 <div className="bieu-mau-tree-group-name">
+                  {groupByName.get(groupName)?.code ? <span className="bieu-mau-tree-group-code">{groupByName.get(groupName)!.code}</span> : null}
                   <strong>{groupName}</strong>
                 </div>
                 <span className="status-badge muted">{groupItems.length} biểu mẫu</span>
@@ -311,6 +312,7 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
         .bieu-mau-tree-group-head{display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer}
         .bieu-mau-tree-group-name{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
         .bieu-mau-tree-group-name strong{font-size:13px}
+        .bieu-mau-tree-group-code{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:7px;background:var(--brand-soft);color:var(--brand-dark);font-size:11px;font-weight:800;flex:0 0 auto}
         .bieu-mau-tree-rename{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
         .bieu-mau-tree-rename select{min-height:32px;font-size:12px}
         .bieu-mau-tree-order-controls{display:flex;align-items:center;gap:8px;justify-content:center}

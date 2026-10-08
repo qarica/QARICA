@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-type Group = { id: string; name: string; sort_order: number; is_active: boolean };
+type Group = { id: string; name: string; code: string | null; sort_order: number; is_active: boolean };
 type Item = { id: string; details: Record<string, unknown> };
 
 // Dedicated "Quản lý nhóm gáy" screen — declare/rename/reorder/deactivate/
@@ -16,11 +16,13 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupCode, setNewGroupCode] = useState("");
   const [declaring, setDeclaring] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [orderDrafts, setOrderDrafts] = useState<Record<string, string>>({});
+  const [codeDrafts, setCodeDrafts] = useState<Record<string, string>>({});
 
   async function loadAll(opts?: { silent?: boolean }) {
     if (!opts?.silent) setLoading(true);
@@ -48,10 +50,11 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
     if (!name) return;
     setDeclaring(true);
     try {
-      const res = await fetch("/api/emr/binding-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      const res = await fetch("/api/emr/binding-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, code: newGroupCode.trim() || null }) });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "Không khai báo được nhóm gáy.");
       setNewGroupName("");
+      setNewGroupCode("");
       await loadAll({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -118,6 +121,7 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
       {canManage ? (
         <form className="toolbar" onSubmit={declareGroup} style={{ padding: "12px 12px 4px" }}>
           <div className="toolbar-left" style={{ gap: 8 }}>
+            <input value={newGroupCode} onChange={(e) => setNewGroupCode(e.target.value)} placeholder="Mã (vd: V)" style={{ width: 90 }} aria-label="Mã nhóm gáy" />
             <input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="Khai báo nhóm gáy mới..." style={{ minWidth: 220 }} />
             <button type="submit" className="button secondary small" disabled={declaring || !newGroupName.trim()}>{declaring ? "Đang lưu..." : "+ Khai báo nhóm gáy"}</button>
           </div>
@@ -131,6 +135,7 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
             <thead>
               <tr>
                 {canManage ? <th style={{ width: 70 }}>STT</th> : null}
+                <th style={{ width: 90 }}>Mã nhóm</th>
                 <th>Tên nhóm gáy</th>
                 <th style={{ width: 120 }}>Số biểu mẫu</th>
                 <th style={{ width: 130 }}>Trạng thái</th>
@@ -160,6 +165,25 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
                         />
                       </td>
                     ) : null}
+                    <td>
+                      {canManage ? (
+                        <input
+                          aria-label="Mã nhóm gáy"
+                          value={codeDrafts[group.id] ?? (group.code || "")}
+                          disabled={busyId === group.id}
+                          onChange={(e) => setCodeDrafts((prev) => ({ ...prev, [group.id]: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                          onBlur={(e) => {
+                            const next = e.target.value.trim();
+                            if (next !== (group.code || "")) patchGroup(group, { code: next || null });
+                            setCodeDrafts((prev) => { const copy = { ...prev }; delete copy[group.id]; return copy; });
+                          }}
+                          className="bieu-mau-groups-order"
+                        />
+                      ) : (
+                        group.code || "—"
+                      )}
+                    </td>
                     <td>
                       {renamingId === group.id ? (
                         <span className="bieu-mau-groups-rename">

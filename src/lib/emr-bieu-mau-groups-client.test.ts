@@ -60,7 +60,7 @@ describe("EMR Biểu mẫu — Quản lý nhóm gáy (dedicated add/update/delet
   });
 
   it("GET returns is_active so the screen can show Đang dùng / Ngừng sử dụng per group", () => {
-    expect(groupsRoute).toContain('select("id,name,sort_order,is_active")');
+    expect(groupsRoute).toContain('select("id,name,code,sort_order,is_active")');
   });
 
   it("every write action is gated behind canManage (emr.manage), not shown to a plain viewer", () => {
