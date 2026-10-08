@@ -190,3 +190,48 @@
    styled-jsx tự thêm class scope vào selector có tiền tố [data-theme=dark]) */
 [data-theme="dark"] .workspace-app .hsba-owner-pick{color:#8d98a3!important}
 [data-theme="dark"] .workspace-app .hsba-category-row td{background:#1f2730!important;color:#aab4bf!important}
+
+/* ---- Thẻ KPI/nhãn/badge-màu lặp lại Y HỆT (cùng giá trị hex) ở ~17 trang
+   TQM (tqm-analytics, capa, evidence, incident, risk, improvement, indicator
+   -quality-overview, tqm-registry-overview, monitoring, dashboard, plans) —
+   mỗi trang tự định nghĩa lại trong <style> riêng nhưng dùng chung ĐÚNG 1
+   bảng màu (#fff/#e1e9ec cho card, #718187/#7d8c92/#74838a cho chữ mờ,
+   #dbeafe/#dcfce7/#fef3c7/#fee2e2/#ede9fe cho icon badge, #e4eaec cho viền
+   hàng) — xử lý 1 LẦN ở đây bằng danh sách selector gộp thay vì sửa từng
+   file, vì đổi 1 nơi đã phủ hết toàn bộ các trang dùng chung bảng màu này.
+   Trang nào có màu RIÊNG ngoài bảng này (vd .iq-empty-banner, .iq-pill) vẫn
+   cần vá riêng — xem dark-theme-tqm-kpi-shared-colors.test.ts. */
+[data-theme="dark"] .workspace-app .kpi,
+[data-theme="dark"] .workspace-app .exec-kpis .kpi,
+[data-theme="dark"] .workspace-app .iq-kpi,
+[data-theme="dark"] .workspace-app .tqm-registry-kpi,
+[data-theme="dark"] .workspace-app .tqm-kpi{background:#1a1f26!important;border-color:#2a333c!important}
+[data-theme="dark"] .workspace-app .kpi span,
+[data-theme="dark"] .workspace-app .kpi small,
+[data-theme="dark"] .workspace-app .iq-kpi span,
+[data-theme="dark"] .workspace-app .iq-kpi small,
+[data-theme="dark"] .workspace-app .tqm-registry-kpi span,
+[data-theme="dark"] .workspace-app .tqm-registry-kpi small,
+[data-theme="dark"] .workspace-app .tqm-kpi span,
+[data-theme="dark"] .workspace-app .tqm-kpi small{color:#8d98a3!important}
+[data-theme="dark"] .workspace-app .kpi-icon.blue,
+[data-theme="dark"] .workspace-app .iq-kpi-icon.blue,
+[data-theme="dark"] .workspace-app .tqm-registry-kpi-icon.blue{background:#17283d!important;color:#7eb2fb!important}
+[data-theme="dark"] .workspace-app .kpi-icon.green,
+[data-theme="dark"] .workspace-app .iq-kpi-icon.green,
+[data-theme="dark"] .workspace-app .tqm-registry-kpi-icon.green{background:#163428!important;color:#6ee7b7!important}
+[data-theme="dark"] .workspace-app .kpi-icon.amber{background:#3a2f14!important;color:#fcd34d!important}
+[data-theme="dark"] .workspace-app .kpi-icon.red,
+[data-theme="dark"] .workspace-app .iq-kpi-icon.red,
+[data-theme="dark"] .workspace-app .tqm-registry-kpi-icon.red{background:#3a1f20!important;color:#fca5a5!important}
+[data-theme="dark"] .workspace-app .kpi-icon.purple,
+[data-theme="dark"] .workspace-app .tqm-registry-kpi-icon.purple{background:#241f38!important;color:#b19cf2!important}
+[data-theme="dark"] .workspace-app .head p,
+[data-theme="dark"] .workspace-app .iq-head p,
+[data-theme="dark"] .workspace-app .tqm-registry-head p,
+[data-theme="dark"] .workspace-app .tqm-head p{color:#8d98a3!important}
+[data-theme="dark"] .workspace-app .capa-row,
+[data-theme="dark"] .workspace-app .incident-tqm .hot-row,
+[data-theme="dark"] .workspace-app .tqm-improvement .project-row,
+[data-theme="dark"] .workspace-app .iq-queue-row,
+[data-theme="dark"] .workspace-app .iq-assignment{border-color:#2a333c!important}
