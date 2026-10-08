@@ -184,3 +184,9 @@
 [data-theme="dark"] .workspace-app .status-badge.muted{background:#242c35!important;color:#aab4bf!important;border-color:#2a333c!important}
 [data-theme="dark"] .workspace-app .sidebar-collapse{background:#1a1f26!important;border-color:#2a333c!important;color:#aab4bf!important}
 [data-theme="dark"] .workspace-app .scope-chip{background:#1f2730!important;border-color:#2a333c!important;color:#8d98a3!important}
+
+/* ---- HSBA Audit overview (hsba-audit-overview-client.tsx dùng <style jsx>
+   nên đặt override ở đây thay vì trong component, tránh phụ thuộc cách
+   styled-jsx tự thêm class scope vào selector có tiền tố [data-theme=dark]) */
+[data-theme="dark"] .workspace-app .hsba-owner-pick{color:#8d98a3!important}
+[data-theme="dark"] .workspace-app .hsba-category-row td{background:#1f2730!important;color:#aab4bf!important}

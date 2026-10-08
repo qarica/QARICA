@@ -111,13 +111,15 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     () => departments.filter((d) => !NON_CLINICAL_DEPARTMENT_TYPES.has((d.department_type || "").trim().toUpperCase())),
     [departments, NON_CLINICAL_DEPARTMENT_TYPES],
   );
-  // "Chọn tất cả khoa" từng không có cách lùi lại: 1 click gán department_ids
-  // thành danh sách tường minh đủ mọi khoa, nút vẫn bật (vì danh sách đó
-  // không rỗng nên allDeptsChecked=false) nhưng bấm lại chỉ ghi đè nguyên
-  // trạng thái cũ — không có đường quay về phạm vi trước đó. Giữ snapshot
-  // department_ids ngay trước lúc bấm để nút đổi thành "Hoàn tác" phục hồi
-  // đúng giá trị cũ, theo từng hạng mục (key theo item.id).
-  const [scopeUndoSnapshots, setScopeUndoSnapshots] = useState<Record<string, string[]>>({});
+  // "Chọn tất cả khoa" từng dùng nút "Hoàn tác" phục hồi theo snapshot
+  // department_ids ngay trước lúc bấm — gây bất ngờ khi snapshot đó đã có sẵn
+  // một phần khoa được tick (vd chỉ ô vừa thêm đổi, các ô khác "như cũ" vì đã
+  // tick từ trước), khiến người dùng tưởng Hoàn tác chạy sai. Bỏ hẳn cơ chế
+  // snapshot, thay bằng 1 cặp nút tường minh, luôn cho kết quả có thể đoán
+  // trước: "Chọn tất cả khoa" (gán danh sách đủ mọi khoa lâm sàng) và "Bỏ
+  // chọn tất cả" (đặt lại department_ids rỗng = mặc định "toàn viện" — ma
+  // trận vẫn hiện tick hết ở trạng thái này vì "toàn viện" nghĩa là áp dụng
+  // cho MỌI khoa, không phải không áp dụng khoa nào).
 
   // Every post-save refresh (create/edit/delete/upload) used to flip `loading`
   // back to true each time, unmounting the whole table for a moment — on
@@ -260,15 +262,12 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     }
   }
 
-  // Nút tiện ích trên mỗi hàng: tick hết mọi khoa/phòng cho 1 biểu mẫu thay vì
-  // bấm từng ô — tương đương để department_ids rỗng (toàn viện), lưu tường
-  // minh danh sách đầy đủ để khớp đúng cách các checkbox khác đã xây (tick
-  // từng khoa một cũng ra danh sách tường minh, không tự gộp về rỗng). Giữ
-  // lại giá trị trước đó để nút đổi thành "Hoàn tác" — bấm nhầm vẫn lùi lại
-  // được đúng phạm vi cũ, không phải tự bỏ tick lại từng khoa một.
+  // Nút tiện ích trên mỗi hàng: tick hết mọi khoa lâm sàng cho 1 biểu mẫu
+  // thay vì bấm từng ô, lưu tường minh danh sách đầy đủ để khớp đúng cách
+  // các checkbox khác đã xây (tick từng khoa một cũng ra danh sách tường
+  // minh, không tự gộp về rỗng).
   async function selectAllDepartmentsForItem(item: Item) {
     const next = clinicalDepartments.map((d) => d.id);
-    setScopeUndoSnapshots((prev) => ({ ...prev, [item.id]: item.department_ids }));
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: next } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: next }) });
@@ -280,13 +279,16 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     }
   }
 
-  async function undoSelectAllDepartmentsForItem(item: Item) {
-    const snapshot = scopeUndoSnapshots[item.id];
-    if (snapshot === undefined) return;
-    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: snapshot } : i)));
-    setScopeUndoSnapshots((prev) => { const next = { ...prev }; delete next[item.id]; return next; });
+  // Nút ngược lại: đặt department_ids về rỗng — mặc định "toàn viện" (xem
+  // fieldset gốc). KHÔNG dùng để biểu thị "không áp dụng khoa nào" — danh
+  // sách rỗng vẫn có nghĩa là áp dụng cho MỌI khoa ở mọi nơi khác đọc cột
+  // này (dashboard EMR, "Việc của tôi", tự tạo nhiệm vụ đào tạo...), nên ma
+  // trận vẫn hiện tick hết sau khi bấm nút này nếu toàn bộ khoa lâm sàng đã
+  // được chọn trước đó — đây là hành vi đúng, không phải lỗi không đổi.
+  async function clearAllDepartmentsForItem(item: Item) {
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: [] } : i)));
     try {
-      const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: snapshot }) });
+      const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: [] }) });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
     } catch (e) {
@@ -461,19 +463,24 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                   {filtered.map((item) => {
                     const selectedRecordTypes = String(item.details?.record_types || "").split(",").map((s) => s.trim()).filter(Boolean);
                     const allDeptsChecked = item.department_ids.length === 0;
+                    // Chỉ coi là "đã chọn tường minh đủ khoa" khi department_ids
+                    // KHÔNG rỗng (khác "toàn viện" mặc định) và chứa đủ mọi khoa
+                    // lâm sàng — dùng để quyết định hiện "Bỏ chọn tất cả" thay
+                    // vì "Chọn tất cả khoa" (đã chọn hết thì không cần chọn nữa).
+                    const explicitAllSelected = item.department_ids.length > 0 && clinicalDepartments.length > 0 && clinicalDepartments.every((d) => item.department_ids.includes(d.id));
                     return (
                       <tr key={item.id}>
                         <td className="emr-scope-row-head">
                           <strong>{item.title}</strong>
                           {clinicalDepartments.length ? (
-                            scopeUndoSnapshots[item.id] !== undefined ? (
+                            explicitAllSelected ? (
                               <button
                                 type="button"
                                 className="button tertiary small"
                                 disabled={!canManage}
-                                onClick={() => undoSelectAllDepartmentsForItem(item)}
+                                onClick={() => clearAllDepartmentsForItem(item)}
                               >
-                                Hoàn tác
+                                Bỏ chọn tất cả
                               </button>
                             ) : (
                               <button

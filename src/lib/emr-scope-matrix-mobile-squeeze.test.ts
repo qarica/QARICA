@@ -69,28 +69,32 @@ describe("EMR Phạm vi áp dụng — tên biểu mẫu dài xuống dòng tron
   });
 });
 
-// Phát hiện (báo cáo thực tế: "Bấm chọn tất cả khoa thì ko hủy được"): nút
-// "Chọn tất cả khoa" gán department_ids thành danh sách tường minh đủ mọi
-// khoa (không phải mảng rỗng), nên allDeptsChecked (department_ids.length===0)
-// vẫn là false sau khi bấm — nút không tự vô hiệu hoá, nhưng bấm lại chỉ ghi
-// đè nguyên trạng thái cũ, không có đường lùi lại phạm vi trước đó; muốn hẹp
-// lại phải tự bỏ tick từng khoa một. Sửa bằng cách giữ snapshot department_ids
-// ngay trước khi bấm, nút đổi thành "Hoàn tác" để phục hồi đúng giá trị cũ.
-describe("EMR Phạm vi áp dụng — 'Chọn tất cả khoa' có thể hoàn tác", () => {
-  it("giữ snapshot department_ids trước khi chọn tất cả, theo từng hạng mục", () => {
-    expect(client).toContain("const [scopeUndoSnapshots, setScopeUndoSnapshots] = useState<Record<string, string[]>>({});");
-    expect(client).toContain("setScopeUndoSnapshots((prev) => ({ ...prev, [item.id]: item.department_ids }));");
+// Phát hiện (báo cáo thực tế: "Bấm chọn tất cả khoa thì ko hủy được", sau đó
+// "Bấm hoàn tác chỉ có ô BGD thay đổi các ô còn lại như cũ"): bản đầu dùng
+// snapshot department_ids trước lúc bấm để nút đổi thành "Hoàn tác" — gây
+// bất ngờ vì snapshot đó có thể đã sẵn một phần khoa được tick từ trước, nên
+// hoàn tác chỉ đổi đúng phần vừa thêm, các ô khác "như cũ" khiến người dùng
+// tưởng chạy sai. Bỏ hẳn cơ chế snapshot, dùng 1 cặp nút tường minh, luôn ra
+// kết quả có thể đoán trước, không phụ thuộc trạng thái trước đó: "Chọn tất
+// cả khoa" (gán danh sách đủ mọi khoa lâm sàng) và "Bỏ chọn tất cả" (đặt lại
+// department_ids rỗng — mặc định "toàn viện").
+describe("EMR Phạm vi áp dụng — cặp nút 'Chọn tất cả khoa' / 'Bỏ chọn tất cả' tường minh, không dùng snapshot hoàn tác", () => {
+  it("không còn cơ chế snapshot/hoàn tác cũ", () => {
+    expect(client).not.toContain("scopeUndoSnapshots");
+    expect(client).not.toContain("undoSelectAllDepartmentsForItem");
+    expect(client).not.toContain(">\n                                Hoàn tác\n");
   });
 
-  it("có hàm hoàn tác phục hồi đúng department_ids đã lưu và xoá snapshot sau khi dùng", () => {
-    expect(client).toContain("async function undoSelectAllDepartmentsForItem(item: Item) {");
-    expect(client).toContain("const snapshot = scopeUndoSnapshots[item.id];");
-    expect(client).toContain("if (snapshot === undefined) return;");
+  it("có hàm đặt lại department_ids về rỗng (toàn viện), độc lập với giá trị trước đó", () => {
+    expect(client).toContain("async function clearAllDepartmentsForItem(item: Item) {");
+    expect(client).toContain("setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: [] } : i)));");
+    expect(client).toContain('body: JSON.stringify({ department_ids: [] })');
   });
 
-  it("nút đổi thành Hoàn tác ngay sau khi chọn tất cả, thay vì chỉ ghi đè lại cùng giá trị", () => {
-    expect(client).toContain("scopeUndoSnapshots[item.id] !== undefined ? (");
-    expect(client).toContain("onClick={() => undoSelectAllDepartmentsForItem(item)}");
-    expect(client).toContain(">\n                                Hoàn tác\n");
+  it("nút đổi thành 'Bỏ chọn tất cả' khi đã chọn tường minh đủ mọi khoa lâm sàng, không dựa vào việc nút có vừa được bấm hay chưa", () => {
+    expect(client).toContain("const explicitAllSelected = item.department_ids.length > 0 && clinicalDepartments.length > 0 && clinicalDepartments.every((d) => item.department_ids.includes(d.id));");
+    expect(client).toContain("explicitAllSelected ? (");
+    expect(client).toContain("onClick={() => clearAllDepartmentsForItem(item)}");
+    expect(client).toContain(">\n                                Bỏ chọn tất cả\n");
   });
 });
