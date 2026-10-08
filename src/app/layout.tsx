@@ -18,6 +18,7 @@ import "./qms-enterprise-redesign.css";
 import "./tqm-charts.css";
 import "./mobile-responsive-fixes.css";
 import "./final-visual-lock.css";
+import "./dark-theme.css";
 
 const criticalCss=`
   html,body,body *{font-family:var(--font-app),"Segoe UI",Arial,sans-serif!important}
@@ -37,4 +38,9 @@ const inter = Inter({ subsets: ["latin", "vietnamese"], variable: "--font-app", 
 
 export const metadata:Metadata={title:"QARICA",description:"Nền tảng Quản trị Chất lượng & Cải tiến",icons:{icon:"/icon.svg",apple:"/apple-icon.svg"}};
 export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#f5f8fc"};
-export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="vi" className={inter.variable} style={{"--font-app":inter.style.fontFamily} as React.CSSProperties}><body>{children}<style>{criticalCss}</style></body></html>}
+// Đặt data-theme lên <html> TRƯỚC khi React hydrate/paint — chạy đồng bộ trong
+// <head>, sớm hơn mọi nội dung <body>. Không dùng useEffect (chạy sau lần vẽ
+// đầu tiên) vì sẽ gây nhấp nháy sáng rồi mới chuyển tối (FOUC) mỗi lần tải lại
+// trang cho người đã chọn giao diện tối.
+const themeInitScript = `try{var t=localStorage.getItem("qlcl-theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}`;
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="vi" className={inter.variable} style={{"--font-app":inter.style.fontFamily} as React.CSSProperties}><head><script dangerouslySetInnerHTML={{__html:themeInitScript}}/></head><body>{children}<style>{criticalCss}</style></body></html>}

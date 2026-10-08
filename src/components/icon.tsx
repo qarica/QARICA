@@ -3,9 +3,9 @@ import {
   Archive, ArrowLeft, ArrowRight, BadgeCheck, Bell, BellRing, BookOpen, Building2, CalendarDays, CalendarRange,
   Camera, ChartNoAxesColumnIncreasing, ChartSpline, CheckSquare, ChevronDown, CircleAlert, ClipboardCheck,
   Cog, Eye, EyeOff, FileInput, FileText, FolderArchive, FolderCheck, Footprints, Gauge, GripVertical, Inbox, KeyRound, Layers, LayoutDashboard,
-  Lightbulb, ListChecks, ListTree, LoaderCircle, Lock, LogOut, Megaphone, Menu, MessageCircleWarning, Network, PanelLeftClose, PanelLeftOpen,
+  Lightbulb, ListChecks, ListTree, LoaderCircle, Lock, LogOut, Megaphone, Menu, MessageCircleWarning, Moon, Network, PanelLeftClose, PanelLeftOpen,
   Paperclip, Pencil, PieChart, Plus, RefreshCw, Save, Search, SearchCheck, Send, Settings, ShieldAlert, ShieldCheck,
-  Smartphone, Sparkles, Sprout, Target, TrendingUp, TriangleAlert, User, Users, UsersRound, Workflow, X
+  Smartphone, Sparkles, Sprout, Sun, Target, TrendingUp, TriangleAlert, User, Users, UsersRound, Workflow, X
 } from "lucide-react";
 
 const map:Record<string,React.ComponentType<{size?:number;className?:string}>>={
@@ -22,7 +22,8 @@ const map:Record<string,React.ComponentType<{size?:number;className?:string}>>={
   "paperclip":Paperclip,"panel-left-close":PanelLeftClose,"panel-left-open":PanelLeftOpen,"arrow-left":ArrowLeft,
   "archive":Archive,"sparkles":Sparkles,"target":Target,"gauge":Gauge,"network":Network,"footprints":Footprints,
   "book-open":BookOpen,"cog":Cog,"refresh-cw":RefreshCw,"sprout":Sprout,"smartphone":Smartphone,"eye":Eye,"layers":Layers,
-  "grip-vertical":GripVertical,"eye-off":EyeOff,"user":User,"lock":Lock,"loader-circle":LoaderCircle,"arrow-right":ArrowRight
+  "grip-vertical":GripVertical,"eye-off":EyeOff,"user":User,"lock":Lock,"loader-circle":LoaderCircle,"arrow-right":ArrowRight,
+  "sun":Sun,"moon":Moon
 };
 
 export function Icon({name,size=18,className}:{name:string;size?:number;className?:string}){
