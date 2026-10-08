@@ -25,8 +25,30 @@ const client = readFileSync("src/components/emr-category-client.tsx", "utf8");
 // bị ép co lại. min-width:100% giữ nguyên hành vi cũ trên màn rộng (bảng vẫn
 // lấp đầy panel khi tổng các cột hẹp hơn 100%).
 describe("EMR Phạm vi áp dụng — bảng không bị ép co cột trên màn hình hẹp (mobile)", () => {
-  it("table dùng width:auto (không phải %) để table-layout:fixed tôn trọng đúng width px của từng cột, min-width:100% giữ full-width trên màn rộng", () => {
-    expect(client).toContain(".emr-scope-matrix table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:auto;min-width:100%}");
+  // Phát hiện tiếp theo (báo cáo thực tế, kèm ảnh): ngay cả sau fix width:auto
+  // ở trên, tên biểu mẫu vẫn vỡ TỪNG KÝ TỰ MỘT trên mobile khi bảng có nhiều
+  // cột khoa/phòng. Xác nhận bằng cách dựng lại đúng cấu trúc bảng (colgroup +
+  // thead 2 dòng rowSpan/colSpan) và đo trong Chromium ở 390px:
+  // table-layout:fixed VỚI width:auto vẫn chỉ resolve về đúng 100% khung chứa
+  // (390px) bất kể tổng width khai báo trên <col>/<th> (200+86×7=802px) — tức
+  // width:auto trên bảng không có nghĩa "tự nới theo nội dung" như kỳ vọng, mà
+  // hành xử như width:100% bình thường (table vẫn luôn co vừa khung chứa khi
+  // không có ràng buộc nào khác buộc nó rộng hơn). Cột đầu (sticky, chứa tên
+  // biểu mẫu) vì vậy bị ép từ 200px xuống còn ~87px, và vì nó là flex
+  // container với align-items:flex-start (không stretch), <strong> bên trong
+  // tính kích thước theo fit-content/min-content — với word-break:break-word,
+  // min-content của một chuỗi bất kỳ có thể hẹp tới 1 KÝ TỰ, nên chữ vỡ từng
+  // ký tự một trong khung quá hẹp đó.
+  // Sửa: width:max-content (không phải width:auto) — max-content là kích
+  // thước tự nhiên của bảng theo đúng tổng width khai báo trên <col>/<th>,
+  // không phụ thuộc khung chứa; kết hợp min-width:100% vẫn giữ bảng lấp đầy
+  // panel trên màn rộng (min-width:100% chỉ có tác dụng khi 100% > max-content).
+  // Đo lại sau khi sửa: bảng rộng 858px (đúng tổng cột), cột đầu đúng 200px,
+  // chữ xuống dòng theo từ bình thường (136px cho <strong>, không còn ép 1 ký
+  // tự/dòng); ở màn rộng 1200px bảng vẫn giãn đủ 1200px (min-width:100% vẫn
+  // đúng vai trò cũ).
+  it("table dùng width:max-content (không phải width:auto) để luôn giữ đúng tổng width khai báo trên <col>/<th> làm sàn, bất kể khung chứa hẹp tới đâu; min-width:100% vẫn giữ full-width trên màn rộng", () => {
+    expect(client).toContain(".emr-scope-matrix table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:max-content;min-width:100%}");
   });
 
   it("dòng tiêu đề đầu (corner + nhóm cột) có chiều cao cố định để offset sticky của dòng 2 (top:37px) luôn đúng, không phụ thuộc nội dung", () => {

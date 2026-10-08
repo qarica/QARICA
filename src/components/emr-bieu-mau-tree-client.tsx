@@ -323,7 +323,7 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
            table-layout:fixed + colgroup (width cố định từng cột) +
            width:auto;min-width:100% để bảng tự nới đúng tổng các cột và
            tràn ra ngoài khung hẹp, .table-wrap{overflow:auto} cuộn ngang. */
-        .bieu-mau-tree-table{table-layout:fixed;width:auto;min-width:100%}
+        .bieu-mau-tree-table{table-layout:fixed;width:max-content;min-width:100%}
         .bieu-mau-tree-group{padding:0}
         .bieu-mau-tree-group-head{display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer}
         .bieu-mau-tree-group-name{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
