@@ -24,7 +24,14 @@ describe("EMR — Nhập liệu (NHAP_LIEU) category fully removed", () => {
     const source = readFileSync("src/lib/emr-categories.ts", "utf8");
     expect(source).not.toContain("NHAP_LIEU");
     expect(source).not.toContain("record_count");
-    expect(source).not.toContain("Nhập liệu");
+    // "Nhập liệu" was that removed category's own label — banned outright
+    // back then. It later returned for an UNRELATED reason: a phương thức
+    // ký (signing method) option on signing_sequence.methodOptions meaning
+    // "ký bằng cách điền tay/nhập liệu", not a revival of the category. Pin
+    // the check to the category's own label shape so this test still catches
+    // an actual revival without false-failing on that coincidence.
+    expect(source).not.toContain('label: "Nhập liệu"');
+    expect(source).not.toContain('code: "NHAP_LIEU"');
   });
 
   it("a migration deletes NHAP_LIEU rows (and their storage files) and narrows the DB check constraint to match — no orphaned data left behind", () => {

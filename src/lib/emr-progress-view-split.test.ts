@@ -14,11 +14,16 @@ import { EMR_CATEGORY_FIELDS } from "./emr-categories";
 describe("EMR grid — Thông tin / Tiến độ triển khai tab split", () => {
   const client = readFileSync("src/components/emr-category-client.tsx", "utf8");
 
-  it("Biểu mẫu's deployment_phase and training_required are marked progressField; digitized (catalog info) is not", () => {
+  // Yêu cầu thực tế: "thay cột giai đoạn triển khai thành cột tình trạng số
+  // hóa" — cột "Giai đoạn triển khai" ở tab Tiến độ triển khai luôn trống vì
+  // không ai nhập Demo/UAT/Chạy chính thức, trong khi "Tình trạng số hóa" là
+  // dữ liệu thật đang được nhập. deployment_phase không bị xoá — chỉ chuyển
+  // sang hiện ở tab "Thông tin biểu mẫu" thay vì "Tiến độ triển khai".
+  it("Biểu mẫu's digitized and training_required are marked progressField; deployment_phase (rarely filled in) moved to the info tab instead", () => {
     const fields = EMR_CATEGORY_FIELDS.BIEU_MAU;
-    expect(fields.find((f) => f.key === "deployment_phase")?.progressField).toBe(true);
+    expect(fields.find((f) => f.key === "digitized")?.progressField).toBe(true);
     expect(fields.find((f) => f.key === "training_required")?.progressField).toBe(true);
-    expect(fields.find((f) => f.key === "digitized")?.progressField).toBeFalsy();
+    expect(fields.find((f) => f.key === "deployment_phase")?.progressField).toBeFalsy();
   });
 
   it("splits columnFields into infoColumns/progressColumns, and only shows the tab switcher when a category actually has progressField columns", () => {

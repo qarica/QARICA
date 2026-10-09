@@ -146,6 +146,12 @@ export type EmrField = {
   // page for declaring/assigning groups), so the grid itself doesn't need to
   // surface it at all.
   hideFromGrid?: boolean;
+  // For type "sequence" only: when set, each step in the sequence gets a
+  // SECOND picker — the signing method used at that step (vd Ký số/Ký điện
+  // tử/Vân tay), not just who performs it. Optional per step (encoded with
+  // SEQUENCE_STEP_METHOD_SEPARATOR — see parseSequenceStep/formatSequenceStep)
+  // so dữ liệu cũ (chưa có phương thức) vẫn đọc được bình thường.
+  methodOptions?: string[];
   // Groups this field under the generic "Tiến độ triển khai" (rollout
   // progress) view instead of the default "Thông tin [category]" (reference/
   // catalog) view — for a category whose fields mix static reference info
@@ -166,10 +172,31 @@ export const SEQUENCE_SEPARATOR = " → ";
 export function sequenceSteps(raw: unknown): string[] {
   return String(raw ?? "").split(SEQUENCE_SEPARATOR).map((s) => s.trim()).filter(Boolean);
 }
+
+// Yêu cầu thực tế: "Chổ chọn trình tự ký bổ sung phương thức ký tương ứng"
+// — mỗi bước trong trình tự ký (ai ký) giờ còn có thêm phương thức ký (ký
+// bằng cách nào). Mã hoá NGAY TRONG chuỗi 1 bước, dùng dấu phân tách phụ
+// khác với SEQUENCE_SEPARATOR (dấu phân tách CÁC bước với nhau) — không
+// thêm cột DB mới vì `details` đã là jsonb tự do. Chỉ field khai báo
+// `methodOptions` mới có phương thức; bước chưa chọn phương thức (kể cả dữ
+// liệu cũ trước khi có tính năng này) đọc được bình thường, method="".
+export const SEQUENCE_STEP_METHOD_SEPARATOR = "::";
+export function parseSequenceStep(step: string): { role: string; method: string } {
+  const idx = step.indexOf(SEQUENCE_STEP_METHOD_SEPARATOR);
+  if (idx === -1) return { role: step, method: "" };
+  return { role: step.slice(0, idx), method: step.slice(idx + SEQUENCE_STEP_METHOD_SEPARATOR.length) };
+}
+export function formatSequenceStep(role: string, method: string): string {
+  return method ? `${role}${SEQUENCE_STEP_METHOD_SEPARATOR}${method}` : role;
+}
+
 export function formatSequenceValue(raw: unknown): string {
   const steps = sequenceSteps(raw);
   if (!steps.length) return "—";
-  return steps.map((s, i) => `${i + 1}. ${s}`).join(SEQUENCE_SEPARATOR);
+  return steps.map((s, i) => {
+    const { role, method } = parseSequenceStep(s);
+    return `${i + 1}. ${role}${method ? ` (${method})` : ""}`;
+  }).join(SEQUENCE_SEPARATOR);
 }
 
 // For type "boolean": a single tick (e.g. "Hiển thị trên Patient Portal?"),
@@ -249,12 +276,19 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
     // (multiselect), không phải 1 lựa chọn duy nhất. "Điều trị ban ngày" đã
     // gộp chung vào "Ngoại trú" theo yêu cầu thực tế (không tách gáy riêng).
     { key: "record_types", label: "Loại hồ sơ áp dụng", type: "multiselect", options: ["Khám bệnh", "Ngoại trú", "Cấp cứu", "Nội trú"], compact: true },
-    { key: "digitized", label: "Tình trạng số hóa", type: "select", options: ["Đã số hóa", "Chưa số hóa"] },
+    // Yêu cầu thực tế: "thay cột giai đoạn triển khai thành cột tình trạng
+    // số hóa" — cột "Giai đoạn triển khai" ở tab Tiến độ triển khai luôn
+    // trống ("—") vì không ai nhập Demo/UAT/Chạy chính thức trong thực tế,
+    // trong khi "Tình trạng số hóa" mới là dữ liệu thật đang được nhập. Đổi
+    // progressField sang digitized — deployment_phase không bị xoá/mất dữ
+    // liệu cũ, chỉ chuyển sang hiện ở tab "Thông tin biểu mẫu" thay vì "Tiến
+    // độ triển khai".
+    { key: "digitized", label: "Tình trạng số hóa", type: "select", options: ["Đã số hóa", "Chưa số hóa"], progressField: true },
     // Giai đoạn triển khai sau khi số hóa: Demo -> UAT -> Chạy chính thức.
     // Giữ nguyên tắc hạn chế nhập tự do (như QLCL) — chọn từ danh sách cố
     // định, không phải ô text, nên reuse "select" sẵn có thay vì tạo loại
     // field mới.
-    { key: "deployment_phase", label: "Giai đoạn triển khai", type: "select", options: ["Demo", "UAT", "Chạy chính thức"], pairWithStatus: true, progressField: true },
+    { key: "deployment_phase", label: "Giai đoạn triển khai", type: "select", options: ["Demo", "UAT", "Chạy chính thức"], pairWithStatus: true },
     // Báo cáo thực tế: "ẩn các ô đỏ vì các nút khác đã có" — trùng lặp với
     // phạm vi áp dụng (ma trận khoa/phòng + loại hồ sơ) nên đã ẩn khỏi modal
     // "Thêm mục biểu mẫu"; field vẫn giữ nguyên để không mất dữ liệu cũ.
@@ -264,7 +298,17 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
     // Một số biểu mẫu còn cần đóng mộc như một bước trong trình tự ký (sau
     // chữ ký của người có thẩm quyền) — nên "Đóng mộc" là một lựa chọn bước,
     // không phải "Đối tượng thực hiện" (target_roles không có mục này).
-    { key: "signing_sequence", label: "Trình tự ký", type: "sequence", options: ["Bác sĩ", "Điều dưỡng", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Phòng hành chính (đóng dấu)", "Đóng mộc", "Khác"], compact: true },
+    //
+    // Yêu cầu thực tế: "Chổ chọn trình tự ký bổ sung phương thức ký tương
+    // ứng" — mỗi bước (ai ký) giờ chọn thêm phương thức ký (ký bằng cách
+    // nào), độc lập với vai trò thực hiện bước đó.
+    //
+    // Yêu cầu thực tế tiếp theo: "Đối tượng ký bổ sung Phẫu thuật viên, BS
+    // GMHS, Điều dưỡng trưởng, khác thì cho nhập text" — bổ sung 3 vai trò
+    // lâm sàng còn thiếu; "Khác" cho nhập tự do (xử lý chung ở modal cho MỌI
+    // field "sequence" có option "Khác", không hard-code riêng field này —
+    // xem renderSequenceRoleControl trong emr-category-client.tsx).
+    { key: "signing_sequence", label: "Trình tự ký", type: "sequence", options: ["Bác sĩ", "Điều dưỡng", "Phẫu thuật viên", "BS GMHS", "Điều dưỡng trưởng", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Phòng hành chính (đóng dấu)", "Đóng mộc", "Khác"], methodOptions: ["Nhập liệu", "Ký số", "Ký điện tử", "Vân tay", "Đóng dấu"], compact: true },
     { key: "storage_format", label: "Hình thức lưu trữ", type: "multiselect", options: ["Bản điện tử", "Bản giấy", "Scan"], compact: true },
     { key: "notes", label: "Ghi chú", type: "textarea", compact: true },
     { key: "patient_portal_visible", label: "Hiển thị trên Patient Portal", type: "boolean", compact: true },

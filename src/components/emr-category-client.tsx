@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useEmrCreateSignal } from "@/components/emr-create-context";
 import { Icon } from "@/components/icon";
-import { categoriesReferencing, EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, formatBooleanValue, formatSequenceValue, sequenceSteps, SEQUENCE_SEPARATOR, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
+import { categoriesReferencing, EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, formatBooleanValue, formatSequenceStep, formatSequenceValue, parseSequenceStep, sequenceSteps, SEQUENCE_SEPARATOR, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
 
 type Item = { id: string; category: string; title: string; description: string | null; status: string; department_ids:string[]; owner_department_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; publish_status: string; published_at: string | null; published_by: string | null; created_at: string; updated_at: string };
 
@@ -679,20 +679,57 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                   <fieldset key={f.key}>
                     <legend>{f.label} {(() => { const n = sequenceSteps(form.details[f.key]).length; return n ? <span className="status-badge muted">{n} chữ ký</span> : null; })()}</legend>
                     <div className="sequence-steps">
-                      {sequenceSteps(form.details[f.key]).map((step, i, steps) => (
+                      {sequenceSteps(form.details[f.key]).map((step, i, steps) => {
+                        const { role, method } = parseSequenceStep(step);
+                        // Yêu cầu thực tế: "khác thì cho nhập text" — chọn
+                        // "Khác" hiện thêm ô nhập tự do thay vì chỉ bó buộc
+                        // trong danh sách lựa chọn sẵn. Xử lý chung cho MỌI
+                        // field "sequence" có option "Khác" trong danh sách,
+                        // không hard-code riêng signing_sequence — 1 vai trò
+                        // không khớp option nào (đã lưu từ lần nhập tự do
+                        // trước) cũng hiện lại đúng là đang ở chế độ "Khác".
+                        const hasCustomOption = (f.options || []).includes("Khác");
+                        const isKnownRole = role === "" || (f.options || []).includes(role);
+                        const selectValue = isKnownRole ? role : "Khác";
+                        const showCustomRoleInput = hasCustomOption && selectValue === "Khác";
+                        const updateRole = (newRole: string) => {
+                          const next = [...steps];
+                          next[i] = formatSequenceStep(newRole, method);
+                          setForm({ ...form, details: { ...form.details, [f.key]: next.join(SEQUENCE_SEPARATOR) } });
+                        };
+                        return (
                         <div className="sequence-step-row" key={i}>
                           <span className="sequence-step-no">{i + 1}</span>
-                          <select
-                            value={step}
-                            onChange={(e) => {
-                              const next = [...steps];
-                              next[i] = e.target.value;
-                              setForm({ ...form, details: { ...form.details, [f.key]: next.join(SEQUENCE_SEPARATOR) } });
-                            }}
-                          >
-                            <option value="">— Chọn —</option>
-                            {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
-                          </select>
+                          <div className="sequence-step-role">
+                            <select
+                              value={selectValue}
+                              onChange={(e) => updateRole(e.target.value)}
+                            >
+                              <option value="">— Chọn —</option>
+                              {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                            {showCustomRoleInput ? (
+                              <input
+                                placeholder="Nhập vai trò..."
+                                value={role === "Khác" ? "" : role}
+                                onChange={(e) => updateRole(e.target.value || "Khác")}
+                              />
+                            ) : null}
+                          </div>
+                          {f.methodOptions ? (
+                            <select
+                              value={method}
+                              aria-label="Phương thức ký"
+                              onChange={(e) => {
+                                const next = [...steps];
+                                next[i] = formatSequenceStep(role, e.target.value);
+                                setForm({ ...form, details: { ...form.details, [f.key]: next.join(SEQUENCE_SEPARATOR) } });
+                              }}
+                            >
+                              <option value="">— Phương thức ký —</option>
+                              {f.methodOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          ) : null}
                           <button type="button" className="button tertiary small" disabled={i === 0} onClick={() => {
                             const next = [...steps];
                             [next[i - 1], next[i]] = [next[i], next[i - 1]];
@@ -708,7 +745,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                             setForm({ ...form, details: { ...form.details, [f.key]: next.join(SEQUENCE_SEPARATOR) } });
                           }}>Xoá bước</button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     <button type="button" className="button secondary small" onClick={() => {
                       const next = [...sequenceSteps(form.details[f.key]), (f.options || [])[0] || ""];
