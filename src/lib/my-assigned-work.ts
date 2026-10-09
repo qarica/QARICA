@@ -94,12 +94,16 @@ export async function loadMyAssignedWork(
   if (options.includeEmr && user.organizationId) {
     const emrItemsRes = await supabase
       .from("emr_rollout_items")
-      .select("id,category,title,status,due_date,priority,owner_department_id,department_ids")
+      .select("id,category,title,status,due_date,priority,owner_department_id,department_ids,publish_status")
       .eq("organization_id", user.organizationId)
       .neq("status", "DONE")
       .not("due_date", "is", null);
+    // Báo cáo thực tế "Tổng quan EMR chưa đồng bộ": Biểu mẫu còn Nháp (chưa
+    // duyệt phát hành) chưa được coi là đang triển khai chính thức — loại
+    // khỏi "Việc của tôi" (cả góc nhìn /calendar/my-work dùng hàm này), nhất
+    // quán với Tổng quan EMR, /tasks, lịch và nhắc hạn.
     emrRows = user.primaryDepartmentId
-      ? ((emrItemsRes.data ?? []) as any[]).filter((item) => item.owner_department_id === user.primaryDepartmentId || item.department_ids?.includes(user.primaryDepartmentId))
+      ? ((emrItemsRes.data ?? []) as any[]).filter((item) => !(item.category === "BIEU_MAU" && item.publish_status === "DRAFT") && (item.owner_department_id === user.primaryDepartmentId || item.department_ids?.includes(user.primaryDepartmentId)))
       : [];
   }
 

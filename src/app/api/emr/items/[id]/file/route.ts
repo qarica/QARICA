@@ -23,8 +23,19 @@ function safeFileName(name: string) {
 }
 
 async function loadItem(admin: ReturnType<typeof createAdminClient>, id: string) {
-  const { data, error } = await admin.from("emr_rollout_items").select("id,organization_id,category,details").eq("id", id).maybeSingle();
+  const { data, error } = await admin.from("emr_rollout_items").select("id,organization_id,category,details,publish_status").eq("id", id).maybeSingle();
   return { data, error };
+}
+
+// Tự rà sau khi ship tính năng duyệt phát hành: route này update() thẳng
+// emr_rollout_items, KHÔNG đi qua PATCH /api/emr/items/[id] nên bỏ sót hoàn
+// toàn logic "sửa nội dung tự đưa về Nháp" — đính kèm/thay/xoá file của 1
+// Biểu mẫu ĐÃ duyệt (chính nội dung biểu mẫu, không kém gì sửa title/
+// description) lẽ ra cũng phải yêu cầu duyệt lại. Dùng chung đúng điều kiện
+// revert-to-draft với items/[id]/route.ts.
+function revertToDraftPatch(item: { category: string; publish_status: string }) {
+  if (item.category !== "BIEU_MAU" || item.publish_status !== "PUBLISHED") return {};
+  return { publish_status: "DRAFT", published_at: null, published_by: null };
 }
 
 // Upload a document (form template, scanned paper form, certificate, SOP...) and attach it
@@ -63,7 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (uploadError) return NextResponse.json({ error: `Không tải được file: ${uploadError.message}` }, { status: 400 });
 
   const nextDetails = { ...(item.details as Record<string, unknown> || {}), file_path: storagePath, file_name: originalFileName };
-  const { error: updateError } = await admin.from("emr_rollout_items").update({ details: nextDetails, updated_by: auth.user.id, updated_at: new Date().toISOString() }).eq("id", id);
+  const { error: updateError } = await admin.from("emr_rollout_items").update({ details: nextDetails, updated_by: auth.user.id, updated_at: new Date().toISOString(), ...revertToDraftPatch(item) }).eq("id", id);
   if (updateError) {
     await admin.storage.from(BUCKET).remove([storagePath]);
     return NextResponse.json({ error: updateError.message }, { status: 400 });
@@ -119,7 +130,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   delete nextDetails.file_path;
   delete nextDetails.file_name;
 
-  const { error: updateError } = await admin.from("emr_rollout_items").update({ details: nextDetails, updated_by: auth.user.id, updated_at: new Date().toISOString() }).eq("id", id);
+  const { error: updateError } = await admin.from("emr_rollout_items").update({ details: nextDetails, updated_by: auth.user.id, updated_at: new Date().toISOString(), ...revertToDraftPatch(item) }).eq("id", id);
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
 
   if (storagePath && typeof storagePath === "string") await admin.storage.from(BUCKET).remove([storagePath]);

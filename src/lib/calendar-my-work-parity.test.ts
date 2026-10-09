@@ -31,4 +31,14 @@ describe("Lịch QLCL 'Việc của tôi' dùng chung nguồn với /tasks, khô
     expect(page).toContain("const assignedEmrRows: Row[] = emrRows.map");
     expect(page).toContain("const assignedRows: Row[] = [...assignedActionRows, ...assignedEmrRows];");
   });
+
+  // Báo cáo thực tế "Tổng quan EMR chưa đồng bộ": Biểu mẫu còn Nháp (chưa
+  // duyệt phát hành) chưa được coi là đang triển khai chính thức — loại khỏi
+  // "Việc của tôi" ở góc nhìn Lịch QLCL cũng qua đúng 1 hàm dùng chung này,
+  // nhất quán với Tổng quan EMR, /tasks, lịch và nhắc hạn.
+  it("loại Biểu mẫu còn Nháp khỏi Việc của tôi — chưa duyệt phát hành thì chưa coi là đang triển khai", () => {
+    const lib = read("src/lib/my-assigned-work.ts");
+    expect(lib).toContain('.select("id,category,title,status,due_date,priority,owner_department_id,department_ids,publish_status")');
+    expect(lib).toContain('!(item.category === "BIEU_MAU" && item.publish_status === "DRAFT")');
+  });
 });
