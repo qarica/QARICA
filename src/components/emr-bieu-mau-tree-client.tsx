@@ -4,7 +4,7 @@ import { EMR_STATUS_LABELS } from "@/lib/emr-categories";
 import { Icon } from "@/components/icon";
 
 const UNGROUPED = "Chưa phân nhóm";
-type TreeItem = { id: string; title: string; status: string; details: Record<string, unknown> };
+type TreeItem = { id: string; title: string; status: string; details: Record<string, unknown>; publish_status: string };
 type Group = { id: string; name: string; code: string | null; sort_order: number; is_active: boolean };
 
 // Live STT preview while dragging: the dragged row shows the hovered
@@ -167,8 +167,16 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
   if (error) return <div className="alert error">Không tải được dữ liệu: {error}</div>;
   if (!items.length && !groups.length) return <div className="empty-state">Chưa có biểu mẫu nào để dựng cây.</div>;
 
+  // Yêu cầu thực tế: "các biểu mẫu chưa được duyệt thì gỡ ra" — Cây biểu mẫu
+  // chỉ nên dựng cây từ các biểu mẫu ĐÃ duyệt phát hành, đúng nguyên tắc "sau
+  // khi duyệt mới triển khai, áp dụng". Biểu mẫu Nháp vẫn đổi được nhóm
+  // gáy/thứ tự qua PATCH (không bị gate publish_status chặn, xem items/[id]/
+  // route.ts) nhưng chưa nên xuất hiện ở cây cho tới khi được duyệt.
+  const draftCount = items.filter((i) => i.publish_status === "DRAFT").length;
+  const publishedItems = items.filter((i) => i.publish_status !== "DRAFT");
+
   const groupMap = new Map<string, TreeItem[]>();
-  for (const item of items) {
+  for (const item of publishedItems) {
     const key = String(item.details?.binding_group || "").trim() || UNGROUPED;
     const list = groupMap.get(key) || [];
     list.push(item);
@@ -209,6 +217,7 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
 
   return (
     <>
+      {draftCount ? <div className="alert" style={{ background: "#fff7e6", color: "#a56608", border: "1px solid #f5d896" }}>{draftCount} biểu mẫu chưa duyệt phát hành (Nháp) không hiển thị ở đây — vào danh sách Biểu mẫu, lọc &quot;Chờ duyệt phát hành&quot; để duyệt trước.</div> : null}
       <div className="bieu-mau-tree-groups">
         {sortedGroupNames.map((groupName) => {
           // "Số TT biểu mẫu" numbers forms continuously within their own gáy —
