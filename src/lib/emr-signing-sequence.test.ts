@@ -73,10 +73,21 @@ describe("EMR Biểu mẫu — signing_sequence as an ordered role sequence", ()
   it("renders a step-by-step picker in the create/edit modal: numbered rows, a role <select> per step, add/remove/reorder controls", () => {
     expect(client).toContain('f.type === "sequence"');
     expect(client).toContain('className="sequence-steps"');
-    expect(client).toContain('className="sequence-step-row"');
+    expect(client).toContain('className={`sequence-step-row${f.methodOptions ? " has-method" : ""}`}');
     expect(client).toContain('className="sequence-step-no"');
     expect(client).toContain("+ Thêm bước ký");
     expect(client).toContain("Xoá bước");
+  });
+
+  // Finding từ tự rà: field "sequence" không khai báo methodOptions (hiện
+  // chưa có field nào khác signing_sequence, nhưng type "sequence" là
+  // generic) sẽ không render <select> phương thức — CSS .sequence-step-row
+  // vẫn phải tự co lại đúng 5 cột (bỏ cột method) thay vì giữ cố định 6 cột
+  // khiến nút ↑/↓/Xoá bước lệch vào ô trống.
+  it("the row only gets the 'has-method' CSS modifier (which reserves the method-select grid column) when the field actually declares methodOptions", () => {
+    const css = readFileSync("src/app/globals.css", "utf8");
+    expect(css).toContain(".sequence-step-row{display:grid;grid-template-columns:22px 1fr auto auto auto;gap:7px;align-items:center}");
+    expect(css).toContain(".sequence-step-row.has-method{grid-template-columns:22px 1fr 1fr auto auto auto}");
   });
 
   it("renders a phương thức ký <select> per step when the field declares methodOptions", () => {
@@ -95,6 +106,26 @@ describe("EMR Biểu mẫu — signing_sequence as an ordered role sequence", ()
     expect(client).toContain('const selectValue = isKnownRole ? role : "Khác";');
     expect(client).toContain("const showCustomRoleInput = hasCustomOption && selectValue === \"Khác\";");
     expect(client).toContain('placeholder="Nhập vai trò..."');
+  });
+
+  // Finding từ tự rà: parseSequenceStep/formatSequenceStep tách chuỗi theo
+  // "::" và SEQUENCE_SEPARATOR (" → ") mà không escape — nếu ô nhập tự do
+  // "Khác" cho gõ nguyên 2 chuỗi này, dữ liệu sẽ bị tách sai khi đọc lại (vd
+  // "BS trực::ca đêm" bị hiểu nhầm method="ca đêm"; " → " bị hiểu nhầm là
+  // ranh giới sang bước ký khác). Chặn ở nguồn: ô nhập tự do lọc bỏ 2 chuỗi
+  // phân tách này trước khi lưu, thay vì phải escape/unescape phức tạp.
+  it("the custom-role input sanitizes out the step/method separators before saving, so free text can't corrupt the sequence encoding", () => {
+    expect(client).toContain("function sanitizeCustomRole(value: string): string {");
+    expect(client).toContain("onChange={(e) => updateRole(sanitizeCustomRole(e.target.value) || \"Khác\")}");
+    const sanitizeCustomRole = (value: string) => value.split(SEQUENCE_STEP_METHOD_SEPARATOR).join(" ").split(SEQUENCE_SEPARATOR).join(" ").replace(/\s+/g, " ").trim();
+    expect(sanitizeCustomRole(`BS trực${SEQUENCE_STEP_METHOD_SEPARATOR}ca đêm`)).toBe("BS trực ca đêm");
+    expect(sanitizeCustomRole(`Khoa A${SEQUENCE_SEPARATOR}Khoa B`)).toBe("Khoa A Khoa B");
+    expect(sanitizeCustomRole("Trưởng khoa")).toBe("Trưởng khoa");
+    // Round-trip: the sanitized value, once saved, parses back as a single
+    // plain role with no method — never splits into extra steps/garbage method.
+    const saved = formatSequenceStep(sanitizeCustomRole(`BS trực${SEQUENCE_STEP_METHOD_SEPARATOR}ca đêm`), "");
+    expect(sequenceSteps(saved)).toHaveLength(1);
+    expect(parseSequenceStep(saved)).toEqual({ role: "BS trực ca đêm", method: "" });
   });
 
   it("shows a live signature count while editing, reusing sequenceSteps() rather than re-deriving the count ad hoc", () => {

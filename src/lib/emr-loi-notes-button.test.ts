@@ -64,4 +64,13 @@ describe("EMR — 'Lỗi & Ghi chú' tab (ngang hàng với Thông tin/Tiến đ
   it("the toolbar-right tab group wraps on narrow screens instead of being clipped (body has overflow-x:hidden, so an unwrapped row would just disappear off-screen)", () => {
     expect(client).toContain('<div className="toolbar-right" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>');
   });
+
+  // Finding từ tự rà: LOI đã có cột riêng trong tab "Lỗi & Ghi chú" — nếu
+  // không loại khỏi genericIncomingReferences (danh sách hiện trong panel
+  // "▸ Xem chi tiết", hiện bất kể tab nào đang mở), link "N lỗi liên quan"
+  // sẽ bị lặp lại ở cả 2 nơi cho cùng 1 dòng, giống lý do DAO_TAO đã bị loại
+  // trước đó.
+  it("LOI is also excluded from genericIncomingReferences (like DAO_TAO), so the detail-expand panel doesn't duplicate the same 'N lỗi liên quan' link the notes tab already shows", () => {
+    expect(client).toContain('const genericIncomingReferences = incomingReferences.filter((r) => r.category !== "DAO_TAO" && r.category !== "LOI");');
+  });
 });

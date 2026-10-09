@@ -3,11 +3,19 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useEmrCreateSignal } from "@/components/emr-create-context";
 import { Icon } from "@/components/icon";
-import { categoriesReferencing, EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, formatBooleanValue, formatSequenceStep, formatSequenceValue, parseSequenceStep, sequenceSteps, SEQUENCE_SEPARATOR, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
+import { categoriesReferencing, EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, formatBooleanValue, formatSequenceStep, formatSequenceValue, parseSequenceStep, sequenceSteps, SEQUENCE_SEPARATOR, SEQUENCE_STEP_METHOD_SEPARATOR, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
 
 type Item = { id: string; category: string; title: string; description: string | null; status: string; department_ids:string[]; owner_department_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; publish_status: string; published_at: string | null; published_by: string | null; created_at: string; updated_at: string };
 
 function toggleId(ids: string[], id: string) { return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]; }
+
+// Trình tự ký lưu "vai trò::phương thức" nối bằng " → " giữa các bước
+// (xem parseSequenceStep/formatSequenceStep) — ô nhập tự do "Khác" không
+// được chứa đúng 2 chuỗi phân tách này, nếu không bước sẽ bị tách sai khi
+// đọc lại (vd ai đó gõ "BS trực::ca đêm" sẽ bị hiểu nhầm method="ca đêm").
+function sanitizeCustomRole(value: string): string {
+  return value.split(SEQUENCE_STEP_METHOD_SEPARATOR).join(" ").split(SEQUENCE_SEPARATOR).join(" ").replace(/\s+/g, " ").trim();
+}
 
 const KPI_TONE: Record<EmrKpiBucket, string> = { TOTAL: "blue", DONE: "green", IN_PROGRESS: "amber", TODO: "slate", BLOCKED: "red", OVERDUE: "red", CERT_VALID: "green", CERT_EXPIRING: "amber", CERT_EXPIRED: "red" };
 const KPI_ICON: Record<EmrKpiBucket, string> = { TOTAL: "list-checks", DONE: "badge-check", IN_PROGRESS: "refresh-cw", TODO: "calendar-days", BLOCKED: "circle-alert", OVERDUE: "triangle-alert", CERT_VALID: "shield-check", CERT_EXPIRING: "triangle-alert", CERT_EXPIRED: "circle-alert" };
@@ -62,8 +70,13 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   const incomingReferences = categoriesReferencing(categoryCode as EmrCategoryCode);
   // DAO_TAO's reverse reference is rendered as the "Tạo/Duyệt đào tạo" link
   // right in the training_required cell instead of a generic "N liên quan"
-  // column, so it isn't shown twice.
-  const genericIncomingReferences = incomingReferences.filter((r) => r.category !== "DAO_TAO");
+  // column, so it isn't shown twice. LOI's reverse reference is likewise
+  // excluded here since it now has its own "Lỗi & Ghi chú" tab (xem
+  // hasNotesSplit/loiReference bên dưới) — without this exclusion, the
+  // "▸ Xem chi tiết" detail panel (which renders regardless of which tab is
+  // active) would duplicate the same "N lỗi liên quan" link the tab already
+  // shows.
+  const genericIncomingReferences = incomingReferences.filter((r) => r.category !== "DAO_TAO" && r.category !== "LOI");
   // Yêu cầu thực tế: "Anh cần 1 nút để xem lỗi và ghi chú" rồi "Nút lỗi và
   // ghi chú sẽ ngang hàng với các nút thông tin biểu mẫu, tiến độ ... để bấm
   // xem chứ ko phải nút con" — Lỗi liên quan (categoriesReferencing) và Ghi
@@ -719,7 +732,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                           setForm({ ...form, details: { ...form.details, [f.key]: next.join(SEQUENCE_SEPARATOR) } });
                         };
                         return (
-                        <div className="sequence-step-row" key={i}>
+                        <div className={`sequence-step-row${f.methodOptions ? " has-method" : ""}`} key={i}>
                           <span className="sequence-step-no">{i + 1}</span>
                           <div className="sequence-step-role">
                             <select
@@ -733,7 +746,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                               <input
                                 placeholder="Nhập vai trò..."
                                 value={role === "Khác" ? "" : role}
-                                onChange={(e) => updateRole(e.target.value || "Khác")}
+                                onChange={(e) => updateRole(sanitizeCustomRole(e.target.value) || "Khác")}
                               />
                             ) : null}
                           </div>
