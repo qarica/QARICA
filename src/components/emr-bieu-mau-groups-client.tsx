@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 
 type Group = { id: string; name: string; code: string | null; sort_order: number; is_active: boolean };
-type Item = { id: string; details: Record<string, unknown> };
+type Item = { id: string; details: Record<string, unknown>; publish_status: string };
 
 // Dedicated "Quản lý nhóm gáy" screen — declare/rename/reorder/deactivate/
 // delete the Nhóm gáy catalog itself. Split out from the master tree page
@@ -109,11 +109,20 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
   if (loading) return <div className="empty-state">Đang tải...</div>;
   if (error) return <div className="alert error">Không tải được dữ liệu: {error}</div>;
 
-  const countByName = new Map<string, number>();
+  // Tự rà sau khi "Cây biểu mẫu" đổi sang chỉ đếm biểu mẫu ĐÃ duyệt phát
+  // hành: trang này (link ngay trên cùng "Cây biểu mẫu") trước đó đếm MỌI
+  // biểu mẫu bất kể publish_status, nên 1 nhóm gáy có thể hiện số khác nhau
+  // giữa 2 màn hình liền kề. Hiện số ĐÃ DUYỆT (khớp với Cây biểu mẫu) làm số
+  // chính, kèm số Nháp riêng nếu có — nhưng nút "Xoá" vẫn phải chặn theo
+  // TỔNG (kể cả Nháp), vì xoá nhóm vẫn làm mồ côi binding_group của biểu mẫu
+  // Nháp đang trỏ tới nó.
+  const publishedCountByName = new Map<string, number>();
+  const draftCountByName = new Map<string, number>();
   for (const item of items) {
     const key = String(item.details?.binding_group || "").trim();
     if (!key) continue;
-    countByName.set(key, (countByName.get(key) || 0) + 1);
+    if (item.publish_status === "DRAFT") draftCountByName.set(key, (draftCountByName.get(key) || 0) + 1);
+    else publishedCountByName.set(key, (publishedCountByName.get(key) || 0) + 1);
   }
 
   return (
@@ -144,7 +153,9 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
             </thead>
             <tbody>
               {groups.map((group) => {
-                const count = countByName.get(group.name) || 0;
+                const publishedCount = publishedCountByName.get(group.name) || 0;
+                const draftCount = draftCountByName.get(group.name) || 0;
+                const totalCount = publishedCount + draftCount;
                 return (
                   <tr key={group.id}>
                     {canManage ? (
@@ -195,14 +206,14 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
                         <strong>{group.name}</strong>
                       )}
                     </td>
-                    <td>{count}</td>
+                    <td>{publishedCount}{draftCount > 0 ? <div><small className="muted">+{draftCount} Nháp</small></div> : null}</td>
                     <td><span className={`status-badge ${group.is_active ? "success" : "muted"}`}>{group.is_active ? "Đang dùng" : "Ngừng sử dụng"}</span></td>
                     {canManage ? (
                       <td>
                         <div className="bieu-mau-groups-actions">
                           {renamingId === group.id ? null : <button type="button" className="button tertiary small" disabled={busyId === group.id} onClick={() => startRename(group)}>Sửa tên</button>}
                           <button type="button" className="button tertiary small" disabled={busyId === group.id} onClick={() => toggleActive(group)}>{group.is_active ? "Ngừng sử dụng" : "Kích hoạt lại"}</button>
-                          <button type="button" className="button tertiary small" disabled={busyId === group.id || count > 0} title={count > 0 ? "Còn biểu mẫu thuộc nhóm này — chuyển nhóm hoặc ngừng sử dụng trước" : undefined} onClick={() => deleteGroup(group, count)}>Xoá</button>
+                          <button type="button" className="button tertiary small" disabled={busyId === group.id || totalCount > 0} title={totalCount > 0 ? "Còn biểu mẫu thuộc nhóm này (kể cả Nháp) — chuyển nhóm hoặc ngừng sử dụng trước" : undefined} onClick={() => deleteGroup(group, totalCount)}>Xoá</button>
                         </div>
                       </td>
                     ) : null}
