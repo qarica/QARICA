@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_STATUS_LABELS, emrCategoryBySlug, formatBooleanValue, formatSequenceValue } from "@/lib/emr-categories";
+import { sortBieuMauGroupItems, sortBieuMauGroupNames } from "@/lib/emr-bieu-mau-tree-order";
 
 function esc(value: unknown) {
   return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] || ch));
@@ -23,13 +24,22 @@ export async function GET(request: Request) {
   const groupByParam = searchParams.get("groupBy") || "";
   const groupByField = (EMR_CATEGORY_FIELDS[category.code as keyof typeof EMR_CATEGORY_FIELDS] || []).find((f) => f.key === groupByParam);
   const UNGROUPED = "Chưa phân nhóm";
+  const isBieuMau = category.code === "BIEU_MAU";
+  // Báo cáo thực tế: "File excel xuất từ cây biểu mẫu chưa đúng theo thứ tự
+  // hiển thị trên phần mềm" — export groupBy=binding_group này CHÍNH LÀ nút
+  // "Xuất Excel" trên trang Cây biểu mẫu (xem tree/page.tsx), nên phải sắp
+  // xếp giống hệt cây: nhóm gáy theo sort_order đã khai báo, biểu mẫu trong
+  // từng nhóm theo binding_group_order — không phải A-Z như trước. Cây cũng
+  // đã ẩn Biểu mẫu Nháp, nên export này cũng loại Nháp để khớp đúng số dòng/
+  // thứ tự với màn hình.
+  const isTreeExport = isBieuMau && groupByParam === "binding_group";
 
   const admin = createAdminClient();
   const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
-  const [itemsRes, departmentsRes] = await Promise.all([
+  const [itemsRes, departmentsRes, bindingGroupsRes] = await Promise.all([
     admin
       .from("emr_rollout_items")
       .select("title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,details,publish_status,created_at")
@@ -37,12 +47,14 @@ export async function GET(request: Request) {
       .eq("category", category.code)
       .order("created_at", { ascending: false }),
     admin.from("departments").select("id,name").eq("organization_id", organizationId),
+    isTreeExport ? admin.from("emr_binding_groups").select("name,sort_order").eq("organization_id", organizationId) : Promise.resolve({ data: [] as any[], error: null }),
   ]);
   if (itemsRes.error) return NextResponse.json({ error: itemsRes.error.message }, { status: 400 });
+  if (bindingGroupsRes.error) return NextResponse.json({ error: bindingGroupsRes.error.message }, { status: 400 });
 
   const deptName = new Map((departmentsRes.data ?? []).map((d: any) => [d.id, d.name]));
   const extraFields = EMR_CATEGORY_FIELDS[category.code as keyof typeof EMR_CATEGORY_FIELDS] || [];
-  const items = itemsRes.data ?? [];
+  const items = isTreeExport ? (itemsRes.data ?? []).filter((it: any) => it.publish_status !== "DRAFT") : itemsRes.data ?? [];
 
   function cellValue(f: (typeof extraFields)[number], it: any) {
     const raw = it.details?.[f.key];
@@ -57,7 +69,6 @@ export async function GET(request: Request) {
   // hành" (emr-category-client.tsx) nhưng export lại không, dễ báo cáo nhầm
   // 1 biểu mẫu còn Nháp như đã chính thức. Chỉ thêm cột cho BIEU_MAU, các
   // danh mục khác không có khái niệm duyệt phát hành.
-  const isBieuMau = category.code === "BIEU_MAU";
   function rowHtml(it: any, i: number) {
     const extraCells = extraFields.map((f) => `<td>${cellValue(f, it)}</td>`).join("");
     const departmentLabel = (it.department_ids ?? []).length ? (it.department_ids as string[]).map((id) => deptName.get(id) || "—").join(", ") : "Toàn viện";
@@ -77,8 +88,11 @@ export async function GET(request: Request) {
       list.push(it);
       groups.set(key, list);
     }
-    const groupNames = Array.from(groups.keys()).sort((a, b) => a === UNGROUPED ? 1 : b === UNGROUPED ? -1 : a.localeCompare(b, "vi"));
-    for (const list of groups.values()) list.sort((a, b) => String(a.title).localeCompare(String(b.title), "vi"));
+    const groupNames = isTreeExport
+      ? sortBieuMauGroupNames(Array.from(groups.keys()), bindingGroupsRes.data ?? [])
+      : Array.from(groups.keys()).sort((a, b) => a === UNGROUPED ? 1 : b === UNGROUPED ? -1 : a.localeCompare(b, "vi"));
+    if (isTreeExport) { for (const [name, list] of groups) groups.set(name, sortBieuMauGroupItems(list)); }
+    else { for (const list of groups.values()) list.sort((a, b) => String(a.title).localeCompare(String(b.title), "vi")); }
     let counter = 0;
     rows = groupNames
       .map((name) => {

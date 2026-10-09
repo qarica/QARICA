@@ -16,6 +16,7 @@ describe("EMR Biểu mẫu — Nhóm gáy order + in-gáy form order", () => {
   const groupsRoute = readFileSync("src/app/api/emr/binding-groups/route.ts", "utf8");
   const groupItemRoute = readFileSync("src/app/api/emr/binding-groups/[id]/route.ts", "utf8");
   const treeClient = readFileSync("src/components/emr-bieu-mau-tree-client.tsx", "utf8");
+  const treeOrder = readFileSync("src/lib/emr-bieu-mau-tree-order.ts", "utf8");
 
   it("adds sort_order to the declared Nhóm gáy catalog", () => {
     expect(groupsMigration).toContain("alter table public.emr_binding_groups add column if not exists sort_order integer not null default 0;");
@@ -44,12 +45,32 @@ describe("EMR Biểu mẫu — Nhóm gáy order + in-gáy form order", () => {
     expect(field?.hideFromGrid).toBe(true);
   });
 
+  // Tự rà sau báo cáo "File excel xuất từ cây biểu mẫu chưa đúng theo thứ tự
+  // hiển thị" — logic sắp xếp được tách sang src/lib/emr-bieu-mau-tree-order.ts
+  // dùng chung giữa cây (client) và Excel xuất từ cây (server route), để 2
+  // nơi không lệch thứ tự nhau như trước.
   it("the master tree page renders declared groups in sort_order (read-only there — reordering groups happens on the groups screen), not alphabetically; undeclared free-text names come after them, 'Chưa phân nhóm' always last", () => {
-    expect(treeClient).toContain("if (ga && gb) return ga.sort_order - gb.sort_order;");
+    expect(treeOrder).toContain("if (ga && gb) return ga.sort_order - gb.sort_order;");
+    expect(treeClient).toContain("sortBieuMauGroupNames(Array.from(groupMap.keys()), groups)");
   });
 
   it("forms within a gáy sort by their own binding_group_order (numeric), unordered ones pushed to the end instead of floating at the top", () => {
-    expect(treeClient).toContain("const va = Number.isFinite(oa) ? oa : Infinity, vb = Number.isFinite(ob) ? ob : Infinity;");
+    expect(treeOrder).toContain("const va = Number.isFinite(oa) ? oa : Infinity;");
+    expect(treeOrder).toContain("const vb = Number.isFinite(ob) ? ob : Infinity;");
+    expect(treeClient).toContain("sortBieuMauGroupItems(groupMap.get(groupName)!)");
+  });
+
+  it("Excel xuất từ Cây biểu mẫu (groupBy=binding_group) dùng chung đúng 2 hàm sắp xếp này, không tự sắp A-Z riêng", () => {
+    const exportRoute = readFileSync("src/app/api/emr/items/export/route.ts", "utf8");
+    expect(exportRoute).toContain('import { sortBieuMauGroupItems, sortBieuMauGroupNames } from "@/lib/emr-bieu-mau-tree-order";');
+    expect(exportRoute).toContain("const isTreeExport = isBieuMau && groupByParam === \"binding_group\";");
+    expect(exportRoute).toContain("sortBieuMauGroupNames(Array.from(groups.keys()), bindingGroupsRes.data ?? [])");
+    expect(exportRoute).toContain("sortBieuMauGroupItems(list)");
+  });
+
+  it("Excel xuất từ Cây biểu mẫu cũng loại Biểu mẫu Nháp — khớp với Cây biểu mẫu đã ẩn Nháp, không lệch số dòng/thứ tự", () => {
+    const exportRoute = readFileSync("src/app/api/emr/items/export/route.ts", "utf8");
+    expect(exportRoute).toContain('isTreeExport ? (itemsRes.data ?? []).filter((it: any) => it.publish_status !== "DRAFT") : itemsRes.data ?? [];');
   });
 
   // Follow-up, explicit request: "mình đâu mà đâu thể sửa hoặc lưu cái tên

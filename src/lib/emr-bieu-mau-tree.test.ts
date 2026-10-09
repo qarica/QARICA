@@ -24,7 +24,9 @@ describe("EMR — Biểu mẫu master tree view", () => {
 
   it("groups items by details.binding_group (Nhóm gáy), with an explicit fallback bucket instead of silently dropping ungrouped forms", () => {
     expect(treeClient).toContain('const key = String(item.details?.binding_group || "").trim() || UNGROUPED;');
-    expect(treeClient).toContain('const UNGROUPED = "Chưa phân nhóm";');
+    // UNGROUPED is imported from the shared sort-order lib (src/lib/emr-bieu-mau-tree-order.ts),
+    // not a locally re-declared string — so the tree and its Excel export can never drift apart.
+    expect(treeClient).toContain('import { BIEU_MAU_TREE_UNGROUPED as UNGROUPED, sortBieuMauGroupItems, sortBieuMauGroupNames } from "@/lib/emr-bieu-mau-tree-order";');
   });
 
   // Originally sat up in the PageHeader actions row (next to "Xuất Excel");

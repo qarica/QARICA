@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { EMR_STATUS_LABELS } from "@/lib/emr-categories";
+import { BIEU_MAU_TREE_UNGROUPED as UNGROUPED, sortBieuMauGroupItems, sortBieuMauGroupNames } from "@/lib/emr-bieu-mau-tree-order";
 import { Icon } from "@/components/icon";
 
-const UNGROUPED = "Chưa phân nhóm";
 type TreeItem = { id: string; title: string; status: string; details: Record<string, unknown>; publish_status: string };
 type Group = { id: string; name: string; code: string | null; sort_order: number; is_active: boolean };
 
@@ -195,16 +195,9 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
   // Declared groups first, ordered by their own sort_order (the real-world
   // "STT" column in sheet GÁY, managed on the groups screen); undeclared
   // free-text names (pre-dating the catalog) come next alphabetically;
-  // "Chưa phân nhóm" always last.
-  const sortedGroupNames = Array.from(groupMap.keys()).sort((a, b) => {
-    if (a === UNGROUPED) return 1;
-    if (b === UNGROUPED) return -1;
-    const ga = groupByName.get(a), gb = groupByName.get(b);
-    if (ga && gb) return ga.sort_order - gb.sort_order;
-    if (ga) return -1;
-    if (gb) return 1;
-    return a.localeCompare(b, "vi");
-  });
+  // "Chưa phân nhóm" always last — dùng chung logic với Excel xuất từ cây
+  // (src/lib/emr-bieu-mau-tree-order.ts) để 2 nơi không lệch thứ tự nhau.
+  const sortedGroupNames = sortBieuMauGroupNames(Array.from(groupMap.keys()), groups);
   // Offered as options for a NEW assignment: active declared groups, plus —
   // if it isn't one of those — whatever group the select is currently being
   // opened for (its current value, declared-but-deactivated or legacy free
@@ -222,12 +215,7 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
         {sortedGroupNames.map((groupName) => {
           // "Số TT biểu mẫu" numbers forms continuously within their own gáy —
           // items without one yet sort after numbered ones, stable by title.
-          const groupItems = [...groupMap.get(groupName)!].sort((a, b) => {
-            const oa = Number(a.details?.binding_group_order), ob = Number(b.details?.binding_group_order);
-            const va = Number.isFinite(oa) ? oa : Infinity, vb = Number.isFinite(ob) ? ob : Infinity;
-            if (va !== vb) return va - vb;
-            return a.title.localeCompare(b.title, "vi");
-          });
+          const groupItems = sortBieuMauGroupItems(groupMap.get(groupName)!);
           return (
             <details key={groupName} open className="panel bieu-mau-tree-group">
               <summary className="bieu-mau-tree-group-head">
