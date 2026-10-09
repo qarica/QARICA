@@ -70,36 +70,18 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   const incomingReferences = categoriesReferencing(categoryCode as EmrCategoryCode);
   // DAO_TAO's reverse reference is rendered as the "Tạo/Duyệt đào tạo" link
   // right in the training_required cell instead of a generic "N liên quan"
-  // column, so it isn't shown twice. LOI's reverse reference is likewise
-  // excluded here since it now has its own "Lỗi & Ghi chú" tab (xem
-  // hasNotesSplit/loiReference bên dưới) — without this exclusion, the
-  // "▸ Xem chi tiết" detail panel (which renders regardless of which tab is
-  // active) would duplicate the same "N lỗi liên quan" link the tab already
-  // shows.
-  const genericIncomingReferences = incomingReferences.filter((r) => r.category !== "DAO_TAO" && r.category !== "LOI");
-  // Yêu cầu thực tế: "Anh cần 1 nút để xem lỗi và ghi chú" rồi "Nút lỗi và
-  // ghi chú sẽ ngang hàng với các nút thông tin biểu mẫu, tiến độ ... để bấm
-  // xem chứ ko phải nút con" — Lỗi liên quan (categoriesReferencing) và Ghi
-  // chú (field "notes") giờ là MỘT TAB riêng ("Lỗi & Ghi chú", xem view
-  // "notes" bên dưới) ngang hàng với "Thông tin .../Tiến độ triển khai",
-  // không còn là nút nhỏ nằm trong cột hành động của từng dòng. Generic: tab
-  // chỉ hiện khi danh mục thực sự có 1 trong 2 thứ này, không hard-code
-  // riêng BIEU_MAU.
-  const loiReference = incomingReferences.find((r) => r.category === "LOI");
-  const hasNotesField = extraFields.some((f) => f.key === "notes");
-  const hasNotesSplit = Boolean(loiReference) || hasNotesField;
+  // column, so it isn't shown twice.
+  const genericIncomingReferences = incomingReferences.filter((r) => r.category !== "DAO_TAO");
   // "scope" is a third view mode, BIEU_MAU-only (see the toolbar button
   // below): a matrix of biểu mẫu × khoa/phòng replacing the per-item inline
   // "Khoa/phòng — Phạm vi áp dụng" fieldset in the create/edit modal for this
   // one category, so scope can be ticked across every form from one screen
   // instead of opening each item's modal individually.
-  const hasTabs = hasProgressSplit || hasNotesSplit;
-  const [view, setView] = useState<"info" | "progress" | "scope" | "notes">("info");
-  const showDescription = !(hasProgressSplit && view === "progress") && view !== "notes";
-  const showPriorityDueStatus = !(hasProgressSplit && view === "info") && view !== "notes";
-  const visibleInfoColumns = (hasProgressSplit && view === "progress") || view === "notes" ? [] : infoColumns;
-  const visibleProgressColumns = (hasProgressSplit && view === "info") || view === "notes" ? [] : progressColumns;
-  const showNotesColumns = hasNotesSplit && view === "notes";
+  const [view, setView] = useState<"info" | "progress" | "scope">("info");
+  const showDescription = !(hasProgressSplit && view === "progress");
+  const showPriorityDueStatus = !(hasProgressSplit && view === "info");
+  const visibleInfoColumns = hasProgressSplit && view === "progress" ? [] : infoColumns;
+  const visibleProgressColumns = hasProgressSplit && view === "info" ? [] : progressColumns;
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   function toggleExpanded(id: string) { setExpandedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
   const [refItems, setRefItems] = useState<Record<string, { id: string; title: string; details: Record<string, unknown> }[]>>({});
@@ -487,12 +469,11 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
             </div>
           ) : null}
         </div>
-        {hasTabs ? (
+        {hasProgressSplit ? (
           <div className="toolbar-right" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button type="button" className={`button ${view === "info" ? "primary" : "tertiary"} small`} onClick={() => setView("info")}>Thông tin {categoryLabel.toLowerCase()}</button>
-            {hasProgressSplit ? <button type="button" className={`button ${view === "progress" ? "primary" : "tertiary"} small`} onClick={() => setView("progress")}>Tiến độ triển khai</button> : null}
+            <button type="button" className={`button ${view === "progress" ? "primary" : "tertiary"} small`} onClick={() => setView("progress")}>Tiến độ triển khai</button>
             {categoryCode === "BIEU_MAU" ? <button type="button" className={`button ${view === "scope" ? "primary" : "tertiary"} small`} onClick={() => setView("scope")}>Phạm vi áp dụng</button> : null}
-            {hasNotesSplit ? <button type="button" className={`button ${view === "notes" ? "primary" : "tertiary"} small`} onClick={() => setView("notes")}>Lỗi &amp; Ghi chú</button> : null}
             {categoryCode === "BIEU_MAU" ? <Link className="button secondary small" href="/emr/bieu-mau/tree">Cây biểu mẫu</Link> : null}
           </div>
         ) : null}
@@ -626,7 +607,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr><th style={{ width: 30 }}></th><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th>{showDescription?<th>{descLabel}</th>:null}{visibleInfoColumns.map((f)=><th key={f.key}>{f.label}</th>)}{visibleProgressColumns.map((f)=><th key={f.key}>{f.label}</th>)}{showNotesColumns?<>{hasNotesField?<th>Ghi chú</th>:null}{loiReference?<th>Lỗi liên quan</th>:null}</>:null}{showPriorityDueStatus?<><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th></>:null}{categoryCode==="BIEU_MAU"?<th>Duyệt phát hành</th>:null}<th></th></tr>
+                <tr><th style={{ width: 30 }}></th><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th>{showDescription?<th>{descLabel}</th>:null}{visibleInfoColumns.map((f)=><th key={f.key}>{f.label}</th>)}{visibleProgressColumns.map((f)=><th key={f.key}>{f.label}</th>)}{showPriorityDueStatus?<><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th></>:null}{categoryCode==="BIEU_MAU"?<th>Duyệt phát hành</th>:null}<th></th></tr>
               </thead>
               <tbody>
                 {filtered.map((item, idx) => (
@@ -639,13 +620,6 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                     {showDescription?<td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>:null}
                     {visibleInfoColumns.map((f)=><td key={f.key}>{fieldDisplayContent(f, item)}</td>)}
                     {visibleProgressColumns.map((f)=><td key={f.key}>{fieldDisplayContent(f, item)}</td>)}
-                    {showNotesColumns?<>
-                      {hasNotesField?<td>{item.details?.notes ? String(item.details.notes) : "—"}</td>:null}
-                      {loiReference?(() => {
-                        const loiCount = (refItems.LOI || []).filter((r) => r.details?.[loiReference.field.key] === item.id).length;
-                        return <td>{loiCount ? <Link className="table-link" href="/emr/loi">{loiCount} lỗi liên quan →</Link> : <Link className="table-link" href="/emr/loi">Ghi nhận lỗi mới →</Link>}</td>;
-                      })():null}
-                    </>:null}
                     {showPriorityDueStatus?<>
                     <td><span className={`status-badge ${item.priority==="CRITICAL"?"danger":item.priority==="HIGH"?"warning":"muted"}`}>{{LOW:"Thấp",MEDIUM:"Trung bình",HIGH:"Cao",CRITICAL:"Nghiêm trọng"}[item.priority]||item.priority}</span></td><td>{item.due_date || "—"}</td>
                     <td>{EMR_STATUS_LABELS[item.status] || item.status}{item.verified_at ? <div><small>Đã xác minh</small></div> : null}</td>

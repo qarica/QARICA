@@ -22,7 +22,7 @@ describe("EMR — Cần đào tạo deep-links into a pre-filled Đào tạo ite
   });
 
   it("DAO_TAO is excluded from the generic incoming-references columns, since it is rendered specially in the training_required cell instead", () => {
-    expect(client).toContain('const genericIncomingReferences = incomingReferences.filter((r) => r.category !== "DAO_TAO" && r.category !== "LOI");');
+    expect(client).toContain('const genericIncomingReferences = incomingReferences.filter((r) => r.category !== "DAO_TAO");');
   });
 
   it("builds a create-with-prefill link carrying ref_field/ref_id/ref_title when no linked Đào tạo item exists yet", () => {

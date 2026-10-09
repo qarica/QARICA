@@ -56,9 +56,10 @@ function compareRoundNewestFirst(a: MonitoringRow, b: MonitoringRow) {
   return b.record_code.localeCompare(a.record_code, "vi", { numeric: true, sensitivity: "base" });
 }
 
-export function MonitoringClient({ year, canManageTemplates, templateRows, monitoringRows, departments }: {
+export function MonitoringClient({ year, canManageTemplates, canCreateRounds, templateRows, monitoringRows, departments }: {
   year: number;
   canManageTemplates: boolean;
+  canCreateRounds: boolean;
   templateRows: TemplateRow[];
   monitoringRows: MonitoringRow[];
   departments: Department[];
@@ -71,6 +72,15 @@ export function MonitoringClient({ year, canManageTemplates, templateRows, monit
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
+  // Yêu cầu thực tế: "thiếu nút mở đợt giám sát bên nút đợt giám sát" — tab
+  // "Đợt giám sát" trước đây chỉ có nút "Tạo mẫu bảng kiểm" (ở tab Mẫu bảng
+  // kiểm), không có lối nào để tạo 1 ĐỢT giám sát mới từ màn hình tổng quan.
+  // Tạo đợt luôn gắn với 1 version bảng kiểm cụ thể đã PUBLISHED (xem
+  // MonitoringScheduleClient ở trang chi tiết mẫu) nên không làm lại logic
+  // chọn version ở đây — chỉ cho chọn ĐÚNG mẫu đã phát hành rồi điều hướng
+  // sang trang chi tiết mẫu đó, nơi nút "Lên lịch giám sát" đã hoạt động đầy
+  // đủ và chọn đúng version đang PUBLISHED.
+  const [roundPickerOpen, setRoundPickerOpen] = useState(false);
 
   useEffect(() => {
     if (!formOpen) return;
@@ -92,6 +102,7 @@ export function MonitoringClient({ year, canManageTemplates, templateRows, monit
   const failRoundCount = monitoringRows.filter((x) => x.fail > 0).length;
   const publishedCount = templateRows.filter((x) => x.latest_version_status === "PUBLISHED").length;
   const draftCount = templateRows.filter((x) => x.latest_version_status === "DRAFT").length;
+  const publishedTemplatesForRound = templateRows.filter((x) => x.latest_version_status === "PUBLISHED" && x.is_active);
 
   function openCreate() { setForm(initialForm); setMessage(null); setFormOpen(true); }
   function openEdit(row: TemplateRow) { setForm({ id: row.id, name: row.name, sourceCode: row.source_code || "", description: row.description || "", ownerDepartmentId: row.owner_department_id || "", scoringMethod: row.scoring_method || "COMPLIANCE_PERCENTAGE" }); setMessage(null); setFormOpen(true); }
@@ -143,7 +154,7 @@ export function MonitoringClient({ year, canManageTemplates, templateRows, monit
 
     <section className="panel">
       <div className="tabs" style={{ paddingTop: 4 }}><button className={tab === "rounds" ? "active" : ""} onClick={() => { setTab("rounds"); setSearch(""); }}>Đợt giám sát</button><button className={tab === "templates" ? "active" : ""} onClick={() => { setTab("templates"); setSearch(""); }}>Mẫu bảng kiểm</button></div>
-      <div className="toolbar"><div className="search-box"><Icon name="search" size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tab === "templates" ? "Tìm theo mã, tên mẫu, khoa/phòng..." : "Tìm theo mã đợt, bảng kiểm, khu vực..."} /></div><div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>{tab === "rounds" && (search.trim() || roundFilter !== "ALL") ? <button className="button secondary small" onClick={() => { setSearch(""); setRoundFilter("ALL"); }}>Xóa bộ lọc</button> : null}{tab === "templates" && canManageTemplates ? <button className="button primary" onClick={openCreate}><Icon name="plus" size={17} /> Tạo mẫu bảng kiểm</button> : null}</div></div>
+      <div className="toolbar"><div className="search-box"><Icon name="search" size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tab === "templates" ? "Tìm theo mã, tên mẫu, khoa/phòng..." : "Tìm theo mã đợt, bảng kiểm, khu vực..."} /></div><div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>{tab === "rounds" && (search.trim() || roundFilter !== "ALL") ? <button className="button secondary small" onClick={() => { setSearch(""); setRoundFilter("ALL"); }}>Xóa bộ lọc</button> : null}{tab === "rounds" && canCreateRounds ? <button className="button primary" onClick={() => setRoundPickerOpen(true)}><Icon name="plus" size={17} /> Tạo đợt giám sát</button> : null}{tab === "templates" && canManageTemplates ? <button className="button primary" onClick={openCreate}><Icon name="plus" size={17} /> Tạo mẫu bảng kiểm</button> : null}</div></div>
 
       {tab === "rounds" ? <div style={{ padding: "0 16px 12px", display: "flex", gap: 7, flexWrap: "wrap" }}>{([["ALL", "Tất cả"],["NEEDS_CHECK", "Cần kiểm"],["IN_PROGRESS", "Đang kiểm"],["WAITING_RECHECK", "Chờ kiểm lại"],["AWAITING_CONFIRMATION", "Chờ QLCL"],["DONE", "Hoàn tất"],["HAS_FAIL", "Có mục không đạt"]] as [RoundFilter, string][]).map(([value, label]) => <button key={value} className={`button ${roundFilter === value ? "primary" : "secondary"} small`} aria-pressed={roundFilter === value} onClick={() => setRoundFilter(value)}>{label}{value === "HAS_FAIL" ? ` (${failRoundCount})` : value !== "ALL" ? ` (${phaseCount(value as MonitoringPhase)})` : ` (${monitoringRows.length})`}</button>)}</div> : null}
 
@@ -153,6 +164,28 @@ export function MonitoringClient({ year, canManageTemplates, templateRows, monit
       </>}
     </section>
     {modal}
+    {roundPickerOpen ? <div className="modal-backdrop" onClick={() => setRoundPickerOpen(false)}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head"><h3>Chọn mẫu bảng kiểm để tạo đợt giám sát</h3></div>
+        <div className="modal-body">
+          {publishedTemplatesForRound.length ? (
+            <div className="form-stack">
+              {publishedTemplatesForRound.map((t) => (
+                <Link key={t.id} href={`/monitoring/templates/${t.id}`} className="check-card" style={{ textDecoration: "none" }} onClick={() => setRoundPickerOpen(false)}>
+                  <span>
+                    <strong>{t.name}</strong>
+                    <small>{t.code || "—"} · v{t.latest_version_no} · {deptMap.get(t.owner_department_id || "") || "Chưa gán khoa/phòng"}</small>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">Chưa có mẫu bảng kiểm nào đã phát hành. Vào tab &quot;Mẫu bảng kiểm&quot; để tạo và phát hành mẫu trước khi tạo đợt giám sát.</div>
+          )}
+        </div>
+        <div className="modal-footer"><button type="button" className="button secondary" onClick={() => setRoundPickerOpen(false)}>Đóng</button></div>
+      </div>
+    </div> : null}
   </>;
 }
 
