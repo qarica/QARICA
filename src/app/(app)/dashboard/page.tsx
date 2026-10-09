@@ -226,7 +226,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const firstError = [recordsRes, incidentsAllRes, capasRes, risksRes, auditsRes, indicatorsRes, domainLinksRes, domainsRes, programProgressRes, departmentsRes, monitoringRes].find((x: any) => x.error)?.error;
 
-  return <div className="page-stack qcc-dashboard">
+  return <div className="page-stack qcc-dashboard dashboard-page">
     <style>{TQM_CHART_CSS + `
       .qcc-dashboard .breadcrumb{display:flex;align-items:center;gap:6px;color:#64748b;font-size:12px;margin-bottom:4px}
       .qcc-dashboard .page-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
