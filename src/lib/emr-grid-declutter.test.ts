@@ -30,7 +30,7 @@ describe("EMR grid — declutter columns that have their own dedicated view", ()
   });
 
   it("a hideFromGrid field is still editable in the create/edit modal — hideFromGrid only affects the table, not editability", () => {
-    expect(client).toContain('{extraFields.filter((f) => !f.pairWithStatus && !(categoryCode === "BIEU_MAU" && ["record_types", "form_code", "binding_group", "binding_group_order", "vendor_form_code"].includes(f.key))).map((f) => (');
+    expect(client).toContain('{extraFields.filter((f) => !f.pairWithStatus && !(categoryCode === "BIEU_MAU" && ["record_types", "form_code", "binding_group", "binding_group_order", "vendor_form_code", "execution_platform"].includes(f.key))).map((f) => (');
   });
 
   it("the table header no longer has a <th> per incoming reference or a Tệp đính kèm column", () => {

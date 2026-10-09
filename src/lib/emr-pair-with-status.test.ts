@@ -18,7 +18,7 @@ describe("EMR — pairWithStatus renders a field next to the generic status sele
   });
 
   it("excludes pairWithStatus fields from the normal top-to-bottom field loop", () => {
-    expect(client).toContain('{extraFields.filter((f) => !f.pairWithStatus && !(categoryCode === "BIEU_MAU" && ["record_types", "form_code", "binding_group", "binding_group_order", "vendor_form_code"].includes(f.key))).map((f) => (');
+    expect(client).toContain('{extraFields.filter((f) => !f.pairWithStatus && !(categoryCode === "BIEU_MAU" && ["record_types", "form_code", "binding_group", "binding_group_order", "vendor_form_code", "execution_platform"].includes(f.key))).map((f) => (');
   });
 
   it("renders them directly after the Trạng thái triển khai select, not elsewhere in the modal", () => {

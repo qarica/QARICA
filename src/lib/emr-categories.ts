@@ -231,11 +231,18 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
     // chung chung, KHÔNG hard-code theo 1 nhà cung cấp cụ thể (CLAUDE.md
     // nguyên tắc 1), vì mỗi viện có thể dùng nhà cung cấp khác nhau hoặc
     // không dùng hệ thống nào khác cả.
+    //
+    // Báo cáo thực tế: "ẩn các ô đỏ vì các nút khác đã có" — ô này (cùng
+    // binding_group/binding_group_order bên dưới) đã bị ẩn khỏi modal "Thêm
+    // mục biểu mẫu" (emr-category-client.tsx) vì trùng lặp với các màn hình
+    // khác (Cây biểu mẫu). Giữ nguyên định nghĩa field ở đây để KHÔNG mất dữ
+    // liệu đã lưu của các biểu mẫu cũ (sanitizeDetails vẫn còn nhận diện
+    // field) và để màn hình "Cây biểu mẫu" vẫn đọc/ghi được 2 field gáy.
     { key: "vendor_form_code", label: "Mã mẫu tham chiếu hệ thống EMR khác (nếu có)", type: "text", hideFromGrid: true },
+    // Quản lý gán nhóm/đổi thứ tự hàng loạt ở màn hình "Cây biểu mẫu" — input
+    // trong modal "Thêm mục biểu mẫu" đã bị ẩn (xem comment vendor_form_code
+    // ở trên), field vẫn giữ nguyên vì Cây biểu mẫu còn đọc/ghi qua PATCH.
     { key: "binding_group", label: "Nhóm gáy", type: "text", hideFromGrid: true },
-    // Thứ tự biểu mẫu này nằm ở vị trí nào trong gáy (gáy là 1 tập giấy đóng
-    // theo thứ tự trang vật lý) — quản lý trực tiếp trong "Xem cây biểu mẫu"
-    // cùng với việc gán nhóm, không phải cột riêng trong lưới chính.
     { key: "binding_group_order", label: "Thứ tự trong gáy", type: "number", hideFromGrid: true },
     // Hồ sơ bệnh án đóng gáy riêng theo loại: Khám bệnh/Ngoại trú/Cấp cứu/Nội
     // trú — 1 biểu mẫu có thể dùng chung cho nhiều loại hồ sơ nên tick chọn
@@ -248,6 +255,9 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
     // định, không phải ô text, nên reuse "select" sẵn có thay vì tạo loại
     // field mới.
     { key: "deployment_phase", label: "Giai đoạn triển khai", type: "select", options: ["Demo", "UAT", "Chạy chính thức"], pairWithStatus: true, progressField: true },
+    // Báo cáo thực tế: "ẩn các ô đỏ vì các nút khác đã có" — trùng lặp với
+    // phạm vi áp dụng (ma trận khoa/phòng + loại hồ sơ) nên đã ẩn khỏi modal
+    // "Thêm mục biểu mẫu"; field vẫn giữ nguyên để không mất dữ liệu cũ.
     { key: "execution_platform", label: "Nơi thực hiện", type: "text", compact: true },
     { key: "training_required", label: "Yêu cầu đào tạo", type: "select", options: ["Cần đào tạo", "Không cần đào tạo"], progressField: true },
     { key: "target_roles", label: "Đối tượng thực hiện", type: "multiselect", options: ["Bác sĩ", "Điều dưỡng", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Phòng hành chính (đóng dấu)", "Khác"], compact: true },

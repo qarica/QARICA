@@ -59,6 +59,6 @@ describe("EMR Khai báo biểu mẫu — ma trận Phạm vi áp dụng tách kh
   });
 
   it("record_types không còn render trong modal khai báo cho BIEU_MAU", () => {
-    expect(client).toContain('["record_types", "form_code", "binding_group", "binding_group_order", "vendor_form_code"].includes(f.key)');
+    expect(client).toContain('["record_types", "form_code", "binding_group", "binding_group_order", "vendor_form_code", "execution_platform"].includes(f.key)');
   });
 });
