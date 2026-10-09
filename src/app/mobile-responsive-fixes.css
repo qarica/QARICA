@@ -325,10 +325,18 @@
      Điều hành, Sự cố & Phản ánh, Rủi ro & FMEA, Cải tiến chất lượng, Kho minh
      chứng, plus all five overview components above): one tablet breakpoint
      collapses the row from 4-6 columns down to 2, and then NO further
-     breakpoint ever reaches 1 column, so it stays 2-up all the way to 320px. */
+     breakpoint ever reaches 1 column, so it stays 2-up all the way to 320px.
+
+     Báo cáo thực tế (ảnh chụp "Tổng hợp 5S toàn viện" trên điện thoại): .tqm-grid
+     (biểu đồ Xu hướng + TqmDonut ở /monitoring/5s-tong-hop) cùng lỗi — còn
+     nặng hơn vì bị khoá cứng bằng inline style={{gridTemplateColumns:"1.2fr
+     .8fr"}} ngay trên phần tử, nên donut 190px bị ép vào cột .8fr quá hẹp và
+     tràn ra ngoài khung hình. /monitoring (trang chính) không dính vì tự khai
+     báo rule @900px riêng cho .tqm-grid, nhưng 5s-tong-hop thì không. */
   .workspace-app .kpi-grid,
   .workspace-app .exec-kpis,
   .workspace-app .legacy-grid3,
+  .workspace-app .tqm-grid,
   .workspace-app .grid2,
   .workspace-app .grid2b,
   .workspace-app .grid3b,
@@ -347,6 +355,7 @@
   .workspace-app .kpi-grid > *,
   .workspace-app .exec-kpis > *,
   .workspace-app .legacy-grid3 > *,
+  .workspace-app .tqm-grid > *,
   .workspace-app .grid2 > *,
   .workspace-app .grid2b > *,
   .workspace-app .grid3b > *,
