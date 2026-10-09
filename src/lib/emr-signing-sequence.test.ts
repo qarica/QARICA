@@ -22,11 +22,13 @@ import { EMR_CATEGORY_FIELDS, formatSequenceStep, formatSequenceValue, parseSequ
 // option is a different, later, explicit request.
 //
 // Further requests: "Chủ tọa" (presiding chair) added as a sequence-step
-// role (meetings/minutes needing this role in the signing order), and
-// "Ký điện tử/Vân tay" added as its OWN phương thức ký, distinct from plain
-// "Vân tay" (biometric auth in general) and plain "Ký điện tử" (not
-// necessarily biometric) — "bổ sung thêm chổ phương thức ký: 'ký điện
-// tử/Vân tay' để phân biệt với ký điện tử".
+// role (meetings/minutes needing this role in the signing order), and a new
+// phương thức ký added for signing via a signpad device combined with
+// fingerprint auth, distinct from plain "Vân tay" (biometric auth in
+// general) and plain "Ký điện tử" (not necessarily biometric) —
+// "bổ sung thêm chổ phương thức ký: 'ký điện tử/Vân tay' để phân biệt với ký
+// điện tử", then renamed per "Đổi ký điện tử/vân tay -> Signpad/Vân tay"
+// since the device is a signpad, not an electronic signature.
 describe("EMR Biểu mẫu — signing_sequence as an ordered role sequence", () => {
   const fields = EMR_CATEGORY_FIELDS.BIEU_MAU;
   const client = readFileSync("src/components/emr-category-client.tsx", "utf8");
@@ -43,9 +45,9 @@ describe("EMR Biểu mẫu — signing_sequence as an ordered role sequence", ()
     expect(targetRoles?.options).not.toContain("Đóng mộc");
   });
 
-  it("declares methodOptions (phương thức ký) for signing_sequence, including 'Ký điện tử/Vân tay' as distinct from plain 'Ký điện tử' and plain 'Vân tay'", () => {
+  it("declares methodOptions (phương thức ký) for signing_sequence, including 'Signpad/Vân tay' as distinct from plain 'Ký điện tử' and plain 'Vân tay'", () => {
     const signing = fields.find((f) => f.key === "signing_sequence");
-    expect(signing?.methodOptions).toEqual(["Nhập liệu", "Ký số", "Ký điện tử", "Vân tay", "Ký điện tử/Vân tay", "Đóng dấu"]);
+    expect(signing?.methodOptions).toEqual(["Nhập liệu", "Ký số", "Ký điện tử", "Vân tay", "Signpad/Vân tay", "Đóng dấu"]);
   });
 
   it("sequenceSteps()/formatSequenceValue() parse and render an ordered, numbered list — not a plain join", () => {

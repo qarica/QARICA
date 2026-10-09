@@ -315,10 +315,13 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
     // Yêu cầu thực tế tiếp theo: "bổ sung thêm chổ phương thức ký: 'ký điện
     // tử/Vân tay' để phân biệt với ký điện tử" — "Vân tay" trong danh sách
     // phương thức ký hiện có nghĩa là xác thực sinh trắc học nói chung
-    // (không nhất thiết là ký điện tử); bổ sung thêm 1 phương thức riêng
-    // "Ký điện tử/Vân tay" cho trường hợp ký điện tử được xác thực bằng vân
-    // tay — giữ nguyên "Ký điện tử" và "Vân tay" cũ, không gộp/xoá.
-    { key: "signing_sequence", label: "Trình tự ký", type: "sequence", options: ["Bác sĩ", "Điều dưỡng", "Phẫu thuật viên", "BS GMHS", "Điều dưỡng trưởng", "Chủ tọa", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Phòng hành chính (đóng dấu)", "Đóng mộc", "Khác"], methodOptions: ["Nhập liệu", "Ký số", "Ký điện tử", "Vân tay", "Ký điện tử/Vân tay", "Đóng dấu"], compact: true },
+    // (không nhất thiết là ký điện tử); bổ sung thêm 1 phương thức riêng cho
+    // trường hợp ký bằng thiết bị signpad (bảng ký cảm ứng) kết hợp vân tay
+    // — giữ nguyên "Ký điện tử" và "Vân tay" cũ, không gộp/xoá. Đổi tên
+    // thành "Signpad/Vân tay" theo yêu cầu ("Đổi ký điện tử/vân tay ->
+    // Signpad/Vân tay") vì tên gọi đúng của thiết bị là signpad, không phải
+    // ký điện tử.
+    { key: "signing_sequence", label: "Trình tự ký", type: "sequence", options: ["Bác sĩ", "Điều dưỡng", "Phẫu thuật viên", "BS GMHS", "Điều dưỡng trưởng", "Chủ tọa", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Phòng hành chính (đóng dấu)", "Đóng mộc", "Khác"], methodOptions: ["Nhập liệu", "Ký số", "Ký điện tử", "Vân tay", "Signpad/Vân tay", "Đóng dấu"], compact: true },
     { key: "storage_format", label: "Hình thức lưu trữ", type: "multiselect", options: ["Bản điện tử", "Bản giấy", "Scan"], compact: true },
     { key: "notes", label: "Ghi chú", type: "textarea", compact: true },
     { key: "patient_portal_visible", label: "Hiển thị trên Patient Portal", type: "boolean", compact: true },
