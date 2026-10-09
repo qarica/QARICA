@@ -7,8 +7,14 @@ const read = (p: string) => readFileSync(p, "utf8");
 // hoạt động (cả Khoa lâm sàng lẫn Phòng quản lý/hỗ trợ như Ban Giám đốc) vì
 // route dashboard không lấy department_type và client không lọc theo đó.
 // Yêu cầu: KPI này chỉ tính Khoa (lâm sàng/cận lâm sàng), không tính Phòng.
-// Bảng "Tình trạng triển khai EMR theo khoa/phòng" bên dưới KHÔNG lọc — đúng
-// theo tên gọi "khoa/phòng" của chính nó, vẫn hiện đủ mọi đơn vị.
+//
+// Báo cáo thực tế tiếp theo: "Tại sao vẫn còn Ban giám đôc và chỉ hiển thị 10
+// khoa mà không phải tất cả khoa" — bảng "Tình trạng triển khai EMR theo
+// khoa/phòng" bên dưới vẫn dùng data.departmentMatrix thô (chưa lọc Phòng) và
+// cắt cứng 10 dòng đầu. EMR là bệnh án điện tử — chỉ Khoa lâm sàng/cận lâm
+// sàng vận hành, nên bảng này đổi sang dùng clinicalDepartments (cùng 1 định
+// nghĩa với KPI phía trên, đúng nguyên tắc 1 nguồn sự thật) và bỏ hẳn cắt 10
+// dòng — hiện đủ mọi Khoa.
 describe("EMR dashboard — KPI 'Khoa đã Go-live' chỉ đếm Khoa, không đếm Phòng (Ban Giám đốc, Phòng Kế hoạch,...)", () => {
   const route = read("src/app/api/emr/dashboard/route.ts");
   const client = read("src/components/emr-command-center.tsx");
@@ -48,8 +54,9 @@ describe("EMR dashboard — KPI 'Khoa đã Go-live' chỉ đếm Khoa, không đ
     expect(isClinicalDepartment(null)).toBe(true);
   });
 
-  it("bảng ma trận theo khoa/phòng (data.departmentMatrix đầy đủ, không qua clinicalDepartments) vẫn hiện đủ Khoa lẫn Phòng", () => {
-    expect(client).toContain("data.departmentMatrix.length?");
-    expect(client).toContain("data.departmentMatrix.slice(0,10).map(");
+  it("bảng ma trận theo khoa/phòng chỉ hiện Khoa lâm sàng (qua clinicalDepartments, cùng định nghĩa với KPI), không còn Phòng (Ban Giám đốc,...) và không cắt 10 dòng", () => {
+    expect(client).toContain("clinicalDepartments.length?");
+    expect(client).toContain("clinicalDepartments.map((d,idx)=>");
+    expect(client).not.toContain("data.departmentMatrix.slice(0,10)");
   });
 });

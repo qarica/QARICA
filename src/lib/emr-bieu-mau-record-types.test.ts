@@ -8,11 +8,14 @@ import { EMR_CATEGORY_FIELDS } from "./emr-categories";
 // target_roles/storage_format rather than a new field type. Kept `compact`
 // so it doesn't reopen the "too many columns" complaint the grid declutter
 // pass just fixed.
+//
+// "Điều trị ban ngày" sau đó được yêu cầu gộp chung vào "Ngoại trú" (không
+// đóng gáy riêng) — còn lại 4 loại hồ sơ.
 describe("EMR Biểu mẫu — Loại hồ sơ áp dụng (record_types tick-list)", () => {
-  it("is a multiselect with the 5 requested record types, compact (detail panel, not a grid column)", () => {
+  it("is a multiselect with the 4 record types (Điều trị ban ngày đã gộp vào Ngoại trú), compact (detail panel, not a grid column)", () => {
     const field = EMR_CATEGORY_FIELDS.BIEU_MAU.find((f) => f.key === "record_types");
     expect(field?.type).toBe("multiselect");
     expect(field?.compact).toBe(true);
-    expect(field?.options).toEqual(["Khám bệnh", "Ngoại trú", "Cấp cứu", "Nội trú", "Điều trị ban ngày"]);
+    expect(field?.options).toEqual(["Khám bệnh", "Ngoại trú", "Cấp cứu", "Nội trú"]);
   });
 });

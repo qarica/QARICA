@@ -18,7 +18,7 @@ function sanitizeDetails(category: string, raw: unknown): Record<string, unknown
 }
 
 async function loadItemOrganization(admin: ReturnType<typeof createAdminClient>, id: string) {
-  const { data, error } = await admin.from("emr_rollout_items").select("id,organization_id,status,evidence_url,category,updated_by,title,description,details,due_date,priority,publish_status").eq("id", id).maybeSingle();
+  const { data, error } = await admin.from("emr_rollout_items").select("id,organization_id,status,evidence_url,category,updated_by,title,description,details,due_date,priority,publish_status,department_ids").eq("id", id).maybeSingle();
   return { data, error };
 }
 
@@ -158,12 +158,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   // đúng yêu cầu "sau khi duyệt mới triển khai, áp dụng, tiến độ". Dùng
   // publish_status HIỆU LỰC sau patch (có thể vừa tự rút lại duyệt ở nhánh
   // contentChanged phía trên trong cùng request).
+  //
+  // Phát hiện Cao: kiểm tra ban đầu "body.status !== TODO" / "body.department_ids
+  // !== undefined" chặn luôn CẢ request chỉ sửa nội dung (không đụng status/
+  // phạm vi áp dụng) — modal sửa luôn gửi lại NGUYÊN form.status và
+  // form.department_ids mỗi lần lưu (kể cả không đổi, department_ids luôn có
+  // mặt trong form dù ẩn fieldset cho BIEU_MAU), nên mọi lần sửa tiêu đề/mô tả
+  // của 1 biểu mẫu — kể cả vừa tạo, còn Nháp, department_ids=[] — đều bị
+  // CHÍNH 2 điều kiện này từ chối toàn bộ request dù người dùng không hề đụng
+  // tới trạng thái triển khai hay phạm vi áp dụng. Chỉ chặn khi giá trị THỰC
+  // SỰ đổi so với existing — cùng cách existing.status đã dùng để phân biệt
+  // "resend" với "transition thật" ở verify_completed phía trên
+  // (selfTransitionToDone).
   const effectivePublishStatus = typeof patch.publish_status === "string" ? patch.publish_status : existing.publish_status;
   if (existing.category === "BIEU_MAU" && effectivePublishStatus === "DRAFT") {
-    if (typeof body.status === "string" && body.status !== "TODO") {
+    if (typeof body.status === "string" && body.status !== existing.status && body.status !== "TODO") {
       return NextResponse.json({ error: "Biểu mẫu cần được duyệt phát hành trước khi chuyển trạng thái triển khai." }, { status: 400 });
     }
-    if (body.department_ids !== undefined) {
+    const existingDepartmentIds = JSON.stringify([...(existing.department_ids || [])].sort());
+    const nextDepartmentIds = "department_ids" in patch ? JSON.stringify([...(patch.department_ids as string[])].sort()) : existingDepartmentIds;
+    if (nextDepartmentIds !== existingDepartmentIds) {
       return NextResponse.json({ error: "Biểu mẫu cần được duyệt phát hành trước khi gán phạm vi áp dụng." }, { status: 400 });
     }
     const existingRecordTypes = (existing.details as Record<string, unknown> | null)?.record_types;

@@ -41,7 +41,7 @@ describe("EMR security and control gates", () => {
   // case (verifier is the same person who last touched the item).
   it("blocks self-verification of the go-live gate (verifier must differ from whoever last updated the item)", () => {
     const route = read("src/app/api/emr/items/[id]/route.ts");
-    expect(route).toContain('select("id,organization_id,status,evidence_url,category,updated_by,title,description,details,due_date,priority,publish_status")');
+    expect(route).toContain('select("id,organization_id,status,evidence_url,category,updated_by,title,description,details,due_date,priority,publish_status,department_ids")');
     expect(route).toContain('const selfTransitionToDone = typeof body.status === "string" && body.status === "DONE" && existing.status !== "DONE";');
     expect(route).toContain("selfTransitionToDone || existing.updated_by === auth.user.id");
     expect(route).toContain("Người xác minh phải khác người vừa cập nhật hạng mục này");

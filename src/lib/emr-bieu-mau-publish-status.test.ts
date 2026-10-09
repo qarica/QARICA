@@ -49,10 +49,27 @@ describe("EMR Biểu mẫu — trạng thái duyệt phát hành (publish_status
   });
 
   it("PATCH: chặn chuyển trạng thái triển khai, gán khoa/phòng, và gán loại hồ sơ bệnh án khi biểu mẫu còn Nháp", () => {
-    expect(patchRoute).toContain('if (typeof body.status === "string" && body.status !== "TODO") {');
     expect(patchRoute).toContain('error: "Biểu mẫu cần được duyệt phát hành trước khi chuyển trạng thái triển khai."');
-    expect(patchRoute).toContain('if (body.department_ids !== undefined) {');
+    expect(patchRoute).toContain('error: "Biểu mẫu cần được duyệt phát hành trước khi gán phạm vi áp dụng."');
     expect(patchRoute).toContain('if ("details" in patch && nextRecordTypes !== existingRecordTypes) {');
+  });
+
+  // Phát hiện Cao (tự rà sau khi ship): modal sửa luôn gửi lại NGUYÊN
+  // form.status và form.department_ids mỗi lần lưu, kể cả không đổi —
+  // department_ids luôn có mặt trong form dù fieldset bị ẩn cho BIEU_MAU. Nếu
+  // 2 gate ở trên chỉ kiểm tra "có mặt trong body" (không so giá trị thực sự
+  // đổi), thì MỌI lần sửa tiêu đề/mô tả của MỘT BIỂU MẪU MỚI TẠO (mặc định
+  // Nháp, department_ids=[]) đều bị chính 2 gate đó từ chối toàn bộ request —
+  // tức là modal sửa biểu mẫu bị hỏng hoàn toàn cho mọi hạng mục còn Nháp.
+  it("PATCH: gate status/department_ids chỉ chặn khi GIÁ TRỊ thực sự đổi so với existing — sửa nội dung không đụng status/phạm vi (kể cả khi modal resend nguyên giá trị cũ) không bị từ chối nhầm", () => {
+    expect(patchRoute).toContain('if (typeof body.status === "string" && body.status !== existing.status && body.status !== "TODO") {');
+    expect(patchRoute).toContain("const existingDepartmentIds = JSON.stringify([...(existing.department_ids || [])].sort());");
+    expect(patchRoute).toContain('const nextDepartmentIds = "department_ids" in patch ? JSON.stringify([...(patch.department_ids as string[])].sort()) : existingDepartmentIds;');
+    expect(patchRoute).toContain("if (nextDepartmentIds !== existingDepartmentIds) {");
+    // existing.department_ids phải được SELECT ra thì so sánh ở trên mới có ý
+    // nghĩa — thiếu field này trong loadItemOrganization sẽ luôn so khớp với
+    // undefined, vô tình chặn nhầm y hệt lỗi ban đầu.
+    expect(patchRoute).toContain('select("id,organization_id,status,evidence_url,category,updated_by,title,description,details,due_date,priority,publish_status,department_ids")');
   });
 
   it("PATCH: ghi audit_logs khi duyệt phát hành (EMR_ITEM_PUBLISH), cùng bảng audit_logs dùng chung cho cả module", () => {

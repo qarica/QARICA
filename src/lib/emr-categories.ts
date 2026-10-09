@@ -238,9 +238,10 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
     // cùng với việc gán nhóm, không phải cột riêng trong lưới chính.
     { key: "binding_group_order", label: "Thứ tự trong gáy", type: "number", hideFromGrid: true },
     // Hồ sơ bệnh án đóng gáy riêng theo loại: Khám bệnh/Ngoại trú/Cấp cứu/Nội
-    // trú/Điều trị ban ngày — 1 biểu mẫu có thể dùng chung cho nhiều loại hồ
-    // sơ nên tick chọn (multiselect), không phải 1 lựa chọn duy nhất.
-    { key: "record_types", label: "Loại hồ sơ áp dụng", type: "multiselect", options: ["Khám bệnh", "Ngoại trú", "Cấp cứu", "Nội trú", "Điều trị ban ngày"], compact: true },
+    // trú — 1 biểu mẫu có thể dùng chung cho nhiều loại hồ sơ nên tick chọn
+    // (multiselect), không phải 1 lựa chọn duy nhất. "Điều trị ban ngày" đã
+    // gộp chung vào "Ngoại trú" theo yêu cầu thực tế (không tách gáy riêng).
+    { key: "record_types", label: "Loại hồ sơ áp dụng", type: "multiselect", options: ["Khám bệnh", "Ngoại trú", "Cấp cứu", "Nội trú"], compact: true },
     { key: "digitized", label: "Tình trạng số hóa", type: "select", options: ["Đã số hóa", "Chưa số hóa"] },
     // Giai đoạn triển khai sau khi số hóa: Demo -> UAT -> Chạy chính thức.
     // Giữ nguyên tắc hạn chế nhập tự do (như QLCL) — chọn từ danh sách cố
