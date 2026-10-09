@@ -776,9 +776,10 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
               </label>
 
               <label>Trạng thái triển khai
-                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                <select value={form.status} disabled={categoryCode === "BIEU_MAU" && !!editing && editing.publish_status === "DRAFT"} onChange={(e) => setForm({ ...form, status: e.target.value })}>
                   {Object.entries(EMR_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
+                {categoryCode === "BIEU_MAU" && editing && editing.publish_status === "DRAFT" ? <small className="muted">Biểu mẫu cần được duyệt phát hành trước khi chuyển trạng thái triển khai.</small> : null}
               </label>
               {extraFields.filter((f) => f.pairWithStatus).map((f) => (
                 <label key={f.key}>{f.label}

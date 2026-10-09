@@ -139,11 +139,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   // sánh details SAU KHI loại record_types ra, nếu không mỗi lần tick/bỏ tick
   // loại hồ sơ bệnh án trong ma trận sẽ bị hiểu nhầm thành "sửa nội dung" và
   // tự rút biểu mẫu đã duyệt về Nháp.
-  const detailsWithoutRecordTypes = (d: Record<string, unknown> | null | undefined) => { const rest = { ...(d || {}) }; delete rest.record_types; return rest; };
+  //
+  // Tự rà sau khi ship: binding_group/binding_group_order cũng là tác vụ vận
+  // hành (gán nhóm gáy/đổi thứ tự ở màn hình "Cây biểu mẫu"), không phải nội
+  // dung khai báo — PATCH của Cây biểu mẫu gửi { details: {...it.details,
+  // binding_group/binding_group_order: ... } } trên MỌI biểu mẫu, kể cả đã
+  // Published. Nếu không loại 2 field này, chỉ việc kéo-thả đổi nhóm/thứ tự
+  // gáy (không đụng nội dung biểu mẫu) sẽ tự rút biểu mẫu đã duyệt về Nháp.
+  const detailsForContentComparison = (d: Record<string, unknown> | null | undefined) => { const rest = { ...(d || {}) }; delete rest.record_types; delete rest.binding_group; delete rest.binding_group_order; return rest; };
   const contentChanged = existing.category === "BIEU_MAU" && !justPublished && (
     (typeof patch.title === "string" && patch.title !== existing.title) ||
     ("description" in patch && patch.description !== existing.description) ||
-    ("details" in patch && JSON.stringify(detailsWithoutRecordTypes(patch.details as Record<string, unknown>)) !== JSON.stringify(detailsWithoutRecordTypes(existing.details))) ||
+    ("details" in patch && JSON.stringify(detailsForContentComparison(patch.details as Record<string, unknown>)) !== JSON.stringify(detailsForContentComparison(existing.details))) ||
     ("due_date" in patch && patch.due_date !== existing.due_date) ||
     (typeof patch.priority === "string" && patch.priority !== existing.priority)
   );
@@ -195,7 +202,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  if (existing.category === "BIEU_MAU") await autoCreateTrainingTaskIfNeeded(admin, organizationId, auth.user.id, data);
+  // Tự rà sau khi ship: hàm này trước đây chạy trên MỌI lần PATCH biểu mẫu,
+  // kể cả còn Nháp (chưa duyệt phát hành) — chỉ cần tick "Cần đào tạo" trong
+  // details (field không bị gate publish_status chặn) là đã tự tạo nhiệm vụ
+  // Đào tạo ngay, đi trước cả bước duyệt phát hành. Đúng yêu cầu "sau khi
+  // duyệt mới triển khai" — chỉ tự tạo khi biểu mẫu ĐÃ duyệt.
+  if (existing.category === "BIEU_MAU" && data.publish_status === "PUBLISHED") await autoCreateTrainingTaskIfNeeded(admin, organizationId, auth.user.id, data);
 
   // Status transitions are logged into the SAME audit_logs table every other
   // module already writes to (and /admin/audit-log already reads generically

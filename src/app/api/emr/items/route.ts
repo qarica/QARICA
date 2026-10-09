@@ -107,7 +107,11 @@ export async function POST(request: Request) {
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  if (category === "BIEU_MAU") await autoCreateTrainingTaskIfNeeded(admin, organizationId, auth.user.id, data);
+  // Biểu mẫu mới luôn tạo ở Nháp (xem effectiveDepartmentIds ở trên) nên
+  // nhánh publish_status==="PUBLISHED" ở đây hiện luôn false — giữ cùng điều
+  // kiện với PATCH route (nguồn duy nhất quyết định "khi nào tự tạo nhiệm vụ
+  // đào tạo") để không tự tạo nhiệm vụ đào tạo trước khi biểu mẫu được duyệt.
+  if (category === "BIEU_MAU" && data.publish_status === "PUBLISHED") await autoCreateTrainingTaskIfNeeded(admin, organizationId, auth.user.id, data);
 
   return NextResponse.json({ ok: true, item: data });
 }

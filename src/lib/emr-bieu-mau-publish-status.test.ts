@@ -44,8 +44,18 @@ describe("EMR Biểu mẫu — trạng thái duyệt phát hành (publish_status
   });
 
   it("PATCH: record_types (gán phạm vi loại hồ sơ bệnh án) KHÔNG được coi là 'sửa nội dung' — loại record_types trước khi so sánh details, tránh tick ô ma trận tự rút biểu mẫu về Nháp", () => {
-    expect(patchRoute).toContain("const detailsWithoutRecordTypes = (d: Record<string, unknown> | null | undefined) => { const rest = { ...(d || {}) }; delete rest.record_types; return rest; };");
-    expect(patchRoute).toContain("JSON.stringify(detailsWithoutRecordTypes(patch.details as Record<string, unknown>)) !== JSON.stringify(detailsWithoutRecordTypes(existing.details))");
+    expect(patchRoute).toContain("const detailsForContentComparison = (d: Record<string, unknown> | null | undefined) => { const rest = { ...(d || {}) }; delete rest.record_types; delete rest.binding_group; delete rest.binding_group_order; return rest; };");
+    expect(patchRoute).toContain("JSON.stringify(detailsForContentComparison(patch.details as Record<string, unknown>)) !== JSON.stringify(detailsForContentComparison(existing.details))");
+  });
+
+  // Tự rà sau khi ship: "Cây biểu mẫu" (đổi nhóm gáy/thứ tự trong gáy) PATCH
+  // { details: {...it.details, binding_group/binding_group_order} } trên MỌI
+  // biểu mẫu kể cả đã Published — nếu không loại 2 field này khỏi so sánh,
+  // chỉ việc kéo-thả sắp xếp lại gáy (không đụng nội dung biểu mẫu) sẽ tự rút
+  // biểu mẫu đã duyệt về Nháp, buộc duyệt lại oan uổng.
+  it("PATCH: binding_group/binding_group_order (tổ chức gáy ở Cây biểu mẫu) cũng KHÔNG được coi là 'sửa nội dung' — đổi nhóm/thứ tự gáy không tự rút biểu mẫu Published về Nháp", () => {
+    expect(patchRoute).toContain("delete rest.binding_group;");
+    expect(patchRoute).toContain("delete rest.binding_group_order;");
   });
 
   it("PATCH: chặn chuyển trạng thái triển khai, gán khoa/phòng, và gán loại hồ sơ bệnh án khi biểu mẫu còn Nháp", () => {
@@ -89,5 +99,16 @@ describe("EMR Biểu mẫu — trạng thái duyệt phát hành (publish_status
 
   it("UI: KPI 'Tiến độ triển khai' loại biểu mẫu Nháp khỏi đếm (chỉ BIEU_MAU)", () => {
     expect(client).toContain('const kpiItems = categoryCode === "BIEU_MAU" ? items.filter((i) => i.publish_status !== "DRAFT") : items;');
+  });
+
+  // Tự rà sau khi ship: select "Trạng thái triển khai" trong modal sửa KHÔNG
+  // bị vô hiệu hoá khi sửa 1 biểu mẫu Nháp, dù server đã chặn chuyển trạng
+  // thái ở gate PATCH — người dùng chọn 1 trạng thái khác rồi bấm Lưu mới
+  // thấy lỗi "cần duyệt phát hành trước", giống đúng kiểu bug ô nhập "trông
+  // như sửa được nhưng không sửa được" mà CLAUDE.md yêu cầu đối chiếu UI↔API.
+  // Disable select ngay trong modal, nhất quán với scopeLocked ở ma trận.
+  it("UI: select 'Trạng thái triển khai' trong modal sửa bị vô hiệu hoá khi biểu mẫu còn Nháp, kèm ghi chú lý do", () => {
+    expect(client).toContain('disabled={categoryCode === "BIEU_MAU" && !!editing && editing.publish_status === "DRAFT"}');
+    expect(client).toContain("Biểu mẫu cần được duyệt phát hành trước khi chuyển trạng thái triển khai.");
   });
 });

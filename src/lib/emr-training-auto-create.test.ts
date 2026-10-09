@@ -28,11 +28,24 @@ describe("Biểu mẫu 'Cần đào tạo' tự tạo nhiệm vụ Đào tạo, 
   it("được gọi từ cả POST (tạo mới) và PATCH (sửa) của items route, chỉ khi category là BIEU_MAU", () => {
     const postRoute = read("src/app/api/emr/items/route.ts");
     expect(postRoute).toContain('import { autoCreateTrainingTaskIfNeeded } from "@/lib/emr-training-auto-create";');
-    expect(postRoute).toContain('if (category === "BIEU_MAU") await autoCreateTrainingTaskIfNeeded(admin, organizationId, auth.user.id, data);');
+    expect(postRoute).toContain('if (category === "BIEU_MAU" && data.publish_status === "PUBLISHED") await autoCreateTrainingTaskIfNeeded(admin, organizationId, auth.user.id, data);');
 
     const patchRoute = read("src/app/api/emr/items/[id]/route.ts");
     expect(patchRoute).toContain('import { autoCreateTrainingTaskIfNeeded } from "@/lib/emr-training-auto-create";');
-    expect(patchRoute).toContain('if (existing.category === "BIEU_MAU") await autoCreateTrainingTaskIfNeeded(admin, organizationId, auth.user.id, data);');
+    expect(patchRoute).toContain('if (existing.category === "BIEU_MAU" && data.publish_status === "PUBLISHED") await autoCreateTrainingTaskIfNeeded(admin, organizationId, auth.user.id, data);');
+  });
+
+  // Tự rà sau khi ship tính năng duyệt phát hành: trước đây hàm này chạy trên
+  // MỌI lần PATCH biểu mẫu kể cả còn Nháp — training_required không nằm
+  // trong các field bị gate publish_status chặn, nên chỉ cần tick "Cần đào
+  // tạo" là đã tự tạo nhiệm vụ Đào tạo ngay, đi trước cả bước duyệt phát
+  // hành (đúng yêu cầu "sau khi duyệt mới triển khai"). Chỉ tự tạo khi biểu
+  // mẫu ĐÃ duyệt (publish_status === PUBLISHED trên bản ghi SAU khi lưu).
+  it("chỉ tự tạo nhiệm vụ đào tạo khi biểu mẫu ĐÃ duyệt phát hành (publish_status === PUBLISHED), không tạo khi còn Nháp", () => {
+    const postRoute = read("src/app/api/emr/items/route.ts");
+    expect(postRoute).toContain('data.publish_status === "PUBLISHED"');
+    const patchRoute = read("src/app/api/emr/items/[id]/route.ts");
+    expect(patchRoute).toContain('data.publish_status === "PUBLISHED"');
   });
 
   it("DAO_TAO có field 'Đối tượng cần đào tạo' (target_roles) dùng chung options với Biểu mẫu", () => {

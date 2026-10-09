@@ -23,7 +23,8 @@ describe("EMR — generic status column relabeled for clarity", () => {
   });
 
   it("only the label changed — the underlying status values/select options are untouched", () => {
-    expect(client).toContain("value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}");
+    expect(client).toContain("value={form.status}");
+    expect(client).toContain("onChange={(e) => setForm({ ...form, status: e.target.value })}");
     expect(client).toContain("Object.entries(EMR_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)");
   });
 });
