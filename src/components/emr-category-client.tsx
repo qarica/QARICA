@@ -87,6 +87,12 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   // order as loaded) — clicking the Tiêu đề header cycles STT -> A-Z -> Z-A.
   const [titleSort, setTitleSort] = useState<"default" | "asc" | "desc">("default");
   function cycleTitleSort() { setTitleSort((s) => (s === "default" ? "asc" : s === "asc" ? "desc" : "default")); }
+  // Yêu cầu thực tế: "Bổ sung nút lọc biểu mẫu đã phát hành và chờ duyệt
+  // phát hành" — chỉ áp dụng cho BIEU_MAU (các danh mục khác không có khái
+  // niệm duyệt phát hành). Lọc trên `filtered` (sau search/sort), không đổi
+  // `items` gốc — giữ nguyên các chỗ khác (KPI, ma trận...) vẫn đọc items đầy
+  // đủ.
+  const [publishFilter, setPublishFilter] = useState<"ALL" | "PUBLISHED" | "DRAFT">("ALL");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Item | null>(null);
@@ -392,10 +398,11 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
 
   const filtered = useMemo(() => {
     const text = search.trim().toLowerCase();
-    const rows = text ? items.filter((i) => `${i.title} ${i.description || ""}`.toLowerCase().includes(text)) : items;
+    let rows = text ? items.filter((i) => `${i.title} ${i.description || ""}`.toLowerCase().includes(text)) : items;
+    if (categoryCode === "BIEU_MAU" && publishFilter !== "ALL") rows = rows.filter((i) => i.publish_status === publishFilter);
     if (titleSort === "default") return rows;
     return [...rows].sort((a, b) => titleSort === "asc" ? a.title.localeCompare(b.title, "vi") : b.title.localeCompare(a.title, "vi"));
-  }, [items, search, titleSort]);
+  }, [items, search, titleSort, categoryCode, publishFilter]);
 
   // Shared by both the regular table columns and the compact-fields detail
   // panel, so the two never render a field differently.
@@ -445,7 +452,15 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
         <style>{`.emr-cat-kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}.emr-cat-kpi-icon.blue{background:#dbeafe;color:#2563eb}.emr-cat-kpi-icon.green{background:#dcfce7;color:#16a34a}.emr-cat-kpi-icon.amber{background:#fef3c7;color:#b45309}.emr-cat-kpi-icon.red{background:#fee2e2;color:#dc2626}.emr-cat-kpi-icon.slate{background:#e2e8f0;color:#475569}`}</style>
       </section> : null}
       <div className="toolbar" style={{ padding: "0 0 4px" }}>
-        <div className="toolbar-left"><div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Tìm trong ${categoryLabel.toLowerCase()}...`} /></div></div>
+        <div className="toolbar-left"><div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Tìm trong ${categoryLabel.toLowerCase()}...`} /></div>
+          {categoryCode === "BIEU_MAU" ? (
+            <div style={{ display: "flex", gap: 6 }}>
+              <button type="button" className={`button ${publishFilter === "ALL" ? "primary" : "tertiary"} small`} onClick={() => setPublishFilter("ALL")}>Tất cả</button>
+              <button type="button" className={`button ${publishFilter === "PUBLISHED" ? "primary" : "tertiary"} small`} onClick={() => setPublishFilter("PUBLISHED")}>Đã phát hành</button>
+              <button type="button" className={`button ${publishFilter === "DRAFT" ? "primary" : "tertiary"} small`} onClick={() => setPublishFilter("DRAFT")}>Chờ duyệt phát hành</button>
+            </div>
+          ) : null}
+        </div>
         {hasProgressSplit ? (
           <div className="toolbar-right" style={{ display: "flex", gap: 6 }}>
             <button type="button" className={`button ${view === "info" ? "primary" : "tertiary"} small`} onClick={() => setView("info")}>Thông tin {categoryLabel.toLowerCase()}</button>
@@ -461,7 +476,9 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
       ) : items.length === 0 ? (
         <div className="empty-state">Chưa có mục nào trong &quot;{categoryLabel}&quot;.{canManage ? <> Bấm &quot;+ Thêm mục&quot; để tạo mới.</> : null}</div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state">Không tìm thấy mục phù hợp với &quot;{search}&quot;.</div>
+        <div className="empty-state">
+          {search ? <>Không tìm thấy mục phù hợp với &quot;{search}&quot;.</> : publishFilter === "PUBLISHED" ? "Chưa có biểu mẫu nào đã phát hành." : publishFilter === "DRAFT" ? "Không còn biểu mẫu nào chờ duyệt phát hành." : "Không tìm thấy mục phù hợp."}
+        </div>
       ) : view === "scope" ? (
         <div className="panel emr-scope-matrix">
           {!clinicalDepartments.length && !recordTypeOptions.length ? (
