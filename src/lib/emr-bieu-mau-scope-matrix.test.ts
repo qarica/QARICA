@@ -14,8 +14,8 @@ describe("EMR Khai báo biểu mẫu — ma trận Phạm vi áp dụng tách kh
     expect(client).toContain('categoryCode === "BIEU_MAU" ? <button type="button" className={`button ${view === "scope" ? "primary" : "tertiary"} small`} onClick={() => setView("scope")}>Phạm vi áp dụng</button> : null');
   });
 
-  it("view state có thêm chế độ 'scope' bên cạnh info/progress", () => {
-    expect(client).toContain('useState<"info" | "progress" | "scope">("info")');
+  it("view state có thêm chế độ 'scope' bên cạnh info/progress/notes", () => {
+    expect(client).toContain('useState<"info" | "progress" | "scope" | "notes">("info")');
   });
 
   it("render ma trận hàng=biểu mẫu, cột=khoa khi view==='scope'", () => {

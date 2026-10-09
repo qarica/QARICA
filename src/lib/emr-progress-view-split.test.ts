@@ -26,18 +26,19 @@ describe("EMR grid — Thông tin / Tiến độ triển khai tab split", () => 
     expect(fields.find((f) => f.key === "deployment_phase")?.progressField).toBeFalsy();
   });
 
-  it("splits columnFields into infoColumns/progressColumns, and only shows the tab switcher when a category actually has progressField columns", () => {
+  it("splits columnFields into infoColumns/progressColumns, and only shows the tab switcher when a category actually has progressField columns or a Lỗi/Ghi chú split", () => {
     expect(client).toContain("const infoColumns = columnFields.filter((f) => !f.progressField);");
     expect(client).toContain("const progressColumns = columnFields.filter((f) => f.progressField);");
     expect(client).toContain("const hasProgressSplit = progressColumns.length > 0;");
-    expect(client).toContain('{hasProgressSplit ? (');
+    expect(client).toContain("const hasTabs = hasProgressSplit || hasNotesSplit;");
+    expect(client).toContain('{hasTabs ? (');
   });
 
   it("a category with no progressField fields keeps its single unified table — visible columns and the description/priority/due/status fields all stay on regardless of `view`", () => {
-    expect(client).toContain('const showDescription = !(hasProgressSplit && view === "progress");');
-    expect(client).toContain('const showPriorityDueStatus = !(hasProgressSplit && view === "info");');
-    expect(client).toContain('const visibleInfoColumns = hasProgressSplit && view === "progress" ? [] : infoColumns;');
-    expect(client).toContain('const visibleProgressColumns = hasProgressSplit && view === "info" ? [] : progressColumns;');
+    expect(client).toContain('const showDescription = !(hasProgressSplit && view === "progress") && view !== "notes";');
+    expect(client).toContain('const showPriorityDueStatus = !(hasProgressSplit && view === "info") && view !== "notes";');
+    expect(client).toContain('const visibleInfoColumns = (hasProgressSplit && view === "progress") || view === "notes" ? [] : infoColumns;');
+    expect(client).toContain('const visibleProgressColumns = (hasProgressSplit && view === "info") || view === "notes" ? [] : progressColumns;');
   });
 
   it("the generic Ưu tiên/Hạn/Trạng thái triển khai columns move to the Tiến độ triển khai tab together with progressField columns, not the info tab", () => {
