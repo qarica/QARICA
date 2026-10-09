@@ -13,10 +13,18 @@ export async function GET(req: NextRequest) {
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
   const { data, error } = await admin.from("emr_rollout_items")
-    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,created_at,updated_at")
+    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,publish_status,created_at,updated_at")
     .eq("organization_id", organizationId).order("updated_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  const allItems = data ?? [];
+  // Báo cáo thực tế: "Tổng quan EMR chưa đồng bộ" sau khi reset Biểu mẫu về
+  // Nháp — route này trước đó không lọc publish_status nên mọi KPI/biểu đồ/ma
+  // trận/escalation ở Tổng quan vẫn đếm Biểu mẫu Nháp y như đã duyệt, trong
+  // khi trang chi tiết Biểu mẫu (kpiItems ở emr-category-client.tsx) đã loại.
+  // Lọc ngay tại nguồn duy nhất này để MỌI tính toán phía dưới (counts,
+  // categories, departmentMatrix, escalation, upcoming, controlCoverage...)
+  // tự động đồng nhất — đúng nguyên tắc 1 nguồn sự thật, không lọc rải rác
+  // từng chỗ dùng.
+  const allItems = (data ?? []).filter((x) => !(x.category === "BIEU_MAU" && x.publish_status === "DRAFT"));
   const rawFrom = req.nextUrl.searchParams.get("from") || "";
   const rawTo = req.nextUrl.searchParams.get("to") || "";
   const from = DATE_RE.test(rawFrom) ? rawFrom : "";
