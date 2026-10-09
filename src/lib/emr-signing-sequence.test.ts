@@ -20,6 +20,13 @@ import { EMR_CATEGORY_FIELDS, formatSequenceStep, formatSequenceValue, parseSequ
 // "no free text at all" rule only ever meant "don't make the whole role
 // picker free text"; a bounded escape hatch for the one explicit "Khác"
 // option is a different, later, explicit request.
+//
+// Further requests: "Chủ tọa" (presiding chair) added as a sequence-step
+// role (meetings/minutes needing this role in the signing order), and
+// "Ký điện tử/Vân tay" added as its OWN phương thức ký, distinct from plain
+// "Vân tay" (biometric auth in general) and plain "Ký điện tử" (not
+// necessarily biometric) — "bổ sung thêm chổ phương thức ký: 'ký điện
+// tử/Vân tay' để phân biệt với ký điện tử".
 describe("EMR Biểu mẫu — signing_sequence as an ordered role sequence", () => {
   const fields = EMR_CATEGORY_FIELDS.BIEU_MAU;
   const client = readFileSync("src/components/emr-category-client.tsx", "utf8");
@@ -30,15 +37,15 @@ describe("EMR Biểu mẫu — signing_sequence as an ordered role sequence", ()
     expect(signing?.type).toBe("sequence");
     for (const role of targetRoles?.options ?? []) expect(signing?.options).toContain(role);
     expect(signing?.options).toContain("Đóng mộc");
-    for (const role of ["Phẫu thuật viên", "BS GMHS", "Điều dưỡng trưởng"]) expect(signing?.options).toContain(role);
+    for (const role of ["Phẫu thuật viên", "BS GMHS", "Điều dưỡng trưởng", "Chủ tọa"]) expect(signing?.options).toContain(role);
     // "Đóng mộc" is a signing-flow step, not a performing role — it must
     // NOT leak into target_roles (Đối tượng thực hiện).
     expect(targetRoles?.options).not.toContain("Đóng mộc");
   });
 
-  it("declares methodOptions (phương thức ký) for signing_sequence", () => {
+  it("declares methodOptions (phương thức ký) for signing_sequence, including 'Ký điện tử/Vân tay' as distinct from plain 'Ký điện tử' and plain 'Vân tay'", () => {
     const signing = fields.find((f) => f.key === "signing_sequence");
-    expect(signing?.methodOptions).toEqual(["Nhập liệu", "Ký số", "Ký điện tử", "Vân tay", "Đóng dấu"]);
+    expect(signing?.methodOptions).toEqual(["Nhập liệu", "Ký số", "Ký điện tử", "Vân tay", "Ký điện tử/Vân tay", "Đóng dấu"]);
   });
 
   it("sequenceSteps()/formatSequenceValue() parse and render an ordered, numbered list — not a plain join", () => {

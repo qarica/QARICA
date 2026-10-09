@@ -76,6 +76,14 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   // right in the training_required cell instead of a generic "N liên quan"
   // column, so it isn't shown twice.
   const genericIncomingReferences = incomingReferences.filter((r) => r.category !== "DAO_TAO");
+  // Yêu cầu thực tế: "Anh cần 1 nút để xem lỗi và ghi chú" — Lỗi liên quan
+  // (categoriesReferencing) và Ghi chú (field "notes") đã có sẵn dữ liệu
+  // nhưng chỉ lộ ra khi bấm mũi tên "▸ Xem chi tiết" chung (lẫn cùng mọi
+  // field compact khác) — thêm 1 nút riêng, rõ nhãn, chỉ hiện khi danh mục
+  // thực sự có 1 trong 2 thứ này (generic, không hard-code riêng BIEU_MAU).
+  const loiReference = incomingReferences.find((r) => r.category === "LOI");
+  const hasNotesField = extraFields.some((f) => f.key === "notes");
+  const [notesPopoverItem, setNotesPopoverItem] = useState<Item | null>(null);
   const [refItems, setRefItems] = useState<Record<string, { id: string; title: string; details: Record<string, unknown> }[]>>({});
   const slugForCode = (code: string) => EMR_CATEGORIES.find((c) => c.code === code)?.slug || "";
   const categoryLabelFor = (code: string) => EMR_CATEGORIES.find((c) => c.code === code)?.label || code;
@@ -620,7 +628,17 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                       <span className={`status-badge ${item.publish_status==="PUBLISHED"?"success":"warning"}`}>{item.publish_status==="PUBLISHED"?"Đã duyệt":"Nháp"}</span>
                       {item.publish_status==="DRAFT" && canManage ? <div><button type="button" className="button tertiary small" style={{marginTop:4}} onClick={()=>publishItem(item)}>Duyệt phát hành</button></div> : null}
                     </td>:null}
-                    <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>{canManage ? <>
+                    <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      {loiReference || hasNotesField ? (
+                        <button type="button" className="button tertiary small" onClick={() => setNotesPopoverItem(item)}>
+                          Lỗi &amp; Ghi chú
+                          {loiReference ? (() => {
+                            const loiCount = (refItems.LOI || []).filter((r) => r.details?.[loiReference.field.key] === item.id).length;
+                            return loiCount ? <span className="status-badge danger" style={{ marginLeft: 5 }}>{loiCount}</span> : null;
+                          })() : null}
+                        </button>
+                      ) : null}
+                      {canManage ? <>
                       <button type="button" className="button tertiary small" onClick={() => openEdit(item)}>Sửa</button>
                       <button type="button" className="button tertiary small" onClick={() => remove(item)}>Xoá</button>
                     </> : <small>Chỉ xem</small>}</td>
@@ -646,6 +664,39 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
           </div>
         </div>
       )}
+
+      {notesPopoverItem ? (
+        <div className="modal-backdrop" onClick={() => setNotesPopoverItem(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head"><h3>Lỗi &amp; Ghi chú — {notesPopoverItem.title}</h3></div>
+            <div className="modal-body">
+              {hasNotesField ? (
+                <div>
+                  <label><span>Ghi chú</span></label>
+                  <div>{notesPopoverItem.details?.notes ? String(notesPopoverItem.details.notes) : "—"}</div>
+                </div>
+              ) : null}
+              {loiReference ? (() => {
+                const loiItems = (refItems.LOI || []).filter((r) => r.details?.[loiReference.field.key] === notesPopoverItem.id);
+                return (
+                  <div style={{ marginTop: hasNotesField ? 16 : 0 }}>
+                    <label><span>Lỗi liên quan ({loiItems.length})</span></label>
+                    {loiItems.length ? (
+                      <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                        {loiItems.map((loi) => <li key={loi.id}><Link className="table-link" href="/emr/loi">{loi.title}</Link></li>)}
+                      </ul>
+                    ) : <div>Chưa có lỗi nào được ghi nhận cho mục này.</div>}
+                    <div style={{ marginTop: 8 }}><Link className="table-link" href="/emr/loi">Ghi nhận lỗi mới →</Link></div>
+                  </div>
+                );
+              })() : null}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="button secondary" onClick={() => setNotesPopoverItem(null)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {canManage && (creating || editing) ? (
         <div className="modal-backdrop" onClick={closeModal}>

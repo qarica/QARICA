@@ -308,7 +308,17 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
     // lâm sàng còn thiếu; "Khác" cho nhập tự do (xử lý chung ở modal cho MỌI
     // field "sequence" có option "Khác", không hard-code riêng field này —
     // xem renderSequenceRoleControl trong emr-category-client.tsx).
-    { key: "signing_sequence", label: "Trình tự ký", type: "sequence", options: ["Bác sĩ", "Điều dưỡng", "Phẫu thuật viên", "BS GMHS", "Điều dưỡng trưởng", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Phòng hành chính (đóng dấu)", "Đóng mộc", "Khác"], methodOptions: ["Nhập liệu", "Ký số", "Ký điện tử", "Vân tay", "Đóng dấu"], compact: true },
+    //
+    // Yêu cầu thực tế tiếp theo: "Bổ sung trình tự ký có chủ tọa" — một số
+    // cuộc họp/biên bản cần vai trò "Chủ tọa" trong trình tự ký.
+    //
+    // Yêu cầu thực tế tiếp theo: "bổ sung thêm chổ phương thức ký: 'ký điện
+    // tử/Vân tay' để phân biệt với ký điện tử" — "Vân tay" trong danh sách
+    // phương thức ký hiện có nghĩa là xác thực sinh trắc học nói chung
+    // (không nhất thiết là ký điện tử); bổ sung thêm 1 phương thức riêng
+    // "Ký điện tử/Vân tay" cho trường hợp ký điện tử được xác thực bằng vân
+    // tay — giữ nguyên "Ký điện tử" và "Vân tay" cũ, không gộp/xoá.
+    { key: "signing_sequence", label: "Trình tự ký", type: "sequence", options: ["Bác sĩ", "Điều dưỡng", "Phẫu thuật viên", "BS GMHS", "Điều dưỡng trưởng", "Chủ tọa", "NB/NNNB", "Kế toán", "CSKH", "Giám đốc chuyên môn", "Trưởng khoa", "Kỹ thuật viên", "Phòng hành chính (đóng dấu)", "Đóng mộc", "Khác"], methodOptions: ["Nhập liệu", "Ký số", "Ký điện tử", "Vân tay", "Ký điện tử/Vân tay", "Đóng dấu"], compact: true },
     { key: "storage_format", label: "Hình thức lưu trữ", type: "multiselect", options: ["Bản điện tử", "Bản giấy", "Scan"], compact: true },
     { key: "notes", label: "Ghi chú", type: "textarea", compact: true },
     { key: "patient_portal_visible", label: "Hiển thị trên Patient Portal", type: "boolean", compact: true },
