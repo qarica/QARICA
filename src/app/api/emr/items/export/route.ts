@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   const [itemsRes, departmentsRes] = await Promise.all([
     admin
       .from("emr_rollout_items")
-      .select("title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,details,created_at")
+      .select("title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,details,publish_status,created_at")
       .eq("organization_id", organizationId)
       .eq("category", category.code)
       .order("created_at", { ascending: false }),
@@ -51,14 +51,22 @@ export async function GET(request: Request) {
     return esc(raw ?? "");
   }
 
+  // Báo cáo thực tế: Excel xuất ra không có cách nào phân biệt Biểu mẫu Nháp
+  // (chưa duyệt phát hành) với đã duyệt — trùng đúng kiểu thiếu nhất quán
+  // UI↔export CLAUDE.md yêu cầu đối chiếu: lưới chính đã có cột "Duyệt phát
+  // hành" (emr-category-client.tsx) nhưng export lại không, dễ báo cáo nhầm
+  // 1 biểu mẫu còn Nháp như đã chính thức. Chỉ thêm cột cho BIEU_MAU, các
+  // danh mục khác không có khái niệm duyệt phát hành.
+  const isBieuMau = category.code === "BIEU_MAU";
   function rowHtml(it: any, i: number) {
     const extraCells = extraFields.map((f) => `<td>${cellValue(f, it)}</td>`).join("");
     const departmentLabel = (it.department_ids ?? []).length ? (it.department_ids as string[]).map((id) => deptName.get(id) || "—").join(", ") : "Toàn viện";
-    return `<tr><td>${i + 1}</td><td>${esc(it.title)}</td><td>${esc(it.description || "")}</td>${extraCells}<td>${esc(departmentLabel)}</td><td>${esc(deptName.get(it.owner_department_id) || "")}</td><td>${esc(PRIORITY_LABELS[it.priority] || it.priority)}</td><td>${esc(it.due_date || "")}</td><td>${esc(EMR_STATUS_LABELS[it.status] || it.status)}</td><td>${it.is_go_live_gate ? "Có" : ""}</td></tr>`;
+    const publishCell = isBieuMau ? `<td>${it.publish_status === "PUBLISHED" ? "Đã duyệt" : "Nháp"}</td>` : "";
+    return `<tr><td>${i + 1}</td><td>${esc(it.title)}</td><td>${esc(it.description || "")}</td>${extraCells}<td>${esc(departmentLabel)}</td><td>${esc(deptName.get(it.owner_department_id) || "")}</td><td>${esc(PRIORITY_LABELS[it.priority] || it.priority)}</td><td>${esc(it.due_date || "")}</td><td>${esc(EMR_STATUS_LABELS[it.status] || it.status)}</td><td>${it.is_go_live_gate ? "Có" : ""}</td>${publishCell}</tr>`;
   }
 
   const extraHeaders = extraFields.map((f) => `<th>${esc(f.label)}</th>`).join("");
-  const colCount = 9 + extraFields.length;
+  const colCount = 9 + extraFields.length + (isBieuMau ? 1 : 0);
 
   let rows: string;
   if (groupByField) {
@@ -87,7 +95,7 @@ export async function GET(request: Request) {
       table{border-collapse:collapse;font-family:Arial;font-size:10pt}th,td{border:1px solid #777;padding:5px;vertical-align:top;white-space:pre-wrap}th{background:#e5e7eb;font-weight:bold}
     </style></head><body>
       <table>
-        <thead><tr><th>STT</th><th>Tiêu đề</th><th>${esc(descriptionLabel)}</th>${extraHeaders}<th>Khoa/Phòng</th><th>Đơn vị phụ trách</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th><th>Go-live gate</th></tr></thead>
+        <thead><tr><th>STT</th><th>Tiêu đề</th><th>${esc(descriptionLabel)}</th>${extraHeaders}<th>Khoa/Phòng</th><th>Đơn vị phụ trách</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th><th>Go-live gate</th>${isBieuMau ? "<th>Duyệt phát hành</th>" : ""}</tr></thead>
         <tbody>${rows || `<tr><td colspan="${colCount}">Chưa có dữ liệu.</td></tr>`}</tbody>
       </table>
     </body></html>`;
