@@ -134,9 +134,14 @@ export async function syncEmrRemindersForUser(admin: AdminClient, userId: string
     const { data: roles, error: rolesError } = await admin.from("department_user_roles").select("role_type").eq("department_id", primaryDepartmentId).eq("user_id", userId).eq("is_active", true).in("role_type", ["HEAD", "QUALITY_NETWORK_MEMBER"]);
     if (rolesError) return { error: rolesError.message };
     if ((roles ?? []).length) {
-      const { data, error } = await admin.from("emr_rollout_items").select("id,category,title,status,due_date,owner_department_id,details").eq("owner_department_id", primaryDepartmentId);
+      const { data, error } = await admin.from("emr_rollout_items").select("id,category,title,status,due_date,owner_department_id,details,publish_status").eq("owner_department_id", primaryDepartmentId);
       if (error) return { error: error.message };
-      items = data ?? [];
+      // Báo cáo thực tế "Tổng quan EMR chưa đồng bộ" (sau khi reset Biểu mẫu
+      // về Nháp): nhắc hạn cũng phải nhất quán, không chỉ Tổng quan — Biểu
+      // mẫu còn Nháp chưa được duyệt để chính thức theo dõi tiến độ, không
+      // nên gửi nhắc nhở đến hạn cho trưởng khoa như thể đã triển khai chính
+      // thức.
+      items = (data ?? []).filter((i: any) => !(i.category === "BIEU_MAU" && i.publish_status === "DRAFT"));
     }
   }
 

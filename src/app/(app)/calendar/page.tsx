@@ -171,7 +171,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     user.organizationId ? supabase.from("work_calendar_holidays").select("id,name,start_date,end_date,holiday_type,note").eq("organization_id",user.organizationId).eq("is_active",true).lte("start_date",cycleEnd).gte("end_date",cycleStart) : Promise.resolve({ data: [] as any[], error: null }),
     supabase.from("personal_reminders").select("id,title,due_at,priority,status").eq("owner_user_id",user.id).neq("status","CANCELLED").not("due_at","is",null).gte("due_at",`${cycleStart}T00:00:00+07:00`).lte("due_at",`${cycleEnd}T23:59:59+07:00`),
     hasPermission(user, "emr.view") && user.organizationId
-      ? supabase.from("emr_rollout_items").select("id,category,title,status,due_date,priority").eq("organization_id", user.organizationId).not("due_date", "is", null).gte("due_date", cycleStart).lte("due_date", cycleEnd)
+      ? supabase.from("emr_rollout_items").select("id,category,title,status,due_date,priority,publish_status").eq("organization_id", user.organizationId).not("due_date", "is", null).gte("due_date", cycleStart).lte("due_date", cycleEnd)
       : Promise.resolve({ data: [] as any[], error: null }),
   ]);
 
@@ -368,6 +368,11 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
   // nhất (không copy/nhân bản) — lịch chỉ đọc, không quản lý hạng mục ở đây.
   for (const item of (emrRes.data ?? []) as any[]) {
     if (!item.due_date) continue;
+    // Báo cáo thực tế "Tổng quan EMR chưa đồng bộ": Biểu mẫu còn Nháp (chưa
+    // duyệt phát hành) chưa được coi là đang triển khai chính thức — không
+    // hiện "Đang triển khai/Quá hạn triển khai" trên lịch chung cho hạng mục
+    // còn chưa duyệt, nhất quán với Tổng quan EMR và nhắc hạn.
+    if (item.category === "BIEU_MAU" && item.publish_status === "DRAFT") continue;
     const open = item.status !== "DONE";
     const overdue = open && item.due_date < today;
     const dueToday = open && item.due_date === today;

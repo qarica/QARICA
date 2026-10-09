@@ -46,6 +46,15 @@ describe("EMR — due-date and certificate-expiry reminders", () => {
     expect(route).toContain('item.status !== "DONE" && item.due_date');
   });
 
+  // Báo cáo thực tế "Tổng quan EMR chưa đồng bộ" sau khi reset Biểu mẫu về
+  // Nháp: nhắc hạn cũng phải nhất quán, không chỉ Tổng quan — Biểu mẫu còn
+  // Nháp chưa được duyệt để chính thức theo dõi tiến độ, không nên gửi nhắc
+  // nhở đến hạn cho trưởng khoa như thể đã triển khai chính thức.
+  it("loại Biểu mẫu còn Nháp khỏi nhắc hạn — chưa duyệt phát hành thì chưa coi là đang triển khai", () => {
+    expect(route).toContain('.select("id,category,title,status,due_date,owner_department_id,details,publish_status")');
+    expect(route).toContain('!(i.category === "BIEU_MAU" && i.publish_status === "DRAFT")');
+  });
+
   it("is polled from both entry points that already drive every other sync route — the bell (60s quality-attention bucket) and the 'Việc của tôi' mount-time sync", () => {
     expect(bell).toContain("/api/notifications/sync-emr-reminders");
     expect(myWork).toContain("/api/notifications/sync-emr-reminders");

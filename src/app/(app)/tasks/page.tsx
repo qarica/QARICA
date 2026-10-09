@@ -64,10 +64,14 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  // nhất (không copy sang bảng khác); lọc theo khoa/phòng ở client, giống
  // cách route dashboard EMR đã làm, vì cột department_ids là mảng.
  const emrItemsRes=hasPermission(user,"emr.view")&&user.organizationId
-  ?await supabase.from("emr_rollout_items").select("id,category,title,status,due_date,priority,owner_department_id,department_ids").eq("organization_id",user.organizationId).neq("status","DONE").not("due_date","is",null)
+  ?await supabase.from("emr_rollout_items").select("id,category,title,status,due_date,priority,owner_department_id,department_ids,publish_status").eq("organization_id",user.organizationId).neq("status","DONE").not("due_date","is",null)
   :{data:[] as any[],error:null};
+ // Báo cáo thực tế "Tổng quan EMR chưa đồng bộ": Biểu mẫu còn Nháp (chưa
+ // duyệt phát hành) chưa được coi là đang triển khai chính thức — loại khỏi
+ // "Việc của tôi" (KPI + danh sách), nhất quán với Tổng quan EMR, lịch và
+ // nhắc hạn.
  const myEmrItems=user.primaryDepartmentId
-  ?(emrItemsRes.data??[]).filter((item:any)=>item.owner_department_id===user.primaryDepartmentId||item.department_ids?.includes(user.primaryDepartmentId))
+  ?(emrItemsRes.data??[]).filter((item:any)=>!(item.category==="BIEU_MAU"&&item.publish_status==="DRAFT")&&(item.owner_department_id===user.primaryDepartmentId||item.department_ids?.includes(user.primaryDepartmentId)))
   :[];
  const actionRowsById=new Map<string,any>();
  for(const row of [...(directActionsRes.data??[]),...(groupActionsRes.data??[]),...(departmentActionsRes.data??[])])actionRowsById.set((row as any).action_id,row);

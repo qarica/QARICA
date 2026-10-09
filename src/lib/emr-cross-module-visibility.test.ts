@@ -19,7 +19,15 @@ describe("EMR items surface in Lịch QLCL (calendar) as their own event kind", 
 
   it("fetches emr_rollout_items directly (no duplicate table), gated behind emr.view", () => {
     expect(calendar).toContain('hasPermission(user, "emr.view")');
-    expect(calendar).toContain('.from("emr_rollout_items").select("id,category,title,status,due_date,priority")');
+    expect(calendar).toContain('.from("emr_rollout_items").select("id,category,title,status,due_date,priority,publish_status")');
+  });
+
+  // Báo cáo thực tế "Tổng quan EMR chưa đồng bộ": Biểu mẫu còn Nháp (chưa
+  // duyệt phát hành) chưa được coi là đang triển khai chính thức — không nên
+  // hiện "Đang triển khai/Quá hạn triển khai" trên lịch chung cho hạng mục
+  // còn chưa duyệt, nhất quán với Tổng quan EMR và nhắc hạn.
+  it("loại Biểu mẫu còn Nháp khỏi lịch — chưa duyệt phát hành thì chưa coi là đang triển khai", () => {
+    expect(calendar).toContain('if (item.category === "BIEU_MAU" && item.publish_status === "DRAFT") continue;');
   });
 
   it("marks an EMR item overdue/due-today the same way every other kind on this calendar does", () => {
@@ -42,7 +50,7 @@ describe("EMR items surface in Việc của tôi (My Work), scoped to the viewer
 
   it("fetches open, due-dated emr_rollout_items directly, gated behind emr.view", () => {
     expect(tasks).toContain('hasPermission(user,"emr.view")');
-    expect(tasks).toContain('.from("emr_rollout_items").select("id,category,title,status,due_date,priority,owner_department_id,department_ids")');
+    expect(tasks).toContain('.from("emr_rollout_items").select("id,category,title,status,due_date,priority,owner_department_id,department_ids,publish_status")');
     expect(tasks).toContain('.neq("status","DONE")');
   });
 
@@ -52,6 +60,10 @@ describe("EMR items surface in Việc của tôi (My Work), scoped to the viewer
   // dashboard route already does for the same array-column reason.
   it("scopes to the viewer's own department — owner or member of department_ids — not every item in the org", () => {
     expect(tasks).toContain("item.owner_department_id===user.primaryDepartmentId||item.department_ids?.includes(user.primaryDepartmentId)");
+  });
+
+  it("loại Biểu mẫu còn Nháp khỏi 'Việc của tôi' — chưa duyệt phát hành thì chưa coi là đang triển khai", () => {
+    expect(tasks).toContain('!(item.category==="BIEU_MAU"&&item.publish_status==="DRAFT")');
   });
 
   it("folds EMR rows into the unified work list, the Đã giao tab, and the top KPI counts", () => {
