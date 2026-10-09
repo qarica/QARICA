@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await admin
     .from("emr_rollout_items")
-    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
+    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,publish_status,published_at,published_by,created_at,updated_at")
     .eq("organization_id", organizationId)
     .eq("category", category)
     .order("created_at", { ascending: false });
@@ -84,6 +84,11 @@ export async function POST(request: Request) {
   const departmentIdsResult = await sanitizeDepartmentIds(admin, organizationId, body.department_ids);
   if ("error" in departmentIdsResult) return NextResponse.json({ error: departmentIdsResult.error }, { status: 400 });
   if (ownerDepartmentId) { const { data: d } = await admin.from("departments").select("id").eq("id", ownerDepartmentId).eq("organization_id", organizationId).eq("is_active", true).maybeSingle(); if (!d) return NextResponse.json({ error: "Đơn vị phụ trách không hợp lệ." }, { status: 400 }); }
+  // Biểu mẫu mới luôn bắt đầu Nháp (publish_status default ở cột, không set
+  // tường minh ở đây — không cho client tự tạo thẳng PUBLISHED) nên chưa thể
+  // có phạm vi áp dụng; chặn ngay từ lúc tạo thay vì để lọt vào rồi mới chặn
+  // ở PATCH, phòng khi có nơi khác gọi thẳng route này kèm department_ids.
+  const effectiveDepartmentIds = category === "BIEU_MAU" ? [] : departmentIdsResult.ids;
 
   const { data, error } = await admin
     .from("emr_rollout_items")
@@ -93,12 +98,12 @@ export async function POST(request: Request) {
       title,
       description,
       status,
-      priority, due_date: dueDate, department_ids: departmentIdsResult.ids, owner_department_id: ownerDepartmentId, is_go_live_gate: isGoLiveGate, evidence_url: evidenceUrl,
+      priority, due_date: dueDate, department_ids: effectiveDepartmentIds, owner_department_id: ownerDepartmentId, is_go_live_gate: isGoLiveGate, evidence_url: evidenceUrl,
       details: sanitizeDetails(category, body.details),
       created_by: auth.user.id,
       updated_by: auth.user.id,
     })
-    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
+    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,publish_status,published_at,published_by,created_at,updated_at")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 

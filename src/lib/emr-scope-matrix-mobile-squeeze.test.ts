@@ -121,7 +121,7 @@ describe("EMR Phạm vi áp dụng — 'Bỏ chọn tất cả' phải hiện b�
   it("nút 'Chọn tất cả khoa' không còn bị disable khi department_ids đang rỗng (rỗng giờ hiện bỏ tick hết, vẫn cần bấm được để tick hết)", () => {
     const scopeBlock = client.slice(client.indexOf('view === "scope" ? ('), client.indexOf('view === "scope" ? (') + 6000);
     const selectAllButtonBlock = scopeBlock.slice(scopeBlock.indexOf("onClick={() => selectAllDepartmentsForItem(item)}") - 200, scopeBlock.indexOf("onClick={() => selectAllDepartmentsForItem(item)}"));
-    expect(selectAllButtonBlock).toContain("disabled={!canManage}");
+    expect(selectAllButtonBlock).toContain("disabled={!canManage || scopeLocked}");
     expect(selectAllButtonBlock).not.toContain("allDeptsChecked");
   });
 });

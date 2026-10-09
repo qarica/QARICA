@@ -18,7 +18,7 @@ function sanitizeDetails(category: string, raw: unknown): Record<string, unknown
 }
 
 async function loadItemOrganization(admin: ReturnType<typeof createAdminClient>, id: string) {
-  const { data, error } = await admin.from("emr_rollout_items").select("id,organization_id,status,evidence_url,category,updated_by").eq("id", id).maybeSingle();
+  const { data, error } = await admin.from("emr_rollout_items").select("id,organization_id,status,evidence_url,category,updated_by,title,description,details,due_date,priority,publish_status").eq("id", id).maybeSingle();
   return { data, error };
 }
 
@@ -110,11 +110,74 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (body.verify_completed === false || (body.status && body.status !== "DONE")) { patch.verified_at = null; patch.verified_by = null; }
   if (body.details !== undefined) patch.details = sanitizeDetails(existing.category, body.details);
 
+  // Báo cáo thực tế: "Danh mục biểu mẫu còn thiếu duyệt phát hành hoặc cập
+  // nhật. Sau khi duyệt mới triển khai, áp dụng, tiến độ" — chỉ BIEU_MAU cần
+  // duyệt (các danh mục khác không có khái niệm "phát hành"), và duyệt là 1
+  // hành động riêng (body.publish:true), không trộn với các field khác trong
+  // cùng request để tránh vừa sửa nội dung vừa tự duyệt luôn trong 1 lần gọi.
+  let justPublished = false;
+  if (body.publish === true) {
+    if (existing.category !== "BIEU_MAU") return NextResponse.json({ error: "Chỉ Biểu mẫu mới cần duyệt phát hành." }, { status: 400 });
+    if (existing.publish_status === "PUBLISHED") return NextResponse.json({ error: "Biểu mẫu đã được duyệt phát hành." }, { status: 400 });
+    patch.publish_status = "PUBLISHED";
+    patch.published_at = new Date().toISOString();
+    patch.published_by = auth.user.id;
+    justPublished = true;
+  }
+
+  // "Cập nhật" nội dung khai báo (title/description/details/due_date/
+  // priority — KHÔNG gồm department_ids/owner_department_id/status/
+  // evidence_url vốn là tác vụ vận hành/gán phạm vi, không phải nội dung biểu
+  // mẫu) của 1 biểu mẫu ĐÃ duyệt tự đưa về Nháp, đúng yêu cầu "cập nhật cũng
+  // cần duyệt lại". So sánh GIÁ TRỊ thực sự đổi, không chỉ field có mặt trong
+  // body — modal sửa luôn gửi lại nguyên form (kể cả field không đổi), nếu chỉ
+  // kiểm tra "có mặt trong patch" thì MỌI lần sửa (kể cả đổi is_go_live_gate)
+  // đều bị coi là đổi nội dung và tự rút lại duyệt một cách sai lệch.
+  //
+  // record_types bên trong details là GÁN PHẠM VI (ma trận "Phạm vi áp dụng"
+  // chọn loại hồ sơ bệnh án), không phải nội dung khai báo của biểu mẫu — so
+  // sánh details SAU KHI loại record_types ra, nếu không mỗi lần tick/bỏ tick
+  // loại hồ sơ bệnh án trong ma trận sẽ bị hiểu nhầm thành "sửa nội dung" và
+  // tự rút biểu mẫu đã duyệt về Nháp.
+  const detailsWithoutRecordTypes = (d: Record<string, unknown> | null | undefined) => { const rest = { ...(d || {}) }; delete rest.record_types; return rest; };
+  const contentChanged = existing.category === "BIEU_MAU" && !justPublished && (
+    (typeof patch.title === "string" && patch.title !== existing.title) ||
+    ("description" in patch && patch.description !== existing.description) ||
+    ("details" in patch && JSON.stringify(detailsWithoutRecordTypes(patch.details as Record<string, unknown>)) !== JSON.stringify(detailsWithoutRecordTypes(existing.details))) ||
+    ("due_date" in patch && patch.due_date !== existing.due_date) ||
+    (typeof patch.priority === "string" && patch.priority !== existing.priority)
+  );
+  if (contentChanged && existing.publish_status === "PUBLISHED") {
+    patch.publish_status = "DRAFT";
+    patch.published_at = null;
+    patch.published_by = null;
+  }
+
+  // Chặn chuyển trạng thái triển khai / gán phạm vi áp dụng (khoa/phòng hoặc
+  // loại hồ sơ bệnh án) khi biểu mẫu còn là Nháp (chưa duyệt phát hành) —
+  // đúng yêu cầu "sau khi duyệt mới triển khai, áp dụng, tiến độ". Dùng
+  // publish_status HIỆU LỰC sau patch (có thể vừa tự rút lại duyệt ở nhánh
+  // contentChanged phía trên trong cùng request).
+  const effectivePublishStatus = typeof patch.publish_status === "string" ? patch.publish_status : existing.publish_status;
+  if (existing.category === "BIEU_MAU" && effectivePublishStatus === "DRAFT") {
+    if (typeof body.status === "string" && body.status !== "TODO") {
+      return NextResponse.json({ error: "Biểu mẫu cần được duyệt phát hành trước khi chuyển trạng thái triển khai." }, { status: 400 });
+    }
+    if (body.department_ids !== undefined) {
+      return NextResponse.json({ error: "Biểu mẫu cần được duyệt phát hành trước khi gán phạm vi áp dụng." }, { status: 400 });
+    }
+    const existingRecordTypes = (existing.details as Record<string, unknown> | null)?.record_types;
+    const nextRecordTypes = (patch.details as Record<string, unknown> | undefined)?.record_types;
+    if ("details" in patch && nextRecordTypes !== existingRecordTypes) {
+      return NextResponse.json({ error: "Biểu mẫu cần được duyệt phát hành trước khi gán phạm vi áp dụng." }, { status: 400 });
+    }
+  }
+
   const { data, error } = await admin
     .from("emr_rollout_items")
     .update(patch)
     .eq("id", id)
-    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,created_at,updated_at")
+    .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,publish_status,published_at,published_by,created_at,updated_at")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
@@ -135,6 +198,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (justVerified) {
     const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_rollout_items", row_id: id, action_type: "EMR_ITEM_VERIFY", new_value: { evidence_url: patch.evidence_url ?? existing.evidence_url, verified_at: patch.verified_at }, request_meta: { source: "qlcl-ui" } });
     if (auditError) return NextResponse.json({ error: `Đã cập nhật nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
+  }
+  if (justPublished) {
+    const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_rollout_items", row_id: id, action_type: "EMR_ITEM_PUBLISH", new_value: { published_at: patch.published_at }, request_meta: { source: "qlcl-ui" } });
+    if (auditError) return NextResponse.json({ error: `Đã duyệt nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, item: data });

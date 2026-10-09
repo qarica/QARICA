@@ -5,7 +5,7 @@ import { useEmrCreateSignal } from "@/components/emr-create-context";
 import { Icon } from "@/components/icon";
 import { categoriesReferencing, EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, formatBooleanValue, formatSequenceValue, sequenceSteps, SEQUENCE_SEPARATOR, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
 
-type Item = { id: string; category: string; title: string; description: string | null; status: string; department_ids:string[]; owner_department_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; created_at: string; updated_at: string };
+type Item = { id: string; category: string; title: string; description: string | null; status: string; department_ids:string[]; owner_department_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; publish_status: string; published_at: string | null; published_by: string | null; created_at: string; updated_at: string };
 
 function toggleId(ids: string[], id: string) { return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]; }
 
@@ -297,6 +297,24 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     }
   }
 
+  // Báo cáo thực tế: "Danh mục biểu mẫu còn thiếu duyệt phát hành hoặc cập
+  // nhật. Sau khi duyệt mới triển khai, áp dụng, tiến độ" — biểu mẫu mới tạo
+  // (hoặc vừa sửa nội dung) luôn ở Nháp, server chặn chuyển trạng thái triển
+  // khai/gán phạm vi áp dụng cho tới khi bấm "Duyệt phát hành" ở đây.
+  async function publishItem(item: Item) {
+    const now = new Date().toISOString();
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, publish_status: "PUBLISHED", published_at: now } : i)));
+    try {
+      const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ publish: true }) });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "Không duyệt được.");
+      await load({ silent: true });
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
+      await load({ silent: true });
+    }
+  }
+
   // Ma trận "Phạm vi loại hồ sơ" (chỉ BIEU_MAU, cùng màn hình "Phạm vi áp
   // dụng" với ma trận khoa/phòng ở trên): record_types nằm trong `details`
   // (chuỗi phân tách bằng dấu phẩy), không phải cột riêng như department_ids
@@ -408,12 +426,20 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     return hasValue ? String(value) : "—";
   }
 
+  // Báo cáo thực tế: "...sau khi duyệt mới triển khai, áp dụng, tiến độ" —
+  // biểu mẫu còn Nháp (chưa duyệt phát hành) không được tính vào KPI "Tiến độ
+  // triển khai" (vốn chỉ phản ánh các biểu mẫu đã chính thức đưa vào theo
+  // dõi). Chỉ loại ở BIEU_MAU — các danh mục khác không có khái niệm duyệt
+  // phát hành nên publish_status của chúng (PUBLISHED do backfill) không có
+  // ý nghĩa lọc.
+  const kpiItems = categoryCode === "BIEU_MAU" ? items.filter((i) => i.publish_status !== "DRAFT") : items;
+
   return (
     <div className="page-stack">
       {kpis.length ? <section className="kpis" style={{ display: "grid", gridTemplateColumns: `repeat(${kpis.length},minmax(0,1fr))`, gap: 12 }}>
         {kpis.map((k) => <article className="kpi-card" key={k.bucket} style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}>
           <span className={`emr-cat-kpi-icon ${KPI_TONE[k.bucket]}`}><Icon name={KPI_ICON[k.bucket]} size={19} /></span>
-          <div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{bucketCount(k.bucket, items, hasBlockedBucket)}</div>
+          <div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{bucketCount(k.bucket, kpiItems, hasBlockedBucket)}</div>
           <div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>{k.label}</div></div>
         </article>)}
         <style>{`.emr-cat-kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}.emr-cat-kpi-icon.blue{background:#dbeafe;color:#2563eb}.emr-cat-kpi-icon.green{background:#dcfce7;color:#16a34a}.emr-cat-kpi-icon.amber{background:#fef3c7;color:#b45309}.emr-cat-kpi-icon.red{background:#fee2e2;color:#dc2626}.emr-cat-kpi-icon.slate{background:#e2e8f0;color:#475569}`}</style>
@@ -468,16 +494,22 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                     // CHƯA chọn tường minh đủ mọi khoa; đã chọn hết thì đổi
                     // thành "Bỏ chọn tất cả".
                     const explicitAllSelected = item.department_ids.length > 0 && clinicalDepartments.length > 0 && clinicalDepartments.every((d) => item.department_ids.includes(d.id));
+                    // Báo cáo thực tế: biểu mẫu Nháp (chưa duyệt phát hành)
+                    // không được gán phạm vi áp dụng — server đã chặn ở PATCH,
+                    // đây là vô hiệu hoá tương ứng phía giao diện để không bấm
+                    // vào rồi mới thấy lỗi.
+                    const scopeLocked = item.publish_status === "DRAFT";
                     return (
                       <tr key={item.id}>
                         <td className="emr-scope-row-head">
                           <strong>{item.title}</strong>
+                          {scopeLocked ? <small className="muted">Cần duyệt phát hành trước</small> : null}
                           {clinicalDepartments.length ? (
                             explicitAllSelected ? (
                               <button
                                 type="button"
                                 className="button tertiary small"
-                                disabled={!canManage}
+                                disabled={!canManage || scopeLocked}
                                 onClick={() => clearAllDepartmentsForItem(item)}
                               >
                                 Bỏ chọn tất cả
@@ -486,7 +518,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                               <button
                                 type="button"
                                 className="button tertiary small"
-                                disabled={!canManage}
+                                disabled={!canManage || scopeLocked}
                                 onClick={() => selectAllDepartmentsForItem(item)}
                               >
                                 Chọn tất cả khoa
@@ -502,7 +534,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                                 <input
                                   type="checkbox"
                                   checked={checked}
-                                  disabled={!canManage}
+                                  disabled={!canManage || scopeLocked}
                                   aria-label={`${item.title} — ${d.short_name || d.name}`}
                                   onChange={() => toggleScopeCell(item, d.id)}
                                 />
@@ -516,7 +548,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                               <input
                                 type="checkbox"
                                 checked={selectedRecordTypes.includes(rt)}
-                                disabled={!canManage}
+                                disabled={!canManage || scopeLocked}
                                 aria-label={`${item.title} — ${rt}`}
                                 onChange={() => toggleRecordTypeCell(item, rt)}
                               />
@@ -550,7 +582,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr><th style={{ width: 30 }}></th><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th>{showDescription?<th>{descLabel}</th>:null}{visibleInfoColumns.map((f)=><th key={f.key}>{f.label}</th>)}{visibleProgressColumns.map((f)=><th key={f.key}>{f.label}</th>)}{showPriorityDueStatus?<><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th></>:null}<th></th></tr>
+                <tr><th style={{ width: 30 }}></th><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th>{showDescription?<th>{descLabel}</th>:null}{visibleInfoColumns.map((f)=><th key={f.key}>{f.label}</th>)}{visibleProgressColumns.map((f)=><th key={f.key}>{f.label}</th>)}{showPriorityDueStatus?<><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th></>:null}{categoryCode==="BIEU_MAU"?<th>Duyệt phát hành</th>:null}<th></th></tr>
               </thead>
               <tbody>
                 {filtered.map((item, idx) => (
@@ -567,6 +599,10 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                     <td><span className={`status-badge ${item.priority==="CRITICAL"?"danger":item.priority==="HIGH"?"warning":"muted"}`}>{{LOW:"Thấp",MEDIUM:"Trung bình",HIGH:"Cao",CRITICAL:"Nghiêm trọng"}[item.priority]||item.priority}</span></td><td>{item.due_date || "—"}</td>
                     <td>{EMR_STATUS_LABELS[item.status] || item.status}{item.verified_at ? <div><small>Đã xác minh</small></div> : null}</td>
                     </>:null}
+                    {categoryCode==="BIEU_MAU"?<td>
+                      <span className={`status-badge ${item.publish_status==="PUBLISHED"?"success":"warning"}`}>{item.publish_status==="PUBLISHED"?"Đã duyệt":"Nháp"}</span>
+                      {item.publish_status==="DRAFT" && canManage ? <div><button type="button" className="button tertiary small" style={{marginTop:4}} onClick={()=>publishItem(item)}>Duyệt phát hành</button></div> : null}
+                    </td>:null}
                     <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>{canManage ? <>
                       <button type="button" className="button tertiary small" onClick={() => openEdit(item)}>Sửa</button>
                       <button type="button" className="button tertiary small" onClick={() => remove(item)}>Xoá</button>

@@ -31,9 +31,9 @@ describe("EMR Khai báo biểu mẫu — ma trận Phạm vi áp dụng tách kh
     expect(client).toContain("await load({ silent: true });");
   });
 
-  it("checkbox trong ô ma trận dùng .inline-check (không để input trần) và disable khi không có quyền quản lý", () => {
+  it("checkbox trong ô ma trận dùng .inline-check (không để input trần) và disable khi không có quyền quản lý hoặc biểu mẫu còn Nháp (chưa duyệt phát hành)", () => {
     expect(client).toContain('<span className="inline-check" style={{ justifyContent: "center" }}>');
-    expect(client).toContain("disabled={!canManage}");
+    expect(client).toContain("disabled={!canManage || scopeLocked}");
   });
 
   it("fieldset 'Khoa/phòng — Phạm vi áp dụng' inline trong modal KHÔNG còn hiện cho BIEU_MAU — chỉ các danh mục khác", () => {
