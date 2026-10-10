@@ -4,6 +4,25 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { EMR_CATEGORY_FIELDS } from "@/lib/emr-categories";
 import { autoCreateTrainingTaskIfNeeded } from "@/lib/emr-training-auto-create";
 
+// Báo cáo thực tế: "bấm đổi nhóm trong cây biểu bị trả về trạng thái duyệt
+// phát hành là chưa đúng" — details là cột jsonb; Postgres KHÔNG giữ nguyên
+// thứ tự key khi lưu (tự chuẩn hoá nội bộ), còn sanitizeDetails luôn dựng lại
+// object theo đúng thứ tự khai báo field trong EMR_CATEGORY_FIELDS. So sánh
+// bằng JSON.stringify thường (nhạy thứ tự key) nên existing.details (đọc từ
+// DB) và patch.details (vừa dựng lại) gần như luôn ra 2 chuỗi khác nhau dù
+// giá trị thật giống nhau — khiến MỌI PATCH có gửi details (đổi nhóm/thứ tự
+// gáy ở Cây biểu mẫu, hay bất kỳ field nào) đều bị hiểu nhầm là đổi nội dung
+// và tự rút biểu mẫu đã duyệt về Nháp. Chuẩn hoá thứ tự key (sắp xếp đệ quy)
+// trước khi so sánh để chỉ phát hiện đúng khi GIÁ TRỊ thực sự đổi.
+function canonicalJSON(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJSON).join(",")}]`;
+  if (value && typeof value === "object") {
+    const keys = Object.keys(value as Record<string, unknown>).sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJSON((value as Record<string, unknown>)[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function sanitizeDetails(category: string, raw: unknown): Record<string, unknown> {
   const fields = (EMR_CATEGORY_FIELDS as any)[category] || [];
   const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -150,7 +169,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const contentChanged = existing.category === "BIEU_MAU" && !justPublished && (
     (typeof patch.title === "string" && patch.title !== existing.title) ||
     ("description" in patch && patch.description !== existing.description) ||
-    ("details" in patch && JSON.stringify(detailsForContentComparison(patch.details as Record<string, unknown>)) !== JSON.stringify(detailsForContentComparison(existing.details))) ||
+    ("details" in patch && canonicalJSON(detailsForContentComparison(patch.details as Record<string, unknown>)) !== canonicalJSON(detailsForContentComparison(existing.details))) ||
     ("due_date" in patch && patch.due_date !== existing.due_date) ||
     (typeof patch.priority === "string" && patch.priority !== existing.priority)
   );
@@ -189,7 +208,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     const existingRecordTypes = (existing.details as Record<string, unknown> | null)?.record_types;
     const nextRecordTypes = (patch.details as Record<string, unknown> | undefined)?.record_types;
-    if ("details" in patch && nextRecordTypes !== existingRecordTypes) {
+    // record_types is an array rebuilt fresh by sanitizeDetails on every
+    // PATCH (new reference even when untouched, e.g. a pure binding_group
+    // change from Cây biểu mẫu) — "!==" compared by reference and blocked
+    // this gate on every details-carrying PATCH of a DRAFT item regardless
+    // of whether record_types itself actually changed. Compare by value.
+    if ("details" in patch && canonicalJSON(nextRecordTypes ?? null) !== canonicalJSON(existingRecordTypes ?? null)) {
       return NextResponse.json({ error: "Biểu mẫu cần được duyệt phát hành trước khi gán phạm vi áp dụng." }, { status: 400 });
     }
   }

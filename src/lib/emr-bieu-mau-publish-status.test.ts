@@ -45,7 +45,7 @@ describe("EMR Biểu mẫu — trạng thái duyệt phát hành (publish_status
 
   it("PATCH: record_types (gán phạm vi loại hồ sơ bệnh án) KHÔNG được coi là 'sửa nội dung' — loại record_types trước khi so sánh details, tránh tick ô ma trận tự rút biểu mẫu về Nháp", () => {
     expect(patchRoute).toContain("const detailsForContentComparison = (d: Record<string, unknown> | null | undefined) => { const rest = { ...(d || {}) }; delete rest.record_types; delete rest.binding_group; delete rest.binding_group_order; return rest; };");
-    expect(patchRoute).toContain("JSON.stringify(detailsForContentComparison(patch.details as Record<string, unknown>)) !== JSON.stringify(detailsForContentComparison(existing.details))");
+    expect(patchRoute).toContain("canonicalJSON(detailsForContentComparison(patch.details as Record<string, unknown>)) !== canonicalJSON(detailsForContentComparison(existing.details))");
   });
 
   // Tự rà sau khi ship: "Cây biểu mẫu" (đổi nhóm gáy/thứ tự trong gáy) PATCH
@@ -61,7 +61,7 @@ describe("EMR Biểu mẫu — trạng thái duyệt phát hành (publish_status
   it("PATCH: chặn chuyển trạng thái triển khai, gán khoa/phòng, và gán loại hồ sơ bệnh án khi biểu mẫu còn Nháp", () => {
     expect(patchRoute).toContain('error: "Biểu mẫu cần được duyệt phát hành trước khi chuyển trạng thái triển khai."');
     expect(patchRoute).toContain('error: "Biểu mẫu cần được duyệt phát hành trước khi gán phạm vi áp dụng."');
-    expect(patchRoute).toContain('if ("details" in patch && nextRecordTypes !== existingRecordTypes) {');
+    expect(patchRoute).toContain('if ("details" in patch && canonicalJSON(nextRecordTypes ?? null) !== canonicalJSON(existingRecordTypes ?? null)) {');
   });
 
   // Phát hiện Cao (tự rà sau khi ship): modal sửa luôn gửi lại NGUYÊN
