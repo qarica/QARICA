@@ -29,7 +29,7 @@ function workScore(row:any){const days=Number(row.days_to_due||0);let score=0;if
 const ACTION_SELECT="action_id,record_id,record_code,title,work_year,workflow_status,priority,due_date,is_overdue,days_to_due,lead_department_id,assignee_user_id,assignment_target_type,assignee_group_id";
 
 export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string;q?:string;page?:string}>}){
- const {user}=await requireUserContext();requirePermission(user,"tasks.view");const year=await getWorkYear();const supabase=await createClient();
+ const {user}=await requireUserContext();requirePermission(user,"tasks.view");const year=await getWorkYear();const supabase=await createClient();const today=hcmToday();
  const {tab:rawTab,q:rawQ,page:rawPage}=await searchParams;
  const tab=(["ALL","REMINDER","ASSIGNED","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"ALL") as "ALL"|"REMINDER"|"ASSIGNED"|"WATCH"|"DONE";
  const searchQuery=String(rawQ||"").trim();
@@ -102,7 +102,6 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const roleViewLabel=isBoard?"BAN GIÁM ĐỐC":isQlcl?"QLCL":isDepartmentHead?"TRƯỞNG KHOA/PHÒNG":"CÁ NHÂN";
  const secretaryHeadline=overdue7>0?`${overdue7} việc đã quá hạn từ 7 ngày trở lên cần đôn đốc ngay.`:overdue>0?`${overdue} việc đang quá hạn; ưu tiên xử lý trước các công việc mới.`:dueToday>0?`${dueToday} việc đến hạn hôm nay cần hoàn tất trước cuối ngày.`:attention.length>0?`${attention.length} hồ sơ/thông báo đang chờ bạn xử lý.`:"Không có việc cá nhân quá hạn. Tiếp tục theo dõi hàng đợi nghiệp vụ theo vai trò.";
 
- const today=hcmToday();
  const openRows=rows.filter(r=>!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status));
 
  type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"};
