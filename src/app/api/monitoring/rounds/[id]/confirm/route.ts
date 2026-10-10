@@ -56,7 +56,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Chức năng xác nhận giám sát chưa sẵn sàng trên cơ sở dữ liệu." }, { status: 503 });
     }
     const txMessage = rpcErrorMessage(txError, "Không thể xác nhận đợt giám sát.");
-    return NextResponse.json({ error: txMessage }, { status: /awaiting_confirmation|required|not found|must pass recheck|outside current organization/i.test(txMessage) ? 409 : 400 });
+    return NextResponse.json({ error: txMessage }, { status: /awaiting_confirmation|required|not found|must pass recheck|outside current organization|must differ from whoever performed/i.test(txMessage) ? 409 : 400 });
   }
 
   // Validation of storage evidence is intentionally supplemental. Core confirmation above is atomic.
