@@ -12,6 +12,38 @@ describe("EMR security and control gates", () => {
     expect(items).toContain('requireApiPermission("emr.manage")');
     expect(read("src/app/api/emr/items/[id]/route.ts")).toContain('requireApiPermission("emr.manage")');
   });
+
+  // CLAUDE.md nguyên tắc 4 yêu cầu cập nhật test này mỗi khi thêm route EMR
+  // mới — test gốc ở trên chỉ phủ dashboard/items/items[id], bỏ sót 7 route
+  // đã thêm sau đó (binding-groups, items/[id]/file, items/export, options,
+  // timeline-milestones). Rà lại: cả 7 route đều ĐÃ đúng ranh giới (đọc dùng
+  // emr.view, mọi thao tác ghi dùng emr.manage) — bổ sung assertion để một
+  // thay đổi sai ranh giới ở các route này không còn lọt qua được test.
+  it("separates view and manage permissions for every other EMR route (binding-groups, item file upload, export, options, timeline-milestones)", () => {
+    const bindingGroups = read("src/app/api/emr/binding-groups/route.ts");
+    expect(bindingGroups).toContain('export async function GET() {\n  const auth = await requireApiPermission("emr.view");');
+    expect(bindingGroups).toContain('export async function POST(request: Request) {\n  const auth = await requireApiPermission("emr.manage");');
+
+    const bindingGroupById = read("src/app/api/emr/binding-groups/[id]/route.ts");
+    expect(bindingGroupById).toContain('export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {\n  const auth = await requireApiPermission("emr.manage");');
+    expect(bindingGroupById).toContain('export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {\n  const auth = await requireApiPermission("emr.manage");');
+
+    const itemFile = read("src/app/api/emr/items/[id]/file/route.ts");
+    expect(itemFile).toContain('export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {\n  const auth = await requireApiPermission("emr.manage");');
+    expect(itemFile).toContain('export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {\n  const auth = await requireApiPermission("emr.view");');
+    expect(itemFile).toContain('export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {\n  const auth = await requireApiPermission("emr.manage");');
+
+    expect(read("src/app/api/emr/items/export/route.ts")).toContain('requireApiPermission("emr.view")');
+    expect(read("src/app/api/emr/options/route.ts")).toContain('requireApiPermission("emr.view")');
+
+    const timelineMilestones = read("src/app/api/emr/timeline-milestones/route.ts");
+    expect(timelineMilestones).toContain('export async function GET() {\n  const auth = await requireApiPermission("emr.view");');
+    expect(timelineMilestones).toContain('export async function POST(request: Request) {\n  const auth = await requireApiPermission("emr.manage");');
+
+    const timelineMilestoneById = read("src/app/api/emr/timeline-milestones/[id]/route.ts");
+    expect(timelineMilestoneById).toContain('export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {\n  const auth = await requireApiPermission("emr.manage");');
+    expect(timelineMilestoneById).toContain('export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {\n  const auth = await requireApiPermission("emr.manage");');
+  });
   it("hides EMR navigation from users without emr.view (nav group label renamed from the raw EMR acronym to Bệnh án điện tử — explicit request; every one of the 11 expanded EMR sidebar rows still requires emr.view)", () => {
     const nav = read("src/lib/navigation.ts");
     expect(nav).toContain('label: "BỆNH ÁN ĐIỆN TỬ"');
