@@ -85,11 +85,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const recordIdList=records.map((r:any)=>r.id).filter(Boolean);
   const incidentRecordIds = new Set(records.filter((r: any) => r.record_type === "INCIDENT").map((r: any) => r.id));
 
+  // Tự rà lại sau phản hồi "rà chưa sát" (lỗi KPI "Việc của tôi" bỏ sót note
+  // cá nhân): kiểm tra cùng lớp lỗi ở Dashboard — risks và audits là 2 nguồn
+  // DUY NHẤT trong Promise.all này không lọc theo recordIdList (năm công
+  // tác + khoa/phòng đã chọn), khác hẳn incidents/capas/indicators ngay bên
+  // cạnh. Với audits còn nghiêm trọng hơn: dùng admin (service-role, bỏ qua
+  // RLS) trong khi bảng audits đã có policy tổ chức riêng
+  // (qlcl_authenticated_select ... record_in_current_organization) — không
+  // lọc gì thêm nghĩa là KPI "Audit đang thực hiện"/"Hoạt động Audit" gộp
+  // cả audit của MỌI bệnh viện khác dùng chung QARICA, không riêng bệnh
+  // viện hiện tại. Đổi về supabase (client RLS đúng tổ chức) + lọc
+  // recordIdList như mọi nguồn khác trên trang.
   const [incidentsAllRes, capasRes, risksRes, auditsRes, indicatorsRes] = recordIdList.length ? await Promise.all([
     supabase.from("incidents").select("id,record_id,workflow_status,serious_event_flag,harm_status,reported_at").in("record_id",recordIdList),
     supabase.from("capas").select("id,record_id,workflow_status,effectiveness_due_date,priority").in("record_id",recordIdList),
-    supabase.from("risks").select("id,record_id,workflow_status,next_review_date"),
-    admin.from("audits").select("id,record_id,workflow_status,start_date,end_date,closed_at,report_finalized_at"),
+    supabase.from("risks").select("id,record_id,workflow_status,next_review_date").in("record_id",recordIdList),
+    supabase.from("audits").select("id,record_id,workflow_status,start_date,end_date,closed_at,report_finalized_at").in("record_id",recordIdList),
     supabase.from("indicator_measurements").select("id,record_id,workflow_status,result_level").in("record_id",recordIdList),
   ]) : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
 
