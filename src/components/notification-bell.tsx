@@ -118,7 +118,7 @@ export function NotificationBell() {
       }
     }
 
-    const [{ data }, { count: unreadCount }] = await Promise.all([
+    const [{ data, error: listError }, { count: unreadCount, error: countError }] = await Promise.all([
       supabase
         .from("notifications")
         .select("id,title,message,priority,is_read,created_at,target_record_id,target_route")
@@ -129,6 +129,14 @@ export function NotificationBell() {
         .select("id", { count: "exact", head: true })
         .eq("is_read", false),
     ]);
+    // Trước đây bỏ qua error của cả 2 truy vấn — nếu RLS/kết nối lỗi, chuông
+    // chỉ âm thầm hiện trống/0 không có dấu hiệu gì, giống đúng báo cáo
+    // "chuông không hoạt động" (không có badge, danh sách trống, bấm không
+    // thấy phản hồi gì đáng chú ý) mà không biết lỗi thật ở đâu.
+    if (listError || countError) {
+      setActionError(`Không tải được thông báo: ${listError?.message || countError?.message}`);
+      return;
+    }
 
     const notifications = (data ?? []) as N[];
     const newest = notifications[0] ?? null;
