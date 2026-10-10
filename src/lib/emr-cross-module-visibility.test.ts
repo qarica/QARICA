@@ -69,7 +69,7 @@ describe("EMR items surface in Việc của tôi (My Work), scoped to the viewer
   it("folds EMR rows into the unified work list, the Đã giao tab, and the top KPI counts", () => {
     expect(tasks).toContain("const unifiedEmrRows:UnifiedRow[]=myEmrItems.map");
     expect(tasks).toContain("const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows];");
-    expect(tasks).toContain("const kpiRows=[...rows,...emrKpiRows];");
+    expect(tasks).toContain("const kpiRows=[...rows,...emrKpiRows,...personalReminderKpiRows];");
   });
 
   it("an EMR row links to its real category page, not a dead /tasks/undefined link", () => {

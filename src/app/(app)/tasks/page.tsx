@@ -92,8 +92,16 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  // đang mở) — không tính vào "Hoàn thành" vì emrItemsRes chỉ tải các mục
  // chưa DONE (không có lịch sử hoàn thành để đếm ở đây).
  const emrKpiRows=myEmrItems.map((item:any)=>{const isOverdue=!!item.due_date&&item.due_date<today;const daysToDue=item.due_date?Math.round((new Date(`${item.due_date}T00:00:00Z`).getTime()-new Date(`${today}T00:00:00Z`).getTime())/86400000):null;return{is_overdue:isOverdue,days_to_due:daysToDue,workflow_status:item.status};});
- const kpiRows=[...rows,...emrKpiRows];
- const overdue=kpiRows.filter(r=>r.is_overdue).length,dueToday=kpiRows.filter(r=>!r.is_overdue&&Number(r.days_to_due)===0).length,dueSoon=kpiRows.filter(r=>!r.is_overdue&&Number(r.days_to_due)>0&&Number(r.days_to_due)<=7).length,open=kpiRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status)).length,completed=rows.filter(r=>r.workflow_status==="COMPLETED").length;
+ // Báo cáo thực tế (ảnh chụp "Quá hạn: 0" dù có note cá nhân hạn 7/10 — đã
+ // qua hạn so với hôm nay 10/10): note cá nhân trước đây hoàn toàn không
+ // được tính vào 4 KPI đầu (quá hạn/đến hạn/sắp tới/đang mở) lẫn "Hoàn
+ // thành" — dù secretaryHeadline phía dưới vẫn nói "Không có việc cá nhân
+ // quá hạn" khi overdue=0, tức bản thân trang đã coi note cá nhân là một
+ // phần của "quá hạn". dueDate dùng dateOnly (giống unifiedReminderRows) vì
+ // due_at là mốc UTC của nửa đêm giờ VN, không được cắt chuỗi trực tiếp.
+ const personalReminderKpiRows=personalReminders.map((p:any)=>{const dueDate=p.due_at?dateOnly(p.due_at):null;const isOverdue=p.status==="OPEN"&&!!dueDate&&dueDate<today;const daysToDue=dueDate?Math.round((new Date(`${dueDate}T00:00:00Z`).getTime()-new Date(`${today}T00:00:00Z`).getTime())/86400000):null;return{is_overdue:isOverdue,days_to_due:daysToDue,workflow_status:p.status};});
+ const kpiRows=[...rows,...emrKpiRows,...personalReminderKpiRows];
+ const overdue=kpiRows.filter(r=>r.is_overdue).length,dueToday=kpiRows.filter(r=>!r.is_overdue&&Number(r.days_to_due)===0).length,dueSoon=kpiRows.filter(r=>!r.is_overdue&&Number(r.days_to_due)>0&&Number(r.days_to_due)<=7).length,open=kpiRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status)).length,completed=rows.filter(r=>r.workflow_status==="COMPLETED").length+personalReminders.filter((p:any)=>p.status==="COMPLETED").length;
  const overdue7=rows.filter(r=>r.is_overdue&&Math.abs(Number(r.days_to_due||0))>=7).length;
  const secretaryQueue=[...rows].filter(r=>!["COMPLETED","CLOSED"].includes(r.workflow_status)).sort((a,b)=>workScore(b)-workScore(a)).slice(0,6);
  const roleQueue=[...scopedRows].filter(r=>r.is_overdue||Number(r.days_to_due)===0||(Number(r.days_to_due)>0&&Number(r.days_to_due)<=3)||["RETURNED","EVIDENCE_SUBMITTED","VERIFYING"].includes(String(r.workflow_status))||["CRITICAL","URGENT"].includes(String(r.priority))).sort((a,b)=>workScore(b)-workScore(a)).slice(0,8);
