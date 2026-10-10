@@ -378,7 +378,7 @@ export async function syncQualityAttentionForUser(admin: AdminClient, userId: st
   const today = hcmToday();
 
   const [{ data: profile }, canManageDirectives, canManageReports, canManageRisks, indicatorVerify, indicatorManage, canManageCapa, canManageFeedback, inspectionManage, planManage, canManageFindings] = await Promise.all([
-    admin.from("profiles").select("primary_department_id").eq("user_id", userId).maybeSingle(),
+    admin.from("profiles").select("organization_id,primary_department_id").eq("user_id", userId).maybeSingle(),
     userHasPermission(admin, userId, "directives.manage"),
     userHasPermission(admin, userId, "reports.manage"),
     userHasPermission(admin, userId, "risk.manage"),
@@ -394,8 +394,16 @@ export async function syncQualityAttentionForUser(admin: AdminClient, userId: st
   const canVerifyIndicators = indicatorVerify || indicatorManage;
   const canManageInspections = inspectionManage || planManage;
   const primaryDepartmentId = profile?.primary_department_id || null;
+  if (!profile?.organization_id) return { created: 0, candidates: 0 };
 
-  const { data: records, error: recordsError } = await admin.from("records").select("id,record_type,record_code,title,owner_user_id,owner_department_id").eq("work_year", year).eq("lifecycle_status", "ACTIVE");
+  // "manage"-permission holders bên dưới (canManageDirectives, canVerifyIndicators,
+  // canManageCapa, canManageFeedback, canManageInspections, canManageFindings) bỏ qua
+  // hẳn kiểm tra mine() theo chủ ý — một Trưởng phòng QLCL cần thấy TẤT CẢ chỉ đạo/CAPA/
+  // feedback/tiếp đoàn của tổ chức mình, không chỉ của riêng họ. Nhưng records trước đây
+  // không lọc organization_id, nên "tất cả" đó thành "tất cả của MỌI bệnh viện dùng chung
+  // QARICA" — lộ chéo tổ chức cho bất kỳ ai có quyền manage. Lọc ngay tại nguồn duy nhất
+  // này (records) để mọi nhánh bên dưới tự động đúng phạm vi tổ chức.
+  const { data: records, error: recordsError } = await admin.from("records").select("id,record_type,record_code,title,owner_user_id,owner_department_id").eq("organization_id", profile.organization_id).eq("work_year", year).eq("lifecycle_status", "ACTIVE");
   if (recordsError) return { error: recordsError.message };
   if (!records?.length) return { created: 0, candidates: 0 };
 
