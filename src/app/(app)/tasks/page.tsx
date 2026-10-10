@@ -102,7 +102,13 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const personalReminderKpiRows=personalReminders.map((p:any)=>{const dueDate=p.due_at?dateOnly(p.due_at):null;const isOverdue=p.status==="OPEN"&&!!dueDate&&dueDate<today;const daysToDue=dueDate?Math.round((new Date(`${dueDate}T00:00:00Z`).getTime()-new Date(`${today}T00:00:00Z`).getTime())/86400000):null;return{is_overdue:isOverdue,days_to_due:daysToDue,workflow_status:p.status};});
  const kpiRows=[...rows,...emrKpiRows,...personalReminderKpiRows];
  const overdue=kpiRows.filter(r=>r.is_overdue).length,dueToday=kpiRows.filter(r=>!r.is_overdue&&Number(r.days_to_due)===0).length,dueSoon=kpiRows.filter(r=>!r.is_overdue&&Number(r.days_to_due)>0&&Number(r.days_to_due)<=7).length,open=kpiRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status)).length,completed=rows.filter(r=>r.workflow_status==="COMPLETED").length+personalReminders.filter((p:any)=>p.status==="COMPLETED").length;
- const overdue7=rows.filter(r=>r.is_overdue&&Math.abs(Number(r.days_to_due||0))>=7).length;
+ // Tự rà lại sau phản hồi "rà chưa sát": overdue7 (mức cảnh báo cao nhất
+ // trong secretaryHeadline) trước đây cũng chỉ đếm từ rows (Action), bỏ sót
+ // EMR/note cá nhân giống hệt lỗi kpiRows vừa sửa ở trên — một note cá nhân
+ // hoặc hạng mục EMR quá hạn ≥7 ngày (không có Action nào quá hạn 7 ngày)
+ // sẽ không được đẩy lên mức cảnh báo cao nhất dù overdue (tổng quát) đã
+ // đúng. Dùng kpiRows (đã gộp đủ 3 nguồn) thay vì rows.
+ const overdue7=kpiRows.filter(r=>r.is_overdue&&Math.abs(Number(r.days_to_due||0))>=7).length;
  const secretaryQueue=[...rows].filter(r=>!["COMPLETED","CLOSED"].includes(r.workflow_status)).sort((a,b)=>workScore(b)-workScore(a)).slice(0,6);
  const roleQueue=[...scopedRows].filter(r=>r.is_overdue||Number(r.days_to_due)===0||(Number(r.days_to_due)>0&&Number(r.days_to_due)<=3)||["RETURNED","EVIDENCE_SUBMITTED","VERIFYING"].includes(String(r.workflow_status))||["CRITICAL","URGENT"].includes(String(r.priority))).sort((a,b)=>workScore(b)-workScore(a)).slice(0,8);
  const roleQueueTitle=isQlcl?"Hàng đợi điều phối QLCL":isDepartmentHead?"Hàng đợi của khoa/phòng":"";
