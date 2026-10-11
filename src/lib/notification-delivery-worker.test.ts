@@ -12,8 +12,8 @@ describe("notification delivery retry worker", () => {
     expect(route).toContain("next_attempt_at");
   });
 
-  it("runs hourly", () => {
+  it("runs daily on Hobby-compatible schedule", () => {
     expect(vercel).toContain("/api/cron/process-notification-deliveries");
-    expect(vercel).toContain("0 * * * *");
+    expect(vercel).toContain("30 1 * * *");
   });
 });
