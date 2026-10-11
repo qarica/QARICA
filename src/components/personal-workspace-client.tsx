@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type ItemType = "TASK" | "NOTE";
@@ -64,6 +64,29 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function refreshActiveItems() {
+      const { data, error } = await supabase
+        .from("personal_workspace_items")
+        .select("id,item_type,title,content,category,due_at,status,completed_at,deleted_at")
+        .eq("owner_user_id", userId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (cancelled) return;
+      if (error) {
+        setError(`Không thể đồng bộ danh sách: ${error.message}`);
+        return;
+      }
+      setRows((current) => [...((data ?? []) as Item[]), ...current.filter((row) => Boolean(row.deleted_at))]);
+    }
+    void refreshActiveItems();
+    return () => { cancelled = true; };
+    // The initial synchronization runs once for this authenticated workspace.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   async function openTrash() {
     if (mutationLock.current) return;
