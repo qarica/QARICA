@@ -11,8 +11,9 @@ export default async function PersonalWorkspacePage() {
   const [{ data }, { data: profile }, { data: knowledgeNotes }] = await Promise.all([
     supabase
       .from("personal_workspace_items")
-      .select("id,item_type,title,content,category,due_at,status,completed_at,created_at")
+      .select("id,item_type,title,content,category,due_at,status,completed_at,created_at,deleted_at")
       .eq("owner_user_id", user.id)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false }),
     supabase.from("profiles").select("zalo_user_id").eq("user_id", user.id).maybeSingle(),
     supabase
