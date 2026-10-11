@@ -20,6 +20,6 @@ export function vietnamDateToIso(date: string): string | null {
   if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return null;
   const parsed = new Date(`${date}T00:00:00+07:00`);
   if (Number.isNaN(parsed.getTime())) return null;
-  const normalized = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).format(parsed);
+  const normalized = new Date(parsed.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
   return normalized === date ? parsed.toISOString() : null;
 }
