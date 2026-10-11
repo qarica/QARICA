@@ -30,9 +30,28 @@ BEGIN
   WHERE schemaname = 'public'
     AND tablename = 'personal_workspace_items'
     AND cmd IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'ALL')
-    AND (qual ILIKE '%auth.uid()%' OR with_check ILIKE '%auth.uid()%');
+    AND (coalesce(qual, '') ILIKE '%auth.uid()%'
+         OR coalesce(with_check, '') ILIKE '%auth.uid()%')
+    AND (coalesce(qual, '') ILIKE '%owner_user_id%'
+         OR coalesce(with_check, '') ILIKE '%owner_user_id%');
   IF policy_count < 4 THEN
     RAISE EXCEPTION 'Expected four owner-scoped RLS policies, found %', policy_count;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'personal_workspace_items'
+      AND permissive = 'PERMISSIVE'
+      AND cmd IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'ALL')
+      AND NOT (
+        (coalesce(qual, '') ILIKE '%auth.uid()%'
+          AND coalesce(qual, '') ILIKE '%owner_user_id%')
+        OR (coalesce(with_check, '') ILIKE '%auth.uid()%'
+          AND coalesce(with_check, '') ILIKE '%owner_user_id%')
+      )
+  ) THEN
+    RAISE EXCEPTION 'Potentially unscoped permissive RLS policy found';
   END IF;
 
   RAISE NOTICE 'Phase 0 schema and owner policy preflight passed';
