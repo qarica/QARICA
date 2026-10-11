@@ -47,6 +47,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const [category, setCategory] = useState("");
   const [dueAt, setDueAt] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mutationBusy, setMutationBusy] = useState(false);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -111,6 +112,8 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   }
 
   async function toggleDone(row: Item) {
+    if (mutationBusy) return;
+    setMutationBusy(true);
     setError("");
     const next = row.status === "DONE" ? "OPEN" : "DONE";
     const completedAt = next === "DONE" ? new Date().toISOString() : null;
@@ -121,6 +124,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       .eq("owner_user_id", userId)
       .eq("status", row.status)
       .select("id");
+    setMutationBusy(false);
     if (error) {
       setError(error.message);
       return;
@@ -138,6 +142,8 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   }
 
   async function saveEdit(id: string) {
+    if (mutationBusy) return;
+    setMutationBusy(true);
     setError("");
     const newContent = editContent.trim() || null;
     const { data, error } = await supabase
@@ -147,6 +153,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       .eq("owner_user_id", userId)
       .eq("item_type", "NOTE")
       .select("id");
+    setMutationBusy(false);
     if (error) {
       setError(error.message);
       return;
@@ -160,6 +167,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   }
 
   async function remove(id: string) {
+    if (mutationBusy) return;
     const item = rows.find((row) => row.id === id);
     if (!item) return;
     // Temporary safeguard until the audited soft-delete + recovery workflow is available.
@@ -168,6 +176,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       `Xóa vĩnh viễn ${item.item_type === "NOTE" ? "ghi chú" : "công việc"} "${item.title}"?\nThao tác này hiện chưa có chức năng khôi phục.`,
     );
     if (!confirmed) return;
+    setMutationBusy(true);
     setError("");
     const { data, error } = await supabase
       .from("personal_workspace_items")
@@ -175,6 +184,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       .eq("id", id)
       .eq("owner_user_id", userId)
       .select("id");
+    setMutationBusy(false);
     if (error) {
       setError(error.message);
       return;
@@ -246,7 +256,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
                   <div className="pw-edit">
                     <textarea className="input" rows={4} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
                     <div className="pw-edit-actions">
-                      <button className="button primary small" onClick={() => void saveEdit(r.id)}>
+                      <button className="button primary small" disabled={mutationBusy} onClick={() => void saveEdit(r.id)}>
                         Lưu
                       </button>
                       <button className="button tertiary small" onClick={() => setEditingId(null)}>
@@ -263,7 +273,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
               <span className="status-badge info">{r.status === "DONE" ? "Đã xong" : "Cá nhân"}</span>
             </div>
             {r.item_type === "TASK" ? (
-              <button className="button secondary small" onClick={() => void toggleDone(r)}>
+              <button className="button secondary small" disabled={mutationBusy} onClick={() => void toggleDone(r)}>
                 {r.status === "DONE" ? "Mở lại" : "Hoàn tất"}
               </button>
             ) : editingId === r.id ? null : (
@@ -271,7 +281,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
                 Sửa
               </button>
             )}
-            <button className="button tertiary small" onClick={() => void remove(r.id)}>
+            <button className="button tertiary small" disabled={mutationBusy} onClick={() => void remove(r.id)}>
               Xóa
             </button>
           </div>
