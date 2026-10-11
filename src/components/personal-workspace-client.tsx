@@ -72,7 +72,11 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       setError(error.message);
       return;
     }
-    setRows((v) => [...((data ?? []) as Item[]), ...v]);
+    if (!data || data.length !== toInsert.length) {
+      setError("Kết quả nhập chưa đầy đủ. Vui lòng tải lại danh sách trước khi thử tiếp.");
+      return;
+    }
+    setRows((v) => [...(data as Item[]), ...v]);
     setTab("NOTE");
   }
 
