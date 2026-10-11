@@ -131,6 +131,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     setError("");
     const next = row.status === "DONE" ? "OPEN" : "DONE";
     const completedAt = next === "DONE" ? new Date().toISOString() : null;
+    try {
     const { data, error } = await supabase
       .from("personal_workspace_items")
       .update({ status: next, completed_at: completedAt, updated_at: new Date().toISOString() })
@@ -138,7 +139,6 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       .eq("owner_user_id", userId)
       .eq("status", row.status)
       .select("id");
-    endMutation();
     if (error) {
       setError(error.message);
       return;
@@ -148,6 +148,11 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       return;
     }
     setRows((v) => v.map((x) => (x.id === row.id ? { ...x, status: next, completed_at: completedAt } : x)));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể cập nhật công việc.");
+    } finally {
+      endMutation();
+    }
   }
 
   function startEdit(row: Item) {
@@ -159,6 +164,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     if (!beginMutation()) return;
     setError("");
     const newContent = editContent.trim() || null;
+    try {
     const { data, error } = await supabase
       .from("personal_workspace_items")
       .update({ content: newContent, updated_at: new Date().toISOString() })
@@ -166,7 +172,6 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       .eq("owner_user_id", userId)
       .eq("item_type", "NOTE")
       .select("id");
-    endMutation();
     if (error) {
       setError(error.message);
       return;
@@ -177,6 +182,11 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     }
     setRows((v) => v.map((x) => (x.id === id ? { ...x, content: newContent } : x)));
     setEditingId(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể lưu ghi chú.");
+    } finally {
+      endMutation();
+    }
   }
 
   async function remove(id: string) {
@@ -190,13 +200,13 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     );
     if (!confirmed || !beginMutation()) return;
     setError("");
+    try {
     const { data, error } = await supabase
       .from("personal_workspace_items")
       .delete()
       .eq("id", id)
       .eq("owner_user_id", userId)
       .select("id");
-    endMutation();
     if (error) {
       setError(error.message);
       return;
@@ -206,6 +216,11 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       return;
     }
     setRows((v) => v.filter((x) => x.id !== id));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể xóa bản ghi.");
+    } finally {
+      endMutation();
+    }
   }
 
   const visible = rows.filter((r) => r.item_type === tab);
