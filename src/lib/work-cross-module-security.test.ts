@@ -1,0 +1,9 @@
+import{readFileSync}from"node:fs";import{describe,expect,it}from"vitest";
+const read=(p:string)=>readFileSync(p,"utf8");
+describe("cross-module API read boundaries",()=>{
+it("centralizes work visibility and fails closed",()=>{const s=read("src/lib/work-visibility.ts");expect(s).toContain('canViewRecordType(user, recordType)');expect(s).toContain('user.permissions.includes("emr.view")');expect(s).toContain("row.owner_user_id === user.id");expect(s).toContain("return false;");});
+it("filters Work and prevents unauthorized followup creation",()=>{expect(read("src/app/api/work/route.ts")).toContain("canViewWorkItem(a.context.user,r)");expect(read("src/lib/work-followups-validate.ts")).toContain("canViewWorkItem(auth.context.user,data[0])");});
+it("enforces per-type permissions on service-role global search",()=>{const s=read("src/app/api/search/route.ts");expect(s).toContain("requireApiContext()");expect(s).toContain('.in("record_type",types)');expect(s).toContain('.eq("organization_id",organizationId)');});
+it("enforces per-type and org filters on assistant tools",()=>{expect(read("src/lib/assistant-search.ts")).toContain('.in("record_type",types)');expect(read("src/lib/assistant-record.ts")).toContain("canViewRecordType(c.user,record.record_type)");expect(read("src/lib/assistant-record-links.ts")).toContain("allowed.has(other(x))");expect(read("src/lib/assistant-tool-gateway.ts")).toContain("canViewWorkItem(context.user,r)");});
+it("tightens EMR RLS and preserves roles",()=>{expect(read("supabase/migrations/20261011173000_emr_work_read_permission_v1.sql")).toContain("has_permission('emr.view')");const s=read("supabase/migrations/20261011090818_role_alias_consolidation_v1.sql");expect(s).toContain("on conflict (alias_code) do nothing");expect(s).not.toContain("delete from public.roles");});
+});
