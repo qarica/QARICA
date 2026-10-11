@@ -129,7 +129,8 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     const { error } = await supabase
       .from("personal_workspace_items")
       .update({ content: editContent.trim() || null, updated_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("owner_user_id", userId);
     if (error) {
       setError(error.message);
       return;
