@@ -11,6 +11,7 @@ describe("Work OS API safeguards", () => {
   it("uses authenticated context and bounds returned work items", () => {
     expect(route).toContain("requireApiContext()");
     expect(route).toContain(".limit(500)");
+    expect(route).toContain('sourceIds.length && (state==="OPEN" || state==="WAITING")');
   });
   it("matches followups using both source type and source ID", () => {
     expect(route).toContain('f.source_type+":"+f.source_id');
@@ -28,6 +29,7 @@ describe("Knowledge API safeguards", () => {
     expect(route).toContain("q.length>200");
     expect(route).toContain("content.length>100000");
     expect(route).toContain("Ngày nhật ký không hợp lệ");
+    expect(route).toContain(String.raw`/^\d{4}-\d{2}-\d{2}$/`);
   });
   it("does not accept caller-supplied owner_user_id", () => {
     expect(route).toContain("owner_user_id:auth.user.id");
