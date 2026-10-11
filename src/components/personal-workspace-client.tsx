@@ -104,6 +104,10 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       setError(error.message);
       return;
     }
+    if (!data?.id) {
+      setError("Không xác nhận được bản ghi mới. Vui lòng tải lại danh sách.");
+      return;
+    }
     setRows((v) => [data as Item, ...v]);
     setTitle("");
     setContent("");
