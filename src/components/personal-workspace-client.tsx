@@ -72,14 +72,14 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       category: t.category,
       content: t.content,
     }));
-    if (!toInsert.length) return;
+    if (!toInsert.length || !beginMutation()) return;
     setImportBusy(true);
     setError("");
+    try {
     const { data, error } = await supabase
       .from("personal_workspace_items")
       .insert(toInsert)
       .select("id,item_type,title,content,category,due_at,status,completed_at");
-    setImportBusy(false);
     if (error) {
       setError(error.message);
       return;
@@ -90,11 +90,17 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     }
     setRows((v) => [...(data as Item[]), ...v]);
     setTab("NOTE");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể nhập ghi chú mẫu.");
+    } finally {
+      setImportBusy(false);
+      endMutation();
+    }
   }
 
   async function add() {
     const cleanTitle = title.trim();
-    if (!cleanTitle) return;
+    if (!cleanTitle || !beginMutation()) return;
     setBusy(true);
     setError("");
     const payload: Record<string, unknown> = {
@@ -105,12 +111,12 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     };
     if (tab === "TASK") payload.due_at = dueAt ? new Date(`${dueAt}T00:00:00+07:00`).toISOString() : null;
     if (tab === "NOTE") payload.content = content.trim() || null;
+    try {
     const { data, error } = await supabase
       .from("personal_workspace_items")
       .insert(payload)
       .select("id,item_type,title,content,category,due_at,status,completed_at")
       .single();
-    setBusy(false);
     if (error) {
       setError(error.message);
       return;
@@ -124,6 +130,12 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     setContent("");
     setCategory("");
     setDueAt("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể tạo bản ghi.");
+    } finally {
+      setBusy(false);
+      endMutation();
+    }
   }
 
   async function toggleDone(row: Item) {
@@ -237,7 +249,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
           Ghi chú / quy trình
         </button>
         {pendingImportCount > 0 ? (
-          <button type="button" className="button secondary small pw-import" disabled={importBusy} onClick={() => void importTemplates()}>
+          <button type="button" className="button secondary small pw-import" disabled={importBusy || mutationBusy} onClick={() => void importTemplates()}>
             + Nhập {pendingImportCount} mục mẫu Trưởng phòng
           </button>
         ) : null}
@@ -260,7 +272,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
           <input className="input" placeholder="Phân loại (vd: QLCL, Vận hành, Chiến lược...)" value={category} maxLength={60} onChange={(e) => setCategory(e.target.value)} />
           {tab === "TASK" ? <input className="input" type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /> : null}
         </div>
-        <button className="button primary small" disabled={busy || !title.trim()} onClick={() => void add()}>
+        <button className="button primary small" disabled={busy || mutationBusy || !title.trim()} onClick={() => void add()}>
           + Thêm {tab === "TASK" ? "việc" : "ghi chú"}
         </button>
       </div>
