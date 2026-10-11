@@ -107,17 +107,25 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   }
 
   async function toggleDone(row: Item) {
+    setError("");
     const next = row.status === "DONE" ? "OPEN" : "DONE";
-    const { error } = await supabase
+    const completedAt = next === "DONE" ? new Date().toISOString() : null;
+    const { data, error } = await supabase
       .from("personal_workspace_items")
-      .update({ status: next, completed_at: next === "DONE" ? new Date().toISOString() : null, updated_at: new Date().toISOString() })
+      .update({ status: next, completed_at: completedAt, updated_at: new Date().toISOString() })
       .eq("id", row.id)
-      .eq("owner_user_id", userId);
+      .eq("owner_user_id", userId)
+      .eq("status", row.status)
+      .select("id");
     if (error) {
       setError(error.message);
       return;
     }
-    setRows((v) => v.map((x) => (x.id === row.id ? { ...x, status: next } : x)));
+    if (!data?.some((updated) => updated.id === row.id)) {
+      setError("Không thể cập nhật: dữ liệu đã thay đổi hoặc bạn không có quyền. Vui lòng tải lại.");
+      return;
+    }
+    setRows((v) => v.map((x) => (x.id === row.id ? { ...x, status: next, completed_at: completedAt } : x)));
   }
 
   function startEdit(row: Item) {
@@ -126,16 +134,24 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   }
 
   async function saveEdit(id: string) {
-    const { error } = await supabase
+    setError("");
+    const newContent = editContent.trim() || null;
+    const { data, error } = await supabase
       .from("personal_workspace_items")
-      .update({ content: editContent.trim() || null, updated_at: new Date().toISOString() })
+      .update({ content: newContent, updated_at: new Date().toISOString() })
       .eq("id", id)
-      .eq("owner_user_id", userId);
+      .eq("owner_user_id", userId)
+      .eq("item_type", "NOTE")
+      .select("id");
     if (error) {
       setError(error.message);
       return;
     }
-    setRows((v) => v.map((x) => (x.id === id ? { ...x, content: editContent.trim() || null } : x)));
+    if (!data?.some((updated) => updated.id === id)) {
+      setError("Không thể lưu: ghi chú không tồn tại hoặc bạn không có quyền. Vui lòng tải lại.");
+      return;
+    }
+    setRows((v) => v.map((x) => (x.id === id ? { ...x, content: newContent } : x)));
     setEditingId(null);
   }
 
