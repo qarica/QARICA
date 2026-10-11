@@ -5,6 +5,7 @@ DECLARE
   has_column boolean;
   rls_on boolean;
   policy_count integer;
+  command_name text;
 BEGIN
   SELECT EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -53,6 +54,35 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Potentially unscoped permissive RLS policy found';
   END IF;
+
+  -- Every operation needs an explicit owner policy, not merely four policies total.
+  FOREACH command_name IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'] LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public'
+        AND tablename = 'personal_workspace_items'
+        AND cmd IN (command_name, 'ALL')
+        AND permissive = 'PERMISSIVE'
+        AND (
+          (command_name = 'INSERT'
+            AND coalesce(with_check, '') ILIKE '%auth.uid()%'
+            AND coalesce(with_check, '') ILIKE '%owner_user_id%')
+          OR (command_name = 'SELECT'
+            AND coalesce(qual, '') ILIKE '%auth.uid()%'
+            AND coalesce(qual, '') ILIKE '%owner_user_id%')
+          OR (command_name = 'DELETE'
+            AND coalesce(qual, '') ILIKE '%auth.uid()%'
+            AND coalesce(qual, '') ILIKE '%owner_user_id%')
+          OR (command_name = 'UPDATE'
+            AND coalesce(qual, '') ILIKE '%auth.uid()%'
+            AND coalesce(qual, '') ILIKE '%owner_user_id%'
+            AND coalesce(with_check, '') ILIKE '%auth.uid()%'
+            AND coalesce(with_check, '') ILIKE '%owner_user_id%')
+        )
+    ) THEN
+      RAISE EXCEPTION 'Missing owner-scoped % policy', command_name;
+    END IF;
+  END LOOP;
 
   RAISE NOTICE 'Phase 0 schema and owner policy preflight passed';
 END $$;
