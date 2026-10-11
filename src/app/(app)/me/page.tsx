@@ -8,13 +8,14 @@ import { createClient } from "@/lib/supabase/server";
 export default async function PersonalWorkspacePage() {
   const { user } = await requireUserContext();
   const supabase = await createClient();
-  const [{ data }, { data: profile }, { data: knowledgeNotes }] = await Promise.all([
+  const [{ data, error: workspaceError }, { data: profile }, { data: knowledgeNotes }] = await Promise.all([
     supabase
       .from("personal_workspace_items")
       .select("id,item_type,title,content,category,due_at,status,completed_at,created_at,deleted_at")
       .eq("owner_user_id", user.id)
       .is("deleted_at", null)
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false })
+      .limit(500),
     supabase.from("profiles").select("zalo_user_id").eq("user_id", user.id).maybeSingle(),
     supabase
       .from("knowledge_notes")
@@ -32,7 +33,13 @@ export default async function PersonalWorkspacePage() {
         description="Việc cần làm và ghi chú của riêng bạn — không gắn với bất kỳ tổ chức/bệnh viện nào, luôn theo bạn dù chuyển nơi làm việc."
         icon="book-open"
       />
-      <PersonalWorkspaceClient initialRows={(data ?? []) as any} userId={user.id} />
+      {workspaceError ? (
+        <div role="alert" className="alert error">
+          Không thể tải công việc và ghi chú cá nhân. Dữ liệu chưa bị xóa; vui lòng thử tải lại trang hoặc liên hệ quản trị viên.
+        </div>
+      ) : (
+        <PersonalWorkspaceClient initialRows={(data ?? []) as any} userId={user.id} />
+      )}
       <KnowledgeJournalClient initialNotes={(knowledgeNotes ?? []) as any} hasOrganization={!!user.organizationId} />
       <ZaloLinkClient initialZaloUserId={profile?.zalo_user_id ?? null} />
     </div>
