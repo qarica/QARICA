@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   const openRows=rows??[];
   const sourceIds=[...new Set(openRows.map((row:any)=>row.source_id).filter(Boolean))];
   let followups:any[]=[];
-  if(sourceIds.length){
+  if(sourceIds.length && (state==="OPEN" || state==="WAITING")){
     const {data,error:followError}=await auth.supabase.from("work_followups")
       .select("id,source_type,source_id,state,waiting_for_type,waiting_for_id,waiting_for_label,follow_up_at,note,updated_at")
       .in("source_id",sourceIds).in("state",["ACTIVE","WAITING"]);
