@@ -138,9 +138,27 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   }
 
   async function remove(id: string) {
-    const { error } = await supabase.from("personal_workspace_items").delete().eq("id", id);
+    const item = rows.find((row) => row.id === id);
+    if (!item) return;
+    // Temporary safeguard until the audited soft-delete + recovery workflow is available.
+    // Never perform a destructive operation without an explicit record-specific confirmation.
+    const confirmed = window.confirm(
+      `Xóa vĩnh viễn ${item.item_type === "NOTE" ? "ghi chú" : "công việc"} "${item.title}"?\\nThao tác này hiện chưa có chức năng khôi phục.`,
+    );
+    if (!confirmed) return;
+    setError("");
+    const { data, error } = await supabase
+      .from("personal_workspace_items")
+      .delete()
+      .eq("id", id)
+      .eq("owner_user_id", userId)
+      .select("id");
     if (error) {
       setError(error.message);
+      return;
+    }
+    if (!data?.some((row) => row.id === id)) {
+      setError("Không xác nhận được việc xóa. Vui lòng tải lại danh sách.");
       return;
     }
     setRows((v) => v.filter((x) => x.id !== id));
