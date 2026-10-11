@@ -1,16 +1,20 @@
 import { PageHeader } from "@/components/page-header";
 import { PersonalWorkspaceClient } from "@/components/personal-workspace-client";
+import { ZaloLinkClient } from "@/components/zalo-link-client";
 import { requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function PersonalWorkspacePage() {
   const { user } = await requireUserContext();
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("personal_workspace_items")
-    .select("id,item_type,title,content,category,due_at,status,completed_at,created_at")
-    .eq("owner_user_id", user.id)
-    .order("created_at", { ascending: false });
+  const [{ data }, { data: profile }] = await Promise.all([
+    supabase
+      .from("personal_workspace_items")
+      .select("id,item_type,title,content,category,due_at,status,completed_at,created_at")
+      .eq("owner_user_id", user.id)
+      .order("created_at", { ascending: false }),
+    supabase.from("profiles").select("zalo_user_id").eq("user_id", user.id).maybeSingle(),
+  ]);
 
   return (
     <div className="page-stack personal-workspace-page">
@@ -21,6 +25,7 @@ export default async function PersonalWorkspacePage() {
         icon="book-open"
       />
       <PersonalWorkspaceClient initialRows={(data ?? []) as any} userId={user.id} />
+      <ZaloLinkClient initialZaloUserId={profile?.zalo_user_id ?? null} />
     </div>
   );
 }

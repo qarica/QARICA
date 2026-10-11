@@ -1,8 +1,46 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
 import { routeForRecord } from "@/lib/record-route";
+import { sendZaloOaText } from "@/lib/zalo-oa";
 
 type AdminClient = SupabaseClient;
+
+const ZALO_PUSH_PRIORITIES = new Set(["HIGH", "URGENT", "CRITICAL"]);
+const ZALO_PRIORITY_LABEL: Record<string, string> = { CRITICAL: "nghiêm trọng", URGENT: "khẩn", HIGH: "cao" };
+
+// Mức 1 của đề xuất "đưa ý tưởng Javis OS vào QARICA": thêm kênh báo Zalo
+// bên cạnh chuông in-app, CHỈ cho thông báo vừa thực sự được tạo mới (hàng
+// trả về từ .upsert(...).select(...) với ignoreDuplicates:true — không bao
+// gồm hàng trùng notification_event_key của lần poll trước), để không gửi
+// lại Zalo mỗi lần notification-bell/cron chạy lại cho đúng 1 thông báo.
+// Không throw khi thiếu liên kết Zalo hoặc chưa cấu hình ZALO_OA_ACCESS_TOKEN
+// — đây là tính năng cộng thêm, không được phép làm hỏng luồng tạo thông
+// báo in-app đang hoạt động.
+//
+// Nội dung gửi qua Zalo CHỦ Ý tối thiểu — KHÔNG mang nguyên văn title/message
+// của notification (có thể chứa mô tả sự cố, tên khoa/phòng, dữ liệu HSBA...).
+// Zalo lưu lịch sử chat và hiện preview trên màn hình khóa điện thoại, ngoài
+// vùng kiểm soát truy cập của QARICA — chỉ báo SỐ LƯỢNG theo mức ưu tiên,
+// không nêu nội dung bất kỳ thông báo cụ thể nào. Người dùng mở app QARICA
+// (đã qua đăng nhập + RLS đúng tổ chức) để xem chi tiết thật.
+async function pushHighPriorityToZalo(
+  admin: AdminClient,
+  userId: string,
+  insertedRows: { priority?: string | null }[] | null | undefined,
+) {
+  const rows = (insertedRows ?? []).filter((r) => ZALO_PUSH_PRIORITIES.has(String(r.priority || "")));
+  if (!rows.length) return;
+  const { data: profile } = await admin.from("profiles").select("zalo_user_id").eq("user_id", userId).maybeSingle();
+  const zaloUserId = profile?.zalo_user_id;
+  if (!zaloUserId) return;
+  const countBySeverity = new Map<string, number>();
+  for (const row of rows) {
+    const key = String(row.priority);
+    countBySeverity.set(key, (countBySeverity.get(key) || 0) + 1);
+  }
+  const parts = Array.from(countBySeverity.entries()).map(([priority, count]) => `${count} thông báo mức ${ZALO_PRIORITY_LABEL[priority] || priority}`);
+  await sendZaloOaText(zaloUserId, `QARICA: ${parts.join(", ")} cần xử lý. Mở app QARICA để xem chi tiết.`);
+}
 
 export async function userHasPermission(admin: AdminClient, userId: string, code: string) {
   const { data: permission } = await admin.from("permissions").select("id").eq("code", code).maybeSingle();
@@ -83,8 +121,9 @@ export async function syncActionRemindersForUser(admin: AdminClient, userId: str
   }
 
   if (!payload.length) return { created: 0, candidates: 0 };
-  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id");
+  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id,priority");
   if (insertError) return { error: insertError.message };
+  await pushHighPriorityToZalo(admin, userId, inserted);
   return { created: inserted?.length || 0, candidates: payload.length };
 }
 
@@ -193,8 +232,9 @@ export async function syncEmrRemindersForUser(admin: AdminClient, userId: string
   }
 
   if (!payload.length) return { created: 0, candidates: 0 };
-  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id");
+  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id,priority");
   if (insertError) return { error: insertError.message };
+  await pushHighPriorityToZalo(admin, userId, inserted);
   return { created: inserted?.length || 0, candidates: payload.length };
 }
 
@@ -233,7 +273,8 @@ async function syncAwaitingConfirmation(admin: AdminClient, userId: string, prof
     };
   });
 
-  const { data: inserted } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id");
+  const { data: inserted } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id,priority");
+  await pushHighPriorityToZalo(admin, userId, inserted);
   return inserted?.length || 0;
 }
 
@@ -329,8 +370,9 @@ export async function syncMonitoringOverdueForUser(admin: AdminClient, userId: s
 
   if (!payload.length) return { created: qlclCreated, qlcl_created: qlclCreated, pending: pendingByRound.size };
 
-  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id");
+  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id,priority");
   if (insertError) return { error: insertError.message };
+  await pushHighPriorityToZalo(admin, userId, inserted);
 
   return {
     created: (inserted?.length || 0) + qlclCreated,
@@ -525,8 +567,9 @@ export async function syncQualityAttentionForUser(admin: AdminClient, userId: st
 
   if (!payload.length) return { created: 0, candidates: 0, warnings: queryErrors.slice(0, 3) };
 
-  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id");
+  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id,priority");
   if (insertError) return { error: insertError.message };
+  await pushHighPriorityToZalo(admin, userId, inserted);
 
   return { created: inserted?.length || 0, candidates: payload.length, warnings: queryErrors.slice(0, 3) };
 }
@@ -572,8 +615,9 @@ export async function syncPhysicianLicenseRemindersForUser(admin: AdminClient, u
   }
 
   if (!payload.length) return { created: 0, candidates: 0 };
-  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id");
+  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id,priority");
   if (insertError) return { error: insertError.message };
+  await pushHighPriorityToZalo(admin, userId, inserted);
   return { created: inserted?.length || 0, candidates: payload.length };
 }
 
@@ -603,7 +647,8 @@ export async function syncPersonalRemindersForUser(admin: AdminClient, userId: s
     is_read: false,
   }));
 
-  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id");
+  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id,priority");
   if (insertError) return { error: insertError.message };
+  await pushHighPriorityToZalo(admin, userId, inserted);
   return { created: inserted?.length || 0, candidates: payload.length };
 }
