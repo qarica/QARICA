@@ -13,6 +13,7 @@ type Item = {
   due_at: string | null;
   status: "OPEN" | "DONE";
   completed_at: string | null;
+  deleted_at?: string | null;
 };
 
 function formatDue(value: string | null) {
@@ -41,6 +42,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const supabase = createClient();
   const [rows, setRows] = useState(initialRows);
   const [tab, setTab] = useState<ItemType>("TASK");
+  const [showTrash, setShowTrash] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -64,7 +66,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const [editContent, setEditContent] = useState("");
 
   async function importTemplates() {
-    const existingTitles = new Set(rows.filter((r) => r.item_type === "NOTE").map((r) => r.title));
+    const existingTitles = new Set(rows.filter((r) => !r.deleted_at && r.item_type === "NOTE").map((r) => r.title));
     const toInsert = HEAD_OF_DEPARTMENT_TEMPLATES.filter((t) => !existingTitles.has(t.title)).map((t) => ({
       owner_user_id: userId,
       item_type: "NOTE" as const,
@@ -203,45 +205,64 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
 
   async function remove(id: string) {
     if (mutationLock.current) return;
-    const item = rows.find((row) => row.id === id);
+    const item = rows.find((row) => row.id === id && !row.deleted_at);
     if (!item) return;
-    // Temporary safeguard until the audited soft-delete + recovery workflow is available.
-    // Never perform a destructive operation without an explicit record-specific confirmation.
-    const confirmed = window.confirm(
-      `Xóa vĩnh viễn ${item.item_type === "NOTE" ? "ghi chú" : "công việc"} "${item.title}"?\nThao tác này hiện chưa có chức năng khôi phục.`,
-    );
-    if (!confirmed || !beginMutation()) return;
+    if (!window.confirm(`Chuyển "${item.title}" vào thùng rác? Bạn có thể khôi phục sau.`)) return;
+    if (!beginMutation()) return;
     setError("");
     try {
-    const { data, error } = await supabase
-      .from("personal_workspace_items")
-      .delete()
-      .eq("id", id)
-      .eq("owner_user_id", userId)
-      .select("id");
-    if (error) {
-      setError(error.message);
-      return;
-    }
-    if (!data?.some((row) => row.id === id)) {
-      setError("Không xác nhận được việc xóa. Vui lòng tải lại danh sách.");
-      return;
-    }
-    setRows((v) => v.filter((x) => x.id !== id));
+      const deletedAt = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("personal_workspace_items")
+        .update({ deleted_at: deletedAt, updated_at: deletedAt })
+        .eq("id", id)
+        .eq("owner_user_id", userId)
+        .is("deleted_at", null)
+        .select("id");
+      if (error) throw error;
+      if (!data?.some((row) => row.id === id)) {
+        setError("Không thể chuyển vào thùng rác. Vui lòng tải lại.");
+        return;
+      }
+      setRows((current) => current.map((row) => row.id === id ? { ...row, deleted_at: deletedAt } : row));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể xóa bản ghi.");
+      setError(cause instanceof Error ? cause.message : "Không thể chuyển vào thùng rác.");
     } finally {
       endMutation();
     }
   }
 
-  const visible = rows.filter((r) => r.item_type === tab);
+  async function restore(id: string) {
+    if (!beginMutation()) return;
+    setError("");
+    try {
+      const { data, error } = await supabase
+        .from("personal_workspace_items")
+        .update({ deleted_at: null, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("owner_user_id", userId)
+        .not("deleted_at", "is", null)
+        .select("id");
+      if (error) throw error;
+      if (!data?.some((row) => row.id === id)) {
+        setError("Không thể khôi phục. Vui lòng tải lại.");
+        return;
+      }
+      setRows((current) => current.map((row) => row.id === id ? { ...row, deleted_at: null } : row));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể khôi phục bản ghi.");
+    } finally {
+      endMutation();
+    }
+  }
+
+  const visible = rows.filter((r) => showTrash ? Boolean(r.deleted_at) : !r.deleted_at && r.item_type === tab);
   const existingNoteTitles = new Set(rows.filter((r) => r.item_type === "NOTE").map((r) => r.title));
   const pendingImportCount = HEAD_OF_DEPARTMENT_TEMPLATES.filter((t) => !existingNoteTitles.has(t.title)).length;
 
   return (
     <section className="panel pw-section">
-      <div className="pw-tabs">
+      <div className="pw-tabs">\n        <button type="button" className="button secondary small" onClick={() => setShowTrash((value) => !value)}>{showTrash ? "Quay lại" : "Thùng rác"}</button>
         <button type="button" className={`pw-tab ${tab === "TASK" ? "active" : ""}`} onClick={() => setTab("TASK")}>
           Việc cần làm
         </button>
@@ -281,7 +302,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
           {error}
         </div>
       ) : null}
-      <div className="work-list">
+      {null}</div> : null}\n      <div className="work-list">
         {visible.map((r) => (
           <div className="work-row pw-row" key={r.id}>
             <div className="work-main">
@@ -311,7 +332,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
             <div>
               <span className="status-badge info">{r.status === "DONE" ? "Đã xong" : "Cá nhân"}</span>
             </div>
-            {r.item_type === "TASK" ? (
+            {!showTrash && r.item_type === "TASK" ? (
               <button className="button secondary small" disabled={mutationBusy} onClick={() => void toggleDone(r)}>
                 {r.status === "DONE" ? "Mở lại" : "Hoàn tất"}
               </button>
@@ -325,7 +346,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
             </button>
           </div>
         ))}
-        {!visible.length ? <div className="empty-state compact">{tab === "TASK" ? "Chưa có việc cần làm." : "Chưa có ghi chú nào."}</div> : null}
+        {!visible.length ? <div className="empty-state compact">{showTrash ? "Thùng rác trống." : tab === "TASK" ? "Chưa có việc cần làm." : "Chưa có ghi chú nào."}</div> : null}
       </div>
       <style jsx>{`
         .pw-tabs {
