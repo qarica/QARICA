@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hcmToday, syncRecurringTemplateNow } from "@/lib/recurring-sync";
+import { cancelFutureGeneratedOutputs } from "@/lib/recurring-cleanup";
 
 const PRIORITIES = new Set(["LOW", "NORMAL", "HIGH", "URGENT", "CRITICAL"]);
 const RULE_PATTERNS = [
@@ -15,46 +16,6 @@ const RULE_PATTERNS = [
 
 function validRule(value: string) {
   return RULE_PATTERNS.some((pattern) => pattern.test(value));
-}
-
-// Deactivating a recurring template only stops FUTURE generation — it never
-// touched runs the sync job already materialized ahead of time (up to a
-// 90-day horizon), so an already-generated future monitoring round/action/
-// report kept sitting there as live, uncompleted work forever after the
-// source template was turned off. Cancel those through the SAME generic
-// record-lifecycle RPC every other "Hủy" button in the app already uses
-// (qlcl_change_record_lifecycle_v1), not a bespoke deletion — this
-// preserves history (CANCELLED, not deleted) exactly like a manual cancel
-// would, and the RPC's own guards (CLOSED/already-terminal) still apply.
-async function cancelFutureGeneratedOutputs(admin: ReturnType<typeof createAdminClient>, templateId: string, actorUserId: string) {
-  const today = hcmToday();
-  const { data: futureRuns } = await admin
-    .from("recurring_work_runs")
-    .select("id,generated_action_id,generated_output_record_id")
-    .eq("template_id", templateId)
-    .gte("planned_date", today);
-
-  const recordIds = new Set<string>();
-  for (const run of futureRuns ?? []) {
-    if (run.generated_output_record_id) recordIds.add(run.generated_output_record_id);
-  }
-  const actionIds = (futureRuns ?? []).map((r: any) => r.generated_action_id).filter(Boolean);
-  if (actionIds.length) {
-    const { data: actionRows } = await admin.from("actions").select("record_id").in("id", actionIds);
-    for (const a of actionRows ?? []) if (a.record_id) recordIds.add(a.record_id);
-  }
-
-  for (const recordId of recordIds) {
-    // supabase-js resolves {error} rather than throwing — a record already
-    // terminal/closed raises inside the RPC and simply surfaces as a resolved
-    // error here, which is fine to ignore (it already reflects "not cancellable").
-    await admin.rpc("qlcl_change_record_lifecycle_v1", {
-      p_record_id: recordId,
-      p_actor_user_id: actorUserId,
-      p_action: "CANCEL",
-      p_reason: "Tự động hủy do mẫu công việc định kỳ nguồn đã bị tắt.",
-    });
-  }
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -83,7 +44,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   const { error } = await admin.from("recurring_work_templates").update({ is_active: nextActive, updated_at: new Date().toISOString() }).eq("id", id).eq("organization_id", organizationId);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    if (!nextActive) await cancelFutureGeneratedOutputs(admin, id, auth.user.id);
+    if (!nextActive) await cancelFutureGeneratedOutputs(admin, id, organizationId, auth.user.id);
     const sync = nextActive ? await syncRecurringTemplateNow({
       admin,
       templateId: id,
@@ -231,7 +192,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }).eq("id", id).eq("organization_id", organizationId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  if (!isActive) await cancelFutureGeneratedOutputs(admin, id, auth.user.id);
+  if (!isActive) await cancelFutureGeneratedOutputs(admin, id, organizationId, auth.user.id);
 
   const sync = isActive ? await syncRecurringTemplateNow({
     admin,

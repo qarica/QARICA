@@ -1,18 +1,18 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-// Regression found while investigating "nhiệm vụ theo kế hoạch đã xoá vẫn
-// còn dữ liệu dính lại": the sidebar's global actionable-badge loop over
-// vw_actions_dashboard computed `dueToday` from days_to_due alone, with no
-// workflow_status check — so a CANCELLED action whose due_date happened to
-// equal today still lit up the /tasks nav badge. Every other loop in this
-// same effect (directives, reports, risks, capa, feedback, inspections,
-// findings) already excludes terminal statuses before computing due-ness;
-// the task/action loop was the one outlier missing it.
-describe("Sidebar actionable badge — excludes terminal Action statuses", () => {
+describe("Sidebar attention projection excludes cancelled/hidden records", () => {
+  const projection = readFileSync("src/lib/attention-projection.ts", "utf8");
   const shell = readFileSync("src/components/app-shell.tsx", "utf8");
 
-  it("skips COMPLETED/CANCELLED/NOT_APPLICABLE actions before computing dueToday/overdue/returned, like every other loop in the same effect", () => {
-    expect(shell).toContain('for (const task of (tasksRes.data ?? []) as any[]) { if (["COMPLETED", "CANCELLED", "NOT_APPLICABLE"].includes(String(task.workflow_status))) continue;');
+  it("filters operationally hidden lifecycle statuses before creating badges", () => {
+    expect(projection).toContain("isOperationallyHiddenStatus");
+    expect(projection).toContain("visibleRecordIds");
+    expect(projection).toContain("continue;");
+  });
+
+  it("AppShell reads the projection endpoint instead of rescanning Action/domain tables", () => {
+    expect(shell).toContain("/api/notifications/attention");
+    expect(shell).not.toContain('supabase.from("vw_actions_dashboard")');
   });
 });

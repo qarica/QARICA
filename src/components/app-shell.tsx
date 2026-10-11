@@ -13,12 +13,6 @@ import { NotificationBell } from "@/components/notification-bell";
 
 type AttentionState = Record<string, { count: number; urgent: boolean }>;
 
-type AttentionNotification = {
-  id: string;
-  priority: string | null;
-  target_record_id: string | null;
-  target_route: string | null;
-};
 
 const NAV_ICON_TONE: Record<string, string> = {
   "/dashboard": "overview", "/tasks": "work", "/calendar": "calendar", "/emr": "measure",
@@ -28,19 +22,7 @@ const NAV_ICON_TONE: Record<string, string> = {
   "/analytics": "analytics", "/admin": "system",
 };
 
-const RECORD_TYPE_NAV: Record<string, string> = {
-  ACTION: "/tasks", PROGRAM: "/plans", DIRECTIVE: "/directives", REPORT: "/reports", INSPECTION: "/inspections", INDICATOR_MEASUREMENT: "/indicators", MONITORING: "/monitoring", FINDING: "/findings", INCIDENT: "/incidents", CAPA: "/capa", RISK: "/risks", IMPROVEMENT_PROJECT: "/improvement/projects", IMPROVEMENT_PROPOSAL: "/improvement/proposals", ASSESSMENT: "/assessments", EXTERNAL_ASSESSMENT: "/external-assessments", AUDIT: "/audits", SAFETY_ALERT: "/safety-alerts", FEEDBACK: "/feedback",
-};
 
-function normalizeNavRoute(route: string | null, navGroups: NavGroup[]) {
-  if (!route) return null;
-  const base = route.split("?")[0];
-  const visibleRoots = new Set(navGroups.flatMap((group) => group.children.map((item) => item.workspaceRoot || item.href.split("?")[0])));
-  const workspaceRoot = workspaceRootForPath(base);
-  if (workspaceRoot && visibleRoots.has(workspaceRoot)) return workspaceRoot;
-  const hrefs = navGroups.flatMap((group) => group.children.map((item) => item.href.split("?")[0]));
-  return [...hrefs].sort((a, b) => b.length - a.length).find((href) => base === href || base.startsWith(`${href}/`)) ?? null;
-}
 
 // Single source of truth for "is this child the active route" — shared by the
 // per-link active class and by the accordion group's auto-expand resolution,
@@ -86,45 +68,27 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
   useEffect(() => {
     let active = true;
     async function loadAttention() {
-      const next = new Map<string, { ids: Set<string>; urgent: boolean }>();
-      const add = (href: string | null, id: string, urgent: boolean) => { if (!href) return; const base = href.split("?")[0]; const target = base === "/assistant" ? base : (workspaceRootForPath(base) || base); const current = next.get(target) ?? { ids: new Set<string>(), urgent: false }; current.ids.add(id); current.urgent = current.urgent || urgent; next.set(target, current); };
-      const addActionable = (href: string | null, id: string, urgent: boolean) => { add(href, id, urgent); };
       try {
-        const canVerifyTasks = user.permissions.includes("plans.manage"); const canConfirmMonitoring = user.permissions.includes("checklists.manage"); const canManageDirectives = user.permissions.includes("directives.manage"); const canManageReports = user.permissions.includes("reports.manage"); const canManageRisks = user.permissions.includes("risk.manage"); const canVerifyIndicators = user.permissions.includes("indicators.verify") || user.permissions.includes("indicators.manage"); const canManageCapa = user.permissions.includes("capa.manage"); const canManageFeedback = user.permissions.includes("feedback.manage"); const canManageInspections = user.permissions.includes("inspections.manage") || user.permissions.includes("plans.manage"); const canManageFindings = user.permissions.includes("findings.manage");
-        const [groupAssignmentsRes, departmentRolesRes] = await Promise.all([
-          supabase.from("work_group_assignment_snapshots").select("target_record_id,member_snapshot").eq("assignment_role", "ACTION_ASSIGNEE_GROUP"),
-          user.primaryDepartmentId ? supabase.from("department_user_roles").select("role_type").eq("department_id", user.primaryDepartmentId).eq("user_id", user.id).eq("is_active", true).in("role_type", ["HEAD", "QUALITY_NETWORK_MEMBER"]) : Promise.resolve({ data: [], error: null }),
-        ]);
-        if (groupAssignmentsRes.error) throw new Error(`Truy vấn group assignment lỗi: ${groupAssignmentsRes.error.message}`);
-        if (departmentRolesRes.error) throw new Error(`Truy vấn department role lỗi: ${departmentRolesRes.error.message}`);
-        const myGroupActionRecordIds = new Set<string>((groupAssignmentsRes.data ?? []).filter((row: any) => Array.isArray(row.member_snapshot) && row.member_snapshot.some((member: any) => String(member?.user_id || "").trim() === user.id)).map((row: any) => row.target_record_id).filter(Boolean));
-        const canOperateDepartment = !!user.primaryDepartmentId && (departmentRolesRes.data ?? []).length > 0;
-        const departmentExecutionsRes = canOperateDepartment ? await supabase.from("action_department_executions").select("action_id").eq("department_id", user.primaryDepartmentId) : { data: [], error: null };
-        if (departmentExecutionsRes.error) throw new Error(`Truy vấn department execution lỗi: ${departmentExecutionsRes.error.message}`);
-        const myDepartmentActionIds = new Set<string>((departmentExecutionsRes.data ?? []).map((row: any) => row.action_id).filter(Boolean));
-        const [recordsRes, noticesRes, tasksRes, monitoringRes, directivesRes, reportsRes, risksRes, indicatorsRes, capasRes, feedbackRes, inspectionsRes, findingsRes] = await Promise.all([
-          supabase.from("records").select("id").eq("work_year", year).eq("lifecycle_status", "ACTIVE"), supabase.from("notifications").select("id,priority,target_record_id,target_route").eq("is_read", false).order("created_at", { ascending: false }).limit(100), supabase.from("vw_actions_dashboard").select("action_id,record_id,workflow_status,is_overdue,days_to_due,assignee_user_id,assignment_target_type,assignee_group_id").eq("work_year", year), supabase.from("monitoring_rounds").select("id,record_id,workflow_status,scheduled_date,lead_assessor_id").in("workflow_status", ["SCHEDULED", "IN_PROGRESS", "AWAITING_CONFIRMATION"]), supabase.from("external_directives").select("id,record_id,workflow_status,implementation_due_date,report_due_date,lead_department_id,owner_user_id"), supabase.from("reporting_obligations").select("id,record_id,workflow_status,due_date,preparing_department_id,preparer_user_id"), supabase.from("risks").select("id,record_id,workflow_status,next_review_date,owner_user_id"), supabase.from("indicator_measurements").select("id,record_id,workflow_status,result_level,period_end"), supabase.from("capas").select("id,record_id,workflow_status,effectiveness_due_date"), supabase.from("feedback_records").select("id,record_id,workflow_status,response_due_at"), supabase.from("inspection_events").select("id,record_id,workflow_status,visit_date"), supabase.from("findings").select("id,record_id,workflow_status,due_date,owner_user_id")]);
-        const results = { recordsRes, noticesRes, tasksRes, monitoringRes, directivesRes, reportsRes, risksRes, indicatorsRes, capasRes, feedbackRes, inspectionsRes, findingsRes } as Record<string, { error?: { message: string } | null }>;
-        const failedQuery = Object.entries(results).find(([, r]) => r?.error);
-        if (failedQuery) throw new Error(`Truy vấn "${failedQuery[0]}" lỗi: ${failedQuery[1]?.error?.message}`);
-        const currentRecordIds = new Set((recordsRes.data ?? []).map((x: any) => x.id)); const inCurrentYear = (recordId: string | null | undefined) => !!recordId && currentRecordIds.has(recordId); const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()); const todayMs = Date.parse(`${today}T00:00:00+07:00`); const daysTo = (value: string | null | undefined) => { if (!value) return null; const date = String(value).slice(0, 10); const targetMs = Date.parse(`${date}T00:00:00+07:00`); if (!Number.isFinite(targetMs) || !Number.isFinite(todayMs)) return null; return Math.round((targetMs - todayMs) / 86400000); }; const mine = (ownerUserId?: string | null, departmentId?: string | null) => ownerUserId === user.id || (!!user.primaryDepartmentId && departmentId === user.primaryDepartmentId);
-        const notificationRows = (noticesRes.data ?? []) as AttentionNotification[]; const recordIds = Array.from(new Set(notificationRows.map((notice) => notice.target_record_id).filter(Boolean))) as string[]; const recordTypeById = new Map<string, string>(); if (recordIds.length) { const { data: records } = await supabase.from("records").select("id,record_type").in("id", recordIds); (records ?? []).forEach((record: any) => recordTypeById.set(record.id, record.record_type)); }
-        for (const notice of notificationRows) { const priority = String(notice.priority || "").toUpperCase(); if (!["HIGH", "URGENT", "CRITICAL"].includes(priority)) continue; let href = normalizeNavRoute(notice.target_route, navGroups); if (!href && notice.target_record_id) href = RECORD_TYPE_NAV[recordTypeById.get(notice.target_record_id) || ""] || null; addActionable(href, `notice:${notice.id}`, true); }
-        for (const task of (tasksRes.data ?? []) as any[]) { if (["COMPLETED", "CANCELLED", "NOT_APPLICABLE"].includes(String(task.workflow_status))) continue; const assignedToMe = task.assignee_user_id === user.id || (task.assignment_target_type === "GROUP" && myGroupActionRecordIds.has(task.record_id)) || (task.assignment_target_type === "DEPARTMENT" && myDepartmentActionIds.has(task.action_id)); const days = Number(task.days_to_due); const dueToday = Number.isFinite(days) && days === 0; const returned = task.workflow_status === "RETURNED"; const overdue = Boolean(task.is_overdue); const needsVerification = canVerifyTasks && ["EVIDENCE_SUBMITTED", "VERIFYING"].includes(task.workflow_status); if ((assignedToMe && (overdue || dueToday || returned)) || needsVerification) addActionable("/tasks", `task:${task.action_id}`, overdue || returned); }
-        for (const round of (monitoringRes.data ?? []) as any[]) { if (!inCurrentYear(round.record_id)) continue; if (round.workflow_status === "AWAITING_CONFIRMATION" && canConfirmMonitoring) { addActionable("/monitoring", `monitoring:${round.id}`, false); continue; } if (round.lead_assessor_id !== user.id) continue; if (round.workflow_status === "IN_PROGRESS") { addActionable("/monitoring", `monitoring:${round.id}`, true); continue; } if (round.workflow_status === "SCHEDULED" && round.scheduled_date && round.scheduled_date <= today) addActionable("/monitoring", `monitoring:${round.id}`, round.scheduled_date < today); }
-        for (const directive of (directivesRes.data ?? []) as any[]) { if (!inCurrentYear(directive.record_id) || ["COMPLETED", "CANCELLED"].includes(String(directive.workflow_status))) continue; if (!canManageDirectives && !mine(directive.owner_user_id, directive.lead_department_id)) continue; const days = daysTo(directive.report_due_date || directive.implementation_due_date); if (days !== null && days <= 7) addActionable("/directives", `directive:${directive.id}`, days < 0); }
-        for (const report of (reportsRes.data ?? []) as any[]) { if (!inCurrentYear(report.record_id) || ["COMPLETED", "CANCELLED"].includes(String(report.workflow_status))) continue; if (!canManageReports && !mine(report.preparer_user_id, report.preparing_department_id)) continue; const days = daysTo(report.due_date); if (days !== null && days <= 7) addActionable("/reports", `report:${report.id}`, days < 0); }
-        for (const risk of (risksRes.data ?? []) as any[]) { if (!inCurrentYear(risk.record_id) || risk.workflow_status === "RETIRED") continue; if (!canManageRisks && risk.owner_user_id !== user.id) continue; const days = daysTo(risk.next_review_date); if (days !== null && days <= 7) addActionable("/risks", `risk:${risk.id}`, days < 0); }
-        for (const indicator of (indicatorsRes.data ?? []) as any[]) { if (!inCurrentYear(indicator.record_id)) continue; if (indicator.workflow_status === "SUBMITTED" && canVerifyIndicators) addActionable("/indicators", `indicator-verify:${indicator.id}`, false); if (indicator.result_level === "OUT_OF_TARGET") addActionable("/indicators", `indicator-out:${indicator.id}`, false); }
-        for (const capa of (capasRes.data ?? []) as any[]) { if (!inCurrentYear(capa.record_id) || ["CLOSED", "CANCELLED"].includes(String(capa.workflow_status)) || !canManageCapa) continue; const days = daysTo(capa.effectiveness_due_date); if (capa.workflow_status === "EFFECTIVENESS_REVIEW" || (days !== null && days <= 7)) addActionable("/capa", `capa:${capa.id}`, days !== null && days < 0); }
-        for (const feedback of (feedbackRes.data ?? []) as any[]) { if (!inCurrentYear(feedback.record_id) || ["CLOSED", "CANCELLED"].includes(String(feedback.workflow_status)) || !canManageFeedback) continue; const days = daysTo(feedback.response_due_at); if (days !== null && days <= 3) addActionable("/feedback", `feedback:${feedback.id}`, days < 0); }
-        for (const inspection of (inspectionsRes.data ?? []) as any[]) { if (!inCurrentYear(inspection.record_id) || ["COMPLETED", "CANCELLED"].includes(String(inspection.workflow_status)) || !canManageInspections) continue; const days = daysTo(inspection.visit_date); if (days !== null && days <= 14) addActionable("/inspections", `inspection:${inspection.id}`, days < 0 || days <= 2); }
-        for (const finding of (findingsRes.data ?? []) as any[]) { if (!inCurrentYear(finding.record_id) || ["CLOSED", "CANCELLED"].includes(String(finding.workflow_status))) continue; if (!canManageFindings && finding.owner_user_id !== user.id) continue; const days = daysTo(finding.due_date); if (days !== null && days <= 7) addActionable("/findings", `finding:${finding.id}`, days < 0); }
-        if (active) { const state: AttentionState = {}; next.forEach((value, href) => { state[href] = { count: value.ids.size, urgent: value.urgent }; }); setAttention(state); }
-      } catch (err) { console.error("[AppShell] failed to load sidebar attention counts", err); }
+        const res = await fetch("/api/notifications/attention", { cache: "no-store" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.ok) throw new Error(body.error || "Không tải được attention.");
+        if (active) setAttention(body.attention || {});
+      } catch (err) {
+        console.error("[AppShell] failed to load sidebar attention counts", err);
+      }
     }
-    loadAttention(); const timer = window.setInterval(loadAttention, 30000); const onFocus = () => loadAttention(); window.addEventListener("focus", onFocus); return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
-  }, [navGroups, supabase, user.id, user.permissions, user.primaryDepartmentId, year]);
+    void loadAttention();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadAttention();
+    }, 60_000);
+    const onFocus = () => { if (document.visibilityState === "visible") void loadAttention(); };
+    window.addEventListener("focus", onFocus);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [pathname]);
 
   function toggleSidebarCollapsed() { setSidebarCollapsed((current) => { const next = !current; try { window.localStorage.setItem("qlcl-sidebar-collapsed", next ? "1" : "0"); } catch {} return next; }); }
   async function logout() { await supabase.auth.signOut(); router.replace("/login"); router.refresh(); }

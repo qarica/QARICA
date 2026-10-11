@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Icon } from "@/components/icon";
 import { formatDateTime } from "@/lib/format";
 import { routeForRecord } from "@/lib/record-route";
+import { syncNotifications } from "@/lib/notification-client";
 
 type N = {
   id: string;
@@ -21,8 +22,8 @@ type N = {
 type RecordInfo = { id: string; record_type: string };
 type RecordTypeInfo = { code: string; route_template: string | null };
 
-const MONITORING_SYNC_INTERVAL_MS = 15_000;
-const QUALITY_SYNC_INTERVAL_MS = 60_000;
+const SYNC_INTERVAL_MS = 60_000;
+const LIST_INTERVAL_MS = 15_000;
 
 export function NotificationBell() {
   const router = useRouter();
@@ -39,8 +40,7 @@ export function NotificationBell() {
   const initializedRef = useRef(false);
   const latestCreatedAtRef = useRef<string | null>(null);
   const ringTimerRef = useRef<number | null>(null);
-  const lastMonitoringSyncRef = useRef(0);
-  const lastQualitySyncRef = useRef(0);
+  const lastSyncRef = useRef(0);
 
   const triggerRing = useCallback(() => {
     setRinging(false);
@@ -55,66 +55,15 @@ export function NotificationBell() {
   }, []);
 
   const load = useCallback(async () => {
-    // 5S recheck deadlines use a 60-second pre-due window. Synchronize this
-    // server-side source at most every 15 seconds instead of every bell poll,
-    // while still reading the notification list responsively.
     let syncedNew = false;
     const now = Date.now();
-    if (now - lastMonitoringSyncRef.current >= MONITORING_SYNC_INTERVAL_MS) {
-      lastMonitoringSyncRef.current = now;
+    if (now - lastSyncRef.current >= SYNC_INTERVAL_MS) {
+      lastSyncRef.current = now;
       try {
-        const syncRes = await fetch("/api/notifications/sync-monitoring-overdue", {
-          method: "POST",
-          cache: "no-store",
-        });
-        if (syncRes.ok) {
-          const sync = await syncRes.json();
-          syncedNew = Number(sync?.created || 0) > 0;
-        }
+        const sync = await syncNotifications();
+        syncedNew = sync.created > 0;
       } catch {
-        // Keep the bell usable even if deadline synchronization temporarily fails.
-      }
-    }
-
-    if (now - lastQualitySyncRef.current >= QUALITY_SYNC_INTERVAL_MS) {
-      lastQualitySyncRef.current = now;
-      try {
-        const [qualityRes, actionRes, emrRes, physicianLicenseRes] = await Promise.all([
-          fetch("/api/notifications/sync-quality-attention", {
-            method: "POST",
-            cache: "no-store",
-          }),
-          fetch("/api/notifications/sync-action-reminders", {
-            method: "POST",
-            cache: "no-store",
-          }),
-          fetch("/api/notifications/sync-emr-reminders", {
-            method: "POST",
-            cache: "no-store",
-          }),
-          fetch("/api/notifications/sync-physician-license-reminders", {
-            method: "POST",
-            cache: "no-store",
-          }),
-        ]);
-        if (qualityRes.ok) {
-          const quality = await qualityRes.json();
-          syncedNew = syncedNew || Number(quality?.created || 0) > 0;
-        }
-        if (actionRes.ok) {
-          const actions = await actionRes.json();
-          syncedNew = syncedNew || Number(actions?.created || 0) > 0;
-        }
-        if (emrRes.ok) {
-          const emr = await emrRes.json();
-          syncedNew = syncedNew || Number(emr?.created || 0) > 0;
-        }
-        if (physicianLicenseRes.ok) {
-          const physicianLicense = await physicianLicenseRes.json();
-          syncedNew = syncedNew || Number(physicianLicense?.created || 0) > 0;
-        }
-      } catch {
-        // Cross-module attention is supplemental; never block the notification bell.
+        // Keep the bell usable even when synchronization temporarily fails.
       }
     }
 
@@ -183,7 +132,7 @@ export function NotificationBell() {
     load();
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") void load();
-    }, 5000);
+    }, LIST_INTERVAL_MS);
     const onFocus = () => {
       if (document.visibilityState === "visible") void load();
     };

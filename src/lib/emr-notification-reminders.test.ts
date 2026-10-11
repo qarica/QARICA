@@ -56,7 +56,9 @@ describe("EMR — due-date and certificate-expiry reminders", () => {
   });
 
   it("is polled from both entry points that already drive every other sync route — the bell (60s quality-attention bucket) and the 'Việc của tôi' mount-time sync", () => {
-    expect(bell).toContain("/api/notifications/sync-emr-reminders");
-    expect(myWork).toContain("/api/notifications/sync-emr-reminders");
+    const orchestrator = readFileSync("src/lib/notification-orchestrator.ts", "utf8");
+    expect(bell).toContain("syncNotifications");
+    expect(myWork).toContain("syncNotifications");
+    expect(orchestrator).toContain("syncEmrRemindersForUser");
   });
 });

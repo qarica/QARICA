@@ -115,7 +115,7 @@ describe("HSBA finding workflow transitions", () => {
   });
 });
 
-describe("HSBA audit creation auto-generates findings only for FAIL results", () => {
+describe("HSBA audit creation four-state finding rules", () => {
   const route = read("src/app/api/hsba-audit/audits/route.ts");
 
   it("computes overall_result FAIL if any checklist item failed, PARTIAL if any item is partial but none failed", () => {
@@ -131,8 +131,8 @@ describe("HSBA audit creation auto-generates findings only for FAIL results", ()
   // KHÔNG tạo "lỗi" gửi khoa như HSBA. Chỉ audit_type HSBA mới có vòng đời
   // finding/SEND-to-department.
   it("only creates findings (sent to department) for audit_type HSBA — Phác đồ/QTKT fails are recorded but never become a sendable finding", () => {
-    expect(route).toContain('if (auditType === "HSBA" && failedResults.length)');
-    expect(route).toContain("findings_created: auditType === \"HSBA\" ? failedResults.length : 0");
+    expect(route).toContain('if (auditType === "HSBA" && findingCandidates.length)');
+    expect(route).toContain("findings_created: auditType === \"HSBA\" ? findingCandidates.length : 0");
   });
 
   it("creates one finding per FAIL item result, not per PASS", () => {

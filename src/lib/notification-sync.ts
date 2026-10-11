@@ -642,7 +642,7 @@ export async function syncPersonalRemindersForUser(admin: AdminClient, userId: s
     title: "Nhắc nhở cá nhân",
     message: r.title,
     target_record_id: null,
-    target_route: "/dashboard",
+    target_route: "/tasks",
     notification_event_key: `personal_reminder:${r.id}:remind_at:${String(r.remind_at)}`,
     is_read: false,
   }));

@@ -13,7 +13,7 @@ async function loadItemVersionStatus(admin: ReturnType<typeof createAdminClient>
   if (!version) return { versionStatus: null as string | null };
   const template = version.hsba_checklist_templates;
   if (!template || template.organization_id !== organizationId) return null;
-  return { versionStatus: version.status as string };
+  return { versionStatus: version.status as string, versionId: item.checklist_version_id as string };
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -39,6 +39,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     update.content = content;
   }
   if (body.category !== undefined) update.category = body.category ? String(body.category).trim() || null : null;
+  if (body.group_id !== undefined) {
+    const groupId = body.group_id ? String(body.group_id).trim() : null;
+    if (groupId) {
+      const { data: group, error: groupError } = await admin
+        .from("hsba_checklist_groups")
+        .select("id")
+        .eq("id", groupId)
+        .eq("checklist_version_id", itemVersion.versionId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+      if (groupError || !group) return NextResponse.json({ error: "Nhóm tiêu chí không hợp lệ." }, { status: 400 });
+    }
+    update.group_id = groupId;
+  }
+  if (body.create_finding_on_partial !== undefined) update.create_finding_on_partial = body.create_finding_on_partial === true;
   if (body.sort_order !== undefined) update.sort_order = Number(body.sort_order) || 0;
   if (body.is_active !== undefined) update.is_active = !!body.is_active;
   if (!Object.keys(update).length) return NextResponse.json({ error: "Không có thay đổi nào." }, { status: 400 });
@@ -49,7 +64,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .update(update)
     .eq("id", id)
     .eq("organization_id", organizationId)
-    .select("id,content,category,sort_order,is_active,audit_type,checklist_version_id")
+    .select("id,content,category,sort_order,is_active,audit_type,checklist_version_id,group_id,create_finding_on_partial")
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (!data) return NextResponse.json({ error: "Không tìm thấy tiêu chí." }, { status: 404 });

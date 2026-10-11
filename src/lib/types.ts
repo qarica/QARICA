@@ -9,6 +9,7 @@ export type UserContext = {
   roleNames: string[];
   permissions: string[];
   scopeTypes: string[];
+  departmentRoleTypes: string[];
   organizationId: string | null;
 };
 

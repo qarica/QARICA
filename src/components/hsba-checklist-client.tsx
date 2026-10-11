@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import type { InternalAuditType } from "@/lib/internal-audit-types";
 import { CHECKLIST_VERSION_STATUS_LABEL, type ChecklistTemplateSummary } from "@/lib/hsba-checklist-template-types";
 
-type Item = { id: string; content: string; category: string | null; sort_order: number; is_active: boolean };
+type Item = { id: string; content: string; category: string | null; sort_order: number; is_active: boolean; group_id: string | null; create_finding_on_partial: boolean };
+type Group = { id: string; name: string; sort_order: number; is_active: boolean };
 
 export function HsbaChecklistClient({ auditType, canManage }: { auditType: InternalAuditType; canManage: boolean }) {
   const [templates, setTemplates] = useState<ChecklistTemplateSummary[]>([]);
@@ -16,6 +17,8 @@ export function HsbaChecklistClient({ auditType, canManage }: { auditType: Inter
   const [templateBusy, setTemplateBusy] = useState(false);
 
   const [items, setItems] = useState<Item[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [newGroupName, setNewGroupName] = useState("");
   const [loadingItems, setLoadingItems] = useState(false);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [newContent, setNewContent] = useState("");
@@ -60,6 +63,7 @@ export function HsbaChecklistClient({ auditType, canManage }: { auditType: Inter
       const res = await fetch(`/api/hsba-audit/checklist-items?checklist_version_id=${versionId}`).then((r) => r.json());
       if (!res.ok) throw new Error(res.error || "Không tải được tiêu chí.");
       setItems(res.items || []);
+      setGroups(res.groups || []);
     } catch (e) {
       setItemsError(e instanceof Error ? e.message : "Có lỗi xảy ra.");
     } finally {
@@ -140,7 +144,7 @@ export function HsbaChecklistClient({ auditType, canManage }: { auditType: Inter
       const res = await fetch("/api/hsba-audit/checklist-items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, category: newCategory.trim() || null, checklist_version_id: activeVersion.id }),
+        body: JSON.stringify({ content, category: newCategory.trim() || null, group_id: null, create_finding_on_partial: false, checklist_version_id: activeVersion.id }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "Không thêm được tiêu chí.");
@@ -153,6 +157,26 @@ export function HsbaChecklistClient({ auditType, canManage }: { auditType: Inter
     } finally {
       setDeclaring(false);
     }
+  }
+
+  async function createGroup() {
+    if (!activeVersion || !newGroupName.trim()) return;
+    const res = await fetch("/api/hsba-audit/checklist-groups", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ checklist_version_id: activeVersion.id, name: newGroupName.trim() }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.ok) return window.alert(json.error || "Không tạo được nhóm.");
+    setNewGroupName("");
+    await loadItems(activeVersion.id, { silent: true });
+  }
+
+  async function removeGroup(group: Group) {
+    if (!activeVersion || !window.confirm(`Xoá nhóm "${group.name}"?`)) return;
+    const res = await fetch(`/api/hsba-audit/checklist-groups/${group.id}`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.ok) return window.alert(json.error || "Không xoá được nhóm.");
+    await loadItems(activeVersion.id, { silent: true });
   }
 
   async function patch(item: Item, body: Record<string, unknown>, onSuccess?: () => void) {
@@ -278,9 +302,20 @@ export function HsbaChecklistClient({ auditType, canManage }: { auditType: Inter
               ) : null}
 
               {canEditItems ? (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Nhóm tiêu chí</div>
+                  <div className="toolbar" style={{ padding: 0, flexWrap: "wrap", gap: 8 }}>
+                    <input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="Tên nhóm mới..." />
+                    <button type="button" className="button secondary small" onClick={() => void createGroup()} disabled={!newGroupName.trim()}>+ Thêm nhóm</button>
+                    {groups.map((group) => <button key={group.id} type="button" className="button tertiary small" onClick={() => void removeGroup(group)} title="Chỉ xoá được nhóm chưa có tiêu chí">{group.name} ×</button>)}
+                  </div>
+                </div>
+              ) : null}
+
+              {canEditItems ? (
                 <form className="toolbar" onSubmit={declare} style={{ padding: "0 0 8px", flexWrap: "wrap", gap: 8 }}>
                   <input value={newContent} onChange={(e) => setNewContent(e.target.value)} placeholder="Nội dung tiêu chí mới..." style={{ minWidth: 240 }} />
-                  <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="Phân loại (tùy chọn)" style={{ minWidth: 140 }} />
+                  <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="Phân loại phụ (tùy chọn)" style={{ minWidth: 140 }} />
                   <button type="submit" className="button secondary small" disabled={declaring || !newContent.trim()}>
                     {declaring ? "Đang lưu..." : "+ Thêm tiêu chí"}
                   </button>
@@ -304,7 +339,9 @@ export function HsbaChecklistClient({ auditType, canManage }: { auditType: Inter
                       <tr>
                         {canEditItems ? <th style={{ width: 70 }}>STT</th> : null}
                         <th>Nội dung tiêu chí</th>
-                        <th style={{ width: 140 }}>Phân loại</th>
+                        <th style={{ width: 180 }}>Nhóm</th>
+                        <th style={{ width: 140 }}>Phân loại phụ</th>
+                        <th style={{ width: 130 }}>PARTIAL tạo lỗi</th>
                         <th style={{ width: 130 }}>Trạng thái</th>
                         {canEditItems ? <th style={{ width: 220 }}>Thao tác</th> : null}
                       </tr>
@@ -351,7 +388,9 @@ export function HsbaChecklistClient({ auditType, canManage }: { auditType: Inter
                               item.content
                             )}
                           </td>
+                          <td>{canEditItems ? <select className="input" value={item.group_id || ""} onChange={(e) => void patch(item, { group_id: e.target.value || null })}><option value="">— Chưa phân nhóm —</option>{groups.filter((g) => g.is_active).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select> : (groups.find((g) => g.id === item.group_id)?.name || "—")}</td>
                           <td>{item.category || "—"}</td>
+                          <td>{canEditItems ? <input type="checkbox" checked={item.create_finding_on_partial} onChange={(e) => void patch(item, { create_finding_on_partial: e.target.checked })} aria-label="Đạt một phần tạo lỗi" /> : (item.create_finding_on_partial ? "Có" : "Không")}</td>
                           <td>
                             <span className={`status-badge ${item.is_active ? "success" : "muted"}`}>{item.is_active ? "Đang dùng" : "Ngừng sử dụng"}</span>
                           </td>
