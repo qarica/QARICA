@@ -24,7 +24,7 @@ export const requireUserContext = cache(async (): Promise<{
       supabase
         .from("profiles")
         .select(
-          "user_id,email,full_name,job_title,primary_department_id,organization_id,departments(name)",
+          "user_id,email,full_name,job_title,primary_department_id,organization_id",
         )
         .eq("user_id", userId)
         .maybeSingle(),
@@ -42,6 +42,17 @@ export const requireUserContext = cache(async (): Promise<{
         .eq("user_id", userId),
     ]);
 
+  // Fail-closed: lỗi đọc profiles (RLS, cột đổi tên, PostgREST 300 do embed
+  // quan hệ nhiều FK...) trước đây bị NUỐT lặng lẽ — profile rơi về null,
+  // kéo theo organizationId=null, rồi mọi query hạ nguồn lọc
+  // .eq("organization_id", null) chạy tiếp với ngữ cảnh sai, thay vì dừng
+  // hẳn request. Dừng ngay và báo lỗi rõ, không được âm thầm tiếp tục với
+  // user context rỗng.
+  if (profileResult.error) {
+    console.error("[requireUserContext] profiles query failed:", profileResult.error.message);
+    throw new Error(`Không tải được hồ sơ người dùng: ${profileResult.error.message}`);
+  }
+
   const profile = profileResult.data as any;
   const userRoles = (rolesResult.data ?? []) as any[];
   const overrides = (overridesResult.data ?? []) as any[];
@@ -55,7 +66,7 @@ export const requireUserContext = cache(async (): Promise<{
     .map((row) => row.roles?.name)
     .filter(Boolean) as string[];
 
-  const [rolePermissionsResult, organizationResult] = await Promise.all([
+  const [rolePermissionsResult, organizationResult, departmentResult] = await Promise.all([
     roleIds.length
       ? supabase
           .from("role_permissions")
@@ -70,6 +81,16 @@ export const requireUserContext = cache(async (): Promise<{
           )
           .eq("id", profile.organization_id)
           .maybeSingle()
+      : Promise.resolve({ data: null }),
+    // Truy riêng tên khoa/phòng (không embed departments(...) qua quan hệ
+    // của profiles) — profiles có nhiều FK trỏ tới departments
+    // (primary_department_id và các FK khác), PostgREST không tự biết chọn
+    // quan hệ nào nên trả lỗi "could not embed" (HTTP 300); query riêng
+    // theo đúng id tránh hẳn sự mơ hồ đó, giống quy ước tra tên khoa/phòng
+    // đã dùng ở mọi route khác trong codebase (admin.from("departments")...
+    // rồi map thủ công, không embed qua profiles).
+    profile?.primary_department_id
+      ? supabase.from("departments").select("name").eq("id", profile.primary_department_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -93,7 +114,7 @@ export const requireUserContext = cache(async (): Promise<{
       fullName: profile?.full_name ?? null,
       jobTitle: profile?.job_title ?? null,
       primaryDepartmentId: profile?.primary_department_id ?? null,
-      primaryDepartmentName: profile?.departments?.name ?? null,
+      primaryDepartmentName: (departmentResult.data as any)?.name ?? null,
       roleCodes,
       roleNames,
       permissions: Array.from(rolePermissions).sort(),
