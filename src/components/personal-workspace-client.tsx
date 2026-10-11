@@ -100,6 +100,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     }
     setError("");
     setTrashBusy(true);
+    try {
     const { data, error } = await supabase
       .from("personal_workspace_items")
       .select("id,item_type,title,content,category,due_at,status,completed_at,deleted_at")
@@ -107,13 +108,17 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false })
       .limit(200);
-    setTrashBusy(false);
     if (error) {
       setError(error.message);
       return;
     }
     setRows((current) => [...current.filter((row) => !row.deleted_at), ...((data ?? []) as Item[])]);
     setShowTrash(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể tải thùng rác.");
+    } finally {
+      setTrashBusy(false);
+    }
   }
 
   async function importTemplates() {
