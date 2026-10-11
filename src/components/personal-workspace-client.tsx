@@ -44,6 +44,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const [tab, setTab] = useState<ItemType>("TASK");
   const [showTrash, setShowTrash] = useState(false);
   const [trashBusy, setTrashBusy] = useState(false);
+  const trashRequestLock = useRef(false);
   const [importBusy, setImportBusy] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -93,12 +94,13 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   }, [userId]);
 
   async function openTrash() {
-    if (mutationLock.current) return;
+    if (mutationLock.current || trashRequestLock.current) return;
     if (showTrash) {
       setShowTrash(false);
       return;
     }
     setError("");
+    trashRequestLock.current = true;
     setTrashBusy(true);
     try {
     const { data, error } = await supabase
@@ -117,6 +119,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thể tải thùng rác.");
     } finally {
+      trashRequestLock.current = false;
       setTrashBusy(false);
     }
   }
