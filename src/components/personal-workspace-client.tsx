@@ -43,6 +43,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const [rows, setRows] = useState(initialRows.filter((row) => !row.deleted_at));
   const [tab, setTab] = useState<ItemType>("TASK");
   const [showTrash, setShowTrash] = useState(false);
+  const [trashBusy, setTrashBusy] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -98,6 +99,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       return;
     }
     setError("");
+    setTrashBusy(true);
     const { data, error } = await supabase
       .from("personal_workspace_items")
       .select("id,item_type,title,content,category,due_at,status,completed_at,deleted_at")
@@ -105,6 +107,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false })
       .limit(200);
+    setTrashBusy(false);
     if (error) {
       setError(error.message);
       return;
@@ -313,7 +316,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   return (
     <section className="panel pw-section">
       <div className="pw-tabs">
-        <button type="button" className="button secondary small" onClick={() => void openTrash()}>{showTrash ? "Quay lại" : "Thùng rác"}</button>
+        <button type="button" className="button secondary small" disabled={trashBusy || mutationBusy} onClick={() => void openTrash()}>{trashBusy ? "Đang tải..." : showTrash ? "Quay lại" : "Thùng rác"}</button>
         <button type="button" className={`pw-tab ${tab === "TASK" ? "active" : ""}`} disabled={showTrash} onClick={() => setTab("TASK")}>
           Việc cần làm
         </button>
