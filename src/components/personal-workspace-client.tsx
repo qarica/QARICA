@@ -87,7 +87,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       title: cleanTitle,
       category: category.trim() || null,
     };
-    if (tab === "TASK") payload.due_at = dueAt ? new Date(`${dueAt}T00:00:00`).toISOString() : null;
+    if (tab === "TASK") payload.due_at = dueAt ? new Date(`${dueAt}T00:00:00+07:00`).toISOString() : null;
     if (tab === "NOTE") payload.content = content.trim() || null;
     const { data, error } = await supabase
       .from("personal_workspace_items")
