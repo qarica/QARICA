@@ -262,7 +262,8 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
 
   return (
     <section className="panel pw-section">
-      <div className="pw-tabs">\n        <button type="button" className="button secondary small" onClick={() => setShowTrash((value) => !value)}>{showTrash ? "Quay lại" : "Thùng rác"}</button>
+      <div className="pw-tabs">
+        <button type="button" className="button secondary small" onClick={() => setShowTrash((value) => !value)}>{showTrash ? "Quay lại" : "Thùng rác"}</button>
         <button type="button" className={`pw-tab ${tab === "TASK" ? "active" : ""}`} onClick={() => setTab("TASK")}>
           Việc cần làm
         </button>
@@ -275,7 +276,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
           </button>
         ) : null}
       </div>
-      <div className="pw-form">
+      {!showTrash ? <div className="pw-form">
         <input
           className="input pw-title"
           placeholder={tab === "TASK" ? "Việc cần làm... (ví dụ: Nộp báo cáo tháng SYT)" : "Tiêu đề ghi chú... (ví dụ: Quy trình xử lý xuất toán BHYT)"}
@@ -296,13 +297,13 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
         <button className="button primary small" disabled={busy || mutationBusy || !title.trim()} onClick={() => void add()}>
           + Thêm {tab === "TASK" ? "việc" : "ghi chú"}
         </button>
-      </div>
+      </div> : null}
       {error ? (
         <div className="alert error" style={{ margin: "0 12px 12px" }}>
           {error}
         </div>
       ) : null}
-      {null}</div> : null}\n      <div className="work-list">
+      <div className="work-list">
         {visible.map((r) => (
           <div className="work-row pw-row" key={r.id}>
             <div className="work-main">
@@ -311,7 +312,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
                 {r.category ? `${r.category} · ` : ""}
                 {r.item_type === "TASK" ? formatDue(r.due_at) : "Ghi chú cá nhân"}
               </small>
-              {r.item_type === "NOTE" ? (
+              {!showTrash && r.item_type === "NOTE" ? (
                 editingId === r.id ? (
                   <div className="pw-edit">
                     <textarea className="input" rows={4} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
@@ -332,7 +333,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
             <div>
               <span className="status-badge info">{r.status === "DONE" ? "Đã xong" : "Cá nhân"}</span>
             </div>
-            {!showTrash && r.item_type === "TASK" ? (
+            {showTrash ? null : r.item_type === "TASK" ? (
               <button className="button secondary small" disabled={mutationBusy} onClick={() => void toggleDone(r)}>
                 {r.status === "DONE" ? "Mở lại" : "Hoàn tất"}
               </button>
@@ -341,8 +342,8 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
                 Sửa
               </button>
             )}
-            <button className="button tertiary small" disabled={mutationBusy} onClick={() => void remove(r.id)}>
-              Xóa
+            <button className="button tertiary small" disabled={mutationBusy} onClick={() => void (showTrash ? restore(r.id) : remove(r.id))}>
+              {showTrash ? "Khôi phục" : "Xóa"}
             </button>
           </div>
         ))}
