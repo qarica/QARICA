@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { KnowledgeJournalClient } from "@/components/knowledge-journal-client";
 import { PersonalWorkspaceClient } from "@/components/personal-workspace-client";
 import { ZaloLinkClient } from "@/components/zalo-link-client";
 import { requireUserContext } from "@/lib/auth";
@@ -7,13 +8,19 @@ import { createClient } from "@/lib/supabase/server";
 export default async function PersonalWorkspacePage() {
   const { user } = await requireUserContext();
   const supabase = await createClient();
-  const [{ data }, { data: profile }] = await Promise.all([
+  const [{ data }, { data: profile }, { data: knowledgeNotes }] = await Promise.all([
     supabase
       .from("personal_workspace_items")
       .select("id,item_type,title,content,category,due_at,status,completed_at,created_at")
       .eq("owner_user_id", user.id)
       .order("created_at", { ascending: false }),
     supabase.from("profiles").select("zalo_user_id").eq("user_id", user.id).maybeSingle(),
+    supabase
+      .from("knowledge_notes")
+      .select("id,note_type,visibility,title,content,journal_date,status,source_kind,created_at")
+      .eq("status", "ACTIVE")
+      .order("created_at", { ascending: false })
+      .limit(100),
   ]);
 
   return (
@@ -25,6 +32,7 @@ export default async function PersonalWorkspacePage() {
         icon="book-open"
       />
       <PersonalWorkspaceClient initialRows={(data ?? []) as any} userId={user.id} />
+      <KnowledgeJournalClient initialNotes={(knowledgeNotes ?? []) as any} hasOrganization={!!user.organizationId} />
       <ZaloLinkClient initialZaloUserId={profile?.zalo_user_id ?? null} />
     </div>
   );

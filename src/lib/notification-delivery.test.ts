@@ -1,0 +1,5 @@
+import { readFileSync } from "node:fs";import { describe,expect,it } from "vitest";
+describe("notification delivery isolation",()=>{const sync=readFileSync("src/lib/notification-sync.ts","utf8");const delivery=readFileSync("src/lib/notification-delivery.ts","utf8");const migration=readFileSync("supabase/migrations/20261031_notification_delivery_v1.sql","utf8");
+it("does not call the Zalo provider directly from notification sync",()=>{expect(sync).not.toContain('from "@/lib/zalo-oa"');expect(sync).toContain("queueAndDeliverZalo");});
+it("queues one idempotent delivery per notification/channel",()=>{expect(migration).toContain("unique(notification_id,channel)");expect(migration).toContain("unique(channel,idempotency_key)");expect(delivery).toContain('"notification:"+row.id+":zalo"');});
+it("keeps Zalo payload minimal and retries failed sends",()=>{expect(delivery).toContain("Mở app QARICA để xem chi tiết.");expect(delivery).not.toContain("notification.title");expect(delivery).not.toContain("notification.message");expect(delivery).toContain("attemptCount>=5");expect(delivery).toContain("nextRetry");});});

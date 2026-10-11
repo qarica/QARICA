@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
+import { AssistantDraftClient } from "@/components/assistant-draft-client";
 import { requireUserContext } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { canViewRecordType } from "@/lib/record-view-permissions";
@@ -355,5 +356,6 @@ export default async function QualityAssistantPage() {
       </article>)}
       {!topItems.length ? <div className="qa-empty">Không có cảnh báo hoặc việc đến hạn trong ngưỡng theo dõi hiện tại.</div> : null}
     </section>
-  </div>;
+    <AssistantDraftClient />
+</div>;
 }

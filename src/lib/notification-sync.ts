@@ -1,45 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
 import { routeForRecord } from "@/lib/record-route";
-import { sendZaloOaText } from "@/lib/zalo-oa";
+import { queueAndDeliverZalo } from "@/lib/notification-delivery";
 
 type AdminClient = SupabaseClient;
 
-const ZALO_PUSH_PRIORITIES = new Set(["HIGH", "URGENT", "CRITICAL"]);
-const ZALO_PRIORITY_LABEL: Record<string, string> = { CRITICAL: "nghiêm trọng", URGENT: "khẩn", HIGH: "cao" };
-
-// Mức 1 của đề xuất "đưa ý tưởng Javis OS vào QARICA": thêm kênh báo Zalo
-// bên cạnh chuông in-app, CHỈ cho thông báo vừa thực sự được tạo mới (hàng
-// trả về từ .upsert(...).select(...) với ignoreDuplicates:true — không bao
-// gồm hàng trùng notification_event_key của lần poll trước), để không gửi
-// lại Zalo mỗi lần notification-bell/cron chạy lại cho đúng 1 thông báo.
-// Không throw khi thiếu liên kết Zalo hoặc chưa cấu hình ZALO_OA_ACCESS_TOKEN
-// — đây là tính năng cộng thêm, không được phép làm hỏng luồng tạo thông
-// báo in-app đang hoạt động.
-//
-// Nội dung gửi qua Zalo CHỦ Ý tối thiểu — KHÔNG mang nguyên văn title/message
-// của notification (có thể chứa mô tả sự cố, tên khoa/phòng, dữ liệu HSBA...).
-// Zalo lưu lịch sử chat và hiện preview trên màn hình khóa điện thoại, ngoài
-// vùng kiểm soát truy cập của QARICA — chỉ báo SỐ LƯỢNG theo mức ưu tiên,
-// không nêu nội dung bất kỳ thông báo cụ thể nào. Người dùng mở app QARICA
-// (đã qua đăng nhập + RLS đúng tổ chức) để xem chi tiết thật.
 async function pushHighPriorityToZalo(
   admin: AdminClient,
   userId: string,
-  insertedRows: { priority?: string | null }[] | null | undefined,
+  insertedRows: { id: string; priority?: string | null }[] | null | undefined,
 ) {
-  const rows = (insertedRows ?? []).filter((r) => ZALO_PUSH_PRIORITIES.has(String(r.priority || "")));
-  if (!rows.length) return;
-  const { data: profile } = await admin.from("profiles").select("zalo_user_id").eq("user_id", userId).maybeSingle();
-  const zaloUserId = profile?.zalo_user_id;
-  if (!zaloUserId) return;
-  const countBySeverity = new Map<string, number>();
-  for (const row of rows) {
-    const key = String(row.priority);
-    countBySeverity.set(key, (countBySeverity.get(key) || 0) + 1);
+  try {
+    await queueAndDeliverZalo(admin, userId, insertedRows);
+  } catch (error) {
+    console.error("[notification-sync] Zalo delivery failed without blocking in-app notification:", error);
   }
-  const parts = Array.from(countBySeverity.entries()).map(([priority, count]) => `${count} thông báo mức ${ZALO_PRIORITY_LABEL[priority] || priority}`);
-  await sendZaloOaText(zaloUserId, `QARICA: ${parts.join(", ")} cần xử lý. Mở app QARICA để xem chi tiết.`);
 }
 
 export async function userHasPermission(admin: AdminClient, userId: string, code: string) {
@@ -57,8 +32,6 @@ export async function userHasPermission(admin: AdminClient, userId: string, code
   return (count ?? 0) > 0;
 }
 
-// --- Action reminders (việc của tôi) ---------------------------------------
-
 function actionReminderPhase(days: number | null) {
   if (days === null) return null;
   if (days <= -7) return { code: "OVERDUE_7", priority: "CRITICAL", title: "Công việc quá hạn nghiêm trọng" };
@@ -70,12 +43,12 @@ function actionReminderPhase(days: number | null) {
 }
 
 function actionReminderMessage(days: number, recordCode: string | null, title: string) {
-  const prefix = recordCode ? `${recordCode} · ` : "";
-  if (days <= -7) return `${prefix}${title} đã quá hạn ${Math.abs(days)} ngày. Cần xử lý hoặc báo cáo vướng mắc ngay.`;
-  if (days <= -3) return `${prefix}${title} đã quá hạn ${Math.abs(days)} ngày. QARICA đề nghị đôn đốc và cập nhật tiến độ.`;
-  if (days < 0) return `${prefix}${title} đã quá hạn ${Math.abs(days)} ngày. Ưu tiên xử lý trước công việc mới.`;
-  if (days === 0) return `${prefix}${title} đến hạn hôm nay. Cần hoàn tất hoặc cập nhật tiến độ trước cuối ngày.`;
-  return `${prefix}${title} còn ${days} ngày đến hạn. Chủ động chuẩn bị để tránh quá hạn.`;
+  const prefix = recordCode ? recordCode + " · " : "";
+  if (days <= -7) return prefix + title + " đã quá hạn " + Math.abs(days) + " ngày. Cần xử lý hoặc báo cáo vướng mắc ngay.";
+  if (days <= -3) return prefix + title + " đã quá hạn " + Math.abs(days) + " ngày. QARICA đề nghị đôn đốc và cập nhật tiến độ.";
+  if (days < 0) return prefix + title + " đã quá hạn " + Math.abs(days) + " ngày. Ưu tiên xử lý trước công việc mới.";
+  if (days === 0) return prefix + title + " đến hạn hôm nay. Cần hoàn tất hoặc cập nhật tiến độ trước cuối ngày.";
+  return prefix + title + " còn " + days + " ngày đến hạn. Chủ động chuẩn bị để tránh quá hạn.";
 }
 
 export async function syncActionRemindersForUser(admin: AdminClient, userId: string, year: number) {

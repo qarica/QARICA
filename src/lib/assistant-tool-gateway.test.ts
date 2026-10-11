@@ -1,0 +1,5 @@
+import{readFileSync}from"node:fs";import{describe,expect,it}from"vitest";
+describe("Assistant read-only tool gateway",()=>{const gateway=readFileSync("src/lib/assistant-tool-gateway.ts","utf8");const route=readFileSync("src/app/api/assistant/tools/route.ts","utf8");const client=readFileSync("src/components/assistant-draft-client.tsx","utf8");
+it("exposes only whitelisted read-only tools",()=>{expect(gateway).toContain('"search_records"');expect(gateway).toContain('"get_my_work_summary"');expect(gateway).toContain('"get_record_context"');expect(route).toContain("ASSISTANT_READ_ONLY_TOOLS.includes");});
+it("does not expose arbitrary SQL or mutation verbs",()=>{expect(gateway).not.toContain("execute_sql");expect(gateway).not.toContain(".insert(");expect(gateway).not.toContain(".update(");expect(gateway).not.toContain(".delete(");});
+it("voice only fills a draft",()=>{expect(client).toContain("Voice → Draft");expect(client).toContain("setDraft");expect(client).not.toContain(".insert(");});});
