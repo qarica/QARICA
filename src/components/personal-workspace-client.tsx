@@ -173,6 +173,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       .eq("id", row.id)
       .eq("owner_user_id", userId)
       .eq("status", row.status)
+      .is("deleted_at", null)
       .select("id");
     if (error) {
       setError(error.message);
@@ -206,6 +207,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       .eq("id", id)
       .eq("owner_user_id", userId)
       .eq("item_type", "NOTE")
+      .is("deleted_at", null)
       .select("id");
     if (error) {
       setError(error.message);
