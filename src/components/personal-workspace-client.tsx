@@ -51,9 +51,11 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const [busy, setBusy] = useState(false);
   const [mutationBusy, setMutationBusy] = useState(false);
   const mutationLock = useRef(false);
+  const dataVersion = useRef(0);
   function beginMutation() {
     if (mutationLock.current) return false;
     mutationLock.current = true;
+    dataVersion.current += 1;
     setMutationBusy(true);
     return true;
   }
@@ -67,6 +69,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
 
   useEffect(() => {
     let cancelled = false;
+    const versionAtStart = dataVersion.current;
     async function refreshActiveItems() {
       const { data, error } = await supabase
         .from("personal_workspace_items")
@@ -75,7 +78,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(500);
-      if (cancelled) return;
+      if (cancelled || dataVersion.current !== versionAtStart) return;
       if (error) {
         setError(`Không thể đồng bộ danh sách: ${error.message}`);
         return;
