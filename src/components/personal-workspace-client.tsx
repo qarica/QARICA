@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { activeItems, deletedItems, mergeWorkspaceItems, vietnamDateToIso } from "@/lib/personal-workspace";
 
 type ItemType = "TASK" | "NOTE";
 type Item = {
@@ -40,7 +41,7 @@ const HEAD_OF_DEPARTMENT_TEMPLATES: { title: string; category: string; content: 
 
 export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: Item[]; userId: string }) {
   const supabase = createClient();
-  const [rows, setRows] = useState(initialRows.filter((row) => !row.deleted_at));
+  const [rows, setRows] = useState(activeItems(initialRows));
   const [tab, setTab] = useState<ItemType>("TASK");
   const [showTrash, setShowTrash] = useState(false);
   const [trashBusy, setTrashBusy] = useState(false);
@@ -85,7 +86,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
         setError(`Không thể đồng bộ danh sách: ${error.message}`);
         return;
       }
-      setRows((current) => [...((data ?? []) as Item[]), ...current.filter((row) => Boolean(row.deleted_at))]);
+      setRows((current) => mergeWorkspaceItems((data ?? []) as Item[], deletedItems(current)));
     }
     void refreshActiveItems();
     return () => { cancelled = true; };
@@ -114,7 +115,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       setError(error.message);
       return;
     }
-    setRows((current) => [...current.filter((row) => !row.deleted_at), ...((data ?? []) as Item[])]);
+    setRows((current) => mergeWorkspaceItems(activeItems(current), (data ?? []) as Item[]));
     setShowTrash(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thể tải thùng rác.");
@@ -170,7 +171,16 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       title: cleanTitle,
       category: category.trim() || null,
     };
-    if (tab === "TASK") payload.due_at = dueAt ? new Date(`${dueAt}T00:00:00+07:00`).toISOString() : null;
+    if (tab === "TASK") {
+      const normalizedDue = dueAt ? vietnamDateToIso(dueAt) : null;
+      if (dueAt && !normalizedDue) {
+        setError("Ngày đến hạn không hợp lệ.");
+        setBusy(false);
+        endMutation();
+        return;
+      }
+      payload.due_at = normalizedDue;
+    }
     if (tab === "NOTE") payload.content = content.trim() || null;
     try {
     const { data, error } = await supabase
