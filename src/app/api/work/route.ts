@@ -6,6 +6,9 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
   const { searchParams } = new URL(request.url);
   const state = String(searchParams.get("state") || "OPEN").toUpperCase();
+  if (!["OPEN", "WAITING", "DONE", "CANCELLED", "ALL"].includes(state)) {
+    return NextResponse.json({ error: "Trạng thái công việc không hợp lệ." }, { status: 400 });
+  }
   let query = auth.supabase.from("vw_work_items")
     .select("source_type,source_id,record_id,organization_id,owner_user_id,owner_department_id,title,description,priority,source_status,normalized_state,start_at,due_at,completed_at,created_at,updated_at,target_route,metadata")
     .order("due_at",{ascending:true,nullsFirst:false}).limit(500);
@@ -15,7 +18,7 @@ export async function GET(request: Request) {
   const {data:rows,error}=await query;
   if (error) return NextResponse.json({error:error.message},{status:400});
   const openRows=rows??[];
-  const sourceIds=openRows.map((row:any)=>row.source_id).filter(Boolean);
+  const sourceIds=[...new Set(openRows.map((row:any)=>row.source_id).filter(Boolean))];
   let followups:any[]=[];
   if(sourceIds.length){
     const {data,error:followError}=await auth.supabase.from("work_followups")
