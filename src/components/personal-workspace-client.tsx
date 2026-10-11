@@ -165,7 +165,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     // Temporary safeguard until the audited soft-delete + recovery workflow is available.
     // Never perform a destructive operation without an explicit record-specific confirmation.
     const confirmed = window.confirm(
-      `Xóa vĩnh viễn ${item.item_type === "NOTE" ? "ghi chú" : "công việc"} "${item.title}"?\\nThao tác này hiện chưa có chức năng khôi phục.`,
+      `Xóa vĩnh viễn ${item.item_type === "NOTE" ? "ghi chú" : "công việc"} "${item.title}"?\nThao tác này hiện chưa có chức năng khôi phục.`,
     );
     if (!confirmed) return;
     setError("");
