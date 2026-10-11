@@ -1,31 +1,6 @@
-import { NextResponse } from "next/server";
-import { requireApiContext } from "@/lib/api-auth";
-
-export async function GET(request: Request) {
-  const auth = await requireApiContext();
-  if (!auth.ok) return auth.response;
-  const { searchParams } = new URL(request.url);
-  const state = String(searchParams.get("state") || "OPEN").toUpperCase();
-  let query = auth.supabase.from("vw_work_items")
-    .select("source_type,source_id,record_id,organization_id,owner_user_id,owner_department_id,title,description,priority,source_status,normalized_state,start_at,due_at,completed_at,created_at,updated_at,target_route,metadata")
-    .order("due_at",{ascending:true,nullsFirst:false}).limit(500);
-  if (state==="OPEN" || state==="WAITING") query=query.eq("normalized_state","ACTIVE");
-  if (state==="DONE") query=query.eq("normalized_state","DONE");
-  if (state==="CANCELLED") query=query.eq("normalized_state","CANCELLED");
-  const {data:rows,error}=await query;
-  if (error) return NextResponse.json({error:error.message},{status:400});
-  const openRows=rows??[];
-  const sourceIds=openRows.map((row:any)=>row.source_id).filter(Boolean);
-  let followups:any[]=[];
-  if(sourceIds.length){
-    const {data,error:followError}=await auth.supabase.from("work_followups")
-      .select("id,source_type,source_id,state,waiting_for_type,waiting_for_id,waiting_for_label,follow_up_at,note,updated_at")
-      .in("source_id",sourceIds).in("state",["ACTIVE","WAITING"]);
-    if(followError) return NextResponse.json({error:followError.message},{status:400});
-    followups=data??[];
-  }
-  const map=new Map(followups.map((f:any)=>[f.source_type+":"+f.source_id,f]));
-  let items=openRows.map((row:any)=>({...row,followup:map.get(row.source_type+":"+row.source_id)??null}));
-  if(state==="WAITING") items=items.filter((row:any)=>row.followup?.state==="WAITING");
-  return NextResponse.json({ok:true,items});
-}
+import{NextResponse}from"next/server";import{requireApiContext}from"@/lib/api-auth";import{canViewWorkItem}from"@/lib/work-visibility";
+export async function GET(req:Request){const a=await requireApiContext();if(!a.ok)return a.response;const s=String(new URL(req.url).searchParams.get("state")||"OPEN").toUpperCase();let q=a.supabase.from("vw_work_items").select("source_type,source_id,record_id,organization_id,owner_user_id,owner_department_id,title,description,priority,source_status,normalized_state,start_at,due_at,completed_at,created_at,updated_at,target_route,metadata").order("due_at",{ascending:true,nullsFirst:false}).limit(500);
+if(s==="OPEN"||s==="WAITING")q=q.eq("normalized_state","ACTIVE");if(s==="DONE"||s==="CANCELLED")q=q.eq("normalized_state",s);
+const{data,error}=await q;if(error)return NextResponse.json({error:error.message},{status:400});const rows=(data??[]).filter((r:any)=>canViewWorkItem(a.context.user,r));const ids=rows.map((r:any)=>r.source_id);let f:any[]=[];
+if(ids.length){const x=await a.supabase.from("work_followups").select("id,source_type,source_id,state,waiting_for_type,waiting_for_id,waiting_for_label,follow_up_at,note,updated_at").eq("owner_user_id",a.user.id).in("source_id",ids).in("state",["ACTIVE","WAITING"]);if(x.error)return NextResponse.json({error:x.error.message},{status:400});f=x.data??[];}
+const m=new Map(f.map((x:any)=>[x.source_type+":"+x.source_id,x]));let items=rows.map((r:any)=>({...r,followup:m.get(r.source_type+":"+r.source_id)??null}));if(s==="WAITING")items=items.filter((r:any)=>r.followup?.state==="WAITING");return NextResponse.json({ok:true,items});}

@@ -1,12 +1,6 @@
 import { hasAnyPermission } from "@/lib/auth";
 import type { UserContext } from "@/lib/types";
 
-// Nguồn sự thật duy nhất cho "quyền nào được xem loại hồ sơ nào" — khớp
-// chính xác danh sách permissions mỗi trang module tự đòi hỏi (vd
-// src/app/(app)/risks/page.tsx đòi risk.view/risk.manage). Dùng ở bất kỳ màn
-// hình tổng hợp liên-module nào (Trợ lý QLCL, Hồ sơ đã hủy, Dashboard...) để
-// không lộ nội dung của module mà người xem không có quyền riêng, dù màn
-// hình đó chỉ đòi một quyền tổng hợp rộng hơn (vd dashboard.view).
 export const RECORD_VIEW_PERMISSIONS: Record<string, string[]> = {
   ACTION: ["tasks.view"],
   PROGRAM: ["plans.view", "plans.manage"],
@@ -33,4 +27,7 @@ export function canViewRecordType(user: UserContext, recordType: string): boolea
   const codes = RECORD_VIEW_PERMISSIONS[recordType];
   if (!codes) return false;
   return hasAnyPermission(user, codes);
+}
+export function visibleRecordTypes(user: UserContext): string[] {
+  return Object.keys(RECORD_VIEW_PERMISSIONS).filter((type) => canViewRecordType(user, type));
 }
