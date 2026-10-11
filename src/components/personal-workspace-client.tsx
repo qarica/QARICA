@@ -40,7 +40,7 @@ const HEAD_OF_DEPARTMENT_TEMPLATES: { title: string; category: string; content: 
 
 export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: Item[]; userId: string }) {
   const supabase = createClient();
-  const [rows, setRows] = useState(initialRows);
+  const [rows, setRows] = useState(initialRows.filter((row) => !row.deleted_at));
   const [tab, setTab] = useState<ItemType>("TASK");
   const [showTrash, setShowTrash] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
@@ -66,6 +66,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const [editContent, setEditContent] = useState("");
 
   async function openTrash() {
+    if (mutationLock.current) return;
     if (showTrash) {
       setShowTrash(false);
       return;
@@ -287,13 +288,13 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     <section className="panel pw-section">
       <div className="pw-tabs">
         <button type="button" className="button secondary small" onClick={() => void openTrash()}>{showTrash ? "Quay lại" : "Thùng rác"}</button>
-        <button type="button" className={`pw-tab ${tab === "TASK" ? "active" : ""}`} onClick={() => setTab("TASK")}>
+        <button type="button" className={`pw-tab ${tab === "TASK" ? "active" : ""}`} disabled={showTrash} onClick={() => setTab("TASK")}>
           Việc cần làm
         </button>
-        <button type="button" className={`pw-tab ${tab === "NOTE" ? "active" : ""}`} onClick={() => setTab("NOTE")}>
+        <button type="button" className={`pw-tab ${tab === "NOTE" ? "active" : ""}`} disabled={showTrash} onClick={() => setTab("NOTE")}>
           Ghi chú / quy trình
         </button>
-        {pendingImportCount > 0 ? (
+        {!showTrash && pendingImportCount > 0 ? (
           <button type="button" className="button secondary small pw-import" disabled={importBusy || mutationBusy} onClick={() => void importTemplates()}>
             + Nhập {pendingImportCount} mục mẫu Trưởng phòng
           </button>
