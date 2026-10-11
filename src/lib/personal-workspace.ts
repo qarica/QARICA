@@ -17,7 +17,7 @@ export function mergeWorkspaceItems<T extends WorkspaceItem>(fresh: readonly T[]
 
 /** Calendar-only due dates represent midnight in Vietnam, independent of browser timezone. */
 export function vietnamDateToIso(date: string): string | null {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   const parsed = new Date(`${date}T00:00:00+07:00`);
   if (Number.isNaN(parsed.getTime())) return null;
   const normalized = new Date(parsed.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
