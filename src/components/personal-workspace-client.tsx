@@ -65,6 +65,27 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
 
+  async function openTrash() {
+    if (showTrash) {
+      setShowTrash(false);
+      return;
+    }
+    setError("");
+    const { data, error } = await supabase
+      .from("personal_workspace_items")
+      .select("id,item_type,title,content,category,due_at,status,completed_at,deleted_at")
+      .eq("owner_user_id", userId)
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false })
+      .limit(200);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setRows((current) => [...current.filter((row) => !row.deleted_at), ...((data ?? []) as Item[])]);
+    setShowTrash(true);
+  }
+
   async function importTemplates() {
     const existingTitles = new Set(rows.filter((r) => !r.deleted_at && r.item_type === "NOTE").map((r) => r.title));
     const toInsert = HEAD_OF_DEPARTMENT_TEMPLATES.filter((t) => !existingTitles.has(t.title)).map((t) => ({
@@ -263,7 +284,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   return (
     <section className="panel pw-section">
       <div className="pw-tabs">
-        <button type="button" className="button secondary small" onClick={() => setShowTrash((value) => !value)}>{showTrash ? "Quay lại" : "Thùng rác"}</button>
+        <button type="button" className="button secondary small" onClick={() => void openTrash()}>{showTrash ? "Quay lại" : "Thùng rác"}</button>
         <button type="button" className={`pw-tab ${tab === "TASK" ? "active" : ""}`} onClick={() => setTab("TASK")}>
           Việc cần làm
         </button>
