@@ -39,7 +39,7 @@ const HEAD_OF_DEPARTMENT_TEMPLATES: { title: string; category: string; content: 
   { title: "Đào tạo quy trình OTM & Luật KCB cho nhân viên mới", category: "Đào tạo", content: "Soạn bài, trình BGĐ phê duyệt, đào tạo nhân viên mới/hiện tại về quy trình OTM và Luật khám chữa bệnh liên quan P.KHTH; thực hiện theo lịch Tamri sắp xếp hoặc chỉ đạo đột xuất từ BGĐ." },
 ];
 
-export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: Item[]; userId: string }) {
+export function PersonalWorkspaceClient({ initialRows, userId, highlightedItemId = null }: { initialRows: Item[]; userId: string; highlightedItemId?: string | null }) {
   const supabase = createClient();
   const [rows, setRows] = useState(activeItems(initialRows));
   const [tab, setTab] = useState<ItemType>("TASK");
@@ -70,7 +70,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
-  const [taskFilter, setTaskFilter] = useState<"OPEN" | "DONE" | "ALL">("OPEN");
+  const [taskFilter, setTaskFilter] = useState<"OPEN" | "DONE" | "ALL">(highlightedItemId ? "ALL" : "OPEN");
   const [reminderChoice, setReminderChoice] = useState(false);
   const [completionDates, setCompletionDates] = useState<Record<string,string>>({});
 
@@ -406,8 +406,9 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
         <button type="button" className={`pw-tab ${taskFilter === "ALL" ? "active" : ""}`} onClick={() => setTaskFilter("ALL")}>Tất cả ({activeTasks.length})</button>
       </div> : null}
       <div className="work-list">
+        {highlightedItemId && !visible.some((row) => row.id === highlightedItemId) ? <p role="status" className="pw-hint" style={{padding:12}}>Không tìm thấy công việc cá nhân được chọn trong danh sách hiện tại.</p> : null}
         {visible.map((r) => (
-          <div className="work-row pw-row" key={r.id} style={{opacity:r.status === "DONE" ? 0.65 : 1}}>
+          <div className="work-row pw-row" key={r.id} id={`personal-item-${r.id}`} style={{opacity:r.status === "DONE" ? 0.65 : 1, outline: highlightedItemId === r.id ? "2px solid var(--brand)" : undefined}}>
             <div className="work-main">
               <strong style={{ textDecoration: r.status === "DONE" ? "line-through" : "none" }}>{r.title}</strong>
               <small>
