@@ -1,3 +1,4 @@
+import { TaskExtensionReviewQueue } from "@/components/task-extension-review-queue";
 import { PersonalTaskProgressTitle } from "@/components/personal-task-progress-title";
 import { UnifiedPersonalTaskActions } from "@/components/unified-personal-task-actions";
 import Link from "next/link";
@@ -232,6 +233,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
 
   <div className="work-columns">
    <div style={{display:"grid",gap:14}}>
+    <TaskExtensionReviewQueue userId={user.id}/>
     <PersonalReminders initialRows={personalReminders} organizationId={user.organizationId!} userId={user.id}/>
     <WorkRowSelectionProvider>
     {/* Tabs/search/pagination are plain query-string links + a GET form (no
