@@ -98,7 +98,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   : {data:[],error:null};
  const workFollowups=(workFollowupsRes.data??[]) as any[];
  const followupBySource=new Map(workFollowups.map((f:any)=>[f.source_type+":"+f.source_id,f]));
- const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=legacyPersonalError||actionsRes.error||attentionRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error;
+ const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=legacyPersonalError||actionsRes.error||attentionRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||creatorsRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error;
  // EMR items chưa DONE được tính gộp vào 4 KPI đầu (quá hạn/đến hạn/sắp tới/
  // đang mở) — không tính vào "Hoàn thành" vì emrItemsRes chỉ tải các mục
  // chưa DONE (không có lịch sử hoàn thành để đếm ở đây).
