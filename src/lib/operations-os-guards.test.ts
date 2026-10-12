@@ -26,6 +26,8 @@ describe("Knowledge API safeguards", () => {
     expect(route).toContain('visibility==="PRIVATE"?null:auth.context.user.organizationId');
   });
   it("bounds user-controlled input", () => {
+    expect(route).toContain('["ACTIVE","ARCHIVED"].includes(status)');
+    expect(route).toContain('!body||typeof body!=="object"||Array.isArray(body)');
     expect(route).toContain("q.length>200");
     expect(route).toContain("content.length>100000");
     expect(route).toContain("Ngày nhật ký không hợp lệ");
