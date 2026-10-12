@@ -1,0 +1,10 @@
+"use client";
+import {useEffect,useState} from "react";
+import {createClient} from "@/lib/supabase/client";
+type Event={id:string;event_type:string;actor_user_id:string;reason:string|null;previous_value:unknown;next_value:unknown;created_at:string};
+const labels:Record<string,string>={PROGRESS:"Cập nhật tiến độ",STATUS:"Thay đổi trạng thái",DUE_DATE:"Đổi thời hạn",COMPLETION:"Hoàn thành công việc",EXTENSION_REQUEST:"Đề nghị gia hạn",EXTENSION_APPROVAL:"Duyệt gia hạn"};
+export function PersonalTaskAuditHistory({taskId,source,ownerId}:{taskId:string;source:"reminder"|"legacy";ownerId:string}){
+ const [events,setEvents]=useState<Event[]>([]);const [error,setError]=useState("");const [loading,setLoading]=useState(true);
+ useEffect(()=>{let active=true;const load=async()=>{const {data,error}=await createClient().from("personal_task_audit").select("id,event_type,actor_user_id,reason,previous_value,next_value,created_at").eq("owner_user_id",ownerId).eq("task_source",source).eq("task_id",taskId).order("created_at",{ascending:false}).limit(100);if(!active)return;setEvents((data||[]) as Event[]);setError(error?.message||"");setLoading(false)};void load();return()=>{active=false}},[taskId,source,ownerId]);
+ return <section style={{display:"grid",gap:10}}><h3 style={{margin:0,fontSize:16}}>Lịch sử xử lý</h3>{loading?<small>Đang tải lịch sử...</small>:error?<small role="alert">Chưa thể tải lịch sử kiểm toán: {error}</small>:events.length===0?<small>Chưa có sự kiện kiểm toán được ghi nhận. Nhật ký cũ vẫn được giữ nguyên.</small>:events.map(e=><article key={e.id} style={{border:"1px solid #e2e8f0",padding:12,borderRadius:9,display:"grid",gap:5}}><strong>{labels[e.event_type]||e.event_type}</strong><small>{new Date(e.created_at).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})} · Người cập nhật: {e.actor_user_id}</small>{e.reason?<div>Lý do: {e.reason}</div>:null}<div style={{fontSize:12,whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{JSON.stringify(e.next_value)}</div></article>)}</section>;
+}
