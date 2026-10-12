@@ -15,10 +15,14 @@ export function PersonalReminders({initialRows,organizationId,userId}:{initialRo
  const [title,setTitle]=useState(""); const [due,setDue]=useState(""); const [priority,setPriority]=useState("NORMAL"); const [category,setCategory]=useState("KHAC");
  const [remindEnabled,setRemindEnabled]=useState(false); const [remindTime,setRemindTime]=useState("08:00");
  const [busy,setBusy]=useState(false); const [error,setError]=useState("");
+ const [editingId,setEditingId]=useState<string|null>(null);const [editNote,setEditNote]=useState("");
+ const [statusFilter,setStatusFilter]=useState<"OPEN"|"COMPLETED"|"ALL">("OPEN");
 
  async function add(){
   const clean=title.trim();
   if(!clean)return;
+  if(!remindEnabled&&window.confirm("Bạn có muốn đặt nhắc nhở cho việc này không?\\nOK: chọn ngày/giờ nhắc. Hủy: lưu không nhắc.")){setRemindEnabled(true);return;}
+  if(remindEnabled&&!due){setError("Vui lòng chọn ngày để đặt nhắc nhở.");return;}
   setBusy(true);setError("");
   const dueAt=due?new Date(`${due}T00:00:00`):new Date(Date.now()+7*86400000);
   const remindAt=remindEnabled&&due?new Date(`${due}T${remindTime}:00`):null;
@@ -29,10 +33,11 @@ export function PersonalReminders({initialRows,organizationId,userId}:{initialRo
   setTitle("");setDue("");setPriority("NORMAL");setCategory("KHAC");setRemindEnabled(false);setRemindTime("08:00");
  }
  async function complete(row:Reminder){const next=row.status==="COMPLETED"?"OPEN":"COMPLETED";const {error}=await supabase.from("personal_reminders").update({status:next,completed_at:next==="COMPLETED"?new Date().toISOString():null,updated_at:new Date().toISOString()}).eq("id",row.id);if(error){setError(error.message);return}setRows(v=>v.map(x=>x.id===row.id?{...x,status:next}:x))}
+ async function saveNote(id:string){const {data,error}=await supabase.from("personal_reminders").update({note:editNote.trim()||null,updated_at:new Date().toISOString()}).eq("id",id).eq("owner_user_id",userId).select("id");if(error||!data?.some(row=>row.id===id)){setError(error?.message||"Không thể lưu ghi chú.");return;}setRows(v=>v.map(x=>x.id===id?{...x,note:editNote.trim()||null}:x));setEditingId(null);}
  async function remove(id:string){if(!window.confirm("Xóa note này? Không thể hoàn tác."))return;const {error}=await supabase.from("personal_reminders").delete().eq("id",id);if(error){setError(error.message);return}setRows(v=>v.filter(x=>x.id!==id))}
 
  return <section className="panel pr-section">
-  <div className="panel-title"><div><h2>Tạo note việc cá nhân</h2><p>Ghi nhanh công việc cần nhớ, chỉ bạn nhìn thấy. Các note sẽ hiển thị trên Lịch QLCL.</p></div></div>
+  <div className="panel-title"><div><h2>Tạo việc cá nhân</h2><p>Thêm việc tại đây; quản lý trạng thái và ghi chú ngay bên dưới. Bảng tổng hợp và lịch chỉ là các cách xem cùng dữ liệu.</p></div></div>
   <div className="pr-form">
    <input className="input pr-title" placeholder="Nhập nội dung note... (Ví dụ: Họp, kiểm tra hồ sơ, theo dõi CAPA,...)" value={title} maxLength={300} onChange={e=>setTitle(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")void add()}}/>
    <div className="pr-form-row">
@@ -43,11 +48,12 @@ export function PersonalReminders({initialRows,organizationId,userId}:{initialRo
    <div className="pr-remind-row">
     <label className="inline-check"><input type="checkbox" checked={remindEnabled} onChange={e=>setRemindEnabled(e.target.checked)}/> Đặt nhắc nhở</label>
     {remindEnabled?<input className="input pr-time" type="time" value={remindTime} onChange={e=>setRemindTime(e.target.value)}/>:null}
-    <button className="button primary small" disabled={busy||!title.trim()} onClick={()=>void add()}>+ Thêm note</button>
+    <button className="button primary small" disabled={busy||!title.trim()} onClick={()=>void add()}>+ Thêm việc</button>
    </div>
   </div>
   {error?<div className="alert error" style={{margin:"0 12px 12px"}}>{error}</div>:null}
-  <div className="work-list">{rows.map(r=><div className="work-row" key={r.id}><div className="work-main"><strong style={{textDecoration:r.status==="COMPLETED"?"line-through":"none"}}>{r.title}</strong><small>{r.due_at?new Intl.DateTimeFormat("vi-VN",{timeZone:"Asia/Ho_Chi_Minh",dateStyle:"short"}).format(new Date(r.due_at)):"Không đặt hạn"} · {PRIORITY_LABEL[r.priority]||r.priority} · {CATEGORY_LABEL[r.category||"KHAC"]||"Khác"}{r.remind_at?" · Có nhắc":""}</small></div><div><span className="status-badge info">{r.status==="COMPLETED"?"Đã xong":"Cá nhân"}</span></div><button className="button secondary small" onClick={()=>void complete(r)}>{r.status==="COMPLETED"?"Mở lại":"Hoàn tất"}</button><button className="button tertiary small" onClick={()=>void remove(r.id)}>Xóa</button></div>)}{!rows.length?<div className="empty-state compact">Chưa có note cá nhân.</div>:null}</div>
+  <div className="pr-chip-row" style={{padding:"8px 12px"}}><button className={`pr-chip ${statusFilter==="OPEN"?"active":""}`} onClick={()=>setStatusFilter("OPEN")}>Chưa hoàn thành ({rows.filter(r=>r.status==="OPEN").length})</button><button className={`pr-chip ${statusFilter==="COMPLETED"?"active":""}`} onClick={()=>setStatusFilter("COMPLETED")}>Hoàn thành ({rows.filter(r=>r.status==="COMPLETED").length})</button><button className={`pr-chip ${statusFilter==="ALL"?"active":""}`} onClick={()=>setStatusFilter("ALL")}>Tất cả ({rows.length})</button></div>
+  <div className="work-list">{rows.filter(r=>statusFilter==="ALL"||r.status===statusFilter).map(r=><div className="work-row" key={r.id}><div className="work-main"><strong style={{textDecoration:r.status==="COMPLETED"?"line-through":"none"}}>{r.title}</strong><small>{r.due_at?new Intl.DateTimeFormat("vi-VN",{timeZone:"Asia/Ho_Chi_Minh",dateStyle:"short"}).format(new Date(r.due_at)):"Không đặt hạn"} · {PRIORITY_LABEL[r.priority]||r.priority} · {CATEGORY_LABEL[r.category||"KHAC"]||"Khác"}{r.remind_at?" · Có nhắc":""}</small>{editingId===r.id?<div style={{display:"grid",gap:6,marginTop:8}}><textarea className="input" rows={3} value={editNote} onChange={e=>setEditNote(e.target.value)} placeholder="Ghi chú tiến độ / kết quả xử lý..."/><div><button className="button primary small" onClick={()=>void saveNote(r.id)}>Lưu ghi chú</button><button className="button tertiary small" onClick={()=>setEditingId(null)}>Hủy</button></div></div>:<div style={{marginTop:6,fontSize:12}}>{r.note?<p style={{whiteSpace:"pre-wrap"}}>{r.note}</p>:null}<button className="button tertiary small" onClick={()=>{setEditingId(r.id);setEditNote(r.note||"")}}>Ghi chú / sửa</button></div>}</div><div><span className={`status-badge ${r.status==="COMPLETED"?"success":"info"}`}>{r.status==="COMPLETED"?"✓ Hoàn thành":"● Chưa xong"}</span></div><button className="button secondary small" onClick={()=>void complete(r)}>{r.status==="COMPLETED"?"Mở lại":"Hoàn tất"}</button><button className="button tertiary small" onClick={()=>void remove(r.id)}>Xóa</button></div>)}{!rows.length?<div className="empty-state compact">Chưa có note cá nhân.</div>:null}</div>
   <style jsx>{`
    .pr-form{display:grid;gap:8px;padding:12px}
    .pr-title{width:100%}
