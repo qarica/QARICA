@@ -5,8 +5,9 @@ import { ZaloLinkClient } from "@/components/zalo-link-client";
 import { requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function PersonalWorkspacePage() {
+export default async function PersonalWorkspacePage({ searchParams }: { searchParams: Promise<{ item?: string }> }) {
   const { user } = await requireUserContext();
+  const { item } = await searchParams;
   const supabase = await createClient();
   const [profileResult, knowledgeResult, { data: workspaceRows, error: workspaceError }] = await Promise.all([
     supabase.from("profiles").select("user_id").eq("user_id", user.id).maybeSingle(),
@@ -45,7 +46,7 @@ export default async function PersonalWorkspacePage() {
       {workspaceError ? (
         <p role="alert">Không tải được dữ liệu công việc/ghi chú cá nhân cũ. Vui lòng thử lại.</p>
       ) : (
-        <PersonalWorkspaceClient initialRows={(workspaceRows ?? []) as any} userId={user.id} />
+        <div id="personal-workspace"><PersonalWorkspaceClient initialRows={(workspaceRows ?? []) as any} userId={user.id} highlightedItemId={item ?? null} /></div>
       )}
       <KnowledgeJournalClient initialNotes={(knowledgeNotes ?? []) as any} hasOrganization={!!user.organizationId} />
       <ZaloLinkClient initialZaloUserId={null} />
