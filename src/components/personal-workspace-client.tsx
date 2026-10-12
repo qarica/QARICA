@@ -69,6 +69,8 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [taskFilter, setTaskFilter] = useState<"OPEN" | "DONE" | "ALL">("OPEN");
+  const [reminderChoice, setReminderChoice] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -181,7 +183,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       }
       payload.due_at = normalizedDue;
     }
-    if (tab === "NOTE") payload.content = content.trim() || null;
+    if (tab === "NOTE" || tab === "TASK") payload.content = content.trim() || null;
     try {
     const { data, error } = await supabase
       .from("personal_workspace_items")
@@ -201,6 +203,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     setContent("");
     setCategory("");
     setDueAt("");
+    setReminderChoice(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thể tạo bản ghi.");
     } finally {
@@ -254,7 +257,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       .update({ content: newContent, updated_at: new Date().toISOString() })
       .eq("id", id)
       .eq("owner_user_id", userId)
-      .eq("item_type", "NOTE")
+      .eq("item_type", rows.find((item) => item.id === id)?.item_type ?? "NOTE")
       .is("deleted_at", null)
       .select("id");
     if (error) {
@@ -327,7 +330,10 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     }
   }
 
-  const visible = rows.filter((r) => showTrash ? Boolean(r.deleted_at) : !r.deleted_at && r.item_type === tab);
+  const activeTasks = rows.filter((r) => !r.deleted_at && r.item_type === "TASK");
+  const openCount = activeTasks.filter((r) => r.status !== "DONE").length;
+  const doneCount = activeTasks.filter((r) => r.status === "DONE").length;
+  const visible = rows.filter((r) => showTrash ? Boolean(r.deleted_at) : !r.deleted_at && r.item_type === tab && (tab !== "TASK" || taskFilter === "ALL" || r.status === taskFilter));
   const existingNoteTitles = new Set(rows.filter((r) => r.item_type === "NOTE").map((r) => r.title));
   const pendingImportCount = HEAD_OF_DEPARTMENT_TEMPLATES.filter((t) => !existingNoteTitles.has(t.title)).length;
 
@@ -358,8 +364,10 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
             if (e.key === "Enter" && tab === "TASK") void add();
           }}
         />
-        {tab === "NOTE" ? (
-          <textarea className="input pw-content" rows={4} placeholder="Nội dung ghi chú..." value={content} onChange={(e) => setContent(e.target.value)} />
+        {tab === "TASK" ? <label className="pw-reminder-choice"><input type="checkbox" checked={reminderChoice} onChange={(e) => setReminderChoice(e.target.checked)} /> Có cần nhắc nhở việc này không?</label> : null}
+        {tab === "TASK" && reminderChoice ? <p className="pw-hint">Hãy chọn ngày đến hạn bên dưới. Đây là ngày hiển thị trong danh sách sắp đến hạn; chưa phải thông báo tự động.</p> : null}
+        {tab === "NOTE" || tab === "TASK" ? (
+          <textarea className="input pw-content" rows={4} placeholder={tab === "TASK" ? "Mô tả / ghi chú ban đầu (không bắt buộc)..." : "Nội dung ghi chú..."} value={content} onChange={(e) => setContent(e.target.value)} />
         ) : null}
         <div className="pw-form-row">
           <input className="input" placeholder="Phân loại (vd: QLCL, Vận hành, Chiến lược...)" value={category} maxLength={60} onChange={(e) => setCategory(e.target.value)} />
@@ -374,6 +382,11 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
           {error}
         </div>
       ) : null}
+      {!showTrash && tab === "TASK" ? <div className="pw-filter" aria-label="Lọc công việc theo trạng thái">
+        <button type="button" className={`pw-tab ${taskFilter === "OPEN" ? "active" : ""}`} onClick={() => setTaskFilter("OPEN")}>Chưa hoàn thành ({openCount})</button>
+        <button type="button" className={`pw-tab ${taskFilter === "DONE" ? "active" : ""}`} onClick={() => setTaskFilter("DONE")}>Đã hoàn thành ({doneCount})</button>
+        <button type="button" className={`pw-tab ${taskFilter === "ALL" ? "active" : ""}`} onClick={() => setTaskFilter("ALL")}>Tất cả ({activeTasks.length})</button>
+      </div> : null}
       <div className="work-list">
         {visible.map((r) => (
           <div className="work-row pw-row" key={r.id}>
@@ -383,7 +396,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
                 {r.category ? `${r.category} · ` : ""}
                 {r.item_type === "TASK" ? formatDue(r.due_at) : "Ghi chú cá nhân"}
               </small>
-              {!showTrash && r.item_type === "NOTE" ? (
+              {!showTrash ? (
                 editingId === r.id ? (
                   <div className="pw-edit">
                     <textarea className="input" rows={4} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
@@ -397,12 +410,12 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
                     </div>
                   </div>
                 ) : (
-                  <p className="pw-note-content">{r.content || "(Chưa có nội dung)"}</p>
+                  <div className="pw-note-content">{r.content || (r.item_type === "TASK" ? "Chưa có ghi chú tiến độ." : "(Chưa có nội dung)")}{r.item_type === "TASK" ? <button type="button" className="button tertiary small" style={{marginLeft:8}} onClick={() => startEdit(r)}>Ghi chú / sửa</button> : null}</div>
                 )
               ) : null}
             </div>
             <div>
-              <span className="status-badge info">{r.status === "DONE" ? "Đã xong" : "Cá nhân"}</span>
+              <span className={`status-badge ${r.status === "DONE" ? "success" : "info"}`}>{r.status === "DONE" ? "✓ Hoàn thành" : "● Chưa xong"}</span>
             </div>
             {showTrash ? null : r.item_type === "TASK" ? (
               <button className="button secondary small" disabled={mutationBusy} onClick={() => void toggleDone(r)}>
@@ -421,6 +434,9 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
         {!visible.length ? <div className="empty-state compact">{showTrash ? "Thùng rác trống." : tab === "TASK" ? "Chưa có việc cần làm." : "Chưa có ghi chú nào."}</div> : null}
       </div>
       <style jsx>{`
+        .pw-filter { display:flex; flex-wrap:wrap; gap:8px; padding:4px 12px 12px; }
+        .pw-reminder-choice { display:flex; gap:8px; align-items:center; font-size:13px; }
+        .pw-hint { margin:0; color:#64748b; font-size:12px; }
         .pw-tabs {
           display: flex;
           gap: 8px;
