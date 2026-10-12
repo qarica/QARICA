@@ -126,7 +126,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
 
  const openRows=rows.filter(r=>!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status));
 
- type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null};
+ type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"|"legacy";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null};
  const unifiedActionRows:UnifiedRow[]=rows.map(r=>({
   key:`a-${r.action_id}`,title:r.title,typeLabel:RECORD_TYPE_LABEL[recordTypeMap.get(r.record_id)||""]||"—",
   relatedTo:recordCodeMap.get(r.record_id)||"—",priority:r.priority,dueDate:r.due_date,
@@ -145,7 +145,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="DONE"?"COMPLETED":"OPEN",
   isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="DONE",
   isWatch:p.status==="OPEN",assignedBy:"—",href:"/me",source:"legacy",sourceId:null,sourceType:null,followup:null,
- } as UnifiedRow))];
+ }))];
  const unifiedEmrRows:UnifiedRow[]=myEmrItems.map((item:any)=>{
   const category=EMR_CATEGORIES.find(c=>c.code===item.category);
   const overdueItem=!!item.due_date&&item.due_date<today;
