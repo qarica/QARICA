@@ -144,7 +144,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   key:`legacy-${p.id}`,title:p.title,typeLabel:"Việc cá nhân",relatedTo:p.category||"Cá nhân",priority:"MEDIUM",
   dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="DONE"?"COMPLETED":"OPEN",
   isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="DONE",
-  isWatch:p.status==="OPEN",assignedBy:"—",href:"/me",source:"legacy",sourceId:null,sourceType:null,followup:null,
+  isWatch:p.status==="OPEN",assignedBy:"—",href:"/tasks?tab=REMINDER#all-work",source:"legacy",sourceId:null,sourceType:null,followup:null,
  }))];
  const unifiedEmrRows:UnifiedRow[]=myEmrItems.map((item:any)=>{
   const category=EMR_CATEGORIES.find(c=>c.code===item.category);
