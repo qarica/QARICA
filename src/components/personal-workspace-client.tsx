@@ -164,7 +164,16 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
 
   async function add() {
     const cleanTitle = title.trim();
-    if (!cleanTitle || !beginMutation()) return;
+    if (!cleanTitle) return;
+    if (tab === "TASK" && !reminderChoice && window.confirm("Bạn có muốn đặt nhắc nhở cho việc này không?\\nChọn OK để thiết lập ngày nhắc, hoặc Hủy để lưu việc không có nhắc nhở.")) {
+      setReminderChoice(true);
+      return;
+    }
+    if (tab === "TASK" && reminderChoice && !dueAt) {
+      setError("Vui lòng chọn ngày đến hạn khi bật nhắc nhở.");
+      return;
+    }
+    if (!beginMutation()) return;
     setBusy(true);
     setError("");
     const payload: Record<string, unknown> = {
@@ -377,6 +386,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
           + Thêm {tab === "TASK" ? "việc" : "ghi chú"}
         </button>
       </div> : null}
+      {tab === "TASK" && !showTrash ? <p className="pw-hint" style={{padding:"0 12px"}}>Đây là danh sách quản lý việc cá nhân. Chọn “Ghi chú / sửa” ngay trên từng việc để cập nhật nội dung; lịch và mục sắp đến hạn chỉ giúp xem nhanh.</p> : null}
       {error ? (
         <div className="alert error" style={{ margin: "0 12px 12px" }}>
           {error}
@@ -389,7 +399,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       </div> : null}
       <div className="work-list">
         {visible.map((r) => (
-          <div className="work-row pw-row" key={r.id}>
+          <div className="work-row pw-row" key={r.id} style={{opacity:r.status === "DONE" ? 0.65 : 1}}>
             <div className="work-main">
               <strong style={{ textDecoration: r.status === "DONE" ? "line-through" : "none" }}>{r.title}</strong>
               <small>
