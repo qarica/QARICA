@@ -32,7 +32,7 @@ const ACTION_SELECT="action_id,record_id,record_code,title,work_year,workflow_st
 export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string;q?:string;page?:string}>}){
  const {user}=await requireUserContext();requirePermission(user,"tasks.view");const year=await getWorkYear();const supabase=await createClient();const today=hcmToday();
  const {tab:rawTab,q:rawQ,page:rawPage}=await searchParams;
- const tab=(["ALL","OPEN","REMINDER","ASSIGNED","WAITING","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"ALL") as "ALL"|"OPEN"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE";
+ const tab=(["ALL","OPEN","REMINDER","ASSIGNED","WAITING","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"OPEN") as "ALL"|"OPEN"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE";
  const searchQuery=String(rawQ||"").trim();
  const page=Math.max(1,Number(rawPage)||1);
  const PAGE_SIZE=10;
