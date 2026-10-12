@@ -14,8 +14,9 @@ export function MyWorkSyncClient() {
     try {
       const result = await syncNotifications();
       if (!cancelledRef.current && result.created > 0) router.refresh();
-    } catch {
-      // Keep the current work view usable if attention synchronization fails.
+    } catch (error) {
+      // Keep the work view usable, but never hide synchronization failures from diagnostics.
+      console.error("[MyWorkSync] notification sync failed", error instanceof Error ? error.message : "Unknown error");
     }
   }, [router]);
 
