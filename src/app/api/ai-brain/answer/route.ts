@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     if (typeof answer !== "string" || !answer.trim()) throw new Error("Empty provider answer");
     // Reject references to nonexistent sources rather than presenting fake citations.
     const references = [...answer.matchAll(/\[(\d+)\]/g)].map(match=>Number(match[1]));
+    if (answer.length > 6000) throw new Error("Oversized generated answer");
     if (!references.length || references.some(index=>index<1 || index>sources.length)) throw new Error("Invalid or missing source citations");
     // Require every nonempty paragraph to have a citation; otherwise do not display generated claims.
     const paragraphs = answer.trim().split(/\\n\\s*\\n/).filter(Boolean);
