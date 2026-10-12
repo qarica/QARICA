@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { activeItems, deletedItems, mergeWorkspaceItems, vietnamDateToIso } from "@/lib/personal-workspace";
 
 type ItemType = "TASK" | "NOTE";
 type Item = {
@@ -13,6 +14,7 @@ type Item = {
   due_at: string | null;
   status: "OPEN" | "DONE";
   completed_at: string | null;
+  deleted_at?: string | null;
 };
 
 function formatDue(value: string | null) {
@@ -39,20 +41,92 @@ const HEAD_OF_DEPARTMENT_TEMPLATES: { title: string; category: string; content: 
 
 export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: Item[]; userId: string }) {
   const supabase = createClient();
-  const [rows, setRows] = useState(initialRows);
+  const [rows, setRows] = useState(activeItems(initialRows));
   const [tab, setTab] = useState<ItemType>("TASK");
+  const [showTrash, setShowTrash] = useState(false);
+  const [trashBusy, setTrashBusy] = useState(false);
+  const trashRequestLock = useRef(false);
   const [importBusy, setImportBusy] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("");
   const [dueAt, setDueAt] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mutationBusy, setMutationBusy] = useState(false);
+  const mutationLock = useRef(false);
+  const dataVersion = useRef(0);
+  function beginMutation() {
+    if (mutationLock.current) return false;
+    mutationLock.current = true;
+    dataVersion.current += 1;
+    setMutationBusy(true);
+    return true;
+  }
+  function endMutation() {
+    mutationLock.current = false;
+    setMutationBusy(false);
+  }
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
 
+  useEffect(() => {
+    let cancelled = false;
+    const versionAtStart = dataVersion.current;
+    async function refreshActiveItems() {
+      const { data, error } = await supabase
+        .from("personal_workspace_items")
+        .select("id,item_type,title,content,category,due_at,status,completed_at,deleted_at")
+        .eq("owner_user_id", userId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (cancelled || dataVersion.current !== versionAtStart) return;
+      if (error) {
+        setError(`Không thể đồng bộ danh sách: ${error.message}`);
+        return;
+      }
+      setRows((current) => mergeWorkspaceItems((data ?? []) as Item[], deletedItems(current)));
+    }
+    void refreshActiveItems();
+    return () => { cancelled = true; };
+    // The initial synchronization runs once for this authenticated workspace.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  async function openTrash() {
+    if (mutationLock.current || trashRequestLock.current) return;
+    if (showTrash) {
+      setShowTrash(false);
+      return;
+    }
+    setError("");
+    trashRequestLock.current = true;
+    setTrashBusy(true);
+    try {
+    const { data, error } = await supabase
+      .from("personal_workspace_items")
+      .select("id,item_type,title,content,category,due_at,status,completed_at,deleted_at")
+      .eq("owner_user_id", userId)
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false })
+      .limit(200);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setRows((current) => mergeWorkspaceItems(activeItems(current), (data ?? []) as Item[]));
+    setShowTrash(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể tải thùng rác.");
+    } finally {
+      trashRequestLock.current = false;
+      setTrashBusy(false);
+    }
+  }
+
   async function importTemplates() {
-    const existingTitles = new Set(rows.filter((r) => r.item_type === "NOTE").map((r) => r.title));
+    const existingTitles = new Set(rows.filter((r) => !r.deleted_at && r.item_type === "NOTE").map((r) => r.title));
     const toInsert = HEAD_OF_DEPARTMENT_TEMPLATES.filter((t) => !existingTitles.has(t.title)).map((t) => ({
       owner_user_id: userId,
       item_type: "NOTE" as const,
@@ -60,25 +134,35 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       category: t.category,
       content: t.content,
     }));
-    if (!toInsert.length) return;
+    if (!toInsert.length || !beginMutation()) return;
     setImportBusy(true);
     setError("");
+    try {
     const { data, error } = await supabase
       .from("personal_workspace_items")
       .insert(toInsert)
       .select("id,item_type,title,content,category,due_at,status,completed_at");
-    setImportBusy(false);
     if (error) {
       setError(error.message);
       return;
     }
-    setRows((v) => [...((data ?? []) as Item[]), ...v]);
+    if (!data || data.length !== toInsert.length) {
+      setError("Kết quả nhập chưa đầy đủ. Vui lòng tải lại danh sách trước khi thử tiếp.");
+      return;
+    }
+    setRows((v) => [...(data as Item[]), ...v]);
     setTab("NOTE");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể nhập ghi chú mẫu.");
+    } finally {
+      setImportBusy(false);
+      endMutation();
+    }
   }
 
   async function add() {
     const cleanTitle = title.trim();
-    if (!cleanTitle) return;
+    if (!cleanTitle || !beginMutation()) return;
     setBusy(true);
     setError("");
     const payload: Record<string, unknown> = {
@@ -87,16 +171,29 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       title: cleanTitle,
       category: category.trim() || null,
     };
-    if (tab === "TASK") payload.due_at = dueAt ? new Date(`${dueAt}T00:00:00`).toISOString() : null;
+    if (tab === "TASK") {
+      const normalizedDue = dueAt ? vietnamDateToIso(dueAt) : null;
+      if (dueAt && !normalizedDue) {
+        setError("Ngày đến hạn không hợp lệ.");
+        setBusy(false);
+        endMutation();
+        return;
+      }
+      payload.due_at = normalizedDue;
+    }
     if (tab === "NOTE") payload.content = content.trim() || null;
+    try {
     const { data, error } = await supabase
       .from("personal_workspace_items")
       .insert(payload)
       .select("id,item_type,title,content,category,due_at,status,completed_at")
       .single();
-    setBusy(false);
     if (error) {
       setError(error.message);
+      return;
+    }
+    if (!data?.id) {
+      setError("Không xác nhận được bản ghi mới. Vui lòng tải lại danh sách.");
       return;
     }
     setRows((v) => [data as Item, ...v]);
@@ -104,19 +201,42 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     setContent("");
     setCategory("");
     setDueAt("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể tạo bản ghi.");
+    } finally {
+      setBusy(false);
+      endMutation();
+    }
   }
 
   async function toggleDone(row: Item) {
+    if (!beginMutation()) return;
+    setError("");
     const next = row.status === "DONE" ? "OPEN" : "DONE";
-    const { error } = await supabase
+    const completedAt = next === "DONE" ? new Date().toISOString() : null;
+    try {
+    const { data, error } = await supabase
       .from("personal_workspace_items")
-      .update({ status: next, completed_at: next === "DONE" ? new Date().toISOString() : null, updated_at: new Date().toISOString() })
-      .eq("id", row.id);
+      .update({ status: next, completed_at: completedAt, updated_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .eq("owner_user_id", userId)
+      .eq("status", row.status)
+      .is("deleted_at", null)
+      .select("id");
     if (error) {
       setError(error.message);
       return;
     }
-    setRows((v) => v.map((x) => (x.id === row.id ? { ...x, status: next } : x)));
+    if (!data?.some((updated) => updated.id === row.id)) {
+      setError("Không thể cập nhật: dữ liệu đã thay đổi hoặc bạn không có quyền. Vui lòng tải lại.");
+      return;
+    }
+    setRows((v) => v.map((x) => (x.id === row.id ? { ...x, status: next, completed_at: completedAt } : x)));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể cập nhật công việc.");
+    } finally {
+      endMutation();
+    }
   }
 
   function startEdit(row: Item) {
@@ -125,47 +245,109 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   }
 
   async function saveEdit(id: string) {
-    const { error } = await supabase
+    if (!beginMutation()) return;
+    setError("");
+    const newContent = editContent.trim() || null;
+    try {
+    const { data, error } = await supabase
       .from("personal_workspace_items")
-      .update({ content: editContent.trim() || null, updated_at: new Date().toISOString() })
-      .eq("id", id);
+      .update({ content: newContent, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("owner_user_id", userId)
+      .eq("item_type", "NOTE")
+      .is("deleted_at", null)
+      .select("id");
     if (error) {
       setError(error.message);
       return;
     }
-    setRows((v) => v.map((x) => (x.id === id ? { ...x, content: editContent.trim() || null } : x)));
+    if (!data?.some((updated) => updated.id === id)) {
+      setError("Không thể lưu: ghi chú không tồn tại hoặc bạn không có quyền. Vui lòng tải lại.");
+      return;
+    }
+    setRows((v) => v.map((x) => (x.id === id ? { ...x, content: newContent } : x)));
     setEditingId(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể lưu ghi chú.");
+    } finally {
+      endMutation();
+    }
   }
 
   async function remove(id: string) {
-    const { error } = await supabase.from("personal_workspace_items").delete().eq("id", id);
-    if (error) {
-      setError(error.message);
-      return;
+    if (mutationLock.current) return;
+    const item = rows.find((row) => row.id === id && !row.deleted_at);
+    if (!item) return;
+    if (!window.confirm(`Chuyển "${item.title}" vào thùng rác? Bạn có thể khôi phục sau.`)) return;
+    if (!beginMutation()) return;
+    setError("");
+    try {
+      const deletedAt = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("personal_workspace_items")
+        .update({ deleted_at: deletedAt, updated_at: deletedAt })
+        .eq("id", id)
+        .eq("owner_user_id", userId)
+        .is("deleted_at", null)
+        .select("id");
+      if (error) throw error;
+      if (!data?.some((row) => row.id === id)) {
+        setError("Không thể chuyển vào thùng rác. Vui lòng tải lại.");
+        return;
+      }
+      setRows((current) => current.map((row) => row.id === id ? { ...row, deleted_at: deletedAt } : row));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể chuyển vào thùng rác.");
+    } finally {
+      endMutation();
     }
-    setRows((v) => v.filter((x) => x.id !== id));
   }
 
-  const visible = rows.filter((r) => r.item_type === tab);
+  async function restore(id: string) {
+    if (!beginMutation()) return;
+    setError("");
+    try {
+      const { data, error } = await supabase
+        .from("personal_workspace_items")
+        .update({ deleted_at: null, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("owner_user_id", userId)
+        .not("deleted_at", "is", null)
+        .select("id");
+      if (error) throw error;
+      if (!data?.some((row) => row.id === id)) {
+        setError("Không thể khôi phục. Vui lòng tải lại.");
+        return;
+      }
+      setRows((current) => current.map((row) => row.id === id ? { ...row, deleted_at: null } : row));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể khôi phục bản ghi.");
+    } finally {
+      endMutation();
+    }
+  }
+
+  const visible = rows.filter((r) => showTrash ? Boolean(r.deleted_at) : !r.deleted_at && r.item_type === tab);
   const existingNoteTitles = new Set(rows.filter((r) => r.item_type === "NOTE").map((r) => r.title));
   const pendingImportCount = HEAD_OF_DEPARTMENT_TEMPLATES.filter((t) => !existingNoteTitles.has(t.title)).length;
 
   return (
     <section className="panel pw-section">
       <div className="pw-tabs">
-        <button type="button" className={`pw-tab ${tab === "TASK" ? "active" : ""}`} onClick={() => setTab("TASK")}>
+        <button type="button" className="button secondary small" disabled={trashBusy || mutationBusy} onClick={() => void openTrash()}>{trashBusy ? "Đang tải..." : showTrash ? "Quay lại" : "Thùng rác"}</button>
+        <button type="button" className={`pw-tab ${tab === "TASK" ? "active" : ""}`} disabled={showTrash} onClick={() => setTab("TASK")}>
           Việc cần làm
         </button>
-        <button type="button" className={`pw-tab ${tab === "NOTE" ? "active" : ""}`} onClick={() => setTab("NOTE")}>
+        <button type="button" className={`pw-tab ${tab === "NOTE" ? "active" : ""}`} disabled={showTrash} onClick={() => setTab("NOTE")}>
           Ghi chú / quy trình
         </button>
-        {pendingImportCount > 0 ? (
-          <button type="button" className="button secondary small pw-import" disabled={importBusy} onClick={() => void importTemplates()}>
+        {!showTrash && pendingImportCount > 0 ? (
+          <button type="button" className="button secondary small pw-import" disabled={importBusy || mutationBusy} onClick={() => void importTemplates()}>
             + Nhập {pendingImportCount} mục mẫu Trưởng phòng
           </button>
         ) : null}
       </div>
-      <div className="pw-form">
+      {!showTrash ? <div className="pw-form">
         <input
           className="input pw-title"
           placeholder={tab === "TASK" ? "Việc cần làm... (ví dụ: Nộp báo cáo tháng SYT)" : "Tiêu đề ghi chú... (ví dụ: Quy trình xử lý xuất toán BHYT)"}
@@ -183,10 +365,10 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
           <input className="input" placeholder="Phân loại (vd: QLCL, Vận hành, Chiến lược...)" value={category} maxLength={60} onChange={(e) => setCategory(e.target.value)} />
           {tab === "TASK" ? <input className="input" type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /> : null}
         </div>
-        <button className="button primary small" disabled={busy || !title.trim()} onClick={() => void add()}>
+        <button className="button primary small" disabled={busy || mutationBusy || !title.trim()} onClick={() => void add()}>
           + Thêm {tab === "TASK" ? "việc" : "ghi chú"}
         </button>
-      </div>
+      </div> : null}
       {error ? (
         <div className="alert error" style={{ margin: "0 12px 12px" }}>
           {error}
@@ -201,12 +383,12 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
                 {r.category ? `${r.category} · ` : ""}
                 {r.item_type === "TASK" ? formatDue(r.due_at) : "Ghi chú cá nhân"}
               </small>
-              {r.item_type === "NOTE" ? (
+              {!showTrash && r.item_type === "NOTE" ? (
                 editingId === r.id ? (
                   <div className="pw-edit">
                     <textarea className="input" rows={4} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
                     <div className="pw-edit-actions">
-                      <button className="button primary small" onClick={() => void saveEdit(r.id)}>
+                      <button className="button primary small" disabled={mutationBusy} onClick={() => void saveEdit(r.id)}>
                         Lưu
                       </button>
                       <button className="button tertiary small" onClick={() => setEditingId(null)}>
@@ -222,8 +404,8 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
             <div>
               <span className="status-badge info">{r.status === "DONE" ? "Đã xong" : "Cá nhân"}</span>
             </div>
-            {r.item_type === "TASK" ? (
-              <button className="button secondary small" onClick={() => void toggleDone(r)}>
+            {showTrash ? null : r.item_type === "TASK" ? (
+              <button className="button secondary small" disabled={mutationBusy} onClick={() => void toggleDone(r)}>
                 {r.status === "DONE" ? "Mở lại" : "Hoàn tất"}
               </button>
             ) : editingId === r.id ? null : (
@@ -231,12 +413,12 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
                 Sửa
               </button>
             )}
-            <button className="button tertiary small" onClick={() => void remove(r.id)}>
-              Xóa
+            <button className="button tertiary small" disabled={mutationBusy} onClick={() => void (showTrash ? restore(r.id) : remove(r.id))}>
+              {showTrash ? "Khôi phục" : "Xóa"}
             </button>
           </div>
         ))}
-        {!visible.length ? <div className="empty-state compact">{tab === "TASK" ? "Chưa có việc cần làm." : "Chưa có ghi chú nào."}</div> : null}
+        {!visible.length ? <div className="empty-state compact">{showTrash ? "Thùng rác trống." : tab === "TASK" ? "Chưa có việc cần làm." : "Chưa có ghi chú nào."}</div> : null}
       </div>
       <style jsx>{`
         .pw-tabs {
