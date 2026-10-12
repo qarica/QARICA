@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 export default async function PersonalWorkspacePage() {
   const { user } = await requireUserContext();
   const supabase = await createClient();
-  const [{ data: profile }, { data: knowledgeNotes }] = await Promise.all([
+  const [profileResult, knowledgeResult] = await Promise.all([
     supabase.from("profiles").select("zalo_user_id").eq("user_id", user.id).maybeSingle(),
     supabase
       .from("knowledge_notes")
@@ -16,6 +16,17 @@ export default async function PersonalWorkspacePage() {
       .order("created_at", { ascending: false })
       .limit(100),
   ]);
+
+  if (profileResult.error) {
+    console.error("[PersonalWorkspace] profile query failed:", profileResult.error.message);
+    throw new Error("Không tải được thông tin tài khoản cá nhân.");
+  }
+  if (knowledgeResult.error) {
+    console.error("[PersonalWorkspace] knowledge notes query failed:", knowledgeResult.error.message);
+    throw new Error("Không tải được ghi chú và nhật ký cá nhân.");
+  }
+  const profile = profileResult.data;
+  const knowledgeNotes = knowledgeResult.data;
 
   return (
     <div className="page-stack personal-workspace-page">
