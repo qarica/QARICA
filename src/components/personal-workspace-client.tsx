@@ -71,6 +71,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const [editContent, setEditContent] = useState("");
   const [taskFilter, setTaskFilter] = useState<"OPEN" | "DONE" | "ALL">("OPEN");
   const [reminderChoice, setReminderChoice] = useState(false);
+  const [completionDates, setCompletionDates] = useState<Record<string,string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -225,7 +226,11 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     if (!beginMutation()) return;
     setError("");
     const next = row.status === "DONE" ? "OPEN" : "DONE";
-    const completedAt = next === "DONE" ? new Date().toISOString() : null;
+    const selectedDate = completionDates[row.id] || new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year:"numeric",month:"2-digit",day:"2-digit" }).format(new Date());
+    const completedAt = next === "DONE" ? vietnamDateToIso(selectedDate) : null;
+    if (next === "DONE" && (!completedAt || selectedDate > new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year:"numeric",month:"2-digit",day:"2-digit" }).format(new Date()))) {
+      setError("Ngày hoàn thành không hợp lệ hoặc ở tương lai."); endMutation(); return;
+    }
     try {
     const { data, error } = await supabase
       .from("personal_workspace_items")
@@ -428,9 +433,9 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
               <span className={`status-badge ${r.status === "DONE" ? "success" : "info"}`}>{r.status === "DONE" ? "✓ Hoàn thành" : "● Chưa xong"}</span>
             </div>
             {showTrash ? null : r.item_type === "TASK" ? (
-              <button className="button secondary small" disabled={mutationBusy} onClick={() => void toggleDone(r)}>
+              <><label className="pw-completed-date">Ngày hoàn thành <input className="input" type="date" aria-label={`Ngày hoàn thành ${r.title}`} value={completionDates[r.id] ?? (r.completed_at ? new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(r.completed_at)) : new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()))} onChange={e=>setCompletionDates(v=>({...v,[r.id]:e.target.value}))} disabled={mutationBusy}/></label><button className="button secondary small" disabled={mutationBusy} onClick={() => void toggleDone(r)}>
                 {r.status === "DONE" ? "Mở lại" : "Hoàn tất"}
-              </button>
+              </button></>
             ) : editingId === r.id ? null : (
               <button className="button secondary small" onClick={() => startEdit(r)}>
                 Sửa
@@ -444,6 +449,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
         {!visible.length ? <div className="empty-state compact">{showTrash ? "Thùng rác trống." : tab === "TASK" ? "Chưa có việc cần làm." : "Chưa có ghi chú nào."}</div> : null}
       </div>
       <style jsx>{`
+        .pw-completed-date {display:grid;gap:4px;font-size:11px;color:#475569;max-width:165px}
         .pw-filter { display:flex; flex-wrap:wrap; gap:8px; padding:4px 12px 12px; }
         .pw-reminder-choice { display:flex; gap:8px; align-items:center; font-size:13px; }
         .pw-hint { margin:0; color:#64748b; font-size:12px; }
