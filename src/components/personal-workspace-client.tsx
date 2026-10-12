@@ -476,6 +476,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
           margin-left: auto;
         }
         .pw-form {
+          min-width:0;
           display: grid;
           gap: 8px;
           padding: 12px;
