@@ -29,7 +29,8 @@ describe("Personal workspace is scoped to the user only, never to an organizatio
   });
 
   it("is reachable from every logged-in user — no permission gate on the nav entry", () => {
-    expect(nav).toContain('{ label: "CÁ NHÂN", href: "/me", icon: "users" },');
+    expect(nav).toContain('href: "/me"');
+    expect(nav).toContain('id: "personal-workspace"');
   });
 });
 
