@@ -1,0 +1,12 @@
+"use client";
+import {useState} from "react";
+import {useRouter} from "next/navigation";
+import {createClient} from "@/lib/supabase/client";
+
+export function UnifiedPersonalTaskActions({id,source,ownerId,initialNote,isDone,title}:{id:string;source:"reminder"|"legacy";ownerId:string;initialNote:string|null;isDone:boolean;title:string}){
+ const router=useRouter();const [editing,setEditing]=useState(false);const [note,setNote]=useState(initialNote||"");const [date,setDate]=useState(new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()));const [busy,setBusy]=useState(false);const [error,setError]=useState("");
+ const table=source==="legacy"?"personal_workspace_items":"personal_reminders";
+ async function update(fields:Record<string,unknown>){setBusy(true);setError("");const {data,error}=await createClient().from(table).update(fields).eq("id",id).eq("owner_user_id",ownerId).select("id");setBusy(false);if(error||!data?.length){setError(error?.message||"Không thể cập nhật công việc.");return;}setEditing(false);router.refresh();}
+ function toggle(){const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());if(!isDone&&(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||date>today)){setError("Ngày hoàn thành không hợp lệ.");return;}void update({status:isDone?"OPEN":source==="legacy"?"DONE":"COMPLETED",completed_at:isDone?null:new Date(date+"T00:00:00+07:00").toISOString()});}
+ return <div style={{display:"grid",gap:5,minWidth:145}}><div style={{display:"flex",gap:4,flexWrap:"wrap"}}><button type="button" className="button tertiary small" disabled={busy} onClick={()=>setEditing(!editing)}>Ghi chú / sửa</button><button type="button" className="button secondary small" disabled={busy} onClick={toggle}>{isDone?"Mở lại":"Hoàn tất"}</button></div>{!isDone?<label style={{fontSize:11}}>Ngày hoàn thành<input className="input" type="date" aria-label={"Ngày hoàn thành "+title} value={date} onChange={e=>setDate(e.target.value)}/></label>:null}{editing?<><textarea className="input" aria-label={"Ghi chú "+title} rows={3} value={note} onChange={e=>setNote(e.target.value)}/><button type="button" className="button primary small" disabled={busy} onClick={()=>void update(source==="legacy"?{content:note||null}:{note:note||null})}>Lưu ghi chú</button></>:null}{error?<small role="alert" style={{color:"#b91c1c"}}>{error}</small>:null}</div>;
+}

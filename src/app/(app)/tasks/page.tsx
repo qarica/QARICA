@@ -1,3 +1,4 @@
+import { UnifiedPersonalTaskActions } from "@/components/unified-personal-task-actions";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { WorkRowCheckbox, WorkRowSelectionProvider, WorkSelectionCount } from "@/components/work-row-checkbox";
@@ -32,7 +33,7 @@ const ACTION_SELECT="action_id,record_id,record_code,title,work_year,workflow_st
 export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string;q?:string;page?:string}>}){
  const {user}=await requireUserContext();requirePermission(user,"tasks.view");const year=await getWorkYear();const supabase=await createClient();const today=hcmToday();
  const {tab:rawTab,q:rawQ,page:rawPage}=await searchParams;
- const tab=(["ALL","REMINDER","ASSIGNED","WAITING","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"ALL") as "ALL"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE";
+ const tab=(["ALL","OPEN","REMINDER","ASSIGNED","WAITING","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"OPEN") as "ALL"|"OPEN"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE";
  const searchQuery=String(rawQ||"").trim();
  const page=Math.max(1,Number(rawPage)||1);
  const PAGE_SIZE=10;
@@ -88,13 +89,14 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const createdByForRecord=(recordId:string)=>{const creatorId=recordCreatedByMap.get(recordId);return creatorId?creatorNameMap.get(creatorId)||"—":"—"};
  const roleDepartmentIds=Array.from(new Set([...scopeSourceRows.map(r=>r.lead_department_id),user.primaryDepartmentId].filter(Boolean)));const roleDepartmentsRes=roleDepartmentIds.length?await supabase.from("departments").select("id,name,short_name").in("id",roleDepartmentIds):{data:[],error:null};const roleDepartmentMap=new Map((roleDepartmentsRes.data??[]).map((d:any)=>[d.id,d.short_name||d.name]));
  const assignedGroupIds=Array.from(new Set([...sourceRows,...scopeSourceRows].map((r:any)=>r.assignee_group_id).filter(Boolean))) as string[];const assignedGroupsRes=assignedGroupIds.length?await supabase.from("work_groups").select("id,name,code").in("id",assignedGroupIds):{data:[],error:null};const assignedGroupMap=new Map((assignedGroupsRes.data??[]).map((g:any)=>[g.id,[g.code,g.name].filter(Boolean).join(" · ")]));
- const rows=sourceRows.filter(r=>r.workflow_status!=="CANCELLED"&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const attention=(attentionRes.data??[]) as any[];const personalReminders=(personalRemindersRes.data??[]) as any[];const workFollowupSourceIds=Array.from(new Set([...rows.map((r:any)=>r.action_id),...myEmrItems.map((r:any)=>r.id)].filter(Boolean))) as string[];
+ const rows=sourceRows.filter(r=>r.workflow_status!=="CANCELLED"&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const attention=(attentionRes.data??[]) as any[];const personalReminders=(personalRemindersRes.data??[]) as any[];
+ const {data:legacyPersonalTasks,error:legacyPersonalError}=await supabase.from("personal_workspace_items").select("id,title,content,category,due_at,status,completed_at,item_type").eq("owner_user_id",user.id).eq("item_type","TASK").is("deleted_at",null).limit(500);const workFollowupSourceIds=Array.from(new Set([...rows.map((r:any)=>r.action_id),...myEmrItems.map((r:any)=>r.id)].filter(Boolean))) as string[];
  const workFollowupsRes=workFollowupSourceIds.length
   ? await supabase.from("work_followups").select("id,source_type,source_id,state,waiting_for_label,follow_up_at,note").eq("owner_user_id",user.id).in("source_id",workFollowupSourceIds).in("state",["ACTIVE","WAITING"])
   : {data:[],error:null};
  const workFollowups=(workFollowupsRes.data??[]) as any[];
  const followupBySource=new Map(workFollowups.map((f:any)=>[f.source_type+":"+f.source_id,f]));
- const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=actionsRes.error||attentionRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error;
+ const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=legacyPersonalError||actionsRes.error||attentionRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error;
  // EMR items chưa DONE được tính gộp vào 4 KPI đầu (quá hạn/đến hạn/sắp tới/
  // đang mở) — không tính vào "Hoàn thành" vì emrItemsRes chỉ tải các mục
  // chưa DONE (không có lịch sử hoàn thành để đếm ở đây).
@@ -125,7 +127,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
 
  const openRows=rows.filter(r=>!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status));
 
- type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null};
+ type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"|"legacy";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null};
  const unifiedActionRows:UnifiedRow[]=rows.map(r=>({
   key:`a-${r.action_id}`,title:r.title,typeLabel:RECORD_TYPE_LABEL[recordTypeMap.get(r.record_id)||""]||"—",
   relatedTo:recordCodeMap.get(r.record_id)||"—",priority:r.priority,dueDate:r.due_date,
@@ -133,13 +135,18 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   isWatch:!r.is_overdue&&!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status)&&Number(r.days_to_due)>0,
   assignedBy:createdByForRecord(r.record_id),href:`/tasks/${r.record_id}`,source:"action",sourceId:r.action_id,sourceType:"ACTION",followup:followupBySource.get("ACTION:"+r.action_id)??null,
  }));
- const unifiedReminderRows:UnifiedRow[]=personalReminders.map((p:any)=>({
+ const unifiedReminderRows:UnifiedRow[]=[...personalReminders.map((p:any):UnifiedRow=>({
   key:`p-${p.id}`,title:p.title,typeLabel:"Note cá nhân",relatedTo:"—",priority:p.priority,
   dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="COMPLETED"?"COMPLETED":(p.due_at&&dateOnly(p.due_at)<today?"OVERDUE":p.status),
   isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="COMPLETED",
   isWatch:p.status==="OPEN"&&(!p.due_at||dateOnly(p.due_at)>=today),
-  assignedBy:"—",href:"/tasks",source:"reminder",sourceId:null,sourceType:null,followup:null,
- }));
+  assignedBy:"—",href:"/tasks?tab=REMINDER#all-work",source:"reminder",sourceId:p.id,sourceType:null,followup:p.note??null,
+ })),...(legacyPersonalTasks??[]).map((p:any):UnifiedRow=>({
+  key:`legacy-${p.id}`,title:p.title,typeLabel:"Việc cá nhân",relatedTo:p.category||"Cá nhân",priority:"MEDIUM",
+  dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="DONE"?"COMPLETED":"OPEN",
+  isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="DONE",
+  isWatch:p.status==="OPEN",assignedBy:"—",href:"/tasks?tab=REMINDER#all-work",source:"legacy",sourceId:p.id,sourceType:null,followup:p.content??null,
+ }))];
  const unifiedEmrRows:UnifiedRow[]=myEmrItems.map((item:any)=>{
   const category=EMR_CATEGORIES.find(c=>c.code===item.category);
   const overdueItem=!!item.due_date&&item.due_date<today;
@@ -152,7 +159,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  });
  const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows];
  const allWorkRows=[...unifiedAssignedRows,...unifiedReminderRows].sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999"));
- const byTab=tab==="REMINDER"?unifiedReminderRows:tab==="ASSIGNED"?unifiedAssignedRows:tab==="WAITING"?allWorkRows.filter(r=>r.followup?.state==="WAITING"):tab==="WATCH"?allWorkRows.filter(r=>r.isWatch):tab==="DONE"?allWorkRows.filter(r=>r.isDone):allWorkRows;
+ const byTab=tab==="OPEN"?allWorkRows.filter(r=>!r.isDone):tab==="REMINDER"?unifiedReminderRows:tab==="ASSIGNED"?unifiedAssignedRows:tab==="WAITING"?allWorkRows.filter(r=>r.followup?.state==="WAITING"):tab==="WATCH"?allWorkRows.filter(r=>r.isWatch):tab==="DONE"?allWorkRows.filter(r=>r.isDone):allWorkRows;
  const searched=searchQuery?byTab.filter(r=>r.title.toLowerCase().includes(searchQuery.toLowerCase())||r.relatedTo.toLowerCase().includes(searchQuery.toLowerCase())):byTab;
  const totalPages=Math.max(1,Math.ceil(searched.length/PAGE_SIZE));
  const currentPage=Math.min(page,totalPages);
@@ -172,7 +179,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  // "Việc sắp đến hạn": gộp Action mở + note cá nhân còn mở, sắp theo hạn gần nhất.
  const upcoming=[
   ...openRows.filter(r=>r.due_date).map(r=>({key:`a-${r.action_id}`,title:r.title,date:r.due_date as string,overdue:!!r.is_overdue,href:`/tasks/${r.record_id}`})),
-  ...personalReminders.filter((p:any)=>p.status==="OPEN"&&p.due_at).map((p:any)=>({key:`p-${p.id}`,title:p.title,date:dateOnly(p.due_at),overdue:dateOnly(p.due_at)<today,href:"/tasks"})),
+  ...personalReminders.filter((p:any)=>p.status==="OPEN"&&p.due_at).map((p:any)=>({key:`p-${p.id}`,title:p.title,date:dateOnly(p.due_at),overdue:dateOnly(p.due_at)<today,href:"/tasks?tab=REMINDER#all-work"})),
   ...myEmrItems.filter((e:any)=>e.due_date).map((e:any)=>({key:`e-${e.id}`,title:e.title,date:e.due_date as string,overdue:e.due_date<today,href:EMR_CATEGORIES.find(c=>c.code===e.category)?.slug?`/emr/${EMR_CATEGORIES.find(c=>c.code===e.category)!.slug}`:"/emr"})),
  ].sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
 
@@ -233,21 +240,22 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
         viewport; the surrounding controls now render on both. */}
     <section id="all-work" className="work-section">
      <nav className="work-tabs" aria-label="Lọc việc được giao">
+      <Link href={tabHref("OPEN")} className={`work-tab ${tab==="OPEN"?"active":""}`}>Chưa hoàn thành · {allWorkRows.filter(r=>!r.isDone).length}</Link>
       <Link href={tabHref("ALL")} className={`work-tab ${tab==="ALL"?"active":""}`}>Tất cả · {allWorkRows.length}</Link>
-      <Link href={tabHref("REMINDER")} className={`work-tab ${tab==="REMINDER"?"active":""}`}>Note cá nhân · {unifiedReminderRows.length}</Link>
-      <Link href={tabHref("ASSIGNED")} className={`work-tab ${tab==="ASSIGNED"?"active":""}`}>Đã giao · {unifiedAssignedRows.length}</Link>
-      <Link href={tabHref("WAITING")} className={tab==="WAITING"?"work-tab active":"work-tab"}>Đang chờ · {allWorkRows.filter(r=>r.followup?.state==="WAITING").length}</Link>
-      <Link href={tabHref("WATCH")} className={`work-tab ${tab==="WATCH"?"active":""}`}>Theo dõi · {allWorkRows.filter(r=>r.isWatch).length}</Link>
-      <Link href={tabHref("DONE")} className={`work-tab ${tab==="DONE"?"active":""}`}>Hoàn thành · {allWorkRows.filter(r=>r.isDone).length}</Link>
+      <Link href={tabHref("REMINDER")} className={`work-tab ${tab==="REMINDER"?"active":""}`}>Việc cá nhân · {unifiedReminderRows.length}</Link>
+      <Link href={tabHref("ASSIGNED")} className={`work-tab ${tab==="ASSIGNED"?"active":""}`}>Việc được giao · {unifiedAssignedRows.length}</Link>
+      <Link href={tabHref("WAITING")} className={tab==="WAITING"?"work-tab active":"work-tab"} title="Việc đang đợi người khác phản hồi hoặc hoàn thành phần việc liên quan">Chờ phản hồi · {allWorkRows.filter(r=>r.followup?.state==="WAITING").length}</Link>
+      <Link href={tabHref("WATCH")} className={`work-tab ${tab==="WATCH"?"active":""}`} title="Việc còn mở có hạn trong tương lai, cần tiếp tục theo dõi tiến độ">Cần theo dõi · {allWorkRows.filter(r=>r.isWatch).length}</Link>
+      <Link href={tabHref("DONE")} className={`work-tab ${tab==="DONE"?"active":""}`}>Đã hoàn thành · {allWorkRows.filter(r=>r.isDone).length}</Link>
       <WorkSelectionCount/>
      </nav>
      <form method="get" className="work-search-row">
       <input type="hidden" name="tab" value={tab}/>
-      <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm công việc..."/></div>
-      <button type="submit" className="button secondary small">Lọc</button>
+      <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm theo tên công việc / hồ sơ..."/></div>
+      <button type="submit" className="button secondary small">Tìm kiếm</button>
      </form>
-     <div className="table-wrap all-table desktop-only"><table><thead><tr><th></th><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Liên quan đến</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th><th>Người giao</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td><WorkRowCheckbox rowKey={r.key}/></td><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td><Link className="table-link" href={r.href}>{r.title}</Link></td><td>{r.typeLabel}</td><td>{r.relatedTo}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":""}>{r.dueDate?formatDate(r.dueDate):"—"}</td><td><StatusBadge status={r.statusLabel}/></td><td>{r.assignedBy}</td><td>{r.source==="reminder"?<ReminderRowDelete id={r.key.slice(2)} title={r.title}/>:r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={10}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
-     <div className="mobile-only work-card-list">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.title}</strong><small>{r.typeLabel} · {r.dueDate?formatDate(r.dueDate):"Không có hạn"}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Link className="button primary small" href={r.href}>Mở</Link>{r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</div></article>)}{!tableRowsPage.length?<div className="empty-state">Không có việc phù hợp.</div>:null}</div>
+     <div className="table-wrap all-table desktop-only"><table><thead><tr><th></th><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Liên quan đến</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th><th>Người giao</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td><WorkRowCheckbox rowKey={r.key}/></td><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td><Link className="table-link" href={r.href}>{r.title}</Link></td><td>{r.typeLabel}</td><td>{r.relatedTo}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":""}>{r.dueDate?formatDate(r.dueDate):"—"}</td><td><StatusBadge status={r.statusLabel}/></td><td>{r.assignedBy}</td><td>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}/>:r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={10}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
+     <div className="mobile-only work-card-list">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.title}</strong><small>{r.typeLabel} · {r.dueDate?formatDate(r.dueDate):"Không có hạn"}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}/>:<><Link className="button primary small" href={r.href}>Mở</Link>{r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</>}</div></article>)}{!tableRowsPage.length?<div className="empty-state">Không có việc phù hợp.</div>:null}</div>
      {searched.length?<div className="work-pagination"><span>Hiển thị {(currentPage-1)*PAGE_SIZE+1}-{Math.min(currentPage*PAGE_SIZE,searched.length)} của {searched.length} bản ghi</span><div className="work-pagination-pages">{Array.from({length:totalPages},(_,i)=>i+1).map(p=><Link key={p} href={pageHref(p)} className={`button small ${p===currentPage?"primary":"secondary"}`}>{p}</Link>)}</div></div>:null}
     </section>
     </WorkRowSelectionProvider>
@@ -258,7 +266,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
      <div className="mini-cal"><div className="mini-cal-head"><strong>{MONTH_NAMES[calMonth-1]}, {calYear}</strong></div><div className="mini-cal-grid">{WEEKDAYS.map(d=><div className="mini-cal-wd" key={d}>{d}</div>)}{calCells.map((date,idx)=><div key={date||`b-${idx}`} className={`mini-cal-day ${date===today?"today":""} ${date&&dueDateSet.has(date)?"has-event":""}`}>{date?Number(date.slice(-2)):""}</div>)}</div></div>
     </section>
     <section className="work-section">
-     <div className="section-head"><div><h2>Việc sắp đến hạn</h2><p>Gộp từ Action được giao, note cá nhân và hạng mục EMR của khoa/phòng còn mở.</p></div></div>
+     <div className="section-head"><div><h2>Việc cần chú ý theo hạn</h2><p>Chỉ là danh sách xem nhanh từ bảng công việc chính bên trái; không tạo thêm bản ghi.</p></div></div>
      <div className="upcoming-list">{upcoming.map(u=><Link key={u.key} className="upcoming-item" href={u.href}><strong>{u.title}</strong><small className={u.overdue?"overdue":""}>{formatDate(u.date)}</small></Link>)}{!upcoming.length?<div className="empty-state compact">Không có việc sắp đến hạn.</div>:null}</div>
     </section>
    </div>

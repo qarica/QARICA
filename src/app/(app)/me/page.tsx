@@ -1,6 +1,6 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { KnowledgeJournalClient } from "@/components/knowledge-journal-client";
-import { PersonalWorkspaceClient } from "@/components/personal-workspace-client";
 import { ZaloLinkClient } from "@/components/zalo-link-client";
 import { requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -30,7 +30,7 @@ export default async function PersonalWorkspacePage() {
       <PageHeader
         eyebrow="Cá nhân"
         title="Không gian riêng"
-        description="Việc cần làm và ghi chú của riêng bạn — không gắn với bất kỳ tổ chức/bệnh viện nào, luôn theo bạn dù chuyển nơi làm việc."
+        description="Tổng quan cá nhân, ghi chú kiến thức và kết nối tài khoản. Quản lý công việc tập trung tại Việc của tôi."
         icon="book-open"
       />
       {workspaceError ? (
@@ -38,7 +38,7 @@ export default async function PersonalWorkspacePage() {
           Không thể tải công việc và ghi chú cá nhân. Dữ liệu chưa bị xóa; vui lòng thử tải lại trang hoặc liên hệ quản trị viên.
         </div>
       ) : (
-        <PersonalWorkspaceClient initialRows={(data ?? []) as any} userId={user.id} />
+        <section className="panel" style={{padding:16}}><h2>Công việc cá nhân</h2><p>Bạn có {(data ?? []).filter((r:any)=>r.item_type==="TASK"&&r.status==="OPEN").length} việc riêng đang mở trong không gian cá nhân cũ. Dữ liệu này vẫn được giữ nguyên để đối chiếu khi hợp nhất; không tạo việc mới tại đây.</p><Link className="button primary small" href="/tasks?tab=OPEN#all-work">Đến Việc của tôi</Link></section>
       )}
       <KnowledgeJournalClient initialNotes={(knowledgeNotes ?? []) as any} hasOrganization={!!user.organizationId} />
       <ZaloLinkClient initialZaloUserId={profile?.zalo_user_id ?? null} />
