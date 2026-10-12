@@ -18,6 +18,7 @@ describe("AI Brain answer safety invariants",()=>{
   it("keeps provider credentials on the server and validates citations",()=>{
     expect(answer).toContain("process.env.OPENAI_API_KEY");
     expect(answer).toContain("references.some");
+    expect(answer).toContain("Uncited answer paragraph");
     expect(answer).toContain("retrieval_fallback");
     expect(client).not.toContain("OPENAI_API_KEY");
   });
