@@ -5,6 +5,7 @@ const VISIBILITIES=new Set(["PRIVATE","TEAM","LINKED_RECORD"]);
 export async function GET(request:Request){
  const auth=await requireApiContext();if(!auth.ok)return auth.response;
  const {searchParams}=new URL(request.url);const q=String(searchParams.get("q")||"").trim();const status=String(searchParams.get("status")||"ACTIVE").toUpperCase();
+ if(!["ACTIVE","ARCHIVED"].includes(status))return NextResponse.json({error:"Trạng thái ghi chú không hợp lệ."},{status:400});
  let query=auth.supabase.from("knowledge_notes").select("id,owner_user_id,organization_id,note_type,visibility,title,content,journal_date,status,source_kind,source_ref,generated_at,ai_model,ai_confidence,created_at,updated_at,archived_at").eq("status",status==="ARCHIVED"?"ARCHIVED":"ACTIVE").order("created_at",{ascending:false}).limit(200);
  if(q.length>200)return NextResponse.json({error:"Từ khóa tìm kiếm quá dài."},{status:400});
  if(q)query=query.textSearch("search_document",q,{type:"websearch",config:"simple"});
@@ -12,7 +13,9 @@ export async function GET(request:Request){
 }
 export async function POST(request:Request){
  const auth=await requireApiContext();if(!auth.ok)return auth.response;
- const body=await request.json().catch(()=>({}));const noteType=String(body.note_type||"NOTE").toUpperCase();const visibility=String(body.visibility||"PRIVATE").toUpperCase();const title=String(body.title||"").trim();const content=body.content==null?null:String(body.content).trim();const journalDate=body.journal_date?String(body.journal_date):null;
+ const body=await request.json().catch(()=>null);
+ if(!body||typeof body!=="object"||Array.isArray(body))return NextResponse.json({error:"Dữ liệu yêu cầu không hợp lệ."},{status:400});
+ const noteType=String(body.note_type||"NOTE").toUpperCase();const visibility=String(body.visibility||"PRIVATE").toUpperCase();const title=String(body.title||"").trim();const content=body.content==null?null:String(body.content).trim();const journalDate=body.journal_date?String(body.journal_date):null;
  if(!NOTE_TYPES.has(noteType))return NextResponse.json({error:"Loại ghi chú không hợp lệ."},{status:400});
  if(!VISIBILITIES.has(visibility))return NextResponse.json({error:"Phạm vi hiển thị không hợp lệ."},{status:400});
  if(content&&content.length>100000)return NextResponse.json({error:"Nội dung ghi chú vượt quá 100.000 ký tự."},{status:400});
