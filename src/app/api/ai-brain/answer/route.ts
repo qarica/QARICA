@@ -51,6 +51,9 @@ export async function POST(request: Request) {
     // Reject references to nonexistent sources rather than presenting fake citations.
     const references = [...answer.matchAll(/\[(\d+)\]/g)].map(match=>Number(match[1]));
     if (!references.length || references.some(index=>index<1 || index>sources.length)) throw new Error("Invalid or missing source citations");
+    // Require every nonempty paragraph to have a citation; otherwise do not display generated claims.
+    const paragraphs = answer.trim().split(/\\n\\s*\\n/).filter(Boolean);
+    if (paragraphs.some(paragraph=>! /\\[\\d+\\]/.test(paragraph))) throw new Error("Uncited answer paragraph");
     return NextResponse.json({ok:true,mode:"grounded_answer",generated:true,answer:answer.trim(),sources});
   } catch (cause) {
     console.error("[ai-brain/answer] generation unavailable:",cause instanceof Error?cause.message:"unknown");
