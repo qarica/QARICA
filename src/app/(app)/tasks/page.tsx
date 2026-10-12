@@ -201,7 +201,15 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   .tqm-my-work .work-pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;flex-wrap:wrap;font-size:11px;color:#64748b}.tqm-my-work .work-pagination-pages{display:flex;gap:5px}
   .tqm-my-work .mini-cal{padding:13px 14px}.tqm-my-work .mini-cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.tqm-my-work .mini-cal-head strong{font-size:12px;color:#243247}.tqm-my-work .mini-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}.tqm-my-work .mini-cal-wd{font-size:9px;font-weight:800;color:#94a3b8;padding:3px 0}.tqm-my-work .mini-cal-day{position:relative;font-size:10.5px;padding:5px 0;border-radius:7px;color:#334155}.tqm-my-work .mini-cal-day.today{background:#2563eb;color:#fff;font-weight:800}.tqm-my-work .mini-cal-day.has-event:not(.today):after{content:"";position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:#2563eb}
   .tqm-my-work .upcoming-list{display:grid;padding:4px 0}.tqm-my-work .upcoming-item{display:flex;justify-content:space-between;gap:8px;padding:9px 14px;border-top:1px solid #eef2f3;font-size:11px}.tqm-my-work .upcoming-item strong{display:block;font-size:11.5px;color:#243247;font-weight:700}.tqm-my-work .upcoming-item small{color:#94a3b8}.tqm-my-work .upcoming-item small.overdue{color:#c43232;font-weight:800}
-  @media(max-width:900px){.tqm-my-work .work-columns{grid-template-columns:1fr}}`}</style>
+  @media(max-width:760px){
+  .tqm-my-work .my-work-card{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:"title" "cue" "action"!important;align-items:stretch;overflow:visible;min-width:0}
+  .tqm-my-work .my-work-card>strong{grid-area:title;min-width:0;max-width:100%;overflow-wrap:break-word;word-break:normal;white-space:normal}
+  .tqm-my-work .my-work-card>small{grid-area:cue;min-width:0}
+  .tqm-my-work .my-work-card>div{grid-area:action;min-width:0;width:100%}
+  .tqm-my-work .my-work-card>div>div{min-width:0!important;width:100%;max-width:100%}
+  .tqm-my-work .my-work-card .button{white-space:normal}
+}
+@media(max-width:900px){.tqm-my-work .work-columns{grid-template-columns:1fr}}`}</style>
   <div className="my-work-header">
    <PageHeader eyebrow={`CÔNG VIỆC HÔM NAY · ${roleViewLabel} · ${year}`} title="Việc của tôi" description="Chỉ tập trung vào việc cần làm. Việc khẩn và đến hạn được đưa lên trước; các danh sách quản lý mở khi cần." icon="inbox"/>
    <div className="my-work-header-side">
