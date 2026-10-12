@@ -1,3 +1,4 @@
+import { UnifiedPersonalTaskActions } from "@/components/unified-personal-task-actions";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { WorkRowCheckbox, WorkRowSelectionProvider, WorkSelectionCount } from "@/components/work-row-checkbox";
@@ -139,12 +140,12 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="COMPLETED"?"COMPLETED":(p.due_at&&dateOnly(p.due_at)<today?"OVERDUE":p.status),
   isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="COMPLETED",
   isWatch:p.status==="OPEN"&&(!p.due_at||dateOnly(p.due_at)>=today),
-  assignedBy:"—",href:"/tasks?tab=REMINDER#all-work",source:"reminder",sourceId:null,sourceType:null,followup:null,
+  assignedBy:"—",href:"/tasks?tab=REMINDER#all-work",source:"reminder",sourceId:p.id,sourceType:null,followup:p.note??null,
  })),...(legacyPersonalTasks??[]).map((p:any):UnifiedRow=>({
   key:`legacy-${p.id}`,title:p.title,typeLabel:"Việc cá nhân",relatedTo:p.category||"Cá nhân",priority:"MEDIUM",
   dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="DONE"?"COMPLETED":"OPEN",
   isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="DONE",
-  isWatch:p.status==="OPEN",assignedBy:"—",href:"/tasks?tab=REMINDER#all-work",source:"legacy",sourceId:null,sourceType:null,followup:null,
+  isWatch:p.status==="OPEN",assignedBy:"—",href:"/tasks?tab=REMINDER#all-work",source:"legacy",sourceId:p.id,sourceType:null,followup:p.content??null,
  }))];
  const unifiedEmrRows:UnifiedRow[]=myEmrItems.map((item:any)=>{
   const category=EMR_CATEGORIES.find(c=>c.code===item.category);
@@ -253,7 +254,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
       <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm theo tên công việc / hồ sơ..."/></div>
       <button type="submit" className="button secondary small">Tìm kiếm</button>
      </form>
-     <div className="table-wrap all-table desktop-only"><table><thead><tr><th></th><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Liên quan đến</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th><th>Người giao</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td><WorkRowCheckbox rowKey={r.key}/></td><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td><Link className="table-link" href={r.href}>{r.title}</Link></td><td>{r.typeLabel}</td><td>{r.relatedTo}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":""}>{r.dueDate?formatDate(r.dueDate):"—"}</td><td><StatusBadge status={r.statusLabel}/></td><td>{r.assignedBy}</td><td>{r.source==="reminder"?<ReminderRowDelete id={r.key.slice(2)} title={r.title}/>:r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={10}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
+     <div className="table-wrap all-table desktop-only"><table><thead><tr><th></th><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Liên quan đến</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th><th>Người giao</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td><WorkRowCheckbox rowKey={r.key}/></td><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td><Link className="table-link" href={r.href}>{r.title}</Link></td><td>{r.typeLabel}</td><td>{r.relatedTo}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":""}>{r.dueDate?formatDate(r.dueDate):"—"}</td><td><StatusBadge status={r.statusLabel}/></td><td>{r.assignedBy}</td><td>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}/>:r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={10}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
      <div className="mobile-only work-card-list">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.title}</strong><small>{r.typeLabel} · {r.dueDate?formatDate(r.dueDate):"Không có hạn"}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Link className="button primary small" href={r.href}>Mở</Link>{r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</div></article>)}{!tableRowsPage.length?<div className="empty-state">Không có việc phù hợp.</div>:null}</div>
      {searched.length?<div className="work-pagination"><span>Hiển thị {(currentPage-1)*PAGE_SIZE+1}-{Math.min(currentPage*PAGE_SIZE,searched.length)} của {searched.length} bản ghi</span><div className="work-pagination-pages">{Array.from({length:totalPages},(_,i)=>i+1).map(p=><Link key={p} href={pageHref(p)} className={`button small ${p===currentPage?"primary":"secondary"}`}>{p}</Link>)}</div></div>:null}
     </section>
