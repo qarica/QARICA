@@ -1,3 +1,4 @@
+import { AiBrainClient } from "@/components/ai-brain-client";
 import { PageHeader } from "@/components/page-header";
 import { KnowledgeJournalClient } from "@/components/knowledge-journal-client";
 import { PersonalWorkspaceClient } from "@/components/personal-workspace-client";
@@ -40,6 +41,7 @@ export default async function PersonalWorkspacePage() {
       ) : (
         <PersonalWorkspaceClient initialRows={(data ?? []) as any} userId={user.id} />
       )}
+      <AiBrainClient />
       <KnowledgeJournalClient initialNotes={(knowledgeNotes ?? []) as any} hasOrganization={!!user.organizationId} />
       <ZaloLinkClient initialZaloUserId={profile?.zalo_user_id ?? null} />
     </div>
