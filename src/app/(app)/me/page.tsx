@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AiBrainClient } from "@/components/ai-brain-client";
 import { PageHeader } from "@/components/page-header";
 import { KnowledgeJournalClient } from "@/components/knowledge-journal-client";
 import { ZaloLinkClient } from "@/components/zalo-link-client";
@@ -40,6 +41,7 @@ export default async function PersonalWorkspacePage() {
       ) : (
         <section className="panel" style={{padding:16}}><h2>Công việc cá nhân</h2><p>Bạn có {(data ?? []).filter((r:any)=>r.item_type==="TASK"&&r.status==="OPEN").length} việc riêng đang mở trong không gian cá nhân cũ. Dữ liệu này vẫn được giữ nguyên để đối chiếu khi hợp nhất; không tạo việc mới tại đây.</p><Link className="button primary small" href="/tasks?tab=OPEN#all-work">Đến Việc của tôi</Link></section>
       )}
+      <AiBrainClient />
       <KnowledgeJournalClient initialNotes={(knowledgeNotes ?? []) as any} hasOrganization={!!user.organizationId} />
       <ZaloLinkClient initialZaloUserId={profile?.zalo_user_id ?? null} />
     </div>
