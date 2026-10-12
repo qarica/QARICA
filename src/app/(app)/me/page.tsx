@@ -1,3 +1,4 @@
+import { AiBrainClient } from "@/components/ai-brain-client";
 import { PageHeader } from "@/components/page-header";
 import { KnowledgeJournalClient } from "@/components/knowledge-journal-client";
 import { ZaloLinkClient } from "@/components/zalo-link-client";
@@ -25,6 +26,7 @@ export default async function PersonalWorkspacePage() {
         description="Ghi chú, nhật ký, tài liệu tham khảo cá nhân và kết nối tài khoản. Công việc được quản lý tại Việc của tôi."
         icon="book-open"
       />
+      <AiBrainClient />
       <KnowledgeJournalClient initialNotes={(knowledgeNotes ?? []) as any} hasOrganization={!!user.organizationId} />
       <ZaloLinkClient initialZaloUserId={profile?.zalo_user_id ?? null} />
     </div>
