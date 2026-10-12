@@ -15,8 +15,8 @@ create index if not exists personal_task_audit_task_idx on public.personal_task_
 alter table public.personal_task_audit enable row level security;
 drop policy if exists personal_task_audit_select_own on public.personal_task_audit;
 create policy personal_task_audit_select_own on public.personal_task_audit for select to authenticated using (owner_user_id=auth.uid());
-drop policy if exists personal_task_audit_insert_own on public.personal_task_audit;
-create policy personal_task_audit_insert_own on public.personal_task_audit for insert to authenticated with check (owner_user_id=auth.uid() and actor_user_id=auth.uid() and ((task_source='reminder' and exists(select 1 from public.personal_reminders p where p.id=task_id and p.owner_user_id=auth.uid())) or (task_source='legacy' and exists(select 1 from public.personal_workspace_items p where p.id=task_id and p.owner_user_id=auth.uid()))));
+-- Clients must not forge history events. Only the security-definer trigger inserts them.
+revoke insert,update,delete on public.personal_task_audit from anon,authenticated;
 -- No update/delete policies: client cannot alter historical audit entries.
 
 -- Database triggers guarantee that updates and audit events commit together.
