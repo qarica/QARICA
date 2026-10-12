@@ -47,6 +47,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
   const [trashBusy, setTrashBusy] = useState(false);
   const trashRequestLock = useRef(false);
   const [importBusy, setImportBusy] = useState(false);
+  const [showComposer, setShowComposer] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("");
@@ -214,6 +215,7 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
     setCategory("");
     setDueAt("");
     setReminderChoice(false);
+    setShowComposer(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thể tạo bản ghi.");
     } finally {
@@ -367,7 +369,8 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
           </button>
         ) : null}
       </div>
-      {!showTrash ? <div className="pw-form">
+      {!showTrash ? <div className="pw-composer-toggle"><button type="button" className="button secondary small" aria-expanded={showComposer} onClick={() => setShowComposer((value) => !value)}>{showComposer ? "Ẩn biểu mẫu" : `+ Tạo ${tab === "TASK" ? "việc cá nhân" : "ghi chú"}`}</button></div> : null}
+      {!showTrash && showComposer ? <div className="pw-form">
         <input
           className="input pw-title"
           placeholder={tab === "TASK" ? "Việc cần làm... (ví dụ: Nộp báo cáo tháng SYT)" : "Tiêu đề ghi chú... (ví dụ: Quy trình xử lý xuất toán BHYT)"}
@@ -450,6 +453,8 @@ export function PersonalWorkspaceClient({ initialRows, userId }: { initialRows: 
       </div>
       <style jsx>{`
         .pw-completed-date {display:grid;gap:4px;font-size:11px;color:#475569;max-width:165px}
+        .pw-composer-toggle { padding: 12px 12px 4px; }
+        .pw-tabs { flex-wrap: wrap; }
         .pw-filter { display:flex; flex-wrap:wrap; gap:8px; padding:4px 12px 12px; }
         .pw-reminder-choice { display:flex; gap:8px; align-items:center; font-size:13px; }
         .pw-hint { margin:0; color:#64748b; font-size:12px; }
