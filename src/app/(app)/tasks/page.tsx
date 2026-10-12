@@ -134,13 +134,13 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   isWatch:!r.is_overdue&&!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status)&&Number(r.days_to_due)>0,
   assignedBy:createdByForRecord(r.record_id),href:`/tasks/${r.record_id}`,source:"action",sourceId:r.action_id,sourceType:"ACTION",followup:followupBySource.get("ACTION:"+r.action_id)??null,
  }));
- const unifiedReminderRows:UnifiedRow[]=[...personalReminders.map((p:any)=>({
+ const unifiedReminderRows:UnifiedRow[]=[...personalReminders.map((p:any):UnifiedRow=>({
   key:`p-${p.id}`,title:p.title,typeLabel:"Note cá nhân",relatedTo:"—",priority:p.priority,
   dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="COMPLETED"?"COMPLETED":(p.due_at&&dateOnly(p.due_at)<today?"OVERDUE":p.status),
   isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="COMPLETED",
   isWatch:p.status==="OPEN"&&(!p.due_at||dateOnly(p.due_at)>=today),
   assignedBy:"—",href:"/tasks?tab=REMINDER#all-work",source:"reminder",sourceId:null,sourceType:null,followup:null,
- })),...(legacyPersonalTasks??[]).map((p:any)=>({
+ })),...(legacyPersonalTasks??[]).map((p:any):UnifiedRow=>({
   key:`legacy-${p.id}`,title:p.title,typeLabel:"Việc cá nhân",relatedTo:p.category||"Cá nhân",priority:"MEDIUM",
   dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="DONE"?"COMPLETED":"OPEN",
   isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="DONE",
