@@ -32,7 +32,7 @@ const ACTION_SELECT="action_id,record_id,record_code,title,work_year,workflow_st
 export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string;q?:string;page?:string}>}){
  const {user}=await requireUserContext();requirePermission(user,"tasks.view");const year=await getWorkYear();const supabase=await createClient();const today=hcmToday();
  const {tab:rawTab,q:rawQ,page:rawPage}=await searchParams;
- const tab=(["ALL","REMINDER","ASSIGNED","WAITING","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"ALL") as "ALL"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE";
+ const tab=(["ALL","OPEN","REMINDER","ASSIGNED","WAITING","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"ALL") as "ALL"|"OPEN"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE";
  const searchQuery=String(rawQ||"").trim();
  const page=Math.max(1,Number(rawPage)||1);
  const PAGE_SIZE=10;
@@ -138,7 +138,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="COMPLETED"?"COMPLETED":(p.due_at&&dateOnly(p.due_at)<today?"OVERDUE":p.status),
   isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="COMPLETED",
   isWatch:p.status==="OPEN"&&(!p.due_at||dateOnly(p.due_at)>=today),
-  assignedBy:"—",href:"/tasks",source:"reminder",sourceId:null,sourceType:null,followup:null,
+  assignedBy:"—",href:"/tasks?tab=REMINDER#all-work",source:"reminder",sourceId:null,sourceType:null,followup:null,
  }));
  const unifiedEmrRows:UnifiedRow[]=myEmrItems.map((item:any)=>{
   const category=EMR_CATEGORIES.find(c=>c.code===item.category);
@@ -152,7 +152,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  });
  const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows];
  const allWorkRows=[...unifiedAssignedRows,...unifiedReminderRows].sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999"));
- const byTab=tab==="REMINDER"?unifiedReminderRows:tab==="ASSIGNED"?unifiedAssignedRows:tab==="WAITING"?allWorkRows.filter(r=>r.followup?.state==="WAITING"):tab==="WATCH"?allWorkRows.filter(r=>r.isWatch):tab==="DONE"?allWorkRows.filter(r=>r.isDone):allWorkRows;
+ const byTab=tab==="OPEN"?allWorkRows.filter(r=>!r.isDone):tab==="REMINDER"?unifiedReminderRows:tab==="ASSIGNED"?unifiedAssignedRows:tab==="WAITING"?allWorkRows.filter(r=>r.followup?.state==="WAITING"):tab==="WATCH"?allWorkRows.filter(r=>r.isWatch):tab==="DONE"?allWorkRows.filter(r=>r.isDone):allWorkRows;
  const searched=searchQuery?byTab.filter(r=>r.title.toLowerCase().includes(searchQuery.toLowerCase())||r.relatedTo.toLowerCase().includes(searchQuery.toLowerCase())):byTab;
  const totalPages=Math.max(1,Math.ceil(searched.length/PAGE_SIZE));
  const currentPage=Math.min(page,totalPages);
@@ -172,7 +172,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  // "Việc sắp đến hạn": gộp Action mở + note cá nhân còn mở, sắp theo hạn gần nhất.
  const upcoming=[
   ...openRows.filter(r=>r.due_date).map(r=>({key:`a-${r.action_id}`,title:r.title,date:r.due_date as string,overdue:!!r.is_overdue,href:`/tasks/${r.record_id}`})),
-  ...personalReminders.filter((p:any)=>p.status==="OPEN"&&p.due_at).map((p:any)=>({key:`p-${p.id}`,title:p.title,date:dateOnly(p.due_at),overdue:dateOnly(p.due_at)<today,href:"/tasks"})),
+  ...personalReminders.filter((p:any)=>p.status==="OPEN"&&p.due_at).map((p:any)=>({key:`p-${p.id}`,title:p.title,date:dateOnly(p.due_at),overdue:dateOnly(p.due_at)<today,href:"/tasks?tab=REMINDER#all-work"})),
   ...myEmrItems.filter((e:any)=>e.due_date).map((e:any)=>({key:`e-${e.id}`,title:e.title,date:e.due_date as string,overdue:e.due_date<today,href:EMR_CATEGORIES.find(c=>c.code===e.category)?.slug?`/emr/${EMR_CATEGORIES.find(c=>c.code===e.category)!.slug}`:"/emr"})),
  ].sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
 
@@ -233,18 +233,19 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
         viewport; the surrounding controls now render on both. */}
     <section id="all-work" className="work-section">
      <nav className="work-tabs" aria-label="Lọc việc được giao">
+      <Link href={tabHref("OPEN")} className={`work-tab ${tab==="OPEN"?"active":""}`}>Chưa hoàn thành · {allWorkRows.filter(r=>!r.isDone).length}</Link>
       <Link href={tabHref("ALL")} className={`work-tab ${tab==="ALL"?"active":""}`}>Tất cả · {allWorkRows.length}</Link>
       <Link href={tabHref("REMINDER")} className={`work-tab ${tab==="REMINDER"?"active":""}`}>Note cá nhân · {unifiedReminderRows.length}</Link>
-      <Link href={tabHref("ASSIGNED")} className={`work-tab ${tab==="ASSIGNED"?"active":""}`}>Đã giao · {unifiedAssignedRows.length}</Link>
-      <Link href={tabHref("WAITING")} className={tab==="WAITING"?"work-tab active":"work-tab"}>Đang chờ · {allWorkRows.filter(r=>r.followup?.state==="WAITING").length}</Link>
-      <Link href={tabHref("WATCH")} className={`work-tab ${tab==="WATCH"?"active":""}`}>Theo dõi · {allWorkRows.filter(r=>r.isWatch).length}</Link>
+      <Link href={tabHref("ASSIGNED")} className={`work-tab ${tab==="ASSIGNED"?"active":""}`}>Việc được giao · {unifiedAssignedRows.length}</Link>
+      <Link href={tabHref("WAITING")} className={tab==="WAITING"?"work-tab active":"work-tab"} title="Việc đang đợi người khác phản hồi hoặc hoàn thành phần việc liên quan">Chờ phản hồi · {allWorkRows.filter(r=>r.followup?.state==="WAITING").length}</Link>
+      <Link href={tabHref("WATCH")} className={`work-tab ${tab==="WATCH"?"active":""}`} title="Việc còn mở có hạn trong tương lai, cần tiếp tục theo dõi tiến độ">Cần theo dõi · {allWorkRows.filter(r=>r.isWatch).length}</Link>
       <Link href={tabHref("DONE")} className={`work-tab ${tab==="DONE"?"active":""}`}>Hoàn thành · {allWorkRows.filter(r=>r.isDone).length}</Link>
       <WorkSelectionCount/>
      </nav>
      <form method="get" className="work-search-row">
       <input type="hidden" name="tab" value={tab}/>
-      <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm công việc..."/></div>
-      <button type="submit" className="button secondary small">Lọc</button>
+      <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm theo tên công việc / hồ sơ..."/></div>
+      <button type="submit" className="button secondary small">Tìm kiếm</button>
      </form>
      <div className="table-wrap all-table desktop-only"><table><thead><tr><th></th><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Liên quan đến</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th><th>Người giao</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td><WorkRowCheckbox rowKey={r.key}/></td><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td><Link className="table-link" href={r.href}>{r.title}</Link></td><td>{r.typeLabel}</td><td>{r.relatedTo}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":""}>{r.dueDate?formatDate(r.dueDate):"—"}</td><td><StatusBadge status={r.statusLabel}/></td><td>{r.assignedBy}</td><td>{r.source==="reminder"?<ReminderRowDelete id={r.key.slice(2)} title={r.title}/>:r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={10}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
      <div className="mobile-only work-card-list">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.title}</strong><small>{r.typeLabel} · {r.dueDate?formatDate(r.dueDate):"Không có hạn"}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Link className="button primary small" href={r.href}>Mở</Link>{r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</div></article>)}{!tableRowsPage.length?<div className="empty-state">Không có việc phù hợp.</div>:null}</div>
@@ -258,7 +259,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
      <div className="mini-cal"><div className="mini-cal-head"><strong>{MONTH_NAMES[calMonth-1]}, {calYear}</strong></div><div className="mini-cal-grid">{WEEKDAYS.map(d=><div className="mini-cal-wd" key={d}>{d}</div>)}{calCells.map((date,idx)=><div key={date||`b-${idx}`} className={`mini-cal-day ${date===today?"today":""} ${date&&dueDateSet.has(date)?"has-event":""}`}>{date?Number(date.slice(-2)):""}</div>)}</div></div>
     </section>
     <section className="work-section">
-     <div className="section-head"><div><h2>Việc sắp đến hạn</h2><p>Gộp từ Action được giao, note cá nhân và hạng mục EMR của khoa/phòng còn mở.</p></div></div>
+     <div className="section-head"><div><h2>Việc cần chú ý theo hạn</h2><p>Chỉ là danh sách xem nhanh từ bảng công việc chính bên trái; không tạo thêm bản ghi.</p></div></div>
      <div className="upcoming-list">{upcoming.map(u=><Link key={u.key} className="upcoming-item" href={u.href}><strong>{u.title}</strong><small className={u.overdue?"overdue":""}>{formatDate(u.date)}</small></Link>)}{!upcoming.length?<div className="empty-state compact">Không có việc sắp đến hạn.</div>:null}</div>
     </section>
    </div>
