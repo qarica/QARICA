@@ -9,7 +9,7 @@ export default async function PersonalWorkspacePage() {
   const { user } = await requireUserContext();
   const supabase = await createClient();
   const [profileResult, knowledgeResult, { data: workspaceRows, error: workspaceError }] = await Promise.all([
-    supabase.from("profiles").select("zalo_user_id").eq("user_id", user.id).maybeSingle(),
+    supabase.from("profiles").select("user_id").eq("user_id", user.id).maybeSingle(),
     supabase
       .from("knowledge_notes")
       .select("id,note_type,visibility,title,content,journal_date,status,source_kind,created_at")
@@ -32,7 +32,6 @@ export default async function PersonalWorkspacePage() {
     console.error("[PersonalWorkspace] knowledge notes query failed:", knowledgeResult.error.message);
     throw new Error("Không tải được ghi chú và nhật ký cá nhân.");
   }
-  const profile = profileResult.data;
   const knowledgeNotes = knowledgeResult.data;
 
   return (
@@ -49,7 +48,7 @@ export default async function PersonalWorkspacePage() {
         <PersonalWorkspaceClient initialRows={(workspaceRows ?? []) as any} userId={user.id} />
       )}
       <KnowledgeJournalClient initialNotes={(knowledgeNotes ?? []) as any} hasOrganization={!!user.organizationId} />
-      <ZaloLinkClient initialZaloUserId={profile?.zalo_user_id ?? null} />
+      <ZaloLinkClient initialZaloUserId={null} />
     </div>
   );
 }
