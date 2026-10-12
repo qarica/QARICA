@@ -88,13 +88,14 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const createdByForRecord=(recordId:string)=>{const creatorId=recordCreatedByMap.get(recordId);return creatorId?creatorNameMap.get(creatorId)||"—":"—"};
  const roleDepartmentIds=Array.from(new Set([...scopeSourceRows.map(r=>r.lead_department_id),user.primaryDepartmentId].filter(Boolean)));const roleDepartmentsRes=roleDepartmentIds.length?await supabase.from("departments").select("id,name,short_name").in("id",roleDepartmentIds):{data:[],error:null};const roleDepartmentMap=new Map((roleDepartmentsRes.data??[]).map((d:any)=>[d.id,d.short_name||d.name]));
  const assignedGroupIds=Array.from(new Set([...sourceRows,...scopeSourceRows].map((r:any)=>r.assignee_group_id).filter(Boolean))) as string[];const assignedGroupsRes=assignedGroupIds.length?await supabase.from("work_groups").select("id,name,code").in("id",assignedGroupIds):{data:[],error:null};const assignedGroupMap=new Map((assignedGroupsRes.data??[]).map((g:any)=>[g.id,[g.code,g.name].filter(Boolean).join(" · ")]));
- const rows=sourceRows.filter(r=>r.workflow_status!=="CANCELLED"&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const attention=(attentionRes.data??[]) as any[];const personalReminders=(personalRemindersRes.data??[]) as any[];const workFollowupSourceIds=Array.from(new Set([...rows.map((r:any)=>r.action_id),...myEmrItems.map((r:any)=>r.id)].filter(Boolean))) as string[];
+ const rows=sourceRows.filter(r=>r.workflow_status!=="CANCELLED"&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const attention=(attentionRes.data??[]) as any[];const personalReminders=(personalRemindersRes.data??[]) as any[];
+ const {data:legacyPersonalTasks,error:legacyPersonalError}=await supabase.from("personal_workspace_items").select("id,title,content,category,due_at,status,completed_at,item_type").eq("owner_user_id",user.id).eq("item_type","TASK").is("deleted_at",null).limit(500);const workFollowupSourceIds=Array.from(new Set([...rows.map((r:any)=>r.action_id),...myEmrItems.map((r:any)=>r.id)].filter(Boolean))) as string[];
  const workFollowupsRes=workFollowupSourceIds.length
   ? await supabase.from("work_followups").select("id,source_type,source_id,state,waiting_for_label,follow_up_at,note").eq("owner_user_id",user.id).in("source_id",workFollowupSourceIds).in("state",["ACTIVE","WAITING"])
   : {data:[],error:null};
  const workFollowups=(workFollowupsRes.data??[]) as any[];
  const followupBySource=new Map(workFollowups.map((f:any)=>[f.source_type+":"+f.source_id,f]));
- const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=actionsRes.error||attentionRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error;
+ const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=legacyPersonalError||actionsRes.error||attentionRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error;
  // EMR items chưa DONE được tính gộp vào 4 KPI đầu (quá hạn/đến hạn/sắp tới/
  // đang mở) — không tính vào "Hoàn thành" vì emrItemsRes chỉ tải các mục
  // chưa DONE (không có lịch sử hoàn thành để đếm ở đây).
@@ -133,13 +134,18 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   isWatch:!r.is_overdue&&!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status)&&Number(r.days_to_due)>0,
   assignedBy:createdByForRecord(r.record_id),href:`/tasks/${r.record_id}`,source:"action",sourceId:r.action_id,sourceType:"ACTION",followup:followupBySource.get("ACTION:"+r.action_id)??null,
  }));
- const unifiedReminderRows:UnifiedRow[]=personalReminders.map((p:any)=>({
+ const unifiedReminderRows:UnifiedRow[]=[...personalReminders.map((p:any)=>({
   key:`p-${p.id}`,title:p.title,typeLabel:"Note cá nhân",relatedTo:"—",priority:p.priority,
   dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="COMPLETED"?"COMPLETED":(p.due_at&&dateOnly(p.due_at)<today?"OVERDUE":p.status),
   isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="COMPLETED",
   isWatch:p.status==="OPEN"&&(!p.due_at||dateOnly(p.due_at)>=today),
   assignedBy:"—",href:"/tasks?tab=REMINDER#all-work",source:"reminder",sourceId:null,sourceType:null,followup:null,
- }));
+ })),...(legacyPersonalTasks??[]).map((p:any)=>({
+  key:`legacy-${p.id}`,title:p.title,typeLabel:"Việc cá nhân",relatedTo:p.category||"Cá nhân",priority:"MEDIUM",
+  dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="DONE"?"COMPLETED":"OPEN",
+  isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="DONE",
+  isWatch:p.status==="OPEN",assignedBy:"—",href:"/me",source:"legacy",sourceId:null,sourceType:null,followup:null,
+ } as UnifiedRow))];
  const unifiedEmrRows:UnifiedRow[]=myEmrItems.map((item:any)=>{
   const category=EMR_CATEGORIES.find(c=>c.code===item.category);
   const overdueItem=!!item.due_date&&item.due_date<today;
