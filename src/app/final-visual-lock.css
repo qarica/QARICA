@@ -933,3 +933,11 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .incoming-doc-overview .doc-view-tabs button.active{background:#123c66;color:white;border-color:#123c66}
 .incoming-doc-overview .doc-search{display:block;margin:0 12px 12px;width:calc(100% - 24px);box-sizing:border-box}
 @media(max-width:760px){.incoming-doc-overview .doc-overview-kpis{gap:7px}.incoming-doc-overview .doc-overview-kpis>div{padding:10px}.incoming-doc-overview .doc-overview-kpis small{font-size:11px}.incoming-doc-overview .doc-overview-kpis strong{font-size:22px}.incoming-doc-overview .doc-view-tabs{padding:0 10px 12px}.incoming-doc-overview .doc-search{font-size:16px}}
+
+.physician-license-overview .pl-overview-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.physician-license-overview .pl-overview-kpis>div{background:white;border:1px solid #dce5ee;border-radius:13px;padding:13px;display:grid;gap:5px}
+.physician-license-overview .pl-overview-kpis small{color:#64748b;font-size:12px}
+.physician-license-overview .pl-overview-kpis strong{color:#12324d;font-size:25px}
+.physician-license-overview .pl-create-toggle{margin:0 12px 12px}
+.physician-license-overview .pl-search{display:block;width:calc(100% - 24px);box-sizing:border-box;margin:0 12px 12px}
+@media(max-width:760px){.physician-license-overview .pl-overview-kpis{gap:7px}.physician-license-overview .pl-overview-kpis>div{padding:10px}.physician-license-overview .pl-overview-kpis small{font-size:11px}.physician-license-overview .pl-overview-kpis strong{font-size:22px}.physician-license-overview .pl-search{font-size:16px}}
