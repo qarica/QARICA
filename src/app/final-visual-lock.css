@@ -941,3 +941,20 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .physician-license-overview .pl-create-toggle{margin:0 12px 12px}
 .physician-license-overview .pl-search{display:block;width:calc(100% - 24px);box-sizing:border-box;margin:0 12px 12px}
 @media(max-width:760px){.physician-license-overview .pl-overview-kpis{gap:7px}.physician-license-overview .pl-overview-kpis>div{padding:10px}.physician-license-overview .pl-overview-kpis small{font-size:11px}.physician-license-overview .pl-overview-kpis strong{font-size:22px}.physician-license-overview .pl-search{font-size:16px}}
+
+@media(max-width:760px){
+ .document-publications-overview .mobile-collapsible-form:not(.is-open),
+ .procurement-overview .mobile-collapsible-form:not(.is-open),
+ .pt-overview .mobile-collapsible-form:not(.is-open){display:none!important}
+ .document-publications-overview .mobile-form-toggle,
+ .procurement-overview .mobile-form-toggle,
+ .pt-overview .mobile-form-toggle{display:flex;width:calc(100% - 24px);justify-content:center;margin:0 12px 12px;min-height:42px}
+ .document-publications-overview .mobile-collapsible-form.is-open,
+ .procurement-overview .mobile-collapsible-form.is-open,
+ .pt-overview .mobile-collapsible-form.is-open{display:grid!important;grid-template-columns:minmax(0,1fr)!important}
+}
+@media(min-width:761px){
+ .document-publications-overview .mobile-form-toggle,
+ .procurement-overview .mobile-form-toggle,
+ .pt-overview .mobile-form-toggle{display:none!important}
+}
