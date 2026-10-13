@@ -458,3 +458,46 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
    flex:1 1 auto;
  }
 }
+
+
+/* QARICA mobile QA pass: preserve tap targets and native control behavior.
+   More-specific rules supersede overly broad compact styling above. */
+@media(max-width:760px){
+  .workspace-app .panel input[type="checkbox"],
+  .workspace-app .panel input[type="radio"] {
+    width:auto !important;min-height:0 !important;max-width:none !important;
+    accent-color:var(--qf-blue);
+  }
+  .workspace-app .panel input[type="date"],
+  .workspace-app .panel input[type="datetime-local"],
+  .workspace-app .panel input[type="time"]{
+    min-width:0;max-width:100%;box-sizing:border-box;
+  }
+  .workspace-app .panel :is(button,a,select,input:not([type="hidden"])) {
+    touch-action:manipulation;
+  }
+  .workspace-app .panel :is(button,a):focus-visible {
+    outline:2px solid var(--qf-blue);outline-offset:2px;
+  }
+  .workspace-app .panel :is(.tabs,.tab-list,.segmented-control) > :is(button,a){
+    min-height:40px;display:inline-flex;align-items:center;justify-content:center;
+  }
+  .workspace-app .panel :is(.toolbar,.form-actions,.action-row,.card-actions) {
+    min-width:0;max-width:100%;
+  }
+  .workspace-app .panel :is(.toolbar,.form-actions,.action-row,.card-actions) > button {
+    overflow-wrap:anywhere;
+  }
+  .workspace-app .panel .table-wrap {position:relative;}
+  .workspace-app .panel .table-wrap table {border-collapse:separate;border-spacing:0;}
+  .workspace-app .panel .table-wrap :is(th,td){vertical-align:middle;}
+  .workspace-app .panel .table-wrap th {position:relative;}
+  .workspace-app .panel :is(.kpi-grid,.exec-kpis,.ops-kpis) > * {
+    box-sizing:border-box;min-width:0;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .workspace-app .panel :is(button,a,input,select,textarea) {
+    scroll-behavior:auto !important;
+  }
+}
