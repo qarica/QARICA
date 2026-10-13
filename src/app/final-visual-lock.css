@@ -332,3 +332,36 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 @media (min-width: 430px) and (max-width: 760px) {
   .workspace-app .iq-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }
+
+
+/* Analytics KPI icon alignment on narrow screens: prevent the icon from
+   shrinking into its label; wrap long text in its own content area. */
+@media (max-width: 620px) {
+  .workspace-app .tqm-analytics .kpi {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    min-width: 0 !important;
+    padding: 12px !important;
+  }
+  .workspace-app .tqm-analytics .kpi-icon {
+    position: static !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    flex: 0 0 34px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .workspace-app .tqm-analytics .kpi-icon svg {
+    width: 19px !important;
+    height: 19px !important;
+    max-width: 100% !important;
+  }
+  .workspace-app .tqm-analytics .kpi > div:not(.kpi-icon) {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow-wrap: anywhere !important;
+  }
+}
