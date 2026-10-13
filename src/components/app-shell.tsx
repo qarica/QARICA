@@ -110,6 +110,9 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
   }
   const mainNavGroups = navGroups.filter((group) => !group.footer);
   const footerNavGroups = navGroups.filter((group) => group.footer);
+  const currentNavLabel = navGroups.flatMap((group) => group.children)
+    .filter((item) => pathname === item.href.split("?")[0] || pathname.startsWith(item.href.split("?")[0] + "/"))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.label ?? workspace?.title ?? "Tổng quan";
 
   // Default must match globals.css's --brand (#0D6EFD): that stylesheet value
   // is now the only non-important declaration left after removing the 3
@@ -154,6 +157,15 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .org-title strong{color:#0f172a;font-size:14px;letter-spacing:-.01em}
       .workspace-app .org-title span{color:#64748b;font-size:10px;letter-spacing:.04em}
       .workspace-app .mobile-brand-name{display:none}
+      .workspace-app .mobile-current-page{display:none}
+      @media(max-width:760px){
+        .workspace-app .mobile-current-page{
+          display:block;max-width:min(48vw,230px);overflow:hidden;text-overflow:ellipsis;
+          white-space:nowrap;font-size:14px;font-weight:800;letter-spacing:-.015em;color:#172b4d;
+        }
+        .workspace-app .qarica-header-brand{display:none!important}
+        .workspace-app .topbar-left{min-width:0;gap:9px}
+      }
       .workspace-app .qarica-desktop-tagline{display:none}
       .workspace-app .top-search{position:relative;display:flex;align-items:center;gap:8px;background:#f1f5f9;border:1px solid #e5eaf2;border-radius:10px;padding:0 12px;height:38px;flex:1 1 auto;min-width:0;max-width:420px;color:#94a3b8}
       .workspace-app .top-search input{border:0;background:transparent;outline:none;font-size:13px;color:#0f172a;flex:1;min-width:0}
@@ -310,7 +322,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
     </aside>
     {mobileOpen ? <button className="sidebar-overlay" onClick={() => setMobileOpen(false)} aria-label="Đóng menu" /> : null}
     <div className={`main-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-      <header className="topbar qarica-topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Mở menu"><Icon name="menu" /></button><div className="qarica-header-brand"><Image className="qarica-header-mark" src="/brand/qarica-mark-v2.svg" alt="" width={26} height={26} aria-hidden="true" /><strong className="qarica-header-name">QARICA</strong><span className="qarica-header-divider" aria-hidden="true"/></div></div><div className="topbar-right"><YearSelector value={year} /><NotificationBell />{adminHref ? <Link href={adminHref} className={`icon-button header-icon admin-launcher ${pathname.startsWith("/admin") ? "active" : ""}`} onClick={() => startNavigation(adminHref)} title="Quản trị hệ thống" aria-label="Quản trị hệ thống"><Icon name="settings" size={18} /></Link> : null}<div className="profile-menu-wrap"><button className="profile-button" onClick={() => setProfileOpen((value) => !value)} aria-expanded={profileOpen}><span className="avatar">{initials}</span><span className="profile-copy"><strong>{displayName}</strong><small>{user.roleNames[0] || user.roleCodes[0] || user.primaryDepartmentName || user.email}</small></span><Icon name="chevron-down" size={16} /></button>{profileOpen ? <div className="profile-dropdown"><div className="profile-dropdown-head"><strong>{displayName}</strong><span>{user.roleNames.join(" · ") || user.roleCodes.join(" · ") || "USER"}</span></div><button onClick={logout}><Icon name="logout" size={17} /> Đăng xuất</button></div> : null}</div></div></header>
+      <header className="topbar qarica-topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Mở menu"><Icon name="menu" /></button><span className="mobile-current-page" title={currentNavLabel}>{currentNavLabel}</span><div className="qarica-header-brand"><Image className="qarica-header-mark" src="/brand/qarica-mark-v2.svg" alt="" width={26} height={26} aria-hidden="true" /><strong className="qarica-header-name">QARICA</strong><span className="qarica-header-divider" aria-hidden="true"/></div></div><div className="topbar-right"><YearSelector value={year} /><NotificationBell />{adminHref ? <Link href={adminHref} className={`icon-button header-icon admin-launcher ${pathname.startsWith("/admin") ? "active" : ""}`} onClick={() => startNavigation(adminHref)} title="Quản trị hệ thống" aria-label="Quản trị hệ thống"><Icon name="settings" size={18} /></Link> : null}<div className="profile-menu-wrap"><button className="profile-button" onClick={() => setProfileOpen((value) => !value)} aria-expanded={profileOpen}><span className="avatar">{initials}</span><span className="profile-copy"><strong>{displayName}</strong><small>{user.roleNames[0] || user.roleCodes[0] || user.primaryDepartmentName || user.email}</small></span><Icon name="chevron-down" size={16} /></button>{profileOpen ? <div className="profile-dropdown"><div className="profile-dropdown-head"><strong>{displayName}</strong><span>{user.roleNames.join(" · ") || user.roleCodes.join(" · ") || "USER"}</span></div><button onClick={logout}><Icon name="logout" size={17} /> Đăng xuất</button></div> : null}</div></div></header>
       {workspace && workspace.tabs.length > 1 ? <div className="workspace-strip"><div className="workspace-strip-inner"><div className="workspace-context"><span>{workspace.eyebrow}</span><strong>{workspace.title}</strong></div><nav className="workspace-tabs" aria-label={`Chức năng ${workspace.title}`}>{workspace.tabs.map((tab) => { const active = isWorkspaceTabActive(pathname, tab.href); return <Link key={tab.href} href={tab.href} className={`workspace-tab ${active ? "active" : ""}`} onClick={() => startNavigation(tab.href)}>{tab.label}</Link>; })}</nav></div></div> : null}
       <main className="content">{children}</main>
     </div>
