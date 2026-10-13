@@ -55,7 +55,7 @@ export default async function CalendarMyWorkPage({ searchParams }: { searchParam
   const filtered = searchQuery ? byTab.filter((r) => r.title.toLowerCase().includes(searchQuery.toLowerCase())) : byTab;
   const tabHref = (t: string) => `?tab=${t}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ""}`;
 
-  return <div className="page-stack calendar-my-work-page">
+  return <div className="page-stack calendar-my-work-page mobile-my-work-redesign">
     <style>{`
       .calendar-my-work-page .work-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}.calendar-my-work-page .work-tab{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#52656d;border:1px solid #d7e1e5;background:#fff;text-decoration:none}.calendar-my-work-page .work-tab.active{background:#2563eb;border-color:#2563eb;color:#fff}
       .calendar-my-work-page .work-search-row{display:flex;gap:8px;align-items:center;padding:10px 16px}.calendar-my-work-page .work-search-row .search-box{flex:1;max-width:280px}
