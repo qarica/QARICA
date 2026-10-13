@@ -653,3 +653,51 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  }
  .workspace-app .page-header .page-actions > *{min-width:0;max-width:100%;}
 }
+
+
+/* Module form systems: actual client component class names (not generic guesses). */
+@media(max-width:760px){
+ .workspace-app :is(.incoming-doc-overview,.document-publications-overview,
+ .pt-overview,.procurement-overview,.physician-license-overview){
+   display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0;
+ }
+ .workspace-app :is(.doc-form,.dp-form,.pt-form,.procurement-form,.pl-form){
+   display:flex;flex-direction:column;gap:10px;min-width:0;max-width:100%;
+ }
+ .workspace-app :is(.doc-form-row,.dp-form-row,.pt-form-row,
+ .procurement-form-row,.pl-form-row){
+   display:grid!important;grid-template-columns:minmax(0,1fr)!important;
+   gap:9px!important;min-width:0;max-width:100%;
+ }
+ .workspace-app :is(.doc-form,.dp-form,.pt-form,.procurement-form,.pl-form)
+ :is(input,select,textarea,.input){
+   display:block;box-sizing:border-box;min-width:0;max-width:100%;width:100%;
+   font-size:16px;
+ }
+ .workspace-app :is(.doc-form,.dp-form,.pt-form,.procurement-form,.pl-form)
+ label{min-width:0;max-width:100%;overflow-wrap:anywhere;}
+ .workspace-app :is(.doc-edit-actions,.dp-actions,.dp-publish-actions,
+ .pt-edit-actions,.procurement-actions,.procurement-note-actions){
+   display:flex;flex-wrap:wrap;gap:7px;min-width:0;max-width:100%;
+ }
+ .workspace-app :is(.doc-edit-actions,.dp-actions,.dp-publish-actions,
+ .pt-edit-actions,.procurement-actions,.procurement-note-actions)
+ :is(button,a){min-height:38px;white-space:normal;overflow-wrap:anywhere;}
+ .workspace-app :is(.incoming-doc-overview,.document-publications-overview,
+ .pt-overview,.procurement-overview,.physician-license-overview)
+ .panel{min-width:0;max-width:100%;overflow-wrap:anywhere;}
+ .workspace-app :is(.incoming-documents-page,.document-publications-page,
+ .procedure-trainings-page,.procurement-page,.physician-license-page)
+ .work-row{min-width:0;max-width:100%;gap:8px;}
+ .workspace-app :is(.incoming-documents-page,.document-publications-page,
+ .procedure-trainings-page,.procurement-page,.physician-license-page)
+ .work-main{min-width:0;overflow-wrap:anywhere;}
+ .workspace-app :is(.incoming-documents-page,.document-publications-page,
+ .procedure-trainings-page,.procurement-page,.physician-license-page)
+ .table-wrap{width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+ .workspace-app .bieu-mau-tree-groups{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;}
+ .workspace-app .bieu-mau-tree-group{min-width:0;max-width:100%;overflow:hidden;}
+ .workspace-app .bieu-mau-tree-group-head{display:flex;flex-wrap:wrap;gap:8px;min-width:0;}
+ .workspace-app .bieu-mau-tree-table{min-width:620px;}
+ .workspace-app .modal-card{max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 32px);overflow-y:auto;}
+}
