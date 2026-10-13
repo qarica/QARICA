@@ -729,3 +729,39 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .workspace-app .toolbar :is(.toolbar-left,.toolbar-right){display:flex;flex-wrap:wrap;min-width:0;gap:7px;}
  .workspace-app .toolbar .search-box{flex:1 1 190px;min-width:0;max-width:100%;}
 }
+
+/* Visibly redesigned mobile operations: distinguish input and record sections. */
+@media(max-width:760px){
+ .workspace-app .mobile-module-redesign{display:flex!important;flex-direction:column;gap:13px!important;}
+ .workspace-app .mobile-module-redesign > .panel{
+   border:1px solid #d6e5f7!important;border-radius:16px!important;
+   padding:14px!important;background:#fff!important;
+   box-shadow:0 5px 18px rgba(20,69,125,.06)!important;
+ }
+ .workspace-app .mobile-module-redesign > .panel:first-child{
+   border-top:3px solid #1677ff!important;
+ }
+ .workspace-app .mobile-module-redesign .panel-title{
+   display:flex;align-items:flex-start;gap:9px;flex-wrap:wrap;
+   padding-bottom:10px!important;margin-bottom:12px!important;
+   border-bottom:1px solid #e7eff9;
+ }
+ .workspace-app .mobile-module-redesign .panel-title h2{
+   font-size:15px!important;font-weight:800!important;line-height:1.35!important;
+   margin:0!important;color:#15355f!important;
+ }
+ .workspace-app .mobile-module-redesign .panel-title p{
+   font-size:12px!important;line-height:1.5!important;color:#71829a!important;
+   margin:5px 0 0!important;
+ }
+ .workspace-app .mobile-module-redesign :is(.doc-form,.dp-form,.pl-form){
+   padding:0!important;background:transparent!important;border:0!important;
+ }
+ .workspace-app .mobile-module-redesign :is(.doc-form,.dp-form,.pl-form) > .input{
+   min-height:44px!important;border-radius:10px!important;
+ }
+ .workspace-app .mobile-module-redesign .table-wrap{
+   border:1px solid #e2ebf6;border-radius:12px;
+ }
+ .workspace-app .mobile-module-redesign .table-wrap table{min-width:620px;}
+}
