@@ -817,3 +817,19 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  }
  .workspace-app .indicators-mobile-redesign .module-pagination{flex-wrap:wrap;gap:8px;}
 }
+
+@media(max-width:760px){
+ .emr-mobile-redesign{display:flex!important;flex-direction:column;gap:12px;min-width:0}
+ .emr-mobile-redesign .emr-filters{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px}
+ .emr-mobile-redesign .emr-filter-field{min-width:0;width:100%}
+ .emr-mobile-redesign .emr-filter-field :is(input,select){width:100%;min-width:0;font-size:16px}
+ .emr-mobile-redesign .emr-kpis{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px}
+ .emr-mobile-redesign .emr-kpi{min-width:0;padding:12px;overflow-wrap:anywhere}
+ .emr-mobile-redesign :is(.hero-grid,.mid-grid,.bottom-grid,.readiness-grid){display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:11px}
+ .emr-mobile-redesign .emr-panel{min-width:0;max-width:100%;overflow:hidden}
+ .emr-mobile-redesign :is(.chart-shell,.table-wrap){max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .emr-mobile-redesign .emr-matrix-panel table{min-width:600px}
+ .emr-tree-mobile-redesign .bieu-mau-tree-groups{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:12px}
+ .emr-tree-mobile-redesign .bieu-mau-tree-group{min-width:0;max-width:100%;overflow:hidden}
+ .emr-tree-mobile-redesign .bieu-mau-tree-table{min-width:620px}
+}
