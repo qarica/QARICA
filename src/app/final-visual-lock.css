@@ -983,3 +983,16 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 
 @media(max-width:760px){.emr-group-overview .mobile-form-toggle{display:flex;width:calc(100% - 24px);margin:12px;justify-content:center}.emr-group-overview .mobile-collapsible-form:not(.is-open){display:none!important}.emr-group-overview .mobile-collapsible-form.is-open{display:block!important}.emr-group-overview .mobile-collapsible-form.is-open .toolbar-left{display:grid!important;grid-template-columns:minmax(0,1fr);width:100%}.emr-group-overview .mobile-collapsible-form.is-open input{width:100%!important;min-width:0!important;box-sizing:border-box}.emr-group-overview .table-wrap{overflow-x:auto;max-width:100%}}
 @media(min-width:761px){.emr-group-overview .mobile-form-toggle{display:none!important}}
+
+/* Consolidated mobile workflow QA: preserve desktop forms and usable actions */
+@media(max-width:760px){
+ .pt-overview .mobile-collapsible-form:not(.is-open){display:none!important}
+ .pt-overview .mobile-form-toggle{display:flex!important}
+ .pt-overview .mobile-workflow-filters select{width:100%;min-width:0;font-size:16px}
+ .physician-license-overview td[data-label="Thao tác"]{display:flex!important;flex-wrap:wrap;gap:8px;align-items:center}
+ .physician-license-overview td[data-label="Thao tác"]::before{flex:0 0 100%}
+ .mobile-module-redesign .mobile-workflow-kpis{min-width:0}
+ .mobile-module-redesign .mobile-workflow-kpis>div{min-width:0;overflow-wrap:anywhere}
+ .mobile-module-redesign .mobile-workflow-filters .input{min-width:0;box-sizing:border-box}
+ .emr-group-overview .table-wrap{overscroll-behavior-x:contain}
+}
