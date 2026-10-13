@@ -701,3 +701,31 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .workspace-app .bieu-mau-tree-table{min-width:620px;}
  .workspace-app .modal-card{max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 32px);overflow-y:auto;}
 }
+
+
+/* Indicator and EMR client modules: mobile workflow, filters and editing dialogs. */
+@media(max-width:760px){
+ .workspace-app .indicator-workflow{min-width:0;max-width:100%;}
+ .workspace-app .indicator-workflow .iw-head{display:flex;flex-wrap:wrap;gap:8px;min-width:0;}
+ .workspace-app .indicator-workflow .iw-steps{display:flex;overflow-x:auto;max-width:100%;gap:8px;-webkit-overflow-scrolling:touch;}
+ .workspace-app .indicator-workflow .iw-steps > *{flex:0 0 auto;min-width:0;}
+ .workspace-app .indicator-workflow .iw-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+ .workspace-app .indicator-workflow .iw-metric{min-width:0;overflow-wrap:anywhere;}
+ .workspace-app .indicator-workflow .iw-form{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;min-width:0;}
+ .workspace-app .indicator-workflow .iw-form :is(input,select,textarea){min-width:0;max-width:100%;width:100%;box-sizing:border-box;font-size:16px;}
+ .workspace-app .indicator-workflow .iw-actions{display:flex;flex-wrap:wrap;gap:8px;}
+ .workspace-app .emr-detail-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px;}
+ .workspace-app .emr-role-check-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:8px;}
+ .workspace-app .emr-scope-matrix{min-width:0;max-width:100%;overflow:hidden;}
+ .workspace-app .emr-scope-matrix .table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+ .workspace-app .emr-scope-matrix .data-table{min-width:680px;}
+ .workspace-app .emr-timeline-child-draft{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;}
+ .workspace-app .emr-timeline-child-draft :is(input,select,textarea){width:100%;min-width:0;max-width:100%;box-sizing:border-box;}
+ .workspace-app .modal-body .form-grid.two{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px;}
+ .workspace-app .modal-body .form-grid.two > *{min-width:0;max-width:100%;grid-column:auto!important;}
+ .workspace-app .modal-body .form-grid.two .span-2{grid-column:1/-1!important;}
+ .workspace-app .modal-footer{display:flex;flex-wrap:wrap;gap:8px;}
+ .workspace-app .modal-body :is(input,select,textarea){max-width:100%;min-width:0;box-sizing:border-box;font-size:16px;}
+ .workspace-app .toolbar :is(.toolbar-left,.toolbar-right){display:flex;flex-wrap:wrap;min-width:0;gap:7px;}
+ .workspace-app .toolbar .search-box{flex:1 1 190px;min-width:0;max-width:100%;}
+}
