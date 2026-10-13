@@ -833,3 +833,16 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .emr-tree-mobile-redesign .bieu-mau-tree-group{min-width:0;max-width:100%;overflow:hidden}
  .emr-tree-mobile-redesign .bieu-mau-tree-table{min-width:620px}
 }
+
+@media(max-width:760px){
+ .mobile-module-redesign :is(.pt-form,.procurement-form){display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px}
+ .mobile-module-redesign :is(.pt-form-row,.procurement-form-row){display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px}
+ .mobile-module-redesign :is(.pt-form,.procurement-form) :is(input,select,textarea){min-width:0;width:100%;max-width:100%;box-sizing:border-box;font-size:16px}
+ .mobile-module-redesign :is(.pt-session-edit,.procurement-note){min-width:0;max-width:100%;overflow-wrap:anywhere}
+ .mobile-module-redesign :is(.pt-edit-actions,.procurement-actions,.procurement-note-actions){display:flex;flex-wrap:wrap;gap:8px}
+ .mobile-module-redesign .work-list{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}
+ .mobile-module-redesign .work-row{display:flex;flex-wrap:wrap;gap:9px;padding:12px;border:1px solid #e3ebf6;border-radius:12px}
+ .mobile-module-redesign .work-main{min-width:0;flex:1 1 190px;overflow-wrap:anywhere}
+ .mobile-module-redesign .table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .mobile-module-redesign .table-wrap table{min-width:620px}
+}
