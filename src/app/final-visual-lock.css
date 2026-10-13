@@ -566,3 +566,56 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  border-bottom:1px solid var(--qf-line);
 }
 .workspace-app .personal-workspace-page .personal-account-settings > :not(summary){max-width:100%;min-width:0;}
+
+
+/* MOBILE RELEASE: module-specific content layouts.
+   Restrict selectors to known page roots so desktop remains unchanged. */
+@media(max-width:760px){
+ .workspace-app .content{min-width:0;overflow-x:clip;padding-inline:12px!important;}
+ .workspace-app .content > :is(.page-stack,.dashboard-page,.quality-gantt-page,.my-work-page,
+ .physician-license-page,.incoming-documents-page,.document-publications-page,
+ .procedure-trainings-page,.procurement-page){width:100%;min-width:0;max-width:100%;}
+ .workspace-app :is(.qcc-dashboard,.quality-gantt-page,.my-work-page,
+ .physician-license-page,.incoming-documents-page,.document-publications-page,
+ .procedure-trainings-page,.procurement-page,.personal-workspace-page)
+ :is(.page-header-row,.section-head,.panel-head,.toolbar,.filter-bar,.filters,.actions){
+   min-width:0;max-width:100%;flex-wrap:wrap;row-gap:9px;
+ }
+ .workspace-app :is(.qcc-dashboard,.quality-gantt-page,.my-work-page,
+ .physician-license-page,.incoming-documents-page,.document-publications-page,
+ .procedure-trainings-page,.procurement-page,.personal-workspace-page)
+ :is(.panel,.card,.kpi-card,.work-section,.gantt-shell){
+   box-sizing:border-box;min-width:0;max-width:100%;border-radius:13px;
+ }
+ .workspace-app :is(.qcc-dashboard,.my-work-page,.quality-gantt-page)
+ :is(.kpis,.kpi-grid){display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important;}
+ .workspace-app :is(.qcc-dashboard,.my-work-page,.quality-gantt-page)
+ :is(.kpis,.kpi-grid) > *{min-width:0;margin:0!important;padding:12px!important;}
+ .workspace-app :is(.qcc-dashboard,.my-work-page,.quality-gantt-page)
+ :is(.kpi-value,.kpi-card .value){font-size:clamp(21px,6vw,30px)!important;line-height:1.1;}
+ .workspace-app .qcc-dashboard :is(.grid2,.grid2b,.grid3b,.legacy-grid3),
+ .workspace-app .my-work-page .work-columns{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:12px!important;}
+ .workspace-app .qcc-dashboard .scope-controls{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px!important;width:100%;}
+ .workspace-app .qcc-dashboard .scope-controls > *{min-width:0;max-width:100%;}
+ .workspace-app .quality-gantt-page .gantt-shell{overflow:hidden;}
+ .workspace-app .quality-gantt-page .gantt-scroll{overflow-x:auto!important;-webkit-overflow-scrolling:touch;}
+ .workspace-app .my-work-page .work-search-row{display:flex;flex-wrap:wrap;gap:8px;}
+ .workspace-app .my-work-page .work-search-row .search-box{min-width:0;flex:1 1 180px;}
+ .workspace-app .my-work-page .work-tabs{display:flex;overflow-x:auto;white-space:nowrap;max-width:100%;-webkit-overflow-scrolling:touch;}
+ .workspace-app .my-work-page .work-tabs > *{flex:0 0 auto;}
+ .workspace-app .my-work-page .work-card-list{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;}
+ .workspace-app .my-work-page .work-pagination{display:flex;flex-wrap:wrap;gap:8px;}
+ .workspace-app :is(.physician-license-page,.incoming-documents-page,
+ .document-publications-page,.procedure-trainings-page,.procurement-page)
+ :is(input,select,textarea){min-width:0;max-width:100%;box-sizing:border-box;}
+ .workspace-app :is(.physician-license-page,.incoming-documents-page,
+ .document-publications-page,.procedure-trainings-page,.procurement-page)
+ :is(.table-wrap,.table-container){overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;}
+ .workspace-app .workspace-strip-inner{min-width:0;max-width:100%;}
+ .workspace-app .workspace-tabs{overflow-x:auto;max-width:100%;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+ .workspace-app .workspace-tabs::-webkit-scrollbar{display:none;}
+ .workspace-app .workspace-tab{flex:0 0 auto;white-space:nowrap;}
+}
+@media(max-width:370px){
+ .workspace-app .qcc-dashboard .scope-controls{grid-template-columns:minmax(0,1fr);}
+}
