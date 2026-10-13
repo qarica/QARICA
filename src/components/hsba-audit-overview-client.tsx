@@ -266,7 +266,7 @@ export function HsbaAuditOverviewClient({
             <input className="input" placeholder="Mã/số hồ sơ (PID)" value={recordReference} onChange={(e) => setRecordReference(e.target.value)} />
             <input className="input" type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />
           </div>
-          <div className="table-wrap">
+          <div className="table-wrap hsba-scoring-mobile">
             <table>
               <thead>
                 <tr>
