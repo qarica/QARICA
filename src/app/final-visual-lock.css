@@ -765,3 +765,55 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  }
  .workspace-app .mobile-module-redesign .table-wrap table{min-width:620px;}
 }
+
+/* Indicators real overview and registry: the route renders these components, not indicator-workflow alone. */
+@media(max-width:760px){
+ .workspace-app .indicators-mobile-redesign{gap:11px!important;min-width:0;}
+ .workspace-app .indicators-mobile-redesign > div:first-child{justify-content:flex-start!important;}
+ .workspace-app .indicators-mobile-redesign > div:first-child .button{
+   width:100%;min-height:43px;justify-content:center;border-radius:11px;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-kpis{
+   display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-kpi{
+   padding:11px!important;min-width:0!important;gap:8px!important;align-items:flex-start!important;
+   border-radius:12px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-kpi-body{min-width:0;overflow-wrap:anywhere;}
+ .workspace-app .indicators-mobile-redesign .iq-grid{
+   display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:11px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-head{
+   display:flex!important;flex-wrap:wrap!important;gap:6px!important;min-width:0;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-queue{
+   display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-queue-row{
+   display:grid!important;grid-template-columns:minmax(0,1fr)!important;
+   gap:8px!important;padding:12px!important;min-width:0!important;
+   border:1px solid #e3edf8;border-radius:12px;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-queue-row > *{min-width:0;overflow-wrap:anywhere;}
+ .workspace-app .indicators-mobile-redesign .iq-table{
+   display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;
+ }
+ .workspace-app .indicators-mobile-redesign .module-process-flow,
+ .workspace-app .indicators-mobile-redesign .module-shortcuts-grid,
+ .workspace-app .indicators-mobile-redesign .operating-spec-grid{
+   display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .module-toolbar{
+   display:flex!important;flex-wrap:wrap!important;gap:8px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .registry-desktop{display:none!important;}
+ .workspace-app .indicators-mobile-redesign .registry-mobile{
+   display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .registry-card{
+   min-width:0!important;padding:12px!important;border-radius:12px!important;
+   border:1px solid #dce8f5!important;background:#fff!important;
+ }
+ .workspace-app .indicators-mobile-redesign .module-pagination{flex-wrap:wrap;gap:8px;}
+}
