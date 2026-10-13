@@ -893,3 +893,18 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .personal-mobile-redesign .pw-edit-actions{display:flex;flex-wrap:wrap;gap:8px}
  .personal-mobile-redesign .pw-note-content{overflow-wrap:anywhere;white-space:pre-wrap}
 }
+
+@media(max-width:760px){
+ .incoming-doc-overview .table-wrap{overflow:visible!important}
+ .incoming-doc-overview .table-wrap table{display:block!important;min-width:0!important;width:100%!important}
+ .incoming-doc-overview .table-wrap thead{display:none!important}
+ .incoming-doc-overview .table-wrap tbody{display:grid!important;gap:12px}
+ .incoming-doc-overview .table-wrap tbody tr{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:0;padding:12px;border:1px solid #dce5ee;border-radius:14px;background:#fff;box-shadow:0 3px 12px #10233a0a}
+ .incoming-doc-overview .table-wrap tbody td{display:grid!important;grid-template-columns:105px minmax(0,1fr);gap:9px;align-items:start;min-width:0!important;width:100%!important;padding:9px 0!important;border:0!important;border-bottom:1px solid #edf1f5!important;overflow-wrap:anywhere;white-space:normal!important}
+ .incoming-doc-overview .table-wrap tbody td:last-child{border-bottom:0!important}
+ .incoming-doc-overview .table-wrap tbody td[data-label]::before{content:attr(data-label);font-size:12px;font-weight:700;color:#64748b}
+ .incoming-doc-overview .table-wrap tbody td:nth-child(2){font-weight:700;color:#12324d}
+ .incoming-doc-overview .table-wrap tbody td :is(input,select){min-width:0;width:100%;font-size:16px}
+ .incoming-doc-overview .doc-edit-actions{display:flex;flex-wrap:wrap;gap:8px}
+ .incoming-doc-overview .table-wrap tbody td.empty-state{display:block!important}
+}
