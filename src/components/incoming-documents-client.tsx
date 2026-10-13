@@ -53,6 +53,9 @@ export function IncomingDocumentsClient({
   canManage: boolean;
 }) {
   const [documents, setDocuments] = useState(initialDocuments);
+  const [showIntake, setShowIntake] = useState(false);
+  const [view, setView] = useState<"intake" | "assign" | "tracking">("tracking");
+  const [query, setQuery] = useState("");
   const [receivedAt, setReceivedAt] = useState(today());
   const [issuingAuthority, setIssuingAuthority] = useState("");
   const [summary, setSummary] = useState("");
@@ -65,6 +68,14 @@ export function IncomingDocumentsClient({
 
   const departmentName = (id: string | null) => departments.find((d) => d.id === id)?.name || "—";
   const now = today();
+  const overdueCount = documents.filter((d) => !d.completed_at && !!d.due_date && d.due_date < now).length;
+  const activeCount = documents.filter((d) => !d.completed_at).length;
+  const filteredDocuments = documents.filter((d) => {
+    if (view === "assign" && (!!d.department_id || !!d.completed_at)) return false;
+    if (view === "tracking" && !!d.completed_at) return false;
+    const needle = query.trim().toLocaleLowerCase("vi");
+    return !needle || [d.summary, d.issuing_authority, d.document_no, d.received_no, departmentName(d.department_id)].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(needle));
+  });
 
   async function submit() {
     if (!issuingAuthority.trim() || !summary.trim()) {
@@ -140,6 +151,7 @@ export function IncomingDocumentsClient({
 
   return (
     <div className="incoming-doc-overview mobile-module-redesign">
+      <div className="doc-overview-kpis" aria-label="Tổng quan công văn"><div><small>Tổng công văn</small><strong>{documents.length}</strong></div><div><small>Đang xử lý</small><strong>{activeCount}</strong></div><div><small>Quá hạn</small><strong>{overdueCount}</strong></div></div>
       {canManage ? (
         <section className="panel">
           <div className="panel-title">
@@ -148,7 +160,8 @@ export function IncomingDocumentsClient({
               <p>Ghi nhận công văn đến từ SYT, cơ quan khác, thư tay hoặc email.</p>
             </div>
           </div>
-          <div className="doc-form">
+          <button type="button" className="button secondary doc-intake-toggle" aria-expanded={showIntake} onClick={() => setShowIntake((v) => !v)}>{showIntake ? "Thu gọn biểu mẫu" : "+ Tiếp nhận công văn"}</button>
+          {showIntake ? <div className="doc-form">
             <input className="input" placeholder="Trích yếu nội dung..." value={summary} onChange={(e) => setSummary(e.target.value)} />
             <div className="doc-form-row">
               <input className="input" type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />
@@ -160,7 +173,7 @@ export function IncomingDocumentsClient({
             <button className="button primary" disabled={busy || !issuingAuthority.trim() || !summary.trim()} onClick={() => void submit()}>
               Tiếp nhận
             </button>
-          </div>
+          </div> : null}
         </section>
       ) : null}
 
@@ -168,6 +181,8 @@ export function IncomingDocumentsClient({
         <div className="panel-title">
           <h2>Danh sách công văn</h2>
         </div>
+        <div className="doc-view-tabs" role="group" aria-label="Bộ lọc công văn">{([["intake","Tiếp nhận"],["assign","Phân công"],["tracking","Theo dõi xử lý"]] as const).map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} aria-pressed={view === key} onClick={() => setView(key)}>{label}</button>)}</div>
+        <input className="input doc-search" aria-label="Tìm công văn" placeholder="Tìm trích yếu, số văn bản, cơ quan..." value={query} onChange={(e) => setQuery(e.target.value)} />
         <div className="table-wrap">
           <table>
             <thead>
@@ -183,7 +198,7 @@ export function IncomingDocumentsClient({
               </tr>
             </thead>
             <tbody>
-              {documents.map((doc) => {
+              {filteredDocuments.map((doc) => {
                 const status = statusOf(doc, now);
                 const editing = editingId === doc.id;
                 return (
@@ -274,7 +289,7 @@ export function IncomingDocumentsClient({
                   </tr>
                 );
               })}
-              {!documents.length ? (
+              {!filteredDocuments.length ? (
                 <tr>
                   <td colSpan={canManage ? 8 : 7} className="empty-state compact">
                     Chưa có công văn nào.
