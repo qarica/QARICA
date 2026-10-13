@@ -275,7 +275,7 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
   ) : null;
 
   return (
-    <div className="pt-overview">
+    <div className="pt-overview mobile-module-redesign">
       {rosterModal}
       {canManage ? (
         <section className="panel">
