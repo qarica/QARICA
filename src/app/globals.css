@@ -29,3 +29,18 @@
   .content{min-width:0}
   .table-wrap{max-width:100%;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
 }
+
+/* HSBA audit: on phones, each scoring criterion must be readable before its choices. */
+@media(max-width:620px){
+  .hsba-scoring-mobile{overflow-x:visible;max-width:100%}
+  .hsba-scoring-mobile table,.hsba-scoring-mobile tbody{display:block;width:100%;min-width:0}
+  .hsba-scoring-mobile thead{display:none}
+  .hsba-scoring-mobile tbody tr:not(.hsba-category-row){display:flex;flex-direction:column;gap:10px;margin:0 0 12px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff}
+  .hsba-scoring-mobile tbody tr:not(.hsba-category-row)>td{display:block;width:100%!important;min-width:0;padding:0;border:0;overflow-wrap:anywhere;white-space:normal}
+  .hsba-scoring-mobile tbody tr:not(.hsba-category-row)>td:first-child{font-weight:650;line-height:1.5}
+  .hsba-scoring-mobile .hsba-category-row{display:block;margin:14px 0 8px}
+  .hsba-scoring-mobile .hsba-category-row td{display:block;width:100%;white-space:normal;padding:8px 0}
+  .hsba-scoring-mobile .hsba-result-toggle{display:flex;flex-wrap:wrap;gap:6px}
+  .hsba-scoring-mobile .hsba-result-toggle .button{flex:1 1 42%;min-width:0;white-space:normal;height:auto;min-height:38px;text-align:center}
+  .hsba-scoring-mobile input{max-width:100%;box-sizing:border-box}
+}
