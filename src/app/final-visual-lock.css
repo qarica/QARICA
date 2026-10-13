@@ -619,3 +619,37 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 @media(max-width:370px){
  .workspace-app .qcc-dashboard .scope-controls{grid-template-columns:minmax(0,1fr);}
 }
+
+/* Shared PageHeader: consistent compact mobile hierarchy on every module. */
+@media(max-width:760px){
+ .workspace-app .page-header{
+   display:flex;flex-direction:column;align-items:stretch;gap:9px!important;
+   padding:12px 13px!important;margin-bottom:0!important;
+   background:#fff;border:1px solid var(--qf-line);border-radius:14px;
+   box-shadow:0 2px 9px rgba(27,78,140,.035);
+ }
+ .workspace-app .page-header-main{
+   display:flex;align-items:flex-start;gap:10px;min-width:0;max-width:100%;
+ }
+ .workspace-app .page-header-main > div{min-width:0;flex:1;}
+ .workspace-app .page-header-icon{
+   width:34px!important;height:34px!important;min-width:34px!important;
+   border-radius:10px!important;display:grid;place-items:center;
+   background:#edf5ff!important;color:#1677ff!important;
+ }
+ .workspace-app .page-header h1{
+   font-size:clamp(18px,5vw,21px)!important;line-height:1.25!important;
+   margin:0!important;letter-spacing:-.025em;
+ }
+ .workspace-app .page-header .eyebrow{
+   font-size:10px!important;letter-spacing:.065em!important;margin-bottom:3px!important;
+ }
+ .workspace-app .page-header p{
+   font-size:12px!important;line-height:1.45!important;margin:5px 0 0!important;
+   max-width:100%;overflow-wrap:anywhere;
+ }
+ .workspace-app .page-header .page-actions{
+   display:flex;flex-wrap:wrap;gap:7px;min-width:0;max-width:100%;
+ }
+ .workspace-app .page-header .page-actions > *{min-width:0;max-width:100%;}
+}
