@@ -57,6 +57,7 @@ export function DocumentPublicationsClient({
   currentUserId: string;
   canManage: boolean;
 }) {
+  const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [documents, setDocuments] = useState(initialDocuments);
   const [acks, setAcks] = useState(acknowledgments);
   const [title, setTitle] = useState("");
@@ -180,7 +181,8 @@ export function DocumentPublicationsClient({
             <p>Đơn vị sử dụng gửi đề nghị soạn thảo/sửa đổi văn bản — không cần quyền quản lý để gửi đề nghị.</p>
           </div>
         </div>
-        <div className="dp-form">
+        <button type="button" className="button secondary mobile-form-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Gửi đề nghị văn bản"}</button>
+        <div className="dp-form mobile-collapsible-form${mobileFormOpen ? " is-open" : ""}">
           <input className="input" placeholder="Tên văn bản..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
           <div className="dp-form-row">
             <select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value as DocumentPublicationType)}>
