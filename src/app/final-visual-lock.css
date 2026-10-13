@@ -908,3 +908,17 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .incoming-doc-overview .doc-edit-actions{display:flex;flex-wrap:wrap;gap:8px}
  .incoming-doc-overview .table-wrap tbody td.empty-state{display:block!important}
 }
+
+@media(max-width:760px){
+ .physician-license-overview .table-wrap{overflow:visible!important}
+ .physician-license-overview .table-wrap table{display:block!important;min-width:0!important;width:100%!important}
+ .physician-license-overview .table-wrap thead{display:none!important}
+ .physician-license-overview .table-wrap tbody{display:grid!important;gap:12px}
+ .physician-license-overview .table-wrap tbody tr{display:grid!important;grid-template-columns:minmax(0,1fr);gap:0;padding:12px;border:1px solid #dce5ee;border-radius:14px;background:white;box-shadow:0 3px 12px #10233a0a}
+ .physician-license-overview .table-wrap tbody td{display:grid!important;grid-template-columns:100px minmax(0,1fr);gap:8px;min-width:0!important;width:100%!important;padding:9px 0!important;border:0!important;border-bottom:1px solid #edf1f5!important;white-space:normal!important;overflow-wrap:anywhere}
+ .physician-license-overview .table-wrap tbody td:last-child{border-bottom:0!important}
+ .physician-license-overview .table-wrap tbody td[data-label]::before{content:attr(data-label);font-size:12px;font-weight:700;color:#64748b}
+ .physician-license-overview .table-wrap tbody td:first-child{font-weight:700;color:#12324d}
+ .physician-license-overview .table-wrap tbody td :is(input,select){min-width:0;width:100%;font-size:16px}
+ .physician-license-overview .table-wrap tbody td button{max-width:100%;white-space:normal}
+}
