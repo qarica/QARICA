@@ -3,7 +3,7 @@ import { RegistryModulePage } from "@/components/registry-module-page";
 
 export default function IndicatorsPage() {
   return (
-    <div className="page-stack">
+    <div className="page-stack indicators-mobile-redesign">
       <div style={{display:"flex",justifyContent:"flex-end"}}>
         <Link className="button secondary" href="/indicators/catalog">Quản lý chỉ số</Link>
       </div>
