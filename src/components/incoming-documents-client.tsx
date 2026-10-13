@@ -139,7 +139,7 @@ export function IncomingDocumentsClient({
   }
 
   return (
-    <div className="incoming-doc-overview">
+    <div className="incoming-doc-overview mobile-module-redesign">
       {canManage ? (
         <section className="panel">
           <div className="panel-title">
