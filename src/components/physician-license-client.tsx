@@ -172,7 +172,7 @@ export function PhysicianLicenseClient({
   const now = today();
 
   return (
-    <div className="physician-license-overview">
+    <div className="physician-license-overview mobile-module-redesign">
       {canManage ? (
         <section className="panel">
           <div className="panel-title">
