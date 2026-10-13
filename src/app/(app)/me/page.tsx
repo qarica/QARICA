@@ -49,7 +49,10 @@ export default async function PersonalWorkspacePage({ searchParams }: { searchPa
         <div id="personal-workspace"><PersonalWorkspaceClient initialRows={(workspaceRows ?? []) as any} userId={user.id} highlightedItemId={item ?? null} /></div>
       )}
       <KnowledgeJournalClient initialNotes={(knowledgeNotes ?? []) as any} hasOrganization={!!user.organizationId} />
-      <ZaloLinkClient initialZaloUserId={null} />
+      <details className="personal-account-settings">
+        <summary>Cài đặt tài khoản và kênh thông báo</summary>
+        <ZaloLinkClient initialZaloUserId={null} />
+      </details>
     </div>
   );
 }
