@@ -846,3 +846,21 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .mobile-module-redesign .table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
  .mobile-module-redesign .table-wrap table{min-width:620px}
 }
+
+@media(max-width:760px){
+ .reports-mobile-redesign{min-width:0;max-width:100%}
+ .reports-mobile-redesign .registry-module-page{min-width:0;gap:12px}
+ .reports-mobile-redesign .module-process-flow,
+ .reports-mobile-redesign .module-shortcuts-grid,
+ .reports-mobile-redesign .operating-spec-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px}
+ .reports-mobile-redesign .module-process-card,
+ .reports-mobile-redesign .operating-spec-panel,
+ .reports-mobile-redesign .module-list-panel{min-width:0;max-width:100%;overflow:hidden}
+ .reports-mobile-redesign .module-toolbar{display:flex;flex-wrap:wrap;gap:8px}
+ .reports-mobile-redesign .module-toolbar :is(input,select){min-width:0;max-width:100%;font-size:16px}
+ .reports-mobile-redesign .registry-desktop{display:none!important}
+ .reports-mobile-redesign .registry-mobile{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px}
+ .reports-mobile-redesign .registry-card{min-width:0;border:1px solid #dce8f5;border-radius:12px;padding:12px;background:#fff}
+ .reports-mobile-redesign .module-pagination{display:flex;flex-wrap:wrap;gap:8px}
+ .reports-mobile-redesign .module-hero-summary{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px}
+}
