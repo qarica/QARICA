@@ -225,7 +225,7 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
               })}
             </tbody>
           </table>
-        </div>
+        </div></>
       )}
       <style>{`
         .bieu-mau-groups-order{width:100%;min-height:32px;padding:4px 6px;font-size:12px;text-align:center}
