@@ -413,3 +413,48 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
   .workspace-app .page-header h1 { font-size:20px !important; }
   .workspace-app .kpi-grid { gap:7px !important; }
 }
+
+
+/* Mobile form and worklist density — scoped to reusable primitives.
+   Avoid transforming semantic tables or hiding required form fields. */
+@media(max-width:760px){
+ .workspace-app .panel form,
+ .workspace-app .panel .form-grid,
+ .workspace-app .panel .form-fields { min-width:0;max-width:100%; }
+ .workspace-app .panel :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea){
+   width:100%;max-width:100%;min-width:0;min-height:42px;
+   border-radius:10px;font-size:14px;
+ }
+ .workspace-app .panel textarea { min-height:76px;resize:vertical; }
+ .workspace-app .panel :is(input,select,textarea)::placeholder {text-overflow:ellipsis;}
+ .workspace-app .panel :is(label,.form-label) {overflow-wrap:break-word;}
+ .workspace-app .panel :is(.tabs,.tab-list,.segmented-control) {
+   max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;
+   -webkit-overflow-scrolling:touch;scrollbar-width:none;
+ }
+ .workspace-app .panel :is(.tabs,.tab-list,.segmented-control)::-webkit-scrollbar {display:none;}
+ .workspace-app .panel :is(.tabs,.tab-list) > * {flex-shrink:0;}
+ .workspace-app .panel :is(.form-actions,.action-row,.card-actions) {
+   display:flex;flex-wrap:wrap;gap:7px;min-width:0;
+ }
+ .workspace-app .panel :is(.form-actions,.action-row,.card-actions) > * {
+   max-width:100%;min-width:0;
+ }
+ .workspace-app .panel .table-wrap > table {width:max-content;min-width:100%;}
+ .workspace-app .panel .table-wrap th,
+ .workspace-app .panel .table-wrap td {white-space:normal;overflow-wrap:break-word;}
+ .workspace-app .panel .table-wrap th {white-space:nowrap;}
+ .workspace-app .panel .empty-state {font-size:12px;line-height:1.5;}
+ .workspace-app .panel .status-badge {max-width:100%;white-space:normal;}
+ .workspace-app .panel .subline {line-height:1.4;}
+ .workspace-app .panel .toolbar .search-box {flex:1 1 100%;}
+ .workspace-app .page-header-main {align-items:flex-start;}
+ .workspace-app .page-header-icon {margin-top:3px;}
+ .workspace-app .page-header .eyebrow {font-size:10px;line-height:1.35;}
+ .workspace-app .panel-title + .toolbar {padding-top:0 !important;}
+}
+@media(max-width:420px){
+ .workspace-app .panel :is(.form-actions,.action-row,.card-actions) > button {
+   flex:1 1 auto;
+ }
+}
