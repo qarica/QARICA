@@ -182,7 +182,7 @@ export function DocumentPublicationsClient({
           </div>
         </div>
         <button type="button" className="button secondary mobile-form-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Gửi đề nghị văn bản"}</button>
-        <div className="dp-form mobile-collapsible-form${mobileFormOpen ? " is-open" : ""}">
+        <div className={mobileFormOpen ? "dp-form mobile-collapsible-form is-open" : "dp-form mobile-collapsible-form"}>
           <input className="input" placeholder="Tên văn bản..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
           <div className="dp-form-row">
             <select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value as DocumentPublicationType)}>
