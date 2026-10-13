@@ -271,3 +271,34 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
     -webkit-overflow-scrolling: touch;
   }
 }
+
+
+/* QLCL overview requested mobile layout: no greeting banner, dates + apply in one row. */
+@media (max-width: 760px) {
+  .workspace-app .tqm-dashboard .hero { display: none !important; }
+  .workspace-app .tqm-dashboard .page-header { margin-bottom: 0 !important; }
+  .workspace-app .tqm-dashboard .page-header + form,
+  .workspace-app .tqm-dashboard .date-filter,
+  .workspace-app .tqm-dashboard .date-range,
+  .workspace-app .tqm-dashboard .filter-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  .workspace-app .tqm-dashboard .date-filter input,
+  .workspace-app .tqm-dashboard .date-range input,
+  .workspace-app .tqm-dashboard .filter-row input {
+    width: 100% !important;
+    min-width: 0 !important;
+    font-size: 12px !important;
+  }
+  .workspace-app .tqm-dashboard .date-filter button,
+  .workspace-app .tqm-dashboard .date-range button,
+  .workspace-app .tqm-dashboard .filter-row button {
+    min-width: 0 !important;
+    white-space: nowrap !important;
+    min-height: 44px !important;
+    padding: 0 10px !important;
+  }
+}
