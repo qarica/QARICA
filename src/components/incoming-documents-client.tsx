@@ -161,7 +161,7 @@ export function IncomingDocumentsClient({
             </div>
           </div>
           <button type="button" className="button secondary doc-intake-toggle" aria-expanded={showIntake} onClick={() => setShowIntake((v) => !v)}>{showIntake ? "Thu gọn biểu mẫu" : "+ Tiếp nhận công văn"}</button>
-          {showIntake ? <div className="doc-form">
+          <div className={showIntake ? "doc-form mobile-collapsible-form is-open" : "doc-form mobile-collapsible-form"}>
             <input className="input" placeholder="Trích yếu nội dung..." value={summary} onChange={(e) => setSummary(e.target.value)} />
             <div className="doc-form-row">
               <input className="input" type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />
@@ -173,7 +173,7 @@ export function IncomingDocumentsClient({
             <button className="button primary" disabled={busy || !issuingAuthority.trim() || !summary.trim()} onClick={() => void submit()}>
               Tiếp nhận
             </button>
-          </div> : null}
+          </div>
         </section>
       ) : null}
 
