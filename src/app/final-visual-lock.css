@@ -548,3 +548,21 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
    display:flex;flex-wrap:wrap;align-items:center;gap:8px;
  }
 }
+
+/* Personal account notification channel disclosure */
+.workspace-app .personal-workspace-page .personal-account-settings{
+ background:#fff;border:1px solid var(--qf-line);border-radius:14px;overflow:hidden;
+}
+.workspace-app .personal-workspace-page .personal-account-settings > summary{
+ display:flex;align-items:center;gap:8px;min-height:46px;
+ padding:11px 14px;font-size:13px;font-weight:700;cursor:pointer;list-style:none;
+}
+.workspace-app .personal-workspace-page .personal-account-settings > summary::-webkit-details-marker{display:none;}
+.workspace-app .personal-workspace-page .personal-account-settings > summary::after{
+ content:"⌄";margin-left:auto;font-size:18px;line-height:1;
+}
+.workspace-app .personal-workspace-page .personal-account-settings[open] > summary::after{transform:rotate(180deg);}
+.workspace-app .personal-workspace-page .personal-account-settings[open] > summary{
+ border-bottom:1px solid var(--qf-line);
+}
+.workspace-app .personal-workspace-page .personal-account-settings > :not(summary){max-width:100%;min-width:0;}
