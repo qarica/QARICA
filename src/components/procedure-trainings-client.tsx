@@ -49,6 +49,7 @@ function formatDate(value: string | null) {
 }
 
 export function ProcedureTrainingsClient({ initialTrainings, canManage }: { initialTrainings: Training[]; canManage: boolean }) {
+  const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [trainings, setTrainings] = useState(initialTrainings);
   const [procedureCode, setProcedureCode] = useState("");
   const [procedureName, setProcedureName] = useState("");
@@ -285,7 +286,8 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
               <p>Mỗi quy trình/biểu mẫu mới ban hành là 1 dòng theo dõi đào tạo.</p>
             </div>
           </div>
-          <div className="pt-form">
+          <button type="button" className="button secondary mobile-form-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Tạo hồ sơ đào tạo"}</button>
+        <div className="pt-form mobile-collapsible-form${mobileFormOpen ? " is-open" : ""}">
             <input className="input" placeholder="Tên quy trình..." value={procedureName} onChange={(e) => setProcedureName(e.target.value)} />
             <div className="pt-form-row">
               <input className="input" placeholder="Mã số (tùy chọn)" value={procedureCode} onChange={(e) => setProcedureCode(e.target.value)} />
