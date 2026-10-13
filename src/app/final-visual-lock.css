@@ -187,3 +187,37 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
   .workspace-app .kpis { gap: 6px !important; }
   .workspace-app .kpi-card { padding: 9px !important; }
 }
+
+
+/* Compact pass 2: ensure compact header does not retain 64px min-height
+   through 8px vertical padding from the earlier responsive stylesheet. */
+@media (max-width: 860px) {
+  .workspace-app .topbar {
+    box-sizing: border-box !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .workspace-app .notification-panel,
+  .workspace-app .profile-dropdown { top: 60px !important; }
+  .workspace-app .page-header .eyebrow { letter-spacing: .08em !important; }
+}
+/* KPI cards may have desktop inline minimum heights: constrain only the
+   summary-card content, preserving interactive controls at 44px minimum. */
+@media (max-width: 620px) {
+  .workspace-app .kpi-grid > *,
+  .workspace-app .exec-kpis > *,
+  .workspace-app .ops-kpis > *,
+  .workspace-app .readiness-grid > * {
+    min-height: 0 !important;
+    max-width: 100% !important;
+  }
+  .workspace-app .kpi-grid .kpi-card,
+  .workspace-app .exec-kpis .kpi,
+  .workspace-app .ops-kpis .kpi-card {
+    padding: 11px !important;
+    gap: 6px !important;
+  }
+  .workspace-app .page-actions { scrollbar-width: none !important; }
+  .workspace-app .page-actions > button,
+  .workspace-app .page-actions > a { min-height: 44px !important; }
+}
