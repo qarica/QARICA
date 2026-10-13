@@ -172,7 +172,7 @@ export function DocumentPublicationsClient({
   }
 
   return (
-    <div className="document-publications-overview">
+    <div className="document-publications-overview mobile-module-redesign">
       <section className="panel">
         <div className="panel-title">
           <div>
