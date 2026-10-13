@@ -185,7 +185,7 @@ export function PhysicianLicenseClient({
             </div>
           </div>
           <button type="button" className="button secondary pl-create-toggle" aria-expanded={showCreate} onClick={() => setShowCreate((v) => !v)}>{showCreate ? "Thu gọn biểu mẫu" : "+ Khai báo hồ sơ mới"}</button>
-          {showCreate ? <div className="pl-form">
+          <div className={showCreate ? "pl-form mobile-collapsible-form is-open" : "pl-form mobile-collapsible-form"}>
             <input className="input" placeholder="Tên bác sĩ..." value={physicianName} onChange={(e) => setPhysicianName(e.target.value)} />
             <div className="pl-form-row">
               <select className="input" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={!departments.length}>
@@ -213,7 +213,7 @@ export function PhysicianLicenseClient({
             <button className="button primary" disabled={busy || !physicianName.trim() || !effectiveDate || !departmentId} onClick={() => void submit()}>
               Khai báo
             </button>
-          </div> : null}
+          </div>
         </section>
       ) : null}
 
