@@ -126,3 +126,64 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
   .workspace-app .sidebar{box-shadow:8px 0 28px rgba(15,23,42,.12)!important}
   .workspace-app .content{padding-left:14px!important;padding-right:14px!important}
 }
+
+
+/* QARICA compact-density pass: mobile operations workspace, 2026-10-13.
+   Scope is intentionally limited to card summaries and page chrome;
+   do not compress data tables, forms, charts or touch targets. */
+@media (max-width: 860px) {
+  .workspace-app .topbar { height: 56px !important; min-height: 56px !important; }
+  .workspace-app .content { padding-top: 12px !important; padding-bottom: 18px !important; }
+  .workspace-app .page-stack { gap: 12px !important; }
+  .workspace-app .page-header { gap: 10px !important; }
+  .workspace-app .page-header h1 { font-size: clamp(19px, 5vw, 24px) !important; line-height: 1.2 !important; }
+  .workspace-app .page-header p { margin-top: 3px !important; font-size: 12px !important; line-height: 1.35 !important; }
+  .workspace-app .page-header-main { gap: 9px !important; }
+  .workspace-app .page-header-icon { width: 34px !important; height: 34px !important; flex-basis: 34px !important; }
+  .workspace-app .panel-title { padding: 12px !important; }
+  .workspace-app .kpi-card { min-height: 0 !important; padding: 12px !important; gap: 5px !important; }
+  .workspace-app .kpi-card strong { font-size: 24px !important; margin-top: 3px !important; }
+  .workspace-app .kpi-card small { margin-top: 2px !important; }
+}
+@media (max-width: 620px) {
+  /* Override earlier forced single-column KPI rules without affecting charts. */
+  .workspace-app .kpi-grid,
+  .workspace-app .exec-kpis,
+  .workspace-app .legacy-grid3,
+  .workspace-app .kpis,
+  .workspace-app .cs-kpis,
+  .workspace-app .av2-kpis,
+  .workspace-app .ops-kpis,
+  .workspace-app .rp-kpis,
+  .workspace-app .tqm-registry-kpis,
+  .workspace-app .iq-kpis,
+  .workspace-app .readiness-grid,
+  .workspace-app .quality-calendar-page .kpi-grid,
+  .workspace-app .recurring-work-client .kpis {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 9px !important;
+  }
+  .workspace-app .kpi-grid > *,
+  .workspace-app .exec-kpis > *,
+  .workspace-app .legacy-grid3 > *,
+  .workspace-app .kpis > *,
+  .workspace-app .cs-kpis > *,
+  .workspace-app .av2-kpis > *,
+  .workspace-app .ops-kpis > *,
+  .workspace-app .rp-kpis > *,
+  .workspace-app .tqm-registry-kpis > *,
+  .workspace-app .iq-kpis > *,
+  .workspace-app .readiness-grid > * { min-width: 0 !important; width: auto !important; }
+  .workspace-app .kpi-card { border-radius: 12px !important; }
+  .workspace-app .page-actions { flex-wrap: wrap !important; gap: 7px !important; }
+  .workspace-app .page-actions > * { flex: 1 1 auto; }
+  .workspace-app .page-header-icon svg { width: 19px !important; height: 19px !important; }
+  .workspace-app .topbar-right { gap: 5px !important; }
+}
+@media (max-width: 360px) {
+  .workspace-app .kpi-grid,
+  .workspace-app .exec-kpis,
+  .workspace-app .kpis { gap: 6px !important; }
+  .workspace-app .kpi-card { padding: 9px !important; }
+}
