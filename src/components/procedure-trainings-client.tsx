@@ -287,7 +287,7 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
             </div>
           </div>
           <button type="button" className="button secondary mobile-form-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Tạo hồ sơ đào tạo"}</button>
-        <div className="pt-form mobile-collapsible-form${mobileFormOpen ? " is-open" : ""}">
+        <div className={mobileFormOpen ? "pt-form mobile-collapsible-form is-open" : "pt-form mobile-collapsible-form"}>
             <input className="input" placeholder="Tên quy trình..." value={procedureName} onChange={(e) => setProcedureName(e.target.value)} />
             <div className="pt-form-row">
               <input className="input" placeholder="Mã số (tùy chọn)" value={procedureCode} onChange={(e) => setProcedureCode(e.target.value)} />
