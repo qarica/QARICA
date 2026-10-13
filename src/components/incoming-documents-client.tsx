@@ -188,10 +188,10 @@ export function IncomingDocumentsClient({
                 const editing = editingId === doc.id;
                 return (
                   <tr key={doc.id}>
-                    <td>{formatDate(doc.received_at)}</td>
-                    <td>{doc.summary}</td>
-                    <td>{doc.issuing_authority}</td>
-                    <td>
+                    <td data-label="Ngày đến">{formatDate(doc.received_at)}</td>
+                    <td data-label="Trích yếu">{doc.summary}</td>
+                    <td data-label="Cơ quan">{doc.issuing_authority}</td>
+                    <td data-label="Bút phê GĐ">
                       {editing ? (
                         <input
                           className="input"
@@ -208,7 +208,7 @@ export function IncomingDocumentsClient({
                         </>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Đơn vị triển khai">
                       {editing ? (
                         <select
                           className="input"
@@ -226,7 +226,7 @@ export function IncomingDocumentsClient({
                         departmentName(doc.department_id)
                       )}
                     </td>
-                    <td>
+                    <td data-label="Hạn xử lý">
                       {editing ? (
                         <input
                           className="input"
@@ -238,11 +238,11 @@ export function IncomingDocumentsClient({
                         formatDate(doc.due_date)
                       )}
                     </td>
-                    <td>
+                    <td data-label="Trạng thái">
                       <span className={`status-badge ${status.tone}`}>{status.label}</span>
                     </td>
                     {canManage ? (
-                      <td>
+                      <td data-label="Thao tác">
                         {editing ? (
                           <div className="doc-edit-actions">
                             <input
