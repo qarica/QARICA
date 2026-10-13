@@ -122,7 +122,7 @@ export function ProcurementRequestsClient({
 
   return (
     <div className="procurement-overview mobile-module-redesign">
-      <div className="mobile-workflow-kpis"><div><small>Tổng đề xuất</small><strong>{requests.length}</strong></div><div><small>Khẩn</small><strong>{requests.filter((r) => r.urgency === "URGENT").length}</strong></div><div><small>Đang theo dõi</small><strong>{requests.filter((r) => r.status !== "COMPLETED").length}</strong></div></div>
+      <div className="mobile-workflow-kpis"><div><small>Tổng đề xuất</small><strong>{requests.length}</strong></div><div><small>Khẩn</small><strong>{requests.filter((r) => r.urgency === "URGENT").length}</strong></div><div><small>Đang theo dõi</small><strong>{requests.filter((r) => !["BGD_REJECTED","TGD_REJECTED"].includes(r.status)).length}</strong></div></div>
       {canManage ? (
         <section className="panel">
           <div className="panel-title">
