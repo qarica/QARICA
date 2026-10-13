@@ -240,32 +240,32 @@ export function PhysicianLicenseClient({
                 if (editingId === r.id && editDraft) {
                   return (
                     <tr key={r.id}>
-                      <td>
+                      <td data-label="Bác sĩ">
                         <input className="input" value={editDraft.physician_name} onChange={(e) => setEditDraft({ ...editDraft, physician_name: e.target.value })} placeholder="Tên bác sĩ" style={{ marginBottom: 4 }} />
                         <input className="input" value={editDraft.physician_code} onChange={(e) => setEditDraft({ ...editDraft, physician_code: e.target.value })} placeholder="Mã nhân viên" />
                       </td>
-                      <td>
+                      <td data-label="Khoa/Phòng">
                         <select className="input" value={editDraft.department_id} onChange={(e) => setEditDraft({ ...editDraft, department_id: e.target.value })}>
                           {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>
                       </td>
-                      <td>
+                      <td data-label="Vai trò">
                         <select className="input" value={editDraft.role_type} onChange={(e) => setEditDraft({ ...editDraft, role_type: e.target.value as any })}>
                           <option value="BS">Bác sĩ</option>
                           <option value="GDTT_TK">GĐTT / Trưởng khoa</option>
                         </select>
                       </td>
-                      <td>
+                      <td data-label="Trường hợp">
                         <select className="input" value={editDraft.case_type} onChange={(e) => setEditDraft({ ...editDraft, case_type: e.target.value as any })}>
                           <option value="NEW_HIRE">Nhân sự mới</option>
                           <option value="INTERNAL_TRANSFER">Luân chuyển nội bộ</option>
                         </select>
                       </td>
-                      <td>
+                      <td data-label="Hạn đăng ký">
                         <input className="input" type="date" value={editDraft.effective_date} onChange={(e) => setEditDraft({ ...editDraft, effective_date: e.target.value })} />
                       </td>
-                      <td>—</td>
-                      <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <td data-label="Trạng thái">—</td>
+                      <td data-label="Thao tác" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button className="button primary small" disabled={busy} onClick={() => void saveEdit(r)}>Lưu</button>
                         <button className="button tertiary small" disabled={busy} onClick={() => { setEditingId(null); setEditDraft(null); }}>Huỷ</button>
                       </td>
@@ -274,21 +274,21 @@ export function PhysicianLicenseClient({
                 }
                 return (
                   <tr key={r.id}>
-                    <td>
+                    <td data-label="Bác sĩ">
                       {r.physician_name}
                       {r.physician_code ? ` (${r.physician_code})` : ""}
                     </td>
-                    <td>{departmentName(r.department_id)}</td>
-                    <td>{ROLE_LABEL[r.role_type]}</td>
-                    <td>{CASE_LABEL[r.case_type]}</td>
-                    <td>{formatDate(r.deadline)}</td>
-                    <td>
+                    <td data-label="Khoa/Phòng">{departmentName(r.department_id)}</td>
+                    <td data-label="Vai trò">{ROLE_LABEL[r.role_type]}</td>
+                    <td data-label="Trường hợp">{CASE_LABEL[r.case_type]}</td>
+                    <td data-label="Hạn đăng ký">{formatDate(r.deadline)}</td>
+                    <td data-label="Trạng thái">
                       <span className={`status-badge ${r.status === "REGISTERED" ? "success" : overdue ? "danger" : dueSoon ? "warning" : "info"}`}>
                         {r.status === "REGISTERED" ? "Đã đăng ký" : overdue ? "Quá hạn" : dueSoon ? "Sắp hết hạn" : "Chưa đăng ký"}
                       </span>
                     </td>
                     {canManage ? (
-                      <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <td data-label="Thao tác" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         {r.status === "PENDING" ? (
                           <>
                             <button className="button primary small" onClick={() => void markRegistered(r)}>
