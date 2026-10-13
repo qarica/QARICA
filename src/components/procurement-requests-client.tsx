@@ -118,7 +118,7 @@ export function ProcurementRequestsClient({
   }
 
   return (
-    <div className="procurement-overview">
+    <div className="procurement-overview mobile-module-redesign">
       {canManage ? (
         <section className="panel">
           <div className="panel-title">
