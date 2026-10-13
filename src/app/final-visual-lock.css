@@ -877,3 +877,19 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .mobile-my-work-redesign .table-wrap table{min-width:650px}
  .mobile-my-work-redesign .page-actions{display:flex;flex-wrap:wrap;gap:7px}
 }
+
+@media(max-width:760px){
+ .personal-mobile-redesign .pw-section{min-width:0;max-width:100%;overflow:hidden;border-radius:14px}
+ .personal-mobile-redesign .pw-tabs{display:flex;gap:7px;max-width:100%;overflow-x:auto;flex-wrap:nowrap!important;padding:10px}
+ .personal-mobile-redesign .pw-tabs > *{flex:0 0 auto;white-space:nowrap}
+ .personal-mobile-redesign .pw-filter{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:8px}
+ .personal-mobile-redesign .pw-filter :is(input,select){width:100%;min-width:0;max-width:100%;font-size:16px}
+ .personal-mobile-redesign .pw-form{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px;padding:12px}
+ .personal-mobile-redesign .pw-form-row{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px}
+ .personal-mobile-redesign .pw-form :is(input,textarea,select){min-width:0;max-width:100%;width:100%;box-sizing:border-box;font-size:16px}
+ .personal-mobile-redesign .pw-row{display:flex;flex-wrap:wrap;gap:8px;min-width:0;padding:12px}
+ .personal-mobile-redesign .pw-row .work-main{min-width:0;flex:1 1 180px;overflow-wrap:anywhere}
+ .personal-mobile-redesign .pw-edit{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+ .personal-mobile-redesign .pw-edit-actions{display:flex;flex-wrap:wrap;gap:8px}
+ .personal-mobile-redesign .pw-note-content{overflow-wrap:anywhere;white-space:pre-wrap}
+}
