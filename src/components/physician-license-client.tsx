@@ -41,6 +41,8 @@ export function PhysicianLicenseClient({
   canManage: boolean;
 }) {
   const [registrations, setRegistrations] = useState(initialRegistrations);
+  const [showCreate, setShowCreate] = useState(false);
+  const [search, setSearch] = useState("");
   const [departmentId, setDepartmentId] = useState(departments[0]?.id || "");
   const [physicianName, setPhysicianName] = useState("");
   const [physicianCode, setPhysicianCode] = useState("");
@@ -168,11 +170,12 @@ export function PhysicianLicenseClient({
     setRegistrations((v) => v.map((r) => (r.id === reg.id ? { ...r, ...body.registration } : r)));
   }
 
-  const visible = onlyPending ? registrations.filter((r) => r.status === "PENDING") : registrations;
+  const visible = (onlyPending ? registrations.filter((r) => r.status === "PENDING") : registrations).filter((r) => !search.trim() || [r.physician_name, r.physician_code, departmentName(r.department_id)].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(search.trim().toLocaleLowerCase("vi"))));
   const now = today();
 
   return (
     <div className="physician-license-overview mobile-module-redesign">
+      <div className="pl-overview-kpis"><div><small>Tổng hồ sơ</small><strong>{registrations.length}</strong></div><div><small>Chưa đăng ký</small><strong>{registrations.filter((r) => r.status === "PENDING").length}</strong></div><div><small>Quá hạn</small><strong>{registrations.filter((r) => r.status === "PENDING" && r.deadline < today()).length}</strong></div></div>
       {canManage ? (
         <section className="panel">
           <div className="panel-title">
@@ -181,7 +184,8 @@ export function PhysicianLicenseClient({
               <p>Hạn tự tính: GĐTT/Trưởng khoa 14 ngày, Bác sĩ 60 ngày kể từ ngày hiệu lực; luân chuyển nội bộ phải đăng ký trước 10 ngày.</p>
             </div>
           </div>
-          <div className="pl-form">
+          <button type="button" className="button secondary pl-create-toggle" aria-expanded={showCreate} onClick={() => setShowCreate((v) => !v)}>{showCreate ? "Thu gọn biểu mẫu" : "+ Khai báo hồ sơ mới"}</button>
+          {showCreate ? <div className="pl-form">
             <input className="input" placeholder="Tên bác sĩ..." value={physicianName} onChange={(e) => setPhysicianName(e.target.value)} />
             <div className="pl-form-row">
               <select className="input" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={!departments.length}>
@@ -209,7 +213,7 @@ export function PhysicianLicenseClient({
             <button className="button primary" disabled={busy || !physicianName.trim() || !effectiveDate || !departmentId} onClick={() => void submit()}>
               Khai báo
             </button>
-          </div>
+          </div> : null}
         </section>
       ) : null}
 
@@ -220,6 +224,7 @@ export function PhysicianLicenseClient({
             <input type="checkbox" checked={onlyPending} onChange={(e) => setOnlyPending(e.target.checked)} /> Chỉ hiện chưa đăng ký
           </label>
         </div>
+        <input className="input pl-search" aria-label="Tìm bác sĩ" placeholder="Tìm bác sĩ, mã nhân viên, khoa/phòng..." value={search} onChange={(e) => setSearch(e.target.value)} />
         <div className="table-wrap">
           <table>
             <thead>
