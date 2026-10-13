@@ -980,3 +980,6 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .incoming-doc-overview .doc-intake-toggle,
  .physician-license-overview .pl-create-toggle{display:none!important}
 }
+
+@media(max-width:760px){.emr-group-overview .mobile-form-toggle{display:flex;width:calc(100% - 24px);margin:12px;justify-content:center}.emr-group-overview .mobile-collapsible-form:not(.is-open){display:none!important}.emr-group-overview .mobile-collapsible-form.is-open{display:block!important}.emr-group-overview .mobile-collapsible-form.is-open .toolbar-left{display:grid!important;grid-template-columns:minmax(0,1fr);width:100%}.emr-group-overview .mobile-collapsible-form.is-open input{width:100%!important;min-width:0!important;box-sizing:border-box}.emr-group-overview .table-wrap{overflow-x:auto;max-width:100%}}
+@media(min-width:761px){.emr-group-overview .mobile-form-toggle{display:none!important}}
