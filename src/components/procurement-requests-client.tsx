@@ -129,7 +129,7 @@ export function ProcurementRequestsClient({
             </div>
           </div>
           <button type="button" className="button secondary mobile-form-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Tạo đề xuất mua sắm"}</button>
-        <div className="procurement-form mobile-collapsible-form${mobileFormOpen ? " is-open" : ""}">
+        <div className={mobileFormOpen ? "procurement-form mobile-collapsible-form is-open" : "procurement-form mobile-collapsible-form"}>
             <input className="input" placeholder="Tên đề xuất..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
             <div className="procurement-form-row">
               <select className="input" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={!departments.length}>
