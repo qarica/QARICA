@@ -36,7 +36,7 @@ export default async function PersonalWorkspacePage({ searchParams }: { searchPa
   const knowledgeNotes = knowledgeResult.data;
 
   return (
-    <div className="page-stack personal-workspace-page">
+    <div className="page-stack personal-workspace-page personal-mobile-redesign">
       <PageHeader
         eyebrow="Cá nhân"
         title="Không gian riêng"
