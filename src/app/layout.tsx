@@ -20,7 +20,7 @@ import "./mobile-responsive-fixes.css";
 import "./final-visual-lock.css";
 
 const criticalCss=`
-  html,body,body *{font-family:var(--font-app),"Segoe UI",Arial,sans-serif!important}
+  html,body{font-family:var(--font-app),"Segoe UI",Arial,sans-serif}\n  button,input,select,textarea{font-family:inherit}
   .brand-logo-wrap{width:42px!important;height:42px!important;min-width:42px!important;max-width:42px!important;overflow:hidden!important;flex:0 0 42px!important}
   .brand-logo-img{width:42px!important;height:42px!important;max-width:42px!important;max-height:42px!important;object-fit:contain!important;display:block!important}
   .sidebar.collapsed .sidebar-collapse{position:absolute!important;top:20px!important;right:-13px!important;bottom:auto!important;width:28px!important;height:28px!important;margin:0!important;z-index:60!important}
