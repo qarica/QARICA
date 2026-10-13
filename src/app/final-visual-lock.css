@@ -501,3 +501,50 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
     scroll-behavior:auto !important;
   }
 }
+
+
+/* Scoped Personal Workspace + Brain compact layout (route /me).
+   Based on actual component class names, not broad page heuristics. */
+.workspace-app .personal-workspace-page {min-width:0;}
+.workspace-app .personal-workspace-page :is(.pw-section,.work-section,.card){min-width:0;}
+.workspace-app .personal-workspace-page .pw-tabs{
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;
+}
+.workspace-app .personal-workspace-page .pw-tabs :is(button,a){
+  min-height:38px;border-radius:10px;
+}
+.workspace-app .personal-workspace-page .pw-form,
+.workspace-app .personal-workspace-page .pw-filter {min-width:0;max-width:100%;}
+.workspace-app .personal-workspace-page .pw-form-row {
+  display:flex;flex-wrap:wrap;gap:9px;align-items:end;min-width:0;
+}
+.workspace-app .personal-workspace-page .pw-form-row > * {min-width:0;max-width:100%;}
+.workspace-app .personal-workspace-page .pw-row {min-width:0;}
+.workspace-app .personal-workspace-page .pw-row .work-main {min-width:0;overflow-wrap:anywhere;}
+.workspace-app .personal-workspace-page .pw-note-content {
+  overflow-wrap:anywhere;white-space:pre-wrap;
+}
+.workspace-app .personal-workspace-page .pw-edit-actions {
+  display:flex;flex-wrap:wrap;gap:6px;
+}
+@media(max-width:760px){
+ .workspace-app .personal-workspace-page {gap:10px !important;}
+ .workspace-app .personal-workspace-page .pw-tabs{
+   flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
+   -webkit-overflow-scrolling:touch;padding-bottom:2px;
+ }
+ .workspace-app .personal-workspace-page .pw-tabs::-webkit-scrollbar{display:none;}
+ .workspace-app .personal-workspace-page .pw-tabs > *{flex-shrink:0;}
+ .workspace-app .personal-workspace-page .pw-section{padding:12px !important;}
+ .workspace-app .personal-workspace-page .pw-form-row > *{flex:1 1 140px;}
+ .workspace-app .personal-workspace-page .pw-filter{display:flex;flex-wrap:wrap;gap:8px;}
+ .workspace-app .personal-workspace-page .pw-filter > *{min-width:0;max-width:100%;}
+ .workspace-app .personal-workspace-page .pw-row{padding:10px 0 !important;}
+ .workspace-app .personal-workspace-page .pw-edit{min-width:0;max-width:100%;}
+ .workspace-app .personal-workspace-page .pw-edit :is(input,textarea,select){
+   max-width:100%;min-width:0;
+ }
+ .workspace-app .personal-workspace-page .work-section .section-head{
+   display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+ }
+}
