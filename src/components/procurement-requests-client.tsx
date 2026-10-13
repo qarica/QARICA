@@ -43,6 +43,7 @@ export function ProcurementRequestsClient({
   canApproveBgd: boolean;
   canApproveTgd: boolean;
 }) {
+  const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [requests, setRequests] = useState(initialRequests);
   const [departmentId, setDepartmentId] = useState(departments[0]?.id || "");
   const [requestType, setRequestType] = useState<"NEW_PURCHASE" | "REPAIR" | "TRANSFER">("NEW_PURCHASE");
@@ -127,7 +128,8 @@ export function ProcurementRequestsClient({
               <p>Ghi nhận đề xuất mua sắm/sửa chữa từ khoa/phòng để trình duyệt.</p>
             </div>
           </div>
-          <div className="procurement-form">
+          <button type="button" className="button secondary mobile-form-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Tạo đề xuất mua sắm"}</button>
+        <div className="procurement-form mobile-collapsible-form${mobileFormOpen ? " is-open" : ""}">
             <input className="input" placeholder="Tên đề xuất..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
             <div className="procurement-form-row">
               <select className="input" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={!departments.length}>
