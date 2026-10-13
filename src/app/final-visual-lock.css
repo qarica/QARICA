@@ -302,3 +302,33 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
     padding: 0 10px !important;
   }
 }
+
+
+/* Quality indicators: prevent nested grid min-content widths from
+   expanding the mobile viewport; preserve actual horizontal scrolling
+   only inside data tables. */
+@media (max-width: 760px) {
+  .workspace-app .iq-kpis,
+  .workspace-app .iq-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    gap: 10px !important;
+  }
+  .workspace-app .iq-kpis > *,
+  .workspace-app .iq-grid > *,
+  .workspace-app .iq-kpi {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  .workspace-app .iq-kpi { padding: 12px !important; }
+  .workspace-app .iq-kpi * { min-width: 0; }
+  .workspace-app .iq-kpi strong,
+  .workspace-app .iq-kpi span { overflow-wrap: anywhere; }
+}
+@media (min-width: 430px) and (max-width: 760px) {
+  .workspace-app .iq-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
