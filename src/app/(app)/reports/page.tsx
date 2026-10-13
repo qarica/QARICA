@@ -2,6 +2,7 @@ import { RegistryModulePage } from "@/components/registry-module-page";
 
 export default function ReportsPage() {
   return (
+    <div className="reports-mobile-redesign">
     <RegistryModulePage
       config={{
         eyebrow: "KẾ HOẠCH & ĐIỀU HÀNH",
@@ -11,5 +12,6 @@ export default function ReportsPage() {
         recordTypes: ["REPORT"],
       }}
     />
+    </div>
   );
 }
