@@ -118,8 +118,8 @@ const NAV_GROUPS: NavGroupDef[] = [
   {
     id: "brain-workspace",
     label: "BRAIN WORKSPACE",
-    icon: "network",
-    children: [{ label: "Brain Map", href: "/brain-map", icon: "network" }],
+    icon: "brain",
+    children: [{ label: "Brain Map", href: "/brain-map", icon: "brain" }],
   },
   {
     id: "personal-workspace",
