@@ -25,7 +25,29 @@ export function BrainGraphClient(){
 
  useEffect(()=>{let active=true;fetch("/api/knowledge/graph",{cache:"no-store"}).then(async r=>{const b=await r.json();if(!r.ok||!b.ok)throw Error(b.error||"Không tải được Brain Map");if(active){setNodes(b.nodes);setEdges(b.edges);setTruncated(b.truncated);}}).catch(e=>{if(active)setError(e.message)}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[]);
  const visible=useMemo(()=>{const q=query.trim().toLowerCase();const ids=new Set<string>();if(local&&focus){ids.add(focus);edges.forEach(e=>{if(e.source===focus)ids.add(e.target);if(e.target===focus)ids.add(e.source)})}return nodes.filter(n=>(!local||!focus||ids.has(n.id))&&(statusFilter==="ALL"||n.status===statusFilter)&&(typeFilter==="ALL"||n.type===typeFilter)&&(!q||n.label.toLowerCase().includes(q)||n.id===focus));},[nodes,edges,query,local,focus,statusFilter,typeFilter]);
- const points=useMemo(()=>{const out=new Map<string,{x:number;y:number}>();const count=visible.length;visible.forEach((n,i)=>{const angle=i*2.399963229728653;const radius=count===1?0:Math.sqrt(i+1)*Math.min(34,410/Math.sqrt(Math.max(count,1)));out.set(n.id,{x:500+radius*Math.cos(angle),y:340+radius*Math.sin(angle)})});return out},[visible]);
+ const points=useMemo(()=>{
+  const out=new Map<string,{x:number;y:number}>();const count=visible.length;
+  if(count===0)return out;
+  const visibleIds=new Set(visible.map(n=>n.id));
+  const neighbors=new Map<string,Set<string>>(visible.map(n=>[n.id,new Set<string>()]));
+  edges.forEach(e=>{if(visibleIds.has(e.source)&&visibleIds.has(e.target)&&e.source!==e.target){neighbors.get(e.source)?.add(e.target);neighbors.get(e.target)?.add(e.source)}});
+  const ordered=[...visible].sort((a,b)=>(neighbors.get(b.id)?.size??0)-(neighbors.get(a.id)?.size??0)||a.id.localeCompare(b.id));
+  const visited=new Set<string>();const components:string[][]=[];
+  for(const node of ordered){if(visited.has(node.id))continue;const component:string[]=[];const queue=[node.id];visited.add(node.id);
+   for(let i=0;i<queue.length;i++){const id=queue[i];component.push(id);for(const neighbor of neighbors.get(id)??[]){if(!visited.has(neighbor)){visited.add(neighbor);queue.push(neighbor)}}}
+   components.push(component);
+  }
+  components.sort((a,b)=>b.length-a.length);
+  if(count===1){out.set(visible[0].id,{x:500,y:340});return out}
+  const columns=Math.ceil(Math.sqrt(components.length));const rows=Math.ceil(components.length/columns);
+  components.forEach((component,index)=>{
+   const col=index%columns,row=Math.floor(index/columns);
+   const cx=(col+.5)*1000/columns,cy=(row+.5)*680/rows;
+   const radius=Math.min(170,Math.max(30,Math.min(1000/columns,680/rows)*.35));
+   component.forEach((id,i)=>{const angle=i*2.399963229728653;const r=component.length===1?0:Math.sqrt((i+.5)/component.length)*radius;out.set(id,{x:cx+Math.cos(angle)*r,y:cy+Math.sin(angle)*r})});
+  });
+  return out;
+ },[visible,edges]);
  async function connectNotes(){
   if(!focus||!target||focus===target)return;
   setSaving(true);setFeedback("");
