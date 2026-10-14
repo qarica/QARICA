@@ -9,7 +9,8 @@ export function BrainGraphClient(){
  const[error,setError]=useState(""),[loading,setLoading]=useState(true),[truncated,setTruncated]=useState(false);
  const[local,setLocal]=useState(false);
  const[statusFilter,setStatusFilter]=useState<"ALL"|"ACTIVE"|"ARCHIVED">("ALL");
- const[inspectorOpen,setInspectorOpen]=useState(false),[focusMode,setFocusMode]=useState(false);
+ const[inspectorOpen,setInspectorOpen]=useState(true),[explorerOpen,setExplorerOpen]=useState(true),[focusMode,setFocusMode]=useState(false);
+ const[typeFilter,setTypeFilter]=useState("ALL");
  const[target,setTarget]=useState(""),[saving,setSaving]=useState(false),[feedback,setFeedback]=useState("");
  const svg=useRef<SVGSVGElement|null>(null);
  const[zoom,setZoom]=useState(1),[pan,setPan]=useState({x:0,y:0});
@@ -22,7 +23,7 @@ export function BrainGraphClient(){
  function onPointerUp(e:React.PointerEvent<SVGSVGElement>){if(drag.current?.moved){e.preventDefault();suppressClick.current=true;}drag.current=null;if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId)}
 
  useEffect(()=>{let active=true;fetch("/api/knowledge/graph",{cache:"no-store"}).then(async r=>{const b=await r.json();if(!r.ok||!b.ok)throw Error(b.error||"Không tải được Brain Map");if(active){setNodes(b.nodes);setEdges(b.edges);setTruncated(b.truncated);}}).catch(e=>{if(active)setError(e.message)}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[]);
- const visible=useMemo(()=>{const q=query.trim().toLowerCase();const ids=new Set<string>();if(local&&focus){ids.add(focus);edges.forEach(e=>{if(e.source===focus)ids.add(e.target);if(e.target===focus)ids.add(e.source)})}return nodes.filter(n=>(!local||!focus||ids.has(n.id))&&(statusFilter==="ALL"||n.status===statusFilter)&&(!q||n.label.toLowerCase().includes(q)||n.id===focus));},[nodes,edges,query,local,focus,statusFilter]);
+ const visible=useMemo(()=>{const q=query.trim().toLowerCase();const ids=new Set<string>();if(local&&focus){ids.add(focus);edges.forEach(e=>{if(e.source===focus)ids.add(e.target);if(e.target===focus)ids.add(e.source)})}return nodes.filter(n=>(!local||!focus||ids.has(n.id))&&(statusFilter==="ALL"||n.status===statusFilter)&&(typeFilter==="ALL"||n.type===typeFilter)&&(!q||n.label.toLowerCase().includes(q)||n.id===focus));},[nodes,edges,query,local,focus,statusFilter,typeFilter]);
  const points=useMemo(()=>{const out=new Map<string,{x:number;y:number}>();const count=visible.length;visible.forEach((n,i)=>{const angle=i*2.399963229728653;const radius=Math.sqrt(i+1)*Math.min(34,410/Math.sqrt(Math.max(count,1)));out.set(n.id,{x:500+radius*Math.cos(angle),y:340+radius*Math.sin(angle)})});return out},[visible]);
  async function connectNotes(){
   if(!focus||!target||focus===target)return;
@@ -35,14 +36,17 @@ export function BrainGraphClient(){
   }catch(e){setFeedback(e instanceof Error?e.message:"Có lỗi xảy ra.");}finally{setSaving(false)}
  }
  const selected=nodes.find(n=>n.id===focus);
+ const grouped=useMemo(()=>Object.entries(nodes.reduce<Record<string,Node[]>>((acc,n)=>{(acc[n.type]??=[]).push(n);return acc},{})).sort(([a],[b])=>a.localeCompare(b)),[nodes]);
+ const typeNames:Record<string,string>={NOTE:"Ghi chú",JOURNAL:"Nhật ký",DECISION:"Quyết định",LESSON:"Bài học",REFERENCE:"Tham khảo"};
  return <section className={`brain-workspace ${focusMode?"brain-focus-mode":""}`} style={{display:"grid",gap:12,minWidth:0}}>
- <header className="brain-heading"><div><h2 style={{margin:0}}>Không gian Brain</h2><p style={{margin:"6px 0 0"}}>Chọn nút để xem và kết nối tri thức</p></div><div className="brain-heading-actions"><button type="button" className="button secondary small" onClick={()=>setInspectorOpen(v=>!v)} aria-expanded={inspectorOpen}>{inspectorOpen?"Ẩn chi tiết":"Hiện chi tiết"}</button><button type="button" className="button secondary small" onClick={()=>setFocusMode(v=>!v)} aria-pressed={focusMode}>{focusMode?"Thoát tập trung":"Tập trung"}</button></div></header>
+ <header className="brain-heading"><div><h2 style={{margin:0}}>Không gian Brain</h2><p style={{margin:"6px 0 0"}}>Chọn nút để xem và kết nối tri thức</p></div><div className="brain-heading-actions"><button type="button" className="button secondary small" onClick={()=>setExplorerOpen(v=>!v)} aria-expanded={explorerOpen}>{explorerOpen?"Ẩn Explorer":"Explorer"}</button><button type="button" className="button secondary small" onClick={()=>setInspectorOpen(v=>!v)} aria-expanded={inspectorOpen}>{inspectorOpen?"Ẩn chi tiết":"Hiện chi tiết"}</button><button type="button" className="button secondary small" onClick={()=>setFocusMode(v=>!v)} aria-pressed={focusMode}>{focusMode?"Thoát tập trung":"Tập trung"}</button></div></header>
  <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
  <input className="input" aria-label="Tìm nút Brain Map" placeholder="Tìm ghi chú..." value={query} onChange={e=>setQuery(e.target.value)} style={{flex:"1 1 200px"}}/>
  <select className="input" aria-label="Lọc trạng thái ghi chú" value={statusFilter} onChange={e=>setStatusFilter(e.target.value as "ALL"|"ACTIVE"|"ARCHIVED")}><option value="ALL">Tất cả ghi chú</option><option value="ACTIVE">Đang sử dụng</option><option value="ARCHIVED">Đã lưu trữ</option></select>
+ <select className="input" aria-label="Lọc loại tri thức" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="ALL">Mọi loại tri thức</option>{Object.entries(typeNames).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select>
  <button type="button" className="button secondary small" aria-pressed={!local} onClick={()=>setLocal(false)}>Toàn bộ</button>
  <button type="button" className="button secondary small" aria-pressed={local} disabled={!focus} onClick={()=>setLocal(true)}>Lân cận</button>
- <button type="button" className="button secondary small" onClick={()=>{setFocus(null);setLocal(false);setQuery("");setStatusFilter("ALL");resetViewport()}}>Đặt lại</button>
+ <button type="button" className="button secondary small" onClick={()=>{setFocus(null);setLocal(false);setQuery("");setStatusFilter("ALL");setTypeFilter("ALL");resetViewport()}}>Đặt lại</button>
  </div>
  {!loading&&!error?<p role="status" style={{margin:0,fontSize:13}}>Đang hiển thị {visible.length}/{nodes.length} ghi chú · {nodes.filter(n=>n.status==="ARCHIVED").length} đã lưu trữ. Chọn nút để mở đúng ghi chú.</p>:null}
  {loading?<p role="status">Đang tải bản đồ...</p>:null}{error?<p role="alert">{error}</p>:null}
@@ -50,7 +54,9 @@ export function BrainGraphClient(){
  {!loading&&!error&&nodes.length===0?<p>Chưa có ghi chú. Hãy tạo ghi chú để bắt đầu xây dựng Brain Map.</p>:null}
  {truncated?<p role="status">Bản đồ hiển thị tối đa 250 ghi chú và 1.000 liên kết gần nhất.</p>:null}
  <div className="brain-viewport-tools" style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}><button type="button" className="button secondary small" aria-label="Thu nhỏ bản đồ" onClick={()=>setZoom(v=>clampZoom(v/1.25))}>−</button><span aria-live="polite">{Math.round(zoom*100)}%</span><button type="button" className="button secondary small" aria-label="Phóng to bản đồ" onClick={()=>setZoom(v=>clampZoom(v*1.25))}>+</button><button type="button" className="button secondary small" onClick={resetViewport}>Về giữa</button><small className="brain-drag-hint">Kéo vùng trống để di chuyển bản đồ</small></div>
- <div className={`brain-content ${inspectorOpen?"with-inspector":""}`}><div className="brain-canvas">
+ <div className={`brain-content ${inspectorOpen?"with-inspector":""} ${explorerOpen?"with-explorer":""}`}>
+ {explorerOpen?<aside className="brain-explorer" aria-label="Knowledge Explorer"><div className="brain-pane-heading"><strong>Knowledge Explorer</strong><span>{nodes.length} ghi chú</span></div><button className="brain-explorer-all" type="button" onClick={()=>{setTypeFilter("ALL");setStatusFilter("ALL");setQuery("");setLocal(false)}}>▦ Tất cả tri thức</button><div className="brain-explorer-groups">{grouped.map(([type,items])=><details key={type} open><summary>{typeNames[type]||type} <small>{items.length}</small></summary><div className="brain-explorer-items">{items.map(n=><button key={n.id} type="button" className={focus===n.id?"selected":""} onClick={()=>{setFocus(n.id);setInspectorOpen(true);setLocal(false);setQuery("");setTypeFilter("ALL");setStatusFilter("ALL")}} title={n.label}><span className="brain-node-dot" style={{background:colors[n.type]||"#a9a9d4"}}/>{n.label}{n.status==="ARCHIVED"?<small>Đã lưu</small>:null}</button>)}</div></details>)}</div><a className="brain-explorer-new" href="/me#knowledge-journal">+ Tạo ghi chú</a></aside>:null}
+ <div className="brain-canvas">
  <svg ref={svg} viewBox="0 0 1000 680" role="img" aria-label="Bản đồ kết nối các ghi chú" style={{display:"block",width:"100%",height:"100%",touchAction:"none",cursor:"grab"}} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
  <g transform={`translate(${pan.x} ${pan.y}) translate(500 340) scale(${zoom}) translate(-500 -340)`}>
  {edges.filter(e=>points.has(e.source)&&points.has(e.target)).map(e=>{const a=points.get(e.source)!,b=points.get(e.target)!;return <line key={e.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#7873b3" strokeOpacity=".65" strokeWidth="1.5"/>})}
@@ -58,6 +64,6 @@ export function BrainGraphClient(){
  </g></svg></div>{inspectorOpen?<aside className="brain-inspector" aria-label="Chi tiết nút Brain"><h3>Chi tiết ghi chú</h3>{selected?<><strong>{selected.label}</strong><p>{selected.status==="ARCHIVED"?"Đã lưu trữ":"Đang sử dụng"}</p><p>{edges.filter(e=>e.source===selected.id||e.target===selected.id).length} liên kết</p><a href={`/me?note=${encodeURIComponent(selected.id)}#knowledge-journal`}>Mở sổ tay →</a></>:<p>Chọn một nút để xem thông tin và kết nối.</p>}</aside>:null}</div>
  {selected?<div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}><label htmlFor="brain-link-target">Liên kết ghi chú này với</label><select id="brain-link-target" className="input" value={target} onChange={e=>setTarget(e.target.value)} style={{flex:"1 1 200px"}}><option value="">Chọn ghi chú khác...</option>{nodes.filter(n=>n.id!==focus).map(n=><option key={n.id} value={n.id}>{n.label}</option>)}</select><button type="button" className="button primary small" disabled={!target||saving} onClick={()=>void connectNotes()}>{saving?"Đang liên kết...":"Tạo liên kết"}</button></div>:null}
  {feedback?<p role="status">{feedback}</p>:null}
- <div aria-live="polite">{selected?<p><strong>{selected.label}</strong> · {selected.status==="ARCHIVED"?"Đã lưu trữ":"Đang sử dụng"} · {edges.filter(e=>e.source===selected.id||e.target===selected.id).length} liên kết. <a href="/me#knowledge-journal">Mở sổ tay</a></p>:<p>Chọn một nút trên bản đồ để xem thông tin.</p>}</div>
+ <div aria-live="polite">{selected?<p><strong>{selected.label}</strong> · {selected.status==="ARCHIVED"?"Đã lưu trữ":"Đang sử dụng"} · {edges.filter(e=>e.source===selected.id||e.target===selected.id).length} liên kết. <a href={`/me?note=${encodeURIComponent(selected.id)}#knowledge-journal`}>Mở sổ tay</a></p>:<p>Chọn một nút trên bản đồ để xem thông tin.</p>}</div>
  </section>;
 }
