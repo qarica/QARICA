@@ -8,6 +8,7 @@ export function BrainGraphClient(){
  const[query,setQuery]=useState(""),[focus,setFocus]=useState<string|null>(null);
  const[error,setError]=useState(""),[loading,setLoading]=useState(true),[truncated,setTruncated]=useState(false);
  const[local,setLocal]=useState(false);
+ const[layout,setLayout]=useState<"CLUSTERS"|"SPIRAL">("CLUSTERS");
  const[target,setTarget]=useState(""),[saving,setSaving]=useState(false),[feedback,setFeedback]=useState("");
  const svg=useRef<SVGSVGElement|null>(null);
  const[zoom,setZoom]=useState(1),[pan,setPan]=useState({x:0,y:0});
@@ -21,7 +22,24 @@ export function BrainGraphClient(){
 
  useEffect(()=>{let active=true;fetch("/api/knowledge/graph",{cache:"no-store"}).then(async r=>{const b=await r.json();if(!r.ok||!b.ok)throw Error(b.error||"Không tải được Brain Map");if(active){setNodes(b.nodes);setEdges(b.edges);setTruncated(b.truncated);}}).catch(e=>{if(active)setError(e.message)}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[]);
  const visible=useMemo(()=>{const q=query.trim().toLowerCase();const ids=new Set<string>();if(local&&focus){ids.add(focus);edges.forEach(e=>{if(e.source===focus)ids.add(e.target);if(e.target===focus)ids.add(e.source)})}return nodes.filter(n=>(!local||!focus||ids.has(n.id))&&(!q||n.label.toLowerCase().includes(q)||n.id===focus));},[nodes,edges,query,local,focus]);
- const points=useMemo(()=>{const out=new Map<string,{x:number;y:number}>();const count=visible.length;visible.forEach((n,i)=>{const angle=i*2.399963229728653;const radius=Math.sqrt(i+1)*Math.min(34,410/Math.sqrt(Math.max(count,1)));out.set(n.id,{x:500+radius*Math.cos(angle),y:340+radius*Math.sin(angle)})});return out},[visible]);
+ const points=useMemo(()=>{
+  const out=new Map<string,{x:number;y:number}>();
+  if(layout==="SPIRAL"){const count=visible.length;visible.forEach((n,i)=>{const a=i*2.399963229728653,r=Math.sqrt(i+1)*Math.min(34,410/Math.sqrt(Math.max(count,1)));out.set(n.id,{x:500+r*Math.cos(a),y:340+r*Math.sin(a)})});return out}
+  // Deterministic component layout: only real persisted edges determine clusters.
+  const ids=new Set(visible.map(n=>n.id)),neighbors=new Map<string,Set<string>>();
+  visible.forEach(n=>neighbors.set(n.id,new Set()));
+  edges.forEach(e=>{if(ids.has(e.source)&&ids.has(e.target)){neighbors.get(e.source)!.add(e.target);neighbors.get(e.target)!.add(e.source)}});
+  const visited=new Set<string>(),components:Node[][]=[];
+  for(const n of visible){if(visited.has(n.id))continue;const queue=[n.id],group:Node[]=[];visited.add(n.id);for(let i=0;i<queue.length;i++){const id=queue[i];const found=visible.find(v=>v.id===id);if(found)group.push(found);for(const next of neighbors.get(id)??[]){if(!visited.has(next)){visited.add(next);queue.push(next)}}}components.push(group)}
+  components.sort((a,b)=>b.length-a.length);
+  const cols=Math.max(1,Math.ceil(Math.sqrt(components.length*1.5))),rows=Math.ceil(components.length/cols);
+  const cellW=920/cols,cellH=610/rows;
+  components.forEach((group,index)=>{const cx=40+(index%cols+.5)*cellW,cy=35+(Math.floor(index/cols)+.5)*cellH;
+   const radius=Math.min(cellW,cellH)*.38;
+   group.forEach((n,i)=>{const a=i*2.399963229728653,r=group.length===1?0:radius*Math.sqrt((i+1)/group.length);out.set(n.id,{x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)})});
+  });
+  return out;
+ },[visible,edges,layout]);
  async function connectNotes(){
   if(!focus||!target||focus===target)return;
   setSaving(true);setFeedback("");
@@ -34,9 +52,10 @@ export function BrainGraphClient(){
  }
  const selected=nodes.find(n=>n.id===focus);
  return <section className="card" style={{padding:16,display:"grid",gap:12}}>
- <header><h2 style={{margin:0}}>Brain Map</h2><p style={{margin:"6px 0 0"}}>Bản đồ ghi chú của tôi · Chọn một nút để xem kết nối</p></header>
+ <header><h2 style={{margin:0}}>Brain Map</h2><p style={{margin:"6px 0 0"}}>Bản đồ ghi chú của tôi · Các nhóm chỉ dựa trên liên kết đã lưu, không suy đoán quan hệ</p></header>
  <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
  <input className="input" aria-label="Tìm nút Brain Map" placeholder="Tìm ghi chú..." value={query} onChange={e=>setQuery(e.target.value)} style={{flex:"1 1 200px"}}/>
+ <label htmlFor="brain-layout">Bố cục</label><select id="brain-layout" className="input" value={layout} onChange={e=>{setLayout(e.target.value as "CLUSTERS"|"SPIRAL");resetViewport()}}><option value="CLUSTERS">Nhóm kết nối</option><option value="SPIRAL">Xoắn ốc</option></select>
  <button type="button" className="button secondary small" aria-pressed={!local} onClick={()=>setLocal(false)}>Toàn bộ</button>
  <button type="button" className="button secondary small" aria-pressed={local} disabled={!focus} onClick={()=>setLocal(true)}>Lân cận</button>
  <button type="button" className="button secondary small" onClick={()=>{setFocus(null);setLocal(false);setQuery("");resetViewport()}}>Đặt lại</button>
