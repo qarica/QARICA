@@ -12,3 +12,21 @@
 .brain-focus-mode{position:fixed;inset:0;z-index:1000;overflow:auto;border-radius:0;padding:20px;background:#fff}
 .brain-focus-mode .brain-canvas{height:calc(100dvh - 210px);min-height:400px}
 @media(max-width:900px){.brain-content.with-inspector{grid-template-columns:minmax(0,1fr)}.brain-canvas{height:65dvh;min-height:420px}.brain-inspector{padding:14px}.brain-workspace{padding:10px}.brain-focus-mode{padding:10px}.brain-focus-mode .brain-canvas{height:65dvh}}
+
+/* Mobile-first map: give the canvas priority over repeated headings and controls. */
+@media(max-width:600px){
+ .brain-workspace{padding:12px;border-radius:16px;gap:10px!important}
+ .brain-heading{align-items:center;gap:8px}
+ .brain-heading h2{font-size:19px!important}
+ .brain-heading p{display:none}
+ .brain-heading-actions{gap:6px}
+ .brain-heading-actions .button{padding:8px 10px;font-size:12px}
+ .brain-canvas{height:clamp(340px,52dvh,540px);min-height:0;border-radius:14px}
+ .brain-content{gap:8px}
+ .brain-inspector{padding:12px}
+ .brain-inspector h3{margin-bottom:8px}
+ .brain-viewport-tools{gap:6px!important}
+ .brain-viewport-tools .button{padding:7px 10px}
+ .brain-drag-hint{display:none}
+ .brain-focus-mode .brain-canvas{height:calc(100dvh - 220px);min-height:320px}
+}
