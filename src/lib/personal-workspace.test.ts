@@ -29,7 +29,8 @@ describe("Personal workspace is scoped to the user only, never to an organizatio
   });
 
   it("is reachable from every logged-in user — no permission gate on the nav entry", () => {
-    expect(nav).toContain('{ label: "CÁ NHÂN", href: "/me", icon: "users" },');
+    expect(nav).toContain('href: "/me"');
+    expect(nav).toContain('id: "personal-workspace"');
   });
 });
 
@@ -51,5 +52,42 @@ describe("Head-of-department checklist can be imported as personal notes", () =>
     expect(client).toContain('item_type: "NOTE" as const');
     expect(client).toContain("owner_user_id: userId");
     expect(client).toContain("!existingTitles.has(t.title)");
+  });
+});
+
+import { activeItems, deletedItems, mergeWorkspaceItems, vietnamDateToIso } from "./personal-workspace";
+
+describe("Personal workspace recycle bin regression", () => {
+  const active = { id: "a", title: "Active", item_type: "TASK" as const, deleted_at: null };
+  const deleted = { id: "b", title: "Deleted", item_type: "NOTE" as const, deleted_at: "2026-10-12T00:00:00Z" };
+  it("separates active and deleted records", () => {
+    expect(activeItems([active, deleted]).map((row) => row.id)).toEqual(["a"]);
+    expect(deletedItems([active, deleted]).map((row) => row.id)).toEqual(["b"]);
+  });
+  it("keeps legacy rows visible when deleted_at is missing", () => {
+    expect(activeItems([{ id: "legacy", title: "Legacy", item_type: "TASK" }])).toHaveLength(1);
+  });
+  it("merges refreshed records without duplicating retained rows", () => {
+    expect(mergeWorkspaceItems([active], [active, deleted]).map((row) => row.id)).toEqual(["a", "b"]);
+  });
+  it("converts Vietnamese calendar dates without browser timezone drift", () => {
+    expect(vietnamDateToIso("2026-10-12")).toBe("2026-10-11T17:00:00.000Z");
+    expect(vietnamDateToIso("2026-02-30")).toBeNull();
+    expect(vietnamDateToIso("invalid")).toBeNull();
+  });
+});
+
+
+describe("Personal workspace initial load safeguards", () => {
+  const page = readFileSync("src/app/(app)/me/page.tsx", "utf8");
+  it("does not mistake a failed query for an empty personal workspace", () => {
+    expect(page).toContain("error: workspaceError");
+    expect(page).toContain("{workspaceError ? (");
+    expect(page).toContain('role="alert"');
+  });
+  it("fetches only active owner records with a bounded page size", () => {
+    expect(page).toContain('.eq("owner_user_id", user.id)');
+    expect(page).toContain('.is("deleted_at", null)');
+    expect(page).toContain(".limit(500)");
   });
 });

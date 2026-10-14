@@ -22,12 +22,11 @@ const GROUP_IDS = [
   "document-publications",
   "procedure-training",
   "procurement",
-  "my-work",
   "personal-workspace",
   "system-config",
 ];
 
-const FOOTER_GROUP_IDS = ["my-work", "personal-workspace", "system-config"];
+const FOOTER_GROUP_IDS = ["personal-workspace", "system-config"];
 
 function groupBlock(source: string, id: string) {
   const start = source.indexOf(`id: "${id}"`);
@@ -41,10 +40,10 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 12 primary groups: the main master-menu modules in the requested order, plus 3 footer groups (Việc của tôi, Cá nhân, Cấu hình hệ thống) separated out at the bottom", () => {
+  it("defines exactly 11 primary groups with one unified personal/work footer group", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no thirteenth group id besides these twelve
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(12);
+    // no additional group ids besides these eleven
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(11);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "AUDIT HSBA"');
@@ -60,7 +59,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     for (let i = 1; i < positions.length; i += 1) expect(positions[i]).toBeGreaterThan(positions[i - 1]);
   });
 
-  it("marks exactly the 3 personal/utility groups as footer groups, ordered last", () => {
+  it("marks exactly the 2 personal/utility groups as footer groups, ordered last", () => {
     for (const id of FOOTER_GROUP_IDS) {
       const block = groupBlock(navigation, id);
       expect(block).toContain("footer: true");
@@ -100,11 +99,12 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     }
   });
 
-  it("promotes Việc của tôi and Cá nhân to their own top-level single-item footer groups, written in caps to match the other level-1 menus (explicit request: a personal space should not sit inside the shared QLCL menu)", () => {
-    const myWorkBlock = groupBlock(navigation, "my-work");
-    expect(myWorkBlock).toContain('label: "VIỆC CỦA TÔI", href: "/tasks"');
+  it("keeps Việc của tôi and personal knowledge in one permission-aware footer group", () => {
     const personalBlock = groupBlock(navigation, "personal-workspace");
-    expect(personalBlock).toContain('label: "CÁ NHÂN", href: "/me"');
+    expect(personalBlock).toContain('label: "CÁ NHÂN & VIỆC CỦA TÔI"');
+    expect(personalBlock).toContain('href: "/tasks"');
+    expect(personalBlock).toContain('permission: "tasks.view"');
+    expect(personalBlock).toContain('href: "/me"');
   });
 
   it("assigns the correct children to Group 2 — QUẢN LÝ CHẤT LƯỢNG (Audit nội bộ KHTH was moved OUT to its own top-level menu, not shared under Quản lý chất lượng, per explicit request)", () => {

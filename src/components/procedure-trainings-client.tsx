@@ -49,7 +49,10 @@ function formatDate(value: string | null) {
 }
 
 export function ProcedureTrainingsClient({ initialTrainings, canManage }: { initialTrainings: Training[]; canManage: boolean }) {
+  const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [trainings, setTrainings] = useState(initialTrainings);
+  const [listQuery, setListQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [procedureCode, setProcedureCode] = useState("");
   const [procedureName, setProcedureName] = useState("");
   const [draftingUnit, setDraftingUnit] = useState("");
@@ -275,7 +278,8 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
   ) : null;
 
   return (
-    <div className="pt-overview">
+    <div className="pt-overview mobile-module-redesign">
+      <div className="mobile-workflow-kpis"><div><small>Tổng quy trình</small><strong>{trainings.length}</strong></div><div><small>Đã đào tạo</small><strong>{trainings.filter((t) => t.status === "TRAINED").length}</strong></div><div><small>Chưa có kế hoạch</small><strong>{trainings.filter((t) => t.status === "NOT_PLANNED").length}</strong></div></div>
       {rosterModal}
       {canManage ? (
         <section className="panel">
@@ -285,7 +289,8 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
               <p>Mỗi quy trình/biểu mẫu mới ban hành là 1 dòng theo dõi đào tạo.</p>
             </div>
           </div>
-          <div className="pt-form">
+          <button type="button" className="button secondary mobile-form-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Tạo hồ sơ đào tạo"}</button>
+        <div className={mobileFormOpen ? "pt-form mobile-collapsible-form is-open" : "pt-form mobile-collapsible-form"}>
             <input className="input" placeholder="Tên quy trình..." value={procedureName} onChange={(e) => setProcedureName(e.target.value)} />
             <div className="pt-form-row">
               <input className="input" placeholder="Mã số (tùy chọn)" value={procedureCode} onChange={(e) => setProcedureCode(e.target.value)} />
@@ -304,6 +309,7 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
         <div className="panel-title">
           <h2>Danh sách quy trình</h2>
         </div>
+        <div className="mobile-workflow-filters"><input className="input" aria-label="Tìm quy trình" placeholder="Tìm tên, mã số, đơn vị soạn thảo..." value={listQuery} onChange={(e) => setListQuery(e.target.value)} /><select className="input" aria-label="Lọc trạng thái đào tạo" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="ALL">Tất cả trạng thái</option><option value="NOT_PLANNED">Chưa có kế hoạch</option><option value="PLANNED">Đã có kế hoạch</option><option value="TRAINED">Đã đào tạo</option></select></div>
         <div className="table-wrap">
           <table>
             <thead>
@@ -323,7 +329,7 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
               </tr>
             </thead>
             <tbody>
-              {trainings.map((t) => {
+              {trainings.filter((t) => (statusFilter === "ALL" || t.status === statusFilter) && (!listQuery.trim() || [t.procedure_name, t.procedure_code, t.drafting_unit].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(listQuery.trim().toLocaleLowerCase("vi"))))).map((t) => {
                 const editing = editingId === t.id;
                 return (
                   <tr key={t.id}>

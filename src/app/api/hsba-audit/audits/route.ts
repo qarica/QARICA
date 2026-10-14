@@ -67,11 +67,12 @@ export async function POST(request: Request) {
   const itemIds = results.map((r: any) => String(r.checklist_item_id || "")).filter(Boolean);
   const { data: items, error: itemsError } = await admin
     .from("hsba_checklist_items")
-    .select("id,content")
+    .select("id,content,create_finding_on_partial")
     .eq("checklist_version_id", checklistVersionId)
     .in("id", itemIds);
   if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 400 });
   const itemContentById = new Map((items ?? []).map((i: any) => [i.id, i.content]));
+  const partialFindingById = new Map((items ?? []).map((i: any) => [i.id, i.create_finding_on_partial === true]));
 
   // HSBA tiếp tục chỉ chấp nhận PASS/FAIL như cũ ("Bảng kiểm thường quy Hồ sơ
   // bệnh án chưa đụng") — Phác đồ điều trị và QTKT nội trú là kiểm bổ sung,
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
     .filter((r: any) => itemContentById.has(r.checklist_item_id))
     .map((r: any) => ({
       checklist_item_id: r.checklist_item_id,
-      result: auditType === "HSBA" ? (r.result === "FAIL" ? "FAIL" : "PASS") : (EXTRA_RESULTS.has(r.result) ? r.result : "PASS"),
+      result: EXTRA_RESULTS.has(r.result) ? r.result : "PASS",
       note: r.note ? String(r.note).trim() || null : null,
     }));
   if (!normalizedResults.length) return NextResponse.json({ error: "Không có tiêu chí hợp lệ để lưu." }, { status: 400 });
@@ -122,8 +123,11 @@ export async function POST(request: Request) {
   // hsba_audit_item_results để tính vào báo cáo tháng, không có vòng đời
   // finding/SEND nào cả.
   const failedResults = (itemResults ?? []).filter((r: any) => r.result === "FAIL");
-  if (auditType === "HSBA" && failedResults.length) {
-    const findingsPayload = failedResults.map((r: any) => ({
+  const findingCandidates = (itemResults ?? []).filter((r: any) =>
+    r.result === "FAIL" || (r.result === "PARTIAL" && partialFindingById.get(r.checklist_item_id) === true)
+  );
+  if (auditType === "HSBA" && findingCandidates.length) {
+    const findingsPayload = findingCandidates.map((r: any) => ({
       organization_id: organizationId,
       audit_id: audit.id,
       item_result_id: r.id,
@@ -141,10 +145,10 @@ export async function POST(request: Request) {
     table_name: "hsba_audits",
     row_id: audit.id,
     action_type: "HSBA_AUDIT_CREATE",
-    new_value: { audit_type: auditType, department_id: departmentId, record_reference: recordReference, period, overall_result: overallResult, item_count: normalizedResults.length, findings_created: auditType === "HSBA" ? failedResults.length : 0 },
+    new_value: { audit_type: auditType, department_id: departmentId, record_reference: recordReference, period, overall_result: overallResult, item_count: normalizedResults.length, failed_count: failedResults.length, findings_created: auditType === "HSBA" ? findingCandidates.length : 0 },
     request_meta: { source: "qlcl-ui" },
   });
   if (auditLogError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditLogError.message}` }, { status: 500 });
 
-  return NextResponse.json({ ok: true, audit, results: itemResults, failed_count: failedResults.length, findings_created: auditType === "HSBA" ? failedResults.length : 0 });
+  return NextResponse.json({ ok: true, audit, results: itemResults, failed_count: failedResults.length, findings_created: auditType === "HSBA" ? findingCandidates.length : 0 });
 }

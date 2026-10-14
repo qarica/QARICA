@@ -1,0 +1,5 @@
+import {readFileSync} from "node:fs";import{describe,expect,it}from"vitest";
+describe("Knowledge search permission boundary",()=>{const search=readFileSync("src/app/api/search/route.ts","utf8");const semantic=readFileSync("supabase/migrations/20261101_knowledge_semantic_search_v1.sql","utf8");const knowledge=readFileSync("supabase/migrations/20261030_knowledge_journal_foundation_v1.sql","utf8");
+it("searches Knowledge with authenticated RLS client",()=>{expect(search).toContain("auth.supabase");expect(search).toContain('.from("knowledge_notes")');expect(search).toContain('kind:"KNOWLEDGE"');});
+it("semantic matcher is constrained to pre-authorized note ids",()=>{expect(semantic).toContain("p_note_ids uuid[]");expect(semantic).toContain("e.note_id = any");expect(semantic).toContain("to service_role");});
+it("LINKED_RECORD is not generally org-searchable through RLS",()=>{expect(knowledge).toContain("visibility='TEAM'");expect(knowledge).toContain("owner_user_id=(select auth.uid())");});});

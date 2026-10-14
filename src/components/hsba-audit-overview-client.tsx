@@ -4,7 +4,8 @@ import { Fragment, useEffect, useState } from "react";
 import { INTERNAL_AUDIT_TYPE_LABEL, type InternalAuditType } from "@/lib/internal-audit-types";
 
 type Department = { id: string; name: string };
-type ChecklistItem = { id: string; content: string; category: string | null; is_active: boolean };
+type ChecklistItem = { id: string; content: string; category: string | null; is_active: boolean; group_id: string | null; create_finding_on_partial: boolean };
+type ChecklistGroup = { id: string; name: string; sort_order: number; is_active: boolean };
 type ChecklistTemplateOption = { id: string; name: string; versionId: string; versionNo: number };
 type Finding = {
   id: string;
@@ -51,15 +52,15 @@ export function HsbaAuditOverviewClient({
   const [departmentId, setDepartmentId] = useState(departments[0]?.id || "");
   const [templateId, setTemplateId] = useState(templates[0]?.id || "");
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [checklistGroups, setChecklistGroups] = useState<ChecklistGroup[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [recordReference, setRecordReference] = useState("");
   const [period, setPeriod] = useState(currentPeriod());
-  // Chỉ HSBA giữ đúng 2 mức Đạt/Chưa đạt như cũ — Phác đồ điều trị và QTKT
+  // Chỉ HSBA giữ đúng 2 mức Đạt/Không đạt như cũ — Phác đồ điều trị và QTKT
   // nội trú là kiểm bổ sung, cần 4 mức: Đạt/Đạt 1 phần/Không đạt/Không áp
   // dụng (yêu cầu tường minh của người dùng). type vẫn khai báo chung 1 union
   // vì cùng 1 state — nhánh render theo auditType quyết định thực tế có hiện
   // PARTIAL/NA hay không, HSBA không bao giờ set 2 giá trị đó.
-  const supportsPartialAndNa = auditType !== "HSBA";
   const [resultsByItem, setResultsByItem] = useState<Record<string, "PASS" | "FAIL" | "PARTIAL" | "NA">>({});
   const [notesByItem, setNotesByItem] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -88,6 +89,7 @@ export function HsbaAuditOverviewClient({
       .then((res) => {
         if (cancelled) return;
         setChecklistItems(res.ok ? (res.items || []).filter((i: ChecklistItem) => i.is_active) : []);
+        setChecklistGroups(res.ok ? (res.groups || []).filter((g: ChecklistGroup) => g.is_active) : []);
       })
       .finally(() => {
         if (!cancelled) setLoadingItems(false);
@@ -147,25 +149,18 @@ export function HsbaAuditOverviewClient({
     setResultsByItem((v) => ({ ...v, [itemId]: result }));
   }
 
-  // Nhóm tiêu chí theo "Phân loại" (category) đã khai báo sẵn từ màn hình
-  // "Bảng kiểm" (vd Lâm sàng, Cận lâm sàng — tự nhập, không hardcode) — nếu
-  // chưa ai khai category nào (mọi item đều null, như toàn bộ dữ liệu HSBA
-  // hiện có) thì gom về đúng 1 nhóm rỗng và không hiện dòng tiêu đề nhóm, để
-  // bảng kiểm không khai category vẫn hiển thị y hệt trước đây.
+  // Structural grouping uses group_id only. category is auxiliary metadata.
   const groupedItems = (() => {
-    const order: string[] = [];
-    const byCategory = new Map<string, ChecklistItem[]>();
-    for (const item of checklistItems) {
-      const key = item.category || "";
-      if (!byCategory.has(key)) {
-        order.push(key);
-        byCategory.set(key, []);
-      }
-      byCategory.get(key)!.push(item);
-    }
-    return order.map((key) => ({ category: key || null, items: byCategory.get(key) as ChecklistItem[] }));
+    const byGroup = new Map<string | null, ChecklistItem[]>();
+    for (const item of checklistItems) byGroup.set(item.group_id, [...(byGroup.get(item.group_id) || []), item]);
+    const rows = checklistGroups
+      .map((group) => ({ id: group.id, name: group.name, items: byGroup.get(group.id) || [] }))
+      .filter((group) => group.items.length);
+    const ungrouped = byGroup.get(null) || [];
+    if (ungrouped.length) rows.push({ id: "__ungrouped__", name: "Chưa phân nhóm", items: ungrouped });
+    return rows;
   })();
-  const showCategoryGroups = groupedItems.length > 1 || (groupedItems.length === 1 && groupedItems[0].category !== null);
+  const showGroupHeaders = checklistGroups.length > 0;
 
   async function submitAudit() {
     const results = checklistItems
@@ -271,12 +266,12 @@ export function HsbaAuditOverviewClient({
             <input className="input" placeholder="Mã/số hồ sơ (PID)" value={recordReference} onChange={(e) => setRecordReference(e.target.value)} />
             <input className="input" type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />
           </div>
-          <div className="table-wrap">
+          <div className="table-wrap hsba-scoring-mobile">
             <table>
               <thead>
                 <tr>
                   <th>Tiêu chí</th>
-                  <th style={{ width: supportsPartialAndNa ? 280 : 160 }}>Kết quả</th>
+                  <th style={{ width: 360 }}>Kết quả</th>
                   <th style={{ width: 220 }}>Ghi chú lỗi (nếu có)</th>
                 </tr>
               </thead>
@@ -289,10 +284,10 @@ export function HsbaAuditOverviewClient({
                   </tr>
                 ) : null}
                 {!loadingItems && groupedItems.map((group) => (
-                  <Fragment key={group.category || "__none__"}>
-                    {showCategoryGroups ? (
+                  <Fragment key={group.id}>
+                    {showGroupHeaders ? (
                       <tr className="hsba-category-row">
-                        <td colSpan={3}><strong>{group.category || "Khác"}</strong></td>
+                        <td colSpan={3}><strong>{group.name}</strong></td>
                       </tr>
                     ) : null}
                     {group.items.map((item) => (
@@ -303,19 +298,15 @@ export function HsbaAuditOverviewClient({
                             <button type="button" className={`button small ${resultsByItem[item.id] === "PASS" ? "primary" : "secondary"}`} onClick={() => setResult(item.id, "PASS")}>
                               Đạt
                             </button>
-                            {supportsPartialAndNa ? (
-                              <button type="button" className={`button small ${resultsByItem[item.id] === "PARTIAL" ? "primary" : "secondary"}`} onClick={() => setResult(item.id, "PARTIAL")}>
-                                Đạt 1 phần
-                              </button>
-                            ) : null}
-                            <button type="button" className={`button small ${resultsByItem[item.id] === "FAIL" ? "primary" : "secondary"}`} onClick={() => setResult(item.id, "FAIL")}>
-                              Chưa đạt
+                            <button type="button" className={`button small ${resultsByItem[item.id] === "PARTIAL" ? "primary" : "secondary"}`} onClick={() => setResult(item.id, "PARTIAL")}>
+                              Đạt một phần
                             </button>
-                            {supportsPartialAndNa ? (
-                              <button type="button" className={`button small ${resultsByItem[item.id] === "NA" ? "primary" : "secondary"}`} onClick={() => setResult(item.id, "NA")}>
-                                Không áp dụng
-                              </button>
-                            ) : null}
+                            <button type="button" className={`button small ${resultsByItem[item.id] === "FAIL" ? "primary" : "secondary"}`} onClick={() => setResult(item.id, "FAIL")}>
+                              Không đạt
+                            </button>
+                            <button type="button" className={`button small ${resultsByItem[item.id] === "NA" ? "primary" : "secondary"}`} onClick={() => setResult(item.id, "NA")}>
+                              Không áp dụng
+                            </button>
                           </div>
                         </td>
                         <td>

@@ -11,6 +11,8 @@ type Item = { id: string; details: Record<string, unknown>; publish_status: stri
 // catalog directly — mixing the two made it look like the tree itself owned
 // group names, when the catalog (emr_binding_groups) is the real source.
 export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
+  const [showGroupForm, setShowGroupForm] = useState(false);
+  const [groupSearch, setGroupSearch] = useState("");
   const [groups, setGroups] = useState<Group[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,20 +128,21 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
   }
 
   return (
-    <div className="panel">
+    <div className="panel emr-group-overview mobile-module-redesign">
+      <div className="mobile-workflow-kpis"><div><small>Tổng nhóm gáy</small><strong>{groups.length}</strong></div><div><small>Tổng biểu mẫu</small><strong>{items.length}</strong></div><div><small>Nhóm có biểu mẫu</small><strong>{groups.filter((g) => (publishedCountByName.get(g.name) || 0) + (draftCountByName.get(g.name) || 0) > 0).length}</strong></div></div>
       {canManage ? (
-        <form className="toolbar" onSubmit={declareGroup} style={{ padding: "12px 12px 4px" }}>
+        <><button type="button" className="button secondary mobile-form-toggle" aria-expanded={showGroupForm} onClick={() => setShowGroupForm((v) => !v)}>{showGroupForm ? "Thu gọn" : "+ Khai báo nhóm gáy"}</button><form className={showGroupForm ? "toolbar mobile-collapsible-form is-open" : "toolbar mobile-collapsible-form"} onSubmit={declareGroup} style={{ padding: "12px 12px 4px" }}>
           <div className="toolbar-left" style={{ gap: 8 }}>
             <input value={newGroupCode} onChange={(e) => setNewGroupCode(e.target.value)} placeholder="Mã (vd: V)" style={{ width: 90 }} aria-label="Mã nhóm gáy" />
             <input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="Khai báo nhóm gáy mới..." style={{ minWidth: 220 }} />
             <button type="submit" className="button secondary small" disabled={declaring || !newGroupName.trim()}>{declaring ? "Đang lưu..." : "+ Khai báo nhóm gáy"}</button>
           </div>
-        </form>
+        </form></>
       ) : null}
       {!groups.length ? (
         <div className="empty-state">Chưa khai báo nhóm gáy nào.</div>
       ) : (
-        <div className="table-wrap">
+        <><div className="mobile-workflow-filters"><input className="input" aria-label="Tìm nhóm gáy" placeholder="Tìm mã hoặc tên nhóm gáy..." value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} /></div><div className="table-wrap">
           <table>
             <thead>
               <tr>
@@ -152,7 +155,7 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
               </tr>
             </thead>
             <tbody>
-              {groups.map((group) => {
+              {groups.filter((g) => !groupSearch.trim() || [g.name, g.code].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(groupSearch.trim().toLocaleLowerCase("vi")))).map((group) => {
                 const publishedCount = publishedCountByName.get(group.name) || 0;
                 const draftCount = draftCountByName.get(group.name) || 0;
                 const totalCount = publishedCount + draftCount;
@@ -222,7 +225,7 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
               })}
             </tbody>
           </table>
-        </div>
+        </div></>
       )}
       <style>{`
         .bieu-mau-groups-order{width:100%;min-height:32px;padding:4px 6px;font-size:12px;text-align:center}

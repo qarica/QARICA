@@ -29,12 +29,19 @@ export async function GET(request: Request) {
 
   const { data, error } = await admin
     .from("hsba_checklist_items")
-    .select("id,content,category,sort_order,is_active,audit_type,checklist_version_id")
+    .select("id,content,category,sort_order,is_active,audit_type,checklist_version_id,group_id,create_finding_on_partial")
     .eq("checklist_version_id", versionId)
     .order("sort_order")
     .order("content");
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true, items: data ?? [] });
+  const { data: groups, error: groupsError } = await admin
+    .from("hsba_checklist_groups")
+    .select("id,name,sort_order,is_active,checklist_version_id")
+    .eq("checklist_version_id", versionId)
+    .order("sort_order")
+    .order("name");
+  if (groupsError) return NextResponse.json({ error: groupsError.message }, { status: 400 });
+  return NextResponse.json({ ok: true, items: data ?? [], groups: groups ?? [] });
 }
 
 export async function POST(request: Request) {
@@ -51,10 +58,22 @@ export async function POST(request: Request) {
   if (!versionId) return NextResponse.json({ error: "Thiếu phiên bản bảng kiểm." }, { status: 400 });
   if (!content) return NextResponse.json({ error: "Nội dung tiêu chí không được để trống." }, { status: 400 });
   const category = body.category ? String(body.category).trim() || null : null;
+  const groupId = body.group_id ? String(body.group_id).trim() : null;
+  const createFindingOnPartial = body.create_finding_on_partial === true;
 
   const version = await loadVersionForOrg(admin, versionId, organizationId);
   if (!version) return NextResponse.json({ error: "Không tìm thấy phiên bản bảng kiểm." }, { status: 404 });
   if (version.status !== "DRAFT") return NextResponse.json({ error: "Chỉ được thêm tiêu chí vào phiên bản đang ở trạng thái Nháp." }, { status: 409 });
+  if (groupId) {
+    const { data: group, error: groupError } = await admin
+      .from("hsba_checklist_groups")
+      .select("id")
+      .eq("id", groupId)
+      .eq("checklist_version_id", versionId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    if (groupError || !group) return NextResponse.json({ error: "Nhóm tiêu chí không hợp lệ." }, { status: 400 });
+  }
 
   const { count } = await admin
     .from("hsba_checklist_items")
@@ -62,8 +81,8 @@ export async function POST(request: Request) {
     .eq("checklist_version_id", versionId);
   const { data, error } = await admin
     .from("hsba_checklist_items")
-    .insert({ organization_id: organizationId, content, category, sort_order: count ?? 0, audit_type: version.auditType, checklist_version_id: versionId })
-    .select("id,content,category,sort_order,is_active,audit_type,checklist_version_id")
+    .insert({ organization_id: organizationId, content, category, group_id: groupId, create_finding_on_partial: createFindingOnPartial, sort_order: count ?? 0, audit_type: version.auditType, checklist_version_id: versionId })
+    .select("id,content,category,sort_order,is_active,audit_type,checklist_version_id,group_id,create_finding_on_partial")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true, item: data });

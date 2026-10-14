@@ -102,10 +102,12 @@ describe("Physician license proactive due-soon warning (not just after-the-fact 
     expect(route).toContain("syncPhysicianLicenseRemindersForUser(admin, auth.user.id)");
 
     const bell = read("src/components/notification-bell.tsx");
-    expect(bell).toContain("/api/notifications/sync-physician-license-reminders");
+    const orchestrator = read("src/lib/notification-orchestrator.ts");
+    expect(bell).toContain("syncNotifications");
+    expect(orchestrator).toContain("syncPhysicianLicenseRemindersForUser");
 
     const myWork = read("src/components/my-work-sync-client.tsx");
-    expect(myWork).toContain("/api/notifications/sync-physician-license-reminders");
+    expect(myWork).toContain("syncNotifications");
 
     const cron = read("src/app/api/cron/sync-notifications/route.ts");
     expect(cron).toContain("syncPhysicianLicenseRemindersForUser(admin, userId)");

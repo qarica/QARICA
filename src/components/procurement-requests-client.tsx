@@ -43,7 +43,10 @@ export function ProcurementRequestsClient({
   canApproveBgd: boolean;
   canApproveTgd: boolean;
 }) {
+  const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [requests, setRequests] = useState(initialRequests);
+  const [listQuery, setListQuery] = useState("");
+  const [urgentOnly, setUrgentOnly] = useState(false);
   const [departmentId, setDepartmentId] = useState(departments[0]?.id || "");
   const [requestType, setRequestType] = useState<"NEW_PURCHASE" | "REPAIR" | "TRANSFER">("NEW_PURCHASE");
   const [urgency, setUrgency] = useState<"NORMAL" | "URGENT">("NORMAL");
@@ -118,7 +121,8 @@ export function ProcurementRequestsClient({
   }
 
   return (
-    <div className="procurement-overview">
+    <div className="procurement-overview mobile-module-redesign">
+      <div className="mobile-workflow-kpis"><div><small>Tổng đề xuất</small><strong>{requests.length}</strong></div><div><small>Khẩn</small><strong>{requests.filter((r) => r.urgency === "URGENT").length}</strong></div><div><small>Đang theo dõi</small><strong>{requests.filter((r) => !["BGD_REJECTED","TGD_REJECTED"].includes(r.status)).length}</strong></div></div>
       {canManage ? (
         <section className="panel">
           <div className="panel-title">
@@ -127,7 +131,8 @@ export function ProcurementRequestsClient({
               <p>Ghi nhận đề xuất mua sắm/sửa chữa từ khoa/phòng để trình duyệt.</p>
             </div>
           </div>
-          <div className="procurement-form">
+          <button type="button" className="button secondary mobile-form-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Tạo đề xuất mua sắm"}</button>
+        <div className={mobileFormOpen ? "procurement-form mobile-collapsible-form is-open" : "procurement-form mobile-collapsible-form"}>
             <input className="input" placeholder="Tên đề xuất..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
             <div className="procurement-form-row">
               <select className="input" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={!departments.length}>
@@ -166,8 +171,9 @@ export function ProcurementRequestsClient({
         <div className="panel-title">
           <h2>Danh sách đề xuất</h2>
         </div>
+        <div className="mobile-workflow-filters"><input className="input" aria-label="Tìm đề xuất" placeholder="Tìm tên đề xuất, khoa/phòng..." value={listQuery} onChange={(e) => setListQuery(e.target.value)} /><label><input type="checkbox" checked={urgentOnly} onChange={(e) => setUrgentOnly(e.target.checked)} /> Chỉ đề xuất khẩn</label></div>
         <div className="work-list">
-          {requests.map((r) => (
+          {requests.filter((r) => (!urgentOnly || r.urgency === "URGENT") && (!listQuery.trim() || [r.title, departmentName(r.department_id)].some((v) => v.toLocaleLowerCase("vi").includes(listQuery.trim().toLocaleLowerCase("vi"))))).map((r) => (
             <div className="work-row" key={r.id}>
               <div className="work-main">
                 <strong>{r.title}</strong>

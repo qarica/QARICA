@@ -41,6 +41,8 @@ export function PhysicianLicenseClient({
   canManage: boolean;
 }) {
   const [registrations, setRegistrations] = useState(initialRegistrations);
+  const [showCreate, setShowCreate] = useState(false);
+  const [search, setSearch] = useState("");
   const [departmentId, setDepartmentId] = useState(departments[0]?.id || "");
   const [physicianName, setPhysicianName] = useState("");
   const [physicianCode, setPhysicianCode] = useState("");
@@ -168,11 +170,12 @@ export function PhysicianLicenseClient({
     setRegistrations((v) => v.map((r) => (r.id === reg.id ? { ...r, ...body.registration } : r)));
   }
 
-  const visible = onlyPending ? registrations.filter((r) => r.status === "PENDING") : registrations;
+  const visible = (onlyPending ? registrations.filter((r) => r.status === "PENDING") : registrations).filter((r) => !search.trim() || [r.physician_name, r.physician_code, departmentName(r.department_id)].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(search.trim().toLocaleLowerCase("vi"))));
   const now = today();
 
   return (
-    <div className="physician-license-overview">
+    <div className="physician-license-overview mobile-module-redesign">
+      <div className="pl-overview-kpis"><div><small>Tổng hồ sơ</small><strong>{registrations.length}</strong></div><div><small>Chưa đăng ký</small><strong>{registrations.filter((r) => r.status === "PENDING").length}</strong></div><div><small>Quá hạn</small><strong>{registrations.filter((r) => r.status === "PENDING" && r.deadline < today()).length}</strong></div></div>
       {canManage ? (
         <section className="panel">
           <div className="panel-title">
@@ -181,7 +184,8 @@ export function PhysicianLicenseClient({
               <p>Hạn tự tính: GĐTT/Trưởng khoa 14 ngày, Bác sĩ 60 ngày kể từ ngày hiệu lực; luân chuyển nội bộ phải đăng ký trước 10 ngày.</p>
             </div>
           </div>
-          <div className="pl-form">
+          <button type="button" className="button secondary pl-create-toggle" aria-expanded={showCreate} onClick={() => setShowCreate((v) => !v)}>{showCreate ? "Thu gọn biểu mẫu" : "+ Khai báo hồ sơ mới"}</button>
+          <div className={showCreate ? "pl-form mobile-collapsible-form is-open" : "pl-form mobile-collapsible-form"}>
             <input className="input" placeholder="Tên bác sĩ..." value={physicianName} onChange={(e) => setPhysicianName(e.target.value)} />
             <div className="pl-form-row">
               <select className="input" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={!departments.length}>
@@ -220,6 +224,7 @@ export function PhysicianLicenseClient({
             <input type="checkbox" checked={onlyPending} onChange={(e) => setOnlyPending(e.target.checked)} /> Chỉ hiện chưa đăng ký
           </label>
         </div>
+        <input className="input pl-search" aria-label="Tìm bác sĩ" placeholder="Tìm bác sĩ, mã nhân viên, khoa/phòng..." value={search} onChange={(e) => setSearch(e.target.value)} />
         <div className="table-wrap">
           <table>
             <thead>
@@ -240,32 +245,32 @@ export function PhysicianLicenseClient({
                 if (editingId === r.id && editDraft) {
                   return (
                     <tr key={r.id}>
-                      <td>
+                      <td data-label="Bác sĩ">
                         <input className="input" value={editDraft.physician_name} onChange={(e) => setEditDraft({ ...editDraft, physician_name: e.target.value })} placeholder="Tên bác sĩ" style={{ marginBottom: 4 }} />
                         <input className="input" value={editDraft.physician_code} onChange={(e) => setEditDraft({ ...editDraft, physician_code: e.target.value })} placeholder="Mã nhân viên" />
                       </td>
-                      <td>
+                      <td data-label="Khoa/Phòng">
                         <select className="input" value={editDraft.department_id} onChange={(e) => setEditDraft({ ...editDraft, department_id: e.target.value })}>
                           {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>
                       </td>
-                      <td>
+                      <td data-label="Vai trò">
                         <select className="input" value={editDraft.role_type} onChange={(e) => setEditDraft({ ...editDraft, role_type: e.target.value as any })}>
                           <option value="BS">Bác sĩ</option>
                           <option value="GDTT_TK">GĐTT / Trưởng khoa</option>
                         </select>
                       </td>
-                      <td>
+                      <td data-label="Trường hợp">
                         <select className="input" value={editDraft.case_type} onChange={(e) => setEditDraft({ ...editDraft, case_type: e.target.value as any })}>
                           <option value="NEW_HIRE">Nhân sự mới</option>
                           <option value="INTERNAL_TRANSFER">Luân chuyển nội bộ</option>
                         </select>
                       </td>
-                      <td>
+                      <td data-label="Hạn đăng ký">
                         <input className="input" type="date" value={editDraft.effective_date} onChange={(e) => setEditDraft({ ...editDraft, effective_date: e.target.value })} />
                       </td>
-                      <td>—</td>
-                      <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <td data-label="Trạng thái">—</td>
+                      <td data-label="Thao tác" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button className="button primary small" disabled={busy} onClick={() => void saveEdit(r)}>Lưu</button>
                         <button className="button tertiary small" disabled={busy} onClick={() => { setEditingId(null); setEditDraft(null); }}>Huỷ</button>
                       </td>
@@ -274,21 +279,21 @@ export function PhysicianLicenseClient({
                 }
                 return (
                   <tr key={r.id}>
-                    <td>
+                    <td data-label="Bác sĩ">
                       {r.physician_name}
                       {r.physician_code ? ` (${r.physician_code})` : ""}
                     </td>
-                    <td>{departmentName(r.department_id)}</td>
-                    <td>{ROLE_LABEL[r.role_type]}</td>
-                    <td>{CASE_LABEL[r.case_type]}</td>
-                    <td>{formatDate(r.deadline)}</td>
-                    <td>
+                    <td data-label="Khoa/Phòng">{departmentName(r.department_id)}</td>
+                    <td data-label="Vai trò">{ROLE_LABEL[r.role_type]}</td>
+                    <td data-label="Trường hợp">{CASE_LABEL[r.case_type]}</td>
+                    <td data-label="Hạn đăng ký">{formatDate(r.deadline)}</td>
+                    <td data-label="Trạng thái">
                       <span className={`status-badge ${r.status === "REGISTERED" ? "success" : overdue ? "danger" : dueSoon ? "warning" : "info"}`}>
                         {r.status === "REGISTERED" ? "Đã đăng ký" : overdue ? "Quá hạn" : dueSoon ? "Sắp hết hạn" : "Chưa đăng ký"}
                       </span>
                     </td>
                     {canManage ? (
-                      <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <td data-label="Thao tác" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         {r.status === "PENDING" ? (
                           <>
                             <button className="button primary small" onClick={() => void markRegistered(r)}>

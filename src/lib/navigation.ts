@@ -116,21 +116,13 @@ const NAV_GROUPS: NavGroupDef[] = [
     ],
   },
   {
-    id: "my-work",
-    label: "VIỆC CỦA TÔI",
+    id: "personal-workspace",
+    label: "CÁ NHÂN & VIỆC CỦA TÔI",
     icon: "inbox",
     footer: true,
     children: [
-      { label: "VIỆC CỦA TÔI", href: "/tasks", icon: "inbox", permission: "tasks.view" },
-    ],
-  },
-  {
-    id: "personal-workspace",
-    label: "CÁ NHÂN",
-    icon: "users",
-    footer: true,
-    children: [
-      { label: "CÁ NHÂN", href: "/me", icon: "users" },
+      { label: "Việc của tôi", href: "/tasks", icon: "inbox", permission: "tasks.view" },
+      { label: "Sổ tay cá nhân", href: "/me", icon: "book-open" },
     ],
   },
   {

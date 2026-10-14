@@ -57,7 +57,9 @@ export function DocumentPublicationsClient({
   currentUserId: string;
   canManage: boolean;
 }) {
+  const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [documents, setDocuments] = useState(initialDocuments);
+  const [listQuery, setListQuery] = useState("");
   const [acks, setAcks] = useState(acknowledgments);
   const [title, setTitle] = useState("");
   const [documentType, setDocumentType] = useState<DocumentPublicationType>(DOCUMENT_TYPES[0]);
@@ -172,7 +174,8 @@ export function DocumentPublicationsClient({
   }
 
   return (
-    <div className="document-publications-overview">
+    <div className="document-publications-overview mobile-module-redesign">
+      <div className="mobile-workflow-kpis"><div><small>Tổng văn bản</small><strong>{documents.length}</strong></div><div><small>Đang xử lý</small><strong>{inProgress.length}</strong></div><div><small>Đã ban hành</small><strong>{published.length}</strong></div></div>
       <section className="panel">
         <div className="panel-title">
           <div>
@@ -180,7 +183,8 @@ export function DocumentPublicationsClient({
             <p>Đơn vị sử dụng gửi đề nghị soạn thảo/sửa đổi văn bản — không cần quyền quản lý để gửi đề nghị.</p>
           </div>
         </div>
-        <div className="dp-form">
+        <button type="button" className="button secondary mobile-form-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Gửi đề nghị văn bản"}</button>
+        <div className={mobileFormOpen ? "dp-form mobile-collapsible-form is-open" : "dp-form mobile-collapsible-form"}>
           <input className="input" placeholder="Tên văn bản..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
           <div className="dp-form-row">
             <select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value as DocumentPublicationType)}>
@@ -212,8 +216,9 @@ export function DocumentPublicationsClient({
         <div className="panel-title">
           <h2>Đang xử lý</h2>
         </div>
+        <div className="mobile-workflow-filters"><input className="input" aria-label="Tìm văn bản" placeholder="Tìm tên văn bản đang xử lý..." value={listQuery} onChange={(e) => setListQuery(e.target.value)} /></div>
         <div className="work-list">
-          {inProgress.map((d) => {
+          {inProgress.filter((d) => !listQuery.trim() || d.title.toLocaleLowerCase("vi").includes(listQuery.trim().toLocaleLowerCase("vi"))).map((d) => {
             const overdue = !!d.stage_due_date && d.stage_due_date < today;
             return (
               <div className="work-row" key={d.id}>

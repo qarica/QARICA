@@ -126,3 +126,873 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
   .workspace-app .sidebar{box-shadow:8px 0 28px rgba(15,23,42,.12)!important}
   .workspace-app .content{padding-left:14px!important;padding-right:14px!important}
 }
+
+
+/* QARICA compact-density pass: mobile operations workspace, 2026-10-13.
+   Scope is intentionally limited to card summaries and page chrome;
+   do not compress data tables, forms, charts or touch targets. */
+@media (max-width: 860px) {
+  .workspace-app .topbar { height: 56px !important; min-height: 56px !important; }
+  .workspace-app .content { padding-top: 12px !important; padding-bottom: 18px !important; }
+  .workspace-app .page-stack { gap: 12px !important; }
+  .workspace-app .page-header { gap: 10px !important; }
+  .workspace-app .page-header h1 { font-size: clamp(19px, 5vw, 24px) !important; line-height: 1.2 !important; }
+  .workspace-app .page-header p { margin-top: 3px !important; font-size: 12px !important; line-height: 1.35 !important; }
+  .workspace-app .page-header-main { gap: 9px !important; }
+  .workspace-app .page-header-icon { width: 34px !important; height: 34px !important; flex-basis: 34px !important; }
+  .workspace-app .panel-title { padding: 12px !important; }
+  .workspace-app .kpi-card { min-height: 0 !important; padding: 12px !important; gap: 5px !important; }
+  .workspace-app .kpi-card strong { font-size: 24px !important; margin-top: 3px !important; }
+  .workspace-app .kpi-card small { margin-top: 2px !important; }
+}
+@media (max-width: 620px) {
+  /* Override earlier forced single-column KPI rules without affecting charts. */
+  .workspace-app .kpi-grid,
+  .workspace-app .exec-kpis,
+  .workspace-app .legacy-grid3,
+  .workspace-app .kpis,
+  .workspace-app .cs-kpis,
+  .workspace-app .av2-kpis,
+  .workspace-app .ops-kpis,
+  .workspace-app .rp-kpis,
+  .workspace-app .tqm-registry-kpis,
+  .workspace-app .iq-kpis,
+  .workspace-app .readiness-grid,
+  .workspace-app .quality-calendar-page .kpi-grid,
+  .workspace-app .recurring-work-client .kpis {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 9px !important;
+  }
+  .workspace-app .kpi-grid > *,
+  .workspace-app .exec-kpis > *,
+  .workspace-app .legacy-grid3 > *,
+  .workspace-app .kpis > *,
+  .workspace-app .cs-kpis > *,
+  .workspace-app .av2-kpis > *,
+  .workspace-app .ops-kpis > *,
+  .workspace-app .rp-kpis > *,
+  .workspace-app .tqm-registry-kpis > *,
+  .workspace-app .iq-kpis > *,
+  .workspace-app .readiness-grid > * { min-width: 0 !important; width: auto !important; }
+  .workspace-app .kpi-card { border-radius: 12px !important; }
+  .workspace-app .page-actions { flex-wrap: wrap !important; gap: 7px !important; }
+  .workspace-app .page-actions > * { flex: 1 1 auto; }
+  .workspace-app .page-header-icon svg { width: 19px !important; height: 19px !important; }
+  .workspace-app .topbar-right { gap: 5px !important; }
+}
+@media (max-width: 360px) {
+  .workspace-app .kpi-grid,
+  .workspace-app .exec-kpis,
+  .workspace-app .kpis { gap: 6px !important; }
+  .workspace-app .kpi-card { padding: 9px !important; }
+}
+
+
+/* Compact pass 2: ensure compact header does not retain 64px min-height
+   through 8px vertical padding from the earlier responsive stylesheet. */
+@media (max-width: 860px) {
+  .workspace-app .topbar {
+    box-sizing: border-box !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .workspace-app .notification-panel,
+  .workspace-app .profile-dropdown { top: 60px !important; }
+  .workspace-app .page-header .eyebrow { letter-spacing: .08em !important; }
+}
+/* KPI cards may have desktop inline minimum heights: constrain only the
+   summary-card content, preserving interactive controls at 44px minimum. */
+@media (max-width: 620px) {
+  .workspace-app .kpi-grid > *,
+  .workspace-app .exec-kpis > *,
+  .workspace-app .ops-kpis > *,
+  .workspace-app .readiness-grid > * {
+    min-height: 0 !important;
+    max-width: 100% !important;
+  }
+  .workspace-app .kpi-grid .kpi-card,
+  .workspace-app .exec-kpis .kpi,
+  .workspace-app .ops-kpis .kpi-card {
+    padding: 11px !important;
+    gap: 6px !important;
+  }
+  .workspace-app .page-actions { scrollbar-width: none !important; }
+  .workspace-app .page-actions > button,
+  .workspace-app .page-actions > a { min-height: 44px !important; }
+}
+
+
+/* QLCL overview: analytic panels are NOT small KPI tiles. A two-column
+   phone layout squeezes headings, clips donut charts and truncates tables.
+   Keep KPI grids compact but render dashboard analysis panels full width. */
+@media (max-width: 760px) {
+  .workspace-app .tqm-dashboard .chart-grid,
+  .workspace-app .tqm-dashboard .grid2,
+  .workspace-app .tqm-dashboard .grid2b,
+  .workspace-app .tqm-dashboard .tqm-grid,
+  .workspace-app .tqm-dashboard .dashboard-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+  .workspace-app .tqm-dashboard .chart-grid > *,
+  .workspace-app .tqm-dashboard .grid2 > *,
+  .workspace-app .tqm-dashboard .grid2b > *,
+  .workspace-app .tqm-dashboard .tqm-grid > *,
+  .workspace-app .tqm-dashboard .dashboard-grid > * {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  .workspace-app .tqm-dashboard .panel { min-width: 0 !important; }
+  .workspace-app .tqm-dashboard .panel-title {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
+  }
+  .workspace-app .tqm-dashboard .panel-title h2 {
+    font-size: 16px !important;
+    line-height: 1.3 !important;
+    overflow-wrap: anywhere !important;
+  }
+  .workspace-app .tqm-dashboard .panel-title p {
+    margin-top: 0 !important;
+    line-height: 1.4 !important;
+  }
+  .workspace-app .tqm-dashboard svg,
+  .workspace-app .tqm-dashboard canvas {
+    max-width: 100%;
+  }
+  .workspace-app .tqm-dashboard .table-wrap {
+    max-width: 100%;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+
+/* QLCL overview requested mobile layout: no greeting banner, dates + apply in one row. */
+@media (max-width: 760px) {
+  .workspace-app .tqm-dashboard .hero { display: none !important; }
+  .workspace-app .tqm-dashboard .page-header { margin-bottom: 0 !important; }
+  .workspace-app .tqm-dashboard .page-header + form,
+  .workspace-app .tqm-dashboard .date-filter,
+  .workspace-app .tqm-dashboard .date-range,
+  .workspace-app .tqm-dashboard .filter-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  .workspace-app .tqm-dashboard .date-filter input,
+  .workspace-app .tqm-dashboard .date-range input,
+  .workspace-app .tqm-dashboard .filter-row input {
+    width: 100% !important;
+    min-width: 0 !important;
+    font-size: 12px !important;
+  }
+  .workspace-app .tqm-dashboard .date-filter button,
+  .workspace-app .tqm-dashboard .date-range button,
+  .workspace-app .tqm-dashboard .filter-row button {
+    min-width: 0 !important;
+    white-space: nowrap !important;
+    min-height: 44px !important;
+    padding: 0 10px !important;
+  }
+}
+
+
+/* Quality indicators: prevent nested grid min-content widths from
+   expanding the mobile viewport; preserve actual horizontal scrolling
+   only inside data tables. */
+@media (max-width: 760px) {
+  .workspace-app .iq-kpis,
+  .workspace-app .iq-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    gap: 10px !important;
+  }
+  .workspace-app .iq-kpis > *,
+  .workspace-app .iq-grid > *,
+  .workspace-app .iq-kpi {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  .workspace-app .iq-kpi { padding: 12px !important; }
+  .workspace-app .iq-kpi * { min-width: 0; }
+  .workspace-app .iq-kpi strong,
+  .workspace-app .iq-kpi span { overflow-wrap: anywhere; }
+}
+@media (min-width: 430px) and (max-width: 760px) {
+  .workspace-app .iq-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+
+/* Analytics KPI icon alignment on narrow screens: prevent the icon from
+   shrinking into its label; wrap long text in its own content area. */
+@media (max-width: 620px) {
+  .workspace-app .tqm-analytics .kpi {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    min-width: 0 !important;
+    padding: 12px !important;
+  }
+  .workspace-app .tqm-analytics .kpi-icon {
+    position: static !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    flex: 0 0 34px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .workspace-app .tqm-analytics .kpi-icon svg {
+    width: 19px !important;
+    height: 19px !important;
+    max-width: 100% !important;
+  }
+  .workspace-app .tqm-analytics .kpi > div:not(.kpi-icon) {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow-wrap: anywhere !important;
+  }
+}
+
+
+/* QARICA UI consolidation · 2026-10-13
+   Compact mobile workspaces; shared controls; accessible horizontal overflow.
+   Scope deliberately limited to workspace-app to avoid login/public pages. */
+.workspace-app .page-stack,
+.workspace-app .panel,
+.workspace-app .content,
+.workspace-app .page-header,
+.workspace-app .page-header-main { min-width:0; }
+.workspace-app .page-header h1 { overflow-wrap:anywhere; }
+.workspace-app .panel-title h2 { line-height:1.35; }
+.workspace-app :is(button,a,input,select,textarea):focus-visible {
+  outline:2px solid var(--brand);outline-offset:2px;
+}
+.workspace-app .table-wrap { max-width:100%;overscroll-behavior-x:contain; }
+.workspace-app :is(input,select,textarea) { max-width:100%; }
+@media(max-width:760px) {
+  .workspace-app .content { padding:12px !important; }
+  .workspace-app .page-stack { gap:12px !important; }
+  .workspace-app .page-header { gap:8px !important; }
+  .workspace-app .page-header h1 { font-size:clamp(20px,5.3vw,25px) !important;line-height:1.2 !important; }
+  .workspace-app .page-header p { font-size:12px !important;line-height:1.45 !important;margin-top:4px !important; }
+  .workspace-app .page-header-icon { width:34px !important;height:34px !important;flex-basis:34px !important; }
+  .workspace-app .panel-title { padding:13px 14px 10px !important;gap:8px !important; }
+  .workspace-app .panel-title h2 { font-size:15px !important; }
+  .workspace-app .panel-title p { font-size:12px !important; }
+  .workspace-app .toolbar { padding:10px !important;gap:8px !important;flex-wrap:wrap !important; }
+  .workspace-app .toolbar-left { min-width:0 !important;gap:7px !important; }
+  .workspace-app .search-box { width:100% !important;max-width:100% !important;min-width:0 !important; }
+  .workspace-app .button { min-height:40px;max-width:100%;white-space:normal;text-align:center; }
+  .workspace-app .kpi-grid { gap:9px !important; }
+  .workspace-app .kpi-card { padding:12px !important;min-width:0 !important;min-height:0 !important; }
+  .workspace-app .kpi-card strong { font-size:26px !important;margin-top:7px !important; }
+  .workspace-app .kpi-card span,.workspace-app .kpi-card small { font-size:11px !important;line-height:1.35 !important;overflow-wrap:anywhere; }
+  .workspace-app .chart-grid { grid-template-columns:minmax(0,1fr) !important; }
+  .workspace-app .chart-grid > * { min-width:0 !important; }
+  .workspace-app .table-wrap { overflow-x:auto !important;-webkit-overflow-scrolling:touch; }
+  .workspace-app .empty-state { padding:20px 12px !important; }
+  .workspace-app .page-actions { max-width:100%;overflow-x:auto; }
+  .workspace-app :is(input,select,textarea) { min-width:0; }
+  .workspace-app :is(.panel,.kpi-card) { box-shadow:0 3px 12px rgba(26,42,49,.035); }
+}
+@media(max-width:380px) {
+  .workspace-app .content { padding:10px !important; }
+  .workspace-app .page-header h1 { font-size:20px !important; }
+  .workspace-app .kpi-grid { gap:7px !important; }
+}
+
+
+/* Mobile form and worklist density — scoped to reusable primitives.
+   Avoid transforming semantic tables or hiding required form fields. */
+@media(max-width:760px){
+ .workspace-app .panel form,
+ .workspace-app .panel .form-grid,
+ .workspace-app .panel .form-fields { min-width:0;max-width:100%; }
+ .workspace-app .panel :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea){
+   width:100%;max-width:100%;min-width:0;min-height:42px;
+   border-radius:10px;font-size:14px;
+ }
+ .workspace-app .panel textarea { min-height:76px;resize:vertical; }
+ .workspace-app .panel :is(input,select,textarea)::placeholder {text-overflow:ellipsis;}
+ .workspace-app .panel :is(label,.form-label) {overflow-wrap:break-word;}
+ .workspace-app .panel :is(.tabs,.tab-list,.segmented-control) {
+   max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;
+   -webkit-overflow-scrolling:touch;scrollbar-width:none;
+ }
+ .workspace-app .panel :is(.tabs,.tab-list,.segmented-control)::-webkit-scrollbar {display:none;}
+ .workspace-app .panel :is(.tabs,.tab-list) > * {flex-shrink:0;}
+ .workspace-app .panel :is(.form-actions,.action-row,.card-actions) {
+   display:flex;flex-wrap:wrap;gap:7px;min-width:0;
+ }
+ .workspace-app .panel :is(.form-actions,.action-row,.card-actions) > * {
+   max-width:100%;min-width:0;
+ }
+ .workspace-app .panel .table-wrap > table {width:max-content;min-width:100%;}
+ .workspace-app .panel .table-wrap th,
+ .workspace-app .panel .table-wrap td {white-space:normal;overflow-wrap:break-word;}
+ .workspace-app .panel .table-wrap th {white-space:nowrap;}
+ .workspace-app .panel .empty-state {font-size:12px;line-height:1.5;}
+ .workspace-app .panel .status-badge {max-width:100%;white-space:normal;}
+ .workspace-app .panel .subline {line-height:1.4;}
+ .workspace-app .panel .toolbar .search-box {flex:1 1 100%;}
+ .workspace-app .page-header-main {align-items:flex-start;}
+ .workspace-app .page-header-icon {margin-top:3px;}
+ .workspace-app .page-header .eyebrow {font-size:10px;line-height:1.35;}
+ .workspace-app .panel-title + .toolbar {padding-top:0 !important;}
+}
+@media(max-width:420px){
+ .workspace-app .panel :is(.form-actions,.action-row,.card-actions) > button {
+   flex:1 1 auto;
+ }
+}
+
+
+/* QARICA mobile QA pass: preserve tap targets and native control behavior.
+   More-specific rules supersede overly broad compact styling above. */
+@media(max-width:760px){
+  .workspace-app .panel input[type="checkbox"],
+  .workspace-app .panel input[type="radio"] {
+    width:auto !important;min-height:0 !important;max-width:none !important;
+    accent-color:var(--qf-blue);
+  }
+  .workspace-app .panel input[type="date"],
+  .workspace-app .panel input[type="datetime-local"],
+  .workspace-app .panel input[type="time"]{
+    min-width:0;max-width:100%;box-sizing:border-box;
+  }
+  .workspace-app .panel :is(button,a,select,input:not([type="hidden"])) {
+    touch-action:manipulation;
+  }
+  .workspace-app .panel :is(button,a):focus-visible {
+    outline:2px solid var(--qf-blue);outline-offset:2px;
+  }
+  .workspace-app .panel :is(.tabs,.tab-list,.segmented-control) > :is(button,a){
+    min-height:40px;display:inline-flex;align-items:center;justify-content:center;
+  }
+  .workspace-app .panel :is(.toolbar,.form-actions,.action-row,.card-actions) {
+    min-width:0;max-width:100%;
+  }
+  .workspace-app .panel :is(.toolbar,.form-actions,.action-row,.card-actions) > button {
+    overflow-wrap:anywhere;
+  }
+  .workspace-app .panel .table-wrap {position:relative;}
+  .workspace-app .panel .table-wrap table {border-collapse:separate;border-spacing:0;}
+  .workspace-app .panel .table-wrap :is(th,td){vertical-align:middle;}
+  .workspace-app .panel .table-wrap th {position:relative;}
+  .workspace-app .panel :is(.kpi-grid,.exec-kpis,.ops-kpis) > * {
+    box-sizing:border-box;min-width:0;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .workspace-app .panel :is(button,a,input,select,textarea) {
+    scroll-behavior:auto !important;
+  }
+}
+
+
+/* Scoped Personal Workspace + Brain compact layout (route /me).
+   Based on actual component class names, not broad page heuristics. */
+.workspace-app .personal-workspace-page {min-width:0;}
+.workspace-app .personal-workspace-page :is(.pw-section,.work-section,.card){min-width:0;}
+.workspace-app .personal-workspace-page .pw-tabs{
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;
+}
+.workspace-app .personal-workspace-page .pw-tabs :is(button,a){
+  min-height:38px;border-radius:10px;
+}
+.workspace-app .personal-workspace-page .pw-form,
+.workspace-app .personal-workspace-page .pw-filter {min-width:0;max-width:100%;}
+.workspace-app .personal-workspace-page .pw-form-row {
+  display:flex;flex-wrap:wrap;gap:9px;align-items:end;min-width:0;
+}
+.workspace-app .personal-workspace-page .pw-form-row > * {min-width:0;max-width:100%;}
+.workspace-app .personal-workspace-page .pw-row {min-width:0;}
+.workspace-app .personal-workspace-page .pw-row .work-main {min-width:0;overflow-wrap:anywhere;}
+.workspace-app .personal-workspace-page .pw-note-content {
+  overflow-wrap:anywhere;white-space:pre-wrap;
+}
+.workspace-app .personal-workspace-page .pw-edit-actions {
+  display:flex;flex-wrap:wrap;gap:6px;
+}
+@media(max-width:760px){
+ .workspace-app .personal-workspace-page {gap:10px !important;}
+ .workspace-app .personal-workspace-page .pw-tabs{
+   flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
+   -webkit-overflow-scrolling:touch;padding-bottom:2px;
+ }
+ .workspace-app .personal-workspace-page .pw-tabs::-webkit-scrollbar{display:none;}
+ .workspace-app .personal-workspace-page .pw-tabs > *{flex-shrink:0;}
+ .workspace-app .personal-workspace-page .pw-section{padding:12px !important;}
+ .workspace-app .personal-workspace-page .pw-form-row > *{flex:1 1 140px;}
+ .workspace-app .personal-workspace-page .pw-filter{display:flex;flex-wrap:wrap;gap:8px;}
+ .workspace-app .personal-workspace-page .pw-filter > *{min-width:0;max-width:100%;}
+ .workspace-app .personal-workspace-page .pw-row{padding:10px 0 !important;}
+ .workspace-app .personal-workspace-page .pw-edit{min-width:0;max-width:100%;}
+ .workspace-app .personal-workspace-page .pw-edit :is(input,textarea,select){
+   max-width:100%;min-width:0;
+ }
+ .workspace-app .personal-workspace-page .work-section .section-head{
+   display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+ }
+}
+
+/* Personal account notification channel disclosure */
+.workspace-app .personal-workspace-page .personal-account-settings{
+ background:#fff;border:1px solid var(--qf-line);border-radius:14px;overflow:hidden;
+}
+.workspace-app .personal-workspace-page .personal-account-settings > summary{
+ display:flex;align-items:center;gap:8px;min-height:46px;
+ padding:11px 14px;font-size:13px;font-weight:700;cursor:pointer;list-style:none;
+}
+.workspace-app .personal-workspace-page .personal-account-settings > summary::-webkit-details-marker{display:none;}
+.workspace-app .personal-workspace-page .personal-account-settings > summary::after{
+ content:"⌄";margin-left:auto;font-size:18px;line-height:1;
+}
+.workspace-app .personal-workspace-page .personal-account-settings[open] > summary::after{transform:rotate(180deg);}
+.workspace-app .personal-workspace-page .personal-account-settings[open] > summary{
+ border-bottom:1px solid var(--qf-line);
+}
+.workspace-app .personal-workspace-page .personal-account-settings > :not(summary){max-width:100%;min-width:0;}
+
+
+/* MOBILE RELEASE: module-specific content layouts.
+   Restrict selectors to known page roots so desktop remains unchanged. */
+@media(max-width:760px){
+ .workspace-app .content{min-width:0;overflow-x:clip;padding-inline:12px!important;}
+ .workspace-app .content > :is(.page-stack,.dashboard-page,.quality-gantt-page,.my-work-page,
+ .physician-license-page,.incoming-documents-page,.document-publications-page,
+ .procedure-trainings-page,.procurement-page){width:100%;min-width:0;max-width:100%;}
+ .workspace-app :is(.qcc-dashboard,.quality-gantt-page,.my-work-page,
+ .physician-license-page,.incoming-documents-page,.document-publications-page,
+ .procedure-trainings-page,.procurement-page,.personal-workspace-page)
+ :is(.page-header-row,.section-head,.panel-head,.toolbar,.filter-bar,.filters,.actions){
+   min-width:0;max-width:100%;flex-wrap:wrap;row-gap:9px;
+ }
+ .workspace-app :is(.qcc-dashboard,.quality-gantt-page,.my-work-page,
+ .physician-license-page,.incoming-documents-page,.document-publications-page,
+ .procedure-trainings-page,.procurement-page,.personal-workspace-page)
+ :is(.panel,.card,.kpi-card,.work-section,.gantt-shell){
+   box-sizing:border-box;min-width:0;max-width:100%;border-radius:13px;
+ }
+ .workspace-app :is(.qcc-dashboard,.my-work-page,.quality-gantt-page)
+ :is(.kpis,.kpi-grid){display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important;}
+ .workspace-app :is(.qcc-dashboard,.my-work-page,.quality-gantt-page)
+ :is(.kpis,.kpi-grid) > *{min-width:0;margin:0!important;padding:12px!important;}
+ .workspace-app :is(.qcc-dashboard,.my-work-page,.quality-gantt-page)
+ :is(.kpi-value,.kpi-card .value){font-size:clamp(21px,6vw,30px)!important;line-height:1.1;}
+ .workspace-app .qcc-dashboard :is(.grid2,.grid2b,.grid3b,.legacy-grid3),
+ .workspace-app .my-work-page .work-columns{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:12px!important;}
+ .workspace-app .qcc-dashboard .scope-controls{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px!important;width:100%;}
+ .workspace-app .qcc-dashboard .scope-controls > *{min-width:0;max-width:100%;}
+ .workspace-app .quality-gantt-page .gantt-shell{overflow:hidden;}
+ .workspace-app .quality-gantt-page .gantt-scroll{overflow-x:auto!important;-webkit-overflow-scrolling:touch;}
+ .workspace-app .my-work-page .work-search-row{display:flex;flex-wrap:wrap;gap:8px;}
+ .workspace-app .my-work-page .work-search-row .search-box{min-width:0;flex:1 1 180px;}
+ .workspace-app .my-work-page .work-tabs{display:flex;overflow-x:auto;white-space:nowrap;max-width:100%;-webkit-overflow-scrolling:touch;}
+ .workspace-app .my-work-page .work-tabs > *{flex:0 0 auto;}
+ .workspace-app .my-work-page .work-card-list{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;}
+ .workspace-app .my-work-page .work-pagination{display:flex;flex-wrap:wrap;gap:8px;}
+ .workspace-app :is(.physician-license-page,.incoming-documents-page,
+ .document-publications-page,.procedure-trainings-page,.procurement-page)
+ :is(input,select,textarea){min-width:0;max-width:100%;box-sizing:border-box;}
+ .workspace-app :is(.physician-license-page,.incoming-documents-page,
+ .document-publications-page,.procedure-trainings-page,.procurement-page)
+ :is(.table-wrap,.table-container){overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;}
+ .workspace-app .workspace-strip-inner{min-width:0;max-width:100%;}
+ .workspace-app .workspace-tabs{overflow-x:auto;max-width:100%;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+ .workspace-app .workspace-tabs::-webkit-scrollbar{display:none;}
+ .workspace-app .workspace-tab{flex:0 0 auto;white-space:nowrap;}
+}
+@media(max-width:370px){
+ .workspace-app .qcc-dashboard .scope-controls{grid-template-columns:minmax(0,1fr);}
+}
+
+/* Shared PageHeader: consistent compact mobile hierarchy on every module. */
+@media(max-width:760px){
+ .workspace-app .page-header{
+   display:flex;flex-direction:column;align-items:stretch;gap:9px!important;
+   padding:12px 13px!important;margin-bottom:0!important;
+   background:#fff;border:1px solid var(--qf-line);border-radius:14px;
+   box-shadow:0 2px 9px rgba(27,78,140,.035);
+ }
+ .workspace-app .page-header-main{
+   display:flex;align-items:flex-start;gap:10px;min-width:0;max-width:100%;
+ }
+ .workspace-app .page-header-main > div{min-width:0;flex:1;}
+ .workspace-app .page-header-icon{
+   width:34px!important;height:34px!important;min-width:34px!important;
+   border-radius:10px!important;display:grid;place-items:center;
+   background:#edf5ff!important;color:#1677ff!important;
+ }
+ .workspace-app .page-header h1{
+   font-size:clamp(18px,5vw,21px)!important;line-height:1.25!important;
+   margin:0!important;letter-spacing:-.025em;
+ }
+ .workspace-app .page-header .eyebrow{
+   font-size:10px!important;letter-spacing:.065em!important;margin-bottom:3px!important;
+ }
+ .workspace-app .page-header p{
+   font-size:12px!important;line-height:1.45!important;margin:5px 0 0!important;
+   max-width:100%;overflow-wrap:anywhere;
+ }
+ .workspace-app .page-header .page-actions{
+   display:flex;flex-wrap:wrap;gap:7px;min-width:0;max-width:100%;
+ }
+ .workspace-app .page-header .page-actions > *{min-width:0;max-width:100%;}
+}
+
+
+/* Module form systems: actual client component class names (not generic guesses). */
+@media(max-width:760px){
+ .workspace-app :is(.incoming-doc-overview,.document-publications-overview,
+ .pt-overview,.procurement-overview,.physician-license-overview){
+   display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0;
+ }
+ .workspace-app :is(.doc-form,.dp-form,.pt-form,.procurement-form,.pl-form){
+   display:flex;flex-direction:column;gap:10px;min-width:0;max-width:100%;
+ }
+ .workspace-app :is(.doc-form-row,.dp-form-row,.pt-form-row,
+ .procurement-form-row,.pl-form-row){
+   display:grid!important;grid-template-columns:minmax(0,1fr)!important;
+   gap:9px!important;min-width:0;max-width:100%;
+ }
+ .workspace-app :is(.doc-form,.dp-form,.pt-form,.procurement-form,.pl-form)
+ :is(input,select,textarea,.input){
+   display:block;box-sizing:border-box;min-width:0;max-width:100%;width:100%;
+   font-size:16px;
+ }
+ .workspace-app :is(.doc-form,.dp-form,.pt-form,.procurement-form,.pl-form)
+ label{min-width:0;max-width:100%;overflow-wrap:anywhere;}
+ .workspace-app :is(.doc-edit-actions,.dp-actions,.dp-publish-actions,
+ .pt-edit-actions,.procurement-actions,.procurement-note-actions){
+   display:flex;flex-wrap:wrap;gap:7px;min-width:0;max-width:100%;
+ }
+ .workspace-app :is(.doc-edit-actions,.dp-actions,.dp-publish-actions,
+ .pt-edit-actions,.procurement-actions,.procurement-note-actions)
+ :is(button,a){min-height:38px;white-space:normal;overflow-wrap:anywhere;}
+ .workspace-app :is(.incoming-doc-overview,.document-publications-overview,
+ .pt-overview,.procurement-overview,.physician-license-overview)
+ .panel{min-width:0;max-width:100%;overflow-wrap:anywhere;}
+ .workspace-app :is(.incoming-documents-page,.document-publications-page,
+ .procedure-trainings-page,.procurement-page,.physician-license-page)
+ .work-row{min-width:0;max-width:100%;gap:8px;}
+ .workspace-app :is(.incoming-documents-page,.document-publications-page,
+ .procedure-trainings-page,.procurement-page,.physician-license-page)
+ .work-main{min-width:0;overflow-wrap:anywhere;}
+ .workspace-app :is(.incoming-documents-page,.document-publications-page,
+ .procedure-trainings-page,.procurement-page,.physician-license-page)
+ .table-wrap{width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+ .workspace-app .bieu-mau-tree-groups{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;}
+ .workspace-app .bieu-mau-tree-group{min-width:0;max-width:100%;overflow:hidden;}
+ .workspace-app .bieu-mau-tree-group-head{display:flex;flex-wrap:wrap;gap:8px;min-width:0;}
+ .workspace-app .bieu-mau-tree-table{min-width:620px;}
+ .workspace-app .modal-card{max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 32px);overflow-y:auto;}
+}
+
+
+/* Indicator and EMR client modules: mobile workflow, filters and editing dialogs. */
+@media(max-width:760px){
+ .workspace-app .indicator-workflow{min-width:0;max-width:100%;}
+ .workspace-app .indicator-workflow .iw-head{display:flex;flex-wrap:wrap;gap:8px;min-width:0;}
+ .workspace-app .indicator-workflow .iw-steps{display:flex;overflow-x:auto;max-width:100%;gap:8px;-webkit-overflow-scrolling:touch;}
+ .workspace-app .indicator-workflow .iw-steps > *{flex:0 0 auto;min-width:0;}
+ .workspace-app .indicator-workflow .iw-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+ .workspace-app .indicator-workflow .iw-metric{min-width:0;overflow-wrap:anywhere;}
+ .workspace-app .indicator-workflow .iw-form{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;min-width:0;}
+ .workspace-app .indicator-workflow .iw-form :is(input,select,textarea){min-width:0;max-width:100%;width:100%;box-sizing:border-box;font-size:16px;}
+ .workspace-app .indicator-workflow .iw-actions{display:flex;flex-wrap:wrap;gap:8px;}
+ .workspace-app .emr-detail-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px;}
+ .workspace-app .emr-role-check-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:8px;}
+ .workspace-app .emr-scope-matrix{min-width:0;max-width:100%;overflow:hidden;}
+ .workspace-app .emr-scope-matrix .table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+ .workspace-app .emr-scope-matrix .data-table{min-width:680px;}
+ .workspace-app .emr-timeline-child-draft{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;}
+ .workspace-app .emr-timeline-child-draft :is(input,select,textarea){width:100%;min-width:0;max-width:100%;box-sizing:border-box;}
+ .workspace-app .modal-body .form-grid.two{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px;}
+ .workspace-app .modal-body .form-grid.two > *{min-width:0;max-width:100%;grid-column:auto!important;}
+ .workspace-app .modal-body .form-grid.two .span-2{grid-column:1/-1!important;}
+ .workspace-app .modal-footer{display:flex;flex-wrap:wrap;gap:8px;}
+ .workspace-app .modal-body :is(input,select,textarea){max-width:100%;min-width:0;box-sizing:border-box;font-size:16px;}
+ .workspace-app .toolbar :is(.toolbar-left,.toolbar-right){display:flex;flex-wrap:wrap;min-width:0;gap:7px;}
+ .workspace-app .toolbar .search-box{flex:1 1 190px;min-width:0;max-width:100%;}
+}
+
+/* Visibly redesigned mobile operations: distinguish input and record sections. */
+@media(max-width:760px){
+ .workspace-app .mobile-module-redesign{display:flex!important;flex-direction:column;gap:13px!important;}
+ .workspace-app .mobile-module-redesign > .panel{
+   border:1px solid #d6e5f7!important;border-radius:16px!important;
+   padding:14px!important;background:#fff!important;
+   box-shadow:0 5px 18px rgba(20,69,125,.06)!important;
+ }
+ .workspace-app .mobile-module-redesign > .panel:first-child{
+   border-top:3px solid #1677ff!important;
+ }
+ .workspace-app .mobile-module-redesign .panel-title{
+   display:flex;align-items:flex-start;gap:9px;flex-wrap:wrap;
+   padding-bottom:10px!important;margin-bottom:12px!important;
+   border-bottom:1px solid #e7eff9;
+ }
+ .workspace-app .mobile-module-redesign .panel-title h2{
+   font-size:15px!important;font-weight:800!important;line-height:1.35!important;
+   margin:0!important;color:#15355f!important;
+ }
+ .workspace-app .mobile-module-redesign .panel-title p{
+   font-size:12px!important;line-height:1.5!important;color:#71829a!important;
+   margin:5px 0 0!important;
+ }
+ .workspace-app .mobile-module-redesign :is(.doc-form,.dp-form,.pl-form){
+   padding:0!important;background:transparent!important;border:0!important;
+ }
+ .workspace-app .mobile-module-redesign :is(.doc-form,.dp-form,.pl-form) > .input{
+   min-height:44px!important;border-radius:10px!important;
+ }
+ .workspace-app .mobile-module-redesign .table-wrap{
+   border:1px solid #e2ebf6;border-radius:12px;
+ }
+ .workspace-app .mobile-module-redesign .table-wrap table{min-width:620px;}
+}
+
+/* Indicators real overview and registry: the route renders these components, not indicator-workflow alone. */
+@media(max-width:760px){
+ .workspace-app .indicators-mobile-redesign{gap:11px!important;min-width:0;}
+ .workspace-app .indicators-mobile-redesign > div:first-child{justify-content:flex-start!important;}
+ .workspace-app .indicators-mobile-redesign > div:first-child .button{
+   width:100%;min-height:43px;justify-content:center;border-radius:11px;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-kpis{
+   display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-kpi{
+   padding:11px!important;min-width:0!important;gap:8px!important;align-items:flex-start!important;
+   border-radius:12px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-kpi-body{min-width:0;overflow-wrap:anywhere;}
+ .workspace-app .indicators-mobile-redesign .iq-grid{
+   display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:11px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-head{
+   display:flex!important;flex-wrap:wrap!important;gap:6px!important;min-width:0;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-queue{
+   display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-queue-row{
+   display:grid!important;grid-template-columns:minmax(0,1fr)!important;
+   gap:8px!important;padding:12px!important;min-width:0!important;
+   border:1px solid #e3edf8;border-radius:12px;
+ }
+ .workspace-app .indicators-mobile-redesign .iq-queue-row > *{min-width:0;overflow-wrap:anywhere;}
+ .workspace-app .indicators-mobile-redesign .iq-table{
+   display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;
+ }
+ .workspace-app .indicators-mobile-redesign .module-process-flow,
+ .workspace-app .indicators-mobile-redesign .module-shortcuts-grid,
+ .workspace-app .indicators-mobile-redesign .operating-spec-grid{
+   display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .module-toolbar{
+   display:flex!important;flex-wrap:wrap!important;gap:8px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .registry-desktop{display:none!important;}
+ .workspace-app .indicators-mobile-redesign .registry-mobile{
+   display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;
+ }
+ .workspace-app .indicators-mobile-redesign .registry-card{
+   min-width:0!important;padding:12px!important;border-radius:12px!important;
+   border:1px solid #dce8f5!important;background:#fff!important;
+ }
+ .workspace-app .indicators-mobile-redesign .module-pagination{flex-wrap:wrap;gap:8px;}
+}
+
+@media(max-width:760px){
+ .emr-mobile-redesign{display:flex!important;flex-direction:column;gap:12px;min-width:0}
+ .emr-mobile-redesign .emr-filters{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px}
+ .emr-mobile-redesign .emr-filter-field{min-width:0;width:100%}
+ .emr-mobile-redesign .emr-filter-field :is(input,select){width:100%;min-width:0;font-size:16px}
+ .emr-mobile-redesign .emr-kpis{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px}
+ .emr-mobile-redesign .emr-kpi{min-width:0;padding:12px;overflow-wrap:anywhere}
+ .emr-mobile-redesign :is(.hero-grid,.mid-grid,.bottom-grid,.readiness-grid){display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:11px}
+ .emr-mobile-redesign .emr-panel{min-width:0;max-width:100%;overflow:hidden}
+ .emr-mobile-redesign :is(.chart-shell,.table-wrap){max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .emr-mobile-redesign .emr-matrix-panel table{min-width:600px}
+ .emr-tree-mobile-redesign .bieu-mau-tree-groups{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:12px}
+ .emr-tree-mobile-redesign .bieu-mau-tree-group{min-width:0;max-width:100%;overflow:hidden}
+ .emr-tree-mobile-redesign .bieu-mau-tree-table{min-width:620px}
+}
+
+@media(max-width:760px){
+ .mobile-module-redesign :is(.pt-form,.procurement-form){display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px}
+ .mobile-module-redesign :is(.pt-form-row,.procurement-form-row){display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px}
+ .mobile-module-redesign :is(.pt-form,.procurement-form) :is(input,select,textarea){min-width:0;width:100%;max-width:100%;box-sizing:border-box;font-size:16px}
+ .mobile-module-redesign :is(.pt-session-edit,.procurement-note){min-width:0;max-width:100%;overflow-wrap:anywhere}
+ .mobile-module-redesign :is(.pt-edit-actions,.procurement-actions,.procurement-note-actions){display:flex;flex-wrap:wrap;gap:8px}
+ .mobile-module-redesign .work-list{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}
+ .mobile-module-redesign .work-row{display:flex;flex-wrap:wrap;gap:9px;padding:12px;border:1px solid #e3ebf6;border-radius:12px}
+ .mobile-module-redesign .work-main{min-width:0;flex:1 1 190px;overflow-wrap:anywhere}
+ .mobile-module-redesign .table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .mobile-module-redesign .table-wrap table{min-width:620px}
+}
+
+@media(max-width:760px){
+ .reports-mobile-redesign{min-width:0;max-width:100%}
+ .reports-mobile-redesign .registry-module-page{min-width:0;gap:12px}
+ .reports-mobile-redesign .module-process-flow,
+ .reports-mobile-redesign .module-shortcuts-grid,
+ .reports-mobile-redesign .operating-spec-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px}
+ .reports-mobile-redesign .module-process-card,
+ .reports-mobile-redesign .operating-spec-panel,
+ .reports-mobile-redesign .module-list-panel{min-width:0;max-width:100%;overflow:hidden}
+ .reports-mobile-redesign .module-toolbar{display:flex;flex-wrap:wrap;gap:8px}
+ .reports-mobile-redesign .module-toolbar :is(input,select){min-width:0;max-width:100%;font-size:16px}
+ .reports-mobile-redesign .registry-desktop{display:none!important}
+ .reports-mobile-redesign .registry-mobile{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px}
+ .reports-mobile-redesign .registry-card{min-width:0;border:1px solid #dce8f5;border-radius:12px;padding:12px;background:#fff}
+ .reports-mobile-redesign .module-pagination{display:flex;flex-wrap:wrap;gap:8px}
+ .reports-mobile-redesign .module-hero-summary{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px}
+}
+
+@media(max-width:760px){
+ .mobile-my-work-redesign{min-width:0;gap:11px}
+ .mobile-my-work-redesign .work-tabs{display:flex;gap:7px;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .mobile-my-work-redesign .work-tabs > *{flex:0 0 auto;white-space:nowrap}
+ .mobile-my-work-redesign .work-search-row{display:flex!important;flex-direction:column;gap:9px;align-items:stretch}
+ .mobile-my-work-redesign .search-box{min-width:0;width:100%;max-width:100%}
+ .mobile-my-work-redesign .search-box input{min-width:0;width:100%;font-size:16px}
+ .mobile-my-work-redesign .panel{min-width:0;max-width:100%;overflow:hidden;border-radius:13px}
+ .mobile-my-work-redesign .table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .mobile-my-work-redesign .table-wrap table{min-width:650px}
+ .mobile-my-work-redesign .page-actions{display:flex;flex-wrap:wrap;gap:7px}
+}
+
+@media(max-width:760px){
+ .personal-mobile-redesign .pw-section{min-width:0;max-width:100%;overflow:hidden;border-radius:14px}
+ .personal-mobile-redesign .pw-tabs{display:flex;gap:7px;max-width:100%;overflow-x:auto;flex-wrap:nowrap!important;padding:10px}
+ .personal-mobile-redesign .pw-tabs > *{flex:0 0 auto;white-space:nowrap}
+ .personal-mobile-redesign .pw-filter{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:8px}
+ .personal-mobile-redesign .pw-filter :is(input,select){width:100%;min-width:0;max-width:100%;font-size:16px}
+ .personal-mobile-redesign .pw-form{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px;padding:12px}
+ .personal-mobile-redesign .pw-form-row{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px}
+ .personal-mobile-redesign .pw-form :is(input,textarea,select){min-width:0;max-width:100%;width:100%;box-sizing:border-box;font-size:16px}
+ .personal-mobile-redesign .pw-row{display:flex;flex-wrap:wrap;gap:8px;min-width:0;padding:12px}
+ .personal-mobile-redesign .pw-row .work-main{min-width:0;flex:1 1 180px;overflow-wrap:anywhere}
+ .personal-mobile-redesign .pw-edit{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+ .personal-mobile-redesign .pw-edit-actions{display:flex;flex-wrap:wrap;gap:8px}
+ .personal-mobile-redesign .pw-note-content{overflow-wrap:anywhere;white-space:pre-wrap}
+}
+
+@media(max-width:760px){
+ .incoming-doc-overview .table-wrap{overflow:visible!important}
+ .incoming-doc-overview .table-wrap table{display:block!important;min-width:0!important;width:100%!important}
+ .incoming-doc-overview .table-wrap thead{display:none!important}
+ .incoming-doc-overview .table-wrap tbody{display:grid!important;gap:12px}
+ .incoming-doc-overview .table-wrap tbody tr{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:0;padding:12px;border:1px solid #dce5ee;border-radius:14px;background:#fff;box-shadow:0 3px 12px #10233a0a}
+ .incoming-doc-overview .table-wrap tbody td{display:grid!important;grid-template-columns:105px minmax(0,1fr);gap:9px;align-items:start;min-width:0!important;width:100%!important;padding:9px 0!important;border:0!important;border-bottom:1px solid #edf1f5!important;overflow-wrap:anywhere;white-space:normal!important}
+ .incoming-doc-overview .table-wrap tbody td:last-child{border-bottom:0!important}
+ .incoming-doc-overview .table-wrap tbody td[data-label]::before{content:attr(data-label);font-size:12px;font-weight:700;color:#64748b}
+ .incoming-doc-overview .table-wrap tbody td:nth-child(2){font-weight:700;color:#12324d}
+ .incoming-doc-overview .table-wrap tbody td :is(input,select){min-width:0;width:100%;font-size:16px}
+ .incoming-doc-overview .doc-edit-actions{display:flex;flex-wrap:wrap;gap:8px}
+ .incoming-doc-overview .table-wrap tbody td.empty-state{display:block!important}
+}
+
+@media(max-width:760px){
+ .physician-license-overview .table-wrap{overflow:visible!important}
+ .physician-license-overview .table-wrap table{display:block!important;min-width:0!important;width:100%!important}
+ .physician-license-overview .table-wrap thead{display:none!important}
+ .physician-license-overview .table-wrap tbody{display:grid!important;gap:12px}
+ .physician-license-overview .table-wrap tbody tr{display:grid!important;grid-template-columns:minmax(0,1fr);gap:0;padding:12px;border:1px solid #dce5ee;border-radius:14px;background:white;box-shadow:0 3px 12px #10233a0a}
+ .physician-license-overview .table-wrap tbody td{display:grid!important;grid-template-columns:100px minmax(0,1fr);gap:8px;min-width:0!important;width:100%!important;padding:9px 0!important;border:0!important;border-bottom:1px solid #edf1f5!important;white-space:normal!important;overflow-wrap:anywhere}
+ .physician-license-overview .table-wrap tbody td:last-child{border-bottom:0!important}
+ .physician-license-overview .table-wrap tbody td[data-label]::before{content:attr(data-label);font-size:12px;font-weight:700;color:#64748b}
+ .physician-license-overview .table-wrap tbody td:first-child{font-weight:700;color:#12324d}
+ .physician-license-overview .table-wrap tbody td :is(input,select){min-width:0;width:100%;font-size:16px}
+ .physician-license-overview .table-wrap tbody td button{max-width:100%;white-space:normal}
+}
+
+.incoming-doc-overview .doc-overview-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.incoming-doc-overview .doc-overview-kpis>div{background:#fff;border:1px solid #e1e8f0;border-radius:13px;padding:13px;display:grid;gap:5px}
+.incoming-doc-overview .doc-overview-kpis small{font-size:12px;color:#64748b}
+.incoming-doc-overview .doc-overview-kpis strong{font-size:25px;color:#12324d}
+.incoming-doc-overview .doc-intake-toggle{margin:0 12px 12px}
+.incoming-doc-overview .doc-view-tabs{display:flex;gap:7px;padding:0 12px 12px;overflow-x:auto}
+.incoming-doc-overview .doc-view-tabs button{border:1px solid #dce5ee;border-radius:999px;background:#fff;padding:9px 13px;white-space:nowrap;color:#475569;font-weight:600;cursor:pointer}
+.incoming-doc-overview .doc-view-tabs button.active{background:#123c66;color:white;border-color:#123c66}
+.incoming-doc-overview .doc-search{display:block;margin:0 12px 12px;width:calc(100% - 24px);box-sizing:border-box}
+@media(max-width:760px){.incoming-doc-overview .doc-overview-kpis{gap:7px}.incoming-doc-overview .doc-overview-kpis>div{padding:10px}.incoming-doc-overview .doc-overview-kpis small{font-size:11px}.incoming-doc-overview .doc-overview-kpis strong{font-size:22px}.incoming-doc-overview .doc-view-tabs{padding:0 10px 12px}.incoming-doc-overview .doc-search{font-size:16px}}
+
+.physician-license-overview .pl-overview-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.physician-license-overview .pl-overview-kpis>div{background:white;border:1px solid #dce5ee;border-radius:13px;padding:13px;display:grid;gap:5px}
+.physician-license-overview .pl-overview-kpis small{color:#64748b;font-size:12px}
+.physician-license-overview .pl-overview-kpis strong{color:#12324d;font-size:25px}
+.physician-license-overview .pl-create-toggle{margin:0 12px 12px}
+.physician-license-overview .pl-search{display:block;width:calc(100% - 24px);box-sizing:border-box;margin:0 12px 12px}
+@media(max-width:760px){.physician-license-overview .pl-overview-kpis{gap:7px}.physician-license-overview .pl-overview-kpis>div{padding:10px}.physician-license-overview .pl-overview-kpis small{font-size:11px}.physician-license-overview .pl-overview-kpis strong{font-size:22px}.physician-license-overview .pl-search{font-size:16px}}
+
+@media(max-width:760px){
+ .document-publications-overview .mobile-collapsible-form:not(.is-open),
+ .procurement-overview .mobile-collapsible-form:not(.is-open),
+ .pt-overview .mobile-collapsible-form:not(.is-open){display:none!important}
+ .document-publications-overview .mobile-form-toggle,
+ .procurement-overview .mobile-form-toggle,
+ .pt-overview .mobile-form-toggle{display:flex;width:calc(100% - 24px);justify-content:center;margin:0 12px 12px;min-height:42px}
+ .document-publications-overview .mobile-collapsible-form.is-open,
+ .procurement-overview .mobile-collapsible-form.is-open,
+ .pt-overview .mobile-collapsible-form.is-open{display:grid!important;grid-template-columns:minmax(0,1fr)!important}
+}
+@media(min-width:761px){
+ .document-publications-overview .mobile-form-toggle,
+ .procurement-overview .mobile-form-toggle,
+ .pt-overview .mobile-form-toggle{display:none!important}
+}
+
+.mobile-module-redesign .mobile-workflow-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.mobile-module-redesign .mobile-workflow-kpis>div{display:grid;gap:5px;padding:13px;background:white;border:1px solid #dce5ee;border-radius:13px}
+.mobile-module-redesign .mobile-workflow-kpis small{font-size:12px;color:#64748b}
+.mobile-module-redesign .mobile-workflow-kpis strong{font-size:25px;color:#12324d}
+.mobile-module-redesign .mobile-workflow-filters{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:0 12px 12px}
+.mobile-module-redesign .mobile-workflow-filters>.input{flex:1 1 240px;min-width:0}
+.mobile-module-redesign .mobile-workflow-filters label{display:flex;gap:7px;align-items:center;font-size:13px}
+@media(max-width:760px){.mobile-module-redesign .mobile-workflow-kpis{gap:7px}.mobile-module-redesign .mobile-workflow-kpis>div{padding:10px}.mobile-module-redesign .mobile-workflow-kpis small{font-size:11px}.mobile-module-redesign .mobile-workflow-kpis strong{font-size:22px}.mobile-module-redesign .mobile-workflow-filters{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}.mobile-module-redesign .mobile-workflow-filters>.input{width:100%;font-size:16px}}
+
+@media(max-width:760px){
+ .incoming-doc-overview .mobile-collapsible-form:not(.is-open),
+ .physician-license-overview .mobile-collapsible-form:not(.is-open){display:none!important}
+ .incoming-doc-overview .doc-intake-toggle,
+ .physician-license-overview .pl-create-toggle{display:flex;width:calc(100% - 24px);justify-content:center;margin:0 12px 12px;min-height:42px}
+ .incoming-doc-overview .mobile-collapsible-form.is-open,
+ .physician-license-overview .mobile-collapsible-form.is-open{display:grid!important;grid-template-columns:minmax(0,1fr)!important}
+}
+@media(min-width:761px){
+ .incoming-doc-overview .doc-intake-toggle,
+ .physician-license-overview .pl-create-toggle{display:none!important}
+}
+
+@media(max-width:760px){.emr-group-overview .mobile-form-toggle{display:flex;width:calc(100% - 24px);margin:12px;justify-content:center}.emr-group-overview .mobile-collapsible-form:not(.is-open){display:none!important}.emr-group-overview .mobile-collapsible-form.is-open{display:block!important}.emr-group-overview .mobile-collapsible-form.is-open .toolbar-left{display:grid!important;grid-template-columns:minmax(0,1fr);width:100%}.emr-group-overview .mobile-collapsible-form.is-open input{width:100%!important;min-width:0!important;box-sizing:border-box}.emr-group-overview .table-wrap{overflow-x:auto;max-width:100%}}
+@media(min-width:761px){.emr-group-overview .mobile-form-toggle{display:none!important}}
+
+/* Consolidated mobile workflow QA: preserve desktop forms and usable actions */
+@media(max-width:760px){
+ .pt-overview .mobile-collapsible-form:not(.is-open){display:none!important}
+ .pt-overview .mobile-form-toggle{display:flex!important}
+ .pt-overview .mobile-workflow-filters select{width:100%;min-width:0;font-size:16px}
+ .physician-license-overview td[data-label="Thao tác"]{display:flex!important;flex-wrap:wrap;gap:8px;align-items:center}
+ .physician-license-overview td[data-label="Thao tác"]::before{flex:0 0 100%}
+ .mobile-module-redesign .mobile-workflow-kpis{min-width:0}
+ .mobile-module-redesign .mobile-workflow-kpis>div{min-width:0;overflow-wrap:anywhere}
+ .mobile-module-redesign .mobile-workflow-filters .input{min-width:0;box-sizing:border-box}
+ .emr-group-overview .table-wrap{overscroll-behavior-x:contain}
+}

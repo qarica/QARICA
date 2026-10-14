@@ -1,7 +1,11 @@
+import { TaskExtensionReviewQueue } from "@/components/task-extension-review-queue";
+import { PersonalTaskProgressTitle } from "@/components/personal-task-progress-title";
+import { UnifiedPersonalTaskActions } from "@/components/unified-personal-task-actions";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { WorkRowCheckbox, WorkRowSelectionProvider, WorkSelectionCount } from "@/components/work-row-checkbox";
 import { MyWorkSyncClient } from "@/components/my-work-sync-client";
+import { WorkFollowupControl } from "@/components/work-followup-control";
 import { PageHeader } from "@/components/page-header";
 import { PersonalReminders } from "@/components/personal-reminders";
 import { RECORD_TYPE_LABEL } from "@/components/record-traceability-panel";
@@ -31,9 +35,10 @@ const ACTION_SELECT="action_id,record_id,record_code,title,work_year,workflow_st
 export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string;q?:string;page?:string}>}){
  const {user}=await requireUserContext();requirePermission(user,"tasks.view");const year=await getWorkYear();const supabase=await createClient();const today=hcmToday();
  const {tab:rawTab,q:rawQ,page:rawPage}=await searchParams;
- const tab=(["ALL","REMINDER","ASSIGNED","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"ALL") as "ALL"|"REMINDER"|"ASSIGNED"|"WATCH"|"DONE";
+ const tab=(["ALL","OPEN","REMINDER","ASSIGNED","WAITING","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"OPEN") as "ALL"|"OPEN"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE";
  const searchQuery=String(rawQ||"").trim();
- const page=Math.max(1,Number(rawPage)||1);
+ const requestedPage=Number(rawPage ?? 1);
+ const page=Number.isSafeInteger(requestedPage)&&requestedPage>0?requestedPage:1;
  const PAGE_SIZE=10;
  const isQlcl=user.roleCodes.includes("QLCL_MANAGER")||user.roleCodes.includes("HOI_DONG_QLCL");const isDepartmentHead=user.roleCodes.includes("DEPARTMENT_HEAD");const isBoard=user.roleCodes.includes("BAN_GIAM_DOC");
  const groupAssignmentRes=await supabase
@@ -87,7 +92,14 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const createdByForRecord=(recordId:string)=>{const creatorId=recordCreatedByMap.get(recordId);return creatorId?creatorNameMap.get(creatorId)||"—":"—"};
  const roleDepartmentIds=Array.from(new Set([...scopeSourceRows.map(r=>r.lead_department_id),user.primaryDepartmentId].filter(Boolean)));const roleDepartmentsRes=roleDepartmentIds.length?await supabase.from("departments").select("id,name,short_name").in("id",roleDepartmentIds):{data:[],error:null};const roleDepartmentMap=new Map((roleDepartmentsRes.data??[]).map((d:any)=>[d.id,d.short_name||d.name]));
  const assignedGroupIds=Array.from(new Set([...sourceRows,...scopeSourceRows].map((r:any)=>r.assignee_group_id).filter(Boolean))) as string[];const assignedGroupsRes=assignedGroupIds.length?await supabase.from("work_groups").select("id,name,code").in("id",assignedGroupIds):{data:[],error:null};const assignedGroupMap=new Map((assignedGroupsRes.data??[]).map((g:any)=>[g.id,[g.code,g.name].filter(Boolean).join(" · ")]));
- const rows=sourceRows.filter(r=>r.workflow_status!=="CANCELLED"&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const attention=(attentionRes.data??[]) as any[];const personalReminders=(personalRemindersRes.data??[]) as any[];const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=actionsRes.error||attentionRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error;
+ const rows=sourceRows.filter(r=>r.workflow_status!=="CANCELLED"&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const attention=(attentionRes.data??[]) as any[];const personalReminders=(personalRemindersRes.data??[]) as any[];
+ const {data:legacyPersonalTasks,error:legacyPersonalError}=await supabase.from("personal_workspace_items").select("id,title,content,category,due_at,status,completed_at,item_type").eq("owner_user_id",user.id).eq("item_type","TASK").is("deleted_at",null).limit(500);const workFollowupSourceIds=Array.from(new Set([...rows.map((r:any)=>r.action_id),...myEmrItems.map((r:any)=>r.id)].filter(Boolean))) as string[];
+ const workFollowupsRes=workFollowupSourceIds.length
+  ? await supabase.from("work_followups").select("id,source_type,source_id,state,waiting_for_label,follow_up_at,note").eq("owner_user_id",user.id).in("source_id",workFollowupSourceIds).in("state",["ACTIVE","WAITING"])
+  : {data:[],error:null};
+ const workFollowups=(workFollowupsRes.data??[]) as any[];
+ const followupBySource=new Map(workFollowups.map((f:any)=>[f.source_type+":"+f.source_id,f]));
+ const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=legacyPersonalError||actionsRes.error||attentionRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||creatorsRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error;
  // EMR items chưa DONE được tính gộp vào 4 KPI đầu (quá hạn/đến hạn/sắp tới/
  // đang mở) — không tính vào "Hoàn thành" vì emrItemsRes chỉ tải các mục
  // chưa DONE (không có lịch sử hoàn thành để đếm ở đây).
@@ -118,21 +130,26 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
 
  const openRows=rows.filter(r=>!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status));
 
- type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"};
+ type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"|"legacy";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null};
  const unifiedActionRows:UnifiedRow[]=rows.map(r=>({
   key:`a-${r.action_id}`,title:r.title,typeLabel:RECORD_TYPE_LABEL[recordTypeMap.get(r.record_id)||""]||"—",
   relatedTo:recordCodeMap.get(r.record_id)||"—",priority:r.priority,dueDate:r.due_date,
   statusLabel:r.is_overdue?"OVERDUE":r.workflow_status,isOverdue:!!r.is_overdue,isDone:r.workflow_status==="COMPLETED",
   isWatch:!r.is_overdue&&!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status)&&Number(r.days_to_due)>0,
-  assignedBy:createdByForRecord(r.record_id),href:`/tasks/${r.record_id}`,source:"action",
+  assignedBy:createdByForRecord(r.record_id),href:`/tasks/${r.record_id}`,source:"action",sourceId:r.action_id,sourceType:"ACTION",followup:followupBySource.get("ACTION:"+r.action_id)??null,
  }));
- const unifiedReminderRows:UnifiedRow[]=personalReminders.map((p:any)=>({
+ const unifiedReminderRows:UnifiedRow[]=[...personalReminders.map((p:any):UnifiedRow=>({
   key:`p-${p.id}`,title:p.title,typeLabel:"Note cá nhân",relatedTo:"—",priority:p.priority,
   dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="COMPLETED"?"COMPLETED":(p.due_at&&dateOnly(p.due_at)<today?"OVERDUE":p.status),
   isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="COMPLETED",
   isWatch:p.status==="OPEN"&&(!p.due_at||dateOnly(p.due_at)>=today),
-  assignedBy:"—",href:"/tasks",source:"reminder",
- }));
+  assignedBy:"—",href:"/tasks?tab=REMINDER#all-work",source:"reminder",sourceId:p.id,sourceType:null,followup:p.note??null,
+ })),...(legacyPersonalTasks??[]).map((p:any):UnifiedRow=>({
+  key:`legacy-${p.id}`,title:p.title,typeLabel:"Việc cá nhân",relatedTo:p.category||"Cá nhân",priority:"MEDIUM",
+  dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="DONE"?"COMPLETED":"OPEN",
+  isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="DONE",
+  isWatch:p.status==="OPEN",assignedBy:"—",href:`/me?item=${encodeURIComponent(p.id)}#personal-workspace`,source:"legacy",sourceId:p.id,sourceType:null,followup:p.content??null,
+ }))];
  const unifiedEmrRows:UnifiedRow[]=myEmrItems.map((item:any)=>{
   const category=EMR_CATEGORIES.find(c=>c.code===item.category);
   const overdueItem=!!item.due_date&&item.due_date<today;
@@ -140,12 +157,12 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
    key:`e-${item.id}`,title:item.title,typeLabel:`EMR · ${category?.label||item.category}`,
    relatedTo:category?.label||"EMR",priority:item.priority,dueDate:item.due_date,
    statusLabel:overdueItem?"OVERDUE":item.status,isOverdue:overdueItem,isDone:false,
-   isWatch:!overdueItem,assignedBy:"—",href:category?`/emr/${category.slug}`:"/emr",source:"emr",
+   isWatch:!overdueItem,assignedBy:"—",href:category?`/emr/${category.slug}`:"/emr",source:"emr",sourceId:item.id,sourceType:"EMR",followup:followupBySource.get("EMR:"+item.id)??null,
   };
  });
  const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows];
  const allWorkRows=[...unifiedAssignedRows,...unifiedReminderRows].sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999"));
- const byTab=tab==="REMINDER"?unifiedReminderRows:tab==="ASSIGNED"?unifiedAssignedRows:tab==="WATCH"?allWorkRows.filter(r=>r.isWatch):tab==="DONE"?allWorkRows.filter(r=>r.isDone):allWorkRows;
+ const byTab=tab==="OPEN"?allWorkRows.filter(r=>!r.isDone):tab==="REMINDER"?unifiedReminderRows:tab==="ASSIGNED"?unifiedAssignedRows:tab==="WAITING"?allWorkRows.filter(r=>r.followup?.state==="WAITING"):tab==="WATCH"?allWorkRows.filter(r=>r.isWatch):tab==="DONE"?allWorkRows.filter(r=>r.isDone):allWorkRows;
  const searched=searchQuery?byTab.filter(r=>r.title.toLowerCase().includes(searchQuery.toLowerCase())||r.relatedTo.toLowerCase().includes(searchQuery.toLowerCase())):byTab;
  const totalPages=Math.max(1,Math.ceil(searched.length/PAGE_SIZE));
  const currentPage=Math.min(page,totalPages);
@@ -165,15 +182,15 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  // "Việc sắp đến hạn": gộp Action mở + note cá nhân còn mở, sắp theo hạn gần nhất.
  const upcoming=[
   ...openRows.filter(r=>r.due_date).map(r=>({key:`a-${r.action_id}`,title:r.title,date:r.due_date as string,overdue:!!r.is_overdue,href:`/tasks/${r.record_id}`})),
-  ...personalReminders.filter((p:any)=>p.status==="OPEN"&&p.due_at).map((p:any)=>({key:`p-${p.id}`,title:p.title,date:dateOnly(p.due_at),overdue:dateOnly(p.due_at)<today,href:"/tasks"})),
+  ...personalReminders.filter((p:any)=>p.status==="OPEN"&&p.due_at).map((p:any)=>({key:`p-${p.id}`,title:p.title,date:dateOnly(p.due_at),overdue:dateOnly(p.due_at)<today,href:"/tasks?tab=REMINDER#all-work"})),
   ...myEmrItems.filter((e:any)=>e.due_date).map((e:any)=>({key:`e-${e.id}`,title:e.title,date:e.due_date as string,overdue:e.due_date<today,href:EMR_CATEGORIES.find(c=>c.code===e.category)?.slug?`/emr/${EMR_CATEGORIES.find(c=>c.code===e.category)!.slug}`:"/emr"})),
  ].sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
 
  return <div className="page-stack my-work-page tqm-my-work">
   <MyWorkSyncClient/>
-  <style>{`.tqm-my-work{max-width:1180px;margin:0 auto}.tqm-my-work .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.tqm-my-work .kpi-card{background:#fff;border:1px solid #e5eaf2;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.03)}.tqm-my-work .kpi-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.tqm-my-work .kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}.tqm-my-work .kpi-icon.blue{background:#dbeafe;color:#2563eb}.tqm-my-work .kpi-icon.green{background:#dcfce7;color:#16a34a}.tqm-my-work .kpi-icon.amber{background:#fef3c7;color:#b45309}.tqm-my-work .kpi-icon.red{background:#fee2e2;color:#dc2626}.tqm-my-work .kpi-icon.purple{background:#ede9fe;color:#7c3aed}.tqm-my-work .kpi-value{font-size:26px;font-weight:800;color:#0f172a}.tqm-my-work .kpi-title{font-size:12.5px;color:#475569;font-weight:600;margin-top:2px}.tqm-my-work .kpi-trend{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}.tqm-my-work .kpi-trend.down{color:#dc2626;background:#fef2f2}@media(max-width:1100px){.tqm-my-work .kpis{grid-template-columns:repeat(2,1fr)}}.tqm-my-work .work-section{background:#fff;border:1px solid #d3dee3;border-radius:16px;overflow:hidden}.tqm-my-work .work-section.primary{border:2px solid #9fb8c5}.tqm-my-work .section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:15px 17px;border-bottom:1px solid #e2e9ec;background:#f8fbfc}.tqm-my-work .section-head h2{margin:0;font-size:16px}.tqm-my-work .section-head p{margin:4px 0 0;color:#687a80;font-size:11px}.tqm-my-work .work-list{display:grid}.tqm-my-work .work-row{display:grid;grid-template-columns:minmax(0,1fr) 115px 110px auto;gap:12px;align-items:center;padding:13px 16px;border-bottom:1px solid #e7edef}.tqm-my-work .work-row:last-child{border-bottom:0}.tqm-my-work .work-row.danger{background:#fffafa}.tqm-my-work .work-main strong{font-size:12px}.tqm-my-work .work-main small{display:block;margin-top:4px;color:#718187;font-size:10px}.tqm-my-work .role-badge{display:inline-flex;border-radius:999px;background:#eaf2fb;color:#1d4f7a;padding:5px 8px;font-size:9px;font-weight:900}.tqm-my-work details{border-top:1px solid #dbe5e9}.tqm-my-work summary{cursor:pointer;padding:13px 16px;font-weight:800;font-size:12px;background:#fafcfd}.tqm-my-work .all-table{padding:0}.tqm-my-work .attention-list{display:grid;gap:8px;padding:12px 16px 16px}.tqm-my-work .attention-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid #e4eaec;border-radius:12px;padding:11px}.tqm-my-work .attention-item strong{font-size:11px}.tqm-my-work .attention-item small{display:block;margin-top:3px;color:#7b898f}.tqm-my-work .mobile-only{display:none}@media(max-width:760px){.tqm-my-work .work-row{grid-template-columns:1fr auto}.tqm-my-work .work-row>div:nth-child(2),.tqm-my-work .work-row>div:nth-child(3){display:none}.tqm-my-work .desktop-only{display:none}.tqm-my-work .mobile-only{display:grid;gap:10px}.tqm-my-work .my-work-card{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title action" "cue action";column-gap:12px;row-gap:5px;align-items:center;padding:14px 14px;background:#fff;border:1px solid #d7e1e5;border-radius:14px;overflow:hidden}.tqm-my-work .my-work-card.overdue{border-color:#efc6c6;background:#fffafa}.tqm-my-work .my-work-card strong{grid-area:title;display:block;min-width:0;font-size:14px;line-height:1.35;overflow-wrap:anywhere}.tqm-my-work .my-work-card small{grid-area:cue;display:block;color:#687a80;font-size:11px;line-height:1.35}.tqm-my-work .my-work-card .button{grid-area:action;align-self:center;white-space:nowrap;padding:8px 10px;font-size:11px;min-height:auto}}
+  <style>{`.tqm-my-work{max-width:1180px;margin:0 auto}.tqm-my-work .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.tqm-my-work .kpi-card{background:#fff;border:1px solid #e5eaf2;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.03)}.tqm-my-work .kpi-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.tqm-my-work .kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}.tqm-my-work .kpi-icon.blue{background:#dbeafe;color:#2563eb}.tqm-my-work .kpi-icon.green{background:#dcfce7;color:#16a34a}.tqm-my-work .kpi-icon.amber{background:#fef3c7;color:#b45309}.tqm-my-work .kpi-icon.red{background:#fee2e2;color:#dc2626}.tqm-my-work .kpi-icon.purple{background:#ede9fe;color:#7c3aed}.tqm-my-work .kpi-value{font-size:26px;font-weight:800;color:#0f172a}.tqm-my-work .kpi-title{font-size:12.5px;color:#475569;font-weight:600;margin-top:2px}.tqm-my-work .kpi-trend{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}.tqm-my-work .kpi-trend.down{color:#dc2626;background:#fef2f2}@media(max-width:1100px){.tqm-my-work .kpis{grid-template-columns:repeat(2,1fr)}}.tqm-my-work .work-section{background:#fff;border:1px solid #d3dee3;border-radius:16px;overflow:hidden}.tqm-my-work .work-section.primary{border:2px solid #9fb8c5}.tqm-my-work .section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:15px 17px;border-bottom:1px solid #e2e9ec;background:#f8fbfc}.tqm-my-work .section-head h2{margin:0;font-size:16px}.tqm-my-work .section-head p{margin:4px 0 0;color:#687a80;font-size:11px}.tqm-my-work .work-list{display:grid}.tqm-my-work .work-row{display:grid;grid-template-columns:minmax(0,1fr) 115px 110px auto;gap:12px;align-items:center;padding:13px 16px;border-bottom:1px solid #e7edef}.tqm-my-work .work-row:last-child{border-bottom:0}.tqm-my-work .work-row.danger{background:#fffafa}.tqm-my-work .work-main strong{font-size:12px}.tqm-my-work .work-main small{display:block;margin-top:4px;color:#718187;font-size:10px}.tqm-my-work .role-badge{display:inline-flex;border-radius:999px;background:#eaf2fb;color:#1d4f7a;padding:5px 8px;font-size:9px;font-weight:900}.tqm-my-work details{border-top:1px solid #dbe5e9}.tqm-my-work summary{cursor:pointer;padding:13px 16px;font-weight:800;font-size:12px;background:#fafcfd}.tqm-my-work .all-table{padding:0;max-width:100%;overflow-x:auto}.tqm-my-work .all-table table{width:100%;min-width:920px;table-layout:auto;border-collapse:collapse}.tqm-my-work .all-table th,.tqm-my-work .all-table td{padding:10px 8px;vertical-align:middle;white-space:normal;overflow-wrap:anywhere}.tqm-my-work .all-table th:nth-child(3),.tqm-my-work .all-table td:nth-child(3){min-width:180px;width:26%}.tqm-my-work .all-table th:last-child,.tqm-my-work .all-table td:last-child{min-width:175px;width:190px}.tqm-my-work .work-columns>div{min-width:0}.tqm-my-work .attention-list{display:grid;gap:8px;padding:12px 16px 16px}.tqm-my-work .attention-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid #e4eaec;border-radius:12px;padding:11px}.tqm-my-work .attention-item strong{font-size:11px}.tqm-my-work .attention-item small{display:block;margin-top:3px;color:#7b898f}.tqm-my-work .mobile-only{display:none}@media(max-width:760px){.tqm-my-work .work-row{grid-template-columns:1fr auto}.tqm-my-work .work-row>div:nth-child(2),.tqm-my-work .work-row>div:nth-child(3){display:none}.tqm-my-work .desktop-only{display:none}.tqm-my-work .mobile-only{display:grid;gap:10px}.tqm-my-work .my-work-card{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title action" "cue action";column-gap:12px;row-gap:5px;align-items:center;padding:14px 14px;background:#fff;border:1px solid #d7e1e5;border-radius:14px;overflow:hidden}.tqm-my-work .my-work-card.overdue{border-color:#efc6c6;background:#fffafa}.tqm-my-work .my-work-card strong{grid-area:title;display:block;min-width:0;font-size:14px;line-height:1.35;overflow-wrap:anywhere}.tqm-my-work .my-work-card small{grid-area:cue;display:block;color:#687a80;font-size:11px;line-height:1.35}.tqm-my-work .my-work-card .button{grid-area:action;align-self:center;white-space:nowrap;padding:8px 10px;font-size:11px;min-height:auto}}
   .tqm-my-work .kpi-card-foot{margin-top:10px;font-size:11px;font-weight:700;color:#2563eb}
-  .tqm-my-work .work-columns{display:grid;grid-template-columns:minmax(0,2fr) minmax(240px,1fr);gap:14px;align-items:start}
+  .tqm-my-work .work-columns{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
   .tqm-my-work .work-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}.tqm-my-work .work-tab{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#52656d;border:1px solid #d7e1e5;background:#fff}.tqm-my-work .work-tab.active{background:#2563eb;border-color:#2563eb;color:#fff}
   .tqm-my-work .work-search-row{display:flex;gap:8px;align-items:center;padding:10px 16px}.tqm-my-work .work-search-row .search-box{flex:1;max-width:280px}
   .tqm-my-work .work-selection-count{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#1d4ed8;background:#eff6ff}
@@ -186,7 +203,15 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   .tqm-my-work .work-pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;flex-wrap:wrap;font-size:11px;color:#64748b}.tqm-my-work .work-pagination-pages{display:flex;gap:5px}
   .tqm-my-work .mini-cal{padding:13px 14px}.tqm-my-work .mini-cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.tqm-my-work .mini-cal-head strong{font-size:12px;color:#243247}.tqm-my-work .mini-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}.tqm-my-work .mini-cal-wd{font-size:9px;font-weight:800;color:#94a3b8;padding:3px 0}.tqm-my-work .mini-cal-day{position:relative;font-size:10.5px;padding:5px 0;border-radius:7px;color:#334155}.tqm-my-work .mini-cal-day.today{background:#2563eb;color:#fff;font-weight:800}.tqm-my-work .mini-cal-day.has-event:not(.today):after{content:"";position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:#2563eb}
   .tqm-my-work .upcoming-list{display:grid;padding:4px 0}.tqm-my-work .upcoming-item{display:flex;justify-content:space-between;gap:8px;padding:9px 14px;border-top:1px solid #eef2f3;font-size:11px}.tqm-my-work .upcoming-item strong{display:block;font-size:11.5px;color:#243247;font-weight:700}.tqm-my-work .upcoming-item small{color:#94a3b8}.tqm-my-work .upcoming-item small.overdue{color:#c43232;font-weight:800}
-  @media(max-width:900px){.tqm-my-work .work-columns{grid-template-columns:1fr}}`}</style>
+  @media(max-width:760px){
+  .tqm-my-work .my-work-card{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:"title" "cue" "action"!important;align-items:stretch;overflow:visible;min-width:0}
+  .tqm-my-work .my-work-card>strong{grid-area:title;min-width:0;max-width:100%;overflow-wrap:break-word;word-break:normal;white-space:normal}
+  .tqm-my-work .my-work-card>small{grid-area:cue;min-width:0}
+  .tqm-my-work .my-work-card>div{grid-area:action;min-width:0;width:100%}
+  .tqm-my-work .my-work-card>div>div{min-width:0!important;width:100%;max-width:100%}
+  .tqm-my-work .my-work-card .button{white-space:normal}
+}
+@media(max-width:900px){.tqm-my-work .work-columns{grid-template-columns:1fr}}`}</style>
   <div className="my-work-header">
    <PageHeader eyebrow={`CÔNG VIỆC HÔM NAY · ${roleViewLabel} · ${year}`} title="Việc của tôi" description="Chỉ tập trung vào việc cần làm. Việc khẩn và đến hạn được đưa lên trước; các danh sách quản lý mở khi cần." icon="inbox"/>
    <div className="my-work-header-side">
@@ -217,6 +242,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
 
   <div className="work-columns">
    <div style={{display:"grid",gap:14}}>
+    <TaskExtensionReviewQueue userId={user.id}/>
     <PersonalReminders initialRows={personalReminders} organizationId={user.organizationId!} userId={user.id}/>
     <WorkRowSelectionProvider>
     {/* Tabs/search/pagination are plain query-string links + a GET form (no
@@ -226,20 +252,22 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
         viewport; the surrounding controls now render on both. */}
     <section id="all-work" className="work-section">
      <nav className="work-tabs" aria-label="Lọc việc được giao">
+      <Link href={tabHref("OPEN")} className={`work-tab ${tab==="OPEN"?"active":""}`}>Chưa hoàn thành · {allWorkRows.filter(r=>!r.isDone).length}</Link>
       <Link href={tabHref("ALL")} className={`work-tab ${tab==="ALL"?"active":""}`}>Tất cả · {allWorkRows.length}</Link>
-      <Link href={tabHref("REMINDER")} className={`work-tab ${tab==="REMINDER"?"active":""}`}>Note cá nhân · {unifiedReminderRows.length}</Link>
-      <Link href={tabHref("ASSIGNED")} className={`work-tab ${tab==="ASSIGNED"?"active":""}`}>Đã giao · {unifiedAssignedRows.length}</Link>
-      <Link href={tabHref("WATCH")} className={`work-tab ${tab==="WATCH"?"active":""}`}>Theo dõi · {allWorkRows.filter(r=>r.isWatch).length}</Link>
-      <Link href={tabHref("DONE")} className={`work-tab ${tab==="DONE"?"active":""}`}>Hoàn thành · {allWorkRows.filter(r=>r.isDone).length}</Link>
+      <Link href={tabHref("REMINDER")} className={`work-tab ${tab==="REMINDER"?"active":""}`}>Việc cá nhân · {unifiedReminderRows.length}</Link>
+      <Link href={tabHref("ASSIGNED")} className={`work-tab ${tab==="ASSIGNED"?"active":""}`}>Việc được giao · {unifiedAssignedRows.length}</Link>
+      <Link href={tabHref("WAITING")} className={tab==="WAITING"?"work-tab active":"work-tab"} title="Việc đang đợi người khác phản hồi hoặc hoàn thành phần việc liên quan">Chờ phản hồi · {allWorkRows.filter(r=>r.followup?.state==="WAITING").length}</Link>
+      <Link href={tabHref("WATCH")} className={`work-tab ${tab==="WATCH"?"active":""}`} title="Việc còn mở có hạn trong tương lai, cần tiếp tục theo dõi tiến độ">Cần theo dõi · {allWorkRows.filter(r=>r.isWatch).length}</Link>
+      <Link href={tabHref("DONE")} className={`work-tab ${tab==="DONE"?"active":""}`}>Đã hoàn thành · {allWorkRows.filter(r=>r.isDone).length}</Link>
       <WorkSelectionCount/>
      </nav>
      <form method="get" className="work-search-row">
       <input type="hidden" name="tab" value={tab}/>
-      <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm công việc..."/></div>
-      <button type="submit" className="button secondary small">Lọc</button>
+      <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm theo tên công việc / hồ sơ..."/></div>
+      <button type="submit" className="button secondary small">Tìm kiếm</button>
      </form>
-     <div className="table-wrap all-table desktop-only"><table><thead><tr><th></th><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Liên quan đến</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th><th>Người giao</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td><WorkRowCheckbox rowKey={r.key}/></td><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td><Link className="table-link" href={r.href}>{r.title}</Link></td><td>{r.typeLabel}</td><td>{r.relatedTo}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":""}>{r.dueDate?formatDate(r.dueDate):"—"}</td><td><StatusBadge status={r.statusLabel}/></td><td>{r.assignedBy}</td><td>{r.source==="reminder"?<ReminderRowDelete id={r.key.slice(2)} title={r.title}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={10}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
-     <div className="mobile-only work-card-list">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.title}</strong><small>{r.typeLabel} · {r.dueDate?formatDate(r.dueDate):"Không có hạn"}</small><Link className="button primary small" href={r.href}>Mở</Link></article>)}{!tableRowsPage.length?<div className="empty-state">Không có việc phù hợp.</div>:null}</div>
+     <div className="table-wrap all-table desktop-only"><table><thead><tr><th></th><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Liên quan đến</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th><th>Người giao</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td><WorkRowCheckbox rowKey={r.key}/></td><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td>{r.source==="reminder"||r.source==="legacy"?<PersonalTaskProgressTitle title={r.title} note={r.followup} taskId={r.sourceId!} source={r.source} ownerId={user.id}/>:<Link className="table-link" href={r.href}>{r.title}</Link>}</td><td>{r.typeLabel}</td><td>{r.relatedTo}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":""}>{r.dueDate?formatDate(r.dueDate):"—"}</td><td><StatusBadge status={r.statusLabel}/></td><td>{r.assignedBy}</td><td>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}/>:r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={10}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
+     <div className="mobile-only work-card-list">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.source==="reminder"||r.source==="legacy"?<PersonalTaskProgressTitle title={r.title} note={r.followup} taskId={r.sourceId!} source={r.source} ownerId={user.id}/>:r.title}</strong><small>{r.typeLabel} · {r.dueDate?formatDate(r.dueDate):"Không có hạn"}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}/>:<><Link className="button primary small" href={r.href}>Mở</Link>{r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</>}</div></article>)}{!tableRowsPage.length?<div className="empty-state">Không có việc phù hợp.</div>:null}</div>
      {searched.length?<div className="work-pagination"><span>Hiển thị {(currentPage-1)*PAGE_SIZE+1}-{Math.min(currentPage*PAGE_SIZE,searched.length)} của {searched.length} bản ghi</span><div className="work-pagination-pages">{Array.from({length:totalPages},(_,i)=>i+1).map(p=><Link key={p} href={pageHref(p)} className={`button small ${p===currentPage?"primary":"secondary"}`}>{p}</Link>)}</div></div>:null}
     </section>
     </WorkRowSelectionProvider>
@@ -250,7 +278,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
      <div className="mini-cal"><div className="mini-cal-head"><strong>{MONTH_NAMES[calMonth-1]}, {calYear}</strong></div><div className="mini-cal-grid">{WEEKDAYS.map(d=><div className="mini-cal-wd" key={d}>{d}</div>)}{calCells.map((date,idx)=><div key={date||`b-${idx}`} className={`mini-cal-day ${date===today?"today":""} ${date&&dueDateSet.has(date)?"has-event":""}`}>{date?Number(date.slice(-2)):""}</div>)}</div></div>
     </section>
     <section className="work-section">
-     <div className="section-head"><div><h2>Việc sắp đến hạn</h2><p>Gộp từ Action được giao, note cá nhân và hạng mục EMR của khoa/phòng còn mở.</p></div></div>
+     <div className="section-head"><div><h2>Việc cần chú ý theo hạn</h2><p>Chỉ là danh sách xem nhanh từ bảng công việc chính bên trái; không tạo thêm bản ghi.</p></div></div>
      <div className="upcoming-list">{upcoming.map(u=><Link key={u.key} className="upcoming-item" href={u.href}><strong>{u.title}</strong><small className={u.overdue?"overdue":""}>{formatDate(u.date)}</small></Link>)}{!upcoming.length?<div className="empty-state compact">Không có việc sắp đến hạn.</div>:null}</div>
     </section>
    </div>
