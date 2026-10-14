@@ -37,7 +37,8 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const {tab:rawTab,q:rawQ,page:rawPage}=await searchParams;
  const tab=(["ALL","OPEN","REMINDER","ASSIGNED","WAITING","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"OPEN") as "ALL"|"OPEN"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE";
  const searchQuery=String(rawQ||"").trim();
- const page=Math.max(1,Number(rawPage)||1);
+ const requestedPage=Number(rawPage ?? 1);
+ const page=Number.isSafeInteger(requestedPage)&&requestedPage>0?requestedPage:1;
  const PAGE_SIZE=10;
  const isQlcl=user.roleCodes.includes("QLCL_MANAGER")||user.roleCodes.includes("HOI_DONG_QLCL");const isDepartmentHead=user.roleCodes.includes("DEPARTMENT_HEAD");const isBoard=user.roleCodes.includes("BAN_GIAM_DOC");
  const groupAssignmentRes=await supabase
