@@ -22,6 +22,7 @@ const GROUP_IDS = [
   "document-publications",
   "procedure-training",
   "procurement",
+  "brain-workspace",
   "personal-workspace",
   "system-config",
 ];
@@ -40,10 +41,10 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 11 primary groups with one unified personal/work footer group", () => {
+  it("defines exactly 12 primary groups with one unified personal/work footer group", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no thirteenth group id besides these twelve
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(11);
+    // no additional group ids besides these twelve
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(12);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "AUDIT HSBA"');
@@ -53,7 +54,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   });
 
   it("orders the main (non-footer) groups exactly as requested: điều hành chất lượng, quản lý chất lượng, audit nội bộ KHTH, bệnh án điện tử, theo dõi hành nghề, quản lý công văn, phát hành văn bản, đào tạo quy trình, mua sắm & sửa chữa", () => {
-    const mainOrder = ["operations", "quality-management", "hsba-audit", "digital-systems", "physician-license", "incoming-documents", "document-publications", "procedure-training", "procurement"];
+    const mainOrder = ["operations", "quality-management", "hsba-audit", "digital-systems", "physician-license", "incoming-documents", "document-publications", "procedure-training", "procurement", "brain-workspace"];
     const positions = mainOrder.map((id) => navigation.indexOf(`id: "${id}"`));
     for (const position of positions) expect(position).toBeGreaterThanOrEqual(0);
     for (let i = 1; i < positions.length; i += 1) expect(positions[i]).toBeGreaterThan(positions[i - 1]);
