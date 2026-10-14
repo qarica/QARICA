@@ -29,10 +29,11 @@ type NavGroupDef = { id: string; label: string; icon: string; children: ChildDef
 const NAV_GROUPS: NavGroupDef[] = [
   {
     id: "operations",
-    label: "ĐIỀU HÀNH CHẤT LƯỢNG",
+    label: "ĐIỀU HÀNH VẬN HÀNH",
     icon: "layout-dashboard",
     children: [
       { label: "Tổng quan QLCL", href: "/dashboard", icon: "layout-dashboard", permission: "dashboard.view" },
+      { label: "Việc của tôi", href: "/tasks", icon: "inbox", permission: "tasks.view" },
       { label: "Lịch QLCL", href: "/calendar", icon: "calendar-days", permission: "dashboard.view" },
       { label: "Kế hoạch & Điều hành", icon: "target", workspaceRoot: "/plans" },
     ],
