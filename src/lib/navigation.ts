@@ -122,6 +122,7 @@ const NAV_GROUPS: NavGroupDef[] = [
     footer: true,
     children: [
       { label: "Việc của tôi", href: "/tasks", icon: "inbox", permission: "tasks.view" },
+      { label: "Brain Map", href: "/brain-map", icon: "network" },
       { label: "Brain · Sổ tay cá nhân", href: "/me", icon: "book-open" },
     ],
   },

@@ -33,9 +33,9 @@ export function BrainGraphClient(){
   }catch(e){setFeedback(e instanceof Error?e.message:"Có lỗi xảy ra.");}finally{setSaving(false)}
  }
  const selected=nodes.find(n=>n.id===focus);
- return <section className="card" style={{padding:16,display:"grid",gap:12}}>
- <header><h2 style={{margin:0}}>Brain Map</h2><p style={{margin:"6px 0 0"}}>Bản đồ ghi chú của tôi · Chọn một nút để xem kết nối</p></header>
- <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+ return <section className="brain-map-workspace" style={{display:"grid",gap:10,minWidth:0}}>
+ <header style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}><div><h2 style={{margin:0,fontSize:"1.15rem"}}>Brain Map</h2><p style={{margin:"2px 0 0",fontSize:13,opacity:.7}}>{nodes.length} ghi chú · {edges.length} kết nối</p></div><a href="/me" style={{fontSize:13}}>Mở sổ tay ↗</a></header>
+ <details className="brain-map-filters"><summary style={{cursor:"pointer",padding:"6px 0"}}>Tìm kiếm và bộ lọc</summary><div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",paddingTop:8}}>
  <input className="input" aria-label="Tìm nút Brain Map" placeholder="Tìm ghi chú..." value={query} onChange={e=>setQuery(e.target.value)} style={{flex:"1 1 200px"}}/>
  <button type="button" className="button secondary small" aria-pressed={!local} onClick={()=>setLocal(false)}>Toàn bộ</button>
  <button type="button" className="button secondary small" aria-pressed={local} disabled={!focus} onClick={()=>setLocal(true)}>Lân cận</button>
@@ -44,15 +44,16 @@ export function BrainGraphClient(){
  {loading?<p role="status">Đang tải bản đồ...</p>:null}{error?<p role="alert">{error}</p>:null}
  {!loading&&!error&&nodes.length===0?<p>Chưa có ghi chú. Hãy tạo ghi chú để bắt đầu xây dựng Brain Map.</p>:null}
  {truncated?<p role="status">Bản đồ hiển thị tối đa 250 ghi chú và 1.000 liên kết gần nhất.</p>:null}
+ </div></details>
  <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}><button type="button" className="button secondary small" aria-label="Thu nhỏ bản đồ" onClick={()=>setZoom(v=>clampZoom(v/1.25))}>−</button><span aria-live="polite">{Math.round(zoom*100)}%</span><button type="button" className="button secondary small" aria-label="Phóng to bản đồ" onClick={()=>setZoom(v=>clampZoom(v*1.25))}>+</button><button type="button" className="button secondary small" onClick={resetViewport}>Về giữa</button><small>Kéo vùng trống để di chuyển bản đồ</small></div>
- <div style={{background:"#10131d",borderRadius:16,overflow:"hidden",position:"relative"}}>
- <svg ref={svg} viewBox="0 0 1000 680" role="img" aria-label="Bản đồ kết nối các ghi chú" style={{display:"block",width:"100%",maxHeight:560,touchAction:"none",cursor:"grab"}} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+ <div style={{background:"#10131d",borderRadius:14,overflow:"hidden",position:"relative",minHeight:"min(68dvh,750px)"}}>
+ <svg ref={svg} viewBox="0 0 1000 680" role="img" aria-label="Bản đồ kết nối các ghi chú" style={{display:"block",width:"100%",height:"min(68dvh,750px)",minHeight:440,touchAction:"none",cursor:"grab"}} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
  <g transform={`translate(${pan.x} ${pan.y}) translate(500 340) scale(${zoom}) translate(-500 -340)`}>
  {edges.filter(e=>points.has(e.source)&&points.has(e.target)).map(e=>{const a=points.get(e.source)!,b=points.get(e.target)!;return <line key={e.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#7873b3" strokeOpacity=".65" strokeWidth="1.5"/>})}
  {visible.map(n=>{const p=points.get(n.id)!;return <g key={n.id} onClick={()=>{if(!suppressClick.current)setFocus(n.id)}} style={{cursor:"pointer"}}><circle cx={p.x} cy={p.y} r={focus===n.id?15:10} fill={colors[n.type]||"#a9a9d4"} stroke={focus===n.id?"#fff":"none"} strokeWidth="2"/><text x={p.x} y={p.y+26} fill="#f0efff" fontSize="13" textAnchor="middle">{n.label.length>24?n.label.slice(0,24)+"…":n.label}</text><title>{n.label}</title></g>})}
  </g></svg></div>
- {selected?<div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}><label htmlFor="brain-link-target">Liên kết ghi chú này với</label><select id="brain-link-target" className="input" value={target} onChange={e=>setTarget(e.target.value)} style={{flex:"1 1 200px"}}><option value="">Chọn ghi chú khác...</option>{nodes.filter(n=>n.id!==focus).map(n=><option key={n.id} value={n.id}>{n.label}</option>)}</select><button type="button" className="button primary small" disabled={!target||saving} onClick={()=>void connectNotes()}>{saving?"Đang liên kết...":"Tạo liên kết"}</button></div>:null}
+ {selected?<div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",padding:"10px 4px"}}><label htmlFor="brain-link-target">Liên kết ghi chú này với</label><select id="brain-link-target" className="input" value={target} onChange={e=>setTarget(e.target.value)} style={{flex:"1 1 200px"}}><option value="">Chọn ghi chú khác...</option>{nodes.filter(n=>n.id!==focus).map(n=><option key={n.id} value={n.id}>{n.label}</option>)}</select><button type="button" className="button primary small" disabled={!target||saving} onClick={()=>void connectNotes()}>{saving?"Đang liên kết...":"Tạo liên kết"}</button></div>:null}
  {feedback?<p role="status">{feedback}</p>:null}
- <div aria-live="polite">{selected?<p><strong>{selected.label}</strong> · {selected.status==="ARCHIVED"?"Đã lưu trữ":"Đang sử dụng"} · {edges.filter(e=>e.source===selected.id||e.target===selected.id).length} liên kết. <a href="/me#knowledge-journal">Mở sổ tay</a></p>:<p>Chọn một nút trên bản đồ để xem thông tin.</p>}</div>
+ <div aria-live="polite" style={{padding:"12px 4px"}}>{selected?<p><strong>{selected.label}</strong> · {selected.status==="ARCHIVED"?"Đã lưu trữ":"Đang sử dụng"} · {edges.filter(e=>e.source===selected.id||e.target===selected.id).length} liên kết. <a href="/me#knowledge-journal">Mở sổ tay</a></p>:<p>Chọn một nút trên bản đồ để xem thông tin.</p>}</div>
  </section>;
 }
