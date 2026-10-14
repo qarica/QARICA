@@ -8,6 +8,7 @@ export function BrainGraphClient(){
  const[query,setQuery]=useState(""),[focus,setFocus]=useState<string|null>(null);
  const[error,setError]=useState(""),[loading,setLoading]=useState(true),[truncated,setTruncated]=useState(false);
  const[local,setLocal]=useState(false);
+ const[statusFilter,setStatusFilter]=useState<"ALL"|"ACTIVE"|"ARCHIVED">("ALL");
  const[inspectorOpen,setInspectorOpen]=useState(true),[focusMode,setFocusMode]=useState(false);
  const[target,setTarget]=useState(""),[saving,setSaving]=useState(false),[feedback,setFeedback]=useState("");
  const svg=useRef<SVGSVGElement|null>(null);
@@ -21,7 +22,7 @@ export function BrainGraphClient(){
  function onPointerUp(e:React.PointerEvent<SVGSVGElement>){if(drag.current?.moved){e.preventDefault();suppressClick.current=true;}drag.current=null;if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId)}
 
  useEffect(()=>{let active=true;fetch("/api/knowledge/graph",{cache:"no-store"}).then(async r=>{const b=await r.json();if(!r.ok||!b.ok)throw Error(b.error||"Không tải được Brain Map");if(active){setNodes(b.nodes);setEdges(b.edges);setTruncated(b.truncated);}}).catch(e=>{if(active)setError(e.message)}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[]);
- const visible=useMemo(()=>{const q=query.trim().toLowerCase();const ids=new Set<string>();if(local&&focus){ids.add(focus);edges.forEach(e=>{if(e.source===focus)ids.add(e.target);if(e.target===focus)ids.add(e.source)})}return nodes.filter(n=>(!local||!focus||ids.has(n.id))&&(!q||n.label.toLowerCase().includes(q)||n.id===focus));},[nodes,edges,query,local,focus]);
+ const visible=useMemo(()=>{const q=query.trim().toLowerCase();const ids=new Set<string>();if(local&&focus){ids.add(focus);edges.forEach(e=>{if(e.source===focus)ids.add(e.target);if(e.target===focus)ids.add(e.source)})}return nodes.filter(n=>(!local||!focus||ids.has(n.id))&&(statusFilter==="ALL"||n.status===statusFilter)&&(!q||n.label.toLowerCase().includes(q)||n.id===focus));},[nodes,edges,query,local,focus,statusFilter]);
  const points=useMemo(()=>{const out=new Map<string,{x:number;y:number}>();const count=visible.length;visible.forEach((n,i)=>{const angle=i*2.399963229728653;const radius=Math.sqrt(i+1)*Math.min(34,410/Math.sqrt(Math.max(count,1)));out.set(n.id,{x:500+radius*Math.cos(angle),y:340+radius*Math.sin(angle)})});return out},[visible]);
  async function connectNotes(){
   if(!focus||!target||focus===target)return;
@@ -38,11 +39,14 @@ export function BrainGraphClient(){
  <header className="brain-heading"><div><h2 style={{margin:0}}>Brain Workspace</h2><p style={{margin:"6px 0 0"}}>Không gian trực quan kết nối ghi chú và tri thức của tôi</p></div><div className="brain-heading-actions"><button type="button" className="button secondary small" onClick={()=>setInspectorOpen(v=>!v)} aria-expanded={inspectorOpen}>{inspectorOpen?"Ẩn chi tiết":"Hiện chi tiết"}</button><button type="button" className="button secondary small" onClick={()=>setFocusMode(v=>!v)} aria-pressed={focusMode}>{focusMode?"Thoát tập trung":"Tập trung"}</button></div></header>
  <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
  <input className="input" aria-label="Tìm nút Brain Map" placeholder="Tìm ghi chú..." value={query} onChange={e=>setQuery(e.target.value)} style={{flex:"1 1 200px"}}/>
+ <select className="input" aria-label="Lọc trạng thái ghi chú" value={statusFilter} onChange={e=>setStatusFilter(e.target.value as "ALL"|"ACTIVE"|"ARCHIVED")}><option value="ALL">Tất cả ghi chú</option><option value="ACTIVE">Đang sử dụng</option><option value="ARCHIVED">Đã lưu trữ</option></select>
  <button type="button" className="button secondary small" aria-pressed={!local} onClick={()=>setLocal(false)}>Toàn bộ</button>
  <button type="button" className="button secondary small" aria-pressed={local} disabled={!focus} onClick={()=>setLocal(true)}>Lân cận</button>
- <button type="button" className="button secondary small" onClick={()=>{setFocus(null);setLocal(false);setQuery("");resetViewport()}}>Đặt lại</button>
+ <button type="button" className="button secondary small" onClick={()=>{setFocus(null);setLocal(false);setQuery("");setStatusFilter("ALL");resetViewport()}}>Đặt lại</button>
  </div>
+ {!loading&&!error?<p role="status" style={{margin:0,fontSize:13}}>Đang hiển thị {visible.length}/{nodes.length} ghi chú · {nodes.filter(n=>n.status==="ARCHIVED").length} đã lưu trữ. Chọn nút để mở đúng ghi chú.</p>:null}
  {loading?<p role="status">Đang tải bản đồ...</p>:null}{error?<p role="alert">{error}</p>:null}
+ {!loading&&!error&&nodes.length>0&&visible.length===0?<p>Không có ghi chú phù hợp bộ lọc. Thử chọn Tất cả ghi chú hoặc xóa từ khóa tìm kiếm.</p>:null}
  {!loading&&!error&&nodes.length===0?<p>Chưa có ghi chú. Hãy tạo ghi chú để bắt đầu xây dựng Brain Map.</p>:null}
  {truncated?<p role="status">Bản đồ hiển thị tối đa 250 ghi chú và 1.000 liên kết gần nhất.</p>:null}
  <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}><button type="button" className="button secondary small" aria-label="Thu nhỏ bản đồ" onClick={()=>setZoom(v=>clampZoom(v/1.25))}>−</button><span aria-live="polite">{Math.round(zoom*100)}%</span><button type="button" className="button secondary small" aria-label="Phóng to bản đồ" onClick={()=>setZoom(v=>clampZoom(v*1.25))}>+</button><button type="button" className="button secondary small" onClick={resetViewport}>Về giữa</button><small>Kéo vùng trống để di chuyển bản đồ</small></div>
