@@ -5,9 +5,9 @@ import { ZaloLinkClient } from "@/components/zalo-link-client";
 import { requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function PersonalWorkspacePage({ searchParams }: { searchParams: Promise<{ item?: string }> }) {
+export default async function PersonalWorkspacePage({ searchParams }: { searchParams: Promise<{ item?: string; note?: string }> }) {
   const { user } = await requireUserContext();
-  const { item } = await searchParams;
+  const { item, note } = await searchParams;
   const supabase = await createClient();
   const [profileResult, knowledgeResult, { data: workspaceRows, error: workspaceError }] = await Promise.all([
     supabase.from("profiles").select("user_id").eq("user_id", user.id).maybeSingle(),
@@ -49,7 +49,7 @@ export default async function PersonalWorkspacePage({ searchParams }: { searchPa
         <div id="personal-workspace"><PersonalWorkspaceClient initialRows={(workspaceRows ?? []) as any} userId={user.id} highlightedItemId={item ?? null} /></div>
       )}
       <p><a className="button secondary small" href="/brain-map">Mở Brain Map →</a></p>
-      <KnowledgeJournalClient initialNotes={(knowledgeNotes ?? []) as any} hasOrganization={!!user.organizationId} />
+      <KnowledgeJournalClient initialNotes={(knowledgeNotes ?? []) as any} hasOrganization={!!user.organizationId} highlightedNoteId={note ?? null} />
       <details className="personal-account-settings">
         <summary>Cài đặt tài khoản và kênh thông báo</summary>
         <ZaloLinkClient initialZaloUserId={null} />

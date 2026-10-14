@@ -116,13 +116,19 @@ const NAV_GROUPS: NavGroupDef[] = [
     ],
   },
   {
+    id: "brain-workspace",
+    label: "BRAIN WORKSPACE",
+    icon: "brain",
+    children: [{ label: "Brain Map", href: "/brain-map", icon: "brain" }],
+  },
+  {
     id: "personal-workspace",
     label: "CÁ NHÂN & VIỆC CỦA TÔI",
     icon: "inbox",
     footer: true,
     children: [
       { label: "Việc của tôi", href: "/tasks", icon: "inbox", permission: "tasks.view" },
-      { label: "Brain · Sổ tay cá nhân", href: "/me", icon: "book-open" },
+      { label: "Sổ tay cá nhân", href: "/me", icon: "book-open" },
     ],
   },
   {
