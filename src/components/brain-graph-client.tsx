@@ -40,6 +40,16 @@ export function BrainGraphClient(){
   });
   return out;
  },[visible,edges,layout]);
+ async function connectNotes(){
+  if(!focus||!target||focus===target)return;
+  setSaving(true);setFeedback("");
+  try{
+   const res=await fetch("/api/knowledge/"+encodeURIComponent(focus)+"/links",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target_type:"NOTE",target_id:target,relation_type:"RELATED_TO"})});
+   const body=await res.json().catch(()=>({}));
+   if(!res.ok||!body.ok)throw new Error(body.error||"Không tạo được liên kết.");
+   const l=body.link;setEdges(prev=>prev.some(e=>e.id===l.id)?prev:[...prev,{id:l.id,source:l.note_id,target:l.target_id,label:l.relation_type}]);setFeedback("Đã liên kết hai ghi chú.");setTarget("");
+  }catch(e){setFeedback(e instanceof Error?e.message:"Có lỗi xảy ra.");}finally{setSaving(false)}
+ }
  const selected=nodes.find(n=>n.id===focus);
  return <section className="card" style={{padding:16,display:"grid",gap:12}}>
  <header><h2 style={{margin:0}}>Brain Map</h2><p style={{margin:"6px 0 0"}}>Bản đồ ghi chú của tôi · Các nhóm chỉ dựa trên liên kết đã lưu, không suy đoán quan hệ</p></header>
