@@ -18,6 +18,7 @@ import "./qms-enterprise-redesign.css";
 import "./tqm-charts.css";
 import "./mobile-responsive-fixes.css";
 import "./final-visual-lock.css";
+import "./brain-workspace.css";
 
 const criticalCss=`
   html,body{font-family:var(--font-app),"Segoe UI",Arial,sans-serif}
