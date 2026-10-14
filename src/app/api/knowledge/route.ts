@@ -7,8 +7,9 @@ export async function GET(request:Request){
  const {searchParams}=new URL(request.url);const q=String(searchParams.get("q")||"").trim();const status=String(searchParams.get("status")||"ACTIVE").toUpperCase();
  const rawOffset=searchParams.get("offset")??"0";const rawLimit=searchParams.get("limit")??"50";const offset=Number(rawOffset);const limit=Number(rawLimit);
  if(!/^\d+$/.test(rawOffset)||!/^\d+$/.test(rawLimit)||!Number.isSafeInteger(offset)||!Number.isSafeInteger(limit)||offset>100000||limit<1||limit>100)return NextResponse.json({error:"Phân trang không hợp lệ."},{status:400});
- if(!["ACTIVE","ARCHIVED"].includes(status))return NextResponse.json({error:"Trạng thái ghi chú không hợp lệ."},{status:400});
- let query=auth.supabase.from("knowledge_notes").select("id,owner_user_id,organization_id,note_type,visibility,title,content,journal_date,status,source_kind,source_ref,generated_at,ai_model,ai_confidence,created_at,updated_at,archived_at").eq("status",status==="ARCHIVED"?"ARCHIVED":"ACTIVE").order("created_at",{ascending:false}).order("id",{ascending:false}).range(offset,offset+limit);
+ if(!["ALL","ACTIVE","ARCHIVED"].includes(status))return NextResponse.json({error:"Trạng thái ghi chú không hợp lệ."},{status:400});
+ let query=auth.supabase.from("knowledge_notes").select("id,owner_user_id,organization_id,note_type,visibility,title,content,journal_date,status,source_kind,source_ref,generated_at,ai_model,ai_confidence,created_at,updated_at,archived_at") .order("created_at",{ascending:false}).order("id",{ascending:false}).range(offset,offset+limit);
+ if(status!=="ALL")query=query.eq("status",status);
  if(q.length>200)return NextResponse.json({error:"Từ khóa tìm kiếm quá dài."},{status:400});
  if(q)query=query.textSearch("search_document",q,{type:"websearch",config:"simple"});
  const {data,error}=await query;if(error)return NextResponse.json({error:error.message},{status:400});return NextResponse.json({ok:true,notes:(data??[]).slice(0,limit),hasMore:(data??[]).length>limit,nextOffset:offset+Math.min((data??[]).length,limit)});
