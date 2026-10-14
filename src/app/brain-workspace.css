@@ -30,3 +30,23 @@
  .brain-drag-hint{display:none}
  .brain-focus-mode .brain-canvas{height:calc(100dvh - 220px);min-height:320px}
 }
+
+/* Brain V4: three-pane knowledge workspace */
+.brain-content.with-explorer{grid-template-columns:250px minmax(0,1fr)}
+.brain-content.with-inspector.with-explorer{grid-template-columns:240px minmax(0,1fr) 270px}
+.brain-explorer{min-width:0;max-height:clamp(520px,calc(100dvh - 270px),1100px);display:flex;flex-direction:column;gap:10px;overflow:hidden;border:1px solid #e2e8f0;border-radius:14px;padding:12px;background:#f8fafc}
+.brain-pane-heading{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px}
+.brain-pane-heading span{color:#64748b;font-size:11px}
+.brain-explorer-all{border:0;background:#e2e8f0;border-radius:8px;padding:10px;text-align:left;font-weight:600;cursor:pointer}
+.brain-explorer-groups{overflow:auto;flex:1;min-height:0}
+.brain-explorer-groups details{border-bottom:1px solid #e2e8f0;padding:6px 0}
+.brain-explorer-groups summary{cursor:pointer;font-size:13px;font-weight:600;padding:6px 2px}
+.brain-explorer-groups summary small{float:right;color:#64748b}
+.brain-explorer-items{display:grid;gap:3px;padding:4px 0}
+.brain-explorer-items button{border:0;background:transparent;text-align:left;display:flex;align-items:center;gap:7px;min-width:0;padding:8px;border-radius:8px;font-size:12px;cursor:pointer;overflow-wrap:anywhere}
+.brain-explorer-items button.selected,.brain-explorer-items button:hover{background:#dbeafe}
+.brain-explorer-items button small{font-size:10px;color:#64748b;margin-left:auto;flex-shrink:0}
+.brain-node-dot{display:inline-block;width:8px;height:8px;flex-shrink:0;border-radius:50%}
+.brain-explorer-new{font-size:12px;text-decoration:none;font-weight:600;padding:8px}
+@media(max-width:1100px){.brain-content.with-inspector.with-explorer{grid-template-columns:210px minmax(0,1fr)}.brain-content.with-inspector.with-explorer .brain-inspector{grid-column:1/-1}}
+@media(max-width:700px){.brain-content.with-explorer,.brain-content.with-inspector.with-explorer{grid-template-columns:minmax(0,1fr)}.brain-explorer{max-height:260px}.brain-content.with-inspector.with-explorer .brain-inspector{grid-column:auto}}
