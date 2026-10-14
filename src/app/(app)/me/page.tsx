@@ -48,6 +48,7 @@ export default async function PersonalWorkspacePage({ searchParams }: { searchPa
       ) : (
         <div id="personal-workspace"><PersonalWorkspaceClient initialRows={(workspaceRows ?? []) as any} userId={user.id} highlightedItemId={item ?? null} /></div>
       )}
+      <p><a className="button secondary small" href="/brain-map">Mở Brain Map →</a></p>
       <KnowledgeJournalClient initialNotes={(knowledgeNotes ?? []) as any} hasOrganization={!!user.organizationId} />
       <details className="personal-account-settings">
         <summary>Cài đặt tài khoản và kênh thông báo</summary>
