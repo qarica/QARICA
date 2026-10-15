@@ -1,19 +1,15 @@
+/* --bg, --surface, --text, --muted, --line, --brand (+dark/soft), --info
+   (+soft) and --shadow used to be redeclared here too — a plain
+   (non-!important) :root block still wins the cascade by load order, so
+   this file was silently re-pinning globals.css's own tokens to slightly
+   different values site-wide, not just on QLVB-style pages. Removed; only
+   --accent-* stays (no equivalent name in globals.css, genuinely used
+   below) — see globals.css's own comment on the brand token. */
 :root{
-  --bg:#f8fafc;
-  --surface:#ffffff;
-  --text:#1e293b;
-  --muted:#64748b;
-  --line:#e2e8f0;
-  --brand:#2563eb;
-  --brand-dark:#1d4ed8;
-  --brand-soft:#eff6ff;
-  --info:#2563eb;
-  --info-soft:#eff6ff;
-  --accent-info:#2563eb;
+  --accent-info:#1E3A8A;
   --accent-warning:#d69a24;
   --accent-danger:#ce4b4b;
   --accent-success:#2b8b5b;
-  --shadow:0 10px 28px rgba(15,23,42,.08);
 }
 
 html,body{background:var(--bg);color:var(--text)}
@@ -29,11 +25,11 @@ html,body{background:var(--bg);color:var(--text)}
 .sidebar-brand{border-bottom:1px solid #e2e8f0!important}
 .sidebar-brand strong{color:#1e293b}
 .sidebar-brand span{color:#94a3b8!important}
-.brand-mark{background:#2563eb!important;color:#fff!important;flex:0 0 auto}
+.brand-mark{background:#1E3A8A!important;color:#fff!important;flex:0 0 auto}
 .nav-label{color:#94a3b8!important}
 .nav-link{color:#475569!important}
 .nav-link:hover{background:#f8fafc!important;color:#1e293b!important}
-.nav-link.active{background:#eff6ff!important;color:#1d4ed8!important;font-weight:700}
+.nav-link.active{background:#EEF2FF!important;color:#172554!important;font-weight:700}
 .sidebar-footer{background:linear-gradient(180deg,rgba(255,255,255,0),#fff 25%)!important}
 .scope-chip{border-color:#e2e8f0!important;background:#f8fafc!important;color:#64748b!important}
 .sidebar-overlay{background:rgba(15,23,42,.42)!important}
@@ -51,10 +47,10 @@ html,body{background:var(--bg);color:var(--text)}
 .topbar{background:rgba(255,255,255,.96)!important;border-bottom-color:#e2e8f0!important}
 .header-icon,.year-select-wrap{background:#fff!important;border-color:#e2e8f0!important}
 .icon-button:hover,.profile-button:hover{background:#f8fafc!important}
-.avatar{background:#eff6ff!important;color:#1d4ed8!important}
+.avatar{background:#EEF2FF!important;color:#172554!important}
 .notification-item:hover{background:#f8fafc!important}
-.notification-item.unread{background:#eff6ff!important}
-.link-button,.table-link,.eyebrow{color:#1d4ed8!important}
+.notification-item.unread{background:#EEF2FF!important}
+.link-button,.table-link,.eyebrow{color:#172554!important}
 
 /* Buttons mirror the previous QLVB visual hierarchy */
 .button.primary{background:#1e293b!important;color:#fff!important;border-color:#1e293b!important}
@@ -68,17 +64,17 @@ html,body{background:var(--bg);color:var(--text)}
 th{background:#f8fafc!important;color:#64748b!important;border-color:#e2e8f0!important}
 td{border-color:#f1f5f9!important}
 tbody tr:hover{background:#f8fafc!important}
-.tabs button.active{color:#1d4ed8!important;border-bottom-color:#2563eb!important}
-input:focus,select:focus,textarea:focus{border-color:#2563eb!important;box-shadow:0 0 0 3px rgba(37,99,235,.08)}
-.check-card:has(input:checked){background:#eff6ff!important;border-color:#bfdbfe!important}
-.panel input[type="radio"],.panel input[type="checkbox"]{accent-color:#2563eb!important}
-.chip{background:#eff6ff!important;color:#1d4ed8!important}
+.tabs button.active{color:#172554!important;border-bottom-color:#1E3A8A!important}
+input:focus,select:focus,textarea:focus{border-color:#1E3A8A!important;box-shadow:0 0 0 3px rgba(30,58,138,.12)}
+.check-card:has(input:checked){background:#EEF2FF!important;border-color:#C7D2FE!important}
+.panel input[type="radio"],.panel input[type="checkbox"]{accent-color:#1E3A8A!important}
+.chip{background:#EEF2FF!important;color:#172554!important}
 .scope-note,.permission-note,.module-foundation-note{background:#f8fafc!important;border-color:#e2e8f0!important;color:#475569!important}
 .progress-track,.bar-track{background:#e2e8f0!important}
-.progress-track span,.bar-fill{background:#2563eb!important}
+.progress-track span,.bar-fill{background:#1E3A8A!important}
 
 /* Keep semantic states distinct */
-.status-badge.info{background:#eff6ff!important;color:#1d4ed8!important}
+.status-badge.info{background:#EEF2FF!important;color:#172554!important}
 
 /* Shared status-card accent system: same visual language as "Việc của tôi" */
 .kpi-card{border-left:4px solid var(--accent-info)!important}
@@ -93,17 +89,17 @@ input:focus,select:focus,textarea:focus{border-color:#2563eb!important;box-shado
 /* Monitoring workspace still had teal values hard-coded inline; normalize them to QLVB */
 .monitoring-workspace .monitoring-hero{
   border-color:#e2e8f0!important;
-  background:linear-gradient(135deg,#fff 0%,#f8fafc 68%,#eff6ff 100%)!important;
+  background:linear-gradient(135deg,#fff 0%,#f8fafc 68%,#EEF2FF 100%)!important;
   box-shadow:0 8px 24px rgba(15,23,42,.035)!important;
 }
-.monitoring-workspace .monitoring-hero:after{background:rgba(37,99,235,.06)!important}
+.monitoring-workspace .monitoring-hero:after{background:rgba(30,58,138,.06)!important}
 .monitoring-workspace .monitoring-hero-meta span{border-color:#e2e8f0!important;color:#475569!important;background:#fff!important}
 .monitoring-workspace .monitoring-flow{border-color:#e2e8f0!important;background:rgba(255,255,255,.92)!important}
 .monitoring-workspace .monitoring-flow small{color:#64748b!important}
-.monitoring-workspace .monitoring-flow .flow-line{background:linear-gradient(90deg,#2563eb 0 35%,#93c5fd 35% 68%,#dbeafe 68%)!important}
+.monitoring-workspace .monitoring-flow .flow-line{background:linear-gradient(90deg,#1E3A8A 0 35%,#93c5fd 35% 68%,#dbeafe 68%)!important}
 .monitoring-workspace .panel{border-color:#e2e8f0!important;box-shadow:0 4px 16px rgba(15,23,42,.025)!important}
 .monitoring-workspace .tabs{background:#f1f5f9!important}
-.monitoring-workspace .tabs button.active{color:#1d4ed8!important;background:#fff!important}
+.monitoring-workspace .tabs button.active{color:#172554!important;background:#fff!important}
 .monitoring-workspace .search-box{background:#fff!important}
 .monitoring-workspace .kpi-card:before{display:none!important}
 

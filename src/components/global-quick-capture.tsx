@@ -100,13 +100,13 @@ export function GlobalQuickCapture({ userId, organizationId }: { userId: string;
     </button>
     <style>{`
       .global-quick-capture{position:fixed;right:20px;bottom:20px;z-index:65;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
-      .global-quick-capture .gqc-fab{width:56px;height:56px;border-radius:50%;border:0;background:var(--brand,#0D6EFD);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(13,110,253,.35);cursor:pointer;transition:transform .15s}
+      .global-quick-capture .gqc-fab{width:56px;height:56px;border-radius:50%;border:0;background:var(--brand,#1E3A8A);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(30,58,138,.35);cursor:pointer;transition:transform .15s}
       .global-quick-capture .gqc-fab:hover{transform:translateY(-2px)}
       .global-quick-capture .gqc-panel{width:min(440px,calc(100vw - 32px));background:#fff;border:1px solid #e5eaf2;border-radius:16px;box-shadow:0 20px 50px rgba(15,23,42,.18);overflow:hidden}
       .global-quick-capture .gqc-head{display:flex;align-items:center;justify-content:space-between;padding:10px 8px 0 14px}
       .global-quick-capture .gqc-tabs{display:flex;gap:4px}
       .global-quick-capture .gqc-tabs button{border:0;background:#f1f5f9;color:#475569;font-size:12px;font-weight:700;padding:7px 11px;border-radius:999px;cursor:pointer}
-      .global-quick-capture .gqc-tabs button.active{background:var(--brand,#0D6EFD);color:#fff}
+      .global-quick-capture .gqc-tabs button.active{background:var(--brand,#1E3A8A);color:#fff}
       .global-quick-capture .gqc-head-actions{display:flex;align-items:center;gap:2px}
       .global-quick-capture .gqc-open-full{color:#64748b;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center}
       .global-quick-capture .gqc-open-full:hover{background:#f1f5f9;color:#0f172a}
@@ -116,12 +116,12 @@ export function GlobalQuickCapture({ userId, organizationId }: { userId: string;
       .global-quick-capture .gqc-form input,.global-quick-capture .gqc-form textarea{width:100%;font-size:14px}
       .global-quick-capture .gqc-form textarea{resize:vertical;min-height:140px;line-height:1.5}
       .global-quick-capture .gqc-error{margin:0;font-size:11px;color:#b91c1c}
-      .global-quick-capture .gqc-submit{border:0;background:var(--brand,#0D6EFD);color:#fff;font-weight:700;font-size:13px;padding:10px;border-radius:10px;cursor:pointer}
+      .global-quick-capture .gqc-submit{border:0;background:var(--brand,#1E3A8A);color:#fff;font-weight:700;font-size:13px;padding:10px;border-radius:10px;cursor:pointer}
       .global-quick-capture .gqc-submit:disabled{opacity:.6;cursor:not-allowed}
       .global-quick-capture .gqc-success{padding:16px 14px;display:grid;gap:10px}
       .global-quick-capture .gqc-success p{margin:0;font-size:13px;color:#0f172a}
       .global-quick-capture .gqc-success-actions{display:flex;justify-content:space-between;align-items:center;gap:8px}
-      .global-quick-capture .gqc-success-actions a{color:var(--brand,#0D6EFD);font-weight:700;font-size:12px}
+      .global-quick-capture .gqc-success-actions a{color:var(--brand,#1E3A8A);font-weight:700;font-size:12px}
       .global-quick-capture .gqc-success-actions button{border:1px solid #e5eaf2;background:#fff;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}
       @media(max-width:640px){.global-quick-capture{right:14px;bottom:14px}.global-quick-capture .gqc-fab{width:52px;height:52px}}
     `}</style>

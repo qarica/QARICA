@@ -228,7 +228,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   // A fix must target `svg` directly with matching specificity+importance.
   it("gives both the promoted single-child link and a real child link an explicit active-icon color targeting svg directly, not just the wrapping .nav-icon span (a span-only override loses to final-visual-lock.css's .nav-link.active svg{color:#ffffff!important})", () => {
     expect(shell).toContain(".workspace-app.workspace-app .nav-group-link.active .nav-icon,.workspace-app.workspace-app .nav-group-link.active svg{color:#172554!important}");
-    expect(shell).toContain(".workspace-app.workspace-app .nav-child-link.active .nav-icon,.workspace-app.workspace-app .nav-child-link.active svg{color:#2563eb!important}");
+    expect(shell).toContain(".workspace-app.workspace-app .nav-child-link.active .nav-icon,.workspace-app.workspace-app .nav-child-link.active svg{color:#1E3A8A!important}");
   });
 
   // Reversed per explicit follow-up request: "Đưa tất cả các nút menu con của

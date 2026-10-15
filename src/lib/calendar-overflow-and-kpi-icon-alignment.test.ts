@@ -18,7 +18,7 @@ describe("Calendar (/calendar) — ô \"+N mốc khác\" phải bấm xem đư�
   });
 
   it(".calendar-more có style/cursor báo hiệu có thể bấm, không còn là text thường", () => {
-    expect(source).toContain(".calendar-more{display:block;font-size:9px;color:#1d4ed8;margin-top:5px;font-weight:750;text-decoration:none;cursor:pointer}");
+    expect(source).toContain(".calendar-more{display:block;font-size:9px;color:#172554;margin-top:5px;font-weight:750;text-decoration:none;cursor:pointer}");
   });
 
   // Explicit request: "dời Calendar thành 1 nút riêng để dễ xem lịch" — cùng
