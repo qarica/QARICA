@@ -89,4 +89,20 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
     expect(source).toContain('<Link href={reportTabHref("DONE")} className="week-report-link done"><strong>{weekDoneRows.length} đã xong</strong></Link>');
     expect(source).toContain('<Link href={reportTabHref("OPEN")} className="week-report-link pending"><strong>{weekPendingRows.length} chưa xong</strong></Link>');
   });
+
+  // Báo cáo thực tế từ ảnh chụp: việc đã hoàn thành vẫn chỉ hiện hạn xử lý cũ
+  // (vd "08/10/2026") thay vì ngày hoàn thành thật — không biết việc đó xong
+  // lúc nào, trong khi đây chính là màn hình dùng để báo cáo việc đã xong
+  // trong tuần. Cả bảng (desktop) lẫn thẻ (mobile) đều phải đổi sang hiện
+  // "Hoàn thành: DD/MM/YYYY" cho việc đã xong.
+  it("dueOrCompletedLabel hiện ngày hoàn thành thật cho việc đã xong, hạn xử lý cho việc chưa xong", () => {
+    expect(source).toContain('function dueOrCompletedLabel(row:{isDone:boolean;completedAt:string|null;dueDate:string|null}){if(row.isDone)return row.completedAt?`Hoàn thành: ${formatDate(row.completedAt)}`:"Đã hoàn thành";return row.dueDate?formatDate(row.dueDate):"Không có hạn"}');
+  });
+
+  it("cả bảng desktop lẫn thẻ mobile đều dùng dueOrCompletedLabel thay vì chỉ hiện dueDate thô", () => {
+    expect(source).toContain('<td className={r.isOverdue?"text-danger":r.isDone?"text-success":""}>{dueOrCompletedLabel(r)}</td>');
+    expect(source).toContain('<small>{r.typeLabel} · {dueOrCompletedLabel(r)}</small>');
+    expect(source).not.toContain('{r.dueDate?formatDate(r.dueDate):"Không có hạn"}');
+    expect(source).not.toContain('{r.dueDate?formatDate(r.dueDate):"—"}');
+  });
 });
