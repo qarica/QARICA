@@ -11,6 +11,7 @@ const navigation = readFileSync("src/lib/navigation.ts", "utf8");
 const workspaceNav = readFileSync("src/lib/workspace-navigation.ts", "utf8");
 const layout = readFileSync("src/app/(app)/layout.tsx", "utf8");
 const shell = readFileSync("src/components/app-shell.tsx", "utf8");
+const quickCapture = readFileSync("src/components/global-quick-capture.tsx", "utf8");
 
 const GROUP_IDS = [
   "operations",
@@ -22,11 +23,10 @@ const GROUP_IDS = [
   "document-publications",
   "procedure-training",
   "procurement",
-  "personal-workspace",
   "system-config",
 ];
 
-const FOOTER_GROUP_IDS = ["personal-workspace", "system-config"];
+const FOOTER_GROUP_IDS = ["system-config"];
 
 function groupBlock(source: string, id: string) {
   const start = source.indexOf(`id: "${id}"`);
@@ -40,10 +40,10 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 11 primary groups with one unified personal/work footer group", () => {
+  it("defines exactly 10 primary groups (Việc của tôi/Sổ tay cá nhân are intentionally not sidebar groups — see the topbar and floating-capture tests below)", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no additional group ids besides these eleven
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(11);
+    // no additional group ids besides these ten
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(10);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "AUDIT HSBA"');
@@ -59,7 +59,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     for (let i = 1; i < positions.length; i += 1) expect(positions[i]).toBeGreaterThan(positions[i - 1]);
   });
 
-  it("marks exactly the 2 personal/utility groups as footer groups, ordered last", () => {
+  it("marks exactly the 1 utility group as a footer group, ordered last", () => {
     for (const id of FOOTER_GROUP_IDS) {
       const block = groupBlock(navigation, id);
       expect(block).toContain("footer: true");
@@ -72,16 +72,21 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     for (const id of FOOTER_GROUP_IDS) expect(navigation.indexOf(`id: "${id}"`)).toBeGreaterThan(lastMainPosition);
   });
 
-  it("assigns the correct children to Group 1 — ĐIỀU HÀNH CHẤT LƯỢNG (Việc của tôi and Cá nhân moved out to the footer; the other single-item modules were never here)", () => {
+  it("assigns the correct children to Group 1 — ĐIỀU HÀNH CHẤT LƯỢNG (Việc của tôi and Sổ tay cá nhân moved out of the sidebar entirely — topbar + floating capture, not a footer group; the other single-item modules were never here)", () => {
     const block = groupBlock(navigation, "operations");
     for (const label of ["Tổng quan QLCL", "Lịch QLCL", "Kế hoạch & Điều hành"]) {
       expect(block).toContain(`label: "${label}"`);
     }
     expect(block).not.toContain("Đo lường & Giám sát");
     expect(block).not.toContain("EMR");
-    for (const moved of ["Việc của tôi", "Cá nhân", "MUA SẮM & SỬA CHỮA", "THEO DÕI HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "KIỂM SOÁT TÀI LIỆU", "ĐÀO TẠO QUY TRÌNH", "AUDIT HSBA"]) {
+    for (const moved of ["Việc của tôi", "Sổ tay cá nhân", "Cá nhân", "MUA SẮM & SỬA CHỮA", "THEO DÕI HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "KIỂM SOÁT TÀI LIỆU", "ĐÀO TẠO QUY TRÌNH", "AUDIT HSBA"]) {
       expect(block).not.toContain(`label: "${moved}"`);
     }
+  });
+
+  it("does not define a personal-workspace sidebar group at all (explicit request, 2026-10-15): Việc của tôi/Sổ tay cá nhân are not hard-coded into the master menu", () => {
+    expect(navigation).not.toContain('id: "personal-workspace"');
+    expect(navigation).not.toContain('label: "CÁ NHÂN & VIỆC CỦA TÔI"');
   });
 
   it("promotes MUA SẮM & SỬA CHỮA, THEO DÕI HÀNH NGHỀ, QUẢN LÝ CÔNG VĂN, KIỂM SOÁT TÀI LIỆU, ĐÀO TẠO QUY TRÌNH and AUDIT HSBA to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
@@ -99,12 +104,24 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     }
   });
 
-  it("keeps Việc của tôi and personal knowledge in one permission-aware footer group", () => {
-    const personalBlock = groupBlock(navigation, "personal-workspace");
-    expect(personalBlock).toContain('label: "CÁ NHÂN & VIỆC CỦA TÔI"');
-    expect(personalBlock).toContain('href: "/tasks"');
-    expect(personalBlock).toContain('permission: "tasks.view"');
-    expect(personalBlock).toContain('href: "/me"');
+  it("puts Việc của tôi in the topbar (app-shell.tsx), gated by the same tasks.view permission the old sidebar entry used, one click away from every screen", () => {
+    expect(shell).toContain('const canSeeMyWork = user.permissions.includes("tasks.view");');
+    expect(shell).toContain('href="/tasks"');
+    expect(shell).toContain("my-work-launcher");
+    expect(shell).toContain('aria-label="Việc của tôi"');
+  });
+
+  it("renders the floating quick-capture button (GlobalQuickCapture) in the protected layout, so a note or to-do can be captured from any screen without navigating away first", () => {
+    expect(layout).toContain('import { GlobalQuickCapture } from "@/components/global-quick-capture";');
+    expect(layout).toContain("<GlobalQuickCapture userId={user.id} organizationId={user.organizationId} />");
+  });
+
+  it("GlobalQuickCapture creates either a private knowledge note (reusing the existing POST /api/knowledge contract) or a personal_reminders row (reusing the existing RLS-scoped insert shape), with no new backend route", () => {
+    expect(quickCapture).toContain('fetch("/api/knowledge"');
+    expect(quickCapture).toContain('note_type: "NOTE"');
+    expect(quickCapture).toContain('visibility: "PRIVATE"');
+    expect(quickCapture).toContain('.from("personal_reminders").insert(');
+    expect(quickCapture).toContain("owner_user_id: userId");
   });
 
   it("assigns the correct children to Group 2 — QUẢN LÝ CHẤT LƯỢNG (Audit nội bộ KHTH was moved OUT to its own top-level menu, not shared under Quản lý chất lượng, per explicit request)", () => {

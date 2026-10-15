@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { GlobalBackBar } from "@/components/global-back-bar";
+import { GlobalQuickCapture } from "@/components/global-quick-capture";
 import { GlobalRecordLifecycleActions } from "@/components/global-record-lifecycle-actions";
 import { requireUserContext } from "@/lib/auth";
 import { visibleNavGroups } from "@/lib/navigation";
@@ -13,5 +14,6 @@ export default async function ProtectedLayout({children}:{children:React.ReactNo
     <GlobalBackBar />
     {children}
     <GlobalRecordLifecycleActions />
+    <GlobalQuickCapture userId={user.id} organizationId={user.organizationId} />
   </AppShell>;
 }

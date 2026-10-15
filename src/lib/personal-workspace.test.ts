@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 describe("Personal workspace is scoped to the user only, never to an organization", () => {
   const page = readFileSync("src/app/(app)/me/page.tsx", "utf8");
   const client = readFileSync("src/components/personal-workspace-client.tsx", "utf8");
-  const nav = readFileSync("src/lib/navigation.ts", "utf8");
+  const quickCapture = readFileSync("src/components/global-quick-capture.tsx", "utf8");
 
   it("server page fetches personal_workspace_items filtered only by owner_user_id", () => {
     expect(page).toContain('.from("personal_workspace_items")');
@@ -28,9 +28,15 @@ describe("Personal workspace is scoped to the user only, never to an organizatio
     expect(client).toContain("item_type: tab");
   });
 
-  it("is reachable from every logged-in user — no permission gate on the nav entry", () => {
-    expect(nav).toContain('href: "/me"');
-    expect(nav).toContain('id: "personal-workspace"');
+  // /me is intentionally no longer a sidebar nav entry (explicit request,
+  // 2026-10-15: "sổ tay nên là 1 nút linh động trên màn hình", not hard-coded
+  // on the master menu) — it's still reachable from every logged-in user,
+  // without any permission gate, via the "Mở sổ tay cá nhân đầy đủ" link in
+  // the always-rendered floating quick-capture button (see navigation-v2.test.ts
+  // for the corresponding assertions on navigation.ts/app-shell.tsx/layout.tsx).
+  it("is reachable from every logged-in user via the floating quick-capture button — no permission gate", () => {
+    expect(quickCapture).toContain('href="/me"');
+    expect(quickCapture).not.toContain("permission");
   });
 });
 

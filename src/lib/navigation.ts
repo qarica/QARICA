@@ -23,9 +23,20 @@ type NavGroupDef = { id: string; label: string; icon: string; children: ChildDef
 //
 // `footer: true` groups render in a visually separated block at the bottom
 // of the sidebar's main menu list (below a divider), not interleaved with
-// the organization-wide business modules above — explicit request: personal/
-// utility destinations (Việc của tôi, Cá nhân, Cấu hình hệ thống) read as a
-// distinct tier from the shared QLCL/EMR/procurement-style modules.
+// the organization-wide business modules above — utility destinations
+// (Cấu hình hệ thống) read as a distinct tier from the shared QLCL/EMR/
+// procurement-style modules.
+//
+// "Việc của tôi" and "Sổ tay cá nhân" are intentionally NOT in this sidebar
+// at all (explicit request, 2026-10-15): they are personal/always-on tools,
+// not organization-wide modules, so hard-coding them into the master menu
+// buries them one accordion click away like everything else here. "Việc của
+// tôi" lives in the topbar (AppShell, next to the notification bell) —
+// always one click away regardless of which module is open. "Sổ tay cá
+// nhân" is reachable through the floating quick-capture button
+// (GlobalQuickCapture, rendered in the (app) layout) so a note/to-do can be
+// captured from any screen without navigating away first; /me remains the
+// full notebook page, linked from both.
 const NAV_GROUPS: NavGroupDef[] = [
   {
     id: "operations",
@@ -113,16 +124,6 @@ const NAV_GROUPS: NavGroupDef[] = [
     icon: "archive",
     children: [
       { label: "MUA SẮM & SỬA CHỮA", href: "/procurement", icon: "archive", permission: "procurement.view" },
-    ],
-  },
-  {
-    id: "personal-workspace",
-    label: "CÁ NHÂN & VIỆC CỦA TÔI",
-    icon: "inbox",
-    footer: true,
-    children: [
-      { label: "Việc của tôi", href: "/tasks", icon: "inbox", permission: "tasks.view" },
-      { label: "Sổ tay cá nhân", href: "/me", icon: "book-open" },
     ],
   },
   {
