@@ -32,11 +32,16 @@ type NavGroupDef = { id: string; label: string; icon: string; children: ChildDef
 // not organization-wide modules, so hard-coding them into the master menu
 // buries them one accordion click away like everything else here. "Việc của
 // tôi" lives in the topbar (AppShell, next to the notification bell) —
-// always one click away regardless of which module is open. "Sổ tay cá
-// nhân" is reachable through the floating quick-capture button
-// (GlobalQuickCapture, rendered in the (app) layout) so a note/to-do can be
-// captured from any screen without navigating away first; /me remains the
-// full notebook page, linked from both.
+// always one click away regardless of which module is open. The floating
+// quick-capture button (GlobalQuickCapture, rendered in the (app) layout)
+// lets a note/to-do be CAPTURED from any screen without navigating away
+// first. "Sổ tay cá nhân" (/me, the full notebook with past notes) ALSO got
+// its own topbar icon button next to "Việc của tôi" (follow-up report: "Mất
+// chổ xem sổ ghi chú" — the quick-capture FAB's pencil icon reads as
+// "write new", not "view existing", and its own link to /me is a small icon
+// buried inside the panel you have to open first; a direct, always-visible
+// way to VIEW the notebook was missing). /me requires no permission of its
+// own, so the topbar button is unconditional for any signed-in user.
 //
 // "Lịch QLCL" moved out of the ĐIỀU HÀNH CHẤT LƯỢNG accordion the same way
 // (explicit request: "dời Calendar thành 1 nút riêng để dễ xem lịch") — it

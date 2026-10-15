@@ -121,6 +121,15 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(shell).toContain('aria-label="Việc của tôi"');
   });
 
+  // Báo cáo thực tế: "Mất chổ xem sổ ghi chú" — chỉ có GlobalQuickCapture
+  // (FAB góc dưới phải, icon bút — gợi ý viết mới) với 1 icon nhỏ book-open
+  // bên trong panel dẫn tới /me; không có cách nào trực tiếp/luôn hiện để
+  // XEM LẠI sổ tay. Thêm nút topbar riêng, không gate theo permission nào
+  // (khớp /me/page.tsx không yêu cầu permission riêng).
+  it("puts Sổ tay cá nhân (/me) in the topbar too, next to Việc của tôi, unconditional for any signed-in user", () => {
+    expect(shell).toContain('<Link href="/me" prefetch={true} className={`icon-button header-icon notebook-launcher ${pathname.startsWith("/me") ? "active" : ""}`} onClick={() => startNavigation("/me")} title="Sổ tay cá nhân" aria-label="Sổ tay cá nhân"><Icon name="book-open" size={18} /></Link>');
+  });
+
   it("renders the floating quick-capture button (GlobalQuickCapture) in the protected layout, so a note or to-do can be captured from any screen without navigating away first", () => {
     expect(layout).toContain('import { GlobalQuickCapture } from "@/components/global-quick-capture";');
     expect(layout).toContain("<GlobalQuickCapture userId={user.id} organizationId={user.organizationId} />");
