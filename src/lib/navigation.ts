@@ -37,6 +37,15 @@ type NavGroupDef = { id: string; label: string; icon: string; children: ChildDef
 // (GlobalQuickCapture, rendered in the (app) layout) so a note/to-do can be
 // captured from any screen without navigating away first; /me remains the
 // full notebook page, linked from both.
+//
+// "Lịch QLCL" moved out of the ĐIỀU HÀNH CHẤT LƯỢNG accordion the same way
+// (explicit request: "dời Calendar thành 1 nút riêng để dễ xem lịch") — it
+// now has its own topbar icon button (AppShell, next to "Việc của tôi"),
+// reachable in one click instead of expand-group-then-click. The topbar
+// button is gated on the same permission set /calendar/page.tsx itself
+// checks (hasAnyPermission over 8 codes), not just dashboard.view — closing
+// a pre-existing gap where a user with e.g. only plans.manage could open
+// /calendar by URL but never saw it in the old sidebar entry.
 const NAV_GROUPS: NavGroupDef[] = [
   {
     id: "operations",
@@ -44,7 +53,6 @@ const NAV_GROUPS: NavGroupDef[] = [
     icon: "layout-dashboard",
     children: [
       { label: "Tổng quan QLCL", href: "/dashboard", icon: "layout-dashboard", permission: "dashboard.view" },
-      { label: "Lịch QLCL", href: "/calendar", icon: "calendar-days", permission: "dashboard.view" },
       { label: "Kế hoạch & Điều hành", icon: "target", workspaceRoot: "/plans" },
     ],
   },

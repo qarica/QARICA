@@ -72,16 +72,26 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     for (const id of FOOTER_GROUP_IDS) expect(navigation.indexOf(`id: "${id}"`)).toBeGreaterThan(lastMainPosition);
   });
 
-  it("assigns the correct children to Group 1 — ĐIỀU HÀNH CHẤT LƯỢNG (Việc của tôi and Sổ tay cá nhân moved out of the sidebar entirely — topbar + floating capture, not a footer group; the other single-item modules were never here)", () => {
+  it("assigns the correct children to Group 1 — ĐIỀU HÀNH CHẤT LƯỢNG (Việc của tôi, Sổ tay cá nhân and Lịch QLCL moved out of the sidebar entirely — topbar + floating capture, not a footer group; the other single-item modules were never here)", () => {
     const block = groupBlock(navigation, "operations");
-    for (const label of ["Tổng quan QLCL", "Lịch QLCL", "Kế hoạch & Điều hành"]) {
+    for (const label of ["Tổng quan QLCL", "Kế hoạch & Điều hành"]) {
       expect(block).toContain(`label: "${label}"`);
     }
     expect(block).not.toContain("Đo lường & Giám sát");
     expect(block).not.toContain("EMR");
-    for (const moved of ["Việc của tôi", "Sổ tay cá nhân", "Cá nhân", "MUA SẮM & SỬA CHỮA", "THEO DÕI HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "KIỂM SOÁT TÀI LIỆU", "ĐÀO TẠO QUY TRÌNH", "AUDIT HSBA"]) {
+    for (const moved of ["Việc của tôi", "Sổ tay cá nhân", "Cá nhân", "MUA SẮM & SỬA CHỮA", "THEO DÕI HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "KIỂM SOÁT TÀI LIỆU", "ĐÀO TẠO QUY TRÌNH", "AUDIT HSBA", "Lịch QLCL"]) {
       expect(block).not.toContain(`label: "${moved}"`);
     }
+  });
+
+  // Explicit request: "dời Calendar thành 1 nút riêng để dễ xem lịch" — Lịch
+  // QLCL had the exact same "buried one accordion-expand away" problem Việc
+  // của tôi used to have, fixed the same way: a dedicated topbar icon button
+  // (AppShell), gated on the real permission set /calendar/page.tsx checks,
+  // not the narrower dashboard.view the old sidebar entry used.
+  it("Lịch QLCL moves to a dedicated topbar icon button, gated on the full permission set /calendar/page.tsx checks", () => {
+    expect(shell).toContain('const canSeeCalendar = ["dashboard.view","tasks.view","plans.view","plans.manage","monitoring.view","monitoring.perform","reports.view","inspections.view"].some((code) => user.permissions.includes(code));');
+    expect(shell).toContain('{canSeeCalendar ? <Link href="/calendar" prefetch={true} className={`icon-button header-icon calendar-launcher ${pathname.startsWith("/calendar") ? "active" : ""}`}');
   });
 
   it("does not define a personal-workspace sidebar group at all (explicit request, 2026-10-15): Việc của tôi/Sổ tay cá nhân are not hard-coded into the master menu", () => {
