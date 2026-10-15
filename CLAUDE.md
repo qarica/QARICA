@@ -40,6 +40,19 @@ lâm sàng.
    field trong form state → field trong body gửi lên → field được xử lý ở API → field có
    trong SELECT trả về hay không.
 
+6. **File migration trong repo KHÔNG đồng nghĩa với "đã áp lên Supabase sống", và ngược
+   lại.** Phát hiện thực tế (14-15/10/2026): hàng chục migration đã merge vào `main` (bao
+   gồm cả fix bug nghiêm trọng) không hề được áp lên production — ngược lại, nhiều thay đổi
+   schema/dữ liệu thật đã được áp trực tiếp lên Supabase (qua SQL Editor hoặc công cụ khác)
+   mà KHÔNG được ghi vào `supabase/migrations/`. Bảng `supabase_migrations.schema_migrations`
+   (nguồn mà `supabase migration list` dựa vào) **không phải nguồn đầy đủ** — nó chỉ ghi lại
+   những gì áp qua đúng cơ chế migration, bỏ sót mọi thay đổi áp qua đường khác. Trước khi
+   báo một migration/fix là "đã xong trên production", PHẢI xác nhận bằng cách đọc trực tiếp
+   schema/dữ liệu thật trên Supabase sống (`information_schema`, `pg_proc.prosrc`, query đếm
+   dòng...) — không suy ra từ việc file đã có trong repo, đã merge vào `main`, hay đã xuất
+   hiện trong `schema_migrations`. Tương tự, không suy ra nội dung dữ liệu thật từ comment
+   trong code (comment có thể lỗi thời) — phải query bảng thật.
+
 ## Gotcha kỹ thuật đã gặp (đọc trước khi đụng vào các khu vực này)
 
 - **`<style jsx>` (styled-jsx) chỉ scope đúng cho các phần tử JSX viết trực tiếp trong
