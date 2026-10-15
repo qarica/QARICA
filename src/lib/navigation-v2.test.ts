@@ -208,7 +208,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   // (an inherited value never outranks a rule matching the element itself).
   // A fix must target `svg` directly with matching specificity+importance.
   it("gives both the promoted single-child link and a real child link an explicit active-icon color targeting svg directly, not just the wrapping .nav-icon span (a span-only override loses to final-visual-lock.css's .nav-link.active svg{color:#ffffff!important})", () => {
-    expect(shell).toContain(".workspace-app.workspace-app .nav-group-link.active .nav-icon,.workspace-app.workspace-app .nav-group-link.active svg{color:#6d28d9!important}");
+    expect(shell).toContain(".workspace-app.workspace-app .nav-group-link.active .nav-icon,.workspace-app.workspace-app .nav-group-link.active svg{color:#172554!important}");
     expect(shell).toContain(".workspace-app.workspace-app .nav-child-link.active .nav-icon,.workspace-app.workspace-app .nav-child-link.active svg{color:#2563eb!important}");
   });
 
@@ -317,20 +317,20 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain(".nav-group.active-context>.nav-group-header{");
     // .workspace-app.workspace-app doubles specificity so these always win,
     // regardless of stylesheet load order against other files' `.nav-link{color:...!important}` rules
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-header,\.workspace-app\.workspace-app \.nav-group-label\{color:#7c3aed!important;font-weight:800!important;font-size:13\.5px!important/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-header,\.workspace-app\.workspace-app \.nav-group-label\{color:#1e3a8a!important;font-weight:800!important;font-size:13\.5px!important/);
     expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link,\.workspace-app\.workspace-app \.nav-child-link \.nav-link-label\{color:#60a5fa!important;font-weight:600!important;font-size:12px!important\}/);
     // parent (13.5px/800) must be strictly bolder AND larger than child (12px/600)
     expect(13.5).toBeGreaterThan(12);
     expect(800).toBeGreaterThan(600);
   });
 
-  it("colors Level 1 (group headers, promoted single-child links) light purple and Level 2 (child links) light blue, as a distinct hue per level rather than just a weight/size difference", () => {
-    // Level 1: violet family
-    expect(shell).toContain(".nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#7c3aed!important");
-    expect(shell).toContain(".nav-group-link{color:#7c3aed!important");
-    expect(shell).toContain(".nav-group.active-context>.nav-group-header{background:#f5f3ff}");
-    expect(shell).toContain(".nav-group.active-context>.nav-group-header .nav-group-icon{color:#7c3aed!important}");
-    // Level 2: blue family, distinct from Level 1's violet
+  it("colors Level 1 (group headers, promoted single-child links) dark navy and Level 2 (child links) light blue, as a distinct hue per level rather than just a weight/size difference", () => {
+    // Level 1: dark navy family (was violet — explicit request to replace purple with dark blue)
+    expect(shell).toContain(".nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#1e3a8a!important");
+    expect(shell).toContain(".nav-group-link{color:#1e3a8a!important");
+    expect(shell).toContain(".nav-group.active-context>.nav-group-header{background:#eef2ff}");
+    expect(shell).toContain(".nav-group.active-context>.nav-group-header .nav-group-icon{color:#1e3a8a!important}");
+    // Level 2: blue family, distinct from Level 1's navy
     expect(shell).toContain(".nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#60a5fa!important");
     expect(shell).toContain(".nav-child-link .nav-icon{color:#60a5fa!important");
   });
@@ -343,8 +343,8 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain("asGroupLink ? `nav-link nav-group-link");
   });
 
-  it("a promoted single-child link reads as Level 1 (bold violet), not Level 2 (light blue)", () => {
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#7c3aed!important;font-weight:800!important;font-size:13\.5px!important;margin:6px 10px!important\}/);
+  it("a promoted single-child link reads as Level 1 (bold navy), not Level 2 (light blue)", () => {
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#1e3a8a!important;font-weight:800!important;font-size:13\.5px!important;margin:6px 10px!important\}/);
   });
 
   it("survives qms-enterprise-redesign.css's competing !important .nav-link{margin:2px 6px} and generic .nav-icon{width:27px;height:27px} rules — a second real collision found via real-device screenshots after the first fix (colors only) still left EMR/Cấu hình hệ thống visually indistinguishable from a child row, because their margin and icon size were still being silently overridden", () => {

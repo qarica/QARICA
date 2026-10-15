@@ -49,17 +49,17 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
     expect(source).toContain("const weekScoped=weekStart&&weekEnd?searched.filter(");
   });
 
-  it("ở tab DONE lọc theo completedAt (ngày hoàn thành thật) để ra đúng báo cáo \"đã làm gì trong tuần\", các tab khác lọc theo dueDate", () => {
-    expect(source).toContain('const compareDate=tab==="DONE"?(r.completedAt||r.dueDate):r.dueDate;');
+  it("việc đã xong lọc theo completedAt (ngày hoàn thành thật) để ra đúng báo cáo \"đã làm gì trong tuần\", việc chưa xong lọc theo dueDate", () => {
+    expect(source).toContain('const weekScoped=weekStart&&weekEnd?searched.filter(r=>r.isDone?(!!r.completedAt&&r.completedAt>=weekStart&&r.completedAt<=weekEnd):(!!r.dueDate&&r.dueDate<=weekEnd)):searched;');
   });
 
   it("action hoàn thành dùng updated_at làm completedAt xấp xỉ (actions không có cột completed_at riêng)", () => {
     expect(source).toContain("completedAt:r.workflow_status===\"COMPLETED\"&&r.updated_at?dateOnly(r.updated_at):null,");
-    expect(source).toContain(",updated_at\";"); // ACTION_SELECT phải kéo thêm updated_at
+    expect(source).toContain(",updated_at,created_at\";"); // ACTION_SELECT phải kéo thêm updated_at
   });
 
   it("personal_reminders phải SELECT thêm completed_at để tính completedAt cho note cá nhân đã hoàn thành", () => {
-    expect(source).toContain('.select("id,title,note,due_at,priority,status,completed_at")');
+    expect(source).toContain('.select("id,title,note,due_at,priority,status,completed_at,created_at")');
     expect(source).toContain('completedAt:p.status==="COMPLETED"&&p.completed_at?dateOnly(p.completed_at):null,');
   });
 
@@ -81,7 +81,9 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
   // định 2 con số tổng này).
   it("tính weekDoneRows/weekPendingRows từ TOÀN BỘ allWorkRows, không phụ thuộc tab đang mở", () => {
     expect(source).toContain("const weekDoneRows=weekStart&&weekEnd?allWorkRows.filter(r=>r.isDone&&r.completedAt&&r.completedAt>=weekStart&&r.completedAt<=weekEnd):[];");
-    expect(source).toContain("const weekPendingRows=weekStart&&weekEnd?allWorkRows.filter(r=>!r.isDone&&r.dueDate&&r.dueDate>=weekStart&&r.dueDate<=weekEnd):[];");
+    // Không chặn cận dưới weekStart cho việc CHƯA xong — xem test "việc CHƯA
+    // xong..." bên dưới (việc quá hạn từ trước vẫn phải tính vào tuần đang xem).
+    expect(source).toContain("const weekPendingRows=weekStart&&weekEnd?allWorkRows.filter(r=>!r.isDone&&r.dueDate&&r.dueDate<=weekEnd):[];");
   });
 
   it("dòng báo cáo tuần hiện cả 2 số đã xong/chưa xong, mỗi số bấm vào mở đúng tab tương ứng (DONE/OPEN) kèm tuần đang chọn", () => {
@@ -101,8 +103,67 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
 
   it("cả bảng desktop lẫn thẻ mobile đều dùng dueOrCompletedLabel thay vì chỉ hiện dueDate thô", () => {
     expect(source).toContain('<td className={r.isOverdue?"text-danger":r.isDone?"text-success":""}>{dueOrCompletedLabel(r)}</td>');
-    expect(source).toContain('<small>{r.typeLabel} · {dueOrCompletedLabel(r)}</small>');
+    expect(source).toContain('<small>{r.typeLabel} · Giao: {r.createdAt?formatDate(r.createdAt):"—"} · {dueOrCompletedLabel(r)}</small>');
     expect(source).not.toContain('{r.dueDate?formatDate(r.dueDate):"Không có hạn"}');
     expect(source).not.toContain('{r.dueDate?formatDate(r.dueDate):"—"}');
+  });
+
+  // Báo cáo tiếp theo: "Khi bấm lọc theo tuần thì chỉ lọc các việc đang open,
+  // thiếu các việc đã quá hạn nhưng chưa hoàn thành" — việc chưa xong trước
+  // đây bị chặn bởi cận dưới weekStart, nên việc quá hạn từ tuần trước biến
+  // mất khỏi báo cáo tuần này. Bỏ cận dưới: chỉ cần dueDate<=weekEnd.
+  it("việc CHƯA xong trong báo cáo tuần không bị chặn cận dưới — việc quá hạn từ trước vẫn tính vào tuần đang xem", () => {
+    expect(source).toContain("const weekPendingRows=weekStart&&weekEnd?allWorkRows.filter(r=>!r.isDone&&r.dueDate&&r.dueDate<=weekEnd):[];");
+    expect(source).not.toContain("r.dueDate>=weekStart&&r.dueDate<=weekEnd):[];");
+    expect(source).toContain('const weekScoped=weekStart&&weekEnd?searched.filter(r=>r.isDone?(!!r.completedAt&&r.completedAt>=weekStart&&r.completedAt<=weekEnd):(!!r.dueDate&&r.dueDate<=weekEnd)):searched;');
+  });
+
+  // Báo cáo tiếp theo: "Bổ sung ngày giao việc, sắp xếp các việc hoàn thành
+  // theo thứ tự gần nhất đến xa nhất".
+  it("có cột/ô Ngày giao việc (createdAt) ở cả bảng desktop lẫn thẻ mobile", () => {
+    expect(source).toContain("<th>Ngày giao việc</th>");
+    expect(source).toContain('<td>{r.createdAt?formatDate(r.createdAt):"—"}</td>');
+    expect(source).toContain('Giao: {r.createdAt?formatDate(r.createdAt):"—"}');
+  });
+
+  it("tab Đã hoàn thành sắp xếp theo completedAt gần nhất đến xa nhất", () => {
+    expect(source).toContain('tab==="DONE"?allWorkRows.filter(r=>r.isDone).sort((a,b)=>(b.completedAt||"").localeCompare(a.completedAt||"")):allWorkRows;');
+  });
+
+  // Báo cáo tiếp theo (ảnh chụp): ô chọn dòng, "Liên quan đến", "Người giao"
+  // luôn trống/không có tác dụng với note/việc cá nhân — đã bỏ khỏi bảng.
+  it("bỏ cột chọn dòng, Liên quan đến, Người giao khỏi bảng desktop (không còn ý nghĩa với note cá nhân)", () => {
+    expect(source).not.toContain("<th>Liên quan đến</th>");
+    expect(source).not.toContain("<th>Người giao</th>");
+    expect(source).toContain("<th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Ngày giao việc</th><th>Ưu tiên</th><th>Hạn xử lý / Hoàn thành</th><th>Trạng thái</th><th>Thao tác</th>");
+    expect(source).toContain("colSpan={8}");
+  });
+
+  // Báo cáo tiếp theo (ảnh chụp): khối "Lịch cá nhân" + "Việc cần chú ý theo
+  // hạn" bên phải bị gọi là "khó xem" — đã bỏ hẳn, bảng chính giờ full width.
+  it("bỏ khối Lịch cá nhân / Việc cần chú ý theo hạn bên phải", () => {
+    expect(source).not.toContain("Lịch cá nhân");
+    expect(source).not.toContain("Việc cần chú ý theo hạn");
+  });
+
+  // Báo cáo tiếp theo (ảnh chụp): "Việc cần làm trước" (secretaryQueue) rỗng
+  // vẫn hiện khung trống — yêu cầu "ẩn".
+  it("ẩn hẳn mục Việc cần làm trước khi secretaryQueue rỗng, thay vì hiện khung trống", () => {
+    expect(source).toContain("{secretaryQueue.length?<section className=\"work-section primary\">");
+    expect(source).not.toContain('Không có việc khẩn hoặc sát hạn cần xử lý.');
+  });
+
+  // Báo cáo tiếp theo (ảnh chụp): "bỏ chữ qlcl" khỏi dòng eyebrow của trang.
+  it("eyebrow không còn nhãn vai trò (QLCL/...), chỉ còn CÔNG VIỆC HÔM NAY · năm", () => {
+    expect(source).toContain("eyebrow={`CÔNG VIỆC HÔM NAY · ${year}`}");
+    expect(source).not.toContain("roleViewLabel");
+  });
+
+  // Báo cáo tiếp theo (ảnh chụp): "3 loại này là gì, nếu ko có thì bỏ" — 3 tab
+  // Việc được giao/Chờ phản hồi/Cần theo dõi chỉ hiện khi có ít nhất 1 việc.
+  it("ẩn tab Việc được giao/Chờ phản hồi/Cần theo dõi khi rỗng (0 việc)", () => {
+    expect(source).toContain('{unifiedAssignedRows.length?<Link href={tabHref("ASSIGNED")}');
+    expect(source).toContain('{waitingCount?<Link href={tabHref("WAITING")}');
+    expect(source).toContain('{watchCount?<Link href={tabHref("WATCH")}');
   });
 });

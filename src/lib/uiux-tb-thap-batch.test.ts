@@ -8,7 +8,6 @@ describe("UIUX TB/Thấp batch", () => {
     const page = read("src/app/(app)/dashboard/page.tsx");
     expect(page).not.toMatch(/<svg width="(18|20|26|16)"/);
     expect(page).toContain('<Icon name="building-2" size={20}/>');
-    expect(page).toContain('<Icon name="layers" size={26}/>');
     expect(page).toContain('<Icon name="circle-alert" size={16}/>');
   });
 

@@ -241,8 +241,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <style>{TQM_CHART_CSS + `
       .qcc-dashboard .breadcrumb{display:flex;align-items:center;gap:6px;color:#64748b;font-size:12px;margin-bottom:4px}
       .qcc-dashboard .page-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
-      .qcc-dashboard .page-header-row .scope-controls{display:flex;gap:8px;flex-wrap:wrap}
+      .qcc-dashboard .page-header-row .scope-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
       .qcc-dashboard .scope-controls .button{white-space:nowrap}
+      .qcc-dashboard .scope-controls input,.qcc-dashboard .scope-controls select{width:auto;min-height:38px}
       .qcc-dashboard .title-with-icon{display:flex;align-items:center;gap:12px}
       .qcc-dashboard .title-with-icon .icon-badge{width:40px;height:40px;border-radius:12px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;flex:0 0 40px}
       .qcc-dashboard .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
@@ -252,17 +253,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .kpi-icon.blue{background:#dbeafe;color:#2563eb}.qcc-dashboard .kpi-icon.green{background:#dcfce7;color:#16a34a}.qcc-dashboard .kpi-icon.amber{background:#fef3c7;color:#b45309}.qcc-dashboard .kpi-icon.red{background:#fee2e2;color:#dc2626}.qcc-dashboard .kpi-icon.purple{background:#ede9fe;color:#7c3aed}
       .qcc-dashboard .kpi-title{font-size:12.5px;color:#475569;font-weight:600;margin-top:2px}
       .qcc-dashboard .kpi-value{font-size:26px;font-weight:800;color:#0f172a}
-      .qcc-dashboard .hero-banner{position:relative;overflow:hidden;background:linear-gradient(120deg,#1450c9,#2f7bf0 65%,#38bdf8);border-radius:16px;padding:22px 26px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:16px}
-      .qcc-dashboard .hero-banner-decor{position:absolute;inset:0;pointer-events:none;background:radial-gradient(280px 280px at 92% -10%,rgba(255,255,255,.16),transparent 70%),radial-gradient(220px 220px at 100% 100%,rgba(255,255,255,.1),transparent 70%)}
-      .qcc-dashboard .hero-banner h2{position:relative;margin:0;font-size:19px}
-      .qcc-dashboard .hero-banner p{position:relative;margin:6px 0 0;font-size:12.5px;color:#dbeafe;max-width:560px}
-      .qcc-dashboard .hero-banner-icon{position:relative;flex:0 0 auto;width:56px;height:56px;border-radius:16px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center}
       .qcc-dashboard .quick-links{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:16px}
       .qcc-dashboard .quick-link{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:12px 6px;border-radius:12px;color:#334155;font-size:11px;font-weight:700}
       .qcc-dashboard .quick-link:hover{background:#f8fafc}
       .qcc-dashboard .quick-link-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center}
       @media(max-width:1100px){.qcc-dashboard .quick-links{grid-template-columns:repeat(4,1fr)}}
-      @media(max-width:640px){.qcc-dashboard .hero-banner{flex-direction:column;align-items:flex-start}.qcc-dashboard .quick-links{grid-template-columns:repeat(2,1fr)}}
+      @media(max-width:640px){.qcc-dashboard .quick-links{grid-template-columns:repeat(2,1fr)}}
       .qcc-dashboard .grid2b{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
       .qcc-dashboard .grid3b{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
       .qcc-dashboard .capa-stat-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px 18px 18px}
@@ -323,8 +319,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     </div>
 
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
-
-    <div className="hero-banner"><div className="hero-banner-decor" aria-hidden="true"></div><div><h2>Xin chào, {user.fullName || (user.email ? user.email.split("@")[0] : "bạn")}!</h2><p>Cùng QARICA xây dựng môi trường y tế an toàn, chất lượng và bền vững.</p></div><span className="hero-banner-icon" aria-hidden="true"><Icon name="layers" size={26}/></span></div>
 
     <section className="kpis">
       <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon blue"><Icon name="file-text" size={18}/></span><span className={`kpi-trend ${pctChange(thisMonthNew, lastMonthNew).tone}`}>{pctChange(thisMonthNew, lastMonthNew).tone === "up" ? "▲" : pctChange(thisMonthNew, lastMonthNew).tone === "down" ? "▼" : ""} {pctChange(thisMonthNew, lastMonthNew).tone === "flat" ? "0%" : `${Math.abs(Math.round(((thisMonthNew - lastMonthNew) / (lastMonthNew || 1)) * 100))}%`}</span></div><div className="kpi-value">{thisMonthNew}</div><div className="kpi-title">Sự cố mới</div></article>

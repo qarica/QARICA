@@ -210,8 +210,8 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .nav-group-header{display:flex;align-items:center;gap:11px;width:100%;border-radius:10px;margin:2px 10px;padding:10px 12px;border:1px solid transparent;background:transparent;text-align:left;transition:background .14s,color .14s}
       .workspace-app .nav-group-header:hover{background:#f8fafc;border-color:#eef2f7}
       .workspace-app .nav-group.expanded>.nav-group-header{background:#f8fafc}
-      .workspace-app .nav-group.active-context>.nav-group-header{background:#f5f3ff}
-      .workspace-app .nav-group.active-context>.nav-group-header .nav-group-icon{color:#7c3aed!important}
+      .workspace-app .nav-group.active-context>.nav-group-header{background:#eef2ff}
+      .workspace-app .nav-group.active-context>.nav-group-header .nav-group-icon{color:#1e3a8a!important}
       .workspace-app .nav-group-chevron{flex:0 0 auto;color:#94a3b8;transform:rotate(-90deg);transition:transform .16s}
       .workspace-app .nav-group-chevron.expanded{transform:rotate(0deg)}
       .workspace-app .nav-group-children{display:flex;flex-direction:column;padding-bottom:4px}
@@ -237,9 +237,9 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          intended margin/icon-size — which is exactly why EMR read as visually
          indistinguishable from a child row: neither the wider group-link
          margin nor the smaller child-icon size was ever actually applied. */
-      .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#7c3aed!important;font-weight:800!important;font-size:13.5px!important;letter-spacing:.01em}
-      .workspace-app.workspace-app .nav-group.active-context>.nav-group-header,.workspace-app.workspace-app .nav-group.active-context>.nav-group-header .nav-group-label{color:#6d28d9!important}
-      .workspace-app.workspace-app .nav-group-link{color:#7c3aed!important;font-weight:800!important;font-size:13.5px!important;margin:6px 10px!important}
+      .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#1e3a8a!important;font-weight:800!important;font-size:13.5px!important;letter-spacing:.01em}
+      .workspace-app.workspace-app .nav-group.active-context>.nav-group-header,.workspace-app.workspace-app .nav-group.active-context>.nav-group-header .nav-group-label{color:#172554!important}
+      .workspace-app.workspace-app .nav-group-link{color:#1e3a8a!important;font-weight:800!important;font-size:13.5px!important;margin:6px 10px!important}
       /* brand-overrides.css's generic .nav-link-label{overflow:hidden;
          text-overflow:ellipsis;white-space:nowrap} truncates a promoted
          single-child group's label the same as a real (level-2) child link —
@@ -249,16 +249,16 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          Vietnamese labels (THEO DÕI HÀNH NGHỀ, MUA SẮM & SỬA CHỮA, CẤU HÌNH
          HỆ THỐNG) were silently losing their tail behind "..." until this. */
       .workspace-app.workspace-app .nav-group-link .nav-link-label{color:inherit!important;font-weight:inherit!important;font-size:inherit!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.25!important}
-      .workspace-app.workspace-app .nav-group-link.active,.workspace-app.workspace-app .nav-group-link.active .nav-link-label{background:#f5f3ff!important;color:#6d28d9!important}
+      .workspace-app.workspace-app .nav-group-link.active,.workspace-app.workspace-app .nav-group-link.active .nav-link-label{background:#eef2ff!important;color:#172554!important}
       /* final-visual-lock.css (loaded last) sets a blanket
          .nav-link.active svg{color:#ffffff!important} for its own solid-blue
          active background — but .nav-group-link.active here uses a near-white
-         violet tint instead, so that white icon silently disappears into it.
+         indigo tint instead, so that white icon silently disappears into it.
          Real bug reported from a screenshot: the active item in the collapsed
          rail showed a colored pill with no visible icon at all. .nav-child-link
          already has its own active-icon override (line below); the promoted
          single-child link never did. */
-      .workspace-app.workspace-app .nav-group-link.active .nav-icon,.workspace-app.workspace-app .nav-group-link.active svg{color:#6d28d9!important}
+      .workspace-app.workspace-app .nav-group-link.active .nav-icon,.workspace-app.workspace-app .nav-group-link.active svg{color:#172554!important}
       .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#60a5fa!important;font-weight:600!important;font-size:12px!important}
       .workspace-app.workspace-app .nav-child-link{margin:1px 10px 1px 26px!important}
       /* The collapsed-rail flyout popover is a small floating popup, not the

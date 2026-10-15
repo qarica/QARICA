@@ -33,6 +33,35 @@ describe("sidebar collapsed state hides group header labels too", () => {
   });
 });
 
+// Real, screenshotted bug: collapsing the desktop sidebar made every
+// single-child group (AUDIT HSBA, THEO DÕI HÀNH NGHỀ, QUẢN LÝ CÔNG VĂN,
+// KIỂM SOÁT TÀI LIỆU, ĐÀO TẠO QUY TRÌNH, MUA SẮM & SỬA CHỮA, CẤU HÌNH HỆ
+// THỐNG) show a completely blank icon — only the 2-3 groups rendered as a
+// real accordion (<button class="nav-group-header">) kept their icon.
+// Root cause, found by rendering the real markup + every loaded global CSS
+// file in a headless browser and inspecting computed styles: qlvb-theme.css
+// (a legacy "QLVB-style shell" stylesheet predating the icon+label split)
+// has `.sidebar.collapsed .nav-link span{display:none!important}` — it
+// meant to hide just the text label, but `renderChild()`'s single-child
+// promoted link (`<Link class="nav-link nav-group-link">`) wraps its icon
+// in a `<span class="nav-icon ...">` too, which is ALSO a `span` inside
+// `.nav-link` — so the blanket `span` selector hid the icon wrapper itself
+// (display:none, not just a color/size issue). renderGroup()'s accordion
+// header uses a `<button class="nav-group-header">`, which never matches
+// `.nav-link span` at all, which is why those groups' icons were unaffected.
+describe("collapsed sidebar does not blank out single-child promoted links' icons (qlvb-theme.css)", () => {
+  const qlvbTheme = readFileSync("src/app/qlvb-theme.css", "utf8");
+
+  it("targets only the label span (.nav-link-label), not every span inside .nav-link — a bare 'span' selector also matches the icon-wrapping span", () => {
+    expect(qlvbTheme).not.toContain(".nav-link span");
+    expect(qlvbTheme).toContain(".sidebar.collapsed .sidebar-brand-copy,.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-link-label,.sidebar.collapsed .sidebar-footer{display:none!important}");
+  });
+
+  it("keeps the matching mobile reset (display:flex) in sync with the same selector change", () => {
+    expect(qlvbTheme).toContain(".sidebar.collapsed .sidebar-brand-copy,.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-link-label,.sidebar.collapsed .sidebar-footer{display:flex!important}");
+  });
+});
+
 // Regression for a real, screenshotted bug: EMR Command Center's 6 main KPI
 // icons rendered with no colored badge at all (bare icon glyphs), unlike
 // every other KPI row in the app (Tổng quan QLCL, Admin, Analytics). Root
