@@ -20,6 +20,10 @@ describe("Operations /tasks pagination", () => {
   it("guards the page query before calculating row slices", () => {
     expect(source).toContain("Number.isSafeInteger(requestedPage)&&requestedPage>0?requestedPage:1");
     expect(source).toContain("const currentPage=Math.min(page,totalPages)");
-    expect(source).toContain("searched.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE)");
+    // weekScoped = searched further narrowed by the optional ?week= filter
+    // (defaults to searched unchanged when no week is selected) — see
+    // tasks-week-filter.test.ts for that filter's own coverage.
+    expect(source).toContain("weekScoped.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE)");
+    expect(source).toContain("const weekScoped=weekStart&&weekEnd?searched.filter(");
   });
 });

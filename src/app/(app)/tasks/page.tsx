@@ -24,22 +24,37 @@ function hcmToday(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Ch
 // new Date(`${due}T00:00:00`).toISOString()) — cắt chuỗi 10 ký tự đầu lấy ngày UTC sẽ lùi
 // 1 ngày so với ngày người dùng chọn (UTC+7). Phải quy đổi theo giờ VN, không cắt chuỗi.
 function dateOnly(value:string){return value.length>10?(hcmDateKey(value)||value.slice(0,10)):value}
+// Tuần làm việc theo quy ước VN: Thứ 2 -> Chủ nhật. Tính thuần bằng Date.UTC
+// trên chuỗi "YYYY-MM-DD" (cùng cách mini-lịch cá nhân phía dưới đã làm),
+// không qua Date() mặc định để tránh lệch timezone của máy chủ.
+function mondayOfWeek(dateStr:string){const [y,m,d]=dateStr.split("-").map(Number);const dt=new Date(Date.UTC(y,m-1,d));const dow=dt.getUTCDay();dt.setUTCDate(dt.getUTCDate()+(dow===0?-6:1-dow));return dt.toISOString().slice(0,10)}
+function addDays(dateStr:string,days:number){const [y,m,d]=dateStr.split("-").map(Number);const dt=new Date(Date.UTC(y,m-1,d));dt.setUTCDate(dt.getUTCDate()+days);return dt.toISOString().slice(0,10)}
 const WEEKDAYS=["T2","T3","T4","T5","T6","T7","CN"];
 const MONTH_NAMES=["Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"];
 function priorityLabel(value?:string|null){if(value==="CRITICAL")return"Rất khẩn";if(value==="URGENT")return"Khẩn";if(value==="HIGH")return"Cao";if(value==="LOW")return"Thấp";return"Bình thường"}
 function priorityTone(value?:string|null){if(["CRITICAL","URGENT"].includes(String(value)))return"danger";if(value==="HIGH")return"warning";if(value==="LOW")return"muted";return"info"}
 function workCue(row:any){const days=Number(row.days_to_due||0);if(row.is_overdue){const late=Math.abs(days);if(late>=7)return`Đôn đốc ngay · quá hạn ${late} ngày`;return`Xử lý ngay · quá hạn ${late} ngày`}if(["EVIDENCE_SUBMITTED","VERIFYING"].includes(String(row.workflow_status)))return"Cần kiểm tra / xác minh";if(row.workflow_status==="RETURNED")return"Cần bổ sung sau khi bị trả lại";if(days===0)return"Hoàn tất trong hôm nay";if(days>0&&days<=3)return`Chuẩn bị xử lý · còn ${days} ngày`;if(["CRITICAL","URGENT"].includes(String(row.priority)))return"Ưu tiên xử lý sớm";return days>0?`Theo dõi · còn ${days} ngày`:"Cần kiểm tra tiến độ"}
 function workScore(row:any){const days=Number(row.days_to_due||0);let score=0;if(row.is_overdue)score+=200+Math.abs(days)*5;if(row.workflow_status==="RETURNED")score+=150;if(["EVIDENCE_SUBMITTED","VERIFYING"].includes(String(row.workflow_status)))score+=135;if(days===0)score+=160;if(days>0&&days<=3)score+=100;if(row.priority==="CRITICAL")score+=90;else if(row.priority==="URGENT")score+=70;else if(row.priority==="HIGH")score+=40;return score}
-const ACTION_SELECT="action_id,record_id,record_code,title,work_year,workflow_status,priority,due_date,is_overdue,days_to_due,lead_department_id,assignee_user_id,assignment_target_type,assignee_group_id";
+const ACTION_SELECT="action_id,record_id,record_code,title,work_year,workflow_status,priority,due_date,is_overdue,days_to_due,lead_department_id,assignee_user_id,assignment_target_type,assignee_group_id,updated_at";
 
-export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string;q?:string;page?:string}>}){
+export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string;q?:string;page?:string;week?:string}>}){
  const {user}=await requireUserContext();requirePermission(user,"tasks.view");const year=await getWorkYear();const supabase=await createClient();const today=hcmToday();
- const {tab:rawTab,q:rawQ,page:rawPage}=await searchParams;
+ const {tab:rawTab,q:rawQ,page:rawPage,week:rawWeek}=await searchParams;
  const tab=(["ALL","OPEN","REMINDER","ASSIGNED","WAITING","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"OPEN") as "ALL"|"OPEN"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE";
  const searchQuery=String(rawQ||"").trim();
  const requestedPage=Number(rawPage ?? 1);
  const page=Number.isSafeInteger(requestedPage)&&requestedPage>0?requestedPage:1;
  const PAGE_SIZE=10;
+ // Lọc theo tuần (Thứ 2 -> CN) để xem/báo cáo công việc trong 1 tuần cụ thể —
+ // mặc định KHÔNG lọc (giữ đúng hành vi cũ) nếu không truyền ?week=. Giá trị
+ // truyền vào luôn được quy về đúng Thứ 2 của tuần chứa ngày đó, nên link có
+ // thể trỏ tới bất kỳ ngày nào trong tuần muốn xem.
+ const rawWeekValue=String(rawWeek||"").trim();
+ const weekStart=/^\d{4}-\d{2}-\d{2}$/.test(rawWeekValue)&&!Number.isNaN(Date.parse(rawWeekValue))?mondayOfWeek(rawWeekValue):null;
+ const weekEnd=weekStart?addDays(weekStart,6):null;
+ const thisWeekMonday=mondayOfWeek(today);
+ const weekNavBase=weekStart||thisWeekMonday;
+ const weekHref=(w:string|null)=>{const params=new URLSearchParams();params.set("tab",tab);if(searchQuery)params.set("q",searchQuery);if(w)params.set("week",w);return `?${params.toString()}#all-work`};
  const isQlcl=user.roleCodes.includes("QLCL_MANAGER")||user.roleCodes.includes("HOI_DONG_QLCL");const isDepartmentHead=user.roleCodes.includes("DEPARTMENT_HEAD");const isBoard=user.roleCodes.includes("BAN_GIAM_DOC");
  const groupAssignmentRes=await supabase
   .from("work_group_assignment_snapshots")
@@ -61,7 +76,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
    ? supabase.from("vw_actions_dashboard").select(ACTION_SELECT).eq("work_year",year).in("action_id",departmentActionIds).order("due_date",{ascending:true,nullsFirst:false})
    : Promise.resolve({data:[] as any[],error:null}),
   supabase.from("notifications").select("id,title,message,priority,target_route,target_record_id,created_at,is_read").eq("recipient_user_id",user.id).eq("is_read",false).order("created_at",{ascending:false}).limit(20),
-  supabase.from("personal_reminders").select("id,title,note,due_at,priority,status").eq("owner_user_id",user.id).neq("status","CANCELLED").order("due_at",{ascending:true,nullsFirst:false}),
+  supabase.from("personal_reminders").select("id,title,note,due_at,priority,status,completed_at").eq("owner_user_id",user.id).neq("status","CANCELLED").order("due_at",{ascending:true,nullsFirst:false}),
  ]);
  // Hạng mục dự án EMR của khoa/phòng mình, còn mở và có hạn — để người vừa
  // phụ trách QLCL vừa EMR thấy việc EMR ngay ở "Việc của tôi" thay vì phải
@@ -130,23 +145,29 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
 
  const openRows=rows.filter(r=>!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status));
 
- type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"|"legacy";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null};
+ type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;completedAt:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"|"legacy";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null};
  const unifiedActionRows:UnifiedRow[]=rows.map(r=>({
   key:`a-${r.action_id}`,title:r.title,typeLabel:RECORD_TYPE_LABEL[recordTypeMap.get(r.record_id)||""]||"—",
   relatedTo:recordCodeMap.get(r.record_id)||"—",priority:r.priority,dueDate:r.due_date,
+  // Chưa có cột completed_at riêng trên actions (chỉ có completion_note) —
+  // updated_at tại đúng thời điểm chuyển COMPLETED là xấp xỉ hợp lý duy nhất
+  // hiện có để báo cáo "hoàn thành trong tuần nào".
+  completedAt:r.workflow_status==="COMPLETED"&&r.updated_at?dateOnly(r.updated_at):null,
   statusLabel:r.is_overdue?"OVERDUE":r.workflow_status,isOverdue:!!r.is_overdue,isDone:r.workflow_status==="COMPLETED",
   isWatch:!r.is_overdue&&!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status)&&Number(r.days_to_due)>0,
   assignedBy:createdByForRecord(r.record_id),href:`/tasks/${r.record_id}`,source:"action",sourceId:r.action_id,sourceType:"ACTION",followup:followupBySource.get("ACTION:"+r.action_id)??null,
  }));
  const unifiedReminderRows:UnifiedRow[]=[...personalReminders.map((p:any):UnifiedRow=>({
   key:`p-${p.id}`,title:p.title,typeLabel:"Note cá nhân",relatedTo:"—",priority:p.priority,
-  dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="COMPLETED"?"COMPLETED":(p.due_at&&dateOnly(p.due_at)<today?"OVERDUE":p.status),
+  dueDate:p.due_at?dateOnly(p.due_at):null,completedAt:p.status==="COMPLETED"&&p.completed_at?dateOnly(p.completed_at):null,
+  statusLabel:p.status==="COMPLETED"?"COMPLETED":(p.due_at&&dateOnly(p.due_at)<today?"OVERDUE":p.status),
   isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="COMPLETED",
   isWatch:p.status==="OPEN"&&(!p.due_at||dateOnly(p.due_at)>=today),
   assignedBy:"—",href:"/tasks?tab=REMINDER#all-work",source:"reminder",sourceId:p.id,sourceType:null,followup:p.note??null,
  })),...(legacyPersonalTasks??[]).map((p:any):UnifiedRow=>({
   key:`legacy-${p.id}`,title:p.title,typeLabel:"Việc cá nhân",relatedTo:p.category||"Cá nhân",priority:"MEDIUM",
-  dueDate:p.due_at?dateOnly(p.due_at):null,statusLabel:p.status==="DONE"?"COMPLETED":"OPEN",
+  dueDate:p.due_at?dateOnly(p.due_at):null,completedAt:p.status==="DONE"&&p.completed_at?dateOnly(p.completed_at):null,
+  statusLabel:p.status==="DONE"?"COMPLETED":"OPEN",
   isOverdue:p.status==="OPEN"&&!!p.due_at&&dateOnly(p.due_at)<today,isDone:p.status==="DONE",
   isWatch:p.status==="OPEN",assignedBy:"—",href:`/me?item=${encodeURIComponent(p.id)}#personal-workspace`,source:"legacy",sourceId:p.id,sourceType:null,followup:p.content??null,
  }))];
@@ -155,7 +176,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   const overdueItem=!!item.due_date&&item.due_date<today;
   return{
    key:`e-${item.id}`,title:item.title,typeLabel:`EMR · ${category?.label||item.category}`,
-   relatedTo:category?.label||"EMR",priority:item.priority,dueDate:item.due_date,
+   relatedTo:category?.label||"EMR",priority:item.priority,dueDate:item.due_date,completedAt:null,
    statusLabel:overdueItem?"OVERDUE":item.status,isOverdue:overdueItem,isDone:false,
    isWatch:!overdueItem,assignedBy:"—",href:category?`/emr/${category.slug}`:"/emr",source:"emr",sourceId:item.id,sourceType:"EMR",followup:followupBySource.get("EMR:"+item.id)??null,
   };
@@ -164,11 +185,17 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const allWorkRows=[...unifiedAssignedRows,...unifiedReminderRows].sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999"));
  const byTab=tab==="OPEN"?allWorkRows.filter(r=>!r.isDone):tab==="REMINDER"?unifiedReminderRows:tab==="ASSIGNED"?unifiedAssignedRows:tab==="WAITING"?allWorkRows.filter(r=>r.followup?.state==="WAITING"):tab==="WATCH"?allWorkRows.filter(r=>r.isWatch):tab==="DONE"?allWorkRows.filter(r=>r.isDone):allWorkRows;
  const searched=searchQuery?byTab.filter(r=>r.title.toLowerCase().includes(searchQuery.toLowerCase())||r.relatedTo.toLowerCase().includes(searchQuery.toLowerCase())):byTab;
- const totalPages=Math.max(1,Math.ceil(searched.length/PAGE_SIZE));
+ // Ở tab Đã hoàn thành, "trong tuần" nghĩa là hoàn thành trong tuần đó
+ // (completedAt) — các tab khác lọc theo hạn xử lý (dueDate), vì chưa hoàn
+ // thành thì không có completedAt để lọc theo. Dòng thiếu cả completedAt lẫn
+ // dueDate bị loại khỏi báo cáo tuần (không có mốc thời gian nào để xếp vào
+ // tuần nào cả) thay vì hiện sai tuần.
+ const weekScoped=weekStart&&weekEnd?searched.filter(r=>{const compareDate=tab==="DONE"?(r.completedAt||r.dueDate):r.dueDate;return !!compareDate&&compareDate>=weekStart&&compareDate<=weekEnd}):searched;
+ const totalPages=Math.max(1,Math.ceil(weekScoped.length/PAGE_SIZE));
  const currentPage=Math.min(page,totalPages);
- const tableRowsPage=searched.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
- const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}#all-work`;
- const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}&page=${p}#all-work`;
+ const tableRowsPage=weekScoped.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
+ const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}#all-work`;
+ const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}&page=${p}#all-work`;
 
  // Mini "Lịch cá nhân": chỉ đánh dấu ngày có việc thật (Action mở + note cá nhân), không vẽ ô trang trí.
  const dueDateSet=new Set<string>([...openRows.map(r=>r.due_date).filter(Boolean),...personalReminders.filter((p:any)=>p.status==="OPEN"&&p.due_at).map((p:any)=>dateOnly(p.due_at)),...myEmrItems.map((e:any)=>e.due_date).filter(Boolean)]);
@@ -193,6 +220,10 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   .tqm-my-work .work-columns{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
   .tqm-my-work .work-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}.tqm-my-work .work-tab{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#52656d;border:1px solid #d7e1e5;background:#fff}.tqm-my-work .work-tab.active{background:#2563eb;border-color:#2563eb;color:#fff}
   .tqm-my-work .work-search-row{display:flex;gap:8px;align-items:center;padding:10px 16px}.tqm-my-work .work-search-row .search-box{flex:1;max-width:280px}
+  .tqm-my-work .week-filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:0 16px 10px}
+  .tqm-my-work .week-filter-label{font-size:11.5px;font-weight:800;color:#334155;white-space:nowrap}
+  .tqm-my-work .week-filter-report{margin:0;padding:9px 16px;background:#eff6ff;color:#1d4ed8;font-size:11.5px;font-weight:600;border-top:1px solid #e2e9ec;border-bottom:1px solid #e2e9ec}
+  @media(max-width:760px){.tqm-my-work .week-filter-row{padding:0 12px 10px}.tqm-my-work .week-filter-label{width:100%;order:-1}}
   .tqm-my-work .work-selection-count{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#1d4ed8;background:#eff6ff}
   .tqm-my-work .my-work-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
   .tqm-my-work .my-work-header .page-header{flex:1}
@@ -263,12 +294,21 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
      </nav>
      <form method="get" className="work-search-row">
       <input type="hidden" name="tab" value={tab}/>
+      {weekStart?<input type="hidden" name="week" value={weekStart}/>:null}
       <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm theo tên công việc / hồ sơ..."/></div>
       <button type="submit" className="button secondary small">Tìm kiếm</button>
      </form>
+     <div className="week-filter-row">
+      <Link href={weekHref(addDays(weekNavBase,-7))} className="button secondary small" title="Tuần trước"><Icon name="arrow-left" size={14}/> Tuần trước</Link>
+      <span className="week-filter-label">{weekStart&&weekEnd?`Tuần ${formatDate(weekStart)} – ${formatDate(weekEnd)}`:"Chưa lọc theo tuần"}</span>
+      <Link href={weekHref(addDays(weekNavBase,7))} className="button secondary small" title="Tuần sau">Tuần sau <Icon name="arrow-right" size={14}/></Link>
+      {weekStart!==thisWeekMonday?<Link href={weekHref(thisWeekMonday)} className="button secondary small">Tuần này</Link>:null}
+      {weekStart?<Link href={weekHref(null)} className="button tertiary small">Bỏ lọc tuần</Link>:null}
+     </div>
+     {weekStart&&weekEnd?<p className="week-filter-report" role="status">{tab==="DONE"?`Đã hoàn thành ${weekScoped.length} việc trong tuần ${formatDate(weekStart)} – ${formatDate(weekEnd)} — dùng để báo cáo công việc trong tuần.`:`Có ${weekScoped.length} việc với hạn xử lý rơi trong tuần ${formatDate(weekStart)} – ${formatDate(weekEnd)}. Chọn tab "Đã hoàn thành" để xem báo cáo việc đã làm xong trong tuần này.`}</p>:null}
      <div className="table-wrap all-table desktop-only"><table><thead><tr><th></th><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Liên quan đến</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th><th>Người giao</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td><WorkRowCheckbox rowKey={r.key}/></td><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td>{r.source==="reminder"||r.source==="legacy"?<PersonalTaskProgressTitle title={r.title} note={r.followup} taskId={r.sourceId!} source={r.source} ownerId={user.id}/>:<Link className="table-link" href={r.href}>{r.title}</Link>}</td><td>{r.typeLabel}</td><td>{r.relatedTo}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":""}>{r.dueDate?formatDate(r.dueDate):"—"}</td><td><StatusBadge status={r.statusLabel}/></td><td>{r.assignedBy}</td><td>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}/>:r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={10}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
      <div className="mobile-only work-card-list">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.source==="reminder"||r.source==="legacy"?<PersonalTaskProgressTitle title={r.title} note={r.followup} taskId={r.sourceId!} source={r.source} ownerId={user.id}/>:r.title}</strong><small>{r.typeLabel} · {r.dueDate?formatDate(r.dueDate):"Không có hạn"}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}/>:<><Link className="button primary small" href={r.href}>Mở</Link>{r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</>}</div></article>)}{!tableRowsPage.length?<div className="empty-state">Không có việc phù hợp.</div>:null}</div>
-     {searched.length?<div className="work-pagination"><span>Hiển thị {(currentPage-1)*PAGE_SIZE+1}-{Math.min(currentPage*PAGE_SIZE,searched.length)} của {searched.length} bản ghi</span><div className="work-pagination-pages">{Array.from({length:totalPages},(_,i)=>i+1).map(p=><Link key={p} href={pageHref(p)} className={`button small ${p===currentPage?"primary":"secondary"}`}>{p}</Link>)}</div></div>:null}
+     {weekScoped.length?<div className="work-pagination"><span>Hiển thị {(currentPage-1)*PAGE_SIZE+1}-{Math.min(currentPage*PAGE_SIZE,weekScoped.length)} của {weekScoped.length} bản ghi</span><div className="work-pagination-pages">{Array.from({length:totalPages},(_,i)=>i+1).map(p=><Link key={p} href={pageHref(p)} className={`button small ${p===currentPage?"primary":"secondary"}`}>{p}</Link>)}</div></div>:null}
     </section>
     </WorkRowSelectionProvider>
    </div>
