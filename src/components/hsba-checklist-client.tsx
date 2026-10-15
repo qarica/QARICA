@@ -390,7 +390,7 @@ export function HsbaChecklistClient({ auditType, canManage }: { auditType: Inter
                           </td>
                           <td>{canEditItems ? <select className="input" value={item.group_id || ""} onChange={(e) => void patch(item, { group_id: e.target.value || null })}><option value="">— Chưa phân nhóm —</option>{groups.filter((g) => g.is_active).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select> : (groups.find((g) => g.id === item.group_id)?.name || "—")}</td>
                           <td>{item.category || "—"}</td>
-                          <td>{canEditItems ? <input type="checkbox" checked={item.create_finding_on_partial} onChange={(e) => void patch(item, { create_finding_on_partial: e.target.checked })} aria-label="Đạt một phần tạo lỗi" /> : (item.create_finding_on_partial ? "Có" : "Không")}</td>
+                          <td>{canEditItems ? <span className="inline-check"><input type="checkbox" checked={item.create_finding_on_partial} onChange={(e) => void patch(item, { create_finding_on_partial: e.target.checked })} aria-label="Đạt một phần tạo lỗi" /></span> : (item.create_finding_on_partial ? "Có" : "Không")}</td>
                           <td>
                             <span className={`status-badge ${item.is_active ? "success" : "muted"}`}>{item.is_active ? "Đang dùng" : "Ngừng sử dụng"}</span>
                           </td>

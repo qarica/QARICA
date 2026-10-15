@@ -171,7 +171,7 @@ export function ProcurementRequestsClient({
         <div className="panel-title">
           <h2>Danh sách đề xuất</h2>
         </div>
-        <div className="mobile-workflow-filters"><input className="input" aria-label="Tìm đề xuất" placeholder="Tìm tên đề xuất, khoa/phòng..." value={listQuery} onChange={(e) => setListQuery(e.target.value)} /><label><input type="checkbox" checked={urgentOnly} onChange={(e) => setUrgentOnly(e.target.checked)} /> Chỉ đề xuất khẩn</label></div>
+        <div className="mobile-workflow-filters"><input className="input" aria-label="Tìm đề xuất" placeholder="Tìm tên đề xuất, khoa/phòng..." value={listQuery} onChange={(e) => setListQuery(e.target.value)} /><label className="inline-check"><input type="checkbox" checked={urgentOnly} onChange={(e) => setUrgentOnly(e.target.checked)} /> Chỉ đề xuất khẩn</label></div>
         <div className="work-list">
           {requests.filter((r) => (!urgentOnly || r.urgency === "URGENT") && (!listQuery.trim() || [r.title, departmentName(r.department_id)].some((v) => v.toLocaleLowerCase("vi").includes(listQuery.trim().toLocaleLowerCase("vi"))))).map((r) => (
             <div className="work-row" key={r.id}>

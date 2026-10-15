@@ -26,4 +26,19 @@ describe("UI consistency fixes (checkbox class, modal-head wrapper)", () => {
     }
     expect(read("src/components/five-s-checklist-run-client.tsx")).toContain('<h2 id="validation-title">');
   });
+
+  // Same bare-checkbox gotcha found again in a proactive UI audit (2026-10-15):
+  // the "Chỉ đề xuất khẩn" filter checkbox sat directly in a <label> with no
+  // wrapper class, and the HSBA checklist "Đạt một phần tạo lỗi" checkbox sat
+  // directly in a <td> — both would render oversized under globals.css's
+  // input,select,textarea{width:100%;min-height:40px}.
+  it("procurement filter checkbox wraps in .inline-check", () => {
+    const source = read("src/components/procurement-requests-client.tsx");
+    expect(source).toContain('<label className="inline-check"><input type="checkbox" checked={urgentOnly}');
+  });
+
+  it("HSBA checklist table checkbox wraps in .inline-check (same pattern emr-category-client.tsx already uses for in-table checkboxes)", () => {
+    const source = read("src/components/hsba-checklist-client.tsx");
+    expect(source).toContain('<span className="inline-check"><input type="checkbox" checked={item.create_finding_on_partial}');
+  });
 });
