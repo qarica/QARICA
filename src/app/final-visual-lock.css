@@ -52,7 +52,7 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 
 /* Keep semantic status colors; primary action remains medical blue. */
 .workspace-app .button.primary{background:linear-gradient(135deg,#172554,#1E3A8A)!important;border-color:#172554!important;color:#fff!important}
-.workspace-app input:focus,.workspace-app select:focus,.workspace-app textarea:focus{border-color:#1E3A8A!important;box-shadow:0 0 0 3px rgba(47,128,237,.10)!important}
+.workspace-app input:focus,.workspace-app select:focus,.workspace-app textarea:focus{border-color:#1E3A8A!important;box-shadow:0 0 0 3px rgba(30,58,138,.10)!important}
 
 /* Unify every page-local KPI/card variant (radius + shadow varied from 10px to 17px
    depending which module a page was built in) onto the same radius+shadow already used

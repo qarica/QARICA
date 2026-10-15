@@ -57,7 +57,7 @@ export default async function CalendarMyWorkPage({ searchParams }: { searchParam
 
   return <div className="page-stack calendar-my-work-page mobile-my-work-redesign">
     <style>{`
-      .calendar-my-work-page .work-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}.calendar-my-work-page .work-tab{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#52656d;border:1px solid #d7e1e5;background:#fff;text-decoration:none}.calendar-my-work-page .work-tab.active{background:#2563eb;border-color:#2563eb;color:#fff}
+      .calendar-my-work-page .work-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}.calendar-my-work-page .work-tab{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#52656d;border:1px solid #d7e1e5;background:#fff;text-decoration:none}.calendar-my-work-page .work-tab.active{background:#1E3A8A;border-color:#1E3A8A;color:#fff}
       .calendar-my-work-page .work-search-row{display:flex;gap:8px;align-items:center;padding:10px 16px}.calendar-my-work-page .work-search-row .search-box{flex:1;max-width:280px}
     `}</style>
     <PageHeader eyebrow={`LỊCH QLCL · ${year}`} title="Việc của tôi (trong Lịch QLCL)" description="Danh sách việc được giao và nhắc việc cá nhân có hạn đến hạn. Cùng dữ liệu với Việc của tôi; đây chỉ là một góc nhìn khác gắn với Lịch." icon="inbox" actions={<Link className="button secondary" href="/tasks">Mở Việc của tôi đầy đủ →</Link>} />

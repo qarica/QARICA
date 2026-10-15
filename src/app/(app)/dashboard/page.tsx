@@ -245,7 +245,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .scope-controls .button{white-space:nowrap}
       .qcc-dashboard .scope-controls input,.qcc-dashboard .scope-controls select{width:auto;min-height:38px}
       .qcc-dashboard .title-with-icon{display:flex;align-items:center;gap:12px}
-      .qcc-dashboard .title-with-icon .icon-badge{width:40px;height:40px;border-radius:12px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;flex:0 0 40px}
+      .qcc-dashboard .title-with-icon .icon-badge{width:40px;height:40px;border-radius:12px;background:#EEF2FF;color:#1E3A8A;display:flex;align-items:center;justify-content:center;flex:0 0 40px}
       .qcc-dashboard .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
       .qcc-dashboard .kpi-card{background:#fff;border:1px solid #e5eaf2;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.03)}
       .qcc-dashboard .kpi-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
@@ -269,14 +269,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .compliance-rows{display:grid;gap:12px;padding:14px 18px 18px}
       .qcc-dashboard .compliance-row{display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:8px;font-size:11.5px;color:#334155}
       .qcc-dashboard .compliance-row .bar-track{grid-column:1/-1;height:6px;background:#eef2f6;border-radius:99px;overflow:hidden}
-      .qcc-dashboard .compliance-row .bar-track i{display:block;height:100%;background:#2563eb;border-radius:99px}
+      .qcc-dashboard .compliance-row .bar-track i{display:block;height:100%;background:#1E3A8A;border-radius:99px}
       @media(max-width:1100px){.qcc-dashboard .grid2b,.qcc-dashboard .grid3b{grid-template-columns:1fr}}
       .qcc-dashboard .kpi-trend{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
       .qcc-dashboard .kpi-trend.up{color:#16a34a;background:#eafaf0}.qcc-dashboard .kpi-trend.down{color:#dc2626;background:#fef2f2}.qcc-dashboard .kpi-trend.flat{color:#94a3b8;background:#f1f5f9}
       .qcc-dashboard .chart-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
       .qcc-dashboard .range-toggle{display:flex;gap:2px;background:#f1f5f9;border-radius:9px;padding:2px}
       .qcc-dashboard .range-toggle a{padding:6px 12px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b}
-      .qcc-dashboard .range-toggle a.active{background:#2563eb;color:#fff}
+      .qcc-dashboard .range-toggle a.active{background:#1E3A8A;color:#fff}
       .qcc-dashboard .grid2{display:grid;grid-template-columns:1.3fr .9fr;gap:14px}
       .qcc-dashboard .head{padding:16px 18px 4px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
       .qcc-dashboard .head h2{margin:0;font-size:15px}
