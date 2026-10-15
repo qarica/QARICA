@@ -53,4 +53,16 @@ describe("UI consistency fixes (checkbox class, modal-head wrapper)", () => {
     expect(source).toContain('{!isDone?<button type="button" className="button tertiary small" disabled={busy} onClick={()=>{setError("");setExtending(true)}}>Xin gia hạn</button>:null}');
     expect(source).toContain('onClick={()=>void toggle()}>{isDone?"Mở lại":"Hoàn tất"}</button>');
   });
+
+  // Reported from a desktop screenshot of the floating quick-capture panel
+  // (GlobalQuickCapture): on a wide screen it was still fixed at a narrow
+  // 340px with a cramped 3-row textarea — too small to comfortably type a
+  // note. Widened the panel and gave the textarea real room to type into.
+  it("GlobalQuickCapture panel is wide enough and its textarea has real room to type (not a cramped 340px/3-row box)", () => {
+    const source = read("src/components/global-quick-capture.tsx");
+    expect(source).toContain("width:min(440px,calc(100vw - 32px))");
+    expect(source).not.toContain("width:min(340px,calc(100vw - 32px))");
+    expect(source).toContain('rows={6}');
+    expect(source).toContain("min-height:140px");
+  });
 });

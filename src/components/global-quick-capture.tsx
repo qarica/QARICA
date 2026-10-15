@@ -89,7 +89,7 @@ export function GlobalQuickCapture({ userId, organizationId }: { userId: string;
       </div> : <form onSubmit={submit} className="gqc-form">
         <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={mode === "NOTE" ? "Tiêu đề ghi chú..." : "Việc cần làm..."} maxLength={300} required />
         {mode === "NOTE"
-          ? <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Nội dung (không bắt buộc)..." rows={3} />
+          ? <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Nội dung (không bắt buộc)..." rows={6} />
           : <input type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Hạn xử lý (không bắt buộc, mặc định 7 ngày)" />}
         {error ? <p role="alert" className="gqc-error">{error}</p> : null}
         <button type="submit" className="gqc-submit" disabled={busy || !title.trim()}>{busy ? "Đang lưu..." : mode === "NOTE" ? "Lưu vào sổ tay" : "+ Thêm việc"}</button>
@@ -102,7 +102,7 @@ export function GlobalQuickCapture({ userId, organizationId }: { userId: string;
       .global-quick-capture{position:fixed;right:20px;bottom:20px;z-index:65;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
       .global-quick-capture .gqc-fab{width:56px;height:56px;border-radius:50%;border:0;background:var(--brand,#0D6EFD);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(13,110,253,.35);cursor:pointer;transition:transform .15s}
       .global-quick-capture .gqc-fab:hover{transform:translateY(-2px)}
-      .global-quick-capture .gqc-panel{width:min(340px,calc(100vw - 32px));background:#fff;border:1px solid #e5eaf2;border-radius:16px;box-shadow:0 20px 50px rgba(15,23,42,.18);overflow:hidden}
+      .global-quick-capture .gqc-panel{width:min(440px,calc(100vw - 32px));background:#fff;border:1px solid #e5eaf2;border-radius:16px;box-shadow:0 20px 50px rgba(15,23,42,.18);overflow:hidden}
       .global-quick-capture .gqc-head{display:flex;align-items:center;justify-content:space-between;padding:10px 8px 0 14px}
       .global-quick-capture .gqc-tabs{display:flex;gap:4px}
       .global-quick-capture .gqc-tabs button{border:0;background:#f1f5f9;color:#475569;font-size:12px;font-weight:700;padding:7px 11px;border-radius:999px;cursor:pointer}
@@ -112,8 +112,9 @@ export function GlobalQuickCapture({ userId, organizationId }: { userId: string;
       .global-quick-capture .gqc-open-full:hover{background:#f1f5f9;color:#0f172a}
       .global-quick-capture .gqc-close{border:0;background:transparent;color:#94a3b8;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer}
       .global-quick-capture .gqc-close:hover{background:#f1f5f9}
-      .global-quick-capture .gqc-form{display:grid;gap:8px;padding:12px 14px 14px}
-      .global-quick-capture .gqc-form input,.global-quick-capture .gqc-form textarea{width:100%}
+      .global-quick-capture .gqc-form{display:grid;gap:10px;padding:14px 16px 16px}
+      .global-quick-capture .gqc-form input,.global-quick-capture .gqc-form textarea{width:100%;font-size:14px}
+      .global-quick-capture .gqc-form textarea{resize:vertical;min-height:140px;line-height:1.5}
       .global-quick-capture .gqc-error{margin:0;font-size:11px;color:#b91c1c}
       .global-quick-capture .gqc-submit{border:0;background:var(--brand,#0D6EFD);color:#fff;font-weight:700;font-size:13px;padding:10px;border-radius:10px;cursor:pointer}
       .global-quick-capture .gqc-submit:disabled{opacity:.6;cursor:not-allowed}
