@@ -41,4 +41,16 @@ describe("UI consistency fixes (checkbox class, modal-head wrapper)", () => {
     const source = read("src/components/hsba-checklist-client.tsx");
     expect(source).toContain('<span className="inline-check"><input type="checkbox" checked={item.create_finding_on_partial}');
   });
+
+  // Reported from a screenshot of "Việc của tôi" > tab Đã hoàn thành: every
+  // completed note still showed "Cập nhật tiến độ" and "Xin gia hạn" —
+  // requesting a deadline extension (or logging progress) on a task that is
+  // already done is nonsensical and reads as confusing on a weekly report
+  // view. Only "Mở lại" (reopen) is a coherent action once isDone is true.
+  it("UnifiedPersonalTaskActions hides Cập nhật tiến độ / Xin gia hạn once a task is done — only Mở lại remains", () => {
+    const source = read("src/components/unified-personal-task-actions.tsx");
+    expect(source).toContain('{!isDone?<button type="button" className="button tertiary small" disabled={busy} onClick={()=>{setError("");setEditing(true)}}>Cập nhật tiến độ</button>:null}');
+    expect(source).toContain('{!isDone?<button type="button" className="button tertiary small" disabled={busy} onClick={()=>{setError("");setExtending(true)}}>Xin gia hạn</button>:null}');
+    expect(source).toContain('onClick={()=>void toggle()}>{isDone?"Mở lại":"Hoàn tất"}</button>');
+  });
 });

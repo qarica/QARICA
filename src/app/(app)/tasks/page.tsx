@@ -196,6 +196,14 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const tableRowsPage=weekScoped.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
  const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}#all-work`;
  const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}&page=${p}#all-work`;
+ // Báo cáo "việc nào đã xong, việc nào chưa xong" trong tuần: tính từ TOÀN BỘ
+ // allWorkRows (không phụ thuộc tab đang mở) để luôn ra đúng 2 số này dù đang
+ // xem tab nào — đã xong = hoàn thành trong tuần (completedAt); chưa xong =
+ // còn mở và có hạn xử lý rơi trong tuần (dueDate). Không lọc theo searchQuery
+ // vì đây là báo cáo tổng, không phải danh sách đang xem.
+ const weekDoneRows=weekStart&&weekEnd?allWorkRows.filter(r=>r.isDone&&r.completedAt&&r.completedAt>=weekStart&&r.completedAt<=weekEnd):[];
+ const weekPendingRows=weekStart&&weekEnd?allWorkRows.filter(r=>!r.isDone&&r.dueDate&&r.dueDate>=weekStart&&r.dueDate<=weekEnd):[];
+ const reportTabHref=(t:string)=>{const params=new URLSearchParams();params.set("tab",t);if(weekStart)params.set("week",weekStart);return `?${params.toString()}#all-work`};
 
  // Mini "Lịch cá nhân": chỉ đánh dấu ngày có việc thật (Action mở + note cá nhân), không vẽ ô trang trí.
  const dueDateSet=new Set<string>([...openRows.map(r=>r.due_date).filter(Boolean),...personalReminders.filter((p:any)=>p.status==="OPEN"&&p.due_at).map((p:any)=>dateOnly(p.due_at)),...myEmrItems.map((e:any)=>e.due_date).filter(Boolean)]);
@@ -220,10 +228,20 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   .tqm-my-work .work-columns{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
   .tqm-my-work .work-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}.tqm-my-work .work-tab{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#52656d;border:1px solid #d7e1e5;background:#fff}.tqm-my-work .work-tab.active{background:#2563eb;border-color:#2563eb;color:#fff}
   .tqm-my-work .work-search-row{display:flex;gap:8px;align-items:center;padding:10px 16px}.tqm-my-work .work-search-row .search-box{flex:1;max-width:280px}
-  .tqm-my-work .week-filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:0 16px 10px}
-  .tqm-my-work .week-filter-label{font-size:11.5px;font-weight:800;color:#334155;white-space:nowrap}
+  .tqm-my-work .week-filter-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 16px 10px}
+  .tqm-my-work .week-nav-controls{display:flex;align-items:center;gap:8px}
+  .tqm-my-work .week-nav-arrow{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 30px;border-radius:8px;border:1px solid #d7e1e5;background:#fff;color:#334155}
+  .tqm-my-work .week-nav-arrow:hover{background:#f1f5f9;border-color:#bcd0d8}
+  .tqm-my-work .week-filter-label{font-size:12px;font-weight:800;color:#0f172a;white-space:nowrap}
+  .tqm-my-work .week-nav-links{display:flex;align-items:center;gap:12px}
+  .tqm-my-work .week-nav-link{font-size:11px;font-weight:700;color:#2563eb;text-decoration:underline;white-space:nowrap}
+  .tqm-my-work .week-nav-link.clear{color:#64748b}
   .tqm-my-work .week-filter-report{margin:0;padding:9px 16px;background:#eff6ff;color:#1d4ed8;font-size:11.5px;font-weight:600;border-top:1px solid #e2e9ec;border-bottom:1px solid #e2e9ec}
-  @media(max-width:760px){.tqm-my-work .week-filter-row{padding:0 12px 10px}.tqm-my-work .week-filter-label{width:100%;order:-1}}
+  .tqm-my-work .week-filter-report .muted{color:#64748b;font-weight:500}
+  .tqm-my-work .week-report-link{text-decoration:underline}
+  .tqm-my-work .week-report-link.done strong{color:#16a34a}
+  .tqm-my-work .week-report-link.pending strong{color:#b45309}
+  @media(max-width:760px){.tqm-my-work .week-filter-row{padding:8px 12px 10px}.tqm-my-work .week-nav-controls{flex:1 1 100%;justify-content:center}.tqm-my-work .week-nav-links{flex:1 1 100%;justify-content:center}}
   .tqm-my-work .work-selection-count{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#1d4ed8;background:#eff6ff}
   .tqm-my-work .my-work-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
   .tqm-my-work .my-work-header .page-header{flex:1}
@@ -299,13 +317,19 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
       <button type="submit" className="button secondary small">Tìm kiếm</button>
      </form>
      <div className="week-filter-row">
-      <Link href={weekHref(addDays(weekNavBase,-7))} className="button secondary small" title="Tuần trước"><Icon name="arrow-left" size={14}/> Tuần trước</Link>
-      <span className="week-filter-label">{weekStart&&weekEnd?`Tuần ${formatDate(weekStart)} – ${formatDate(weekEnd)}`:"Chưa lọc theo tuần"}</span>
-      <Link href={weekHref(addDays(weekNavBase,7))} className="button secondary small" title="Tuần sau">Tuần sau <Icon name="arrow-right" size={14}/></Link>
-      {weekStart!==thisWeekMonday?<Link href={weekHref(thisWeekMonday)} className="button secondary small">Tuần này</Link>:null}
-      {weekStart?<Link href={weekHref(null)} className="button tertiary small">Bỏ lọc tuần</Link>:null}
+      <div className="week-nav-controls">
+       <Link href={weekHref(addDays(weekNavBase,-7))} className="week-nav-arrow" aria-label="Tuần trước" title="Tuần trước"><Icon name="arrow-left" size={16}/></Link>
+       <span className="week-filter-label">{weekStart&&weekEnd?`Tuần ${formatDate(weekStart)} – ${formatDate(weekEnd)}`:"Xem theo tuần"}</span>
+       <Link href={weekHref(addDays(weekNavBase,7))} className="week-nav-arrow" aria-label="Tuần sau" title="Tuần sau"><Icon name="arrow-right" size={16}/></Link>
+      </div>
+      <div className="week-nav-links">
+       {weekStart!==thisWeekMonday?<Link href={weekHref(thisWeekMonday)} className="week-nav-link">Tuần này</Link>:null}
+       {weekStart?<Link href={weekHref(null)} className="week-nav-link clear">Bỏ lọc tuần</Link>:null}
+      </div>
      </div>
-     {weekStart&&weekEnd?<p className="week-filter-report" role="status">{tab==="DONE"?`Đã hoàn thành ${weekScoped.length} việc trong tuần ${formatDate(weekStart)} – ${formatDate(weekEnd)} — dùng để báo cáo công việc trong tuần.`:`Có ${weekScoped.length} việc với hạn xử lý rơi trong tuần ${formatDate(weekStart)} – ${formatDate(weekEnd)}. Chọn tab "Đã hoàn thành" để xem báo cáo việc đã làm xong trong tuần này.`}</p>:null}
+     {weekStart&&weekEnd?<p className="week-filter-report" role="status">
+      Báo cáo tuần {formatDate(weekStart)} – {formatDate(weekEnd)}: <Link href={reportTabHref("DONE")} className="week-report-link done"><strong>{weekDoneRows.length} đã xong</strong></Link> · <Link href={reportTabHref("OPEN")} className="week-report-link pending"><strong>{weekPendingRows.length} chưa xong</strong></Link> <span className="muted">(đã xong = hoàn thành trong tuần; chưa xong = còn mở, có hạn trong tuần).</span>
+     </p>:null}
      <div className="table-wrap all-table desktop-only"><table><thead><tr><th></th><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Liên quan đến</th><th>Ưu tiên</th><th>Hạn xử lý</th><th>Trạng thái</th><th>Người giao</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td><WorkRowCheckbox rowKey={r.key}/></td><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td>{r.source==="reminder"||r.source==="legacy"?<PersonalTaskProgressTitle title={r.title} note={r.followup} taskId={r.sourceId!} source={r.source} ownerId={user.id}/>:<Link className="table-link" href={r.href}>{r.title}</Link>}</td><td>{r.typeLabel}</td><td>{r.relatedTo}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":""}>{r.dueDate?formatDate(r.dueDate):"—"}</td><td><StatusBadge status={r.statusLabel}/></td><td>{r.assignedBy}</td><td>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}/>:r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={10}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
      <div className="mobile-only work-card-list">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.source==="reminder"||r.source==="legacy"?<PersonalTaskProgressTitle title={r.title} note={r.followup} taskId={r.sourceId!} source={r.source} ownerId={user.id}/>:r.title}</strong><small>{r.typeLabel} · {r.dueDate?formatDate(r.dueDate):"Không có hạn"}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}/>:<><Link className="button primary small" href={r.href}>Mở</Link>{r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</>}</div></article>)}{!tableRowsPage.length?<div className="empty-state">Không có việc phù hợp.</div>:null}</div>
      {weekScoped.length?<div className="work-pagination"><span>Hiển thị {(currentPage-1)*PAGE_SIZE+1}-{Math.min(currentPage*PAGE_SIZE,weekScoped.length)} của {weekScoped.length} bản ghi</span><div className="work-pagination-pages">{Array.from({length:totalPages},(_,i)=>i+1).map(p=><Link key={p} href={pageHref(p)} className={`button small ${p===currentPage?"primary":"secondary"}`}>{p}</Link>)}</div></div>:null}

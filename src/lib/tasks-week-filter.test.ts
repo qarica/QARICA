@@ -68,11 +68,25 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
     expect(source).toContain('const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}&page=${p}#all-work`;');
   });
 
-  it("có điều hướng Tuần trước / Tuần này / Tuần sau / Bỏ lọc tuần, và dòng tóm tắt dùng để báo cáo", () => {
+  it("có điều hướng Tuần trước / Tuần này / Tuần sau / Bỏ lọc tuần", () => {
     expect(source).toContain("Tuần trước");
     expect(source).toContain("Tuần sau");
     expect(source).toContain("Tuần này");
     expect(source).toContain("Bỏ lọc tuần");
-    expect(source).toContain("dùng để báo cáo công việc trong tuần");
+  });
+
+  // Theo yêu cầu tiếp theo: báo cáo tuần phải trả lời thẳng "việc nào đã
+  // xong, việc nào chưa xong" trong 1 lần nhìn, không phụ thuộc tab đang mở
+  // (tab chỉ quyết định danh sách CHI TIẾT hiển thị bên dưới, không quyết
+  // định 2 con số tổng này).
+  it("tính weekDoneRows/weekPendingRows từ TOÀN BỘ allWorkRows, không phụ thuộc tab đang mở", () => {
+    expect(source).toContain("const weekDoneRows=weekStart&&weekEnd?allWorkRows.filter(r=>r.isDone&&r.completedAt&&r.completedAt>=weekStart&&r.completedAt<=weekEnd):[];");
+    expect(source).toContain("const weekPendingRows=weekStart&&weekEnd?allWorkRows.filter(r=>!r.isDone&&r.dueDate&&r.dueDate>=weekStart&&r.dueDate<=weekEnd):[];");
+  });
+
+  it("dòng báo cáo tuần hiện cả 2 số đã xong/chưa xong, mỗi số bấm vào mở đúng tab tương ứng (DONE/OPEN) kèm tuần đang chọn", () => {
+    expect(source).toContain('const reportTabHref=(t:string)=>{const params=new URLSearchParams();params.set("tab",t);if(weekStart)params.set("week",weekStart);return `?${params.toString()}#all-work`};');
+    expect(source).toContain('<Link href={reportTabHref("DONE")} className="week-report-link done"><strong>{weekDoneRows.length} đã xong</strong></Link>');
+    expect(source).toContain('<Link href={reportTabHref("OPEN")} className="week-report-link pending"><strong>{weekPendingRows.length} chưa xong</strong></Link>');
   });
 });
