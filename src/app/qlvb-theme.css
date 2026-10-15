@@ -96,7 +96,7 @@ input:focus,select:focus,textarea:focus{border-color:#1E3A8A!important;box-shado
 .monitoring-workspace .monitoring-hero-meta span{border-color:#e2e8f0!important;color:#475569!important;background:#fff!important}
 .monitoring-workspace .monitoring-flow{border-color:#e2e8f0!important;background:rgba(255,255,255,.92)!important}
 .monitoring-workspace .monitoring-flow small{color:#64748b!important}
-.monitoring-workspace .monitoring-flow .flow-line{background:linear-gradient(90deg,#1E3A8A 0 35%,#93c5fd 35% 68%,#dbeafe 68%)!important}
+.monitoring-workspace .monitoring-flow .flow-line{background:linear-gradient(90deg,#1E3A8A 0 35%,#93c5fd 35% 68%,#C7D2FE 68%)!important}
 .monitoring-workspace .panel{border-color:#e2e8f0!important;box-shadow:0 4px 16px rgba(15,23,42,.025)!important}
 .monitoring-workspace .tabs{background:#f1f5f9!important}
 .monitoring-workspace .tabs button.active{color:#172554!important;background:#fff!important}

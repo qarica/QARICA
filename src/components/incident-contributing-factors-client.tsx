@@ -73,14 +73,14 @@ export function IncidentContributingFactorsClient({ recordId }: { recordId: stri
         .incident-factors .factor-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:10px}
         .incident-factors .factor-head h3{margin:0 0 4px}
         .incident-factors .factor-head p{margin:0}
-        .incident-factors .factor-count{border-radius:999px;background:#eef6ff;color:#1d4ed8;padding:5px 8px;font-size:10px;font-weight:850;white-space:nowrap}
+        .incident-factors .factor-count{border-radius:999px;background:#EEF2FF;color:#172554;padding:5px 8px;font-size:10px;font-weight:850;white-space:nowrap}
         .incident-factors .factor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
         .incident-factors .factor-card{display:flex;gap:9px;align-items:flex-start;text-align:left;border:1px solid #dde7e9;background:#fff;border-radius:11px;padding:10px;cursor:pointer;color:inherit}
         .incident-factors .factor-card:hover{border-color:#a9c8e6;background:#f8fbff}
         .incident-factors .factor-card.selected{border-color:#86b7e4;background:#eef6ff}
         .incident-factors .factor-card:disabled{cursor:default;opacity:1}
         .incident-factors .factor-check{width:17px;height:17px;min-width:17px;border:1px solid #b8c6ca;border-radius:5px;display:grid;place-items:center;font-size:11px;font-weight:900;margin-top:1px;background:#fff}
-        .incident-factors .selected .factor-check{background:#2563eb;border-color:#2563eb;color:#fff}
+        .incident-factors .selected .factor-check{background:#1E3A8A;border-color:#1E3A8A;color:#fff}
         .incident-factors .factor-copy strong{display:block;font-size:11px}
         .incident-factors .factor-copy small{display:block;color:#708087;font-size:9px;line-height:1.35;margin-top:2px}
         .incident-factors .factor-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px}

@@ -248,8 +248,8 @@ export function HsbaChecklistClient({ auditType, canManage }: { auditType: Inter
                 style={{
                   justifyContent: "flex-start",
                   textAlign: "left",
-                  background: t.id === selectedTemplateId ? "#eff6ff" : "transparent",
-                  color: t.id === selectedTemplateId ? "#1d4ed8" : undefined,
+                  background: t.id === selectedTemplateId ? "#EEF2FF" : "transparent",
+                  color: t.id === selectedTemplateId ? "#172554" : undefined,
                 }}
               >
                 {t.name}

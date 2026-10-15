@@ -45,7 +45,7 @@ export default function RootLoading() {
         style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: "18vh", minHeight: 90, maxHeight: 160, opacity: 0.5 }}
       >
         <path d="M0 70 C 80 30, 160 100, 240 55 S 360 20, 400 50 L400 120 L0 120 Z" fill="#e6f7f8" />
-        <path d="M0 90 C 90 55, 170 115, 260 78 S 370 45, 400 75 L400 120 L0 120 Z" fill="#eaf2ff" />
+        <path d="M0 90 C 90 55, 170 115, 260 78 S 370 45, 400 75 L400 120 L0 120 Z" fill="#EEF2FF" />
       </svg>
     </div>
   );
