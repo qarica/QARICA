@@ -166,4 +166,17 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
     expect(source).toContain('{waitingCount?<Link href={tabHref("WAITING")}');
     expect(source).toContain('{watchCount?<Link href={tabHref("WATCH")}');
   });
+
+  // Báo cáo thực tế (ảnh chụp): sau khi bỏ 3 cột (chọn dòng/Liên quan đến/
+  // Người giao), cột "Loại" hiện ra một khoảng trống rất lớn (gần như trống
+  // trơn) giữa "LOẠI" và "NGÀY GIAO VIỆC". Nguyên nhân: rule CSS cũ
+  // `nth-child(3)` từng nhắm đúng cột "Liên quan đến" (cột rộng, chứa text
+  // dài) ở vị trí thứ 3 trong bảng CŨ — sau khi bỏ cột chọn dòng, mọi cột đều
+  // dịch lên 1 bậc, cột thứ 3 giờ là "Loại" (giá trị ngắn như "Note cá
+  // nhân") nhưng vẫn bị ép width:26% — để lại khoảng trắng rất lớn. Cột cần
+  // width:26% bây giờ là cột 2 (Tiêu đề công việc — nội dung dài).
+  it("rule width:26% nhắm đúng cột Tiêu đề công việc (cột 2) sau khi bỏ cột chọn dòng, không còn ép nhầm cột Loại (cột 3)", () => {
+    expect(source).toContain(".tqm-my-work .all-table th:nth-child(2),.tqm-my-work .all-table td:nth-child(2){min-width:180px;width:26%}");
+    expect(source).not.toMatch(/\.tqm-my-work \.all-table th:nth-child\(3\),\.tqm-my-work \.all-table td:nth-child\(3\)/);
+  });
 });
