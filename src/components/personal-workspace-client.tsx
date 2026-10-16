@@ -356,7 +356,6 @@ export function PersonalWorkspaceClient({ initialRows, userId, highlightedItemId
   return (
     <section className="panel pw-section">
       <div className="pw-tabs">
-        <button type="button" className="button secondary small" disabled={trashBusy || mutationBusy} onClick={() => void openTrash()}>{trashBusy ? "Đang tải..." : showTrash ? "Quay lại" : "Thùng rác"}</button>
         <button type="button" className={`pw-tab ${tab === "TASK" ? "active" : ""}`} disabled={showTrash} onClick={() => setTab("TASK")}>
           Việc cần làm
         </button>
@@ -368,6 +367,14 @@ export function PersonalWorkspaceClient({ initialRows, userId, highlightedItemId
             + Nhập {pendingImportCount} mục mẫu Trưởng phòng
           </button>
         ) : null}
+        {/* Báo cáo thực tế: "rà soát vị trí Thùng rác" — trước đây là nút ĐẦU
+            TIÊN của hàng, đứng trước cả 2 tab nội dung chính (Việc cần làm/
+            Ghi chú), đọc như thể nó cũng là 1 tab ngang hàng dù chỉ là tác
+            vụ phụ (xem đã xoá). Dời xuống cuối hàng + đẩy sát phải
+            (pw-trash-btn) để tách bạch rõ: tab chính bên trái, tác vụ phụ
+            bên phải — đúng quy ước thường gặp trong chính app này (vd nút
+            "Lưu trữ" ở Sổ tay cá nhân cũng không nằm lẫn với các tab lọc). */}
+        <button type="button" className="button secondary small pw-trash-btn" disabled={trashBusy || mutationBusy} onClick={() => void openTrash()}>{trashBusy ? "Đang tải..." : showTrash ? "Quay lại" : "Thùng rác"}</button>
       </div>
       {!showTrash ? <div className="pw-composer-toggle"><button type="button" className="button secondary small" aria-expanded={showComposer} onClick={() => setShowComposer((value) => !value)}>{showComposer ? "Ẩn biểu mẫu" : `+ Tạo ${tab === "TASK" ? "việc cá nhân" : "ghi chú"}`}</button></div> : null}
       {!showTrash && showComposer ? <div className="pw-form">
@@ -464,6 +471,7 @@ export function PersonalWorkspaceClient({ initialRows, userId, highlightedItemId
           gap: 8px;
           padding: 12px 12px 0;
         }
+        .pw-trash-btn { margin-left: auto; }
         .pw-tab {
           border: 1px solid var(--line);
           background: #fff;
