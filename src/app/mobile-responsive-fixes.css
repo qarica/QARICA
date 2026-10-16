@@ -515,6 +515,19 @@
     align-items: stretch !important;
     gap: 10px !important;
   }
+
+  /* Real report (screenshot, phone width): app-shell.tsx's own <760px rule
+     turns .mobile-current-page on (page title next to the hamburger button),
+     but at this narrower width topbar-left (flex:0 0 auto, so it never
+     shrinks) and the year selector + icon row on the right both need their
+     full natural width — together they don't fit, and the page-title text
+     visibly runs into/behind the year selector box instead of being
+     clipped. The title is already shown prominently in the page body right
+     below the topbar, so hide this duplicate here rather than trying to
+     squeeze both into the same row. */
+  .workspace-app .mobile-current-page {
+    display: none !important;
+  }
 }
 
 @media (max-width: 480px) {
