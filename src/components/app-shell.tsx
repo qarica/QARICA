@@ -228,8 +228,10 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .nav-child-link{margin:1px 10px 1px 26px;padding:7px 10px}
       .workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px}
       /* Level-1 (group header / single-child promoted link) vs Level-2 (child)
-         must read as unmistakably different weights — bold navy vs lighter,
-         smaller slate. Several legacy theme files apply "!important" color
+         must read as unmistakably different weights — bold uppercase navy vs
+         smaller/lighter-weight (but same navy, not a separate lighter-blue
+         tint — the case+weight contrast alone is enough) sentence-case navy.
+         Several legacy theme files apply "!important" color
          overrides to the shared .nav-link class (which .nav-child-link and
          .nav-group-link both also carry, for their :active styling). Against
          a competing "!important" rule, specificity alone never wins — only
@@ -267,7 +269,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          already has its own active-icon override (line below); the promoted
          single-child link never did. */
       .workspace-app.workspace-app .nav-group-link.active .nav-icon,.workspace-app.workspace-app .nav-group-link.active svg{color:#172554!important}
-      .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#60a5fa!important;font-weight:600!important;font-size:12px!important}
+      .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#1e3a8a!important;font-weight:600!important;font-size:12px!important}
       .workspace-app.workspace-app .nav-child-link{margin:1px 10px 1px 26px!important}
       /* The collapsed-rail flyout popover is a small floating popup, not the
          full sidebar list — its child links intentionally use a flat, compact
@@ -276,7 +278,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          specificity, or the generic 26px-indent rule above (now !important
          to survive qms-enterprise-redesign.css) would leak into it too. */
       .workspace-app.workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px!important}
-      .workspace-app.workspace-app .nav-child-link .nav-icon{color:#60a5fa!important;width:20px!important;height:20px!important;flex:0 0 20px!important}
+      .workspace-app.workspace-app .nav-child-link .nav-icon{color:#1e3a8a!important;width:20px!important;height:20px!important;flex:0 0 20px!important}
       .workspace-app.workspace-app .nav-child-link:hover,.workspace-app.workspace-app .nav-child-link:hover .nav-link-label{color:#172554!important}
       .workspace-app.workspace-app .nav-child-link.active,.workspace-app.workspace-app .nav-child-link.active .nav-link-label{background:#EEF2FF!important;color:#172554!important;font-weight:800!important}
       /* Same white-icon-on-light-background bug as nav-group-link.active

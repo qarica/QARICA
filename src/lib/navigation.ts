@@ -77,14 +77,6 @@ const NAV_GROUPS: NavGroupDef[] = [
     ],
   },
   {
-    id: "hsba-audit",
-    label: "AUDIT HSBA",
-    icon: "list-checks",
-    children: [
-      { label: "AUDIT HSBA", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" },
-    ],
-  },
-  {
     id: "digital-systems",
     label: "BỆNH ÁN ĐIỆN TỬ",
     icon: "network",
@@ -97,6 +89,14 @@ const NAV_GROUPS: NavGroupDef[] = [
       { label: "Tổng quan EMR", href: "/emr", icon: "layout-dashboard", permission: "emr.view" },
       { label: "Timeline", href: "/emr/timeline", icon: "chart-spline", permission: "emr.view" },
       ...EMR_CATEGORIES.map((c) => ({ label: c.label, href: `/emr/${c.slug}`, icon: c.icon, permission: "emr.view" })),
+    ],
+  },
+  {
+    id: "hsba-audit",
+    label: "AUDIT HSBA",
+    icon: "list-checks",
+    children: [
+      { label: "AUDIT HSBA", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" },
     ],
   },
   {

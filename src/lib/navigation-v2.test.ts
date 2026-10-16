@@ -16,8 +16,8 @@ const quickCapture = readFileSync("src/components/global-quick-capture.tsx", "ut
 const GROUP_IDS = [
   "operations",
   "quality-management",
-  "hsba-audit",
   "digital-systems",
+  "hsba-audit",
   "physician-license",
   "incoming-documents",
   "document-publications",
@@ -52,8 +52,8 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(navigation).toContain('label: "CẤU HÌNH HỆ THỐNG"');
   });
 
-  it("orders the main (non-footer) groups exactly as requested: điều hành chất lượng, quản lý chất lượng, audit nội bộ KHTH, bệnh án điện tử, theo dõi hành nghề, quản lý công văn, phát hành văn bản, đào tạo quy trình, mua sắm & sửa chữa", () => {
-    const mainOrder = ["operations", "quality-management", "hsba-audit", "digital-systems", "physician-license", "incoming-documents", "document-publications", "procedure-training", "procurement"];
+  it("orders the main (non-footer) groups exactly as requested: điều hành chất lượng, quản lý chất lượng, bệnh án điện tử, audit nội bộ KHTH, theo dõi hành nghề, quản lý công văn, phát hành văn bản, đào tạo quy trình, mua sắm & sửa chữa", () => {
+    const mainOrder = ["operations", "quality-management", "digital-systems", "hsba-audit", "physician-license", "incoming-documents", "document-publications", "procedure-training", "procurement"];
     const positions = mainOrder.map((id) => navigation.indexOf(`id: "${id}"`));
     for (const position of positions) expect(position).toBeGreaterThanOrEqual(0);
     for (let i = 1; i < positions.length; i += 1) expect(positions[i]).toBeGreaterThan(positions[i - 1]);
@@ -337,21 +337,25 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     // .workspace-app.workspace-app doubles specificity so these always win,
     // regardless of stylesheet load order against other files' `.nav-link{color:...!important}` rules
     expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-header,\.workspace-app\.workspace-app \.nav-group-label\{color:#1e3a8a!important;font-weight:800!important;font-size:13\.5px!important/);
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link,\.workspace-app\.workspace-app \.nav-child-link \.nav-link-label\{color:#60a5fa!important;font-weight:600!important;font-size:12px!important\}/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link,\.workspace-app\.workspace-app \.nav-child-link \.nav-link-label\{color:#1e3a8a!important;font-weight:600!important;font-size:12px!important\}/);
     // parent (13.5px/800) must be strictly bolder AND larger than child (12px/600)
     expect(13.5).toBeGreaterThan(12);
     expect(800).toBeGreaterThan(600);
   });
 
-  it("colors Level 1 (group headers, promoted single-child links) dark navy and Level 2 (child links) light blue, as a distinct hue per level rather than just a weight/size difference", () => {
-    // Level 1: dark navy family (was violet — explicit request to replace purple with dark blue)
+  // Explicit request: the earlier design used a separate lighter-blue hue
+  // (#60a5fa) for Level 2 to set it apart from Level 1's dark navy — dropped
+  // in favor of one navy color everywhere, since the group header's own
+  // uppercase+bold styling already reads as a distinct level from a child
+  // link's sentence-case+lighter weight, without needing a second hue too.
+  it("colors Level 1 (group headers, promoted single-child links) and Level 2 (child links) the same navy — case and weight/size carry the level distinction, not a separate hue", () => {
     expect(shell).toContain(".nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#1e3a8a!important");
     expect(shell).toContain(".nav-group-link{color:#1e3a8a!important");
     expect(shell).toContain(".nav-group.active-context>.nav-group-header{background:#eef2ff}");
     expect(shell).toContain(".nav-group.active-context>.nav-group-header .nav-group-icon{color:#1e3a8a!important}");
-    // Level 2: blue family, distinct from Level 1's navy
-    expect(shell).toContain(".nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#60a5fa!important");
-    expect(shell).toContain(".nav-child-link .nav-icon{color:#60a5fa!important");
+    expect(shell).toContain(".nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#1e3a8a!important");
+    expect(shell).toContain(".nav-child-link .nav-icon{color:#1e3a8a!important");
+    expect(shell).not.toContain("#60a5fa");
   });
 
   it("promotes a single-child group (EMR; Cấu hình hệ thống) to a plain top-level link instead of a chevron accordion with nothing to expand", () => {
@@ -362,7 +366,7 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain("asGroupLink ? `nav-link nav-group-link");
   });
 
-  it("a promoted single-child link reads as Level 1 (bold navy), not Level 2 (light blue)", () => {
+  it("a promoted single-child link reads as Level 1 (bold navy, 13.5px/800), not Level 2 (lighter-weight navy, 12px/600)", () => {
     expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#1e3a8a!important;font-weight:800!important;font-size:13\.5px!important;margin:6px 10px!important\}/);
   });
 
@@ -379,7 +383,7 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     // child icons must actually shrink to 20px under !important — the generic
     // .nav-icon{width:27px;height:27px!important} rule otherwise forces every
     // icon (group and child alike) to the same size, erasing the size cue.
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link \.nav-icon\{color:#60a5fa!important;width:20px!important;height:20px!important;flex:0 0 20px!important\}/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link \.nav-icon\{color:#1e3a8a!important;width:20px!important;height:20px!important;flex:0 0 20px!important\}/);
   });
 
   it("keeps the collapsed-rail flyout's compact child margin from being overridden by the new !important 26px indent (the flyout is a small popover, not the full list — there is no parent row to indent under inside it)", () => {

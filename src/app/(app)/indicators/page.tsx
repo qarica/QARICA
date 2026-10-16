@@ -1,12 +1,8 @@
-import Link from "next/link";
 import { RegistryModulePage } from "@/components/registry-module-page";
 
 export default function IndicatorsPage() {
   return (
-    <div className="page-stack indicators-mobile-redesign">
-      <div style={{display:"flex",justifyContent:"flex-end"}}>
-        <Link className="button secondary" href="/indicators/catalog">Quản lý chỉ số</Link>
-      </div>
+    <div className="indicators-mobile-redesign">
       <RegistryModulePage
         config={{
           eyebrow: "ĐO LƯỜNG & GIÁM SÁT",
@@ -14,6 +10,7 @@ export default function IndicatorsPage() {
           description: "Theo dõi chỉ số, kỳ đo, trạng thái dữ liệu và các hồ sơ đo lường trong năm.",
           permissions: ["indicators.view", "indicators.manage", "indicators.enter", "indicators.verify"],
           recordTypes: ["INDICATOR_MEASUREMENT"],
+          tabs: [{ label: "Quản lý chỉ số", href: "/indicators/catalog" }],
         }}
       />
     </div>

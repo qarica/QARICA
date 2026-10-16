@@ -21,7 +21,14 @@ type GanttRow = {
   singleDate: boolean;
 };
 
-const MONTHS = ["T1","T2","T3","T4","T5","T6","T7","T8","T9","T10","T11","T12","T1","T2","T3"];
+// 15 cột tháng: T1-T12 của workYear, nối thêm T1-T3 của workYear+1 (đệm quý 1
+// năm sau để không cắt cụt Plan/Action trễ hạn qua năm) — nếu nhãn tháng chỉ
+// lặp lại "T1 T2 T3" y hệt đầu bảng mà không ghi rõ năm, người xem không phân
+// biệt được 2 đoạn "T1 T2 T3" là của năm nào ("mốc thời gian" đọc bị sai).
+function monthLabels(workYear: number): string[] {
+  const nextYear2 = String(workYear + 1).slice(2);
+  return [..."123456789".split("").map((n) => `T${n}`), "T10", "T11", "T12", `T1/${nextYear2}`, `T2/${nextYear2}`, `T3/${nextYear2}`];
+}
 
 function dateKey(value: string) {
   const [y,m,d]=value.split("-").map(Number);
@@ -146,7 +153,7 @@ export default async function QualityGanttPage(){
       <article className="kpi-card info"><span className="kpi-icon blue"><Icon name="calendar-range" size={17}/></span><span>Kế hoạch có mốc</span><strong>{planCount}</strong><small>Plan trong chu kỳ</small></article>
       <article className="kpi-card neutral"><span className="kpi-icon purple"><Icon name="workflow" size={17}/></span><span>Action có mốc</span><strong>{actionCount}</strong><small>Action năm công tác</small></article>
       <article className="kpi-card success"><span className="kpi-icon green"><Icon name="list-checks" size={17}/></span><span>Tổng dòng Gantt</span><strong>{rows.length}</strong><small>Không sinh dữ liệu giả</small></article>
-      <article className="kpi-card warning"><span className="kpi-icon amber"><Icon name="calendar-days" size={17}/></span><span>Chu kỳ hiển thị</span><strong>{workYear}–{workYear+1}</strong><small>Đến hết tháng 03</small></article>
+      <article className="kpi-card warning"><span className="kpi-icon amber"><Icon name="calendar-days" size={17}/></span><span>Chu kỳ hiển thị</span><strong>{workYear}–{workYear+1}</strong><small>Đến hết tháng 03/{workYear+1}</small></article>
     </section>
 
     <section className="gantt-shell">
@@ -154,7 +161,7 @@ export default async function QualityGanttPage(){
         <div className="gantt-grid">
           <div className="gantt-head">
             <div className="gantt-label-head">HỒ SƠ / CÔNG VIỆC</div>
-            <div className="gantt-months">{MONTHS.map((m,i)=><div key={`${m}-${i}`} className="gantt-month" style={{width:`${monthWidths[i]/totalDays*100}%`}}>{m}</div>)}</div>
+            <div className="gantt-months">{monthLabels(workYear).map((m,i)=><div key={`${m}-${i}`} className="gantt-month" style={{width:`${monthWidths[i]/totalDays*100}%`}}>{m}</div>)}</div>
           </div>
           {rows.map(row=>{
             const pos=segment(row.start,row.end,cycleStart,cycleEnd);

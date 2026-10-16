@@ -13,6 +13,15 @@ import { WORKSPACES } from "./workspace-navigation";
 // - "Dời nút bộ tiêu chí vào nút quản lý bộ tiêu chí" — Đánh giá & Tiếp
 //   đoàn's "Bộ tiêu chí" tab pointed at the exact same /assessments/catalog
 //   href the "Quản lý bộ tiêu chí" button on /assessments already used.
+//
+// /indicators later moved its "Quản lý chỉ số" link again (separate report:
+// "chỉ số chất lượng là khoảng cách" — a standalone flex-end wrapper div
+// holding just that one right-aligned link rendered as a wide, mostly-empty
+// bar above the page header). Its own RegistryModuleConfig.tabs field (the
+// exact same module-tabs strip mechanism /assessments' "Quản lý bộ tiêu chí"
+// already used — see below) was the fix: reusing the module's own tab row
+// instead of a one-off wrapper removes the empty bar AND makes the two
+// pages consistent with each other.
 describe("Workspace tabs don't duplicate a 'Quản lý ...' button already on a sibling page", () => {
   it("Đo lường & Giám sát workspace no longer has a separate 'Danh mục chỉ số' tab", () => {
     const indicators = WORKSPACES.find((w) => w.root === "/indicators");
@@ -20,9 +29,10 @@ describe("Workspace tabs don't duplicate a 'Quản lý ...' button already on a 
     expect(indicators?.tabs.map((t) => t.label)).toEqual(["Chỉ số chất lượng", "Giám sát & Bảng kiểm"]);
   });
 
-  it("/indicators' 'Quản lý chỉ số' button now points at /indicators/catalog (the page the removed tab used to reach), not the older /indicators/manage page", () => {
+  it("/indicators' 'Quản lý chỉ số' is now a RegistryModuleConfig tab (not a standalone wrapper link) pointing at /indicators/catalog, same mechanism /assessments uses for 'Quản lý bộ tiêu chí'", () => {
     const page = readFileSync("src/app/(app)/indicators/page.tsx", "utf8");
-    expect(page).toContain('<Link className="button secondary" href="/indicators/catalog">Quản lý chỉ số</Link>');
+    expect(page).toContain('tabs: [{ label: "Quản lý chỉ số", href: "/indicators/catalog" }]');
+    expect(page).not.toContain('justifyContent:"flex-end"');
   });
 
   it("Đánh giá & Tiếp đoàn workspace no longer has a separate 'Bộ tiêu chí' tab", () => {

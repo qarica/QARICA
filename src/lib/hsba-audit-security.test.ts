@@ -192,14 +192,20 @@ describe("Audit nội bộ KHTH is generalized across audit_type, not duplicated
   // get declared. Root cause: this nav reused the exact same class names
   // (.emr-workspace-nav, .emr-tab) as the unrelated EMR module's own nav
   // component (emr-workspace-nav.tsx), each scoping its own <style jsx> —
-  // in production the <Link>-based row lost its styling. Fixed by dropping
-  // scoped CSS for this nav entirely in favor of inline styles.
-  it("styles its tabs with inline styles, not scoped <style jsx> that collides with emr-workspace-nav.tsx's identically-named classes", () => {
+  // in production the <Link>-based row lost its styling. Fixed (then) by
+  // dropping scoped CSS for this nav entirely in favor of inline styles;
+  // fixed again later (separate report: "các nút chưa đúng format chung" —
+  // this nav's own boxed-panel look didn't match the plain .module-tabs
+  // strip every other module uses, e.g. assessments' "Quản lý bộ tiêu chí")
+  // by switching from the one-off inline styles to the shared global
+  // .module-tabs class — still not a component-scoped <style jsx>, so the
+  // original collision class of bug still cannot recur here.
+  it("styles its tabs with the shared global .module-tabs class, not scoped <style jsx> that could collide with another component's identically-named classes", () => {
     const nav = read("src/components/hsba-audit-workspace-nav.tsx");
     expect(nav).not.toContain("<style jsx>{`");
-    expect(nav).toContain("function tabStyle(active: boolean): CSSProperties {");
-    expect(nav).toContain("style={tabStyle(auditType === type)}");
-    expect(nav).toContain("style={tabStyle(active)}");
+    expect(nav).toContain('className="module-tabs"');
+    expect(nav).toContain('className={auditType === type ? "active" : ""}');
+    expect(nav).toContain('className={active ? "active" : ""}');
   });
 });
 
