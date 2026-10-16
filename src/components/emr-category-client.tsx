@@ -23,15 +23,30 @@ const KPI_ICON: Record<EmrKpiBucket, string> = { TOTAL: "list-checks", DONE: "ba
 function todayHcm() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()); }
 function addDays(date: string, days: number) { const d = new Date(`${date}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); }
 
-function bucketCount(bucket: EmrKpiBucket, items: Item[], hasBlockedBucket: boolean): number {
+// Báo cáo thực tế: "Đã có 1 số biểu mẫu đã số hóa nhưng báo cáo vẫn 0" — KPI
+// "Đã số hóa" (bucket DONE) đếm theo status chung (TODO/IN_PROGRESS/DONE/
+// BLOCKED) trong khi cột "Tình trạng số hóa" người dùng thực sự đang nhập
+// hiển thị details.digitized — 2 field độc lập, không có gì tự đồng bộ
+// chúng (digitized thay cho deployment_phase vốn ít ai nhập, xem comment ở
+// EMR_CATEGORY_FIELDS.BIEU_MAU). Người dùng tick "Đã số hóa" ở digitized mà
+// không đổi luôn status chung sang DONE (không ai nhắc phải làm cả 2) nên
+// KPI đếm theo status luôn ra 0 dù bảng đã hiện "Đã số hóa" ở nhiều dòng.
+// Coi digitized==="Đã số hóa" cũng là DONE cho riêng BIEU_MAU — cùng cách
+// CHU_KY_SO đã dùng details.certificate_expiry thay vì status cho KPI của
+// nó, không đụng tới ý nghĩa status ở nơi khác (go-live gate/verify vẫn
+// luôn đọc status thật, không đổi).
+function isBieuMauDigitized(item: Item): boolean { return item.details?.digitized === "Đã số hóa"; }
+
+function bucketCount(bucket: EmrKpiBucket, items: Item[], hasBlockedBucket: boolean, categoryCode: string): number {
   const today = todayHcm();
+  const done = (i: Item) => i.status === "DONE" || (categoryCode === "BIEU_MAU" && isBieuMauDigitized(i));
   switch (bucket) {
     case "TOTAL": return items.length;
-    case "DONE": return items.filter((i) => i.status === "DONE").length;
-    case "IN_PROGRESS": return items.filter((i) => i.status === "IN_PROGRESS").length;
-    case "TODO": return items.filter((i) => i.status === "TODO" || (!hasBlockedBucket && i.status === "BLOCKED")).length;
+    case "DONE": return items.filter(done).length;
+    case "IN_PROGRESS": return items.filter((i) => !done(i) && i.status === "IN_PROGRESS").length;
+    case "TODO": return items.filter((i) => !done(i) && (i.status === "TODO" || (!hasBlockedBucket && i.status === "BLOCKED"))).length;
     case "BLOCKED": return items.filter((i) => i.status === "BLOCKED").length;
-    case "OVERDUE": return items.filter((i) => i.status !== "DONE" && i.due_date && i.due_date < today).length;
+    case "OVERDUE": return items.filter((i) => !done(i) && i.due_date && i.due_date < today).length;
     case "CERT_VALID": return items.filter((i) => { const exp = i.details?.certificate_expiry; return exp && String(exp) >= today; }).length;
     case "CERT_EXPIRING": return items.filter((i) => { const exp = i.details?.certificate_expiry; if (!exp) return false; const value = String(exp); return value >= today && value <= addDays(today, 30); }).length;
     case "CERT_EXPIRED": return items.filter((i) => { const exp = i.details?.certificate_expiry; return exp && String(exp) < today; }).length;
@@ -454,7 +469,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
       {kpis.length ? <section className="kpis" style={{ display: "grid", gridTemplateColumns: `repeat(${kpis.length},minmax(0,1fr))`, gap: 12 }}>
         {kpis.map((k) => <article className="kpi-card" key={k.bucket} style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}>
           <span className={`emr-cat-kpi-icon ${KPI_TONE[k.bucket]}`}><Icon name={KPI_ICON[k.bucket]} size={19} /></span>
-          <div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{bucketCount(k.bucket, kpiItems, hasBlockedBucket)}</div>
+          <div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{bucketCount(k.bucket, kpiItems, hasBlockedBucket, categoryCode)}</div>
           <div style={{ fontSize: 12.5, color: "#475569", fontWeight: 600, marginTop: 2 }}>{k.label}</div></div>
         </article>)}
         <style>{`.emr-cat-kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}.emr-cat-kpi-icon.blue{background:#dbeafe;color:#2563eb}.emr-cat-kpi-icon.green{background:#dcfce7;color:#16a34a}.emr-cat-kpi-icon.amber{background:#fef3c7;color:#b45309}.emr-cat-kpi-icon.red{background:#fee2e2;color:#dc2626}.emr-cat-kpi-icon.slate{background:#e2e8f0;color:#475569}`}</style>
