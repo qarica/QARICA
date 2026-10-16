@@ -23,8 +23,8 @@ describe("Việc của tôi (/tasks) — KPI quá hạn/đến hạn/đang mở/
   // Tự rà lại sau phản hồi "rà chưa sát": overdue7 (mức cảnh báo cao nhất
   // trong secretaryHeadline) cũng dính đúng lỗi y hệt — chỉ đếm từ rows,
   // bỏ sót EMR/note cá nhân quá hạn ≥7 ngày.
-  it("overdue7 (mức cảnh báo cao nhất) dùng kpiRows đã gộp đủ 3 nguồn, không chỉ rows", () => {
-    expect(source).toContain("const overdue7=kpiRows.filter(r=>r.is_overdue&&Math.abs(Number(r.days_to_due||0))>=7).length;");
+  it("overdue7 dùng activeKpiRows đã gộp đủ 3 nguồn và loại việc đã đóng", () => {
+    expect(source).toContain("const overdue7=activeKpiRows.filter(r=>r.is_overdue&&Math.abs(Number(r.days_to_due||0))>=7).length;");
   });
 
   it("personalReminderKpiRows khai báo SAU personalReminders/today/dateOnly (không rơi vào temporal dead zone như lỗi đã sửa trước đó)", () => {
