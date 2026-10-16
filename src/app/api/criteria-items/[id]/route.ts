@@ -22,7 +22,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
     }
     return NextResponse.json({ok:true,is_active:tx?.is_active,children_deactivated:Number(tx?.children_deactivated||0),transaction:"atomic"});
   }
-  const {data:item}=await admin.from("criteria_items").select("id,criteria_version_id,code,title,parent_criteria_item_id,is_active").eq("id",id).maybeSingle();
+  const {data:item}=await admin.from("criteria_items").select("id,criteria_version_id,code,title,parent_criteria_item_id,item_type,is_active").eq("id",id).maybeSingle();
   if(!item)return NextResponse.json({error:"Không tìm thấy tiêu chí."},{status:404});
   const {data:version}=await admin.from("criteria_set_versions").select("id,criteria_set_id,status").eq("id",item.criteria_version_id).maybeSingle();
   if(!version)return NextResponse.json({error:"Phiên bản tiêu chí không tồn tại."},{status:404});
@@ -46,6 +46,11 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
     if(!department)return NextResponse.json({error:"Khoa/phòng phụ trách không hợp lệ."},{status:400});
     patch.owner_department_id=departmentId;
   }
+  if(Object.prototype.hasOwnProperty.call(body,"item_type")&&!item.parent_criteria_item_id){
+    const requestedItemType=clean(body.item_type).toUpperCase();
+    if(requestedItemType!=="CRITERION"&&requestedItemType!=="GROUP")return NextResponse.json({error:"Loại nội dung không hợp lệ."},{status:400});
+    patch.item_type=requestedItemType;
+  }
   if(Object.prototype.hasOwnProperty.call(body,"chapter_code"))patch.chapter_code=clean(body.chapter_code)||null;
   if(Object.prototype.hasOwnProperty.call(body,"chapter_name"))patch.chapter_name=clean(body.chapter_name)||null;
   if(Object.prototype.hasOwnProperty.call(body,"score_weight"))patch.score_weight=Math.max(1,Number(body.score_weight)||1);
@@ -55,7 +60,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   if(Object.prototype.hasOwnProperty.call(body,"sequence_no"))patch.sequence_no=Math.max(1,Number(body.sequence_no)||1);
   const {error}=await admin.from("criteria_items").update(patch).eq("id",id);
   if(error)return NextResponse.json({error:error.message},{status:400});
-  const {error:auditError}=await admin.from("audit_logs").insert({actor_user_id:auth.user.id,table_name:"criteria_items",row_id:id,action_type:"CRITERIA_ITEM_UPDATE",old_value:{code:item.code,title:item.title,is_active:item.is_active,parent_criteria_item_id:item.parent_criteria_item_id},new_value:patch,request_meta:{source:"qlcl-ui"}});
+  const {error:auditError}=await admin.from("audit_logs").insert({actor_user_id:auth.user.id,table_name:"criteria_items",row_id:id,action_type:"CRITERIA_ITEM_UPDATE",old_value:{code:item.code,title:item.title,is_active:item.is_active,parent_criteria_item_id:item.parent_criteria_item_id,item_type:item.item_type},new_value:patch,request_meta:{source:"qlcl-ui"}});
   if(auditError)return NextResponse.json({error:`Đã cập nhật nhưng không ghi được audit trail: ${auditError.message}`},{status:500});
   return NextResponse.json({ok:true});
 }
