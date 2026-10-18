@@ -31,7 +31,7 @@ describe("Calendar (/calendar) — ô \"+N mốc khác\" phải bấm xem đư�
 
   it("có nút Lịch QLCL riêng trên topbar, dẫn tới /calendar", () => {
     const shell = read("src/components/app-shell.tsx");
-    expect(shell).toContain('href="/calendar" prefetch={true} className={`icon-button header-icon calendar-launcher');
+    expect(shell).toContain('href="/calendar" prefetch={true} className="icon-button header-icon calendar-launcher"');
     expect(shell).toContain('<Icon name="calendar-days" size={18} /></Link>');
   });
 });

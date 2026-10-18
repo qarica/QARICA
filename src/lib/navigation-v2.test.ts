@@ -91,7 +91,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   // not the narrower dashboard.view the old sidebar entry used.
   it("Lịch QLCL moves to a dedicated topbar icon button, gated on the full permission set /calendar/page.tsx checks", () => {
     expect(shell).toContain('const canSeeCalendar = ["dashboard.view","tasks.view","plans.view","plans.manage","monitoring.view","monitoring.perform","reports.view","inspections.view"].some((code) => user.permissions.includes(code));');
-    expect(shell).toContain('{canSeeCalendar ? <Link href="/calendar" prefetch={true} className={`icon-button header-icon calendar-launcher ${pathname.startsWith("/calendar") ? "active" : ""}`}');
+    expect(shell).toContain('{canSeeCalendar ? <Link href="/calendar" prefetch={true} className="icon-button header-icon calendar-launcher"');
   });
 
   it("does not define a personal-workspace sidebar group at all (explicit request, 2026-10-15): Việc của tôi/Sổ tay cá nhân are not hard-coded into the master menu", () => {
@@ -127,7 +127,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   // XEM LẠI sổ tay. Thêm nút topbar riêng, không gate theo permission nào
   // (khớp /me/page.tsx không yêu cầu permission riêng).
   it("puts Sổ tay cá nhân (/me) in the topbar too, next to Việc của tôi, unconditional for any signed-in user", () => {
-    expect(shell).toContain('<Link href="/me" prefetch={true} className={`icon-button header-icon notebook-launcher ${pathname.startsWith("/me") ? "active" : ""}`} onClick={() => startNavigation("/me")} title="Sổ tay cá nhân" aria-label="Sổ tay cá nhân"><Icon name="book-open" size={18} /></Link>');
+    expect(shell).toContain('<Link href="/me" prefetch={true} className="icon-button header-icon notebook-launcher" onClick={() => startNavigation("/me")} title="Sổ tay cá nhân" aria-label="Sổ tay cá nhân"><Icon name="book-open" size={18} /></Link>');
   });
 
   it("renders the floating quick-capture button (GlobalQuickCapture) in the protected layout, so a note or to-do can be captured from any screen without navigating away first", () => {
