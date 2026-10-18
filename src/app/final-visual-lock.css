@@ -42,6 +42,14 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
    universal *:focus-visible). */
 .workspace-app .header-icon:focus,
 .workspace-app .header-icon:focus-visible{background:#fff!important;border-color:var(--qf-line)!important;color:#475569!important;box-shadow:none!important}
+/* Yêu cầu tường minh (sau khi xác nhận icon đã về trung tính): "Việc của
+   tôi" cần NỔI BẬT có chủ đích để dễ tìm trong topbar — khác hẳn bug nền
+   xanh nhạt rò rỉ ngoài ý muốn ở trên. Tô nền brand navy cố định (không
+   phụ thuộc pathname/active) để không lặp lại lỗi "active" đã gỡ. */
+.workspace-app .header-icon.my-work-launcher{background:var(--brand)!important;border-color:var(--brand)!important;color:#fff!important}
+.workspace-app .header-icon.my-work-launcher:hover,
+.workspace-app .header-icon.my-work-launcher:focus,
+.workspace-app .header-icon.my-work-launcher:focus-visible{background:#15306e!important;border-color:#15306e!important;color:#fff!important;box-shadow:none!important}
 .workspace-app .avatar{background:linear-gradient(135deg,#3B5BDB,#1E3A8A)!important;color:#fff!important}
 
 /* TQM dashboard: remove the legacy dark hero that overrode the approved light baseline. */
