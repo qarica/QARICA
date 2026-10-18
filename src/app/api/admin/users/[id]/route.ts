@@ -5,6 +5,12 @@ import { isMissingRpcFunction, rpcErrorMessage } from "@/lib/rpc-compat";
 
 const SET_USER_ACCESS_RPC = "qlcl_set_user_access_v1";
 
+function sameIdSet(a: string[], b: string[]) {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((value) => set.has(value));
+}
+
 type UpdateUserBody = {
   role_ids?: unknown;
   effective_permission_ids?: unknown;
@@ -55,6 +61,31 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
 
   const admin = createAdminClient();
+
+  // Không cho tự nâng quyền cho chính mình: so với vai trò/quyền hiện có, nếu
+  // người gọi đang sửa đúng hồ sơ của mình thì role_ids/effective_permission_ids
+  // gửi lên phải giữ nguyên — mọi thay đổi khác (tên, SĐT, khoa/phòng...) vẫn
+  // được phép. Cùng nguyên tắc với chặn tự xác minh EMR / tự phê duyệt CAPA.
+  if (id === permissionCheck.user.id) {
+    const [{ data: currentRoleRows }, { data: currentOverrideRows }] = await Promise.all([
+      admin.from("user_roles").select("role_id").eq("user_id", id),
+      admin.from("user_permissions").select("permission_id,is_allowed").eq("user_id", id),
+    ]);
+    const currentRoleIds = (currentRoleRows ?? []).map((row) => row.role_id as string);
+    if (!sameIdSet(roleIds, currentRoleIds)) {
+      return NextResponse.json({ error: "Không thể tự thay đổi vai trò của chính mình. Nhờ một quản trị viên khác thực hiện." }, { status: 400 });
+    }
+    const { data: rolePermissionRows } = await admin.from("role_permissions").select("permission_id").in("role_id", currentRoleIds.length ? currentRoleIds : [""]);
+    const currentEffective = new Set((rolePermissionRows ?? []).map((row) => row.permission_id as string));
+    for (const row of currentOverrideRows ?? []) {
+      if (row.is_allowed) currentEffective.add(row.permission_id as string);
+      else currentEffective.delete(row.permission_id as string);
+    }
+    if (!sameIdSet(effectivePermissionIds, [...currentEffective])) {
+      return NextResponse.json({ error: "Không thể tự thay đổi quyền chức năng của chính mình. Nhờ một quản trị viên khác thực hiện." }, { status: 400 });
+    }
+  }
+
   const { data: tx, error: txError } = await admin.rpc(SET_USER_ACCESS_RPC, {
     p_target_user_id: id,
     p_actor_user_id: permissionCheck.user.id,
