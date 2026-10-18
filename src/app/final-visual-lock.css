@@ -27,6 +27,20 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .workspace-app .qarica-desktop-tagline{color:#17365d!important;text-shadow:none!important;font-weight:700!important}
 .workspace-app .header-icon,.workspace-app .year-select-wrap,.workspace-app .profile-button{background:#fff!important;border-color:var(--qf-line)!important;box-shadow:none!important}
 .workspace-app .header-icon:hover,.workspace-app .profile-button:hover{background:#f5f9ff!important}
+/* Báo cáo thực tế (ảnh chụp màn hình điện thoại): icon "Việc của tôi" ở
+   topbar hiện nền xanh nhạt nổi bật hẳn so với các icon khác ngay sau khi
+   vừa bấm vào để điều hướng tới trang đó — các icon khác (lịch, sổ tay,
+   chuông) vẫn trắng bình thường. Đây đúng kiểu lỗi "focus/active style còn
+   sót lại sau khi điều hướng SPA" (Next.js Link không tự blur phần tử sau
+   khi chuyển trang) chứ không phải do .active cố ý tô màu khác — không nơi
+   nào trong codebase định nghĩa .header-icon.active với nền riêng. Ép nền/
+   viền/màu chữ của .header-icon về đúng trạng thái trung tính (giống hệt
+   các icon khác) bất kể .active hay còn giữ :focus — KHÔNG đụng tới outline
+   universal *:focus-visible (vẫn cần cho điều hướng bàn phím), chỉ bỏ phần
+   tô màu nền/viền bị sót lại. */
+.workspace-app .header-icon.active,
+.workspace-app .header-icon:focus,
+.workspace-app .header-icon:focus-visible{background:#fff!important;border-color:var(--qf-line)!important;color:#475569!important;box-shadow:none!important}
 .workspace-app .avatar{background:linear-gradient(135deg,#3B5BDB,#1E3A8A)!important;color:#fff!important}
 
 /* TQM dashboard: remove the legacy dark hero that overrode the approved light baseline. */

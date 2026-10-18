@@ -298,13 +298,13 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
         viewport; the surrounding controls now render on both. */}
     <section id="all-work" className="work-section">
      <nav className="work-tabs" aria-label="Lọc việc được giao">
-      <Link href={tabHref("OPEN")} className={`work-tab ${tab==="OPEN"?"active":""}`}>Chưa hoàn thành · {allWorkRows.filter(r=>!r.isDone).length}</Link>
       <Link href={tabHref("ALL")} className={`work-tab ${tab==="ALL"?"active":""}`}>Tất cả · {allWorkRows.length}</Link>
+      <Link href={tabHref("OPEN")} className={`work-tab ${tab==="OPEN"?"active":""}`}>Chưa hoàn thành · {allWorkRows.filter(r=>!r.isDone).length}</Link>
+      <Link href={tabHref("DONE")} className={`work-tab ${tab==="DONE"?"active":""}`}>Đã hoàn thành · {allWorkRows.filter(r=>r.isDone).length}</Link>
       <Link href={tabHref("REMINDER")} className={`work-tab ${tab==="REMINDER"?"active":""}`}>Việc cá nhân · {unifiedReminderRows.length}</Link>
       {unifiedAssignedRows.length?<Link href={tabHref("ASSIGNED")} className={`work-tab ${tab==="ASSIGNED"?"active":""}`} title="Việc theo quy trình chính thức (Action/CAPA/Audit...) được giao qua hồ sơ, khác với note cá nhân tự tạo">Việc được giao · {unifiedAssignedRows.length}</Link>:null}
       {waitingCount?<Link href={tabHref("WAITING")} className={tab==="WAITING"?"work-tab active":"work-tab"} title="Việc đang đợi người khác phản hồi hoặc hoàn thành phần việc liên quan">Chờ phản hồi · {waitingCount}</Link>:null}
       {watchCount?<Link href={tabHref("WATCH")} className={`work-tab ${tab==="WATCH"?"active":""}`} title="Việc còn mở có hạn trong tương lai, cần tiếp tục theo dõi tiến độ">Cần theo dõi · {watchCount}</Link>:null}
-      <Link href={tabHref("DONE")} className={`work-tab ${tab==="DONE"?"active":""}`}>Đã hoàn thành · {allWorkRows.filter(r=>r.isDone).length}</Link>
      </nav>
      <form method="get" className="work-search-row">
       <input type="hidden" name="tab" value={tab}/>
