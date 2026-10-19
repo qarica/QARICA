@@ -110,6 +110,15 @@ export function DocumentPublicationsClient({
     if (group) group.docs.push(d);
     else publishedGroups.push({ key, name: departmentName(d.drafting_department_id), docs: [d] });
   }
+  // Thống kê toàn viện: tổng số văn bản (mọi bước, không chỉ Đã phát hành)
+  // theo khoa/phòng soạn thảo và theo loại văn bản — liệt kê đủ mọi khoa/
+  // phòng đang hoạt động (kể cả khoa chưa có văn bản nào) để thấy rõ khoa
+  // nào chưa tham gia, không chỉ khoa đã có dữ liệu.
+  const statsByDepartment = departments
+    .map((d) => ({ key: d.id, name: d.name, count: documents.filter((doc) => doc.drafting_department_id === d.id).length }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "vi"));
+  const statsByType = DOCUMENT_TYPES.map((t) => ({ key: t, name: DOCUMENT_TYPE_LABEL[t], count: documents.filter((doc) => doc.document_type === t).length }));
+
   const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId).length;
   const hasAcked = (documentId: string) => acks.some((a) => a.document_publication_id === documentId && a.user_id === currentUserId);
   // Trước đây chỉ hiện "N đã xác nhận" — không biết AI còn chưa đọc để nhắc.
@@ -302,6 +311,38 @@ export function DocumentPublicationsClient({
   return (
     <div className="document-publications-overview mobile-module-redesign">
       <div className="mobile-workflow-kpis"><div><small>Tổng văn bản</small><strong>{documents.length}</strong></div><div><small>Đang xử lý</small><strong>{inProgress.length}</strong></div><div><small>Đã ban hành</small><strong>{published.length}</strong></div></div>
+
+      <section className="panel">
+        <div className="panel-title">
+          <h2>Thống kê toàn viện</h2>
+        </div>
+        <div className="dp-stats-grid">
+          <div>
+            <h3>Theo khoa/phòng soạn thảo</h3>
+            <ul className="dp-stats-list">
+              {statsByDepartment.map((row) => (
+                <li key={row.key}>
+                  <span>{row.name}</span>
+                  <strong>{row.count}</strong>
+                </li>
+              ))}
+              {!statsByDepartment.length ? <li className="dp-stats-empty">Chưa có khoa/phòng nào.</li> : null}
+            </ul>
+          </div>
+          <div>
+            <h3>Theo loại văn bản</h3>
+            <ul className="dp-stats-list">
+              {statsByType.map((row) => (
+                <li key={row.key}>
+                  <span>{row.name}</span>
+                  <strong>{row.count}</strong>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <section className="panel">
         <div className="panel-title">
           <div>
@@ -617,6 +658,41 @@ export function DocumentPublicationsClient({
           font-size: 13px;
           font-weight: 600;
         }
+        .dp-stats-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          padding: 0 12px 12px;
+        }
+        .dp-stats-grid h3 {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--muted);
+          margin: 0 0 6px;
+        }
+        .dp-stats-list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: grid;
+          gap: 2px;
+        }
+        .dp-stats-list li {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 4px 0;
+          border-bottom: 1px solid var(--border);
+          font-size: 13px;
+        }
+        .dp-stats-list li:last-child {
+          border-bottom: none;
+        }
+        .dp-stats-empty {
+          color: var(--muted);
+          font-size: 13px;
+        }
         .dp-folder {
           border-top: 1px solid var(--border);
         }
@@ -664,7 +740,8 @@ export function DocumentPublicationsClient({
         }
         @media (max-width: 760px) {
           .dp-form-row,
-          .dp-publish-form {
+          .dp-publish-form,
+          .dp-stats-grid {
             grid-template-columns: 1fr;
           }
         }

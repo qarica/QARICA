@@ -248,3 +248,39 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
     expect(fileCell).toContain(': canManage ? (\n                            <label className="dp-file-input button secondary small">');
   });
 });
+
+// Yêu cầu tường minh: "có tính năng hỗ trợ báo các quy trình đến hạn [xem
+// xét lại] và biết có bao nhiêu quy trình tổng số toàn viện theo từng đơn vị
+// và theo loại không" — trước đây review_date được tính và lưu nhưng không
+// ai đọc lại (CLAUDE.md nguyên tắc 5), và trang không có thống kê tổng số
+// theo khoa/phòng hay loại văn bản nào cả. Thêm 2 việc: (1) nhắc quá hạn/sắp
+// đến hạn xem xét lại, gấp vào đúng pipeline thông báo chung; (2) panel
+// thống kê toàn viện theo khoa/phòng + theo loại ngay trên trang.
+describe("Document publications: nhắc hạn xem xét lại + thống kê toàn viện theo khoa/phòng và loại", () => {
+  it("syncDocumentPublicationReviewRemindersForUser tồn tại, chỉ dành cho document_publication.manage, chỉ xét văn bản PUBLISHED có review_date", () => {
+    const shared = read("src/lib/notification-sync.ts");
+    expect(shared).toContain("export async function syncDocumentPublicationReviewRemindersForUser(admin: AdminClient, userId: string) {");
+    expect(shared).toContain('userHasPermission(admin, userId, "document_publication.manage")');
+    expect(shared).toContain('.eq("stage", "PUBLISHED")');
+    expect(shared).toContain('.not("review_date", "is", null)');
+    expect(shared).toContain('onConflict: "recipient_user_id,notification_event_key"');
+  });
+
+  it("được gấp vào đủ cả 3 đường: route riêng, orchestrator (polling) và cron nền (không phụ thuộc ai mở app)", () => {
+    const route = read("src/app/api/notifications/sync-document-publication-reviews/route.ts");
+    expect(route).toContain("syncDocumentPublicationReviewRemindersForUser(admin, auth.user.id)");
+
+    const orchestrator = read("src/lib/notification-orchestrator.ts");
+    expect(orchestrator).toContain("syncDocumentPublicationReviewRemindersForUser");
+
+    const cron = read("src/app/api/cron/sync-notifications/route.ts");
+    expect(cron).toContain("syncDocumentPublicationReviewRemindersForUser(admin, userId)");
+  });
+
+  it("UI: panel \"Thống kê toàn viện\" tính tổng theo TẤT CẢ khoa/phòng đang hoạt động (kể cả khoa chưa có văn bản) và theo từng loại văn bản, từ toàn bộ documents (không chỉ Đã phát hành)", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("<h2>Thống kê toàn viện</h2>");
+    expect(client).toContain("const statsByDepartment = departments");
+    expect(client).toContain("const statsByType = DOCUMENT_TYPES.map((t) => ({ key: t, name: DOCUMENT_TYPE_LABEL[t], count: documents.filter((doc) => doc.document_type === t).length }));");
+  });
+});

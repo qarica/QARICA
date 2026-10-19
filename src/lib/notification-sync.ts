@@ -358,7 +358,7 @@ export async function syncMonitoringOverdueForUser(admin: AdminClient, userId: s
 
 // --- Quality attention (chỉ đạo/báo cáo/rủi ro/CAPA/phản ánh/thanh tra/finding) ---
 
-const ATTENTION_WINDOW_DAYS = { directive: 7, report: 7, risk: 7, capa: 7, feedback: 3, inspection: 14, finding: 7 } as const;
+const ATTENTION_WINDOW_DAYS = { directive: 7, report: 7, risk: 7, capa: 7, feedback: 3, inspection: 14, finding: 7, document: 30 } as const;
 
 function hcmToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
@@ -583,6 +583,54 @@ export async function syncPhysicianLicenseRemindersForUser(admin: AdminClient, u
       target_record_id: null,
       target_route: "/physician-license",
       notification_event_key: `physician_license:${row.id}:${phase.phase}:deadline:${String(row.deadline).slice(0, 10)}`,
+      is_read: false,
+    });
+  }
+
+  if (!payload.length) return { created: 0, candidates: 0 };
+  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id,priority");
+  if (insertError) return { error: insertError.message };
+  await pushHighPriorityToZalo(admin, userId, inserted);
+  return { created: inserted?.length || 0, candidates: payload.length };
+}
+
+// --- Document publication review reminders -----------------------------------
+//
+// document_publications.review_date (= effective_date + REVIEW_CYCLE_DAYS,
+// tính ngay khi Phát hành) được lưu nhưng chưa ai đọc lại — một "quy trình
+// đến hạn xem xét lại" có thể trễ nhiều năm mà không ai được báo (CLAUDE.md
+// nguyên tắc 5: field có trong DB không có nghĩa là tính năng đã hoàn
+// chỉnh). Gấp vào đúng pipeline/ngưỡng thông báo chung, chỉ dành cho người
+// có document_publication.manage (đơn vị kiểm soát tài liệu toàn viện).
+export async function syncDocumentPublicationReviewRemindersForUser(admin: AdminClient, userId: string) {
+  if (!(await userHasPermission(admin, userId, "document_publication.manage"))) return { created: 0, candidates: 0 };
+
+  const { data: profile } = await admin.from("profiles").select("organization_id").eq("user_id", userId).maybeSingle();
+  if (!profile?.organization_id) return { created: 0, candidates: 0 };
+
+  const { data: documents, error } = await admin
+    .from("document_publications")
+    .select("id,title,document_code,review_date")
+    .eq("organization_id", profile.organization_id)
+    .eq("stage", "PUBLISHED")
+    .not("review_date", "is", null);
+  if (error) return { error: error.message };
+  if (!documents?.length) return { created: 0, candidates: 0 };
+
+  const today = hcmToday();
+  const payload: any[] = [];
+  for (const row of documents as any[]) {
+    const phase = attentionPhaseFor(row.review_date, today, ATTENTION_WINDOW_DAYS.document);
+    if (!phase) continue;
+    payload.push({
+      recipient_user_id: userId,
+      notification_type: `DOCUMENT_REVIEW_${phase.phase}`,
+      priority: phase.priority,
+      title: phase.phase === "OVERDUE" ? "Văn bản quá hạn xem xét lại" : "Văn bản đến kỳ xem xét lại",
+      message: `${row.document_code || row.title}: ${attentionDueMessage(phase.phase, row.review_date, "Kỳ xem xét lại văn bản")}`,
+      target_record_id: null,
+      target_route: "/document-publications",
+      notification_event_key: `document_publication:${row.id}:${phase.phase}:review:${String(row.review_date).slice(0, 10)}`,
       is_read: false,
     });
   }
