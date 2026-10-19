@@ -335,15 +335,18 @@ export function DocumentPublicationsClient({
       <div className="mobile-workflow-kpis">
         <div>
           <span className="dp-kpi-icon info"><Icon name="file-text" size={18} /></span>
-          <div><small>Tổng văn bản</small><strong>{documents.length}</strong></div>
+          <small>Tổng văn bản</small>
+          <strong>{documents.length}</strong>
         </div>
         <div>
           <span className="dp-kpi-icon warning"><Icon name="clipboard-check" size={18} /></span>
-          <div><small>Đang xử lý</small><strong>{inProgress.length}</strong></div>
+          <small>Đang xử lý</small>
+          <strong>{inProgress.length}</strong>
         </div>
         <div>
           <span className="dp-kpi-icon success"><Icon name="folder-check" size={18} /></span>
-          <div><small>Đã ban hành</small><strong>{published.length}</strong></div>
+          <small>Đã ban hành</small>
+          <strong>{published.length}</strong>
         </div>
       </div>
 
@@ -650,24 +653,14 @@ export function DocumentPublicationsClient({
           display: grid;
           gap: 16px;
         }
-        .document-publications-overview.mobile-module-redesign .mobile-workflow-kpis > div {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .document-publications-overview.mobile-module-redesign .mobile-workflow-kpis > div > div {
-          display: grid;
-          gap: 2px;
-          min-width: 0;
-        }
         .dp-kpi-icon {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          flex: 0 0 36px;
+          width: 32px;
+          height: 32px;
+          border-radius: 9px;
+          margin-bottom: 2px;
         }
         .dp-kpi-icon.info {
           background: var(--info-soft);
