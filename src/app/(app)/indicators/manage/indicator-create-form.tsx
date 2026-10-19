@@ -23,6 +23,7 @@ export function IndicatorCreateForm(){
    <label>Chiều hướng<select name="desired_direction" defaultValue="NEUTRAL"><option value="HIGHER_IS_BETTER">Càng cao càng tốt</option><option value="LOWER_IS_BETTER">Càng thấp càng tốt</option><option value="TARGET_RANGE">Trong khoảng mục tiêu</option><option value="NEUTRAL">Theo dõi</option></select></label>
    <label>Tần suất<select name="frequency" defaultValue="MONTHLY"><option value="DAILY">Hằng ngày</option><option value="WEEKLY">Hằng tuần</option><option value="MONTHLY">Hằng tháng</option><option value="QUARTERLY">Hằng quý</option><option value="SEMIANNUAL">6 tháng</option><option value="ANNUAL">Hằng năm</option></select></label>
    <label>Ngày hiệu lực<input type="date" name="effective_from"/></label>
+   <label>Hệ số nhân<input type="number" step="any" name="multiplier" placeholder="Để trống nếu không cần, vd 100 cho tỷ lệ x100"/></label>
    <label style={{gridColumn:"1/-1"}}>Mục đích<textarea name="purpose" rows={2}/></label>
    {error&&<div style={{gridColumn:"1/-1"}} className="alert error">{error}</div>}
    <div style={{gridColumn:"1/-1",display:"flex",justifyContent:"flex-end"}}><button className="button primary" disabled={busy}>{busy?"Đang tạo...":"Tạo chỉ số"}</button></div>

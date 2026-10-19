@@ -83,7 +83,7 @@ export function IndicatorManageDetailClient({ definition, versions, canManage }:
       </div>
       <div className="table-wrap" style={{ marginTop: 12 }}>
         <table style={{ minWidth: 760 }}>
-          <thead><tr><th>Phiên bản</th><th>Trạng thái</th><th>Cách tính</th><th>Chiều hướng</th><th>Tần suất</th><th>Đơn vị</th><th>Hiệu lực từ</th><th></th></tr></thead>
+          <thead><tr><th>Phiên bản</th><th>Trạng thái</th><th>Cách tính</th><th>Chiều hướng</th><th>Tần suất</th><th>Đơn vị</th><th>Hệ số nhân</th><th>Hiệu lực từ</th><th></th></tr></thead>
           <tbody>
             {versions.map((v) => {
               const isDraft = v.status === "DRAFT";
@@ -96,11 +96,12 @@ export function IndicatorManageDetailClient({ definition, versions, canManage }:
                 <td>{editable ? <select value={v.desired_direction || ""} disabled={busy} onChange={(e) => patchVersion(v, { desired_direction: e.target.value })}><option value="">— Chọn —</option>{directionOptions.map(([val, label]) => <option key={val} value={val}>{label}</option>)}</select> : (directionOptions.find(([val]) => val === v.desired_direction)?.[1] || "—")}</td>
                 <td>{editable ? <select value={v.frequency || ""} disabled={busy} onChange={(e) => patchVersion(v, { frequency: e.target.value })}><option value="">— Chọn —</option>{frequencyOptions.map(([val, label]) => <option key={val} value={val}>{label}</option>)}</select> : (frequencyOptions.find(([val]) => val === v.frequency)?.[1] || "—")}</td>
                 <td>{editable ? <input defaultValue={v.unit || ""} disabled={busy} onBlur={(e) => e.target.value !== (v.unit || "") && patchVersion(v, { unit: e.target.value })} style={{ width: 80 }} /> : (v.unit || "—")}</td>
+                <td>{editable ? <input type="number" step="any" defaultValue={v.multiplier ?? ""} disabled={busy} onBlur={(e) => Number(e.target.value || 0) !== (v.multiplier ?? 0) && patchVersion(v, { multiplier: e.target.value === "" ? null : Number(e.target.value) })} style={{ width: 80 }} /> : (v.multiplier ?? "—")}</td>
                 <td>{editable ? <input type="date" defaultValue={v.effective_from || ""} disabled={busy} onBlur={(e) => e.target.value !== (v.effective_from || "") && patchVersion(v, { effective_from: e.target.value })} /> : (v.effective_from || "—")}</td>
                 <td>{editable ? <button className="button primary small" onClick={() => publish(v)} disabled={busy}>Phát hành</button> : null}</td>
               </tr>;
             })}
-            {!versions.length ? <tr><td colSpan={8} style={{ padding: 24, textAlign: "center" }}>Chưa có phiên bản nào.</td></tr> : null}
+            {!versions.length ? <tr><td colSpan={9} style={{ padding: 24, textAlign: "center" }}>Chưa có phiên bản nào.</td></tr> : null}
           </tbody>
         </table>
       </div>

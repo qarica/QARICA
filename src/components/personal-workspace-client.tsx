@@ -465,6 +465,7 @@ export function PersonalWorkspaceClient({ initialRows, userId, highlightedItemId
         .pw-tabs { flex-wrap: wrap; }
         .pw-filter { display:flex; flex-wrap:wrap; gap:8px; padding:4px 12px 12px; }
         .pw-reminder-choice { display:flex; gap:8px; align-items:center; font-size:13px; }
+        .pw-reminder-choice input { width:auto; min-height:0; }
         .pw-hint { margin:0; color:#64748b; font-size:12px; }
         .pw-tabs {
           display: flex;
