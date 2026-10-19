@@ -140,6 +140,14 @@ const NAV_GROUPS: NavGroupDef[] = [
     ],
   },
   {
+    id: "medical-equipment",
+    label: "SỔ QUẢN LÝ TTBYT",
+    icon: "cog",
+    children: [
+      { label: "SỔ QUẢN LÝ TTBYT", href: "/medical-equipment", icon: "cog", permission: "medical_equipment.view" },
+    ],
+  },
+  {
     id: "system-config",
     label: "CẤU HÌNH HỆ THỐNG",
     icon: "settings",
