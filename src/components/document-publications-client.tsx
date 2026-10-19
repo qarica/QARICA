@@ -492,33 +492,31 @@ export function DocumentPublicationsClient({
         <button type="button" className="button secondary mobile-form-toggle" aria-expanded={statsOpen} onClick={() => setStatsOpen((v) => !v)}>
           {statsOpen ? "Thu gọn" : "+ Xem thống kê theo khoa/phòng và loại"}
         </button>
-        {statsOpen ? (
-          <div className="dp-stats-grid">
-            <div>
-              <h3>Theo khoa/phòng soạn thảo</h3>
-              <ul className="dp-stats-list">
-                {statsByDepartment.map((row) => (
-                  <li key={row.key}>
-                    <span>{row.name}</span>
-                    <strong>{row.count}</strong>
-                  </li>
-                ))}
-                {!statsByDepartment.length ? <li className="dp-stats-empty">Chưa có khoa/phòng nào.</li> : null}
-              </ul>
-            </div>
-            <div>
-              <h3>Theo loại văn bản</h3>
-              <ul className="dp-stats-list">
-                {statsByType.map((row) => (
-                  <li key={row.key}>
-                    <span>{row.name}</span>
-                    <strong>{row.count}</strong>
-                  </li>
-                ))}
-              </ul>
-            </div>
+        <div className={statsOpen ? "dp-stats-grid mobile-collapsible-form is-open" : "dp-stats-grid mobile-collapsible-form"}>
+          <div>
+            <h3>Theo khoa/phòng soạn thảo</h3>
+            <ul className="dp-stats-list">
+              {statsByDepartment.map((row) => (
+                <li key={row.key}>
+                  <span>{row.name}</span>
+                  <strong>{row.count}</strong>
+                </li>
+              ))}
+              {!statsByDepartment.length ? <li className="dp-stats-empty">Chưa có khoa/phòng nào.</li> : null}
+            </ul>
           </div>
-        ) : null}
+          <div>
+            <h3>Theo loại văn bản</h3>
+            <ul className="dp-stats-list">
+              {statsByType.map((row) => (
+                <li key={row.key}>
+                  <span>{row.name}</span>
+                  <strong>{row.count}</strong>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </section>
 
       <section className="panel">

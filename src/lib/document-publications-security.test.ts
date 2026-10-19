@@ -315,4 +315,24 @@ describe("Document publications: nhắc hạn xem xét lại + thống kê toàn
     expect(statsIdx).toBeGreaterThan(inProgressIdx);
     expect(libraryIdx).toBeGreaterThan(statsIdx);
   });
+
+  // Bug thật phát hiện qua ảnh chụp desktop thực tế: final-visual-lock.css ẩn
+  // hẳn .mobile-form-toggle ở desktop (@media(min-width:761px){...
+  // display:none!important}) — mọi form thu gọn khác trong trang này (Đề
+  // nghị văn bản mới, Nhập văn bản đã phát hành) vẫn hiện nội dung trên
+  // desktop vì bọc trong class "mobile-collapsible-form" (chỉ bị CSS ẩn khi
+  // max-width:760px và thiếu .is-open) — nội dung luôn NẰM TRONG DOM, không
+  // phụ thuộc state JS. Lần sửa trước lại bọc nội dung thống kê bằng
+  // `{statsOpen ? (...) : null}` — khi statsOpen=false (mặc định), nội dung
+  // biến mất khỏi DOM hoàn toàn, mà nút mở lại bị ẩn trên desktop → panel
+  // kẹt rỗng vĩnh viễn trên desktop, không ai mở được.
+  it("nội dung thống kê dùng class mobile-collapsible-form (luôn trong DOM, CSS ẩn/hiện) giống mọi form khác, KHÔNG bọc bằng {statsOpen ? ... : null} (sẽ biến mất khỏi DOM, kẹt rỗng trên desktop vì nút mobile-form-toggle bị CSS ẩn ở đó)", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain('className={statsOpen ? "dp-stats-grid mobile-collapsible-form is-open" : "dp-stats-grid mobile-collapsible-form"}');
+    expect(client).not.toContain("{statsOpen ? (\n          <div className=\"dp-stats-grid\">");
+
+    const css = read("src/app/final-visual-lock.css");
+    expect(css).toContain(".document-publications-overview .mobile-form-toggle");
+    expect(css).toContain("display:none!important");
+  });
 });
