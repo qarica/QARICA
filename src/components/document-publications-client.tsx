@@ -43,11 +43,14 @@ function formatDate(value: string | null) {
   return `${d}/${m}/${y}`;
 }
 
+type StatsRow = { drafting_department_id: string | null; document_type: DocumentPublicationType };
+
 export function DocumentPublicationsClient({
   departments,
   initialDocuments,
   acknowledgments,
   staffRoster,
+  initialStatsRows,
   currentUserId,
   canManage,
 }: {
@@ -55,11 +58,16 @@ export function DocumentPublicationsClient({
   initialDocuments: DocumentPublication[];
   acknowledgments: Acknowledgment[];
   staffRoster: Staff[];
+  initialStatsRows: StatsRow[];
   currentUserId: string;
   canManage: boolean;
 }) {
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [documents, setDocuments] = useState(initialDocuments);
+  // "Thống kê toàn viện" phải đếm ĐỦ mọi văn bản — documents ở trên bị giới
+  // hạn 300 bản gần nhất (phục vụ danh sách làm việc), không đủ để ra tổng
+  // số chính xác cho tổ chức có >300 văn bản. Nguồn riêng, không giới hạn.
+  const [statsRows, setStatsRows] = useState<StatsRow[]>(initialStatsRows);
   const [listQuery, setListQuery] = useState("");
   const [acks, setAcks] = useState(acknowledgments);
   const [title, setTitle] = useState("");
@@ -113,11 +121,12 @@ export function DocumentPublicationsClient({
   // Thống kê toàn viện: tổng số văn bản (mọi bước, không chỉ Đã phát hành)
   // theo khoa/phòng soạn thảo và theo loại văn bản — liệt kê đủ mọi khoa/
   // phòng đang hoạt động (kể cả khoa chưa có văn bản nào) để thấy rõ khoa
-  // nào chưa tham gia, không chỉ khoa đã có dữ liệu.
+  // nào chưa tham gia, không chỉ khoa đã có dữ liệu. Tính từ statsRows (đếm
+  // đủ), không phải từ documents (bị giới hạn 300 bản gần nhất).
   const statsByDepartment = departments
-    .map((d) => ({ key: d.id, name: d.name, count: documents.filter((doc) => doc.drafting_department_id === d.id).length }))
+    .map((d) => ({ key: d.id, name: d.name, count: statsRows.filter((row) => row.drafting_department_id === d.id).length }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "vi"));
-  const statsByType = DOCUMENT_TYPES.map((t) => ({ key: t, name: DOCUMENT_TYPE_LABEL[t], count: documents.filter((doc) => doc.document_type === t).length }));
+  const statsByType = DOCUMENT_TYPES.map((t) => ({ key: t, name: DOCUMENT_TYPE_LABEL[t], count: statsRows.filter((row) => row.document_type === t).length }));
 
   const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId).length;
   const hasAcked = (documentId: string) => acks.some((a) => a.document_publication_id === documentId && a.user_id === currentUserId);
@@ -170,6 +179,7 @@ export function DocumentPublicationsClient({
       return;
     }
     setDocuments((v) => [body.document as DocumentPublication, ...v]);
+    setStatsRows((v) => [...v, { drafting_department_id: body.document.drafting_department_id, document_type: body.document.document_type }]);
     setTitle("");
     setRequestedByName("");
     setReason("");
@@ -214,6 +224,7 @@ export function DocumentPublicationsClient({
       return;
     }
     setDocuments((v) => [body.document as DocumentPublication, ...v]);
+    setStatsRows((v) => [...v, { drafting_department_id: body.document.drafting_department_id, document_type: body.document.document_type }]);
     setDirectTitle("");
     setDirectDocumentCode("");
     setDirectEffectiveDate("");
@@ -248,6 +259,11 @@ export function DocumentPublicationsClient({
       return;
     }
     setDocuments((v) => v.filter((d) => d.id !== doc.id));
+    setStatsRows((v) => {
+      const idx = v.findIndex((row) => row.drafting_department_id === doc.drafting_department_id && row.document_type === doc.document_type);
+      if (idx === -1) return v;
+      return [...v.slice(0, idx), ...v.slice(idx + 1)];
+    });
   }
 
   function startPublish(doc: DocumentPublication) {

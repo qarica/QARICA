@@ -8,7 +8,7 @@ export default async function DocumentPublicationsPage() {
   const canManage = hasPermission(user, "document_publication.manage");
   const supabase = await createClient();
 
-  const [departmentsRes, documentsRes, acknowledgmentsRes, staffRes] = await Promise.all([
+  const [departmentsRes, documentsRes, acknowledgmentsRes, staffRes, statsRes] = await Promise.all([
     supabase.from("departments").select("id,name").eq("is_active", true).order("name"),
     supabase
       .from("document_publications")
@@ -22,6 +22,10 @@ export default async function DocumentPublicationsPage() {
     // chưa xác nhận để nhắc — cần toàn bộ nhân sự đang hoạt động của tổ chức
     // để tính phần bù (chưa xác nhận = toàn bộ - đã xác nhận).
     supabase.from("profiles").select("user_id,full_name,email").eq("organization_id", user.organizationId).eq("is_active", true).order("full_name"),
+    // "Thống kê toàn viện" phải đếm ĐỦ mọi văn bản, không chỉ 300 bản gần
+    // nhất mà documentsRes giới hạn cho danh sách làm việc — truy vấn riêng,
+    // chỉ lấy 2 cột nhẹ nên đếm được toàn bộ mà không tải lại nội dung đầy đủ.
+    supabase.from("document_publications").select("drafting_department_id,document_type").limit(20000),
   ]);
 
   return (
@@ -36,6 +40,7 @@ export default async function DocumentPublicationsPage() {
         initialDocuments={(documentsRes.data ?? []) as any}
         acknowledgments={(acknowledgmentsRes.data ?? []) as any}
         staffRoster={((staffRes.data ?? []) as any[]).map((p) => ({ id: p.user_id, name: p.full_name || p.email || p.user_id }))}
+        initialStatsRows={(statsRes.data ?? []) as any}
         currentUserId={user.id}
         canManage={canManage}
       />

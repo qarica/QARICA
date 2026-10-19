@@ -277,10 +277,26 @@ describe("Document publications: nhắc hạn xem xét lại + thống kê toàn
     expect(cron).toContain("syncDocumentPublicationReviewRemindersForUser(admin, userId)");
   });
 
-  it("UI: panel \"Thống kê toàn viện\" tính tổng theo TẤT CẢ khoa/phòng đang hoạt động (kể cả khoa chưa có văn bản) và theo từng loại văn bản, từ toàn bộ documents (không chỉ Đã phát hành)", () => {
+  it("UI: panel \"Thống kê toàn viện\" tính tổng theo TẤT CẢ khoa/phòng đang hoạt động (kể cả khoa chưa có văn bản) và theo từng loại văn bản, từ toàn bộ văn bản (không chỉ Đã phát hành)", () => {
     const client = read("src/components/document-publications-client.tsx");
     expect(client).toContain("<h2>Thống kê toàn viện</h2>");
     expect(client).toContain("const statsByDepartment = departments");
-    expect(client).toContain("const statsByType = DOCUMENT_TYPES.map((t) => ({ key: t, name: DOCUMENT_TYPE_LABEL[t], count: documents.filter((doc) => doc.document_type === t).length }));");
+    expect(client).toContain("const statsByType = DOCUMENT_TYPES.map((t) => ({ key: t, name: DOCUMENT_TYPE_LABEL[t], count: statsRows.filter((row) => row.document_type === t).length }));");
+  });
+
+  // Tự rà sau review "4 mắt": documents (dùng cho danh sách làm việc) bị
+  // page.tsx giới hạn .limit(300) bản gần nhất — nếu thống kê tính thẳng từ
+  // documents thì tổ chức có >300 văn bản sẽ bị đếm thiếu, trái với mục đích
+  // "biết tổng số toàn viện". Thống kê phải tính từ statsRows — nguồn riêng,
+  // không bị giới hạn 300.
+  it("thống kê KHÔNG tính từ documents (bị giới hạn 300 bản/trang) mà từ statsRows riêng, lấy từ 1 query không giới hạn ở page.tsx", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).not.toContain("documents.filter((doc) => doc.drafting_department_id === d.id).length");
+    expect(client).not.toContain("documents.filter((doc) => doc.document_type === t).length");
+    expect(client).toContain("const [statsRows, setStatsRows] = useState<StatsRow[]>(initialStatsRows);");
+
+    const page = read("src/app/(app)/document-publications/page.tsx");
+    expect(page).toContain('supabase.from("document_publications").select("drafting_department_id,document_type").limit(20000)');
+    expect(page).toContain("initialStatsRows={(statsRes.data ?? []) as any}");
   });
 });
