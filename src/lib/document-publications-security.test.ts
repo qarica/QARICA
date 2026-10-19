@@ -231,7 +231,7 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
 
   it("UI: \"Đã phát hành\" được đổi thành Thư viện văn bản, nhóm theo thư mục khoa/phòng (đóng/mở theo state riêng), giữ nguyên toàn bộ workflow Phổ biến đã có", () => {
     const client = read("src/components/document-publications-client.tsx");
-    expect(client).toContain("<h2>Thư viện văn bản</h2>");
+    expect(client).toContain("Thư viện văn bản</h2>");
     expect(client).toContain("publishedGroups.map((group) =>");
     expect(client).toContain("const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());");
     // Vẫn giữ nguyên cơ chế xác nhận "Tự đọc hiểu" / liên kết Đào tạo bên trong thư mục.
@@ -279,7 +279,7 @@ describe("Document publications: nhắc hạn xem xét lại + thống kê toàn
 
   it("UI: panel \"Thống kê toàn viện\" tính tổng theo TẤT CẢ khoa/phòng đang hoạt động (kể cả khoa chưa có văn bản) và theo từng loại văn bản, từ toàn bộ văn bản (không chỉ Đã phát hành)", () => {
     const client = read("src/components/document-publications-client.tsx");
-    expect(client).toContain("<h2>Thống kê toàn viện</h2>");
+    expect(client).toContain("Thống kê toàn viện</h2>");
     expect(client).toContain("const statsByDepartment = departments");
     expect(client).toContain("const statsByType = DOCUMENT_TYPES.map((t) => ({ key: t, name: DOCUMENT_TYPE_LABEL[t], count: statsRows.filter((row) => row.document_type === t).length }));");
   });
@@ -308,9 +308,9 @@ describe("Document publications: nhắc hạn xem xét lại + thống kê toàn
   it("panel Thống kê toàn viện thu gọn mặc định (statsOpen=false) và nằm sau \"Đang xử lý\", ngay trước Thư viện văn bản — không còn ở đầu trang", () => {
     const client = read("src/components/document-publications-client.tsx");
     expect(client).toContain("const [statsOpen, setStatsOpen] = useState(false);");
-    const inProgressIdx = client.indexOf("<h2>Đang xử lý</h2>");
-    const statsIdx = client.indexOf("<h2>Thống kê toàn viện</h2>");
-    const libraryIdx = client.indexOf("<h2>Thư viện văn bản</h2>");
+    const inProgressIdx = client.indexOf("Đang xử lý</h2>");
+    const statsIdx = client.indexOf("Thống kê toàn viện</h2>");
+    const libraryIdx = client.indexOf("Thư viện văn bản</h2>");
     expect(inProgressIdx).toBeGreaterThan(-1);
     expect(statsIdx).toBeGreaterThan(inProgressIdx);
     expect(libraryIdx).toBeGreaterThan(statsIdx);
@@ -334,5 +334,47 @@ describe("Document publications: nhắc hạn xem xét lại + thống kê toàn
     const css = read("src/app/final-visual-lock.css");
     expect(css).toContain(".document-publications-overview .mobile-form-toggle");
     expect(css).toContain("display:none!important");
+  });
+});
+
+// Phản hồi "Giao diện xấu và không chuyên nghiệp" — nâng cấp hình ảnh thuần
+// tuý (giữ nguyên 1 trang + luồng nghiệp vụ), tham khảo 1 concept dashboard
+// do người dùng đưa nhưng KHÔNG tách menu con/màn chi tiết có tab (đã chốt
+// giữ nguyên kiến trúc trước đó). Đổi: icon chuyên nghiệp (lucide qua
+// src/components/icon.tsx, dùng chung toàn app) thay cho emoji 📁📂📄 tự
+// gõ tay, và icon badge màu bán trong suốt (info/warning/success/brand —
+// đúng token --info-soft/--warning-soft/--success-soft/--brand-soft có sẵn
+// trong globals.css, không bịa màu riêng) cho 3 ô KPI + tiêu đề từng panel.
+describe("Document publications: nâng cấp hình ảnh (icon chuyên nghiệp + icon badge, giữ nguyên kiến trúc 1 trang)", () => {
+  it("không còn emoji 📁📂📄 tự gõ tay trong component", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).not.toContain("📁");
+    expect(client).not.toContain("📂");
+    expect(client).not.toContain("📄");
+  });
+
+  it("dùng chung Icon component (lucide) của app thay vì icon riêng/emoji, cho cả thư mục Thư viện văn bản và file đính kèm", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain('import { Icon } from "@/components/icon";');
+    expect(client).toContain('<Icon name="folder-archive" size={16} className="dp-folder-icon" />');
+    expect(client).toContain('<Icon name="file-text" size={14} />');
+  });
+
+  it("3 ô KPI đầu trang có icon badge dùng đúng token màu sẵn có (info/warning/success), không bịa màu/giá trị hex mới", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain('<span className="dp-kpi-icon info"><Icon name="file-text" size={18} /></span>');
+    expect(client).toContain('<span className="dp-kpi-icon warning"><Icon name="clipboard-check" size={18} /></span>');
+    expect(client).toContain('<span className="dp-kpi-icon success"><Icon name="folder-check" size={18} /></span>');
+    expect(client).toContain("background: var(--info-soft);");
+    expect(client).toContain("background: var(--warning-soft);");
+    expect(client).toContain("background: var(--success-soft);");
+    expect(client).not.toMatch(/#[0-9a-fA-F]{3,6}/);
+  });
+
+  it("mỗi tiêu đề panel có icon badge màu thương hiệu (--brand-soft/--brand), tái dùng đúng token của .page-header-icon thay vì bịa class/màu mới", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("background: var(--brand-soft);");
+    expect(client).toContain("color: var(--brand);");
+    expect(client).toContain('<span className="dp-section-icon">');
   });
 });

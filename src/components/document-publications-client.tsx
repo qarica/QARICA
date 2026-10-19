@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Icon } from "@/components/icon";
 import {
   DISSEMINATION_TYPE_LABEL,
   DISSEMINATION_TYPES,
@@ -331,12 +332,25 @@ export function DocumentPublicationsClient({
 
   return (
     <div className="document-publications-overview mobile-module-redesign">
-      <div className="mobile-workflow-kpis"><div><small>Tổng văn bản</small><strong>{documents.length}</strong></div><div><small>Đang xử lý</small><strong>{inProgress.length}</strong></div><div><small>Đã ban hành</small><strong>{published.length}</strong></div></div>
+      <div className="mobile-workflow-kpis">
+        <div>
+          <span className="dp-kpi-icon info"><Icon name="file-text" size={18} /></span>
+          <div><small>Tổng văn bản</small><strong>{documents.length}</strong></div>
+        </div>
+        <div>
+          <span className="dp-kpi-icon warning"><Icon name="clipboard-check" size={18} /></span>
+          <div><small>Đang xử lý</small><strong>{inProgress.length}</strong></div>
+        </div>
+        <div>
+          <span className="dp-kpi-icon success"><Icon name="folder-check" size={18} /></span>
+          <div><small>Đã ban hành</small><strong>{published.length}</strong></div>
+        </div>
+      </div>
 
       <section className="panel">
         <div className="panel-title">
           <div>
-            <h2>Đề nghị văn bản mới</h2>
+            <h2><span className="dp-section-icon"><Icon name="file-input" size={15} /></span>Đề nghị văn bản mới</h2>
             <p>Đơn vị sử dụng gửi đề nghị soạn thảo/sửa đổi văn bản — không cần quyền quản lý để gửi đề nghị.</p>
           </div>
         </div>
@@ -373,7 +387,7 @@ export function DocumentPublicationsClient({
         <section className="panel">
           <div className="panel-title">
             <div>
-              <h2>Nhập văn bản đã phát hành</h2>
+              <h2><span className="dp-section-icon"><Icon name="save" size={15} /></span>Nhập văn bản đã phát hành</h2>
               <p>Dành cho QT/quy định/thông báo đã ban hành từ trước (ngoài thực tế) — lưu thẳng vào &ldquo;Đã phát hành&rdquo;, không cần đi qua các bước kiểm soát.</p>
             </div>
           </div>
@@ -418,7 +432,7 @@ export function DocumentPublicationsClient({
 
       <section className="panel">
         <div className="panel-title">
-          <h2>Đang xử lý</h2>
+          <h2><span className="dp-section-icon"><Icon name="clipboard-check" size={15} /></span>Đang xử lý</h2>
         </div>
         <div className="mobile-workflow-filters"><input className="input" aria-label="Tìm văn bản" placeholder="Tìm tên văn bản đang xử lý..." value={listQuery} onChange={(e) => setListQuery(e.target.value)} /></div>
         <div className="work-list">
@@ -487,7 +501,7 @@ export function DocumentPublicationsClient({
 
       <section className="panel">
         <div className="panel-title">
-          <h2>Thống kê toàn viện</h2>
+          <h2><span className="dp-section-icon"><Icon name="pie-chart" size={15} /></span>Thống kê toàn viện</h2>
         </div>
         <button type="button" className="button secondary mobile-form-toggle" aria-expanded={statsOpen} onClick={() => setStatsOpen((v) => !v)}>
           {statsOpen ? "Thu gọn" : "+ Xem thống kê theo khoa/phòng và loại"}
@@ -522,14 +536,16 @@ export function DocumentPublicationsClient({
       <section className="panel">
         <div className="panel-title">
           <div>
-            <h2>Thư viện văn bản</h2>
+            <h2><span className="dp-section-icon"><Icon name="folder-archive" size={15} /></span>Thư viện văn bản</h2>
             <p>Văn bản đã phát hành, chia theo thư mục khoa/phòng soạn thảo — bấm vào thư mục để xem, có thể đính kèm file lưu trữ cho từng văn bản.</p>
           </div>
         </div>
         {publishedGroups.map((group) => (
           <div className="dp-folder" key={group.key}>
             <button type="button" className="dp-folder-head" onClick={() => toggleFolder(group.key)}>
-              <span>{openFolders.has(group.key) ? "📂" : "📁"} {group.name}</span>
+              <span className="dp-folder-label">
+                <Icon name="folder-archive" size={16} className="dp-folder-icon" /> {group.name}
+              </span>
               <span className="dp-folder-count">{group.docs.length} văn bản {openFolders.has(group.key) ? "▾" : "▸"}</span>
             </button>
             {openFolders.has(group.key) ? (
@@ -593,7 +609,7 @@ export function DocumentPublicationsClient({
                           {d.file_name ? (
                             <div className="dp-file-cell">
                               <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void viewFile(d)}>
-                                {fileBusyId === d.id ? "..." : `📄 ${d.file_name}`}
+                                {fileBusyId === d.id ? "..." : (<><Icon name="file-text" size={14} /> {d.file_name}</>)}
                               </button>
                               {canManage ? (
                                 <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void removeFile(d)}>
@@ -633,6 +649,58 @@ export function DocumentPublicationsClient({
         .document-publications-overview {
           display: grid;
           gap: 16px;
+        }
+        .document-publications-overview.mobile-module-redesign .mobile-workflow-kpis > div {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .document-publications-overview.mobile-module-redesign .mobile-workflow-kpis > div > div {
+          display: grid;
+          gap: 2px;
+          min-width: 0;
+        }
+        .dp-kpi-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          flex: 0 0 36px;
+        }
+        .dp-kpi-icon.info {
+          background: var(--info-soft);
+          color: var(--info);
+        }
+        .dp-kpi-icon.warning {
+          background: var(--warning-soft);
+          color: var(--warning);
+        }
+        .dp-kpi-icon.success {
+          background: var(--success-soft);
+          color: var(--success);
+        }
+        .dp-section-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          border-radius: 7px;
+          background: var(--brand-soft);
+          color: var(--brand);
+          margin-right: 7px;
+          vertical-align: -6px;
+        }
+        .dp-folder-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .dp-folder-icon {
+          color: var(--brand);
+          flex: 0 0 auto;
         }
         .dp-form {
           display: grid;
