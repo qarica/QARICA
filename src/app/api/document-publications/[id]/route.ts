@@ -2,11 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentOwnerLabel, DocumentPublicationType, isDisseminationType, nextStage, STAGE_DUE_DAYS } from "@/lib/document-publication-types";
-
-const DAY_MS = 86400000;
-function addDaysISO(base: string, days: number) {
-  return new Date(new Date(`${base}T00:00:00Z`).getTime() + days * DAY_MS).toISOString().slice(0, 10);
-}
+import { addDaysISO, createTrainingForDocument, REVIEW_CYCLE_DAYS } from "@/lib/document-publication-server";
 
 const SELECT_COLUMNS =
   "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,created_at";
@@ -61,22 +57,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!isDisseminationType(disseminationType)) return NextResponse.json({ error: "Chưa chọn hình thức phổ biến." }, { status: 400 });
     update.document_code = documentCode;
     update.effective_date = effectiveDate;
-    update.review_date = addDaysISO(effectiveDate, 730);
+    update.review_date = addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS);
     update.stage_due_date = null;
     update.dissemination_type = disseminationType;
 
-    // "Cần đào tạo" tự tạo 1 dòng Đào tạo quy trình ngay khi phát hành, liên
-    // kết lại văn bản gốc — tái dùng workflow Đào tạo quy trình sẵn có thay
-    // vì xây lại cơ chế theo dõi đào tạo riêng cho văn bản.
     if (disseminationType === "TRAINING_REQUIRED") {
-      const { error: trainingError } = await admin.from("procedure_trainings").insert({
-        organization_id: organizationId,
-        procedure_code: documentCode,
-        procedure_name: current.title,
-        drafting_unit: draftingDepartmentName,
-        effective_date: effectiveDate,
-        document_publication_id: id,
-        created_by: auth.user.id,
+      const { error: trainingError } = await createTrainingForDocument(admin, {
+        organizationId,
+        documentCode,
+        title: current.title,
+        draftingDepartmentName,
+        effectiveDate,
+        documentPublicationId: id,
+        createdBy: auth.user.id,
       });
       if (trainingError) return NextResponse.json({ error: trainingError.message }, { status: 400 });
     }

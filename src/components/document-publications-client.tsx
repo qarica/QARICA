@@ -75,6 +75,22 @@ export function DocumentPublicationsClient({
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
   const [unconfirmedOpenId, setUnconfirmedOpenId] = useState<string | null>(null);
 
+  // Nhập trực tiếp văn bản ĐÃ PHÁT HÀNH từ trước (QT/quy định/thông báo đã có
+  // sẵn ngoài thực tế) — bỏ qua toàn bộ vòng Đề nghị -> ... -> Phê duyệt, vì
+  // bắt khai lại từ đầu rồi bấm "Chuyển bước" 5 lần cho một văn bản đã xong là
+  // vô nghĩa. Dùng state riêng (tiền tố direct*) để không đụng vào state của
+  // luồng "Phát hành" tại chỗ (documentCode/effectiveDate/disseminationType ở
+  // trên) đang gắn với 1 dòng cụ thể trong danh sách "Đang xử lý".
+  const [directPublishOpen, setDirectPublishOpen] = useState(false);
+  const [directTitle, setDirectTitle] = useState("");
+  const [directDocumentType, setDirectDocumentType] = useState<DocumentPublicationType>(DOCUMENT_TYPES[0]);
+  const [directDraftingDepartmentId, setDirectDraftingDepartmentId] = useState(departments[0]?.id || "");
+  const [directDocumentCode, setDirectDocumentCode] = useState("");
+  const [directEffectiveDate, setDirectEffectiveDate] = useState("");
+  const [directDisseminationType, setDirectDisseminationType] = useState<DisseminationType>(DISSEMINATION_TYPES[0]);
+  const [directBusy, setDirectBusy] = useState(false);
+  const [directError, setDirectError] = useState("");
+
   const today = hcmToday();
   const departmentName = (id: string | null) => departments.find((d) => d.id === id)?.name || "—";
   const inProgress = documents.filter((d) => d.stage !== "PUBLISHED").sort((a, b) => (a.stage_due_date || "9999").localeCompare(b.stage_due_date || "9999"));
@@ -133,6 +149,50 @@ export function DocumentPublicationsClient({
     setTitle("");
     setRequestedByName("");
     setReason("");
+  }
+
+  async function submitDirectPublish() {
+    if (!directTitle.trim()) {
+      setDirectError("Chưa nhập tên văn bản.");
+      return;
+    }
+    if (!directDraftingDepartmentId) {
+      setDirectError("Chưa chọn đơn vị soạn thảo.");
+      return;
+    }
+    if (!directDocumentCode.trim()) {
+      setDirectError("Chưa nhập mã văn bản.");
+      return;
+    }
+    if (!directEffectiveDate) {
+      setDirectError("Chưa nhập ngày hiệu lực.");
+      return;
+    }
+    setDirectBusy(true);
+    setDirectError("");
+    const res = await fetch("/api/document-publications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        direct_publish: true,
+        title: directTitle.trim(),
+        document_type: directDocumentType,
+        drafting_department_id: directDraftingDepartmentId,
+        document_code: directDocumentCode.trim(),
+        effective_date: directEffectiveDate,
+        dissemination_type: directDisseminationType,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setDirectBusy(false);
+    if (!res.ok) {
+      setDirectError(body.error || "Không lưu được văn bản.");
+      return;
+    }
+    setDocuments((v) => [body.document as DocumentPublication, ...v]);
+    setDirectTitle("");
+    setDirectDocumentCode("");
+    setDirectEffectiveDate("");
   }
 
   async function advance(doc: DocumentPublication, extra: Record<string, unknown> = {}) {
@@ -211,6 +271,53 @@ export function DocumentPublicationsClient({
           </button>
         </div>
       </section>
+
+      {canManage ? (
+        <section className="panel">
+          <div className="panel-title">
+            <div>
+              <h2>Nhập văn bản đã phát hành</h2>
+              <p>Dành cho QT/quy định/thông báo đã ban hành từ trước (ngoài thực tế) — lưu thẳng vào &ldquo;Đã phát hành&rdquo;, không cần đi qua các bước kiểm soát.</p>
+            </div>
+          </div>
+          <button type="button" className="button secondary mobile-form-toggle" aria-expanded={directPublishOpen} onClick={() => setDirectPublishOpen((v) => !v)}>{directPublishOpen ? "Thu gọn" : "+ Nhập văn bản đã có"}</button>
+          <div className={directPublishOpen ? "dp-form mobile-collapsible-form is-open" : "dp-form mobile-collapsible-form"}>
+            <input className="input" placeholder="Tên văn bản..." value={directTitle} maxLength={300} onChange={(e) => setDirectTitle(e.target.value)} />
+            <div className="dp-form-row">
+              <select className="input" value={directDocumentType} onChange={(e) => setDirectDocumentType(e.target.value as DocumentPublicationType)}>
+                {DOCUMENT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {DOCUMENT_TYPE_LABEL[t]}
+                  </option>
+                ))}
+              </select>
+              <select className="input" value={directDraftingDepartmentId} onChange={(e) => setDirectDraftingDepartmentId(e.target.value)} disabled={!departments.length}>
+                {departments.length ? null : <option value="">— Chưa có khoa/phòng nào —</option>}
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="dp-form-row">
+              <input className="input" placeholder="Mã văn bản..." value={directDocumentCode} onChange={(e) => setDirectDocumentCode(e.target.value)} />
+              <input className="input" type="date" value={directEffectiveDate} onChange={(e) => setDirectEffectiveDate(e.target.value)} />
+            </div>
+            <select className="input" value={directDisseminationType} onChange={(e) => setDirectDisseminationType(e.target.value as DisseminationType)}>
+              {DISSEMINATION_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {DISSEMINATION_TYPE_LABEL[t]}
+                </option>
+              ))}
+            </select>
+            {directError ? <div className="alert error">{directError}</div> : null}
+            <button className="button primary" disabled={directBusy || !directTitle.trim() || !directDraftingDepartmentId || !directDocumentCode.trim() || !directEffectiveDate} onClick={() => void submitDirectPublish()}>
+              Lưu văn bản đã phát hành
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="panel">
         <div className="panel-title">

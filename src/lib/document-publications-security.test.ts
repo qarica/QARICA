@@ -78,11 +78,13 @@ describe("Document publications 6-stage pipeline (src/lib/document-publication-t
     expect(route).toContain("update.stage_due_date = null;");
   });
 
-  it("transitioning into PUBLISHED requires document_code + effective_date and computes review_date as effective_date + 730 days", () => {
+  it("transitioning into PUBLISHED requires document_code + effective_date and computes review_date as effective_date + REVIEW_CYCLE_DAYS (730)", () => {
     const route = read("src/app/api/document-publications/[id]/route.ts");
     expect(route).toContain('if (!documentCode) return NextResponse.json({ error: "Chưa nhập mã văn bản." }, { status: 400 });');
     expect(route).toContain('if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(effectiveDate)) return NextResponse.json({ error: "Ngày hiệu lực không hợp lệ." }, { status: 400 });');
-    expect(route).toContain("update.review_date = addDaysISO(effectiveDate, 730);");
+    expect(route).toContain("update.review_date = addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS);");
+    const server = read("src/lib/document-publication-server.ts");
+    expect(server).toContain("export const REVIEW_CYCLE_DAYS = 730;");
   });
 });
 
@@ -99,10 +101,13 @@ describe("Document publications: phổ biến (dissemination) sau khi phát hàn
     expect(patchRoute).toContain("update.dissemination_type = disseminationType;");
   });
 
-  it("TRAINING_REQUIRED auto-creates a procedure_trainings row linked back via document_publication_id, instead of building a separate training workflow for documents", () => {
+  it("TRAINING_REQUIRED auto-creates a procedure_trainings row linked back via document_publication_id, instead of building a separate training workflow for documents (shared helper, so both the normal advance-to-PUBLISHED path and direct-publish use the exact same insert)", () => {
     expect(patchRoute).toContain('if (disseminationType === "TRAINING_REQUIRED") {');
-    expect(patchRoute).toContain('admin.from("procedure_trainings").insert({');
-    expect(patchRoute).toContain("document_publication_id: id,");
+    expect(patchRoute).toContain("createTrainingForDocument(admin, {");
+    expect(patchRoute).toContain("documentPublicationId: id,");
+    const server = read("src/lib/document-publication-server.ts");
+    expect(server).toContain('admin.from("procedure_trainings").insert({');
+    expect(server).toContain("document_publication_id: params.documentPublicationId,");
   });
 
   it("SELF_READ acknowledgment only requires document_publication.view (any staff can self-confirm, not just managers) and only applies to a PUBLISHED, SELF_READ document", () => {
@@ -135,5 +140,42 @@ describe("Document publications: phổ biến (dissemination) sau khi phát hàn
     const client = read("src/components/document-publications-client.tsx");
     const formSection = client.slice(client.indexOf("Đề nghị văn bản mới"), client.indexOf("Đang xử lý"));
     expect(formSection).not.toContain("disseminationType");
+  });
+});
+
+// Yêu cầu tường minh: "cần chỗ để nhập các QT/quy định/thông báo đã phát
+// hành lên" — tạo đề nghị rồi tự bấm "Chuyển bước" 5 lần cho một văn bản
+// NGOÀI THỰC TẾ đã ban hành từ trước là vô nghĩa. Thêm đường nhập trực tiếp
+// thẳng vào "Đã phát hành", bỏ qua toàn bộ vòng Đề nghị -> ... -> Phê duyệt,
+// nhưng vẫn tái dùng đúng các quy tắc nghiệp vụ ở PUBLISHED (document_code/
+// effective_date/dissemination_type bắt buộc, review_date = +730 ngày, tự
+// tạo Đào tạo quy trình khi TRAINING_REQUIRED) qua helper dùng chung — không
+// tạo một đường tạo PUBLISHED thứ 2 với luật khác luật cũ.
+describe("Document publications: nhập trực tiếp văn bản ĐÃ PHÁT HÀNH (direct_publish)", () => {
+  const route = read("src/app/api/document-publications/route.ts");
+
+  it("direct_publish đòi document_publication.manage (bỏ qua toàn bộ vòng kiểm soát), không còn chỉ .view như Đề nghị thường", () => {
+    expect(route).toContain("const directPublish = body.direct_publish === true;");
+    expect(route).toContain('requireApiPermission(directPublish ? "document_publication.manage" : "document_publication.view")');
+  });
+
+  it("vẫn bắt buộc đủ document_code + effective_date hợp lệ + dissemination_type, giống hệt điều kiện ở bước Phê duyệt -> Phát hành thường", () => {
+    expect(route).toContain('if (!documentCode) return NextResponse.json({ error: "Chưa nhập mã văn bản." }, { status: 400 });');
+    expect(route).toContain('if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(effectiveDate)) return NextResponse.json({ error: "Ngày hiệu lực không hợp lệ." }, { status: 400 });');
+    expect(route).toContain("if (!isDisseminationType(disseminationType)) return NextResponse.json({ error: \"Chưa chọn hình thức phổ biến.\" }, { status: 400 });");
+  });
+
+  it("tạo bản ghi thẳng ở stage PUBLISHED, dùng chung REVIEW_CYCLE_DAYS và createTrainingForDocument với luồng chuyển bước thường (không lệch luật)", () => {
+    expect(route).toContain('insertPayload.stage = "PUBLISHED";');
+    expect(route).toContain("insertPayload.review_date = addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS);");
+    expect(route).toContain("createTrainingForDocument(admin, {");
+    expect(route).toContain('action_type: directPublish ? "DOCUMENT_PUBLICATION_DIRECT_PUBLISH" : "DOCUMENT_PUBLICATION_CREATE",');
+  });
+
+  it("UI: panel \"Nhập văn bản đã phát hành\" chỉ hiện với canManage, gửi direct_publish:true", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("Nhập văn bản đã phát hành");
+    expect(client).toContain("{canManage ? (\n        <section className=\"panel\">");
+    expect(client).toContain("direct_publish: true,");
   });
 });

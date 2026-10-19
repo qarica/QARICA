@@ -31,7 +31,7 @@ describe("Công văn/Phát hành văn bản/Mua sắm: audit_logs + validate dep
 
   it("document-publications: POST và PATCH (advance) đều ghi audit_logs", () => {
     const route = read("src/app/api/document-publications/route.ts");
-    expect(route).toContain('action_type: "DOCUMENT_PUBLICATION_CREATE"');
+    expect(route).toContain('action_type: directPublish ? "DOCUMENT_PUBLICATION_DIRECT_PUBLISH" : "DOCUMENT_PUBLICATION_CREATE"');
     const idRoute = read("src/app/api/document-publications/[id]/route.ts");
     expect(idRoute).toContain("action_type: `DOCUMENT_PUBLICATION_ADVANCE_${upcoming}`");
   });
