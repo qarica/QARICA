@@ -30,6 +30,7 @@ type DocumentPublication = {
   effective_date: string | null;
   review_date: string | null;
   dissemination_type: DisseminationType | null;
+  file_name: string | null;
   created_at: string;
 };
 
@@ -75,6 +76,11 @@ export function DocumentPublicationsClient({
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
   const [unconfirmedOpenId, setUnconfirmedOpenId] = useState<string | null>(null);
 
+  // Thư viện văn bản: nhóm "Đã phát hành" theo khoa/phòng soạn thảo thành
+  // các thư mục đóng/mở, mỗi văn bản có thể đính kèm 1 file lưu trữ.
+  const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
+  const [fileBusyId, setFileBusyId] = useState<string | null>(null);
+
   // Nhập trực tiếp văn bản ĐÃ PHÁT HÀNH từ trước (QT/quy định/thông báo đã có
   // sẵn ngoài thực tế) — bỏ qua toàn bộ vòng Đề nghị -> ... -> Phê duyệt, vì
   // bắt khai lại từ đầu rồi bấm "Chuyển bước" 5 lần cho một văn bản đã xong là
@@ -95,6 +101,15 @@ export function DocumentPublicationsClient({
   const departmentName = (id: string | null) => departments.find((d) => d.id === id)?.name || "—";
   const inProgress = documents.filter((d) => d.stage !== "PUBLISHED").sort((a, b) => (a.stage_due_date || "9999").localeCompare(b.stage_due_date || "9999"));
   const published = documents.filter((d) => d.stage === "PUBLISHED").sort((a, b) => (b.effective_date || "").localeCompare(a.effective_date || ""));
+  // Thư viện văn bản: thư mục theo khoa/phòng soạn thảo, giữ thứ tự xuất
+  // hiện đầu tiên (khoa có văn bản phát hành gần nhất lên trước).
+  const publishedGroups: { key: string; name: string; docs: DocumentPublication[] }[] = [];
+  for (const d of published) {
+    const key = d.drafting_department_id || "none";
+    const group = publishedGroups.find((g) => g.key === key);
+    if (group) group.docs.push(d);
+    else publishedGroups.push({ key, name: departmentName(d.drafting_department_id), docs: [d] });
+  }
   const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId).length;
   const hasAcked = (documentId: string) => acks.some((a) => a.document_publication_id === documentId && a.user_id === currentUserId);
   // Trước đây chỉ hiện "N đã xác nhận" — không biết AI còn chưa đọc để nhắc.
@@ -231,6 +246,57 @@ export function DocumentPublicationsClient({
     setDocumentCode("");
     setEffectiveDate(today);
     setDisseminationType(DISSEMINATION_TYPES[0]);
+  }
+
+  function toggleFolder(key: string) {
+    setOpenFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  async function viewFile(doc: DocumentPublication) {
+    setFileBusyId(doc.id);
+    setError("");
+    const res = await fetch(`/api/document-publications/${doc.id}/file`);
+    const body = await res.json().catch(() => ({}));
+    setFileBusyId(null);
+    if (!res.ok) {
+      setError(body.error || "Không mở được file.");
+      return;
+    }
+    window.open(body.url, "_blank", "noopener,noreferrer");
+  }
+
+  async function uploadFile(doc: DocumentPublication, file: File) {
+    setFileBusyId(doc.id);
+    setError("");
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`/api/document-publications/${doc.id}/file`, { method: "POST", body: formData });
+    const body = await res.json().catch(() => ({}));
+    setFileBusyId(null);
+    if (!res.ok) {
+      setError(body.error || "Không tải lên được file.");
+      return;
+    }
+    setDocuments((v) => v.map((d) => (d.id === doc.id ? { ...d, file_name: body.file_name as string } : d)));
+  }
+
+  async function removeFile(doc: DocumentPublication) {
+    if (!window.confirm(`Xoá file đính kèm của "${doc.title}"?`)) return;
+    setFileBusyId(doc.id);
+    setError("");
+    const res = await fetch(`/api/document-publications/${doc.id}/file`, { method: "DELETE" });
+    const body = await res.json().catch(() => ({}));
+    setFileBusyId(null);
+    if (!res.ok) {
+      setError(body.error || "Không xoá được file.");
+      return;
+    }
+    setDocuments((v) => v.map((d) => (d.id === doc.id ? { ...d, file_name: null } : d)));
   }
 
   return (
@@ -390,75 +456,112 @@ export function DocumentPublicationsClient({
 
       <section className="panel">
         <div className="panel-title">
-          <h2>Đã phát hành</h2>
+          <div>
+            <h2>Thư viện văn bản</h2>
+            <p>Văn bản đã phát hành, chia theo thư mục khoa/phòng soạn thảo — bấm vào thư mục để xem, có thể đính kèm file lưu trữ cho từng văn bản.</p>
+          </div>
         </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Mã văn bản</th>
-                <th>Tên văn bản</th>
-                <th>Loại</th>
-                <th>Ngày hiệu lực</th>
-                <th>Ngày xem xét lại</th>
-                <th>Phổ biến</th>
-              </tr>
-            </thead>
-            <tbody>
-              {published.map((d) => (
-                <tr key={d.id}>
-                  <td>{d.document_code || "—"}</td>
-                  <td>{d.title}</td>
-                  <td>{DOCUMENT_TYPE_LABEL[d.document_type]}</td>
-                  <td>{formatDate(d.effective_date)}</td>
-                  <td>{formatDate(d.review_date)}</td>
-                  <td>
-                    {d.dissemination_type === "TRAINING_REQUIRED" ? (
-                      <a href="/procedure-trainings" className="dp-dissemination-link">
-                        Cần đào tạo — xem tiến độ →
-                      </a>
-                    ) : d.dissemination_type === "SELF_READ" ? (
-                      <div className="dp-ack">
-                        <span className="status-badge success">{ackCount(d.id)} đã xác nhận</span>
-                        {canManage ? (
-                          <button type="button" className="button tertiary small" onClick={() => setUnconfirmedOpenId(unconfirmedOpenId === d.id ? null : d.id)}>
-                            {unconfirmedStaff(d.id).length} chưa xác nhận {unconfirmedOpenId === d.id ? "▾" : "▸"}
-                          </button>
-                        ) : null}
-                        {hasAcked(d.id) ? (
-                          <span className="dp-ack-done">✓ Bạn đã xác nhận</span>
-                        ) : (
-                          <button type="button" className="button secondary small" disabled={acknowledging === d.id} onClick={() => void acknowledge(d)}>
-                            {acknowledging === d.id ? "..." : "Tôi đã đọc và hiểu"}
-                          </button>
-                        )}
-                        {unconfirmedOpenId === d.id ? (
-                          <div className="dp-unconfirmed-list">
-                            {unconfirmedStaff(d.id).length ? (
-                              unconfirmedStaff(d.id).slice(0, 30).map((s) => <span key={s.id} className="chip">{s.name}</span>)
-                            ) : (
-                              <small>Mọi người đã xác nhận.</small>
-                            )}
-                            {unconfirmedStaff(d.id).length > 30 ? <small>+{unconfirmedStaff(d.id).length - 30} người khác</small> : null}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {!published.length ? (
-                <tr>
-                  <td colSpan={6} className="empty-state">
-                    Chưa có văn bản nào được phát hành.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+        {publishedGroups.map((group) => (
+          <div className="dp-folder" key={group.key}>
+            <button type="button" className="dp-folder-head" onClick={() => toggleFolder(group.key)}>
+              <span>{openFolders.has(group.key) ? "📂" : "📁"} {group.name}</span>
+              <span className="dp-folder-count">{group.docs.length} văn bản {openFolders.has(group.key) ? "▾" : "▸"}</span>
+            </button>
+            {openFolders.has(group.key) ? (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Mã văn bản</th>
+                      <th>Tên văn bản</th>
+                      <th>Loại</th>
+                      <th>Ngày hiệu lực</th>
+                      <th>Ngày xem xét lại</th>
+                      <th>Phổ biến</th>
+                      <th>Tệp đính kèm</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.docs.map((d) => (
+                      <tr key={d.id}>
+                        <td>{d.document_code || "—"}</td>
+                        <td>{d.title}</td>
+                        <td>{DOCUMENT_TYPE_LABEL[d.document_type]}</td>
+                        <td>{formatDate(d.effective_date)}</td>
+                        <td>{formatDate(d.review_date)}</td>
+                        <td>
+                          {d.dissemination_type === "TRAINING_REQUIRED" ? (
+                            <a href="/procedure-trainings" className="dp-dissemination-link">
+                              Cần đào tạo — xem tiến độ →
+                            </a>
+                          ) : d.dissemination_type === "SELF_READ" ? (
+                            <div className="dp-ack">
+                              <span className="status-badge success">{ackCount(d.id)} đã xác nhận</span>
+                              {canManage ? (
+                                <button type="button" className="button tertiary small" onClick={() => setUnconfirmedOpenId(unconfirmedOpenId === d.id ? null : d.id)}>
+                                  {unconfirmedStaff(d.id).length} chưa xác nhận {unconfirmedOpenId === d.id ? "▾" : "▸"}
+                                </button>
+                              ) : null}
+                              {hasAcked(d.id) ? (
+                                <span className="dp-ack-done">✓ Bạn đã xác nhận</span>
+                              ) : (
+                                <button type="button" className="button secondary small" disabled={acknowledging === d.id} onClick={() => void acknowledge(d)}>
+                                  {acknowledging === d.id ? "..." : "Tôi đã đọc và hiểu"}
+                                </button>
+                              )}
+                              {unconfirmedOpenId === d.id ? (
+                                <div className="dp-unconfirmed-list">
+                                  {unconfirmedStaff(d.id).length ? (
+                                    unconfirmedStaff(d.id).slice(0, 30).map((s) => <span key={s.id} className="chip">{s.name}</span>)
+                                  ) : (
+                                    <small>Mọi người đã xác nhận.</small>
+                                  )}
+                                  {unconfirmedStaff(d.id).length > 30 ? <small>+{unconfirmedStaff(d.id).length - 30} người khác</small> : null}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td>
+                          {d.file_name ? (
+                            <div className="dp-file-cell">
+                              <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void viewFile(d)}>
+                                {fileBusyId === d.id ? "..." : `📄 ${d.file_name}`}
+                              </button>
+                              {canManage ? (
+                                <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void removeFile(d)}>
+                                  Xoá file
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : canManage ? (
+                            <label className="dp-file-input button secondary small">
+                              {fileBusyId === d.id ? "..." : "+ Đính kèm"}
+                              <input
+                                type="file"
+                                disabled={fileBusyId === d.id}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  e.target.value = "";
+                                  if (file) void uploadFile(d, file);
+                                }}
+                              />
+                            </label>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </div>
+        ))}
+        {!published.length ? <div className="empty-state compact">Chưa có văn bản nào được phát hành.</div> : null}
       </section>
 
       <style jsx>{`
@@ -513,6 +616,51 @@ export function DocumentPublicationsClient({
         .dp-dissemination-link {
           font-size: 13px;
           font-weight: 600;
+        }
+        .dp-folder {
+          border-top: 1px solid var(--border);
+        }
+        .dp-folder:first-of-type {
+          border-top: none;
+        }
+        .dp-folder-head {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          background: none;
+          border: none;
+          padding: 10px 12px;
+          font-weight: 600;
+          cursor: pointer;
+          color: inherit;
+        }
+        .dp-folder-count {
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--muted);
+        }
+        .dp-file-cell {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .dp-file-input {
+          position: relative;
+          overflow: hidden;
+          display: inline-flex;
+          align-items: center;
+        }
+        .dp-file-input input[type="file"] {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          min-height: 0;
+          opacity: 0;
+          cursor: pointer;
         }
         @media (max-width: 760px) {
           .dp-form-row,

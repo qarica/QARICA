@@ -13,7 +13,7 @@ export default async function DocumentPublicationsPage() {
     supabase
       .from("document_publications")
       .select(
-        "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,created_at",
+        "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,file_name,created_at",
       )
       .order("created_at", { ascending: false })
       .limit(300),

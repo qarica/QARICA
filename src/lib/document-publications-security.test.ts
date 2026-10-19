@@ -179,3 +179,72 @@ describe("Document publications: nhập trực tiếp văn bản ĐÃ PHÁT HÀN
     expect(client).toContain("direct_publish: true,");
   });
 });
+
+// Yêu cầu tường minh: "chỉ bổ sung thư viện và các thư mục văn bản theo
+// phòng ban thôi, giữ nguyên" — KHÔNG đổi pipeline/stage/dissemination đã có,
+// chỉ cộng thêm 2 việc: (1) đính kèm file lưu trữ cho mỗi văn bản, (2) nhóm
+// "Đã phát hành" thành thư mục theo khoa/phòng soạn thảo.
+describe("Document publications: thư viện văn bản (đính kèm file + thư mục theo phòng ban)", () => {
+  it("route file: POST (đính kèm)/DELETE (xoá file) đòi .manage, GET (xem/tải) chỉ cần .view", () => {
+    const fileRoute = read("src/app/api/document-publications/[id]/file/route.ts");
+    expect(fileRoute).toContain('export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {\n  const auth = await requireApiPermission("document_publication.manage");');
+    expect(fileRoute).toContain('export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {\n  const auth = await requireApiPermission("document_publication.view");');
+    expect(fileRoute).toContain('export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {\n  const auth = await requireApiPermission("document_publication.manage");');
+  });
+
+  it("route file: mọi truy vấn/update đều chặn theo organization_id của văn bản, không tin id trần từ client", () => {
+    const fileRoute = read("src/app/api/document-publications/[id]/file/route.ts");
+    expect(fileRoute).toContain("if (!doc || doc.organization_id !== organizationId)");
+  });
+
+  it("đường dẫn storage chia theo tổ chức + khoa/phòng soạn thảo (thư mục theo phòng ban), dùng chung bucket qlcl-evidence với EMR", () => {
+    const fileRoute = read("src/app/api/document-publications/[id]/file/route.ts");
+    expect(fileRoute).toContain('const BUCKET = "qlcl-evidence";');
+    expect(fileRoute).toContain(
+      "const storagePath = `${organizationId}/document-publications/${departmentFolderSlug(draftingDepartmentName)}/${id}/${randomUUID()}-${storedFileName}`;",
+    );
+  });
+
+  it("đính kèm file mới thì xoá file cũ khỏi storage (không rò rỉ object orphan khi thay file)", () => {
+    const fileRoute = read("src/app/api/document-publications/[id]/file/route.ts");
+    expect(fileRoute).toContain("const previousPath = doc.file_path;");
+    expect(fileRoute).toContain("if (previousPath) await admin.storage.from(BUCKET).remove([previousPath]);");
+  });
+
+  it("chỉ lộ file_name ra client qua SELECT_COLUMNS/select của trang, KHÔNG lộ file_path (đường dẫn storage) ra ngoài route file riêng", () => {
+    const listRoute = read("src/app/api/document-publications/route.ts");
+    expect(listRoute).toMatch(/SELECT_COLUMNS =\s*\n?\s*"[^"]*file_name[^"]*";/);
+    expect(listRoute).not.toMatch(/SELECT_COLUMNS =\s*\n?\s*"[^"]*file_path[^"]*";/);
+    const idRoute = read("src/app/api/document-publications/[id]/route.ts");
+    expect(idRoute).toMatch(/SELECT_COLUMNS =\s*\n?\s*"[^"]*file_name[^"]*";/);
+    const page = read("src/app/(app)/document-publications/page.tsx");
+    expect(page).toContain("file_name,created_at");
+  });
+
+  it("migration chỉ cộng thêm 2 cột (file_path/file_name), không đổi cột/constraint nào khác của document_publications", () => {
+    const migration = read("supabase/migrations/20261111_document_publications_file_library_v1.sql");
+    expect(migration).toContain("alter table public.document_publications add column if not exists file_path text;");
+    expect(migration).toContain("alter table public.document_publications add column if not exists file_name text;");
+    expect(migration).not.toContain("drop column");
+    expect(migration).not.toContain("alter table public.document_publications drop constraint");
+  });
+
+  it("UI: \"Đã phát hành\" được đổi thành Thư viện văn bản, nhóm theo thư mục khoa/phòng (đóng/mở theo state riêng), giữ nguyên toàn bộ workflow Phổ biến đã có", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("<h2>Thư viện văn bản</h2>");
+    expect(client).toContain("publishedGroups.map((group) =>");
+    expect(client).toContain("const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());");
+    // Vẫn giữ nguyên cơ chế xác nhận "Tự đọc hiểu" / liên kết Đào tạo bên trong thư mục.
+    expect(client).toContain('Cần đào tạo — xem tiến độ →');
+    expect(client).toContain("Tôi đã đọc và hiểu");
+  });
+
+  it("UI: xem/tải file không cần canManage, nhưng đính kèm mới và xoá file chỉ hiện cho canManage", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("async function viewFile(doc: DocumentPublication) {");
+    const fileCell = client.slice(client.indexOf("Tệp đính kèm"), client.indexOf("</tbody>", client.indexOf("Tệp đính kèm")));
+    expect(fileCell).toContain("onClick={() => void viewFile(d)}");
+    expect(fileCell).toContain('canManage ? (\n                                <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void removeFile(d)}>');
+    expect(fileCell).toContain(': canManage ? (\n                            <label className="dp-file-input button secondary small">');
+  });
+});

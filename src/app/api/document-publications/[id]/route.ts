@@ -5,7 +5,7 @@ import { currentOwnerLabel, DocumentPublicationType, isDisseminationType, nextSt
 import { addDaysISO, createTrainingForDocument, REVIEW_CYCLE_DAYS } from "@/lib/document-publication-server";
 
 const SELECT_COLUMNS =
-  "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,created_at";
+  "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,file_name,created_at";
 
 // Mọi bước sau "Đề nghị" (kiểm soát nội dung, góp ý, rà soát, phê duyệt,
 // phát hành) đều cần document_publication.manage — Đợt 1 chưa tách quyền
