@@ -1,11 +1,81 @@
 import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { currentOwnerLabel, DocumentPublicationType, isDisseminationType, nextStage, STAGE_DUE_DAYS } from "@/lib/document-publication-types";
+import { currentOwnerLabel, DocumentPublicationType, isDisseminationType, isDocumentPublicationType, nextStage, STAGE_DUE_DAYS } from "@/lib/document-publication-types";
 import { addDaysISO, createTrainingForDocument, REVIEW_CYCLE_DAYS } from "@/lib/document-publication-server";
 
 const SELECT_COLUMNS =
   "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,file_name,created_at";
+
+// Sửa thông tin 1 văn bản đã tạo — trước đây không có cách nào sửa lỗi
+// gõ nhầm tên/mã/ngày hiệu lực sau khi gửi đề nghị hay phát hành, trong khi
+// "xoá rồi tạo lại" không áp dụng được cho văn bản đã qua REQUESTED (DELETE
+// chỉ cho phép ở REQUESTED). Luôn sửa được title/loại/đơn vị soạn thảo/người
+// đề nghị/lý do ở mọi bước; riêng mã văn bản + ngày hiệu lực chỉ sửa được khi
+// đã PUBLISHED (tính lại review_date theo đúng REVIEW_CYCLE_DAYS, không lệch
+// luật so với lúc Phát hành/Nhập văn bản đã có).
+async function handleEdit(admin: ReturnType<typeof createAdminClient>, userId: string, organizationId: string, id: string, body: Record<string, unknown>) {
+  const { data: current, error: currentError } = await admin
+    .from("document_publications")
+    .select("id,stage,title,document_type,drafting_department_id,document_code,effective_date,requested_by_name,reason")
+    .eq("id", id)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (currentError) return NextResponse.json({ error: currentError.message }, { status: 400 });
+  if (!current) return NextResponse.json({ error: "Không tìm thấy văn bản." }, { status: 404 });
+
+  const title = String(body.title || "").trim();
+  const documentType = body.document_type;
+  const draftingDepartmentId = String(body.drafting_department_id || "").trim();
+  if (!title) return NextResponse.json({ error: "Chưa nhập tên văn bản." }, { status: 400 });
+  if (!isDocumentPublicationType(documentType)) return NextResponse.json({ error: "Chưa chọn loại tài liệu." }, { status: 400 });
+  if (!draftingDepartmentId) return NextResponse.json({ error: "Chưa chọn đơn vị soạn thảo." }, { status: 400 });
+
+  const { data: department, error: departmentError } = await admin
+    .from("departments")
+    .select("name")
+    .eq("id", draftingDepartmentId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (departmentError) return NextResponse.json({ error: departmentError.message }, { status: 400 });
+  if (!department) return NextResponse.json({ error: "Đơn vị soạn thảo không hợp lệ." }, { status: 400 });
+
+  const update: Record<string, unknown> = {
+    title,
+    document_type: documentType,
+    drafting_department_id: draftingDepartmentId,
+    requested_by_name: body.requested_by_name ? String(body.requested_by_name).trim() || null : null,
+    reason: body.reason ? String(body.reason).trim() || null : null,
+    current_owner_label: currentOwnerLabel(current.stage, documentType, department.name),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (current.stage === "PUBLISHED") {
+    const documentCode = String(body.document_code || "").trim();
+    const effectiveDate = String(body.effective_date || "").trim();
+    if (!documentCode) return NextResponse.json({ error: "Chưa nhập mã văn bản." }, { status: 400 });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) return NextResponse.json({ error: "Ngày hiệu lực không hợp lệ." }, { status: 400 });
+    update.document_code = documentCode;
+    update.effective_date = effectiveDate;
+    update.review_date = addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS);
+  }
+
+  const { data, error } = await admin.from("document_publications").update(update).eq("id", id).eq("organization_id", organizationId).select(SELECT_COLUMNS).single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  const { error: auditError } = await admin.from("audit_logs").insert({
+    actor_user_id: userId,
+    table_name: "document_publications",
+    row_id: id,
+    action_type: "DOCUMENT_PUBLICATION_EDIT",
+    old_value: { title: current.title, document_type: current.document_type, drafting_department_id: current.drafting_department_id, document_code: current.document_code, effective_date: current.effective_date, requested_by_name: current.requested_by_name, reason: current.reason },
+    new_value: update,
+    request_meta: { source: "qlcl-ui" },
+  });
+  if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
+
+  return NextResponse.json({ ok: true, document: data });
+}
 
 // Mọi bước sau "Đề nghị" (kiểm soát nội dung, góp ý, rà soát, phê duyệt,
 // phát hành) đều cần document_publication.manage — Đợt 1 chưa tách quyền
@@ -21,6 +91,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const body = await request.json().catch(() => ({}));
+  if (body.action === "EDIT") return handleEdit(admin, auth.user.id, organizationId, id, body);
   if (body.action !== "ADVANCE") return NextResponse.json({ error: "Thao tác không hợp lệ." }, { status: 400 });
 
   const { data: current, error: currentError } = await admin

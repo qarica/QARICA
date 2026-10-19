@@ -33,7 +33,7 @@ describe("'Bút phê GĐ' hiện được ai ghi và lúc nào, không cần mig
     const docPubPost = read("src/app/api/document-publications/route.ts");
     expect(docPubPost).toContain("const { error: auditError } = await admin.from(\"audit_logs\").insert({");
     const docPubPatch = read("src/app/api/document-publications/[id]/route.ts");
-    expect((docPubPatch.match(/const \{ error: auditError \} = await admin\.from\("audit_logs"\)\.insert\(\{/g) || []).length).toBe(2);
+    expect((docPubPatch.match(/const \{ error: auditError \} = await admin\.from\("audit_logs"\)\.insert\(\{/g) || []).length).toBe(3);
 
     const procPost = read("src/app/api/procurement/requests/route.ts");
     expect(procPost).toContain("const { error: auditError } = await admin.from(\"audit_logs\").insert({");

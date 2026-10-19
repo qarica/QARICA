@@ -244,8 +244,8 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
     expect(client).toContain("async function viewFile(doc: DocumentPublication) {");
     const fileCell = client.slice(client.indexOf("Tệp đính kèm"), client.indexOf("</tbody>", client.indexOf("Tệp đính kèm")));
     expect(fileCell).toContain("onClick={() => void viewFile(d)}");
-    expect(fileCell).toContain('canManage ? (\n                                <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void removeFile(d)}>');
-    expect(fileCell).toContain(': canManage ? (\n                            <label className="dp-file-input button secondary small">');
+    expect(fileCell).toContain('canManage ? (\n                                      <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void removeFile(d)}>');
+    expect(fileCell).toContain(': canManage ? (\n                                  <label className="dp-file-input button secondary small">');
   });
 });
 
@@ -368,7 +368,12 @@ describe("Document publications: nâng cấp hình ảnh (icon chuyên nghiệp 
     expect(client).toContain("background: var(--info-soft);");
     expect(client).toContain("background: var(--warning-soft);");
     expect(client).toContain("background: var(--success-soft);");
-    expect(client).not.toMatch(/#[0-9a-fA-F]{3,6}/);
+    // Chỉ kiểm tra khối <style jsx> của trang (theming thật) — HTML xuất
+    // Excel ở exportExcel() là tài liệu rời, tự quy ước màu viền/nền riêng
+    // giống hệt EMR export (src/app/api/emr/items/export/route.ts), không
+    // tính vào "bịa màu cho giao diện app".
+    const styleBlock = client.slice(client.indexOf("<style jsx>"), client.lastIndexOf("</style>"));
+    expect(styleBlock).not.toMatch(/#[0-9a-fA-F]{3,6}/);
   });
 
   it("mỗi tiêu đề panel có icon badge màu thương hiệu (--brand-soft/--brand), tái dùng đúng token của .page-header-icon thay vì bịa class/màu mới", () => {
@@ -376,5 +381,53 @@ describe("Document publications: nâng cấp hình ảnh (icon chuyên nghiệp 
     expect(client).toContain("background: var(--brand-soft);");
     expect(client).toContain("color: var(--brand);");
     expect(client).toContain('<span className="dp-section-icon">');
+  });
+});
+
+// Yêu cầu tường minh: "thấy thiếu chức năng" — chọn cụ thể: xuất Excel, tìm
+// kiếm/lọc trong Thư viện văn bản, xem/sửa 1 văn bản cụ thể, rà soát thời
+// hạn. Thêm cả 4, KHÔNG đổi luồng workflow/stage đã có (chỉ cộng thêm).
+describe("Document publications: sửa văn bản + tìm kiếm thư viện + badge rà soát + xuất Excel", () => {
+  it("action EDIT: luôn sửa được title/loại/đơn vị soạn thảo/người đề nghị/lý do ở mọi bước, đòi .manage như mọi thao tác sau Đề nghị", () => {
+    const route = read("src/app/api/document-publications/[id]/route.ts");
+    expect(route).toContain('if (body.action === "EDIT") return handleEdit(admin, auth.user.id, organizationId, id, body);');
+    expect(route).toContain("async function handleEdit(");
+    expect(route).toContain('if (!title) return NextResponse.json({ error: "Chưa nhập tên văn bản." }, { status: 400 });');
+    expect(route).toContain('action_type: "DOCUMENT_PUBLICATION_EDIT",');
+  });
+
+  it("action EDIT: chỉ văn bản đã PUBLISHED mới sửa được mã văn bản/ngày hiệu lực, tính lại review_date đúng REVIEW_CYCLE_DAYS (không lệch luật so với lúc Phát hành)", () => {
+    const route = read("src/app/api/document-publications/[id]/route.ts");
+    expect(route).toContain('if (current.stage === "PUBLISHED") {');
+    expect(route).toContain("update.review_date = addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS);");
+  });
+
+  it("UI: có nút Sửa ở cả Đang xử lý và Thư viện văn bản, chỉ canManage mới thấy; form sửa gọi action EDIT", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("async function saveEdit(doc: DocumentPublication) {");
+    expect(client).toContain('action: "EDIT",');
+    expect(client).toContain('onClick={() => startEdit(d)}');
+  });
+
+  it("UI: ô tìm kiếm trong Thư viện văn bản lọc theo tên/mã, không gộp phẳng các thư mục khoa/phòng lại với nhau", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain('placeholder="Tìm theo tên hoặc mã văn bản..."');
+    expect(client).toContain("const matchingDocs = q ? group.docs.filter((d) => d.title.toLocaleLowerCase(\"vi\").includes(q) || (d.document_code || \"\").toLocaleLowerCase(\"vi\").includes(q)) : group.docs;");
+    expect(client).toContain("if (!matchingDocs.length) return null;");
+  });
+
+  it("UI: badge trạng thái rà soát (Quá hạn/Sắp đến hạn/Còn hạn) dùng chung ngưỡng 30 ngày với nhắc nhở nền, dùng đúng class status-badge sẵn có (danger/warning/success)", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("function reviewStatus(reviewDate: string | null)");
+    expect(client).toContain('if (date < today) return { label: "Quá hạn rà soát", tone: "danger" };');
+    expect(client).toContain("30 * 86400000");
+    expect(client).toContain('className={`status-badge ${status.tone}`}');
+  });
+
+  it("UI: nút Xuất Excel xuất đúng danh sách đang tải (documents), theo quy ước bảng HTML .xls đã dùng ở EMR, không cần route riêng", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("function exportExcel() {");
+    expect(client).toContain('type: "application/vnd.ms-excel;charset=utf-8"');
+    expect(client).toContain('onClick={exportExcel}');
   });
 });
