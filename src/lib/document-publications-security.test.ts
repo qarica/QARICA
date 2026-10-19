@@ -299,4 +299,20 @@ describe("Document publications: nhắc hạn xem xét lại + thống kê toàn
     expect(page).toContain('supabase.from("document_publications").select("drafting_department_id,document_type").limit(20000)');
     expect(page).toContain("initialStatsRows={(statsRes.data ?? []) as any}");
   });
+
+  // Phản hồi từ ảnh chụp thực tế: panel "Thống kê toàn viện" liệt kê đủ mọi
+  // khoa/phòng (đa số là 0) nằm ngay đầu trang, đẩy "Đề nghị văn bản mới"/
+  // "Đang xử lý" (thao tác chính) xuống dưới fold trên mobile. Thay vì tách
+  // hẳn sang tab/menu con, dời panel xuống sau "Đang xử lý" (ngay trước Thư
+  // viện văn bản) và thu gọn mặc định — vẫn 1 trang, không mất ngữ cảnh.
+  it("panel Thống kê toàn viện thu gọn mặc định (statsOpen=false) và nằm sau \"Đang xử lý\", ngay trước Thư viện văn bản — không còn ở đầu trang", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("const [statsOpen, setStatsOpen] = useState(false);");
+    const inProgressIdx = client.indexOf("<h2>Đang xử lý</h2>");
+    const statsIdx = client.indexOf("<h2>Thống kê toàn viện</h2>");
+    const libraryIdx = client.indexOf("<h2>Thư viện văn bản</h2>");
+    expect(inProgressIdx).toBeGreaterThan(-1);
+    expect(statsIdx).toBeGreaterThan(inProgressIdx);
+    expect(libraryIdx).toBeGreaterThan(statsIdx);
+  });
 });

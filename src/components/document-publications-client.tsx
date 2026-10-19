@@ -68,6 +68,11 @@ export function DocumentPublicationsClient({
   // hạn 300 bản gần nhất (phục vụ danh sách làm việc), không đủ để ra tổng
   // số chính xác cho tổ chức có >300 văn bản. Nguồn riêng, không giới hạn.
   const [statsRows, setStatsRows] = useState<StatsRow[]>(initialStatsRows);
+  // Mặc định đóng — liệt kê đủ mọi khoa/phòng (đa số đang là 0) từng đẩy
+  // "Đề nghị văn bản mới"/"Đang xử lý" (thao tác chính, dùng hằng ngày)
+  // xuống dưới fold trên mobile. Dời xuống gần Thư viện văn bản + thu gọn
+  // mặc định thay vì tách hẳn sang tab/menu con riêng.
+  const [statsOpen, setStatsOpen] = useState(false);
   const [listQuery, setListQuery] = useState("");
   const [acks, setAcks] = useState(acknowledgments);
   const [title, setTitle] = useState("");
@@ -330,37 +335,6 @@ export function DocumentPublicationsClient({
 
       <section className="panel">
         <div className="panel-title">
-          <h2>Thống kê toàn viện</h2>
-        </div>
-        <div className="dp-stats-grid">
-          <div>
-            <h3>Theo khoa/phòng soạn thảo</h3>
-            <ul className="dp-stats-list">
-              {statsByDepartment.map((row) => (
-                <li key={row.key}>
-                  <span>{row.name}</span>
-                  <strong>{row.count}</strong>
-                </li>
-              ))}
-              {!statsByDepartment.length ? <li className="dp-stats-empty">Chưa có khoa/phòng nào.</li> : null}
-            </ul>
-          </div>
-          <div>
-            <h3>Theo loại văn bản</h3>
-            <ul className="dp-stats-list">
-              {statsByType.map((row) => (
-                <li key={row.key}>
-                  <span>{row.name}</span>
-                  <strong>{row.count}</strong>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-title">
           <div>
             <h2>Đề nghị văn bản mới</h2>
             <p>Đơn vị sử dụng gửi đề nghị soạn thảo/sửa đổi văn bản — không cần quyền quản lý để gửi đề nghị.</p>
@@ -509,6 +483,42 @@ export function DocumentPublicationsClient({
           })}
           {!inProgress.length ? <div className="empty-state compact">Không có văn bản nào đang xử lý.</div> : null}
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-title">
+          <h2>Thống kê toàn viện</h2>
+        </div>
+        <button type="button" className="button secondary mobile-form-toggle" aria-expanded={statsOpen} onClick={() => setStatsOpen((v) => !v)}>
+          {statsOpen ? "Thu gọn" : "+ Xem thống kê theo khoa/phòng và loại"}
+        </button>
+        {statsOpen ? (
+          <div className="dp-stats-grid">
+            <div>
+              <h3>Theo khoa/phòng soạn thảo</h3>
+              <ul className="dp-stats-list">
+                {statsByDepartment.map((row) => (
+                  <li key={row.key}>
+                    <span>{row.name}</span>
+                    <strong>{row.count}</strong>
+                  </li>
+                ))}
+                {!statsByDepartment.length ? <li className="dp-stats-empty">Chưa có khoa/phòng nào.</li> : null}
+              </ul>
+            </div>
+            <div>
+              <h3>Theo loại văn bản</h3>
+              <ul className="dp-stats-list">
+                {statsByType.map((row) => (
+                  <li key={row.key}>
+                    <span>{row.name}</span>
+                    <strong>{row.count}</strong>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="panel">
