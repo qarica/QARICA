@@ -11,7 +11,7 @@ export default async function CriteriaSetDetailPage({params}:{params:Promise<{id
  if(setError)return <div className="alert error">Không tải được bộ tiêu chí: {setError.message}</div>;if(!set)notFound();
  const {data:versions,error:versionsError}=await supabase.from("criteria_set_versions").select("id,version_no,status,effective_from,effective_to,published_at,created_at,updated_at").eq("criteria_set_id",id).order("version_no",{ascending:false});
  const current=(versions??[]).find((v:any)=>v.status==="DRAFT")||(versions??[])[0]||null;
- const {data:items,error:itemsError}=current?await supabase.from("criteria_items").select("id,criteria_version_id,code,title,description,sequence_no,chapter_code,chapter_name,score_weight,is_core,is_mandatory,max_score,parent_criteria_item_id,item_type,owner_department_id,is_active,created_at,updated_at").eq("criteria_version_id",current.id).order("sequence_no",{ascending:true}):{data:[],error:null};
+ const {data:items,error:itemsError}=current?await supabase.from("criteria_items").select("id,criteria_version_id,code,title,description,sequence_no,chapter_code,chapter_name,score_weight,is_core,is_mandatory,max_score,parent_criteria_item_id,item_type,owner_department_id,support_department_ids,is_active,created_at,updated_at").eq("criteria_version_id",current.id).order("sequence_no",{ascending:true}):{data:[],error:null};
  const {data:departments,error:departmentsError}=await supabase.from("departments").select("id,name,short_name").eq("is_active",true).order("name");
  const firstError=versionsError||itemsError||departmentsError;
  return <div className="page-stack" style={{maxWidth:1280,margin:"0 auto"}}>

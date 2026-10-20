@@ -12,6 +12,7 @@ type Criterion = {
   notApplicableReason:string;
   leadDepartmentId:string|null;
   leadDepartmentName:string;
+  supportDepartmentNames:string[];
   maxScore:number|null;
   score:number|null;
   result:string;
@@ -74,7 +75,7 @@ export function AssessmentCriteriaClient({
       if(statusFilter==="NOT_APPLICABLE" && row.applicability!=="NOT_APPLICABLE") return false;
       if(!["ALL","PENDING","SUBMITTED","NOT_APPLICABLE"].includes(statusFilter) && row.status!==statusFilter) return false;
       if(!needle) return true;
-      return [row.code,row.name,row.leadDepartmentName,row.result,row.comment]
+      return [row.code,row.name,row.leadDepartmentName,...row.supportDepartmentNames,row.result,row.comment]
         .some(value=>String(value||"").toLocaleLowerCase("vi").includes(needle));
     });
   },[rows,query,statusFilter]);
@@ -168,6 +169,7 @@ export function AssessmentCriteriaClient({
             <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginTop:4}}>
               {row.required?<span className="code-pill">Bắt buộc</span>:null}
               <span className="code-pill">{row.leadDepartmentName||"Chưa gán khoa/phòng"}</span>
+              {row.supportDepartmentNames.length?<span className="code-pill">Hỗ trợ: {row.supportDepartmentNames.join(", ")}</span>:null}
               {row.maxScore!=null?<span className="code-pill">Tối đa {row.maxScore} điểm</span>:null}
               {dirtyIds.has(row.id)?<span className="tiny" style={{color:"#b45309",fontWeight:800}}>● Chưa lưu</span>:null}
             </div>

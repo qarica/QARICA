@@ -29,14 +29,15 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   const {data:set}=await admin.from("criteria_sets").select("id,organization_id").eq("id",version.criteria_set_id).maybeSingle();
   const {data:caller}=await admin.from("profiles").select("organization_id,is_active").eq("user_id",auth.user.id).maybeSingle();
   if(!caller?.organization_id||!caller.is_active||!set||set.organization_id!==caller.organization_id)return NextResponse.json({error:"Không có quyền cập nhật tiêu chí này."},{status:403});
-  // Khoa/phòng phụ trách là dữ liệu phân công, không phải nội dung tiêu chí
-  // đã PUBLISHED — cho phép gán/sửa riêng field này kể cả khi phiên bản đã
-  // phát hành, để sửa được cho các tiêu chí cũ chưa có owner_department_id
+  // Khoa/phòng phụ trách chính/hỗ trợ là dữ liệu phân công, không phải nội
+  // dung tiêu chí đã PUBLISHED — cho phép gán/sửa riêng 2 field này kể cả khi
+  // phiên bản đã phát hành, để sửa được cho các tiêu chí cũ chưa có phân công
   // mà không phải tạo bản Nháp mới. Mọi thay đổi nội dung khác vẫn bắt buộc
   // thực hiện trên phiên bản Nháp.
-  const ownerDepartmentOnlyKeys=Object.keys(body).filter((key)=>key!=="owner_department_id");
-  const isOwnerDepartmentOnlyUpdate=Object.prototype.hasOwnProperty.call(body,"owner_department_id")&&ownerDepartmentOnlyKeys.length===0;
-  if(version.status!=="DRAFT"&&!isOwnerDepartmentOnlyUpdate)return NextResponse.json({error:"Phiên bản đã phát hành không được sửa trực tiếp. Hãy tạo bản cập nhật mới."},{status:409});
+  const DEPARTMENT_ASSIGNMENT_FIELDS=["owner_department_id","support_department_ids"];
+  const nonDepartmentKeys=Object.keys(body).filter((key)=>!DEPARTMENT_ASSIGNMENT_FIELDS.includes(key));
+  const isDepartmentOnlyUpdate=DEPARTMENT_ASSIGNMENT_FIELDS.some((key)=>Object.prototype.hasOwnProperty.call(body,key))&&nonDepartmentKeys.length===0;
+  if(version.status!=="DRAFT"&&!isDepartmentOnlyUpdate)return NextResponse.json({error:"Phiên bản đã phát hành không được sửa trực tiếp. Hãy tạo bản cập nhật mới."},{status:409});
   const patch:any={updated_at:new Date().toISOString()};
   if(Object.prototype.hasOwnProperty.call(body,"title")){const title=clean(body.title);if(!title)return NextResponse.json({error:"Tên tiêu chí không được để trống."},{status:400});patch.title=title;}
   if(Object.prototype.hasOwnProperty.call(body,"description"))patch.description=clean(body.description)||null;
@@ -51,6 +52,16 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
     const {data:department}=await admin.from("departments").select("id").eq("id",departmentId).eq("organization_id",set.organization_id).eq("is_active",true).maybeSingle();
     if(!department)return NextResponse.json({error:"Khoa/phòng phụ trách không hợp lệ."},{status:400});
     patch.owner_department_id=departmentId;
+  }
+  if(Object.prototype.hasOwnProperty.call(body,"support_department_ids")){
+    const raw=Array.isArray(body.support_department_ids)?body.support_department_ids:[];
+    const supportIds=Array.from(new Set(raw.map((value:unknown)=>clean(value)).filter(Boolean)));
+    if(supportIds.length){
+      const {data:validDepartments,error:supportError}=await admin.from("departments").select("id").eq("organization_id",set.organization_id).eq("is_active",true).in("id",supportIds);
+      if(supportError)return NextResponse.json({error:supportError.message},{status:400});
+      if((validDepartments?.length||0)!==supportIds.length)return NextResponse.json({error:"Một hoặc nhiều khoa/phòng hỗ trợ không hợp lệ."},{status:400});
+    }
+    patch.support_department_ids=supportIds;
   }
   if(Object.prototype.hasOwnProperty.call(body,"item_type")&&!item.parent_criteria_item_id){
     const requestedItemType=clean(body.item_type).toUpperCase();

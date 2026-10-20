@@ -84,15 +84,18 @@ describe("UI: nút đồng bộ khoa/phòng phụ trách ở trạng thái Chu�
 describe("PATCH /api/criteria-items/[id]: cho phép cập nhật riêng owner_department_id kể cả khi phiên bản đã PUBLISHED", () => {
   const route = read("src/app/api/criteria-items/[id]/route.ts");
 
-  it("chỉ bỏ qua gate DRAFT khi body CHỈ có owner_department_id, không ảnh hưởng các field nội dung khác", () => {
+  it("chỉ bỏ qua gate DRAFT khi body CHỈ có owner_department_id và/hoặc support_department_ids, không ảnh hưởng các field nội dung khác", () => {
     expect(route).toContain(
-      'const ownerDepartmentOnlyKeys=Object.keys(body).filter((key)=>key!=="owner_department_id");'
+      'const DEPARTMENT_ASSIGNMENT_FIELDS=["owner_department_id","support_department_ids"];'
     );
     expect(route).toContain(
-      'const isOwnerDepartmentOnlyUpdate=Object.prototype.hasOwnProperty.call(body,"owner_department_id")&&ownerDepartmentOnlyKeys.length===0;'
+      'const nonDepartmentKeys=Object.keys(body).filter((key)=>!DEPARTMENT_ASSIGNMENT_FIELDS.includes(key));'
     );
     expect(route).toContain(
-      'if(version.status!=="DRAFT"&&!isOwnerDepartmentOnlyUpdate)return NextResponse.json({error:"Phiên bản đã phát hành không được sửa trực tiếp. Hãy tạo bản cập nhật mới."},{status:409});'
+      'const isDepartmentOnlyUpdate=DEPARTMENT_ASSIGNMENT_FIELDS.some((key)=>Object.prototype.hasOwnProperty.call(body,key))&&nonDepartmentKeys.length===0;'
+    );
+    expect(route).toContain(
+      'if(version.status!=="DRAFT"&&!isDepartmentOnlyUpdate)return NextResponse.json({error:"Phiên bản đã phát hành không được sửa trực tiếp. Hãy tạo bản cập nhật mới."},{status:409});'
     );
   });
 

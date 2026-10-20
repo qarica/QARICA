@@ -17,6 +17,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   if(!title)return NextResponse.json({error:"Tên tiêu chí/tiểu mục là bắt buộc."},{status:400});
   const ownerDepartmentId=clean(body.owner_department_id)||null;
   if(!ownerDepartmentId)return NextResponse.json({error:"Khoa/phòng phụ trách tiêu chí là bắt buộc."},{status:400});
+  const supportDepartmentIds=Array.from(new Set((Array.isArray(body.support_department_ids)?body.support_department_ids:[]).map((v:unknown)=>clean(v)).filter(Boolean)));
 
   const admin=createAdminClient();
   const {data:tx,error:txError}=await admin.rpc(CREATE_ITEM_RPC,{
@@ -35,6 +36,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     p_is_mandatory:body.is_mandatory===true,
     p_max_score:numberOrNull(body.max_score),
     p_owner_department_id:ownerDepartmentId,
+    p_support_department_ids:supportDepartmentIds,
   });
 
   if(txError){
@@ -55,6 +57,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
       item_type:tx?.item_type,
       sequence_no:tx?.sequence_no,
       owner_department_id:tx?.owner_department_id??null,
+      support_department_ids:tx?.support_department_ids??[],
     },
     transaction:"atomic",
   });
