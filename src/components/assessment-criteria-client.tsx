@@ -142,7 +142,7 @@ export function AssessmentCriteriaClient({
       <strong>{submitted}/{applicable} đã gửi</strong>
     </div>
     <div style={{padding:"0 18px 18px",display:"grid",gap:12}}>
-      <div style={{display:"grid",gridTemplateColumns:"minmax(220px,1fr) 190px auto",gap:8,alignItems:"center"}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:8,alignItems:"center"}}>
         <input
           value={query}
           onChange={e=>setQuery(e.target.value)}
