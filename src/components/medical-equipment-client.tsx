@@ -3,6 +3,8 @@ import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 
+type Department = { id: string; name: string };
+
 type Equipment = {
   id: string;
   sequence_no: number | null;
@@ -17,6 +19,10 @@ type Equipment = {
   contract_from: string | null;
   contract_to: string | null;
   valid_from: string | null;
+  department_id: string | null;
+  // Nhãn khoa/phòng tự do nhập từ đợt số hóa dữ liệu đầu tiên (trước khi có
+  // department_id) — chỉ còn là dữ liệu gốc hiển thị dự phòng cho các dòng
+  // chưa ai xác nhận lại bằng dropdown; không còn ghi mới qua UI.
   department_label: string | null;
   notes: string | null;
   is_active: boolean;
@@ -36,7 +42,8 @@ type Form = {
   contract_from: string;
   contract_to: string;
   valid_from: string;
-  department_label: string;
+  department_id: string;
+  legacyDepartmentLabel: string;
   notes: string;
   is_active: boolean;
 };
@@ -44,7 +51,7 @@ type Form = {
 const EMPTY: Form = {
   sequence_no: "", equipment_name: "", model_code: "", manufacturer: "", origin_country: "",
   year_manufactured: "", year_in_use: "", machine_code: "", registration_number: "",
-  contract_from: "", contract_to: "", valid_from: "", department_label: "", notes: "", is_active: true,
+  contract_from: "", contract_to: "", valid_from: "", department_id: "", legacyDepartmentLabel: "", notes: "", is_active: true,
 };
 
 function toForm(e: Equipment): Form {
@@ -55,24 +62,31 @@ function toForm(e: Equipment): Form {
     year_in_use: e.year_in_use != null ? String(e.year_in_use) : "",
     machine_code: e.machine_code || "", registration_number: e.registration_number || "",
     contract_from: e.contract_from || "", contract_to: e.contract_to || "", valid_from: e.valid_from || "",
-    department_label: e.department_label || "", notes: e.notes || "", is_active: e.is_active,
+    department_id: e.department_id || "", legacyDepartmentLabel: e.department_id ? "" : e.department_label || "", notes: e.notes || "", is_active: e.is_active,
   };
 }
 
-export function MedicalEquipmentClient({ initialEquipment, canManage }: { initialEquipment: Equipment[]; canManage: boolean }) {
+export function MedicalEquipmentClient({ initialEquipment, departments, canManage }: { initialEquipment: Equipment[]; departments: Department[]; canManage: boolean }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
+  // Phản hồi thực tế: department_label nhập tự do đợt số hóa đầu không khớp
+  // tên khoa/phòng đã cấu hình — bộ lọc này giúp tìm nhanh các dòng còn
+  // chưa ai chọn lại bằng dropdown (department_id null) để xác nhận.
+  const [onlyUnmapped, setOnlyUnmapped] = useState(false);
   const [form, setForm] = useState<Form | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+
+  const unmappedCount = useMemo(() => initialEquipment.filter((e) => !e.department_id && e.department_label).length, [initialEquipment]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return initialEquipment
       .filter((e) => showInactive || e.is_active)
-      .filter((e) => !q || [e.equipment_name, e.model_code, e.manufacturer, e.machine_code, e.registration_number, e.department_label].some((v) => (v || "").toLowerCase().includes(q)));
-  }, [initialEquipment, search, showInactive]);
+      .filter((e) => !onlyUnmapped || (!e.department_id && e.department_label))
+      .filter((e) => !q || [e.equipment_name, e.model_code, e.manufacturer, e.machine_code, e.registration_number, departments.find((d) => d.id === e.department_id)?.name, e.department_label].some((v) => (v || "").toLowerCase().includes(q)));
+  }, [initialEquipment, search, showInactive, onlyUnmapped, departments]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -88,7 +102,7 @@ export function MedicalEquipmentClient({ initialEquipment, canManage }: { initia
         year_manufactured: form.year_manufactured || null, year_in_use: form.year_in_use || null,
         machine_code: form.machine_code.trim() || null, registration_number: form.registration_number.trim() || null,
         contract_from: form.contract_from || null, contract_to: form.contract_to || null, valid_from: form.valid_from || null,
-        department_label: form.department_label.trim() || null, notes: form.notes.trim() || null,
+        department_id: form.department_id || null, notes: form.notes.trim() || null,
       };
       if (form.id) payload.is_active = form.is_active;
       const res = await fetch(form.id ? `/api/medical-equipment/${form.id}` : "/api/medical-equipment", {
@@ -120,6 +134,11 @@ export function MedicalEquipmentClient({ initialEquipment, canManage }: { initia
             <label className="inline-check">
               <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Hiện thiết bị đã ngưng sử dụng
             </label>
+            {unmappedCount ? (
+              <label className="inline-check">
+                <input type="checkbox" checked={onlyUnmapped} onChange={(e) => setOnlyUnmapped(e.target.checked)} /> Chỉ hiện chưa xác nhận khoa/phòng ({unmappedCount})
+              </label>
+            ) : null}
           </div>
           {canManage ? (
             <button className="button primary" onClick={() => { setForm({ ...EMPTY }); setMessage(null); }}>
@@ -149,7 +168,17 @@ export function MedicalEquipmentClient({ initialEquipment, canManage }: { initia
                   <td>{[e.manufacturer, e.origin_country].filter(Boolean).join(" · ") || "—"}</td>
                   <td>{[e.year_manufactured, e.year_in_use].filter(Boolean).join(" / ") || "—"}</td>
                   <td>{e.machine_code || "—"}</td>
-                  <td>{e.department_label || "—"}</td>
+                  <td>
+                    {e.department_id ? (
+                      departments.find((d) => d.id === e.department_id)?.name || "—"
+                    ) : e.department_label ? (
+                      <span title="Nhãn gốc nhập từ đợt số hóa đầu tiên, chưa chọn lại theo danh mục khoa/phòng đã cấu hình">
+                        {e.department_label} <span className="status-badge warning">chưa xác nhận</span>
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td><span className={`status-badge ${e.is_active ? "success" : "muted"}`}>{e.is_active ? "Đang sử dụng" : "Ngưng sử dụng"}</span></td>
                   {canManage ? (
                     <td>
@@ -188,7 +217,18 @@ export function MedicalEquipmentClient({ initialEquipment, canManage }: { initia
                   <label>Năm sản xuất<input type="number" value={form.year_manufactured} onChange={(e) => setForm({ ...form, year_manufactured: e.target.value })} /></label>
                   <label>Năm sử dụng<input type="number" value={form.year_in_use} onChange={(e) => setForm({ ...form, year_in_use: e.target.value })} /></label>
                   <label>Số lưu hành<input value={form.registration_number} onChange={(e) => setForm({ ...form, registration_number: e.target.value })} /></label>
-                  <label>Khoa sử dụng<input value={form.department_label} onChange={(e) => setForm({ ...form, department_label: e.target.value })} /></label>
+                  <label>
+                    Khoa sử dụng
+                    <select value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })}>
+                      <option value="">— Chưa chọn —</option>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                    {form.legacyDepartmentLabel ? <small>Nhãn gốc từ đợt số hóa đầu tiên: &ldquo;{form.legacyDepartmentLabel}&rdquo; — chọn khoa/phòng đúng ở trên để xác nhận.</small> : null}
+                  </label>
                   <label>Hợp đồng từ<input type="date" value={form.contract_from} onChange={(e) => setForm({ ...form, contract_from: e.target.value })} /></label>
                   <label>Hợp đồng đến<input type="date" value={form.contract_to} onChange={(e) => setForm({ ...form, contract_to: e.target.value })} /></label>
                   <label>Hiệu lực từ<input type="date" value={form.valid_from} onChange={(e) => setForm({ ...form, valid_from: e.target.value })} /></label>

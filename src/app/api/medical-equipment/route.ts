@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT = "id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_label,notes,is_active,created_at,updated_at";
+const SELECT = "id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,is_active,created_at,updated_at";
 const clean = (value: unknown) => String(value ?? "").trim();
 const cleanOrNull = (value: unknown) => clean(value) || null;
 const intOrNull = (value: unknown) => {
@@ -45,6 +45,16 @@ export async function POST(request: Request) {
   const equipmentName = clean(body.equipment_name);
   if (!equipmentName) return NextResponse.json({ error: "Tên thiết bị là bắt buộc." }, { status: 400 });
 
+  // Khoa sử dụng chọn từ danh mục khoa/phòng đã cấu hình (department_id),
+  // không gõ tay tự do nữa — tránh lặp lại tình trạng lệch tên như dữ liệu
+  // nhập đợt đầu (CẤP CỨU/Khoa Cấp Cứu, XN/Xét nghiệm/Xét Nghiệm/Khoa XN...).
+  const departmentId = cleanOrNull(body.department_id);
+  if (departmentId) {
+    const { data: department, error: departmentError } = await admin.from("departments").select("id").eq("id", departmentId).eq("organization_id", organizationId).eq("is_active", true).maybeSingle();
+    if (departmentError) return NextResponse.json({ error: departmentError.message }, { status: 400 });
+    if (!department) return NextResponse.json({ error: "Khoa/phòng không hợp lệ." }, { status: 400 });
+  }
+
   const { data, error } = await admin
     .from("medical_equipment")
     .insert({
@@ -61,7 +71,7 @@ export async function POST(request: Request) {
       contract_from: dateOrNull(body.contract_from),
       contract_to: dateOrNull(body.contract_to),
       valid_from: dateOrNull(body.valid_from),
-      department_label: cleanOrNull(body.department_label),
+      department_id: departmentId,
       notes: cleanOrNull(body.notes),
       created_by: auth.user.id,
     })

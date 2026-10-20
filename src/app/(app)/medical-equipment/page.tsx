@@ -9,12 +9,15 @@ export default async function MedicalEquipmentPage() {
   const canManage = hasPermission(user, "medical_equipment.manage");
   const supabase = await createClient();
 
-  const { data: equipment, error } = await supabase
-    .from("medical_equipment")
-    .select("id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_label,notes,is_active")
-    .eq("organization_id", user.organizationId)
-    .order("sequence_no", { ascending: true, nullsFirst: false })
-    .order("equipment_name", { ascending: true });
+  const [{ data: equipment, error }, departmentsRes] = await Promise.all([
+    supabase
+      .from("medical_equipment")
+      .select("id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,is_active")
+      .eq("organization_id", user.organizationId)
+      .order("sequence_no", { ascending: true, nullsFirst: false })
+      .order("equipment_name", { ascending: true }),
+    supabase.from("departments").select("id,name").eq("organization_id", user.organizationId).eq("is_active", true).order("name"),
+  ]);
 
   return (
     <div className="page-stack">
@@ -25,7 +28,7 @@ export default async function MedicalEquipmentPage() {
         icon="network"
       />
       {error ? <div className="alert error">Không tải được danh sách thiết bị: {error.message}</div> : null}
-      <MedicalEquipmentClient initialEquipment={(equipment ?? []) as any[]} canManage={canManage} />
+      <MedicalEquipmentClient initialEquipment={(equipment ?? []) as any[]} departments={(departmentsRes.data ?? []) as any[]} canManage={canManage} />
     </div>
   );
 }

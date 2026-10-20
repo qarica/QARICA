@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT = "id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_label,notes,is_active,created_at,updated_at";
+const SELECT = "id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,is_active,created_at,updated_at";
 const clean = (value: unknown) => String(value ?? "").trim();
 const intOrNull = (value: unknown) => {
   const raw = clean(value);
@@ -29,6 +29,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const body = await request.json().catch(() => ({}));
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  // Khoa sử dụng chọn từ danh mục đã cấu hình (department_id) — đặt
+  // department_label = null khi sửa qua dropdown mới, không để tên tự do cũ
+  // (nếu còn) tiếp tục hiển thị song song, gây hiểu nhầm đã map 2 nơi khác
+  // nhau.
+  if (Object.prototype.hasOwnProperty.call(body, "department_id")) {
+    const departmentId = clean(body.department_id) || null;
+    if (departmentId) {
+      const { data: department, error: departmentError } = await admin.from("departments").select("id").eq("id", departmentId).eq("organization_id", organizationId).eq("is_active", true).maybeSingle();
+      if (departmentError) return NextResponse.json({ error: departmentError.message }, { status: 400 });
+      if (!department) return NextResponse.json({ error: "Khoa/phòng không hợp lệ." }, { status: 400 });
+    }
+    patch.department_id = departmentId;
+    patch.department_label = null;
+  }
   if (Object.prototype.hasOwnProperty.call(body, "sequence_no")) patch.sequence_no = intOrNull(body.sequence_no);
   if (Object.prototype.hasOwnProperty.call(body, "equipment_name")) {
     const name = clean(body.equipment_name);
@@ -45,7 +59,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (Object.prototype.hasOwnProperty.call(body, "contract_from")) patch.contract_from = dateOrNull(body.contract_from);
   if (Object.prototype.hasOwnProperty.call(body, "contract_to")) patch.contract_to = dateOrNull(body.contract_to);
   if (Object.prototype.hasOwnProperty.call(body, "valid_from")) patch.valid_from = dateOrNull(body.valid_from);
-  if (Object.prototype.hasOwnProperty.call(body, "department_label")) patch.department_label = clean(body.department_label) || null;
   if (Object.prototype.hasOwnProperty.call(body, "notes")) patch.notes = clean(body.notes) || null;
   if (Object.prototype.hasOwnProperty.call(body, "is_active")) patch.is_active = body.is_active === true;
 

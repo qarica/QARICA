@@ -72,3 +72,45 @@ describe("medical-equipment-client.tsx — đúng quy ước UI chung của repo
     expect(client).not.toMatch(/<label>\s*<input type="checkbox"/);
   });
 });
+
+// Phản hồi thực tế: "chưa set đúng tên khoa phòng đã khai báo cấu hình" —
+// department_label (text tự do từ đợt số hóa đầu tiên) để UI vẫn cho gõ tay
+// thay vì chọn từ danh mục khoa/phòng đã cấu hình ở Admin, lặp lại đúng kiểu
+// lệch tên đã có trong dữ liệu (CẤP CỨU/Khoa Cấp Cứu, XN/Xét nghiệm/Xét
+// Nghiệm/Khoa XN...). Thêm department_id tham chiếu departments — nguồn cấu
+// hình duy nhất — và chuyển UI sang dropdown, không tạo thêm biến thể tên.
+describe("Sổ quản lý TTBYT: Khoa sử dụng chọn từ danh mục đã cấu hình (department_id), không gõ tay tự do nữa", () => {
+  it("migration thêm department_id tham chiếu departments, backfill CHỈ các nhãn khớp rõ ràng, không ép map nhãn mơ hồ", () => {
+    const migration = read("supabase/migrations/20261112_medical_equipment_department_id_v1.sql");
+    expect(migration).toContain("alter table public.medical_equipment add column if not exists department_id uuid references public.departments(id);");
+    expect(migration).toContain("me.department_label = 'CẤP CỨU' and d.name = 'Khoa Cấp Cứu'");
+    expect(migration).not.toContain("'PM'");
+    expect(migration).not.toContain("'Đang HĐ'");
+  });
+
+  it("page.tsx tải danh sách departments và truyền xuống client cùng equipment (department_id)", () => {
+    const page = read("src/app/(app)/medical-equipment/page.tsx");
+    expect(page).toContain('supabase.from("departments").select("id,name").eq("organization_id", user.organizationId).eq("is_active", true)');
+    expect(page).toContain("department_id,department_label");
+    expect(page).toContain("departments={(departmentsRes.data ?? []) as any[]}");
+  });
+
+  it("API POST/PATCH nhận department_id, xác nhận khoa/phòng thuộc đúng tổ chức trước khi gán — không còn nhận department_label tự do từ client", () => {
+    const createRoute = read("src/app/api/medical-equipment/route.ts");
+    expect(createRoute).toContain('.from("departments").select("id").eq("id", departmentId).eq("organization_id", organizationId).eq("is_active", true).maybeSingle();');
+    expect(createRoute).toContain('"Khoa/phòng không hợp lệ."');
+    expect(createRoute).not.toContain("department_label: cleanOrNull(body.department_label)");
+
+    const patchRoute = read("src/app/api/medical-equipment/[id]/route.ts");
+    expect(patchRoute).toContain('if (Object.prototype.hasOwnProperty.call(body, "department_id")) {');
+    expect(patchRoute).not.toContain('if (Object.prototype.hasOwnProperty.call(body, "department_label"))');
+  });
+
+  it("UI: Khoa sử dụng là <select> theo danh mục departments, không còn <input> gõ tay; dòng cũ chưa map hiện nhãn gốc kèm badge \"chưa xác nhận\"", () => {
+    const client = read("src/components/medical-equipment-client.tsx");
+    expect(client).toContain('<select value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })}>');
+    expect(client).not.toContain('<input value={form.department_label}');
+    expect(client).toContain('<span className="status-badge warning">chưa xác nhận</span>');
+    expect(client).toContain("Chỉ hiện chưa xác nhận khoa/phòng");
+  });
+});

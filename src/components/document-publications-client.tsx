@@ -528,6 +528,10 @@ export function DocumentPublicationsClient({
           </div>
           <button type="button" className="button secondary mobile-form-toggle" aria-expanded={directPublishOpen} onClick={() => setDirectPublishOpen((v) => !v)}>{directPublishOpen ? "Thu gọn" : "+ Nhập văn bản đã có"}</button>
           <div className={directPublishOpen ? "dp-form mobile-collapsible-form is-open" : "dp-form mobile-collapsible-form"}>
+            <div className="dp-form-row">
+              <input className="input" placeholder="Mã văn bản..." value={directDocumentCode} onChange={(e) => setDirectDocumentCode(e.target.value)} />
+              <input className="input" type="date" value={directEffectiveDate} onChange={(e) => setDirectEffectiveDate(e.target.value)} />
+            </div>
             <input className="input" placeholder="Tên văn bản..." value={directTitle} maxLength={300} onChange={(e) => setDirectTitle(e.target.value)} />
             <div className="dp-form-row">
               <select className="input" value={directDocumentType} onChange={(e) => setDirectDocumentType(e.target.value as DocumentPublicationType)}>
@@ -545,10 +549,6 @@ export function DocumentPublicationsClient({
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="dp-form-row">
-              <input className="input" placeholder="Mã văn bản..." value={directDocumentCode} onChange={(e) => setDirectDocumentCode(e.target.value)} />
-              <input className="input" type="date" value={directEffectiveDate} onChange={(e) => setDirectEffectiveDate(e.target.value)} />
             </div>
             <select className="input" value={directDisseminationType} onChange={(e) => setDirectDisseminationType(e.target.value as DisseminationType)}>
               {DISSEMINATION_TYPES.map((t) => (
@@ -835,6 +835,10 @@ export function DocumentPublicationsClient({
                               <tr key={`${d.id}-edit`}>
                                 <td colSpan={canManage ? 8 : 7}>
                                   <div className="dp-edit-form">
+                                    <div className="dp-form-row">
+                                      <input className="input" placeholder="Mã văn bản..." value={editDocumentCode} onChange={(e) => setEditDocumentCode(e.target.value)} />
+                                      <input className="input" type="date" value={editEffectiveDate} onChange={(e) => setEditEffectiveDate(e.target.value)} />
+                                    </div>
                                     <input className="input" placeholder="Tên văn bản..." value={editTitle} maxLength={300} onChange={(e) => setEditTitle(e.target.value)} />
                                     <div className="dp-form-row">
                                       <select className="input" value={editDocumentType} onChange={(e) => setEditDocumentType(e.target.value as DocumentPublicationType)}>
@@ -851,10 +855,6 @@ export function DocumentPublicationsClient({
                                           </option>
                                         ))}
                                       </select>
-                                    </div>
-                                    <div className="dp-form-row">
-                                      <input className="input" placeholder="Mã văn bản..." value={editDocumentCode} onChange={(e) => setEditDocumentCode(e.target.value)} />
-                                      <input className="input" type="date" value={editEffectiveDate} onChange={(e) => setEditEffectiveDate(e.target.value)} />
                                     </div>
                                     <input className="input" placeholder="Người đề nghị (tùy chọn)" value={editRequestedByName} onChange={(e) => setEditRequestedByName(e.target.value)} />
                                     <textarea className="input" rows={2} placeholder="Lý do (tùy chọn)..." value={editReason} onChange={(e) => setEditReason(e.target.value)} />
