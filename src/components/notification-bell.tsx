@@ -200,8 +200,8 @@ export function NotificationBell() {
       <style>{`
         .notification-filters{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid #edf2f2;background:#fbfdfd}
         .notification-filters button{border:1px solid transparent;background:transparent;color:#718286;border-radius:999px;padding:6px 9px;font-size:10px;cursor:pointer}
-        .notification-filters button:hover{background:#e6eef8;color:#1d3f73}
-        .notification-filters button.active{background:#dff4ef;border-color:#b8ded7;color:#0f655f;font-weight:800}
+        .notification-filters button:hover{background:var(--brand-soft,#EEF2FF);color:var(--brand-dark,#172554)}
+        .notification-filters button.active{background:var(--brand-soft,#EEF2FF);border-color:#C7D2FE;color:var(--brand-dark,#172554);font-weight:800}
         .notification-filters b{font-size:9px;margin-left:3px}
       `}</style>
       <button
