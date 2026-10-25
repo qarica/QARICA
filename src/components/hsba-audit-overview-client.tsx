@@ -56,6 +56,13 @@ export function HsbaAuditOverviewClient({
   const [loadingItems, setLoadingItems] = useState(false);
   const [recordReference, setRecordReference] = useState("");
   const [period, setPeriod] = useState(currentPeriod());
+  // HSBA: báo cáo tháng phải tính theo tháng hồ sơ RA VIỆN (audit thường làm
+  // sau khi bệnh nhân đã ra viện, có thể rơi sang tháng sau) — period cho
+  // HSBA luôn được suy ra từ dischargeDate, không cho chọn tay, để tránh 2
+  // nguồn sự thật lệch nhau cho "hồ sơ thuộc tháng nào". Phác đồ điều trị/
+  // QTKT nội trú không gắn với ngày ra viện nên vẫn dùng period chọn tay.
+  const [dischargeDate, setDischargeDate] = useState("");
+  const effectivePeriod = auditType === "HSBA" ? dischargeDate.slice(0, 7) : period;
   // Chỉ HSBA giữ đúng 2 mức Đạt/Không đạt như cũ — Phác đồ điều trị và QTKT
   // nội trú là kiểm bổ sung, cần 4 mức: Đạt/Đạt 1 phần/Không đạt/Không áp
   // dụng (yêu cầu tường minh của người dùng). type vẫn khai báo chung 1 union
@@ -174,6 +181,10 @@ export function HsbaAuditOverviewClient({
       setError("Chưa nhập mã/số hồ sơ.");
       return;
     }
+    if (auditType === "HSBA" && !dischargeDate) {
+      setError("Chưa nhập ngày ra viện.");
+      return;
+    }
     if (!results.length) {
       setError("Chưa chấm tiêu chí nào.");
       return;
@@ -188,6 +199,7 @@ export function HsbaAuditOverviewClient({
         department_id: departmentId,
         record_reference: recordReference.trim(),
         period,
+        discharge_date: auditType === "HSBA" ? dischargeDate : null,
         results,
         audit_type: auditType,
         checklist_version_id: selectedTemplate.versionId,
@@ -203,10 +215,11 @@ export function HsbaAuditOverviewClient({
     // buộc, Không đạt chỉ được ghi nhận vào báo cáo, không trả về khoa.
     setMessage(
       auditType === "HSBA"
-        ? `Đã lưu lượt kiểm tra "${recordReference.trim()}" — ${body.findings_created || 0} lỗi được tạo và gửi khoa.`
+        ? `Đã lưu lượt kiểm tra "${recordReference.trim()}" — kỳ báo cáo ${effectivePeriod} (theo ngày ra viện) — ${body.findings_created || 0} lỗi được tạo và gửi khoa.`
         : `Đã ghi nhận kết quả chấm "${recordReference.trim()}" — ${body.failed_count || 0}/${results.length} tiêu chí không đạt (chỉ tính vào báo cáo, không gửi khoa).`,
     );
     setRecordReference("");
+    setDischargeDate("");
     setResultsByItem({});
     setNotesByItem({});
     if (auditType === "HSBA" && body.findings_created) {
@@ -264,8 +277,15 @@ export function HsbaAuditOverviewClient({
               ))}
             </select>
             <input className="input" placeholder="Mã/số hồ sơ (PID)" value={recordReference} onChange={(e) => setRecordReference(e.target.value)} />
-            <input className="input" type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />
+            {auditType === "HSBA" ? (
+              <input className="input" type="date" aria-label="Ngày ra viện" max={today()} value={dischargeDate} onChange={(e) => setDischargeDate(e.target.value)} />
+            ) : (
+              <input className="input" type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />
+            )}
           </div>
+          {auditType === "HSBA" ? (
+            <p className="subline hsba-period-hint">Kỳ báo cáo: {effectivePeriod || "—"} (tự động theo ngày ra viện, không chọn tay).</p>
+          ) : null}
           <div className="table-wrap hsba-scoring-mobile">
             <table>
               <thead>

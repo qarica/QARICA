@@ -4,6 +4,11 @@ import { normalizeInternalAuditType } from "@/lib/internal-audit-types";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function todayHcm() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+}
 
 export async function GET(request: Request) {
   const auth = await requireApiPermission("hsba_audit.view");
@@ -19,7 +24,7 @@ export async function GET(request: Request) {
 
   let query = admin
     .from("hsba_audits")
-    .select("id,department_id,record_reference,period,audited_by,audited_at,overall_result,status,audit_type,checklist_version_id")
+    .select("id,department_id,record_reference,period,discharge_date,audited_by,audited_at,overall_result,status,audit_type,checklist_version_id")
     .eq("organization_id", organizationId)
     .eq("audit_type", auditType)
     .order("audited_at", { ascending: false })
@@ -42,15 +47,36 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const departmentId = String(body.department_id || "").trim();
   const recordReference = String(body.record_reference || "").trim();
-  const period = String(body.period || "").trim();
   const auditType = normalizeInternalAuditType(body.audit_type);
   const checklistVersionId = String(body.checklist_version_id || "").trim();
   const results: Array<{ checklist_item_id?: string; result?: string; note?: string }> = Array.isArray(body.results) ? body.results : [];
+  const dischargeDateRaw = String(body.discharge_date || "").trim();
 
   if (!departmentId) return NextResponse.json({ error: "Chưa chọn khoa/phòng." }, { status: 400 });
   if (!recordReference) return NextResponse.json({ error: "Chưa nhập mã/số hồ sơ." }, { status: 400 });
-  if (!PERIOD_RE.test(period)) return NextResponse.json({ error: "Kỳ báo cáo không hợp lệ (định dạng YYYY-MM)." }, { status: 400 });
   if (!checklistVersionId) return NextResponse.json({ error: "Chưa chọn mẫu bảng kiểm." }, { status: 400 });
+
+  // HSBA: báo cáo tháng phải tính theo tháng hồ sơ RA VIỆN, không phải tháng
+  // thực hiện audit (audit thường làm sau khi bệnh nhân đã ra viện, có thể
+  // rơi sang tháng sau) — period luôn được suy ra từ discharge_date phía
+  // server, không nhận period do client tự gửi, để tránh 2 nguồn sự thật
+  // lệch nhau cho cùng một "hồ sơ thuộc tháng nào". Phác đồ điều trị/QTKT
+  // nội trú không gắn với ngày ra viện nên vẫn dùng period do client chọn.
+  let period: string;
+  let dischargeDate: string | null = null;
+  if (auditType === "HSBA") {
+    if (!DATE_RE.test(dischargeDateRaw) || Number.isNaN(Date.parse(dischargeDateRaw))) {
+      return NextResponse.json({ error: "Chưa nhập ngày ra viện hợp lệ." }, { status: 400 });
+    }
+    if (dischargeDateRaw > todayHcm()) {
+      return NextResponse.json({ error: "Ngày ra viện không được ở tương lai." }, { status: 400 });
+    }
+    dischargeDate = dischargeDateRaw;
+    period = dischargeDateRaw.slice(0, 7);
+  } else {
+    period = String(body.period || "").trim();
+    if (!PERIOD_RE.test(period)) return NextResponse.json({ error: "Kỳ báo cáo không hợp lệ (định dạng YYYY-MM)." }, { status: 400 });
+  }
   if (!results.length) return NextResponse.json({ error: "Chưa chấm tiêu chí nào." }, { status: 400 });
 
   const { data: version } = await admin
@@ -101,13 +127,14 @@ export async function POST(request: Request) {
       department_id: departmentId,
       record_reference: recordReference,
       period,
+      discharge_date: dischargeDate,
       audited_by: auth.user.id,
       overall_result: overallResult,
       status: "OPEN",
       audit_type: auditType,
       checklist_version_id: checklistVersionId,
     })
-    .select("id,department_id,record_reference,period,audited_by,audited_at,overall_result,status,audit_type,checklist_version_id")
+    .select("id,department_id,record_reference,period,discharge_date,audited_by,audited_at,overall_result,status,audit_type,checklist_version_id")
     .single();
   if (auditError) return NextResponse.json({ error: auditError.message }, { status: 400 });
 
@@ -145,7 +172,7 @@ export async function POST(request: Request) {
     table_name: "hsba_audits",
     row_id: audit.id,
     action_type: "HSBA_AUDIT_CREATE",
-    new_value: { audit_type: auditType, department_id: departmentId, record_reference: recordReference, period, overall_result: overallResult, item_count: normalizedResults.length, failed_count: failedResults.length, findings_created: auditType === "HSBA" ? findingCandidates.length : 0 },
+    new_value: { audit_type: auditType, department_id: departmentId, record_reference: recordReference, period, discharge_date: dischargeDate, overall_result: overallResult, item_count: normalizedResults.length, failed_count: failedResults.length, findings_created: auditType === "HSBA" ? findingCandidates.length : 0 },
     request_meta: { source: "qlcl-ui" },
   });
   if (auditLogError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditLogError.message}` }, { status: 500 });
