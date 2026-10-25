@@ -8,16 +8,17 @@ export default async function IncomingDocumentsPage() {
   const canManage = hasPermission(user, "incoming_documents.manage");
   const supabase = await createClient();
 
-  const [departmentsRes, documentsRes] = await Promise.all([
+  const [departmentsRes, documentsRes, profilesRes] = await Promise.all([
     supabase.from("departments").select("id,name").eq("is_active", true).order("name"),
     supabase
       .from("incoming_documents")
       .select(
-        "id,received_at,received_no,document_date,document_no,issuing_authority,summary,document_type,director_note,department_id,deployed_at,due_date,completed_at,completion_note,progress_feedback",
+        "id,received_at,received_no,document_date,document_no,issuing_authority,summary,document_type,director_note,department_id,deployed_at,due_date,completed_at,completion_note,progress_feedback,file_path,file_name",
       )
       .eq("organization_id", user.organizationId)
       .order("received_at", { ascending: false })
       .limit(300),
+    supabase.from("profiles").select("user_id,full_name,email,primary_department_id").eq("organization_id", user.organizationId).eq("is_active", true).order("full_name"),
   ]);
 
   // "Bút phê GĐ" trước đây là text tự do, không ai ký/ghi thời gian — không
@@ -50,6 +51,17 @@ export default async function IncomingDocumentsPage() {
     return { ...d, director_note_by: meta ? actorNameMap.get(meta.actorUserId) || null : null, director_note_at: meta ? meta.at : null };
   });
 
+  // "Tạo công việc từ văn bản" (chủ trì + phối hợp) — tải trước toàn bộ công
+  // việc của các công văn đang hiển thị trong cùng 1 truy vấn, nhóm lại theo
+  // incoming_document_id ở client, tránh N truy vấn khi mở từng dòng.
+  const tasksRes = documentIds.length
+    ? await supabase
+        .from("incoming_document_tasks")
+        .select("id,incoming_document_id,title,description,lead_user_id,collaborating_user_ids,due_date,completed_at,created_at")
+        .in("incoming_document_id", documentIds)
+        .order("created_at", { ascending: false })
+    : { data: [] as any[], error: null };
+
   return (
     <div className="page-stack incoming-documents-page">
       <PageHeader
@@ -60,6 +72,8 @@ export default async function IncomingDocumentsPage() {
       <IncomingDocumentsClient
         departments={(departmentsRes.data ?? []) as any}
         initialDocuments={documents as any}
+        profiles={(profilesRes.data ?? []) as any}
+        initialTasks={(tasksRes.data ?? []) as any}
         canManage={canManage}
       />
     </div>

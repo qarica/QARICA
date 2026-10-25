@@ -3,7 +3,7 @@ import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const SELECT_COLUMNS =
-  "id,received_at,received_no,document_date,document_no,issuing_authority,summary,document_type,director_note,department_id,deployed_at,due_date,completed_at,completion_note,progress_feedback";
+  "id,received_at,received_no,document_date,document_no,issuing_authority,summary,document_type,director_note,department_id,deployed_at,due_date,completed_at,completion_note,progress_feedback,file_path,file_name";
 
 export async function GET() {
   const auth = await requireApiPermission("incoming_documents.view");
@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       issuing_authority: issuingAuthority,
       summary,
       document_type: body.document_type ? String(body.document_type).trim() || null : null,
+      due_date: body.due_date || null,
       created_by: auth.user.id,
     })
     .select(SELECT_COLUMNS)
