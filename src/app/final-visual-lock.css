@@ -948,8 +948,8 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .incoming-doc-overview .doc-overview-kpis strong{font-size:25px;color:#12324d}
 .incoming-doc-overview .doc-intake-toggle{margin:0 12px 12px}
 .incoming-doc-overview .doc-view-tabs{display:flex;gap:7px;padding:0 12px 12px;overflow-x:auto}
-.incoming-doc-overview .doc-view-tabs button{border:1px solid #dce5ee;border-radius:999px;background:#fff;padding:9px 13px;white-space:nowrap;color:#475569;font-weight:600;cursor:pointer}
-.incoming-doc-overview .doc-view-tabs button.active{background:#123c66;color:white;border-color:#123c66}
+.incoming-doc-overview .doc-view-tabs button{border:1px solid var(--qf-line);border-radius:999px;background:#fff;padding:9px 13px;white-space:nowrap;color:var(--qf-muted);font-weight:700;font-size:12px;cursor:pointer}
+.incoming-doc-overview .doc-view-tabs button.active{background:var(--qf-blue);color:white;border-color:var(--qf-blue)}
 .incoming-doc-overview .doc-search{display:block;margin:0 12px 12px;width:calc(100% - 24px);box-sizing:border-box}
 @media(max-width:760px){.incoming-doc-overview .doc-overview-kpis{gap:7px}.incoming-doc-overview .doc-overview-kpis>div{padding:10px}.incoming-doc-overview .doc-overview-kpis small{font-size:11px}.incoming-doc-overview .doc-overview-kpis strong{font-size:22px}.incoming-doc-overview .doc-view-tabs{padding:0 10px 12px}.incoming-doc-overview .doc-search{font-size:16px}}
 
