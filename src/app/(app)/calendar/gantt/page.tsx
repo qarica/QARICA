@@ -134,7 +134,7 @@ export default async function QualityGanttPage(){
       .gantt-kind{font-size:8px;font-weight:900;border-radius:999px;padding:3px 6px;background:#eef2ff;color:#4338ca;flex:none}.gantt-kind.action{background:#eff6ff;color:#1d4ed8}
       .gantt-meta{font-size:9px;color:#718087;display:flex;gap:8px;flex-wrap:wrap}
       .gantt-track{position:relative;background-image:linear-gradient(to right,#e9eef1 1px,transparent 1px);background-size:calc(100% / 15) 100%;min-height:60px}
-      .gantt-bar{position:absolute;top:18px;height:24px;min-width:6px;border-radius:7px;background:#315f91;display:flex;align-items:center;padding:0 7px;color:#fff;font-size:8px;font-weight:800;overflow:hidden;white-space:nowrap}
+      .gantt-bar{position:absolute;top:18px;height:24px;min-width:6px;border-radius:7px;background:#315f91;display:flex;align-items:center;padding:0 7px;color:#fff;font-size:10px;font-weight:800;overflow:hidden;white-space:nowrap}
       .gantt-bar.plan{background:#365f4b}.gantt-bar.done{opacity:.55}.gantt-bar.single{width:8px!important;padding:0;border-radius:999px}
       .gantt-empty{padding:24px;text-align:center;color:#64748b}
       @media(max-width:760px){.gantt-head,.gantt-row{grid-template-columns:280px minmax(720px,1fr)}.gantt-label{padding:8px}.gantt-title a{font-size:10px}}
