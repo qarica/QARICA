@@ -94,12 +94,9 @@ export function IncomingDocumentsClient({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<Doc>>({});
 
-  // Tải lên PDF/DOCX để AI tự đọc & điền sẵn form — người dùng luôn kiểm
-  // tra/sửa trước khi bấm "Tiếp nhận"; file được giữ lại để đính kèm vào
-  // công văn ngay sau khi tạo thành công.
-  const [extractFile, setExtractFile] = useState<File | null>(null);
-  const [extracting, setExtracting] = useState(false);
-  const [extractWarnings, setExtractWarnings] = useState<string[]>([]);
+  // File PDF/DOCX gốc chọn kèm lúc tiếp nhận — đính kèm vào công văn ngay
+  // sau khi tạo thành công (không qua AI đọc).
+  const [attachFile, setAttachFile] = useState<File | null>(null);
 
   // "Tạo công việc từ văn bản" — 1 chủ trì + nhiều phối hợp, mở theo từng dòng công văn.
   const [tasks, setTasks] = useState(initialTasks);
@@ -123,31 +120,6 @@ export function IncomingDocumentsClient({
     const needle = query.trim().toLocaleLowerCase("vi");
     return !needle || [d.summary, d.issuing_authority, d.document_no, d.received_no, departmentName(d.department_id)].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(needle));
   });
-
-  async function extractFromFile() {
-    if (!extractFile) return;
-    setExtracting(true);
-    setError("");
-    setExtractWarnings([]);
-    try {
-      const formData = new FormData();
-      formData.append("file", extractFile);
-      const res = await fetch("/api/incoming-documents/extract", { method: "POST", body: formData });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "Không đọc được file.");
-      const fields = body.fields || {};
-      if (fields.summary) setSummary(fields.summary);
-      if (fields.issuing_authority) setIssuingAuthority(fields.issuing_authority);
-      if (fields.document_no) setDocumentNo(fields.document_no);
-      if (fields.document_type) setDocumentType(fields.document_type);
-      if (fields.due_date) setDueDate(fields.due_date);
-      setExtractWarnings(Array.isArray(body.warnings) ? body.warnings : []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không đọc được file.");
-    } finally {
-      setExtracting(false);
-    }
-  }
 
   async function submit() {
     if (!issuingAuthority.trim() || !summary.trim()) {
@@ -175,12 +147,12 @@ export function IncomingDocumentsClient({
       return;
     }
     const created = body.document as Doc;
-    if (extractFile) {
+    if (attachFile) {
       const formData = new FormData();
-      formData.append("file", extractFile);
+      formData.append("file", attachFile);
       const fileRes = await fetch(`/api/incoming-documents/${created.id}/file`, { method: "POST", body: formData });
       const fileBody = await fileRes.json().catch(() => ({}));
-      if (fileRes.ok) created.file_name = fileBody.file_name || extractFile.name;
+      if (fileRes.ok) created.file_name = fileBody.file_name || attachFile.name;
     }
     setBusy(false);
     setDocuments((v) => [created, ...v]);
@@ -189,8 +161,7 @@ export function IncomingDocumentsClient({
     setDocumentNo("");
     setDocumentType("");
     setDueDate("");
-    setExtractFile(null);
-    setExtractWarnings([]);
+    setAttachFile(null);
   }
 
   async function viewFile(doc: Doc) {
@@ -321,23 +292,15 @@ export function IncomingDocumentsClient({
           </div>
           <button type="button" className="button secondary doc-intake-toggle" aria-expanded={showIntake} onClick={() => setShowIntake((v) => !v)}>{showIntake ? "Thu gọn biểu mẫu" : "+ Tiếp nhận công văn"}</button>
           <div className={showIntake ? "doc-form mobile-collapsible-form is-open" : "doc-form mobile-collapsible-form"}>
-            <div className="doc-ai-upload">
+            <label className="doc-task-field">
+              <span>Đính kèm file gốc (PDF/DOCX, không bắt buộc)</span>
               <input
                 className="input"
                 type="file"
                 accept=".pdf,.docx"
-                onChange={(e) => { setExtractFile(e.target.files?.[0] || null); setExtractWarnings([]); }}
+                onChange={(e) => setAttachFile(e.target.files?.[0] || null)}
               />
-              <button type="button" className="button secondary" disabled={!extractFile || extracting} onClick={() => void extractFromFile()}>
-                {extracting ? "Đang đọc..." : "Đọc và điền thông tin"}
-              </button>
-            </div>
-            <p className="subline">Tải lên PDF/DOCX (tối đa 10 MB) để AI tự điền các ô bên dưới — bạn vẫn cần kiểm tra/sửa trước khi tiếp nhận.</p>
-            {extractWarnings.length ? (
-              <div className="alert warning">
-                {extractWarnings.map((w, i) => <div key={i}>{w}</div>)}
-              </div>
-            ) : null}
+            </label>
             <input className="input" placeholder="Trích yếu nội dung..." value={summary} onChange={(e) => setSummary(e.target.value)} />
             <div className="doc-form-row">
               <input className="input" type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />
@@ -576,15 +539,6 @@ export function IncomingDocumentsClient({
           gap: 6px;
           flex-wrap: wrap;
           align-items: center;
-        }
-        .doc-ai-upload {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          align-items: center;
-        }
-        .doc-ai-upload .input {
-          flex: 1 1 220px;
         }
         .doc-file-link {
           border: 0;
