@@ -366,7 +366,7 @@ export function FiveSChecklistRunClient({ templateId, versionId, templateCode, s
         <div className="scope-note"><strong>Người giám sát:</strong> {assessorName || "Tài khoản đang đăng nhập"}. Nếu có Không đạt, thời điểm báo được ghi tự động lúc lưu và hạn kiểm tra lại = +05 phút.</div>
       </div>
 
-      <div className="five-s-desktop table-wrap"><table style={{ fontSize: 13.5 }}><thead><tr><th style={{ width: 54 }}>#</th><th style={{ minWidth: 120 }}>Tiêu chuẩn</th><th style={{ minWidth: 300 }}>Nội dung</th><th style={{ width: 72, textAlign: "center" }}>Đạt</th><th style={{ width: 90, textAlign: "center" }}>Không đạt</th><th style={{ width: 64, textAlign: "center" }}>/</th><th style={{ minWidth: 300 }}>Ghi chú / Hình ảnh</th></tr></thead><tbody>
+      <div className="five-s-desktop table-wrap"><table style={{ fontSize:14 }}><thead><tr><th style={{ width: 54 }}>#</th><th style={{ minWidth: 120 }}>Tiêu chuẩn</th><th style={{ minWidth: 300 }}>Nội dung</th><th style={{ width: 72, textAlign: "center" }}>Đạt</th><th style={{ width: 90, textAlign: "center" }}>Không đạt</th><th style={{ width: 64, textAlign: "center" }}>/</th><th style={{ minWidth: 300 }}>Ghi chú / Hình ảnh</th></tr></thead><tbody>
         {items.map((item, index) => {
           const value = results[item.id] || "";
           return <tr data-validation-target={`item-${item.id}`} key={item.id}><td>{index + 1}</td><td><strong>{item.sectionTitle}</strong></td><td style={{ lineHeight: 1.5 }}>{item.content.split("\n").map((line, i) => <div key={i}>{line}</div>)}</td>

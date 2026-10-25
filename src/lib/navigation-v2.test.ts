@@ -337,10 +337,10 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain(".nav-group.active-context>.nav-group-header{");
     // .workspace-app.workspace-app doubles specificity so these always win,
     // regardless of stylesheet load order against other files' `.nav-link{color:...!important}` rules
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-header,\.workspace-app\.workspace-app \.nav-group-label\{color:#1e3a8a!important;font-weight:800!important;font-size:13\.5px!important/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-header,\.workspace-app\.workspace-app \.nav-group-label\{color:#1e3a8a!important;font-weight:800!important;font-size:14px!important/);
     expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link,\.workspace-app\.workspace-app \.nav-child-link \.nav-link-label\{color:#1e3a8a!important;font-weight:600!important;font-size:12px!important\}/);
-    // parent (13.5px/800) must be strictly bolder AND larger than child (12px/600)
-    expect(13.5).toBeGreaterThan(12);
+    // parent (14px/800) must be strictly bolder AND larger than child (12px/600)
+    expect(14).toBeGreaterThan(12);
     expect(800).toBeGreaterThan(600);
   });
 
@@ -367,8 +367,8 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain("asGroupLink ? `nav-link nav-group-link");
   });
 
-  it("a promoted single-child link reads as Level 1 (bold navy, 13.5px/800), not Level 2 (lighter-weight navy, 12px/600)", () => {
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#1e3a8a!important;font-weight:800!important;font-size:13\.5px!important;margin:6px 10px!important\}/);
+  it("a promoted single-child link reads as Level 1 (bold navy, 14px/800), not Level 2 (lighter-weight navy, 12px/600)", () => {
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#1e3a8a!important;font-weight:800!important;font-size:14px!important;margin:6px 10px!important\}/);
   });
 
   it("survives qms-enterprise-redesign.css's competing !important .nav-link{margin:2px 6px} and generic .nav-icon{width:27px;height:27px} rules — a second real collision found via real-device screenshots after the first fix (colors only) still left EMR/Cấu hình hệ thống visually indistinguishable from a child row, because their margin and icon size were still being silently overridden", () => {

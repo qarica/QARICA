@@ -219,7 +219,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
         .plan-detail-page .page-header .button{min-height:40px!important}
         .plan-detail-page .kpi-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
         .plan-detail-page .kpi-card{min-height:90px!important;padding:11px!important}
-        .plan-detail-page .kpi-card>span{font-size:10px!important}.plan-detail-page .kpi-card>strong{font-size:24px!important}.plan-detail-page .kpi-card>small{font-size:9.5px!important;line-height:1.25!important}
+        .plan-detail-page .kpi-card>span{font-size:10px!important}.plan-detail-page .kpi-card>strong{font-size:24px!important}.plan-detail-page .kpi-card>small{font-size:10px!important;line-height:1.25!important}
         .plan-detail-page .chart-grid{grid-template-columns:1fr!important;gap:10px!important}
         .plan-detail-page .panel{border-radius:16px!important;overflow:visible!important}
         .plan-detail-page .panel-title{padding:14px!important;gap:10px!important;align-items:flex-start!important;flex-wrap:wrap!important}.plan-detail-page .panel-title h2{font-size:18px!important}.plan-detail-page .panel-title p{font-size:12px!important;line-height:1.4!important}

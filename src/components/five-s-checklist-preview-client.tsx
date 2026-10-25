@@ -146,9 +146,9 @@ export function FiveSChecklistPreviewClient({
     </div>
 
     <div className="table-wrap">
-      <table style={{ fontSize: 13.5 }}>
+      <table style={{ fontSize:14 }}>
         <thead>
-          <tr><th style={{ width: 54, fontSize: 12.5 }}>#</th><th style={{ minWidth: 130, fontSize: 12.5 }}>Tiêu chuẩn</th><th style={{ minWidth: 330, fontSize: 12.5 }}>Nội dung</th><th style={{ width: 80, textAlign: "center", fontSize: 12.5 }}>Đạt</th><th style={{ width: 100, textAlign: "center", fontSize: 12.5 }}>Không đạt</th><th style={{ width: 74, textAlign: "center", fontSize: 12.5 }}>/</th><th style={{ minWidth: 220, fontSize: 12.5 }}>Ghi chú</th></tr>
+          <tr><th style={{ width: 54, fontSize:13 }}>#</th><th style={{ minWidth: 130, fontSize:13 }}>Tiêu chuẩn</th><th style={{ minWidth: 330, fontSize:13 }}>Nội dung</th><th style={{ width: 80, textAlign: "center", fontSize:13 }}>Đạt</th><th style={{ width: 100, textAlign: "center", fontSize:13 }}>Không đạt</th><th style={{ width: 74, textAlign: "center", fontSize:13 }}>/</th><th style={{ minWidth: 220, fontSize:13 }}>Ghi chú</th></tr>
         </thead>
         <tbody>
           {items.map((item, index) => {

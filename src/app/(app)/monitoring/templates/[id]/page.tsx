@@ -92,7 +92,7 @@ export default async function ChecklistTemplatePage({ params }: { params: Promis
       .monitoring-template-shell .template-title-row h1{font-size:27px;line-height:1.16;letter-spacing:-.025em;margin:3px 0 5px}
       .monitoring-template-shell .template-description{margin:0;color:#66747a;font-size:12px;line-height:1.5;max-width:760px}
       .monitoring-template-shell .template-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:13px}
-      .monitoring-template-shell .template-meta span{padding:5px 8px;border-radius:999px;background:#fff;border:1px solid #dce7e6;color:#536269;font-size:10.5px;font-weight:700}
+      .monitoring-template-shell .template-meta span{padding:5px 8px;border-radius:999px;background:#fff;border:1px solid #dce7e6;color:#536269;font-size:11px;font-weight:700}
       .monitoring-template-shell .template-side{position:relative;z-index:1;align-self:stretch;border:1px solid #dce7e5;background:rgba(255,255,255,.82);border-radius:16px;padding:13px;display:flex;flex-direction:column;justify-content:space-between;gap:12px}
       .monitoring-template-shell .template-side small{display:block;color:#7a898e;font-size:9px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;margin-bottom:5px}
       .monitoring-template-shell .template-side strong{font-size:12px;line-height:1.4}
@@ -105,9 +105,9 @@ export default async function ChecklistTemplatePage({ params }: { params: Promis
       .monitoring-template-shell .panel-title p{font-size:11px!important;line-height:1.45!important;margin-top:4px!important}
       .monitoring-template-shell .scope-note{border:1px solid #d8e7e4!important;background:#f4faf8!important;border-radius:13px!important;padding:10px 12px!important;font-size:11px!important;line-height:1.45!important;color:#4f6462!important}
       .monitoring-template-shell table th{background:#f7f9fa!important;font-size:9px!important;letter-spacing:.04em;color:#69777d!important}
-      .monitoring-template-shell table td{padding:10px 12px!important;font-size:11.5px!important}
+      .monitoring-template-shell table td{padding:10px 12px!important;font-size:12px!important}
       .monitoring-template-shell tbody tr:hover{background:#f7fbfa!important}
-      .monitoring-template-shell .status-badge{font-size:9.5px!important;padding:4px 7px!important}
+      .monitoring-template-shell .status-badge{font-size:10px!important;padding:4px 7px!important}
       .monitoring-template-shell .button{border-radius:9px!important}
       .monitoring-template-shell .eyebrow{font-size:9px!important;letter-spacing:.12em!important}
       .monitoring-template-shell section.panel:has(.panel-title .eyebrow){border-left:3px solid #9ac7c2}

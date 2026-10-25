@@ -55,7 +55,7 @@ export function Preset5SCreateClient({ departments, canManage }: { departments: 
       <div className="preset5s-copy">
         <div className="eyebrow">MẪU CHUẨN · BK01.V1_QLCL.QĐ.06</div>
         <h2>Bảng kiểm 5S · Khu vực bên ngoài bệnh viện</h2>
-        <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.35 }}>Mẫu số hóa từ biểu mẫu nguồn, sẵn sàng mở để quản lý phiên bản hoặc tạo đợt giám sát.</div>
+        <div className="muted" style={{ fontSize:12, lineHeight: 1.35 }}>Mẫu số hóa từ biểu mẫu nguồn, sẵn sàng mở để quản lý phiên bản hoặc tạo đợt giám sát.</div>
         <div className="preset5s-meta"><span>05 tiêu chuẩn</span><span>10 tiêu chí</span><span>08 khu vực + Khác</span><span>Đạt · Không đạt · “/”</span></div>
       </div>
       <div className="preset5s-controls">

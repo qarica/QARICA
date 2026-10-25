@@ -906,7 +906,7 @@ export function PlanComposerClient({
                       </label>
                     ))}
                   </div>
-                  {task.criteria_refs.length ? <div style={{ marginTop: 4, fontSize: 11.5, color: "#0f766e" }}>Đã chọn: {task.criteria_refs.join(", ")}</div> : null}
+                  {task.criteria_refs.length ? <div style={{ marginTop: 4, fontSize:12, color: "#0f766e" }}>Đã chọn: {task.criteria_refs.join(", ")}</div> : null}
                 </div> : null}
               </div>
             </div>

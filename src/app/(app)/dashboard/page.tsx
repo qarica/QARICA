@@ -251,7 +251,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .kpi-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
       .qcc-dashboard .kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}
       .qcc-dashboard .kpi-icon.blue{background:#dbeafe;color:#2563eb}.qcc-dashboard .kpi-icon.green{background:#dcfce7;color:#16a34a}.qcc-dashboard .kpi-icon.amber{background:#fef3c7;color:#b45309}.qcc-dashboard .kpi-icon.red{background:#fee2e2;color:#dc2626}.qcc-dashboard .kpi-icon.purple{background:#ede9fe;color:#7c3aed}
-      .qcc-dashboard .kpi-title{font-size:12.5px;color:#475569;font-weight:600;margin-top:2px}
+      .qcc-dashboard .kpi-title{font-size:13px;color:#475569;font-weight:600;margin-top:2px}
       .qcc-dashboard .kpi-value{font-size:26px;font-weight:800;color:#0f172a}
       .qcc-dashboard .quick-links{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:16px}
       .qcc-dashboard .quick-link{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:12px 6px;border-radius:12px;color:#334155;font-size:11px;font-weight:700}
@@ -265,9 +265,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .capa-stat{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
       .qcc-dashboard .capa-stat-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center}
       .qcc-dashboard .capa-stat strong{font-size:20px;display:block}
-      .qcc-dashboard .capa-stat span{font-size:10.5px;color:#64748b}
+      .qcc-dashboard .capa-stat span{font-size:11px;color:#64748b}
       .qcc-dashboard .compliance-rows{display:grid;gap:12px;padding:14px 18px 18px}
-      .qcc-dashboard .compliance-row{display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:8px;font-size:11.5px;color:#334155}
+      .qcc-dashboard .compliance-row{display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:8px;font-size:12px;color:#334155}
       .qcc-dashboard .compliance-row .bar-track{grid-column:1/-1;height:6px;background:#eef2f6;border-radius:99px;overflow:hidden}
       .qcc-dashboard .compliance-row .bar-track i{display:block;height:100%;background:#1E3A8A;border-radius:99px}
       @media(max-width:1100px){.qcc-dashboard .grid2b,.qcc-dashboard .grid3b{grid-template-columns:1fr}}
@@ -294,7 +294,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .alert-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;border:1px solid #eef2f7;border-radius:12px;padding:12px}
       .qcc-dashboard .alert-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 34px}
       .qcc-dashboard .alert-icon.red{background:#fef2f2;color:#dc2626}.qcc-dashboard .alert-icon.amber{background:#fffbeb;color:#d97706}.qcc-dashboard .alert-icon.purple{background:#f5f3ff;color:#7c3aed}.qcc-dashboard .alert-icon.blue{background:#eff6ff;color:#2563eb}
-      .qcc-dashboard .alert-row strong{display:block;font-size:12.5px}
+      .qcc-dashboard .alert-row strong{display:block;font-size:13px}
       .qcc-dashboard .alert-row small{color:#94a3b8;font-size:11px}
       .qcc-dashboard .alert-when{font-size:11px;color:#94a3b8;white-space:nowrap}
       @media(max-width:1100px){.qcc-dashboard .kpis{grid-template-columns:repeat(2,1fr)}.qcc-dashboard .grid2{grid-template-columns:1fr}}

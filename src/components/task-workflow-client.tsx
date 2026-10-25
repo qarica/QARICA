@@ -227,7 +227,7 @@ export function TaskWorkflowClient({
         </span>
         <span style={{ display: "flex", flexDirection: "column", gap: 1, lineHeight: 1.25 }}>
           <strong style={{ fontSize: 13, letterSpacing: ".01em" }}>{departmentExecutionId ? "PHẦN VIỆC CỦA KHOA/PHÒNG ĐÃ HOÀN THÀNH" : "NHIỆM VỤ ĐÃ HOÀN THÀNH"}</strong>
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: "#15803d" }}>
+          <span style={{ fontSize:12, fontWeight: 600, color: "#15803d" }}>
             Đã xác minh · {evidenceCount} minh chứng
           </span>
         </span>

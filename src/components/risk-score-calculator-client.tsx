@@ -58,7 +58,7 @@ export function RiskScoreCalculatorClient({ scales = BUILT_IN_RISK_SCALES }: { s
       .rsc-factor{border:1px solid #e4eaec;border-radius:13px;padding:12px}
       .rsc-factor strong{display:block;font-size:12px;margin-bottom:8px}
       .rsc-options{display:grid;gap:6px}
-      .rsc-options label{display:flex;gap:7px;align-items:center;font-size:11.5px;color:#3a4a50}
+      .rsc-options label{display:flex;gap:7px;align-items:center;font-size:12px;color:#3a4a50}
       .rsc-options input{width:auto;min-height:0;margin:0;flex:0 0 auto}
       .rsc-result{border:1px solid #e4eaec;border-radius:15px;padding:16px 18px;display:grid;gap:10px}
       .rsc-result.red{border-color:#f2c7cc;background:#fffafb}
@@ -71,9 +71,9 @@ export function RiskScoreCalculatorClient({ scales = BUILT_IN_RISK_SCALES }: { s
       .rsc-badge.amber{background:#fff7e6;color:#92400e}
       .rsc-badge.green{background:#eaf7ef;color:#166534}
       .rsc-interventions{margin:0;padding-left:18px;font-size:12px;color:#3a4a50;display:grid;gap:4px}
-      .rsc-missing{font-size:11.5px;color:#92400e}
+      .rsc-missing{font-size:12px;color:#92400e}
       .rsc-actions{display:flex;gap:10px;align-items:center}
-      .rsc-note{font-size:10.5px;color:#8a969b}
+      .rsc-note{font-size:11px;color:#8a969b}
     `}</style>
     <div className="rsc-wrap">
       <div className="rsc-picker">

@@ -189,8 +189,8 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .top-search-item{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;padding:10px 14px;border:0;border-bottom:1px solid #f1f5f9;background:#fff;cursor:pointer}
       .workspace-app .top-search-item:hover{background:#f8fafc}
       .workspace-app .top-search-item-label{font-size:10px;font-weight:800;color:#1E3A8A;text-transform:uppercase}
-      .workspace-app .top-search-item strong{font-size:12.5px;color:#0f172a;font-weight:600}
-      .workspace-app .top-search-empty{padding:14px;font-size:12.5px;color:#94a3b8;text-align:center}
+      .workspace-app .top-search-item strong{font-size:13px;color:#0f172a;font-weight:600}
+      .workspace-app .top-search-empty{padding:14px;font-size:13px;color:#94a3b8;text-align:center}
       .workspace-app .assistant-topbar{border:1px solid #dbe4f0;background:#f8fafc;color:#1E3A8A;border-radius:14px;padding:9px 13px;gap:8px;transition:.2s;box-shadow:none}
       .workspace-app .assistant-topbar:hover,.workspace-app .assistant-topbar.active{background:#EEF2FF;border-color:#C7D2FE;color:#172554;transform:translateY(-1px)}
       .workspace-app .assistant-attention-badge{display:none}
@@ -207,7 +207,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .brand-mark img{width:40px;height:40px;display:block}
       .workspace-app .sidebar-brand-copy strong{color:#0f172a;font-size:16px;font-weight:900}
       .workspace-app .sidebar-brand-copy span{color:#64748b;font-size:10px}
-      .workspace-app .nav-label{color:#94a3b8;font-size:10.5px;font-weight:800;letter-spacing:.06em;padding:14px 18px 6px}
+      .workspace-app .nav-label{color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:.06em;padding:14px 18px 6px}
       .workspace-app .nav-link{position:relative;border-radius:10px;margin:2px 10px;padding:9px 12px;color:#475569;border:1px solid transparent;box-shadow:none;font-weight:600;font-size:13px}
       .workspace-app .nav-link:hover{background:#f8fafc;border-color:#eef2f7;color:#0f172a}
       .workspace-app .nav-link.active{background:#EEF2FF;border-color:#C7D2FE;color:#172554;font-weight:800;box-shadow:none}
@@ -224,7 +224,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .nav-group-chevron.expanded{transform:rotate(0deg)}
       .workspace-app .nav-group-children{display:flex;flex-direction:column;padding-bottom:4px}
       .workspace-app .nav-group-flyout{display:none}
-      .workspace-app .nav-group-flyout-title{padding:6px 10px 8px;font-size:10.5px;font-weight:800;letter-spacing:.06em;color:#94a3b8;text-transform:uppercase}
+      .workspace-app .nav-group-flyout-title{padding:6px 10px 8px;font-size:11px;font-weight:800;letter-spacing:.06em;color:#94a3b8;text-transform:uppercase}
       .workspace-app .nav-child-link{margin:1px 10px 1px 26px;padding:7px 10px}
       .workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px}
       /* Level-1 (group header / single-child promoted link) vs Level-2 (child)
@@ -247,9 +247,9 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          intended margin/icon-size — which is exactly why EMR read as visually
          indistinguishable from a child row: neither the wider group-link
          margin nor the smaller child-icon size was ever actually applied. */
-      .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#1e3a8a!important;font-weight:800!important;font-size:13.5px!important;letter-spacing:.01em}
+      .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#1e3a8a!important;font-weight:800!important;font-size:14px!important;letter-spacing:.01em}
       .workspace-app.workspace-app .nav-group.active-context>.nav-group-header,.workspace-app.workspace-app .nav-group.active-context>.nav-group-header .nav-group-label{color:#172554!important}
-      .workspace-app.workspace-app .nav-group-link{color:#1e3a8a!important;font-weight:800!important;font-size:13.5px!important;margin:6px 10px!important}
+      .workspace-app.workspace-app .nav-group-link{color:#1e3a8a!important;font-weight:800!important;font-size:14px!important;margin:6px 10px!important}
       /* brand-overrides.css's generic .nav-link-label{overflow:hidden;
          text-overflow:ellipsis;white-space:nowrap} truncates a promoted
          single-child group's label the same as a real (level-2) child link —
@@ -304,7 +304,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .nav-footer-divider{height:1px;background:#eef2f7;margin:10px 14px}
       .workspace-app .sidebar-nav{padding-bottom:110px}
       .workspace-app .scope-chip{color:#64748b;font-size:11px;margin-bottom:8px}
-      .workspace-app .sidebar-collapse-text{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:#64748b;font-size:12.5px;font-weight:700;padding:6px 4px;cursor:pointer;border-radius:8px}
+      .workspace-app .sidebar-collapse-text{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:#64748b;font-size:13px;font-weight:700;padding:6px 4px;cursor:pointer;border-radius:8px}
       .workspace-app .sidebar-collapse-text:hover{background:#f8fafc;color:#0f172a}
       .workspace-app .workspace-strip{background:#fff;border-bottom:1px solid #e5eaf2}
       .workspace-app .workspace-tab{border-radius:10px;color:#64748b}

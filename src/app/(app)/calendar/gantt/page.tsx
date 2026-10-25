@@ -131,7 +131,7 @@ export default async function QualityGanttPage(){
       .gantt-row{border-bottom:1px solid #edf1f3;min-height:60px}.gantt-row:last-child{border-bottom:0}
       .gantt-label{padding:9px 12px;display:grid;gap:3px;align-content:center}
       .gantt-title{display:flex;align-items:center;gap:7px;min-width:0}.gantt-title a{font-size:11px;font-weight:800;color:#1e3a5f;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .gantt-kind{font-size:8px;font-weight:900;border-radius:999px;padding:3px 6px;background:#eef2ff;color:#4338ca;flex:none}.gantt-kind.action{background:#eff6ff;color:#1d4ed8}
+      .gantt-kind{font-size:9px;font-weight:900;border-radius:999px;padding:3px 6px;background:#eef2ff;color:#4338ca;flex:none}.gantt-kind.action{background:#eff6ff;color:#1d4ed8}
       .gantt-meta{font-size:9px;color:#718087;display:flex;gap:8px;flex-wrap:wrap}
       .gantt-track{position:relative;background-image:linear-gradient(to right,#e9eef1 1px,transparent 1px);background-size:calc(100% / 15) 100%;min-height:60px}
       .gantt-bar{position:absolute;top:18px;height:24px;min-width:6px;border-radius:7px;background:#315f91;display:flex;align-items:center;padding:0 7px;color:#fff;font-size:10px;font-weight:800;overflow:hidden;white-space:nowrap}

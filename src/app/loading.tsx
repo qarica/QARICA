@@ -34,7 +34,7 @@ export default function RootLoading() {
       </svg>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
         <strong style={{ fontSize: 26, fontWeight: 800, letterSpacing: "0.02em", color: "#0b1e46" }}>QARICA</strong>
-        <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.22em", color: "#5b6b82", textTransform: "uppercase" }}>
+        <span style={{ fontSize:12, fontWeight: 700, letterSpacing: "0.22em", color: "#5b6b82", textTransform: "uppercase" }}>
           Quality · Safety · Improvement
         </span>
       </div>

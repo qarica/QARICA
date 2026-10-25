@@ -72,17 +72,17 @@ export default async function PlanPrintPage({ params }: { params: Promise<{ id: 
       .ppr-letterhead{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center;margin-bottom:6px}
       .ppr-letterhead .org{font-weight:800;text-transform:uppercase;font-size:13px}.ppr-letterhead .org small{display:block;font-weight:600;font-size:12px;margin-top:2px}
       .ppr-letterhead .nation{font-weight:800;font-size:13px}.ppr-letterhead .nation .slogan{font-weight:700;text-decoration:underline;margin-top:2px;font-size:13px}
-      .ppr-code{text-align:center;font-style:italic;font-size:12.5px;margin:2px 0 18px}
+      .ppr-code{text-align:center;font-style:italic;font-size:13px;margin:2px 0 18px}
       .ppr-title{text-align:center;margin:6px 0 4px}.ppr-title h1{font-size:19px;font-weight:800;text-transform:uppercase;margin:0}.ppr-title h2{font-size:16px;font-weight:800;text-transform:uppercase;margin:4px 0 0}
-      .ppr-meta{text-align:center;font-size:12.5px;color:#334155;margin-bottom:20px}
-      .ppr-section{margin:14px 0;break-inside:avoid;font-size:13px;line-height:1.6}.ppr-section h3{font-size:13.5px;font-weight:800;margin:0 0 6px;text-transform:uppercase}
+      .ppr-meta{text-align:center;font-size:13px;color:#334155;margin-bottom:20px}
+      .ppr-section{margin:14px 0;break-inside:avoid;font-size:13px;line-height:1.6}.ppr-section h3{font-size:14px;font-weight:800;margin:0 0 6px;text-transform:uppercase}
       .ppr-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid #d7dee8;border-bottom:0;font-family:Arial,sans-serif;font-size:12px}
       .ppr-row{display:grid;grid-template-columns:150px 1fr;min-height:36px;border-bottom:1px solid #d7dee8}.ppr-row:nth-child(odd){border-right:1px solid #d7dee8}.ppr-row.wide{grid-column:1/-1;border-right:0}
       .ppr-row span{padding:8px;background:#f8fafc;color:#475569;border-right:1px solid #d7dee8}.ppr-row strong{padding:8px;white-space:pre-wrap;font-weight:650}
       .ppr-list{margin:6px 0 0;padding-left:22px}.ppr-list li{margin-bottom:4px}
       .ppr-table{width:100%;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;margin-top:6px}.ppr-table th,.ppr-table td{border:1px solid #d7dee8;padding:6px;text-align:left;vertical-align:top;white-space:pre-wrap}.ppr-table th{background:#f8fafc}
-      .ppr-sign{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:34px;font-size:12.5px;text-align:center}
-      .ppr-sign .box{min-height:120px}.ppr-sign .role{font-weight:800;text-transform:uppercase}.ppr-sign .hint{font-style:italic;color:#475569;font-size:11.5px;margin-top:2px}
+      .ppr-sign{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:34px;font-size:13px;text-align:center}
+      .ppr-sign .box{min-height:120px}.ppr-sign .role{font-weight:800;text-transform:uppercase}.ppr-sign .hint{font-style:italic;color:#475569;font-size:12px;margin-top:2px}
       .ppr-note{font-size:10px;color:#64748b;line-height:1.45;margin-top:20px;font-family:Arial,sans-serif}
       .ppr-footer{margin-top:10px;padding-top:8px;border-top:1px solid #cbd5e1;display:flex;justify-content:space-between;font-size:10px;color:#64748b;font-family:Arial,sans-serif}
       @media(max-width:760px){.plan-print-page{padding:15px}.ppr-letterhead{grid-template-columns:1fr}.ppr-grid{grid-template-columns:1fr}.ppr-row:nth-child(odd){border-right:0}.ppr-row{grid-template-columns:125px 1fr}.ppr-sign{grid-template-columns:1fr}}
