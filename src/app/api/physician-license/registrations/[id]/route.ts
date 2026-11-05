@@ -16,7 +16,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { data: current, error: currentError } = await admin
     .from("physician_license_registrations")
-    .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status")
+    .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status,credential_id")
     .eq("id", id)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -30,7 +30,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .update({ status: "REGISTERED", registered_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", id)
       .eq("organization_id", organizationId)
-      .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status,registered_at,notes")
+      .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status,registered_at,notes,credential_id")
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true, registration: data });
@@ -55,6 +55,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { data: dept } = await admin.from("departments").select("id").eq("id", departmentId).eq("organization_id", organizationId).eq("is_active", true).maybeSingle();
     if (!dept) return NextResponse.json({ error: "Khoa/phòng không hợp lệ." }, { status: 400 });
 
+    let credentialId: string | null | undefined = undefined;
+    if (body.credential_id !== undefined) {
+      credentialId = body.credential_id ? String(body.credential_id).trim() : null;
+      if (credentialId) {
+        const { data: credential, error: credentialError } = await admin.from("practitioner_credentials").select("id").eq("id", credentialId).eq("organization_id", organizationId).maybeSingle();
+        if (credentialError) return NextResponse.json({ error: credentialError.message }, { status: 400 });
+        if (!credential) return NextResponse.json({ error: "Hồ sơ năng lực hành nghề liên kết không hợp lệ." }, { status: 400 });
+      }
+    }
+
     const deadline = computeDeadline(effectiveDate, roleType, caseType);
 
     const { data, error } = await admin
@@ -68,12 +78,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         effective_date: effectiveDate,
         deadline,
         notes: body.notes !== undefined ? (String(body.notes).trim() || null) : undefined,
+        credential_id: credentialId,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
       .eq("organization_id", organizationId)
       .eq("status", "PENDING")
-      .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status,registered_at,notes")
+      .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status,registered_at,notes,credential_id")
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true, registration: data });

@@ -40,15 +40,15 @@ describe("buildAssignmentDecisionDraft", () => {
     expect(text).toContain("BS CK II Phạm M");
   });
 
-  it("includes scope adjustment with its decision reference when provided", () => {
-    const text = buildAssignmentDecisionDraft({
-      full_name: "Nguyễn Thị B",
-      scope_adjustment_text: "Tai Mũi Họng",
-      scope_adjustment_decision_no: "2436/QĐ-SYT",
-      scope_adjustment_decision_at: "2025-12-02",
-      scope_adjustment_issued_by: "Sở Y tế tỉnh Vĩnh Long",
-    });
-    expect(text).toContain("- Phạm vi bổ sung/điều chỉnh: Tai Mũi Họng (theo QĐ số 2436/QĐ-SYT ngày 02/12/2025 của Sở Y tế tỉnh Vĩnh Long)");
+  // Phạm vi bổ sung/điều chỉnh chỉ còn 1 nguồn duy nhất: bảng con documents
+  // (document_type='SCOPE_ADJUSTMENT'), không còn cột phẳng trùng lặp trên
+  // chính credential (đã dọn ở migration 20261118000000) — cho phép nhiều
+  // lần bổ sung theo thời gian thay vì chỉ giữ được 1 bản ghi "hiện tại".
+  it("lists every SCOPE_ADJUSTMENT document with its decision reference (the only source now, not a duplicated flat field on the credential)", () => {
+    const text = buildAssignmentDecisionDraft({ full_name: "Nguyễn Thị B" }, [
+      { document_type: "SCOPE_ADJUSTMENT", title: "Tai Mũi Họng", document_no: "2436/QĐ-SYT", issued_at: "2025-12-02", issued_by: "Sở Y tế tỉnh Vĩnh Long" },
+    ]);
+    expect(text).toContain("- Phạm vi bổ sung theo quyết định: Tai Mũi Họng (QĐ số 2436/QĐ-SYT ngày 02/12/2025 của Sở Y tế tỉnh Vĩnh Long)");
   });
 
   it("lists every CERTIFICATE document (not hard-coded to 2, unlike the source spreadsheet's Chứng chỉ 1/Chứng chỉ 2 columns)", () => {

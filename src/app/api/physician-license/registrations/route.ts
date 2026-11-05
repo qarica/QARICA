@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   const status = new URL(request.url).searchParams.get("status");
   let query = admin
     .from("physician_license_registrations")
-    .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status,registered_at,notes")
+    .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status,registered_at,notes,credential_id")
     .eq("organization_id", organizationId)
     .order("deadline", { ascending: true })
     .limit(300);
@@ -56,6 +56,17 @@ export async function POST(request: Request) {
   if (!roleType) return NextResponse.json({ error: "Chưa chọn vai trò (GĐTT/TK hoặc BS)." }, { status: 400 });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) return NextResponse.json({ error: "Ngày hiệu lực không hợp lệ." }, { status: 400 });
 
+  // Liên kết tuỳ chọn tới hồ sơ năng lực hành nghề (practitioner_credentials)
+  // của đúng người này nếu đã khai báo — 2 bảng khác nghiệp vụ (đăng ký cổng
+  // SYT/BHYT vs. hồ sơ GPHN/văn bằng/chứng chỉ) nhưng cùng 1 người thì nên
+  // tra cứu chéo được thay vì chỉ gộp chung ở menu.
+  const credentialId = body.credential_id ? String(body.credential_id).trim() : null;
+  if (credentialId) {
+    const { data: credential, error: credentialError } = await admin.from("practitioner_credentials").select("id").eq("id", credentialId).eq("organization_id", organizationId).maybeSingle();
+    if (credentialError) return NextResponse.json({ error: credentialError.message }, { status: 400 });
+    if (!credential) return NextResponse.json({ error: "Hồ sơ năng lực hành nghề liên kết không hợp lệ." }, { status: 400 });
+  }
+
   const deadline = computeDeadline(effectiveDate, roleType, caseType);
 
   const { data, error } = await admin
@@ -71,9 +82,10 @@ export async function POST(request: Request) {
       deadline,
       status: "PENDING",
       notes: body.notes ? String(body.notes).trim() || null : null,
+      credential_id: credentialId,
       created_by: auth.user.id,
     })
-    .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status,registered_at,notes")
+    .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status,registered_at,notes,credential_id")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true, registration: data });

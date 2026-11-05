@@ -20,10 +20,6 @@ export type PractitionerCredential = {
   professional_title?: string | null;
   display_title?: string | null;
   scope_of_practice?: string | null;
-  scope_adjustment_text?: string | null;
-  scope_adjustment_decision_no?: string | null;
-  scope_adjustment_decision_at?: string | null;
-  scope_adjustment_issued_by?: string | null;
   proposed_technique?: string | null;
   decision_no?: string | null;
   decision_signed_at?: string | null;
@@ -91,14 +87,6 @@ export function buildAssignmentDecisionDraft(credential: PractitionerCredential,
   lines.push(`Điều 1. Phân công Ông/Bà ${credential.full_name}${dob}${titleClause} được thực hiện khám bệnh, chữa bệnh theo phạm vi hành nghề sau:`);
 
   if (credential.scope_of_practice) lines.push(`- Phạm vi hành nghề: ${credential.scope_of_practice}`);
-
-  if (credential.scope_adjustment_text) {
-    const no = credential.scope_adjustment_decision_no ? ` số ${credential.scope_adjustment_decision_no}` : "";
-    const at = credential.scope_adjustment_decision_at ? ` ngày ${formatDateVN(credential.scope_adjustment_decision_at)}` : "";
-    const by = credential.scope_adjustment_issued_by ? ` của ${credential.scope_adjustment_issued_by}` : "";
-    const qd = no || at || by ? ` (theo QĐ${no}${at}${by})` : "";
-    lines.push(`- Phạm vi bổ sung/điều chỉnh: ${credential.scope_adjustment_text}${qd}`);
-  }
 
   for (const c of documents.filter((d) => d.document_type === "CERTIFICATE")) {
     const no = c.document_no ? `, số ${c.document_no}` : "";

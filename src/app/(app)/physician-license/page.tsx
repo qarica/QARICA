@@ -15,7 +15,7 @@ export default async function PhysicianLicensePage() {
   // compliance across the whole hospital) keeps the full organization list.
   let registrationsQuery = supabase
     .from("physician_license_registrations")
-    .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status,registered_at,notes")
+    .select("id,department_id,physician_name,physician_code,role_type,case_type,effective_date,deadline,status,registered_at,notes,credential_id")
     .eq("organization_id", user.organizationId)
     .order("deadline", { ascending: true })
     .limit(300);
@@ -23,9 +23,12 @@ export default async function PhysicianLicensePage() {
     registrationsQuery = user.primaryDepartmentId ? registrationsQuery.eq("department_id", user.primaryDepartmentId) : registrationsQuery.eq("department_id", "00000000-0000-0000-0000-000000000000");
   }
 
-  const [departmentsRes, registrationsRes] = await Promise.all([
+  const [departmentsRes, registrationsRes, credentialsRes] = await Promise.all([
     supabase.from("departments").select("id,name").eq("is_active", true).order("name"),
     registrationsQuery,
+    // Danh mục hồ sơ năng lực hành nghề của tổ chức, để liên kết chéo 1 đăng
+    // ký hành nghề (cổng SYT/BHYT) với đúng hồ sơ GPHN/văn bằng của người đó.
+    supabase.from("practitioner_credentials").select("id,full_name").eq("organization_id", user.organizationId).order("full_name"),
   ]);
 
   return (
@@ -38,6 +41,7 @@ export default async function PhysicianLicensePage() {
       <PhysicianLicenseClient
         departments={(departmentsRes.data ?? []) as any}
         initialRegistrations={(registrationsRes.data ?? []) as any}
+        credentials={(credentialsRes.data ?? []) as any}
         canManage={canManage}
       />
     </div>

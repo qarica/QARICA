@@ -594,6 +594,53 @@ export async function syncPhysicianLicenseRemindersForUser(admin: AdminClient, u
   return { created: inserted?.length || 0, candidates: payload.length };
 }
 
+// --- Practitioner credential (GPHN/CCHN) expiry reminders ---------------------
+//
+// Rà soát nghiệp vụ sau khi ship practitioner_credentials: license_expiry_date
+// chỉ tô màu trên bảng (phải mở app mới thấy) — không có cảnh báo chủ động
+// nào, trong khi để GPHN/CCHN hết hạn mà không gia hạn kịp là rủi ro tuân thủ
+// nghiêm trọng hơn cả hạn đăng ký cổng SYT/BHYT. Gấp vào đúng pipeline/
+// ngưỡng chung (60 ngày, rộng hơn mức 5 ngày của physician_license vì GPHN
+// cần thời gian chuẩn bị hồ sơ gia hạn dài hơn nhiều).
+export async function syncPractitionerCredentialExpiryRemindersForUser(admin: AdminClient, userId: string) {
+  if (!(await userHasPermission(admin, userId, "practitioner_credentials.manage"))) return { created: 0, candidates: 0 };
+
+  const { data: profile } = await admin.from("profiles").select("organization_id").eq("user_id", userId).maybeSingle();
+  if (!profile?.organization_id) return { created: 0, candidates: 0 };
+
+  const { data: credentials, error } = await admin
+    .from("practitioner_credentials")
+    .select("id,full_name,license_expiry_date")
+    .eq("organization_id", profile.organization_id)
+    .not("license_expiry_date", "is", null);
+  if (error) return { error: error.message };
+  if (!credentials?.length) return { created: 0, candidates: 0 };
+
+  const today = hcmToday();
+  const payload: any[] = [];
+  for (const row of credentials as any[]) {
+    const phase = attentionPhaseFor(row.license_expiry_date, today, 60);
+    if (!phase) continue;
+    payload.push({
+      recipient_user_id: userId,
+      notification_type: `PRACTITIONER_CREDENTIAL_${phase.phase}`,
+      priority: phase.priority,
+      title: phase.phase === "OVERDUE" ? "GPHN/CCHN đã hết hạn" : "GPHN/CCHN sắp hết hạn",
+      message: `${row.full_name}: ${attentionDueMessage(phase.phase, row.license_expiry_date, "Hạn GPHN/CCHN")}`,
+      target_record_id: null,
+      target_route: "/practitioner-credentials",
+      notification_event_key: `practitioner_credentials:${row.id}:${phase.phase}:expiry:${String(row.license_expiry_date).slice(0, 10)}`,
+      is_read: false,
+    });
+  }
+
+  if (!payload.length) return { created: 0, candidates: 0 };
+  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id,priority");
+  if (insertError) return { error: insertError.message };
+  await pushHighPriorityToZalo(admin, userId, inserted);
+  return { created: inserted?.length || 0, candidates: payload.length };
+}
+
 // --- Document publication review reminders -----------------------------------
 //
 // document_publications.review_date (= effective_date + REVIEW_CYCLE_DAYS,

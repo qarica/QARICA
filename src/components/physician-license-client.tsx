@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 type Department = { id: string; name: string };
+type Credential = { id: string; full_name: string };
 type Registration = {
   id: string;
   department_id: string;
@@ -14,6 +15,7 @@ type Registration = {
   deadline: string;
   status: "PENDING" | "REGISTERED";
   notes: string | null;
+  credential_id: string | null;
 };
 
 const ROLE_LABEL: Record<string, string> = { GDTT_TK: "GĐTT / Trưởng khoa", BS: "Bác sĩ" };
@@ -34,10 +36,12 @@ function daysUntil(deadline: string, now: string) {
 export function PhysicianLicenseClient({
   departments,
   initialRegistrations,
+  credentials,
   canManage,
 }: {
   departments: Department[];
   initialRegistrations: Registration[];
+  credentials: Credential[];
   canManage: boolean;
 }) {
   const [registrations, setRegistrations] = useState(initialRegistrations);
@@ -49,13 +53,15 @@ export function PhysicianLicenseClient({
   const [roleType, setRoleType] = useState<"GDTT_TK" | "BS">("BS");
   const [caseType, setCaseType] = useState<"NEW_HIRE" | "INTERNAL_TRANSFER">("NEW_HIRE");
   const [effectiveDate, setEffectiveDate] = useState("");
+  const [credentialId, setCredentialId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [onlyPending, setOnlyPending] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<{ department_id: string; physician_name: string; physician_code: string; role_type: "GDTT_TK" | "BS"; case_type: "NEW_HIRE" | "INTERNAL_TRANSFER"; effective_date: string; notes: string } | null>(null);
+  const [editDraft, setEditDraft] = useState<{ department_id: string; physician_name: string; physician_code: string; role_type: "GDTT_TK" | "BS"; case_type: "NEW_HIRE" | "INTERNAL_TRANSFER"; effective_date: string; notes: string; credential_id: string } | null>(null);
 
   const departmentName = (id: string) => departments.find((d) => d.id === id)?.name || "—";
+  const credentialName = (id: string | null) => (id ? credentials.find((c) => c.id === id)?.full_name : null) || "—";
 
   function startEdit(reg: Registration) {
     setError("");
@@ -68,6 +74,7 @@ export function PhysicianLicenseClient({
       case_type: reg.case_type,
       effective_date: reg.effective_date,
       notes: reg.notes || "",
+      credential_id: reg.credential_id || "",
     });
   }
 
@@ -95,6 +102,7 @@ export function PhysicianLicenseClient({
         case_type: editDraft.case_type,
         effective_date: editDraft.effective_date,
         notes: editDraft.notes.trim() || null,
+        credential_id: editDraft.credential_id || null,
       }),
     });
     const body = await res.json().catch(() => ({}));
@@ -141,6 +149,7 @@ export function PhysicianLicenseClient({
         role_type: roleType,
         case_type: caseType,
         effective_date: effectiveDate,
+        credential_id: credentialId || null,
       }),
     });
     const body = await res.json().catch(() => ({}));
@@ -153,6 +162,7 @@ export function PhysicianLicenseClient({
     setPhysicianName("");
     setPhysicianCode("");
     setEffectiveDate("");
+    setCredentialId("");
   }
 
   async function markRegistered(reg: Registration) {
@@ -209,6 +219,16 @@ export function PhysicianLicenseClient({
               </select>
               <input className="input" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
             </div>
+            {credentials.length ? (
+              <select className="input" value={credentialId} onChange={(e) => setCredentialId(e.target.value)} aria-label="Hồ sơ năng lực hành nghề liên kết">
+                <option value="">— Chưa liên kết hồ sơ năng lực hành nghề —</option>
+                {credentials.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.full_name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
             {error ? <div className="alert error">{error}</div> : null}
             <button className="button primary" disabled={busy || !physicianName.trim() || !effectiveDate || !departmentId} onClick={() => void submit()}>
               Khai báo
@@ -230,6 +250,7 @@ export function PhysicianLicenseClient({
             <thead>
               <tr>
                 <th>Bác sĩ</th>
+                <th>Hồ sơ năng lực hành nghề</th>
                 <th>Khoa/Phòng</th>
                 <th>Vai trò</th>
                 <th>Trường hợp</th>
@@ -248,6 +269,12 @@ export function PhysicianLicenseClient({
                       <td data-label="Bác sĩ">
                         <input className="input" value={editDraft.physician_name} onChange={(e) => setEditDraft({ ...editDraft, physician_name: e.target.value })} placeholder="Tên bác sĩ" style={{ marginBottom: 4 }} />
                         <input className="input" value={editDraft.physician_code} onChange={(e) => setEditDraft({ ...editDraft, physician_code: e.target.value })} placeholder="Mã nhân viên" />
+                      </td>
+                      <td data-label="Hồ sơ năng lực hành nghề">
+                        <select className="input" value={editDraft.credential_id} onChange={(e) => setEditDraft({ ...editDraft, credential_id: e.target.value })}>
+                          <option value="">— Chưa liên kết —</option>
+                          {credentials.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                        </select>
                       </td>
                       <td data-label="Khoa/Phòng">
                         <select className="input" value={editDraft.department_id} onChange={(e) => setEditDraft({ ...editDraft, department_id: e.target.value })}>
@@ -283,6 +310,7 @@ export function PhysicianLicenseClient({
                       {r.physician_name}
                       {r.physician_code ? ` (${r.physician_code})` : ""}
                     </td>
+                    <td data-label="Hồ sơ năng lực hành nghề">{r.credential_id ? credentialName(r.credential_id) : "—"}</td>
                     <td data-label="Khoa/Phòng">{departmentName(r.department_id)}</td>
                     <td data-label="Vai trò">{ROLE_LABEL[r.role_type]}</td>
                     <td data-label="Trường hợp">{CASE_LABEL[r.case_type]}</td>
@@ -312,7 +340,7 @@ export function PhysicianLicenseClient({
               })}
               {!visible.length ? (
                 <tr>
-                  <td colSpan={canManage ? 7 : 6} className="empty-state compact">
+                  <td colSpan={canManage ? 8 : 7} className="empty-state compact">
                     Không có bản ghi nào.
                   </td>
                 </tr>

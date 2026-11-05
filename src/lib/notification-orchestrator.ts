@@ -6,6 +6,7 @@ import {
   syncMonitoringOverdueForUser,
   syncPersonalRemindersForUser,
   syncPhysicianLicenseRemindersForUser,
+  syncPractitionerCredentialExpiryRemindersForUser,
   syncQualityAttentionForUser,
 } from "@/lib/notification-sync";
 
@@ -20,6 +21,7 @@ export async function syncAllNotificationsForUser(admin: AdminClient, userId: st
     ["monitoring", () => syncMonitoringOverdueForUser(admin, userId)],
     ["emr", () => syncEmrRemindersForUser(admin, userId)],
     ["physician_license", () => syncPhysicianLicenseRemindersForUser(admin, userId)],
+    ["practitioner_credentials", () => syncPractitionerCredentialExpiryRemindersForUser(admin, userId)],
     ["document_publication_review", () => syncDocumentPublicationReviewRemindersForUser(admin, userId)],
     ["personal_reminders", () => syncPersonalRemindersForUser(admin, userId)],
   ];

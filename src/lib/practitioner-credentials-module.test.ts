@@ -47,7 +47,6 @@ describe("API /api/practitioner-credentials — ranh giới view/manage nhất q
     const route = read("src/app/api/practitioner-credentials/route.ts");
     expect(route).toContain('requireApiPermission("practitioner_credentials.manage")');
     expect(route).toContain("Loại hồ sơ không hợp lệ");
-    expect(route).toContain("Trạng thái quyết định không hợp lệ");
     expect(route).toContain('action_type: "PRACTITIONER_CREDENTIAL_CREATE"');
   });
 
@@ -56,6 +55,97 @@ describe("API /api/practitioner-credentials — ranh giới view/manage nhất q
     expect(route).toContain('requireApiPermission("practitioner_credentials.manage")');
     expect(route).toContain("existing.organization_id !== organizationId");
     expect(route).toContain('action_type: "PRACTITIONER_CREDENTIAL_UPDATE"');
+  });
+});
+
+// Rà soát nghiệp vụ sau khi ship: migration 20261118000000 dọn trùng lặp
+// "phạm vi bổ sung" (chỉ còn bảng con documents), thêm go-live-style gate cho
+// decision_status='DA_KY', thay decision_file_url (text tự do) bằng file lưu
+// Storage thật, và liên kết physician_license_registrations ↔
+// practitioner_credentials (trước đó chỉ gộp chung menu, chưa liên kết dữ liệu).
+describe("Migration 20261118000000 — gate quyết định, dọn trùng lặp phạm vi bổ sung, liên kết 2 bảng hành nghề", () => {
+  const migration = read("supabase/migrations/20261118000000_practitioner_credentials_gates_v1.sql");
+
+  it("xoá 4 cột phẳng scope_adjustment_* trên practitioner_credentials — chỉ còn đúng 1 nguồn (bảng con documents)", () => {
+    expect(migration).toContain("alter table public.practitioner_credentials drop column if exists scope_adjustment_text;");
+    expect(migration).toContain("alter table public.practitioner_credentials drop column if exists scope_adjustment_decision_no;");
+    expect(migration).toContain("alter table public.practitioner_credentials drop column if exists scope_adjustment_decision_at;");
+    expect(migration).toContain("alter table public.practitioner_credentials drop column if exists scope_adjustment_issued_by;");
+  });
+
+  it("thay decision_file_url (text tự do) bằng file lưu Storage thật + cột xác minh go-live-style", () => {
+    expect(migration).toContain("alter table public.practitioner_credentials drop column if exists decision_file_url;");
+    expect(migration).toContain("alter table public.practitioner_credentials add column if not exists decision_file_path text;");
+    expect(migration).toContain("alter table public.practitioner_credentials add column if not exists decision_file_name text;");
+    expect(migration).toContain("alter table public.practitioner_credentials add column if not exists decision_verified_at timestamptz;");
+    expect(migration).toContain("alter table public.practitioner_credentials add column if not exists decision_verified_by uuid references auth.users(id);");
+    expect(migration).toContain("alter table public.practitioner_credentials add column if not exists updated_by uuid references auth.users(id);");
+  });
+
+  it("liên kết physician_license_registrations.credential_id -> practitioner_credentials, nullable", () => {
+    expect(migration).toContain("alter table public.physician_license_registrations add column if not exists credential_id uuid references public.practitioner_credentials(id);");
+  });
+});
+
+describe("Gate 'Đã ký' (go-live-style, giống emr_rollout_items): cần file thật + xác minh 4 mắt, không tự đặt tay", () => {
+  it("POST tạo mới từ chối decision_status='DA_KY' ngay từ khi tạo", () => {
+    const route = read("src/app/api/practitioner-credentials/route.ts");
+    expect(route).toContain('const CREATABLE_DECISION_STATUSES = new Set(["CHUA_SOAN", "DA_SOAN", "LUU_HO_SO"]);');
+  });
+
+  it("PATCH từ chối decision_status='DA_KY' nếu không kèm verify_completed:true", () => {
+    const route = read("src/app/api/practitioner-credentials/[id]/route.ts");
+    expect(route).toContain('if (decisionStatus === "DA_KY" && body.verify_completed !== true)');
+  });
+
+  it("verify_completed đòi hỏi đã có file quyết định và người xác minh khác người vừa sửa gần nhất (4 mắt)", () => {
+    const route = read("src/app/api/practitioner-credentials/[id]/route.ts");
+    expect(route).toContain("if (!existing.decision_file_path) return NextResponse.json");
+    expect(route).toContain("existing.updated_by && existing.updated_by === auth.user.id");
+    expect(route).toContain('patch.decision_status = "DA_KY";');
+    expect(route).toContain("patch.decision_verified_at = new Date().toISOString();");
+    expect(route).toContain("patch.decision_verified_by = auth.user.id;");
+  });
+
+  it("rời khỏi DA_KY (hoặc không xác minh) làm mất hiệu lực xác minh cũ", () => {
+    const route = read("src/app/api/practitioner-credentials/[id]/route.ts");
+    expect(route).toContain('patch.decision_verified_at = null;\n    patch.decision_verified_by = null;');
+  });
+});
+
+describe("API /api/practitioner-credentials/[id]/file — upload/xem/xoá file quyết định qua Supabase Storage thật (thay cho ô nhập link text tự do decision_file_url cũ)", () => {
+  const route = read("src/app/api/practitioner-credentials/[id]/file/route.ts");
+
+  it("dùng chung bucket qlcl-evidence, kiểm tra loại file và dung lượng như EMR/evidence", () => {
+    expect(route).toContain('const BUCKET = "qlcl-evidence"');
+    expect(route).toContain("evidenceFilePolicy(originalFileName)");
+    expect(route).toContain("fileValue.size > MAX_FILE_SIZE");
+  });
+
+  it("POST/GET/DELETE đều dùng practitioner_credentials permission đúng ranh giới view/manage, xác nhận hồ sơ thuộc đúng tổ chức", () => {
+    expect(route).toContain('requireApiPermission("practitioner_credentials.manage")');
+    expect(route).toContain('requireApiPermission("practitioner_credentials.view")');
+    expect(route).toContain("credential.organization_id !== organizationId");
+  });
+
+  it("thay/xoá file khi hồ sơ đang 'Đã ký' tự rút về 'Đã soạn' và xoá xác minh cũ (file xác minh đã đổi thì xác minh không còn đúng cho file mới)", () => {
+    expect(route).toContain("function revertVerificationPatch(credential: { decision_status: string }) {");
+    expect(route).toContain('if (credential.decision_status !== "DA_KY") return {};');
+    expect(route).toContain('return { decision_status: "DA_SOAN", decision_verified_at: null, decision_verified_by: null };');
+  });
+});
+
+describe("Liên kết physician_license_registrations ↔ practitioner_credentials", () => {
+  it("POST/PATCH của physician-license registrations nhận credential_id, xác nhận thuộc đúng tổ chức trước khi gán", () => {
+    const route = read("src/app/api/physician-license/registrations/route.ts");
+    const idRoute = read("src/app/api/physician-license/registrations/[id]/route.ts");
+    expect(route).toContain("credential_id");
+    expect(route + idRoute).toContain('.from("practitioner_credentials")');
+  });
+
+  it("physician-license-client.tsx cho chọn hồ sơ năng lực hành nghề liên kết và hiển thị thông tin liên kết trên bảng", () => {
+    const client = read("src/components/physician-license-client.tsx");
+    expect(client).toContain("credential_id");
   });
 });
 

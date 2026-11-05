@@ -4,7 +4,7 @@ import { hasPermission, requirePermission, requireUserContext } from "@/lib/auth
 import { createClient } from "@/lib/supabase/server";
 
 const SELECT =
-  "id,department_id,full_name,date_of_birth,gender,national_id,phone,email,license_type,license_number,license_issued_at,license_issued_by,professional_title,display_title,scope_of_practice,scope_adjustment_text,scope_adjustment_decision_no,scope_adjustment_decision_at,scope_adjustment_issued_by,proposed_technique,registration_date,decision_no,decision_signed_at,decision_signed_by,decision_status,decision_file_url,practice_status_note,license_expiry_date,notes,created_at,updated_at,practitioner_credential_documents(id,document_type,title,specialization,document_no,issued_at,issued_by,note)";
+  "id,department_id,full_name,date_of_birth,gender,national_id,phone,email,license_type,license_number,license_issued_at,license_issued_by,professional_title,display_title,scope_of_practice,proposed_technique,registration_date,decision_no,decision_signed_at,decision_signed_by,decision_status,decision_file_path,decision_file_name,decision_verified_at,decision_verified_by,practice_status_note,license_expiry_date,notes,created_at,updated_at,practitioner_credential_documents(id,document_type,title,specialization,document_no,issued_at,issued_by,note)";
 
 export default async function PractitionerCredentialsPage() {
   const { user } = await requireUserContext();

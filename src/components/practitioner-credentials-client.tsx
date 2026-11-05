@@ -36,17 +36,16 @@ type Credential = {
   professional_title: string | null;
   display_title: string | null;
   scope_of_practice: string | null;
-  scope_adjustment_text: string | null;
-  scope_adjustment_decision_no: string | null;
-  scope_adjustment_decision_at: string | null;
-  scope_adjustment_issued_by: string | null;
   proposed_technique: string | null;
   registration_date: string | null;
   decision_no: string | null;
   decision_signed_at: string | null;
   decision_signed_by: string | null;
   decision_status: DecisionStatus;
-  decision_file_url: string | null;
+  decision_file_path: string | null;
+  decision_file_name: string | null;
+  decision_verified_at: string | null;
+  decision_verified_by: string | null;
   practice_status_note: string | null;
   license_expiry_date: string | null;
   notes: string | null;
@@ -69,17 +68,12 @@ type Form = {
   professional_title: string;
   display_title: string;
   scope_of_practice: string;
-  scope_adjustment_text: string;
-  scope_adjustment_decision_no: string;
-  scope_adjustment_decision_at: string;
-  scope_adjustment_issued_by: string;
   proposed_technique: string;
   registration_date: string;
   decision_no: string;
   decision_signed_at: string;
   decision_signed_by: string;
   decision_status: DecisionStatus;
-  decision_file_url: string;
   practice_status_note: string;
   license_expiry_date: string;
   notes: string;
@@ -102,6 +96,10 @@ const DECISION_STATUS_TONE: Record<DecisionStatus, string> = {
   DA_KY: "success",
   LUU_HO_SO: "muted",
 };
+// "Đã ký" không chọn tay được trong dropdown — chỉ đạt qua nút "Xác minh đã
+// ký" (cần file đính kèm thật + người xác minh khác người vừa sửa), đúng
+// nguyên tắc go-live gate đã áp dụng cho emr_rollout_items.
+const SELECTABLE_DECISION_STATUSES: DecisionStatus[] = ["CHUA_SOAN", "DA_SOAN", "LUU_HO_SO"];
 const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
   DEGREE: "Văn bằng chuyên môn",
   SPECIALIST_DEGREE: "Văn bằng chuyên khoa",
@@ -113,9 +111,8 @@ const EMPTY: Form = {
   department_id: "", full_name: "", date_of_birth: "", gender: "", national_id: "", phone: "", email: "",
   license_type: "", license_number: "", license_issued_at: "", license_issued_by: "",
   professional_title: "", display_title: "", scope_of_practice: "",
-  scope_adjustment_text: "", scope_adjustment_decision_no: "", scope_adjustment_decision_at: "", scope_adjustment_issued_by: "",
   proposed_technique: "", registration_date: "",
-  decision_no: "", decision_signed_at: "", decision_signed_by: "", decision_status: "CHUA_SOAN", decision_file_url: "",
+  decision_no: "", decision_signed_at: "", decision_signed_by: "", decision_status: "CHUA_SOAN",
   practice_status_note: "", license_expiry_date: "", notes: "",
 };
 
@@ -125,11 +122,9 @@ function toForm(c: Credential): Form {
     date_of_birth: c.date_of_birth || "", gender: c.gender || "", national_id: c.national_id || "", phone: c.phone || "", email: c.email || "",
     license_type: c.license_type || "", license_number: c.license_number || "", license_issued_at: c.license_issued_at || "", license_issued_by: c.license_issued_by || "",
     professional_title: c.professional_title || "", display_title: c.display_title || "", scope_of_practice: c.scope_of_practice || "",
-    scope_adjustment_text: c.scope_adjustment_text || "", scope_adjustment_decision_no: c.scope_adjustment_decision_no || "",
-    scope_adjustment_decision_at: c.scope_adjustment_decision_at || "", scope_adjustment_issued_by: c.scope_adjustment_issued_by || "",
     proposed_technique: c.proposed_technique || "", registration_date: c.registration_date || "",
     decision_no: c.decision_no || "", decision_signed_at: c.decision_signed_at || "", decision_signed_by: c.decision_signed_by || "",
-    decision_status: c.decision_status, decision_file_url: c.decision_file_url || "",
+    decision_status: c.decision_status,
     practice_status_note: c.practice_status_note || "", license_expiry_date: c.license_expiry_date || "", notes: c.notes || "",
   };
 }
@@ -152,6 +147,7 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [docDraft, setDocDraft] = useState(DOC_DRAFT_EMPTY);
   const [docBusy, setDocBusy] = useState(false);
+  const [fileBusy, setFileBusy] = useState(false);
   const [decisionFor, setDecisionFor] = useState<Credential | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -165,10 +161,8 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
     );
   }, [initialCredentials, search, departments]);
 
-  const editingDocs = useMemo(() => {
-    if (!form?.id) return [];
-    return initialCredentials.find((c) => c.id === form.id)?.practitioner_credential_documents ?? [];
-  }, [form?.id, initialCredentials]);
+  const editingCredential = useMemo(() => initialCredentials.find((c) => c.id === form?.id) ?? null, [form?.id, initialCredentials]);
+  const editingDocs = editingCredential?.practitioner_credential_documents ?? [];
 
   const draftText = useMemo(() => {
     if (!decisionFor) return "";
@@ -190,14 +184,10 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
         license_issued_at: form.license_issued_at || null, license_issued_by: form.license_issued_by.trim() || null,
         professional_title: form.professional_title.trim() || null, display_title: form.display_title.trim() || null,
         scope_of_practice: form.scope_of_practice.trim() || null,
-        scope_adjustment_text: form.scope_adjustment_text.trim() || null,
-        scope_adjustment_decision_no: form.scope_adjustment_decision_no.trim() || null,
-        scope_adjustment_decision_at: form.scope_adjustment_decision_at || null,
-        scope_adjustment_issued_by: form.scope_adjustment_issued_by.trim() || null,
         proposed_technique: form.proposed_technique.trim() || null, registration_date: form.registration_date || null,
         decision_no: form.decision_no.trim() || null, decision_signed_at: form.decision_signed_at || null,
         decision_signed_by: form.decision_signed_by.trim() || null, decision_status: form.decision_status,
-        decision_file_url: form.decision_file_url.trim() || null, practice_status_note: form.practice_status_note.trim() || null,
+        practice_status_note: form.practice_status_note.trim() || null,
         license_expiry_date: form.license_expiry_date || null, notes: form.notes.trim() || null,
       };
       const res = await fetch(form.id ? `/api/practitioner-credentials/${form.id}` : "/api/practitioner-credentials", {
@@ -207,7 +197,7 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Không thể lưu hồ sơ.");
-      setMessage({ tone: "success", text: form.id ? "Đã cập nhật hồ sơ." : "Đã thêm hồ sơ. Có thể bổ sung văn bằng/chứng chỉ bằng cách mở lại Sửa." });
+      setMessage({ tone: "success", text: form.id ? "Đã cập nhật hồ sơ." : "Đã thêm hồ sơ. Mở lại Sửa để bổ sung văn bằng/chứng chỉ và file quyết định." });
       if (!form.id) setForm(null);
       else setTimeout(() => setMessage(null), 2000);
       router.refresh();
@@ -252,6 +242,69 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
       setMessage({ tone: "error", text: err instanceof Error ? err.message : "Có lỗi xảy ra." });
     } finally {
       setDocBusy(false);
+    }
+  }
+
+  async function uploadDecisionFile(credentialId: string, file: File) {
+    setFileBusy(true);
+    setMessage(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch(`/api/practitioner-credentials/${credentialId}/file`, { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Không tải lên được.");
+      router.refresh();
+    } catch (err) {
+      setMessage({ tone: "error", text: err instanceof Error ? err.message : "Có lỗi xảy ra." });
+    } finally {
+      setFileBusy(false);
+    }
+  }
+
+  async function viewDecisionFile(credentialId: string) {
+    try {
+      const res = await fetch(`/api/practitioner-credentials/${credentialId}/file`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Không mở được file.");
+      window.open(json.url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setMessage({ tone: "error", text: err instanceof Error ? err.message : "Có lỗi xảy ra." });
+    }
+  }
+
+  async function removeDecisionFile(credentialId: string) {
+    setFileBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/practitioner-credentials/${credentialId}/file`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Không xoá được file.");
+      router.refresh();
+    } catch (err) {
+      setMessage({ tone: "error", text: err instanceof Error ? err.message : "Có lỗi xảy ra." });
+    } finally {
+      setFileBusy(false);
+    }
+  }
+
+  async function verifySigned(credentialId: string) {
+    setFileBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/practitioner-credentials/${credentialId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verify_completed: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Không xác minh được.");
+      setMessage({ tone: "success", text: "Đã xác minh quyết định đã ký." });
+      router.refresh();
+    } catch (err) {
+      setMessage({ tone: "error", text: err instanceof Error ? err.message : "Có lỗi xảy ra." });
+    } finally {
+      setFileBusy(false);
     }
   }
 
@@ -315,6 +368,10 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
                 const degree = c.practitioner_credential_documents.find((d) => d.document_type === "DEGREE");
                 const specialistDegree = c.practitioner_credential_documents.find((d) => d.document_type === "SPECIALIST_DEGREE");
                 const certificates = c.practitioner_credential_documents.filter((d) => d.document_type === "CERTIFICATE");
+                // Phạm vi bổ sung/điều chỉnh: chỉ còn 1 nguồn (documents),
+                // hiện bản gần nhất nếu có nhiều lần bổ sung theo thời gian.
+                const scopeAdjustments = c.practitioner_credential_documents.filter((d) => d.document_type === "SCOPE_ADJUSTMENT");
+                const latestScopeAdjustment = scopeAdjustments[scopeAdjustments.length - 1];
                 return (
                   <tr key={c.id}>
                     <td><strong>{c.full_name}</strong>{c.date_of_birth ? <span className="subline">{c.date_of_birth.split("-").reverse().join("/")}</span> : null}</td>
@@ -326,7 +383,7 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
                     <td>{c.license_issued_at ? c.license_issued_at.split("-").reverse().join("/") : "—"}{c.license_issued_by ? <span className="subline">{c.license_issued_by}</span> : null}</td>
                     <td>{c.display_title || c.professional_title || "—"}</td>
                     <td>{c.scope_of_practice || "—"}</td>
-                    <td>{c.scope_adjustment_text ? <>{c.scope_adjustment_text}{c.scope_adjustment_decision_no ? <span className="subline">{c.scope_adjustment_decision_no}{c.scope_adjustment_decision_at ? ` · ${c.scope_adjustment_decision_at.split("-").reverse().join("/")}` : ""}</span> : null}</> : "—"}</td>
+                    <td>{latestScopeAdjustment ? <>{latestScopeAdjustment.title}{latestScopeAdjustment.document_no ? <span className="subline">{latestScopeAdjustment.document_no}{latestScopeAdjustment.issued_at ? ` · ${latestScopeAdjustment.issued_at.split("-").reverse().join("/")}` : ""}</span> : null}</> : "—"}</td>
                     <td>{degree ? <>{degree.title}{degree.issued_by ? <span className="subline">{degree.issued_by}</span> : null}</> : "—"}</td>
                     <td>{specialistDegree ? <>{specialistDegree.title}{specialistDegree.specialization ? <span className="subline">{specialistDegree.specialization}</span> : null}</> : "—"}</td>
                     <td>{certificates.length ? certificates.map((cert) => <div key={cert.id}>{cert.title}{cert.document_no ? <span className="subline">{cert.document_no}</span> : null}</div>) : "—"}</td>
@@ -336,6 +393,7 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
                       <span className={`status-badge ${DECISION_STATUS_TONE[c.decision_status]}`}>{DECISION_STATUS_LABEL[c.decision_status]}</span>
                       {c.decision_no ? <span className="subline">{c.decision_no}{c.decision_signed_at ? ` · ${c.decision_signed_at.split("-").reverse().join("/")}` : ""}</span> : null}
                       {c.decision_signed_by ? <span className="subline">{c.decision_signed_by}</span> : null}
+                      {c.decision_status === "DA_KY" && c.decision_verified_at ? <span className="subline">✓ Đã xác minh {c.decision_verified_at.slice(0, 10).split("-").reverse().join("/")}</span> : null}
                     </td>
                     <td>{c.practice_status_note || "—"}</td>
                     <td>{c.license_expiry_date ? <span className={`status-badge ${expiryTone(c.license_expiry_date)}`}>{c.license_expiry_date.split("-").reverse().join("/")}</span> : "—"}</td>
@@ -404,26 +462,57 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
                   <label>Ngày hết hạn GPHN/CME<input type="date" value={form.license_expiry_date} onChange={(e) => setForm({ ...form, license_expiry_date: e.target.value })} /></label>
 
                   <label className="span-2">Phạm vi hành nghề / HĐCM<textarea rows={2} value={form.scope_of_practice} onChange={(e) => setForm({ ...form, scope_of_practice: e.target.value })} /></label>
-                  <label className="span-2">Phạm vi bổ sung/điều chỉnh<textarea rows={2} value={form.scope_adjustment_text} onChange={(e) => setForm({ ...form, scope_adjustment_text: e.target.value })} /></label>
-                  <label>Số QĐ bổ sung/điều chỉnh<input value={form.scope_adjustment_decision_no} onChange={(e) => setForm({ ...form, scope_adjustment_decision_no: e.target.value })} /></label>
-                  <label>Ngày QĐ bổ sung/điều chỉnh<input type="date" value={form.scope_adjustment_decision_at} onChange={(e) => setForm({ ...form, scope_adjustment_decision_at: e.target.value })} /></label>
-                  <label className="span-2">Nơi cấp QĐ bổ sung/điều chỉnh<input value={form.scope_adjustment_issued_by} onChange={(e) => setForm({ ...form, scope_adjustment_issued_by: e.target.value })} /></label>
                   <label className="span-2">Kỹ thuật chuyên môn đề xuất<textarea rows={2} value={form.proposed_technique} onChange={(e) => setForm({ ...form, proposed_technique: e.target.value })} /></label>
-
-                  <label>Ngày đăng ký hành nghề<input type="date" value={form.registration_date} onChange={(e) => setForm({ ...form, registration_date: e.target.value })} /></label>
-                  <label>Số quyết định phân công<input value={form.decision_no} onChange={(e) => setForm({ ...form, decision_no: e.target.value })} /></label>
-                  <label>Ngày ký quyết định<input type="date" value={form.decision_signed_at} onChange={(e) => setForm({ ...form, decision_signed_at: e.target.value })} /></label>
-                  <label>Người ký<input value={form.decision_signed_by} onChange={(e) => setForm({ ...form, decision_signed_by: e.target.value })} /></label>
-                  <label>
-                    Trạng thái quyết định
-                    <select value={form.decision_status} onChange={(e) => setForm({ ...form, decision_status: e.target.value as DecisionStatus })}>
-                      {(Object.keys(DECISION_STATUS_LABEL) as DecisionStatus[]).map((k) => <option key={k} value={k}>{DECISION_STATUS_LABEL[k]}</option>)}
-                    </select>
-                  </label>
-                  <label>Link file quyết định<input value={form.decision_file_url} onChange={(e) => setForm({ ...form, decision_file_url: e.target.value })} /></label>
                   <label className="span-2">Tình trạng hành nghề<input value={form.practice_status_note} onChange={(e) => setForm({ ...form, practice_status_note: e.target.value })} placeholder="Vd: Đã ngưng, Cập nhật CCHN..." /></label>
                   <label className="span-2">Ghi chú<textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></label>
                 </div>
+
+                <fieldset>
+                  <legend>Quyết định phân công</legend>
+                  <div className="form-grid two">
+                    <label>Ngày đăng ký hành nghề<input type="date" value={form.registration_date} onChange={(e) => setForm({ ...form, registration_date: e.target.value })} /></label>
+                    <label>Số quyết định phân công<input value={form.decision_no} onChange={(e) => setForm({ ...form, decision_no: e.target.value })} /></label>
+                    <label>Ngày ký quyết định<input type="date" value={form.decision_signed_at} onChange={(e) => setForm({ ...form, decision_signed_at: e.target.value })} /></label>
+                    <label>Người ký<input value={form.decision_signed_by} onChange={(e) => setForm({ ...form, decision_signed_by: e.target.value })} /></label>
+                    <label>
+                      Trạng thái quyết định
+                      <select value={form.decision_status} onChange={(e) => setForm({ ...form, decision_status: e.target.value as DecisionStatus })} disabled={form.decision_status === "DA_KY"}>
+                        {form.decision_status === "DA_KY" ? <option value="DA_KY">{DECISION_STATUS_LABEL.DA_KY} (qua xác minh)</option> : null}
+                        {SELECTABLE_DECISION_STATUSES.map((k) => <option key={k} value={k}>{DECISION_STATUS_LABEL[k]}</option>)}
+                      </select>
+                      <small>&quot;Đã ký&quot; chỉ đạt được qua nút Xác minh bên dưới (cần đính kèm file quyết định thật), không chọn tay được.</small>
+                    </label>
+                  </div>
+                  {form.id ? (
+                    <div className="scope-note" style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                      <div>
+                        <strong>File quyết định: </strong>
+                        {editingCredential?.decision_file_name ? (
+                          <>
+                            <button type="button" className="button tertiary small" onClick={() => viewDecisionFile(form.id!)}>
+                              <Icon name="file-text" size={14} /> {editingCredential.decision_file_name}
+                            </button>{" "}
+                            <button type="button" className="button tertiary small" disabled={fileBusy} onClick={() => removeDecisionFile(form.id!)}>
+                              <Icon name="x" size={14} /> Xoá file
+                            </button>
+                          </>
+                        ) : (
+                          "Chưa đính kèm"
+                        )}
+                      </div>
+                      <input type="file" disabled={fileBusy} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadDecisionFile(form.id!, f); }} />
+                      {editingCredential?.decision_status === "DA_KY" && editingCredential?.decision_verified_at ? (
+                        <div className="status-badge success">✓ Đã xác minh đã ký lúc {editingCredential.decision_verified_at.slice(0, 10).split("-").reverse().join("/")}</div>
+                      ) : (
+                        <button type="button" className="button secondary" disabled={fileBusy || !editingCredential?.decision_file_path} onClick={() => verifySigned(form.id!)}>
+                          <Icon name="shield-check" size={16} /> Xác minh đã ký
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="scope-note" style={{ marginTop: 10 }}>Lưu hồ sơ trước, sau đó mở lại Sửa để đính kèm file quyết định và xác minh.</div>
+                  )}
+                </fieldset>
 
                 {form.id ? (
                   <fieldset>
