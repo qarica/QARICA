@@ -20,9 +20,8 @@ describe("Migration: status 3 mức thay is_active, bảng medical_equipment_eve
     expect(migration).toContain("update public.medical_equipment set status = case when is_active then 'IN_USE' else 'INACTIVE' end where status is null;");
   });
 
-  it("KHÔNG tự nhận đã drop is_active trên production chỉ vì có trong file — ghi rõ lý do chưa drop được", () => {
-    expect(migration).not.toContain("drop column if exists is_active");
-    expect(migration).toContain("CHƯA drop được");
+  it("is_active đã được xoá khỏi production (người dùng tự chạy qua SQL Editor sau khi MCP tool timeout) — migration giữ câu lệnh idempotent để môi trường mới khớp production", () => {
+    expect(migration).toContain("alter table public.medical_equipment drop column if exists is_active;");
   });
 
   it("tạo bảng medical_equipment_events với đủ cột vòng đời + RLS theo organization_id", () => {

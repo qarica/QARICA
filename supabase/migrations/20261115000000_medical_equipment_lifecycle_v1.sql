@@ -13,15 +13,15 @@ alter table public.medical_equipment drop constraint if exists medical_equipment
 alter table public.medical_equipment add constraint medical_equipment_status_check
   check (status in ('IN_USE','MAINTENANCE','INACTIVE'));
 
--- is_active CHƯA drop được: "alter table ... drop column is_active" liên tục
--- timeout qua MCP tool trong phiên này (không phải lỗi SQL — DROP COLUMN kích
--- hoạt một bước xác nhận của tool không trả lời được, thử lại vẫn y hệt).
--- Cột này từ đây về sau không còn được code đọc/ghi (status là nguồn sự thật
--- duy nhất) — chỉ còn là cột thừa, vô hại, cho tới khi xoá được (SQL Editor
--- trực tiếp hoặc 1 migration sau). KHÔNG coi file này là đã drop is_active
--- trên production chỉ vì nằm trong migration — DB sống hiện vẫn còn cột này
--- (đã xác nhận qua information_schema), đúng nguyên tắc không suy ra trạng
--- thái production từ nội dung file migration.
+-- is_active: "alter table ... drop column is_active" liên tục timeout qua
+-- MCP tool trong phiên này (không phải lỗi SQL — DROP COLUMN kích hoạt một
+-- bước xác nhận của tool không trả lời được, thử 4 lần vẫn y hệt). Người
+-- dùng tự chạy câu lệnh này trực tiếp trên Supabase SQL Editor — đã xác
+-- nhận qua information_schema sau đó: cột is_active không còn trên
+-- production. Giữ lại câu lệnh dưới đây (idempotent, drop column if exists)
+-- để môi trường mới chạy migration từ đầu cũng cho kết quả giống hệt
+-- production hiện tại — không chỉ ghi chú suông.
+alter table public.medical_equipment drop column if exists is_active;
 
 -- Lịch sử bàn giao/bảo trì: mỗi dòng là 1 sự kiện trong vòng đời thiết bị.
 -- ASSIGN/TRANSFER có to_department_id thì đồng bộ luôn medical_equipment.
