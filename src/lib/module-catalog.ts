@@ -34,3 +34,9 @@ export const MODULE_DESCRIPTIONS: Record<string, string> = {
 // Luân phiên màu badge theo nhóm — dùng lại đúng các token màu trạng thái đã
 // có (--brand/--info/--success/--warning), không bịa màu mới.
 export const GROUP_TONES = ["brand", "info", "success", "warning"] as const;
+
+// Yêu cầu tường minh "màu như TA" (tham khảo portal Tâm Anh Hospital): mỗi ô
+// module có icon tô màu riêng, không đồng loạt 1 màu xám như trước — luân
+// phiên qua cả 5 token màu đã có (thêm "danger" so với GROUP_TONES) để tạo
+// hiệu ứng lưới nhiều màu giống bản tham khảo, vẫn dùng đúng token sẵn có.
+export const TILE_TONES = ["brand", "info", "success", "warning", "danger"] as const;

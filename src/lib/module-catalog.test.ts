@@ -32,6 +32,22 @@ describe("Trang /modules — danh mục module dạng lưới (không đụng /d
     expect(client).toContain("g.children.filter((c) => c.label.toLowerCase().includes(q))");
   });
 
+  // Yêu cầu tường minh "màu như TA" (tham khảo portal Tâm Anh Hospital): icon
+  // mỗi ô tô màu luân phiên, không đồng loạt 1 màu xám.
+  it("mỗi ô module tô màu luân phiên qua TILE_TONES (5 tông), đếm liên tục qua mọi nhóm, dùng đúng token màu sẵn có", () => {
+    const client = read("src/components/module-catalog-client.tsx");
+    expect(client).toContain("import { GROUP_TONES, MODULE_DESCRIPTIONS, TILE_TONES } from \"@/lib/module-catalog\";");
+    expect(client).toContain("const tone = TILE_TONES[tileIndex % TILE_TONES.length];");
+    expect(client).toContain("tileIndex += 1;");
+    expect(client).toContain('className={`module-catalog-tile-icon tone-${tone}`}');
+    for (const tone of ["brand", "info", "success", "warning", "danger"]) {
+      expect(client).toContain(`.module-catalog-tile-icon.tone-${tone}{background:var(--${tone}-soft);color:var(--${tone})}`);
+    }
+
+    const catalog = read("src/lib/module-catalog.ts");
+    expect(catalog).toContain('export const TILE_TONES = ["brand", "info", "success", "warning", "danger"] as const;');
+  });
+
   it("mô tả module (MODULE_DESCRIPTIONS) tái dùng description có sẵn của EMR_CATEGORIES, không chép tay trùng lặp lệch sau này", () => {
     const catalog = read("src/lib/module-catalog.ts");
     expect(catalog).toContain('import { EMR_CATEGORIES } from "@/lib/emr-categories";');

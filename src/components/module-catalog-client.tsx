@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
-import { GROUP_TONES, MODULE_DESCRIPTIONS } from "@/lib/module-catalog";
+import { GROUP_TONES, MODULE_DESCRIPTIONS, TILE_TONES } from "@/lib/module-catalog";
 import type { NavGroup } from "@/lib/types";
 
 export function ModuleCatalogClient({ groups }: { groups: NavGroup[] }) {
@@ -15,6 +15,11 @@ export function ModuleCatalogClient({ groups }: { groups: NavGroup[] }) {
       .map((g) => ({ ...g, children: g.children.filter((c) => c.label.toLowerCase().includes(q)) }))
       .filter((g) => g.children.length > 0);
   }, [groups, search]);
+
+  // Đếm liên tục qua mọi nhóm (không reset theo từng nhóm) để lưới nhiều màu
+  // xen kẽ tự nhiên như bản tham khảo, thay vì lặp lại đúng 1 thứ tự màu ở
+  // đầu mỗi nhóm.
+  let tileIndex = 0;
 
   return (
     <>
@@ -32,17 +37,21 @@ export function ModuleCatalogClient({ groups }: { groups: NavGroup[] }) {
               <h2>{g.label}</h2>
             </div>
             <div className="module-catalog-grid">
-              {g.children.map((c) => (
-                <Link href={c.href} className="module-catalog-tile" key={`${g.id}-${c.label}`}>
-                  <span className="module-catalog-tile-icon">
-                    <Icon name={c.icon} size={18} />
-                  </span>
-                  <span className="module-catalog-tile-copy">
-                    <strong>{c.label}</strong>
-                    {MODULE_DESCRIPTIONS[c.label] ? <small>{MODULE_DESCRIPTIONS[c.label]}</small> : null}
-                  </span>
-                </Link>
-              ))}
+              {g.children.map((c) => {
+                const tone = TILE_TONES[tileIndex % TILE_TONES.length];
+                tileIndex += 1;
+                return (
+                  <Link href={c.href} className="module-catalog-tile" key={`${g.id}-${c.label}`}>
+                    <span className={`module-catalog-tile-icon tone-${tone}`}>
+                      <Icon name={c.icon} size={18} />
+                    </span>
+                    <span className="module-catalog-tile-copy">
+                      <strong>{c.label}</strong>
+                      {MODULE_DESCRIPTIONS[c.label] ? <small>{MODULE_DESCRIPTIONS[c.label]}</small> : null}
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           </section>
         ))}
@@ -61,7 +70,12 @@ export function ModuleCatalogClient({ groups }: { groups: NavGroup[] }) {
         .module-catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px;padding:10px 12px 19px}
         .module-catalog-tile{display:flex;align-items:flex-start;gap:11px;padding:11px 12px;border-radius:12px;min-width:0}
         .module-catalog-tile:hover{background:#f6f9fb}
-        .module-catalog-tile-icon{width:34px;height:34px;border-radius:9px;background:#f1f4f5;color:#405058;display:inline-flex;align-items:center;justify-content:center;flex:0 0 34px}
+        .module-catalog-tile-icon{width:34px;height:34px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 34px}
+        .module-catalog-tile-icon.tone-brand{background:var(--brand-soft);color:var(--brand)}
+        .module-catalog-tile-icon.tone-info{background:var(--info-soft);color:var(--info)}
+        .module-catalog-tile-icon.tone-success{background:var(--success-soft);color:var(--success)}
+        .module-catalog-tile-icon.tone-warning{background:var(--warning-soft);color:var(--warning)}
+        .module-catalog-tile-icon.tone-danger{background:var(--danger-soft);color:var(--danger)}
         .module-catalog-tile-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
         .module-catalog-tile-copy strong{font-size:12.5px;color:var(--text)}
         .module-catalog-tile-copy small{font-size:11px;color:var(--muted);line-height:1.4}
