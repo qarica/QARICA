@@ -80,7 +80,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     }
     expect(block).not.toContain("Đo lường & Giám sát");
     expect(block).not.toContain("EMR");
-    for (const moved of ["Việc của tôi", "Sổ tay cá nhân", "Cá nhân", "MUA SẮM & SỬA CHỮA", "HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "QUẢN LÝ VĂN BẢN", "AUDIT HSBA", "Lịch QLCL"]) {
+    for (const moved of ["Việc của tôi", "Sổ tay cá nhân", "Cá nhân", "MUA SẮM & SỬA CHỮA", "QUẢN LÝ HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "QUẢN LÝ VĂN BẢN", "AUDIT HSBA", "Lịch QLCL"]) {
       expect(block).not.toContain(`label: "${moved}"`);
     }
   });
@@ -114,13 +114,15 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
 
   // Gộp theo yêu cầu tường minh "Gộp 2 menu hành nghề lại" — THEO DÕI HÀNH
   // NGHỀ (hạn đăng ký SYT/BHYT) và HỒ SƠ NĂNG LỰC HÀNH NGHỀ (GPHN/CCHN, văn
-  // bằng, chứng chỉ) nay là 2 mục con trong CÙNG MỘT nhóm "HÀNH NGHỀ" thay vì
-  // 2 nhóm cấp 1 tách rời — 2 bảng dữ liệu đứng sau vẫn tách biệt hoàn toàn
-  // (quyết định tường minh trước đó), đây chỉ là gộp ở tầng điều hướng/UI.
-  it("gộp THEO DÕI HÀNH NGHỀ và HỒ SƠ NĂNG LỰC HÀNH NGHỀ thành 2 mục con của 1 nhóm HÀNH NGHỀ duy nhất (không còn là 2 nhóm cấp 1 tách rời)", () => {
+  // bằng, chứng chỉ) nay là 2 mục con trong CÙNG MỘT nhóm "QUẢN LÝ HÀNH NGHỀ"
+  // (đổi tên theo yêu cầu tường minh sau đó: "Hành nghề đổi thành quản lý
+  // hành nghề") thay vì 2 nhóm cấp 1 tách rời — 2 bảng dữ liệu đứng sau vẫn
+  // tách biệt hoàn toàn (quyết định tường minh trước đó), đây chỉ là gộp ở
+  // tầng điều hướng/UI.
+  it("gộp THEO DÕI HÀNH NGHỀ và HỒ SƠ NĂNG LỰC HÀNH NGHỀ thành 2 mục con của 1 nhóm QUẢN LÝ HÀNH NGHỀ duy nhất (không còn là 2 nhóm cấp 1 tách rời)", () => {
     expect(navigation).not.toContain('id: "practitioner-credentials"');
     const block = groupBlock(navigation, "physician-license");
-    expect(block).toContain('label: "HÀNH NGHỀ"');
+    expect(block).toContain('label: "QUẢN LÝ HÀNH NGHỀ"');
     expect(block).toContain('{ label: "Theo dõi hạn đăng ký hành nghề", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" }');
     expect(block).toContain('{ label: "Hồ sơ năng lực hành nghề", href: "/practitioner-credentials", icon: "folder-check", permission: "practitioner_credentials.view" }');
   });

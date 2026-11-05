@@ -101,7 +101,7 @@ const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     id: "physician-license",
-    label: "HÀNH NGHỀ",
+    label: "QUẢN LÝ HÀNH NGHỀ",
     icon: "badge-check",
     children: [
       { label: "Theo dõi hạn đăng ký hành nghề", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" },
