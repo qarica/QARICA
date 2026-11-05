@@ -80,7 +80,7 @@ export function IncidentContributingFactorsClient({ recordId }: { recordId: stri
         .incident-factors .factor-card.selected{border-color:#86b7e4;background:#eef6ff}
         .incident-factors .factor-card:disabled{cursor:default;opacity:1}
         .incident-factors .factor-check{width:17px;height:17px;min-width:17px;border:1px solid #b8c6ca;border-radius:5px;display:grid;place-items:center;font-size:11px;font-weight:900;margin-top:1px;background:#fff}
-        .incident-factors .selected .factor-check{background:#2563EB;border-color:#2563EB;color:#fff}
+        .incident-factors .selected .factor-check{background:#0D9488;border-color:#0D9488;color:#fff}
         .incident-factors .factor-copy strong{display:block;font-size:11px}
         .incident-factors .factor-copy small{display:block;color:#708087;font-size:9px;line-height:1.35;margin-top:2px}
         .incident-factors .factor-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px}

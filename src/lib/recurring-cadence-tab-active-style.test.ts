@@ -11,6 +11,6 @@ describe("Recurring (Sổ tay QLCL) — tab lọc chu kỳ dùng màu active đ�
   const source = readFileSync("src/components/recurring-work-client.tsx", "utf8");
 
   it(".recurring-cadence-tab.active tô nền navy đặc + chữ trắng, khớp quy ước .work-tab.active ở /tasks", () => {
-    expect(source).toContain(".recurring-cadence-tab.active{border-color:#2563EB;background:#2563EB;color:#fff}");
+    expect(source).toContain(".recurring-cadence-tab.active{border-color:#0D9488;background:#0D9488;color:#fff}");
   });
 });
