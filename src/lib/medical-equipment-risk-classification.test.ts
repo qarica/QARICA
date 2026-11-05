@@ -52,6 +52,17 @@ describe("Cả 2 page.tsx (danh sách + chi tiết) và export route đều SELE
   });
 });
 
+describe("Dashboard tổng quan: donut Phân loại TTBYT (A/B/C/D + chưa xác định), có nhãn 'chưa xác minh' vì là đề xuất chưa được QLCL xác nhận", () => {
+  it("medical-equipment-client.tsx: tính countByClassification + unclassified trên toàn bộ initialEquipment, render donut riêng kèm nhãn chưa xác minh", () => {
+    const client = read("src/components/medical-equipment-client.tsx");
+    expect(client).toContain("const countByClassification: Record<RiskClassification, number> = { A: 0, B: 0, C: 0, D: 0 };");
+    expect(client).toContain("let unclassified = 0;");
+    expect(client).toContain("chưa xác minh");
+    expect(client).toContain('{ label: "Loại A", value: dashboard.countByClassification.A, tone: "brand" }');
+    expect(client).toContain('{ label: "Chưa xác định", value: dashboard.unclassified, tone: "slate" }');
+  });
+});
+
 describe("UI: dropdown Phân loại TTBYT trong form, badge trong bảng, hiển thị ở trang chi tiết", () => {
   it("medical-equipment-client.tsx: 4 nhãn A/B/C/D đúng mô tả rủi ro, dropdown trong form, badge trong bảng", () => {
     const client = read("src/components/medical-equipment-client.tsx");

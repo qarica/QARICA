@@ -118,6 +118,12 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
     const total = initialEquipment.length;
     const countByStatus: Record<EquipmentStatus, number> = { IN_USE: 0, MAINTENANCE: 0, INACTIVE: 0 };
     for (const e of initialEquipment) countByStatus[e.status]++;
+    const countByClassification: Record<RiskClassification, number> = { A: 0, B: 0, C: 0, D: 0 };
+    let unclassified = 0;
+    for (const e of initialEquipment) {
+      if (e.risk_classification) countByClassification[e.risk_classification]++;
+      else unclassified++;
+    }
     const countByDept = new Map<string, number>();
     for (const e of initialEquipment) {
       const label = e.department_id ? departments.find((d) => d.id === e.department_id)?.name : e.department_label;
@@ -128,7 +134,7 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
       .map(([label, value]) => ({ label, value }));
-    return { total, countByStatus, deptBars };
+    return { total, countByStatus, countByClassification, unclassified, deptBars };
   }, [initialEquipment, departments]);
 
   async function submit(e: FormEvent) {
@@ -195,6 +201,25 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
             />
           </div>
           <div>
+            <h3>
+              Phân loại TTBYT{" "}
+              <span className="status-badge warning" title="Đề xuất rà soát theo Nghị định 98/2021/NĐ-CP, chưa được QLCL xác nhận chính thức cho từng thiết bị">
+                chưa xác minh
+              </span>
+            </h3>
+            <TqmDonut
+              value={dashboard.total ? Math.round(((dashboard.total - dashboard.unclassified) / dashboard.total) * 100) : 0}
+              label="Đã có phân loại"
+              segments={[
+                { label: "Loại A", value: dashboard.countByClassification.A, tone: "brand" },
+                { label: "Loại B", value: dashboard.countByClassification.B, tone: "blue" },
+                { label: "Loại C", value: dashboard.countByClassification.C, tone: "amber" },
+                { label: "Loại D", value: dashboard.countByClassification.D, tone: "red" },
+                { label: "Chưa xác định", value: dashboard.unclassified, tone: "slate" },
+              ]}
+            />
+          </div>
+          <div className="span-2">
             <h3>Thiết bị theo khoa/phòng (top 8)</h3>
             {dashboard.deptBars.length ? <TqmHorizontalBars rows={dashboard.deptBars} /> : <div className="empty-state compact">Chưa có thiết bị nào gắn khoa/phòng.</div>}
           </div>
@@ -362,7 +387,9 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
         .ttbyt-dashboard .kpi-tile strong{font-size:22px}
         .ttbyt-dashboard .ttbyt-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 19px 19px}
         .ttbyt-dashboard .ttbyt-charts h3{margin:0 0 6px;font-size:13px}
-        @media(max-width:760px){.ttbyt-dashboard .ttbyt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ttbyt-dashboard .ttbyt-charts{grid-template-columns:1fr}}
+        .ttbyt-dashboard .ttbyt-charts h3 .status-badge{font-size:9px;padding:2px 7px;vertical-align:middle}
+        .ttbyt-dashboard .ttbyt-charts .span-2{grid-column:1/-1}
+        @media(max-width:760px){.ttbyt-dashboard .ttbyt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ttbyt-dashboard .ttbyt-charts{grid-template-columns:1fr}.ttbyt-dashboard .ttbyt-charts .span-2{grid-column:auto}}
       `}</style>
     </>
   );
