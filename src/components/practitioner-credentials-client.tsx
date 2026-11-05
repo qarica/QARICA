@@ -280,46 +280,82 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
             </button>
           ) : null}
         </div>
+        {/* Bảng hiện đầy đủ cột trực tiếp như sheet INPUT của file Excel gốc
+            (không ẩn vào modal Sửa) — cuộn ngang khi màn hình hẹp, theo đúng
+            quy ước .table-wrap đã dùng cho mọi bảng nhiều cột khác trong repo. */}
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Họ và tên</th>
-                <th>Chức danh</th>
+                <th>Giới tính</th>
+                <th>CCCD</th>
+                <th>SĐT / Email</th>
                 <th>Khoa</th>
                 <th>Loại hồ sơ / Số</th>
+                <th>Ngày cấp / Nơi cấp</th>
+                <th>Chức danh</th>
                 <th>Phạm vi hành nghề</th>
-                <th>Quyết định PC</th>
+                <th>Phạm vi bổ sung/điều chỉnh</th>
+                <th>Văn bằng chuyên môn</th>
+                <th>Văn bằng chuyên khoa</th>
+                <th>Chứng chỉ</th>
+                <th>Kỹ thuật đề xuất</th>
+                <th>Ngày ĐK HN</th>
+                <th>Quyết định phân công</th>
+                <th>Tình trạng hành nghề</th>
                 <th>Hạn GPHN/CME</th>
+                <th>Ghi chú</th>
                 <th></th>
                 {canManage ? <th></th> : null}
               </tr>
             </thead>
             <tbody>
-              {rows.map((c) => (
-                <tr key={c.id}>
-                  <td><strong>{c.full_name}</strong>{c.date_of_birth ? <span className="subline">{c.date_of_birth.split("-").reverse().join("/")}</span> : null}</td>
-                  <td>{c.display_title || c.professional_title || "—"}</td>
-                  <td>{departmentName(c.department_id)}</td>
-                  <td>{c.license_number ? <>{c.license_type ? LICENSE_TYPE_LABEL[c.license_type] : ""}<span className="subline">{c.license_number}</span></> : "—"}</td>
-                  <td>{c.scope_of_practice || "—"}</td>
-                  <td><span className={`status-badge ${DECISION_STATUS_TONE[c.decision_status]}`}>{DECISION_STATUS_LABEL[c.decision_status]}</span></td>
-                  <td>{c.license_expiry_date ? <span className={`status-badge ${expiryTone(c.license_expiry_date)}`}>{c.license_expiry_date.split("-").reverse().join("/")}</span> : "—"}</td>
-                  <td>
-                    <button className="button tertiary small" onClick={() => { setDecisionFor(c); setCopied(false); }}>
-                      <Icon name="file-text" size={15} /> Soạn QĐ
-                    </button>
-                  </td>
-                  {canManage ? (
+              {rows.map((c) => {
+                const degree = c.practitioner_credential_documents.find((d) => d.document_type === "DEGREE");
+                const specialistDegree = c.practitioner_credential_documents.find((d) => d.document_type === "SPECIALIST_DEGREE");
+                const certificates = c.practitioner_credential_documents.filter((d) => d.document_type === "CERTIFICATE");
+                return (
+                  <tr key={c.id}>
+                    <td><strong>{c.full_name}</strong>{c.date_of_birth ? <span className="subline">{c.date_of_birth.split("-").reverse().join("/")}</span> : null}</td>
+                    <td>{c.gender || "—"}</td>
+                    <td>{c.national_id || "—"}</td>
+                    <td>{c.phone || "—"}{c.email ? <span className="subline">{c.email}</span> : null}</td>
+                    <td>{departmentName(c.department_id)}</td>
+                    <td>{c.license_number ? <>{c.license_type ? LICENSE_TYPE_LABEL[c.license_type] : ""}<span className="subline">{c.license_number}</span></> : "—"}</td>
+                    <td>{c.license_issued_at ? c.license_issued_at.split("-").reverse().join("/") : "—"}{c.license_issued_by ? <span className="subline">{c.license_issued_by}</span> : null}</td>
+                    <td>{c.display_title || c.professional_title || "—"}</td>
+                    <td>{c.scope_of_practice || "—"}</td>
+                    <td>{c.scope_adjustment_text ? <>{c.scope_adjustment_text}{c.scope_adjustment_decision_no ? <span className="subline">{c.scope_adjustment_decision_no}{c.scope_adjustment_decision_at ? ` · ${c.scope_adjustment_decision_at.split("-").reverse().join("/")}` : ""}</span> : null}</> : "—"}</td>
+                    <td>{degree ? <>{degree.title}{degree.issued_by ? <span className="subline">{degree.issued_by}</span> : null}</> : "—"}</td>
+                    <td>{specialistDegree ? <>{specialistDegree.title}{specialistDegree.specialization ? <span className="subline">{specialistDegree.specialization}</span> : null}</> : "—"}</td>
+                    <td>{certificates.length ? certificates.map((cert) => <div key={cert.id}>{cert.title}{cert.document_no ? <span className="subline">{cert.document_no}</span> : null}</div>) : "—"}</td>
+                    <td>{c.proposed_technique || "—"}</td>
+                    <td>{c.registration_date ? c.registration_date.split("-").reverse().join("/") : "—"}</td>
                     <td>
-                      <button className="button tertiary small" onClick={() => { setForm(toForm(c)); setDocDraft(DOC_DRAFT_EMPTY); setMessage(null); }}>
-                        <Icon name="pencil" size={15} /> Sửa
+                      <span className={`status-badge ${DECISION_STATUS_TONE[c.decision_status]}`}>{DECISION_STATUS_LABEL[c.decision_status]}</span>
+                      {c.decision_no ? <span className="subline">{c.decision_no}{c.decision_signed_at ? ` · ${c.decision_signed_at.split("-").reverse().join("/")}` : ""}</span> : null}
+                      {c.decision_signed_by ? <span className="subline">{c.decision_signed_by}</span> : null}
+                    </td>
+                    <td>{c.practice_status_note || "—"}</td>
+                    <td>{c.license_expiry_date ? <span className={`status-badge ${expiryTone(c.license_expiry_date)}`}>{c.license_expiry_date.split("-").reverse().join("/")}</span> : "—"}</td>
+                    <td>{c.notes || "—"}</td>
+                    <td>
+                      <button className="button tertiary small" onClick={() => { setDecisionFor(c); setCopied(false); }}>
+                        <Icon name="file-text" size={15} /> Soạn QĐ
                       </button>
                     </td>
-                  ) : null}
-                </tr>
-              ))}
-              {!rows.length ? <tr><td colSpan={canManage ? 9 : 8}><div className="empty-state">Chưa có hồ sơ năng lực hành nghề nào phù hợp.</div></td></tr> : null}
+                    {canManage ? (
+                      <td>
+                        <button className="button tertiary small" onClick={() => { setForm(toForm(c)); setDocDraft(DOC_DRAFT_EMPTY); setMessage(null); }}>
+                          <Icon name="pencil" size={15} /> Sửa
+                        </button>
+                      </td>
+                    ) : null}
+                  </tr>
+                );
+              })}
+              {!rows.length ? <tr><td colSpan={canManage ? 21 : 20}><div className="empty-state">Chưa có hồ sơ năng lực hành nghề nào phù hợp.</div></td></tr> : null}
             </tbody>
           </table>
         </div>

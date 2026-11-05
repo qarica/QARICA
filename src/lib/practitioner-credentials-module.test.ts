@@ -110,4 +110,16 @@ describe("practitioner-credentials-client.tsx — đúng quy ước UI chung c�
     expect(client).toContain("{form.id ? (");
     expect(client).toContain("Lưu hồ sơ trước, sau đó mở lại Sửa để bổ sung văn bằng/chứng chỉ");
   });
+
+  // Yêu cầu tường minh: "muốn nó như file excel" — bảng danh sách phải hiện
+  // trực tiếp đầy đủ các trường như sheet INPUT gốc, không ẩn vào modal Sửa.
+  it("bảng danh sách hiện trực tiếp đầy đủ các trường như sheet INPUT gốc (giới tính, CCCD, văn bằng, chứng chỉ, kỹ thuật đề xuất, ghi chú...), không chỉ tóm tắt vài cột", () => {
+    for (const header of [
+      "Giới tính", "CCCD", "SĐT / Email", "Ngày cấp / Nơi cấp", "Phạm vi bổ sung/điều chỉnh",
+      "Văn bằng chuyên môn", "Văn bằng chuyên khoa", "Chứng chỉ", "Kỹ thuật đề xuất",
+      "Ngày ĐK HN", "Tình trạng hành nghề", "Ghi chú",
+    ]) {
+      expect(client).toContain(`<th>${header}</th>`);
+    }
+  });
 });
