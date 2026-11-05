@@ -13,9 +13,9 @@ describe("Physician license tracking module security and control gates", () => {
     expect(read("src/app/api/physician-license/registrations/[id]/route.ts")).toContain('requireApiPermission("physician_license.manage")');
   });
 
-  it("is reachable from the sidebar only behind physician_license.view", () => {
+  it("is reachable from the sidebar only behind physician_license.view (now a child row inside the merged HÀNH NGHỀ group, alongside Hồ sơ năng lực hành nghề)", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "THEO DÕI HÀNH NGHỀ", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" }');
+    expect(nav).toContain('{ label: "Theo dõi hạn đăng ký hành nghề", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" }');
   });
 
   it("keeps every write tenant-scoped by organization_id", () => {

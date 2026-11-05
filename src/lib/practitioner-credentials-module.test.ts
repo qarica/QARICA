@@ -81,11 +81,10 @@ describe("Trang /practitioner-credentials và điều hướng", () => {
     expect(page).toContain("practitioner_credential_documents(id,document_type,title,specialization,document_no,issued_at,issued_by,note)");
   });
 
-  it("navigation.ts có mục Hồ sơ năng lực hành nghề, gắn đúng quyền xem", () => {
+  it("navigation.ts có mục Hồ sơ năng lực hành nghề (gộp chung nhóm HÀNH NGHỀ với Theo dõi hạn đăng ký hành nghề theo yêu cầu gộp menu), gắn đúng quyền xem", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('id: "practitioner-credentials"');
-    expect(nav).toContain('href: "/practitioner-credentials"');
-    expect(nav).toContain('permission: "practitioner_credentials.view"');
+    expect(nav).not.toContain('id: "practitioner-credentials"');
+    expect(nav).toContain('{ label: "Hồ sơ năng lực hành nghề", href: "/practitioner-credentials", icon: "folder-check", permission: "practitioner_credentials.view" }');
   });
 });
 

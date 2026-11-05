@@ -101,10 +101,11 @@ const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     id: "physician-license",
-    label: "THEO DÕI HÀNH NGHỀ",
+    label: "HÀNH NGHỀ",
     icon: "badge-check",
     children: [
-      { label: "THEO DÕI HÀNH NGHỀ", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" },
+      { label: "Theo dõi hạn đăng ký hành nghề", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" },
+      { label: "Hồ sơ năng lực hành nghề", href: "/practitioner-credentials", icon: "folder-check", permission: "practitioner_credentials.view" },
     ],
   },
   {
@@ -145,14 +146,6 @@ const NAV_GROUPS: NavGroupDef[] = [
     icon: "cog",
     children: [
       { label: "SỔ QUẢN LÝ TTBYT", href: "/medical-equipment", icon: "cog", permission: "medical_equipment.view" },
-    ],
-  },
-  {
-    id: "practitioner-credentials",
-    label: "HỒ SƠ NĂNG LỰC HÀNH NGHỀ",
-    icon: "folder-check",
-    children: [
-      { label: "HỒ SƠ NĂNG LỰC HÀNH NGHỀ", href: "/practitioner-credentials", icon: "folder-check", permission: "practitioner_credentials.view" },
     ],
   },
   {

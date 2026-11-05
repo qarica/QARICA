@@ -24,7 +24,6 @@ const GROUP_IDS = [
   "procedure-training",
   "procurement",
   "medical-equipment",
-  "practitioner-credentials",
   "system-config",
 ];
 
@@ -42,10 +41,10 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 11 primary groups (Việc của tôi/Sổ tay cá nhân are intentionally not sidebar groups — see the topbar and floating-capture tests below)", () => {
+  it("defines exactly 10 primary groups (Việc của tôi/Sổ tay cá nhân are intentionally not sidebar groups — see the topbar and floating-capture tests below)", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no additional group ids besides these eleven
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(12);
+    // no additional group ids besides these ten
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(11);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "AUDIT HSBA"');
@@ -81,7 +80,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     }
     expect(block).not.toContain("Đo lường & Giám sát");
     expect(block).not.toContain("EMR");
-    for (const moved of ["Việc của tôi", "Sổ tay cá nhân", "Cá nhân", "MUA SẮM & SỬA CHỮA", "THEO DÕI HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "KIỂM SOÁT TÀI LIỆU", "ĐÀO TẠO QUY TRÌNH", "AUDIT HSBA", "Lịch QLCL"]) {
+    for (const moved of ["Việc của tôi", "Sổ tay cá nhân", "Cá nhân", "MUA SẮM & SỬA CHỮA", "HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "KIỂM SOÁT TÀI LIỆU", "ĐÀO TẠO QUY TRÌNH", "AUDIT HSBA", "Lịch QLCL"]) {
       expect(block).not.toContain(`label: "${moved}"`);
     }
   });
@@ -101,10 +100,9 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(navigation).not.toContain('label: "CÁ NHÂN & VIỆC CỦA TÔI"');
   });
 
-  it("promotes MUA SẮM & SỬA CHỮA, THEO DÕI HÀNH NGHỀ, QUẢN LÝ CÔNG VĂN, KIỂM SOÁT TÀI LIỆU, ĐÀO TẠO QUY TRÌNH and AUDIT HSBA to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
+  it("promotes MUA SẮM & SỬA CHỮA, QUẢN LÝ CÔNG VĂN, KIỂM SOÁT TÀI LIỆU, ĐÀO TẠO QUY TRÌNH and AUDIT HSBA to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
     const expectations: [string, string, string][] = [
       ["procurement", "MUA SẮM & SỬA CHỮA", "/procurement"],
-      ["physician-license", "THEO DÕI HÀNH NGHỀ", "/physician-license"],
       ["incoming-documents", "QUẢN LÝ CÔNG VĂN", "/incoming-documents"],
       ["document-publications", "KIỂM SOÁT TÀI LIỆU", "/document-publications"],
       ["procedure-training", "ĐÀO TẠO QUY TRÌNH", "/procedure-trainings"],
@@ -114,6 +112,19 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
       const block = groupBlock(navigation, id);
       expect(block).toContain(`label: "${label}", href: "${href}"`);
     }
+  });
+
+  // Gộp theo yêu cầu tường minh "Gộp 2 menu hành nghề lại" — THEO DÕI HÀNH
+  // NGHỀ (hạn đăng ký SYT/BHYT) và HỒ SƠ NĂNG LỰC HÀNH NGHỀ (GPHN/CCHN, văn
+  // bằng, chứng chỉ) nay là 2 mục con trong CÙNG MỘT nhóm "HÀNH NGHỀ" thay vì
+  // 2 nhóm cấp 1 tách rời — 2 bảng dữ liệu đứng sau vẫn tách biệt hoàn toàn
+  // (quyết định tường minh trước đó), đây chỉ là gộp ở tầng điều hướng/UI.
+  it("gộp THEO DÕI HÀNH NGHỀ và HỒ SƠ NĂNG LỰC HÀNH NGHỀ thành 2 mục con của 1 nhóm HÀNH NGHỀ duy nhất (không còn là 2 nhóm cấp 1 tách rời)", () => {
+    expect(navigation).not.toContain('id: "practitioner-credentials"');
+    const block = groupBlock(navigation, "physician-license");
+    expect(block).toContain('label: "HÀNH NGHỀ"');
+    expect(block).toContain('{ label: "Theo dõi hạn đăng ký hành nghề", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" }');
+    expect(block).toContain('{ label: "Hồ sơ năng lực hành nghề", href: "/practitioner-credentials", icon: "folder-check", permission: "practitioner_credentials.view" }');
   });
 
   it("puts Việc của tôi in the topbar (app-shell.tsx), gated by the same tasks.view permission the old sidebar entry used, one click away from every screen", () => {
