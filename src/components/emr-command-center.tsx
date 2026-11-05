@@ -49,7 +49,7 @@ export function EmrCommandCenter(){
  const [from,setFrom]=useState(`${todayKey.slice(0,4)}-01-01`); const [to,setTo]=useState(todayKey);
  function load(f:string,t:string){
   const qs=new URLSearchParams(); if(f)qs.set("from",f); if(t)qs.set("to",t);
-  fetch(`/api/emr/dashboard${qs.toString()?`?${qs.toString()}`:""}`).then(r=>r.json()).then(j=>{if(!j.ok)throw new Error(j.error);setData(j)}).catch(e=>setError(e.message));
+  fetch(`/api/emr/dashboard${qs.toString()?`?${qs.toString()}`:""}`).then(async r=>{const j=await r.json().catch(()=>null);if(!r.ok||!j?.ok)throw new Error(j?.error||"Không tải được dữ liệu EMR.");setData(j)}).catch(e=>setError(e instanceof Error?e.message:"Không tải được dữ liệu EMR."));
  }
  // eslint-disable-next-line react-hooks/exhaustive-deps
  useEffect(()=>{load(from,to)},[]);
