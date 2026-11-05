@@ -148,6 +148,14 @@ const NAV_GROUPS: NavGroupDef[] = [
     ],
   },
   {
+    id: "practitioner-credentials",
+    label: "HỒ SƠ NĂNG LỰC HÀNH NGHỀ",
+    icon: "folder-check",
+    children: [
+      { label: "HỒ SƠ NĂNG LỰC HÀNH NGHỀ", href: "/practitioner-credentials", icon: "folder-check", permission: "practitioner_credentials.view" },
+    ],
+  },
+  {
     id: "system-config",
     label: "CẤU HÌNH HỆ THỐNG",
     icon: "settings",
