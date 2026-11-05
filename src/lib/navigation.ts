@@ -118,18 +118,11 @@ const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     id: "document-publications",
-    label: "KIỂM SOÁT TÀI LIỆU",
+    label: "QUẢN LÝ VĂN BẢN",
     icon: "file-text",
     children: [
-      { label: "KIỂM SOÁT TÀI LIỆU", href: "/document-publications", icon: "file-text", permission: "document_publication.view" },
-    ],
-  },
-  {
-    id: "procedure-training",
-    label: "ĐÀO TẠO QUY TRÌNH",
-    icon: "book-open",
-    children: [
-      { label: "ĐÀO TẠO QUY TRÌNH", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" },
+      { label: "Kiểm soát tài liệu", href: "/document-publications", icon: "file-text", permission: "document_publication.view" },
+      { label: "Đào tạo quy trình", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" },
     ],
   },
   {

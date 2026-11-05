@@ -21,7 +21,6 @@ const GROUP_IDS = [
   "physician-license",
   "incoming-documents",
   "document-publications",
-  "procedure-training",
   "procurement",
   "medical-equipment",
   "system-config",
@@ -41,20 +40,20 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 10 primary groups (Việc của tôi/Sổ tay cá nhân are intentionally not sidebar groups — see the topbar and floating-capture tests below)", () => {
+  it("defines exactly 9 primary groups (Việc của tôi/Sổ tay cá nhân are intentionally not sidebar groups — see the topbar and floating-capture tests below)", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no additional group ids besides these ten
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(11);
+    // no additional group ids besides these nine
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(10);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "AUDIT HSBA"');
     expect(navigation).toContain('label: "BỆNH ÁN ĐIỆN TỬ"');
-    expect(navigation).toContain('label: "KIỂM SOÁT TÀI LIỆU"');
+    expect(navigation).toContain('label: "QUẢN LÝ VĂN BẢN"');
     expect(navigation).toContain('label: "CẤU HÌNH HỆ THỐNG"');
   });
 
-  it("orders the main (non-footer) groups exactly as requested: điều hành chất lượng, quản lý chất lượng, bệnh án điện tử, audit nội bộ KHTH, theo dõi hành nghề, quản lý công văn, phát hành văn bản, đào tạo quy trình, mua sắm & sửa chữa", () => {
-    const mainOrder = ["operations", "quality-management", "digital-systems", "hsba-audit", "physician-license", "incoming-documents", "document-publications", "procedure-training", "procurement"];
+  it("orders the main (non-footer) groups exactly as requested: điều hành chất lượng, quản lý chất lượng, bệnh án điện tử, audit nội bộ KHTH, theo dõi hành nghề, quản lý công văn, quản lý văn bản, mua sắm & sửa chữa", () => {
+    const mainOrder = ["operations", "quality-management", "digital-systems", "hsba-audit", "physician-license", "incoming-documents", "document-publications", "procurement"];
     const positions = mainOrder.map((id) => navigation.indexOf(`id: "${id}"`));
     for (const position of positions) expect(position).toBeGreaterThanOrEqual(0);
     for (let i = 1; i < positions.length; i += 1) expect(positions[i]).toBeGreaterThan(positions[i - 1]);
@@ -80,7 +79,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     }
     expect(block).not.toContain("Đo lường & Giám sát");
     expect(block).not.toContain("EMR");
-    for (const moved of ["Việc của tôi", "Sổ tay cá nhân", "Cá nhân", "MUA SẮM & SỬA CHỮA", "HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "KIỂM SOÁT TÀI LIỆU", "ĐÀO TẠO QUY TRÌNH", "AUDIT HSBA", "Lịch QLCL"]) {
+    for (const moved of ["Việc của tôi", "Sổ tay cá nhân", "Cá nhân", "MUA SẮM & SỬA CHỮA", "HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "QUẢN LÝ VĂN BẢN", "AUDIT HSBA", "Lịch QLCL"]) {
       expect(block).not.toContain(`label: "${moved}"`);
     }
   });
@@ -100,12 +99,10 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(navigation).not.toContain('label: "CÁ NHÂN & VIỆC CỦA TÔI"');
   });
 
-  it("promotes MUA SẮM & SỬA CHỮA, QUẢN LÝ CÔNG VĂN, KIỂM SOÁT TÀI LIỆU, ĐÀO TẠO QUY TRÌNH and AUDIT HSBA to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
+  it("promotes MUA SẮM & SỬA CHỮA, QUẢN LÝ CÔNG VĂN and AUDIT HSBA to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
     const expectations: [string, string, string][] = [
       ["procurement", "MUA SẮM & SỬA CHỮA", "/procurement"],
       ["incoming-documents", "QUẢN LÝ CÔNG VĂN", "/incoming-documents"],
-      ["document-publications", "KIỂM SOÁT TÀI LIỆU", "/document-publications"],
-      ["procedure-training", "ĐÀO TẠO QUY TRÌNH", "/procedure-trainings"],
       ["hsba-audit", "AUDIT HSBA", "/hsba-audit"],
     ];
     for (const [id, label, href] of expectations) {
@@ -125,6 +122,19 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(block).toContain('label: "HÀNH NGHỀ"');
     expect(block).toContain('{ label: "Theo dõi hạn đăng ký hành nghề", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" }');
     expect(block).toContain('{ label: "Hồ sơ năng lực hành nghề", href: "/practitioner-credentials", icon: "folder-check", permission: "practitioner_credentials.view" }');
+  });
+
+  // Yêu cầu tường minh: "Nên gộp 2 menu kiểm soát tài liệu và đào tạo quy
+  // trình, đổi menu chính là Quản lý văn bản" — 2 nhóm cấp 1 tách rời (KIỂM
+  // SOÁT TÀI LIỆU, ĐÀO TẠO QUY TRÌNH) nay gộp thành 1 nhóm "QUẢN LÝ VĂN BẢN"
+  // với 2 mục con, giữ nguyên id "document-publications" (không đổi route/
+  // quyền của 2 trang con).
+  it("gộp KIỂM SOÁT TÀI LIỆU và ĐÀO TẠO QUY TRÌNH thành 2 mục con của 1 nhóm QUẢN LÝ VĂN BẢN duy nhất (không còn là 2 nhóm cấp 1 tách rời)", () => {
+    expect(navigation).not.toContain('id: "procedure-training"');
+    const block = groupBlock(navigation, "document-publications");
+    expect(block).toContain('label: "QUẢN LÝ VĂN BẢN"');
+    expect(block).toContain('{ label: "Kiểm soát tài liệu", href: "/document-publications", icon: "file-text", permission: "document_publication.view" }');
+    expect(block).toContain('{ label: "Đào tạo quy trình", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" }');
   });
 
   it("puts Việc của tôi in the topbar (app-shell.tsx), gated by the same tasks.view permission the old sidebar entry used, one click away from every screen", () => {

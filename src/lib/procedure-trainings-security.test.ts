@@ -14,9 +14,9 @@ describe("Procedure trainings module security and control gates", () => {
     expect(read("src/app/api/procedure-trainings/[id]/route.ts")).toContain('requireApiPermission("procedure_training.manage")');
   });
 
-  it("is reachable from the sidebar only behind procedure_training.view", () => {
+  it("is reachable from the sidebar only behind procedure_training.view (now a child row inside the merged QUẢN LÝ VĂN BẢN group, alongside Kiểm soát tài liệu)", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "ĐÀO TẠO QUY TRÌNH", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" }');
+    expect(nav).toContain('{ label: "Đào tạo quy trình", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" }');
   });
 
   it("keeps every write tenant-scoped by organization_id", () => {

@@ -30,9 +30,9 @@ describe("Document publications module security and control gates", () => {
     expect(client).toContain("Đề nghị văn bản mới");
   });
 
-  it("is reachable from the sidebar only behind document_publication.view", () => {
+  it("is reachable from the sidebar only behind document_publication.view (now a child row inside the merged QUẢN LÝ VĂN BẢN group, alongside Đào tạo quy trình)", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "KIỂM SOÁT TÀI LIỆU", href: "/document-publications", icon: "file-text", permission: "document_publication.view" }');
+    expect(nav).toContain('{ label: "Kiểm soát tài liệu", href: "/document-publications", icon: "file-text", permission: "document_publication.view" }');
   });
 
   it("keeps every query/write tenant-scoped by organization_id", () => {
