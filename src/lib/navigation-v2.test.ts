@@ -23,6 +23,7 @@ const GROUP_IDS = [
   "document-publications",
   "procurement",
   "medical-equipment",
+  "infection-control",
   "system-config",
 ];
 
@@ -40,10 +41,10 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 9 primary groups (Việc của tôi/Sổ tay cá nhân are intentionally not sidebar groups — see the topbar and floating-capture tests below)", () => {
+  it("defines exactly 10 primary groups (Việc của tôi/Sổ tay cá nhân are intentionally not sidebar groups — see the topbar and floating-capture tests below)", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no additional group ids besides these nine
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(10);
+    // no additional group ids besides these ten
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(11);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "AUDIT HSBA"');
@@ -135,6 +136,17 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(block).toContain('label: "QUẢN LÝ VĂN BẢN"');
     expect(block).toContain('{ label: "Kiểm soát tài liệu", href: "/document-publications", icon: "file-text", permission: "document_publication.view" }');
     expect(block).toContain('{ label: "Đào tạo quy trình", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" }');
+  });
+
+  // Module mới theo yêu cầu tường minh "Kiểm soát nhiễm khuẩn" — phạm vi đã
+  // chốt: Giám sát nhiễm khuẩn bệnh viện (HAI) + Giám sát vệ sinh tay. Phơi
+  // nhiễm nghề nghiệp/kim đâm dùng chung module Sự cố & Phản ánh đã có,
+  // không làm riêng để tránh trùng lặp.
+  it("nhóm KIỂM SOÁT NHIỄM KHUẨN có 2 mục con: Giám sát nhiễm khuẩn bệnh viện và Giám sát vệ sinh tay", () => {
+    const block = groupBlock(navigation, "infection-control");
+    expect(block).toContain('label: "KIỂM SOÁT NHIỄM KHUẨN"');
+    expect(block).toContain('{ label: "Giám sát nhiễm khuẩn bệnh viện", href: "/infection-control", icon: "shield-alert", permission: "infection_control.view" }');
+    expect(block).toContain('{ label: "Giám sát vệ sinh tay", href: "/infection-control/hand-hygiene", icon: "droplets", permission: "infection_control.view" }');
   });
 
   it("puts Việc của tôi in the topbar (app-shell.tsx), gated by the same tasks.view permission the old sidebar entry used, one click away from every screen", () => {

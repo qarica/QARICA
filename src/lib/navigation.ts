@@ -142,6 +142,15 @@ const NAV_GROUPS: NavGroupDef[] = [
     ],
   },
   {
+    id: "infection-control",
+    label: "KIỂM SOÁT NHIỄM KHUẨN",
+    icon: "shield-alert",
+    children: [
+      { label: "Giám sát nhiễm khuẩn bệnh viện", href: "/infection-control", icon: "shield-alert", permission: "infection_control.view" },
+      { label: "Giám sát vệ sinh tay", href: "/infection-control/hand-hygiene", icon: "droplets", permission: "infection_control.view" },
+    ],
+  },
+  {
     id: "system-config",
     label: "CẤU HÌNH HỆ THỐNG",
     icon: "settings",
