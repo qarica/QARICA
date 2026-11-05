@@ -66,9 +66,8 @@ describe("medical-equipment-client.tsx — đúng quy ước UI chung của repo
     expect(client).toMatch(/className="modal-card[^"]*"[\s\S]{0,40}<div className="modal-head">/);
   });
 
-  it("checkbox dùng class .inline-check/.switch-row, không để input trần trong label", () => {
+  it("checkbox dùng class .inline-check, không để input trần trong label", () => {
     expect(client).toContain('<label className="inline-check">');
-    expect(client).toContain('<label className="switch-row">');
     expect(client).not.toMatch(/<label>\s*<input type="checkbox"/);
   });
 });

@@ -1,9 +1,16 @@
 "use client";
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Icon } from "@/components/icon";
+import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars } from "@/components/tqm-charts";
 
 type Department = { id: string; name: string };
+
+export type EquipmentStatus = "IN_USE" | "MAINTENANCE" | "INACTIVE";
+
+const STATUS_LABEL: Record<EquipmentStatus, string> = { IN_USE: "Đang sử dụng", MAINTENANCE: "Bảo trì/Sửa chữa", INACTIVE: "Ngưng sử dụng" };
+const STATUS_BADGE_TONE: Record<EquipmentStatus, string> = { IN_USE: "success", MAINTENANCE: "warning", INACTIVE: "muted" };
 
 type Equipment = {
   id: string;
@@ -25,7 +32,7 @@ type Equipment = {
   // chưa ai xác nhận lại bằng dropdown; không còn ghi mới qua UI.
   department_label: string | null;
   notes: string | null;
-  is_active: boolean;
+  status: EquipmentStatus;
 };
 
 type Form = {
@@ -45,13 +52,13 @@ type Form = {
   department_id: string;
   legacyDepartmentLabel: string;
   notes: string;
-  is_active: boolean;
+  status: EquipmentStatus;
 };
 
 const EMPTY: Form = {
   sequence_no: "", equipment_name: "", model_code: "", manufacturer: "", origin_country: "",
   year_manufactured: "", year_in_use: "", machine_code: "", registration_number: "",
-  contract_from: "", contract_to: "", valid_from: "", department_id: "", legacyDepartmentLabel: "", notes: "", is_active: true,
+  contract_from: "", contract_to: "", valid_from: "", department_id: "", legacyDepartmentLabel: "", notes: "", status: "IN_USE",
 };
 
 function toForm(e: Equipment): Form {
@@ -62,7 +69,7 @@ function toForm(e: Equipment): Form {
     year_in_use: e.year_in_use != null ? String(e.year_in_use) : "",
     machine_code: e.machine_code || "", registration_number: e.registration_number || "",
     contract_from: e.contract_from || "", contract_to: e.contract_to || "", valid_from: e.valid_from || "",
-    department_id: e.department_id || "", legacyDepartmentLabel: e.department_id ? "" : e.department_label || "", notes: e.notes || "", is_active: e.is_active,
+    department_id: e.department_id || "", legacyDepartmentLabel: e.department_id ? "" : e.department_label || "", notes: e.notes || "", status: e.status,
   };
 }
 
@@ -83,10 +90,31 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return initialEquipment
-      .filter((e) => showInactive || e.is_active)
+      .filter((e) => showInactive || e.status !== "INACTIVE")
       .filter((e) => !onlyUnmapped || (!e.department_id && e.department_label))
       .filter((e) => !q || [e.equipment_name, e.model_code, e.manufacturer, e.machine_code, e.registration_number, departments.find((d) => d.id === e.department_id)?.name, e.department_label].some((v) => (v || "").toLowerCase().includes(q)));
   }, [initialEquipment, search, showInactive, onlyUnmapped, departments]);
+
+  // Dashboard tổng quan: luôn tính trên TOÀN BỘ sổ (initialEquipment), không
+  // phụ thuộc bộ lọc/tìm kiếm của bảng bên dưới — tham khảo mẫu "Quản trị hệ
+  // thống mạng" người dùng gửi (KPI + donut trạng thái + top khoa/phòng theo
+  // số lượng tài sản).
+  const dashboard = useMemo(() => {
+    const total = initialEquipment.length;
+    const countByStatus: Record<EquipmentStatus, number> = { IN_USE: 0, MAINTENANCE: 0, INACTIVE: 0 };
+    for (const e of initialEquipment) countByStatus[e.status]++;
+    const countByDept = new Map<string, number>();
+    for (const e of initialEquipment) {
+      const label = e.department_id ? departments.find((d) => d.id === e.department_id)?.name : e.department_label;
+      if (!label) continue;
+      countByDept.set(label, (countByDept.get(label) || 0) + 1);
+    }
+    const deptBars = Array.from(countByDept.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([label, value]) => ({ label, value }));
+    return { total, countByStatus, deptBars };
+  }, [initialEquipment, departments]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -104,7 +132,7 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
         contract_from: form.contract_from || null, contract_to: form.contract_to || null, valid_from: form.valid_from || null,
         department_id: form.department_id || null, notes: form.notes.trim() || null,
       };
-      if (form.id) payload.is_active = form.is_active;
+      if (form.id) payload.status = form.status;
       const res = await fetch(form.id ? `/api/medical-equipment/${form.id}` : "/api/medical-equipment", {
         method: form.id ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -124,6 +152,39 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
 
   return (
     <>
+      <section className="panel ttbyt-dashboard">
+        <div className="panel-title">
+          <div>
+            <h2>Tổng quan</h2>
+            <p>Tổng hợp toàn bộ sổ, không phụ thuộc bộ lọc/tìm kiếm bên dưới.</p>
+          </div>
+        </div>
+        <div className="ttbyt-kpis">
+          <div className="kpi-tile"><span>Tổng thiết bị</span><strong>{dashboard.total}</strong></div>
+          <div className="kpi-tile"><span>Đang sử dụng</span><strong>{dashboard.countByStatus.IN_USE}</strong></div>
+          <div className="kpi-tile"><span>Bảo trì/Sửa chữa</span><strong>{dashboard.countByStatus.MAINTENANCE}</strong></div>
+          <div className="kpi-tile"><span>Ngưng sử dụng</span><strong>{dashboard.countByStatus.INACTIVE}</strong></div>
+        </div>
+        <div className="ttbyt-charts">
+          <div>
+            <h3>Tình trạng thiết bị</h3>
+            <TqmDonut
+              value={dashboard.total ? Math.round((dashboard.countByStatus.IN_USE / dashboard.total) * 100) : 0}
+              label="Đang sử dụng"
+              segments={[
+                { label: "Đang sử dụng", value: dashboard.countByStatus.IN_USE, tone: "green" },
+                { label: "Bảo trì/Sửa chữa", value: dashboard.countByStatus.MAINTENANCE, tone: "amber" },
+                { label: "Ngưng sử dụng", value: dashboard.countByStatus.INACTIVE, tone: "slate" },
+              ]}
+            />
+          </div>
+          <div>
+            <h3>Thiết bị theo khoa/phòng (top 8)</h3>
+            {dashboard.deptBars.length ? <TqmHorizontalBars rows={dashboard.deptBars} /> : <div className="empty-state compact">Chưa có thiết bị nào gắn khoa/phòng.</div>}
+          </div>
+        </div>
+      </section>
+
       <section className="panel">
         <div className="toolbar">
           <div className="toolbar-left">
@@ -140,11 +201,16 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
               </label>
             ) : null}
           </div>
-          {canManage ? (
-            <button className="button primary" onClick={() => { setForm({ ...EMPTY }); setMessage(null); }}>
-              <Icon name="plus" size={18} /> Thêm thiết bị
-            </button>
-          ) : null}
+          <div className="toolbar-left">
+            <Link className="button tertiary" href="/api/medical-equipment/export">
+              <Icon name="download" size={18} /> Xuất Excel
+            </Link>
+            {canManage ? (
+              <button className="button primary" onClick={() => { setForm({ ...EMPTY }); setMessage(null); }}>
+                <Icon name="plus" size={18} /> Thêm thiết bị
+              </button>
+            ) : null}
+          </div>
         </div>
         <div className="table-wrap">
           <table>
@@ -157,6 +223,7 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
                 <th>Mã máy</th>
                 <th>Khoa sử dụng</th>
                 <th>Trạng thái</th>
+                <th>QR / Lịch sử</th>
                 {canManage ? <th></th> : null}
               </tr>
             </thead>
@@ -179,7 +246,12 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
                       "—"
                     )}
                   </td>
-                  <td><span className={`status-badge ${e.is_active ? "success" : "muted"}`}>{e.is_active ? "Đang sử dụng" : "Ngưng sử dụng"}</span></td>
+                  <td><span className={`status-badge ${STATUS_BADGE_TONE[e.status]}`}>{STATUS_LABEL[e.status]}</span></td>
+                  <td>
+                    <Link className="button tertiary small" href={`/medical-equipment/${e.id}`}>
+                      <Icon name="qr-code" size={15} /> Chi tiết
+                    </Link>
+                  </td>
                   {canManage ? (
                     <td>
                       <button className="button tertiary small" onClick={() => { setForm(toForm(e)); setMessage(null); }}>
@@ -189,7 +261,7 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
                   ) : null}
                 </tr>
               ))}
-              {!rows.length ? <tr><td colSpan={canManage ? 8 : 7}><div className="empty-state">Chưa có thiết bị phù hợp.</div></td></tr> : null}
+              {!rows.length ? <tr><td colSpan={canManage ? 9 : 8}><div className="empty-state">Chưa có thiết bị phù hợp.</div></td></tr> : null}
             </tbody>
           </table>
         </div>
@@ -233,14 +305,19 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
                   <label>Hợp đồng đến<input type="date" value={form.contract_to} onChange={(e) => setForm({ ...form, contract_to: e.target.value })} /></label>
                   <label>Hiệu lực từ<input type="date" value={form.valid_from} onChange={(e) => setForm({ ...form, valid_from: e.target.value })} /></label>
                   <label>STT (thứ tự sổ)<input type="number" value={form.sequence_no} onChange={(e) => setForm({ ...form, sequence_no: e.target.value })} /></label>
+                  {form.id ? (
+                    <label>
+                      Trạng thái
+                      <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as EquipmentStatus })}>
+                        <option value="IN_USE">Đang sử dụng</option>
+                        <option value="MAINTENANCE">Bảo trì/Sửa chữa</option>
+                        <option value="INACTIVE">Ngưng sử dụng</option>
+                      </select>
+                      <small>Bảo trì/Sửa chữa và Ngưng sử dụng cũng ghi được qua tab &quot;Chi tiết&quot; — Lịch sử bàn giao/bảo trì, kèm mốc thời gian.</small>
+                    </label>
+                  ) : null}
                   <label className="span-2">Ghi chú<textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></label>
                 </div>
-                {form.id ? (
-                  <label className="switch-row">
-                    <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
-                    <span><strong>Đang sử dụng</strong><small>Bỏ chọn để đánh dấu thiết bị đã ngưng sử dụng/thanh lý; dữ liệu vẫn được giữ lại.</small></span>
-                  </label>
-                ) : null}
               </div>
             </div>
             <div className="modal-footer">
@@ -250,6 +327,15 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
           </form>
         </div>
       ) : null}
+      <style>{TQM_CHART_CSS + `
+        .ttbyt-dashboard .ttbyt-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:0 19px 16px}.ttbyt-dashboard .ttbyt-kpis>*{min-width:0}
+        .ttbyt-dashboard .kpi-tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px}
+        .ttbyt-dashboard .kpi-tile span{font-size:11px;color:var(--muted);font-weight:700}
+        .ttbyt-dashboard .kpi-tile strong{font-size:22px}
+        .ttbyt-dashboard .ttbyt-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 19px 19px}
+        .ttbyt-dashboard .ttbyt-charts h3{margin:0 0 6px;font-size:13px}
+        @media(max-width:760px){.ttbyt-dashboard .ttbyt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ttbyt-dashboard .ttbyt-charts{grid-template-columns:1fr}}
+      `}</style>
     </>
   );
 }

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT = "id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,is_active,created_at,updated_at";
+const SELECT = "id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,status,created_at,updated_at";
+const EQUIPMENT_STATUSES = new Set(["IN_USE", "MAINTENANCE", "INACTIVE"]);
 const clean = (value: unknown) => String(value ?? "").trim();
 const intOrNull = (value: unknown) => {
   const raw = clean(value);
@@ -60,7 +61,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (Object.prototype.hasOwnProperty.call(body, "contract_to")) patch.contract_to = dateOrNull(body.contract_to);
   if (Object.prototype.hasOwnProperty.call(body, "valid_from")) patch.valid_from = dateOrNull(body.valid_from);
   if (Object.prototype.hasOwnProperty.call(body, "notes")) patch.notes = clean(body.notes) || null;
-  if (Object.prototype.hasOwnProperty.call(body, "is_active")) patch.is_active = body.is_active === true;
+  if (Object.prototype.hasOwnProperty.call(body, "status")) {
+    const status = clean(body.status);
+    if (!EQUIPMENT_STATUSES.has(status)) return NextResponse.json({ error: "Trạng thái không hợp lệ." }, { status: 400 });
+    patch.status = status;
+  }
 
   const { data, error } = await admin.from("medical_equipment").update(patch).eq("id", id).select(SELECT).single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

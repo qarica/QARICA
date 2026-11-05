@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT = "id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,is_active,created_at,updated_at";
+const SELECT = "id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,status,created_at,updated_at";
 const clean = (value: unknown) => String(value ?? "").trim();
 const cleanOrNull = (value: unknown) => clean(value) || null;
 const intOrNull = (value: unknown) => {
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
   const showInactive = new URL(request.url).searchParams.get("inactive") === "1";
   let query = admin.from("medical_equipment").select(SELECT).eq("organization_id", organizationId).order("sequence_no", { ascending: true, nullsFirst: false }).order("equipment_name", { ascending: true });
-  if (!showInactive) query = query.eq("is_active", true);
+  if (!showInactive) query = query.neq("status", "INACTIVE");
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
