@@ -3,7 +3,7 @@
    without changing business logic, routing, RBAC or data access. */
 :root{
   --qf-bg:#f4f8fc;--qf-surface:#fff;--qf-line:#dce8f5;--qf-text:#102a56;
-  --qf-muted:#687b95;--qf-blue:#1E3A8A;--qf-blue-soft:#EEF2FF;
+  --qf-muted:#687b95;--qf-blue:#2563EB;--qf-blue-soft:#EEF2FF;
 }
 html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .workspace-app{background:var(--qf-bg)!important;color:var(--qf-text)!important}
@@ -14,12 +14,12 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .workspace-app .sidebar:before{background:linear-gradient(180deg,#f8fbff,rgba(255,255,255,0))!important}
 .workspace-app .sidebar-brand{background:#fff!important;border-bottom:1px solid var(--qf-line)!important}
 .workspace-app .brand-mark,.workspace-app .brand-logo-wrap{background:transparent!important;border:0!important;box-shadow:none!important}
-.workspace-app .sidebar-brand-copy strong,.workspace-app .sidebar-brand-copy strong::after{color:#1E3A8A!important}
+.workspace-app .sidebar-brand-copy strong,.workspace-app .sidebar-brand-copy strong::after{color:#2563EB!important}
 .workspace-app .sidebar-brand-copy span,.workspace-app .sidebar-brand-copy span::after{color:#6b86a6!important}
 .workspace-app .nav-label{color:#91a3b8!important}
 .workspace-app .nav-link{color:#506985!important;background:transparent!important;border-color:transparent!important;box-shadow:none!important}
 .workspace-app .nav-link:hover{background:#f3f8ff!important;color:#172554!important;border-color:#e0ecfb!important;transform:none!important}
-.workspace-app .nav-link.active{background:#1E3A8A!important;color:#ffffff!important;border-color:transparent!important;box-shadow:0 4px 12px rgba(30,58,138,.28)!important}
+.workspace-app .nav-link.active{background:#2563EB!important;color:#ffffff!important;border-color:transparent!important;box-shadow:0 4px 12px rgba(37,99,235,.28)!important}
 .workspace-app .nav-link.active svg{color:#ffffff!important}
 .workspace-app .sidebar-footer{background:linear-gradient(180deg,rgba(255,255,255,0),#fff 28%)!important}
 
@@ -50,7 +50,7 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .workspace-app .header-icon.my-work-launcher:hover,
 .workspace-app .header-icon.my-work-launcher:focus,
 .workspace-app .header-icon.my-work-launcher:focus-visible{background:#15306e!important;border-color:#15306e!important;color:#fff!important;box-shadow:none!important}
-.workspace-app .avatar{background:linear-gradient(135deg,#3B5BDB,#1E3A8A)!important;color:#fff!important}
+.workspace-app .avatar{background:linear-gradient(135deg,#3B5BDB,#2563EB)!important;color:#fff!important}
 
 /* TQM dashboard: remove the legacy dark hero that overrode the approved light baseline. */
 .workspace-app .tqm-dashboard .hero{
@@ -60,7 +60,7 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
   border-radius:18px!important;
   box-shadow:0 8px 26px rgba(30,64,120,.07)!important;
 }
-.workspace-app .tqm-dashboard .hero .eyebrow{color:#1E3A8A!important}
+.workspace-app .tqm-dashboard .hero .eyebrow{color:#2563EB!important}
 .workspace-app .tqm-dashboard .hero h2{color:#12355f!important}
 .workspace-app .tqm-dashboard .hero p{color:#65758a!important}
 .workspace-app .tqm-dashboard .kpi,.workspace-app .tqm-dashboard .panel,.workspace-app .panel,.workspace-app .kpi-card{background:#fff!important;border-color:var(--qf-line)!important;box-shadow:0 4px 16px rgba(27,78,140,.045)!important}
@@ -74,8 +74,8 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .workspace-app .workspace-tab.active{background:var(--qf-blue-soft)!important;color:#172554!important;border-color:#C7D2FE!important;box-shadow:none!important}
 
 /* Keep semantic status colors; primary action remains medical blue. */
-.workspace-app .button.primary{background:linear-gradient(135deg,#172554,#1E3A8A)!important;border-color:#172554!important;color:#fff!important}
-.workspace-app input:focus,.workspace-app select:focus,.workspace-app textarea:focus{border-color:#1E3A8A!important;box-shadow:0 0 0 3px rgba(30,58,138,.10)!important}
+.workspace-app .button.primary{background:linear-gradient(135deg,#172554,#2563EB)!important;border-color:#172554!important;color:#fff!important}
+.workspace-app input:focus,.workspace-app select:focus,.workspace-app textarea:focus{border-color:#2563EB!important;box-shadow:0 0 0 3px rgba(37,99,235,.10)!important}
 
 /* Unify every page-local KPI/card variant (radius + shadow varied from 10px to 17px
    depending which module a page was built in) onto the same radius+shadow already used
@@ -112,7 +112,7 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 
 /* Buttons: consistent depth and hover feedback everywhere, instead of a flat click target. */
 .workspace-app .button{transition:background .15s ease,box-shadow .15s ease,transform .15s ease,border-color .15s ease!important}
-.workspace-app .button.primary:hover{box-shadow:0 6px 16px rgba(30,58,138,.28)!important;transform:translateY(-1px)}
+.workspace-app .button.primary:hover{box-shadow:0 6px 16px rgba(37,99,235,.28)!important;transform:translateY(-1px)}
 .workspace-app .button.secondary:hover,.workspace-app .button.tertiary:hover{background:#f3f8ff!important;border-color:#C7D2FE!important;color:#172554!important}
 .workspace-app .button.danger:hover{background:#ffe4e4!important;border-color:#f3b8b8!important}
 
@@ -658,7 +658,7 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .workspace-app .page-header-icon{
    width:34px!important;height:34px!important;min-width:34px!important;
    border-radius:10px!important;display:grid;place-items:center;
-   background:#EEF2FF!important;color:#1E3A8A!important;
+   background:#EEF2FF!important;color:#2563EB!important;
  }
  .workspace-app .page-header h1{
    font-size:clamp(18px,5vw,21px)!important;line-height:1.25!important;
@@ -762,7 +762,7 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
    box-shadow:0 5px 18px rgba(20,69,125,.06)!important;
  }
  .workspace-app .mobile-module-redesign > .panel:first-child{
-   border-top:3px solid #1E3A8A!important;
+   border-top:3px solid #2563EB!important;
  }
  .workspace-app .mobile-module-redesign .panel-title{
    display:flex;align-items:flex-start;gap:9px;flex-wrap:wrap;
