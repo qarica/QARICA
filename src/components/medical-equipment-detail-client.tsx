@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import QRCode from "qrcode";
 import { Icon } from "@/components/icon";
-import type { EquipmentStatus } from "@/components/medical-equipment-client";
+import { RISK_CLASSIFICATION_LABEL, type EquipmentStatus, type RiskClassification } from "@/components/medical-equipment-client";
 
 type Department = { id: string; name: string };
 type Profile = { user_id: string; full_name: string | null; email: string | null };
@@ -28,6 +28,7 @@ type Equipment = {
   department_label: string | null;
   notes: string | null;
   status: EquipmentStatus;
+  risk_classification: RiskClassification | null;
 };
 
 type EventType = "ASSIGN" | "TRANSFER" | "RETURN" | "MAINTENANCE_START" | "MAINTENANCE_DONE" | "NOTE";
@@ -131,6 +132,7 @@ export function MedicalEquipmentDetailClient({
           <div><span>Năm SX / SD</span>{[equipment.year_manufactured, equipment.year_in_use].filter(Boolean).join(" / ") || "—"}</div>
           <div><span>Số lưu hành</span>{equipment.registration_number || "—"}</div>
           <div><span>Khoa sử dụng</span>{equipment.department_id ? departmentName(equipment.department_id) : equipment.department_label || "—"}</div>
+          <div><span>Phân loại TTBYT</span>{equipment.risk_classification ? RISK_CLASSIFICATION_LABEL[equipment.risk_classification] : "— Chưa xác định —"}</div>
           <div><span>Hợp đồng</span>{[formatDate(equipment.contract_from), formatDate(equipment.contract_to)].join(" – ")}</div>
           <div><span>Hiệu lực từ</span>{formatDate(equipment.valid_from)}</div>
           <div><span>Ghi chú</span>{equipment.notes || "—"}</div>

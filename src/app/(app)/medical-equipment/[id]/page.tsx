@@ -14,7 +14,7 @@ export default async function MedicalEquipmentDetailPage({ params }: { params: P
   const [{ data: equipment }, departmentsRes, eventsRes] = await Promise.all([
     supabase
       .from("medical_equipment")
-      .select("id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,status")
+      .select("id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,status,risk_classification")
       .eq("id", id)
       .eq("organization_id", user.organizationId)
       .maybeSingle(),

@@ -15,7 +15,7 @@ export async function GET() {
 
   const { data: equipment, error } = await admin
     .from("medical_equipment")
-    .select("sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,status,notes")
+    .select("sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,status,risk_classification,notes")
     .eq("organization_id", organizationId)
     .order("sequence_no", { ascending: true, nullsFirst: false })
     .order("equipment_name", { ascending: true });
@@ -25,7 +25,7 @@ export async function GET() {
   const departmentsRes = departmentIds.length ? await admin.from("departments").select("id,name").in("id", departmentIds) : { data: [] as any[] };
   const departmentName = new Map((departmentsRes.data ?? []).map((d: any) => [d.id, d.name]));
 
-  const headers = ["STT", "Tên thiết bị", "Ký hiệu/Model", "Hãng SX", "Nước SX", "Năm SX", "Năm SD", "Mã máy", "Số lưu hành", "Hợp đồng từ", "Hợp đồng đến", "Hiệu lực từ", "Khoa sử dụng", "Trạng thái", "Ghi chú"];
+  const headers = ["STT", "Tên thiết bị", "Ký hiệu/Model", "Hãng SX", "Nước SX", "Năm SX", "Năm SD", "Mã máy", "Số lưu hành", "Hợp đồng từ", "Hợp đồng đến", "Hiệu lực từ", "Khoa sử dụng", "Trạng thái", "Phân loại TTBYT", "Ghi chú"];
   const lines = [headers.map(csvCell).join(",")];
   for (const e of equipment ?? []) {
     lines.push(
@@ -44,6 +44,7 @@ export async function GET() {
         e.valid_from ?? "",
         (e.department_id ? departmentName.get(e.department_id) : e.department_label) || "",
         STATUS_LABEL[e.status] || e.status,
+        e.risk_classification ?? "",
         e.notes ?? "",
       ]
         .map(csvCell)

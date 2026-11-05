@@ -12,7 +12,7 @@ export default async function MedicalEquipmentPage() {
   const [{ data: equipment, error }, departmentsRes] = await Promise.all([
     supabase
       .from("medical_equipment")
-      .select("id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,status")
+      .select("id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,status,risk_classification")
       .eq("organization_id", user.organizationId)
       .order("sequence_no", { ascending: true, nullsFirst: false })
       .order("equipment_name", { ascending: true }),

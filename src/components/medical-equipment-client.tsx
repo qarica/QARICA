@@ -12,6 +12,18 @@ export type EquipmentStatus = "IN_USE" | "MAINTENANCE" | "INACTIVE";
 const STATUS_LABEL: Record<EquipmentStatus, string> = { IN_USE: "Đang sử dụng", MAINTENANCE: "Bảo trì/Sửa chữa", INACTIVE: "Ngưng sử dụng" };
 const STATUS_BADGE_TONE: Record<EquipmentStatus, string> = { IN_USE: "success", MAINTENANCE: "warning", INACTIVE: "muted" };
 
+// Phân loại mức độ rủi ro TTBYT theo Điều 4 Nghị định 98/2021/NĐ-CP (còn
+// hiệu lực sau khi đối chiếu NĐ 07/2023/NĐ-CP và NĐ 04/2025/NĐ-CP — cả hai
+// không sửa Điều 4/5). Kết quả phân loại do người có chuyên môn QLCL tự xác
+// định cho từng thiết bị, không phải trường hệ thống tự suy ra.
+export type RiskClassification = "A" | "B" | "C" | "D";
+export const RISK_CLASSIFICATION_LABEL: Record<RiskClassification, string> = {
+  A: "Loại A — rủi ro thấp",
+  B: "Loại B — rủi ro trung bình thấp",
+  C: "Loại C — rủi ro trung bình cao",
+  D: "Loại D — rủi ro cao",
+};
+
 type Equipment = {
   id: string;
   sequence_no: number | null;
@@ -33,6 +45,7 @@ type Equipment = {
   department_label: string | null;
   notes: string | null;
   status: EquipmentStatus;
+  risk_classification: RiskClassification | null;
 };
 
 type Form = {
@@ -53,12 +66,13 @@ type Form = {
   legacyDepartmentLabel: string;
   notes: string;
   status: EquipmentStatus;
+  risk_classification: "" | RiskClassification;
 };
 
 const EMPTY: Form = {
   sequence_no: "", equipment_name: "", model_code: "", manufacturer: "", origin_country: "",
   year_manufactured: "", year_in_use: "", machine_code: "", registration_number: "",
-  contract_from: "", contract_to: "", valid_from: "", department_id: "", legacyDepartmentLabel: "", notes: "", status: "IN_USE",
+  contract_from: "", contract_to: "", valid_from: "", department_id: "", legacyDepartmentLabel: "", notes: "", status: "IN_USE", risk_classification: "",
 };
 
 function toForm(e: Equipment): Form {
@@ -70,6 +84,7 @@ function toForm(e: Equipment): Form {
     machine_code: e.machine_code || "", registration_number: e.registration_number || "",
     contract_from: e.contract_from || "", contract_to: e.contract_to || "", valid_from: e.valid_from || "",
     department_id: e.department_id || "", legacyDepartmentLabel: e.department_id ? "" : e.department_label || "", notes: e.notes || "", status: e.status,
+    risk_classification: e.risk_classification || "",
   };
 }
 
@@ -131,6 +146,7 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
         machine_code: form.machine_code.trim() || null, registration_number: form.registration_number.trim() || null,
         contract_from: form.contract_from || null, contract_to: form.contract_to || null, valid_from: form.valid_from || null,
         department_id: form.department_id || null, notes: form.notes.trim() || null,
+        risk_classification: form.risk_classification || null,
       };
       if (form.id) payload.status = form.status;
       const res = await fetch(form.id ? `/api/medical-equipment/${form.id}` : "/api/medical-equipment", {
@@ -223,6 +239,7 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
                 <th>Mã máy</th>
                 <th>Khoa sử dụng</th>
                 <th>Trạng thái</th>
+                <th>Phân loại</th>
                 <th>QR / Lịch sử</th>
                 {canManage ? <th></th> : null}
               </tr>
@@ -247,6 +264,7 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
                     )}
                   </td>
                   <td><span className={`status-badge ${STATUS_BADGE_TONE[e.status]}`}>{STATUS_LABEL[e.status]}</span></td>
+                  <td>{e.risk_classification ? <span className="code-pill" title={RISK_CLASSIFICATION_LABEL[e.risk_classification]}>{e.risk_classification}</span> : "—"}</td>
                   <td>
                     <Link className="button tertiary small" href={`/medical-equipment/${e.id}`}>
                       <Icon name="qr-code" size={15} /> Chi tiết
@@ -261,7 +279,7 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
                   ) : null}
                 </tr>
               ))}
-              {!rows.length ? <tr><td colSpan={canManage ? 9 : 8}><div className="empty-state">Chưa có thiết bị phù hợp.</div></td></tr> : null}
+              {!rows.length ? <tr><td colSpan={canManage ? 10 : 9}><div className="empty-state">Chưa có thiết bị phù hợp.</div></td></tr> : null}
             </tbody>
           </table>
         </div>
@@ -305,6 +323,16 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
                   <label>Hợp đồng đến<input type="date" value={form.contract_to} onChange={(e) => setForm({ ...form, contract_to: e.target.value })} /></label>
                   <label>Hiệu lực từ<input type="date" value={form.valid_from} onChange={(e) => setForm({ ...form, valid_from: e.target.value })} /></label>
                   <label>STT (thứ tự sổ)<input type="number" value={form.sequence_no} onChange={(e) => setForm({ ...form, sequence_no: e.target.value })} /></label>
+                  <label>
+                    Phân loại TTBYT
+                    <select value={form.risk_classification} onChange={(e) => setForm({ ...form, risk_classification: e.target.value as Form["risk_classification"] })}>
+                      <option value="">— Chưa xác định —</option>
+                      {(Object.keys(RISK_CLASSIFICATION_LABEL) as RiskClassification[]).map((k) => (
+                        <option key={k} value={k}>{RISK_CLASSIFICATION_LABEL[k]}</option>
+                      ))}
+                    </select>
+                    <small>Theo Điều 4 Nghị định 98/2021/NĐ-CP — do người có chuyên môn QLCL tự xác định cho từng thiết bị.</small>
+                  </label>
                   {form.id ? (
                     <label>
                       Trạng thái

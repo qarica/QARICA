@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT = "id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,status,created_at,updated_at";
+const SELECT = "id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,status,risk_classification,created_at,updated_at";
+const RISK_CLASSIFICATIONS = new Set(["A", "B", "C", "D"]);
 const clean = (value: unknown) => String(value ?? "").trim();
 const cleanOrNull = (value: unknown) => clean(value) || null;
 const intOrNull = (value: unknown) => {
@@ -55,6 +56,14 @@ export async function POST(request: Request) {
     if (!department) return NextResponse.json({ error: "Khoa/phòng không hợp lệ." }, { status: 400 });
   }
 
+  // Phân loại TTBYT (A/B/C/D) theo Điều 4 Nghị định 98/2021/NĐ-CP — kết quả
+  // do người có chuyên môn QLCL tự xác định cho từng thiết bị, hệ thống
+  // không tự suy ra; nullable, bỏ trống nếu chưa xác định.
+  const riskClassification = cleanOrNull(body.risk_classification);
+  if (riskClassification && !RISK_CLASSIFICATIONS.has(riskClassification)) {
+    return NextResponse.json({ error: "Phân loại TTBYT không hợp lệ (chỉ nhận A, B, C, D)." }, { status: 400 });
+  }
+
   const { data, error } = await admin
     .from("medical_equipment")
     .insert({
@@ -73,6 +82,7 @@ export async function POST(request: Request) {
       valid_from: dateOrNull(body.valid_from),
       department_id: departmentId,
       notes: cleanOrNull(body.notes),
+      risk_classification: riskClassification,
       created_by: auth.user.id,
     })
     .select(SELECT)

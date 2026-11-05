@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT = "id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,status,created_at,updated_at";
+const SELECT = "id,sequence_no,equipment_name,model_code,manufacturer,origin_country,year_manufactured,year_in_use,machine_code,registration_number,contract_from,contract_to,valid_from,department_id,department_label,notes,status,risk_classification,created_at,updated_at";
 const EQUIPMENT_STATUSES = new Set(["IN_USE", "MAINTENANCE", "INACTIVE"]);
+const RISK_CLASSIFICATIONS = new Set(["A", "B", "C", "D"]);
 const clean = (value: unknown) => String(value ?? "").trim();
 const intOrNull = (value: unknown) => {
   const raw = clean(value);
@@ -65,6 +66,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const status = clean(body.status);
     if (!EQUIPMENT_STATUSES.has(status)) return NextResponse.json({ error: "Trạng thái không hợp lệ." }, { status: 400 });
     patch.status = status;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "risk_classification")) {
+    const riskClassification = clean(body.risk_classification) || null;
+    if (riskClassification && !RISK_CLASSIFICATIONS.has(riskClassification)) {
+      return NextResponse.json({ error: "Phân loại TTBYT không hợp lệ (chỉ nhận A, B, C, D)." }, { status: 400 });
+    }
+    patch.risk_classification = riskClassification;
   }
 
   const { data, error } = await admin.from("medical_equipment").update(patch).eq("id", id).select(SELECT).single();
