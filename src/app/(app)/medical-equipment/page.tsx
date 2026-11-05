@@ -23,7 +23,7 @@ export default async function MedicalEquipmentPage() {
     <div className="page-stack">
       <PageHeader
         eyebrow="QUẢN TRỊ"
-        title="Sổ quản lý TTBYT"
+        title="Quản lý TTBYT"
         description="Sổ theo dõi trang thiết bị y tế: hãng sản xuất, năm SX/SD, mã máy, số lưu hành, hạn hợp đồng/hiệu lực và khoa sử dụng."
         icon="network"
       />

@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     row_id: data.id,
     action_type: "MEDICAL_EQUIPMENT_CREATE",
     new_value: data,
-    reason: "Thêm thiết bị vào Sổ quản lý TTBYT.",
+    reason: "Thêm thiết bị vào Quản lý TTBYT.",
     request_meta: { source: "qlcl-ui" },
   });
 

@@ -35,7 +35,7 @@ export default async function MedicalEquipmentDetailPage({ params }: { params: P
   return (
     <div className="page-stack">
       <PageHeader
-        eyebrow="SỔ QUẢN LÝ TTBYT"
+        eyebrow="QUẢN LÝ TTBYT"
         title={equipment.equipment_name}
         description="Thông tin thiết bị, mã QR tra cứu nhanh và lịch sử bàn giao/bảo trì."
         icon="network"

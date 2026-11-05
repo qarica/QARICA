@@ -47,7 +47,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(11);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
-    expect(navigation).toContain('label: "AUDIT HSBA"');
+    expect(navigation).toContain('label: "QUẢN LÝ HSBA"');
     expect(navigation).toContain('label: "BỆNH ÁN ĐIỆN TỬ"');
     expect(navigation).toContain('label: "QUẢN LÝ VĂN BẢN"');
     expect(navigation).toContain('label: "CẤU HÌNH HỆ THỐNG"');
@@ -80,7 +80,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     }
     expect(block).not.toContain("Đo lường & Giám sát");
     expect(block).not.toContain("EMR");
-    for (const moved of ["Việc của tôi", "Sổ tay cá nhân", "Cá nhân", "MUA SẮM & SỬA CHỮA", "QUẢN LÝ HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "QUẢN LÝ VĂN BẢN", "AUDIT HSBA", "Lịch QLCL"]) {
+    for (const moved of ["Việc của tôi", "Sổ tay cá nhân", "Cá nhân", "MUA SẮM & SỬA CHỮA", "QUẢN LÝ HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "QUẢN LÝ VĂN BẢN", "QUẢN LÝ HSBA", "Lịch QLCL"]) {
       expect(block).not.toContain(`label: "${moved}"`);
     }
   });
@@ -100,11 +100,11 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(navigation).not.toContain('label: "CÁ NHÂN & VIỆC CỦA TÔI"');
   });
 
-  it("promotes MUA SẮM & SỬA CHỮA, QUẢN LÝ CÔNG VĂN and AUDIT HSBA to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
+  it("promotes MUA SẮM & SỬA CHỮA, QUẢN LÝ CÔNG VĂN and QUẢN LÝ HSBA to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
     const expectations: [string, string, string][] = [
       ["procurement", "MUA SẮM & SỬA CHỮA", "/procurement"],
       ["incoming-documents", "QUẢN LÝ CÔNG VĂN", "/incoming-documents"],
-      ["hsba-audit", "AUDIT HSBA", "/hsba-audit"],
+      ["hsba-audit", "QUẢN LÝ HSBA", "/hsba-audit"],
     ];
     for (const [id, label, href] of expectations) {
       const block = groupBlock(navigation, id);

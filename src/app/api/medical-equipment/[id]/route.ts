@@ -84,7 +84,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     row_id: id,
     action_type: "MEDICAL_EQUIPMENT_UPDATE",
     new_value: patch,
-    reason: "Cập nhật thiết bị trong Sổ quản lý TTBYT.",
+    reason: "Cập nhật thiết bị trong Quản lý TTBYT.",
     request_meta: { source: "qlcl-ui" },
   });
 

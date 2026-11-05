@@ -93,10 +93,10 @@ const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     id: "hsba-audit",
-    label: "AUDIT HSBA",
+    label: "QUẢN LÝ HSBA",
     icon: "list-checks",
     children: [
-      { label: "AUDIT HSBA", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" },
+      { label: "QUẢN LÝ HSBA", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" },
     ],
   },
   {
@@ -135,10 +135,10 @@ const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     id: "medical-equipment",
-    label: "SỔ QUẢN LÝ TTBYT",
+    label: "QUẢN LÝ TTBYT",
     icon: "cog",
     children: [
-      { label: "SỔ QUẢN LÝ TTBYT", href: "/medical-equipment", icon: "cog", permission: "medical_equipment.view" },
+      { label: "QUẢN LÝ TTBYT", href: "/medical-equipment", icon: "cog", permission: "medical_equipment.view" },
     ],
   },
   {
