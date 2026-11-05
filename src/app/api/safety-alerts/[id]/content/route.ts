@@ -70,8 +70,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     expires_at: ctx.alert.expires_at ?? null,
   };
   const newValue = { summary: summary || null, lesson: lesson || null, recommendation: recommendation || null, expires_at: expiresAt };
-  const now = new Date().toISOString();
-  const { error } = await ctx.admin.from("safety_alerts").update({ ...newValue, updated_at: now }).eq("id", ctx.alert.id);
+  // safety_alerts không có cột updated_at (đã xác nhận qua information_schema) —
+  // bảng này không theo dõi thời điểm sửa đổi, chỉ records (bảng cha) mới có.
+  const { error } = await ctx.admin.from("safety_alerts").update(newValue).eq("id", ctx.alert.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   await ctx.admin.from("audit_logs").insert({
