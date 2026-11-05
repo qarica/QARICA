@@ -10,6 +10,7 @@ import { adminLandingHref, isWorkspaceTabActive, visibleWorkspaceForPath, worksp
 import { Icon } from "@/components/icon";
 import { YearSelector } from "@/components/year-selector";
 import { NotificationBell } from "@/components/notification-bell";
+import { GROUP_TONES } from "@/lib/module-catalog";
 
 type AttentionState = Record<string, { count: number; urgent: boolean }>;
 
@@ -114,17 +115,18 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
   const displayName = user.fullName || (user.email ? user.email.split("@")[0] : "Người dùng");
   function startNavigation(href: string) { const target = href.split("?")[0]; if (target !== pathname) setNavigating(true); setMobileOpen(false); }
   function renderBadge(badge: { count: number; urgent: boolean } | undefined, className = "nav-attention-badge") { if (!badge?.count) return null; return <span className={`${className} ${badge.urgent ? "urgent" : "warning"}`}>{badge.count > 99 ? "99+" : badge.count}</span>; }
-  function renderChild(item: NavItem, asGroupLink?: boolean) { const baseHref = item.href.split("?")[0]; const itemRoot = item.workspaceRoot || baseHref; const active = isChildActive(pathname, item, currentWorkspaceRoot); const badge = attention[itemRoot]; return <Link key={`${itemRoot}:${item.label}`} href={item.href} prefetch={true} aria-current={active ? "page" : undefined} className={asGroupLink ? `nav-link nav-group-link ${active ? "active" : ""}` : `nav-link nav-child-link ${active ? "active" : ""}`} title={`${item.label}${badge?.count ? ` · ${badge.count} việc cần chú ý` : ""}`} onMouseEnter={() => router.prefetch(item.href)} onFocus={() => router.prefetch(item.href)} onClick={() => startNavigation(item.href)}><span className={`nav-icon ${asGroupLink ? "nav-group-icon" : ""} ${NAV_ICON_TONE[itemRoot] || "overview"}`} aria-hidden="true"><Icon name={item.icon} size={18} /></span><span className="nav-link-label">{item.label}</span>{renderBadge(badge)}</Link>; }
+  function renderChild(item: NavItem, asGroupLink?: boolean, tone?: string) { const baseHref = item.href.split("?")[0]; const itemRoot = item.workspaceRoot || baseHref; const active = isChildActive(pathname, item, currentWorkspaceRoot); const badge = attention[itemRoot]; return <Link key={`${itemRoot}:${item.label}`} href={item.href} prefetch={true} aria-current={active ? "page" : undefined} className={asGroupLink ? `nav-link nav-group-link ${active ? "active" : ""}` : `nav-link nav-child-link ${active ? "active" : ""}`} title={`${item.label}${badge?.count ? ` · ${badge.count} việc cần chú ý` : ""}`} onMouseEnter={() => router.prefetch(item.href)} onFocus={() => router.prefetch(item.href)} onClick={() => startNavigation(item.href)}><span className={`nav-icon ${asGroupLink ? `nav-group-icon tone-${tone}` : ""} ${NAV_ICON_TONE[itemRoot] || "overview"}`} aria-hidden="true"><Icon name={item.icon} size={18} /></span><span className="nav-link-label">{item.label}</span>{renderBadge(badge)}</Link>; }
   // A group with exactly one authorized child (EMR; Cấu hình hệ thống) has
   // nothing to expand — showing it as a collapsible accordion with a chevron
   // promises children that never appear. Promote it to a plain top-level link
   // instead, styled like a Level-1 item, so there is never an "expand reveals
   // only 1 item" moment.
-  function renderGroup(group: NavGroup) {
+  function renderGroup(group: NavGroup, index: number) {
     const expanded = expandedGroupId === group.id;
     const isActiveGroup = group.children.some((child) => isChildActive(pathname, child, currentWorkspaceRoot));
-    if (group.children.length === 1) return renderChild(group.children[0], true);
-    return <div className={`nav-group ${expanded ? "expanded" : ""} ${isActiveGroup ? "active-context" : ""}`} key={group.id}><button type="button" className="nav-group-header" aria-expanded={expanded} onClick={() => toggleGroup(group.id)}><span className="nav-icon nav-group-icon" aria-hidden="true"><Icon name={group.icon} size={18} /></span><span className="nav-group-label">{group.label}</span><Icon name="chevron-down" size={15} className={`nav-group-chevron ${expanded ? "expanded" : ""}`} /></button><div className="nav-group-children" aria-hidden={!expanded}>{expanded ? group.children.map((c) => renderChild(c)) : null}</div><div className="nav-group-flyout"><div className="nav-group-flyout-title">{group.label}</div>{group.children.map((c) => renderChild(c))}</div></div>;
+    const tone = GROUP_TONES[index % GROUP_TONES.length];
+    if (group.children.length === 1) return renderChild(group.children[0], true, tone);
+    return <div className={`nav-group ${expanded ? "expanded" : ""} ${isActiveGroup ? "active-context" : ""}`} key={group.id}><button type="button" className="nav-group-header" aria-expanded={expanded} onClick={() => toggleGroup(group.id)}><span className={`nav-icon nav-group-icon tone-${tone}`} aria-hidden="true"><Icon name={group.icon} size={18} /></span><span className="nav-group-label">{group.label}</span><Icon name="chevron-down" size={15} className={`nav-group-chevron ${expanded ? "expanded" : ""}`} /></button><div className="nav-group-children" aria-hidden={!expanded}>{expanded ? group.children.map((c) => renderChild(c)) : null}</div><div className="nav-group-flyout"><div className="nav-group-flyout-title">{group.label}</div>{group.children.map((c) => renderChild(c))}</div></div>;
   }
   const mainNavGroups = navGroups.filter((group) => !group.footer);
   const footerNavGroups = navGroups.filter((group) => group.footer);
@@ -208,14 +210,26 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .sidebar-brand-copy strong{color:#0f172a;font-size:16px;font-weight:900}
       .workspace-app .sidebar-brand-copy span{color:#64748b;font-size:10px}
       .workspace-app .nav-label{color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:.06em;padding:14px 18px 6px}
-      .workspace-app .nav-link{position:relative;border-radius:10px;margin:2px 10px;padding:9px 12px;color:#475569;border:1px solid transparent;box-shadow:none;font-weight:600;font-size:13px}
+      .workspace-app .nav-link{position:relative;border-radius:10px;margin:3px 10px;padding:10px 12px;color:#475569;border:1px solid transparent;box-shadow:none;font-weight:600;font-size:13px}
       .workspace-app .nav-link:hover{background:#f8fafc;border-color:#eef2f7;color:#0f172a}
-      .workspace-app .nav-link.active{background:#EEF2FF;border-color:#C7D2FE;color:#172554;font-weight:800;box-shadow:none}
-      .workspace-app .nav-link.active:before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:#1E3A8A}
+      .workspace-app .nav-link.active{background:#EEF2FF;border-color:#C7D2FE;color:#172554;font-weight:800;box-shadow:0 1px 3px rgba(30,58,138,.08)}
+      .workspace-app .nav-link.active:before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:4px;border-radius:0 4px 4px 0;background:#1E3A8A}
       .workspace-app .nav-icon{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex:0 0 26px;border-radius:8px;color:#64748b;background:transparent;transition:color .16s,background .16s}
       .workspace-app .nav-link.active .nav-icon{color:#1E3A8A;background:transparent}
+      /* Yêu cầu tường minh "nên thiết kế sidebar sao cho phù hợp và đẹp hơn" —
+         icon mỗi NHÓM (không phải từng mục con, để hàng mục con vẫn gọn/dễ
+         quét mắt) tô badge màu tròn luân phiên, tái dùng đúng bộ tông
+         GROUP_TONES đã dùng ở trang Danh mục module (/modules) — nhất quán
+         màu sắc giữa 2 nơi, không bịa thêm màu mới. --brand-soft/--brand lấy
+         từ globals.css, --brand tự đổi theo organization.primary_color (xem
+         style inline ở gốc component) nên badge "tone-brand" cũng tự theo
+         màu thương hiệu riêng của từng tổ chức. */
+      .workspace-app .nav-group-icon.tone-brand{background:var(--brand-soft);color:var(--brand)}
+      .workspace-app .nav-group-icon.tone-info{background:var(--info-soft);color:var(--info)}
+      .workspace-app .nav-group-icon.tone-success{background:var(--success-soft);color:var(--success)}
+      .workspace-app .nav-group-icon.tone-warning{background:var(--warning-soft);color:var(--warning)}
       .workspace-app .nav-group{margin:6px 0}
-      .workspace-app .nav-group-header{display:flex;align-items:center;gap:11px;width:100%;border-radius:10px;margin:2px 10px;padding:10px 12px;border:1px solid transparent;background:transparent;text-align:left;transition:background .14s,color .14s}
+      .workspace-app .nav-group-header{display:flex;align-items:center;gap:11px;width:100%;border-radius:10px;margin:3px 10px;padding:11px 12px;border:1px solid transparent;background:transparent;text-align:left;transition:background .14s,color .14s}
       .workspace-app .nav-group-header:hover{background:#f8fafc;border-color:#eef2f7}
       .workspace-app .nav-group.expanded>.nav-group-header{background:#f8fafc}
       .workspace-app .nav-group.active-context>.nav-group-header{background:#eef2ff}

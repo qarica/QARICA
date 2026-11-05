@@ -372,7 +372,7 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
   });
 
   it("promotes a single-child group (EMR; Cấu hình hệ thống) to a plain top-level link instead of a chevron accordion with nothing to expand", () => {
-    expect(shell).toContain("if (group.children.length === 1) return renderChild(group.children[0], true);");
+    expect(shell).toContain("if (group.children.length === 1) return renderChild(group.children[0], true, tone);");
     expect(shell).toContain("nav-link nav-group-link");
     // the promoted link still carries .nav-link so it inherits the same
     // collapsed-rail / active-state / touch-target machinery as every other item
@@ -401,5 +401,28 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
 
   it("keeps the collapsed-rail flyout's compact child margin from being overridden by the new !important 26px indent (the flyout is a small popover, not the full list — there is no parent row to indent under inside it)", () => {
     expect(shell).toContain(".workspace-app.workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px!important}");
+  });
+
+  // Yêu cầu tường minh: "nên thiết kế sidebar sao cho phù hợp và đẹp hơn ...
+  // vẫn đảm bảo thuận tiện thao tác trên máy tính và điện thoại" — chỉ thêm
+  // badge màu tròn cho icon NHÓM (tái dùng GROUP_TONES của /modules), làm
+  // active state rõ hơn và giãn khoảng cách dòng một chút — không đổi cơ chế
+  // accordion/thu gọn/breakpoint di động đã có.
+  it("mỗi nhóm có badge màu tròn luân phiên (tái dùng GROUP_TONES của trang Danh mục module), index tới từ Array.prototype.map tự động (không đổi chữ ký lời gọi mainNavGroups.map(renderGroup)/footerNavGroups.map(renderGroup) đã khoá ở trên)", () => {
+    expect(shell).toContain('import { GROUP_TONES } from "@/lib/module-catalog";');
+    expect(shell).toContain("function renderGroup(group: NavGroup, index: number) {");
+    expect(shell).toContain("const tone = GROUP_TONES[index % GROUP_TONES.length];");
+    expect(shell).toContain("if (group.children.length === 1) return renderChild(group.children[0], true, tone);");
+    expect(shell).toContain('<span className={`nav-icon nav-group-icon tone-${tone}`} aria-hidden="true">');
+    expect(shell).toContain("mainNavGroups.map(renderGroup)");
+    expect(shell).toContain("footerNavGroups.map(renderGroup)");
+    for (const tone of ["brand", "info", "success", "warning"]) {
+      expect(shell).toContain(`.workspace-app .nav-group-icon.tone-${tone}{background:var(--${tone}-soft);color:var(--${tone})}`);
+    }
+  });
+
+  it("active state nổi bật hơn: thanh nhấn trái dày hơn (4px) và có bóng nhẹ, không đổi cơ chế active hiện có", () => {
+    expect(shell).toContain('.workspace-app .nav-link.active:before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:4px;border-radius:0 4px 4px 0;background:#1E3A8A}');
+    expect(shell).toContain(".workspace-app .nav-link.active{background:#EEF2FF;border-color:#C7D2FE;color:#172554;font-weight:800;box-shadow:0 1px 3px rgba(30,58,138,.08)}");
   });
 });
