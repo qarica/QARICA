@@ -115,6 +115,31 @@ describe("Trang chi tiết /medical-equipment/[id] — QR tra cứu + lịch s�
   });
 });
 
+// Phát hiện thực tế: page.tsx (trang danh sách) tự truy vấn Supabase trực
+// tiếp, KHÔNG qua /api/medical-equipment — nên khi thêm cột status, sửa 2 API
+// route + trang chi tiết nhưng quên sửa đúng SELECT này, dashboard luôn đếm 0
+// vì mọi equipment.status đều undefined (trong khi badge trạng thái ở trang
+// chi tiết lại đúng, vì page.tsx của trang đó có SELECT status riêng, đã sửa
+// đúng từ đầu) — dễ gây hiểu lầm "chỉ dashboard sai, bảng/badge vẫn đúng".
+// Khoá lại CẢ 2 page.tsx (danh sách + chi tiết) để không lặp lại.
+describe("Cả 2 page.tsx (danh sách + chi tiết) đều SELECT đúng cột status của medical_equipment, không còn is_active", () => {
+  it("trang danh sách (/medical-equipment) SELECT status, không còn is_active của medical_equipment", () => {
+    const page = read("src/app/(app)/medical-equipment/page.tsx");
+    const equipmentSelectCall = page.split("\n").find((l) => l.includes('.from("medical_equipment")')) ? page.match(/\.from\("medical_equipment"\)\s*\n?\s*\.select\("([^"]+)"\)/) : null;
+    const selectCols = equipmentSelectCall ? equipmentSelectCall[1] : "";
+    expect(selectCols).toContain("status");
+    expect(selectCols).not.toContain("is_active");
+  });
+
+  it("trang chi tiết (/medical-equipment/[id]) SELECT status, không còn is_active của medical_equipment", () => {
+    const page = read("src/app/(app)/medical-equipment/[id]/page.tsx");
+    const equipmentSelectCall = page.match(/\.from\("medical_equipment"\)\s*\n?\s*\.select\("([^"]+)"\)/);
+    const selectCols = equipmentSelectCall ? equipmentSelectCall[1] : "";
+    expect(selectCols).toContain("status");
+    expect(selectCols).not.toContain("is_active");
+  });
+});
+
 describe("Danh sách /medical-equipment — dashboard tổng quan + liên kết sang trang chi tiết", () => {
   const client = read("src/components/medical-equipment-client.tsx");
 
