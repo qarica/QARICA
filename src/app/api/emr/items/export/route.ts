@@ -53,7 +53,17 @@ export async function GET(request: Request) {
   if (bindingGroupsRes.error) return NextResponse.json({ error: bindingGroupsRes.error.message }, { status: 400 });
 
   const deptName = new Map((departmentsRes.data ?? []).map((d: any) => [d.id, d.name]));
-  const extraFields = EMR_CATEGORY_FIELDS[category.code as keyof typeof EMR_CATEGORY_FIELDS] || [];
+  // Báo cáo thực tế: "Xuất excel biểu mẫu xoá cột mẫu tham chiếu hệ thống
+  // EMR khác nếu có" — file xuất ra trước đây đưa MỌI field của danh mục
+  // thành cột, kể cả field đã khai báo hideFromGrid (vd vendor_form_code,
+  // binding_group, binding_group_order) để ẩn khỏi lưới chính vì "trang xem
+  // thật sự của field này ở nơi khác" (Cây biểu mẫu) — cùng loại lệch nhất
+  // quán UI↔export CLAUDE.md yêu cầu đối chiếu (xem comment publishCell bên
+  // dưới, trường hợp tương tự đã sửa trước đó theo hướng ngược lại: thêm cột
+  // thiếu). groupByField bên dưới (Cây biểu mẫu nhóm theo binding_group) vẫn
+  // hoạt động bình thường vì được tra riêng từ EMR_CATEGORY_FIELDS, không
+  // phụ thuộc extraFields đã lọc này.
+  const extraFields = (EMR_CATEGORY_FIELDS[category.code as keyof typeof EMR_CATEGORY_FIELDS] || []).filter((f) => !f.hideFromGrid);
   const items = isTreeExport ? (itemsRes.data ?? []).filter((it: any) => it.publish_status !== "DRAFT") : itemsRes.data ?? [];
 
   function cellValue(f: (typeof extraFields)[number], it: any) {
