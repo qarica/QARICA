@@ -79,7 +79,7 @@ export function ModuleCatalogClient({ groups }: { groups: NavGroup[] }) {
         .module-catalog-tile-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
         .module-catalog-tile-copy strong{font-size:12.5px;color:var(--text)}
         .module-catalog-tile-copy small{font-size:11px;color:var(--muted);line-height:1.4}
-        @media(max-width:620px){.module-catalog-grid{grid-template-columns:1fr}}
+        @media(max-width:620px){.module-catalog-grid{grid-template-columns:1fr}.module-catalog{padding-bottom:90px}}
       `}</style>
     </>
   );
