@@ -543,7 +543,7 @@ export function IncomingDocumentsClient({
         .doc-file-link {
           border: 0;
           background: transparent;
-          color: var(--brand, #0D9488);
+          color: var(--brand, #2563EB);
           font-weight: 700;
           font-size: 11px;
           padding: 0;

@@ -138,7 +138,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
   // 2026-10-15). Keeping this default in sync with globals.css means
   // organizations that haven't set a custom primary_color see the exact
   // same brand color as the rest of the app, not a stale fallback.
-  return <div className="app-root workspace-app" style={{ ["--brand" as string]: organization?.primary_color || "#0D9488" }}>
+  return <div className="app-root workspace-app" style={{ ["--brand" as string]: organization?.primary_color || "#2563EB" }}>
     <style>{`
       .workspace-app{--sidebar-width:266px;--sidebar-collapsed-width:76px;background:#f5f8fc;color:#0f172a}
       .workspace-app .main-shell{margin-left:var(--sidebar-width);padding-top:68px;transition:margin-left .2s}
@@ -149,7 +149,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .sidebar.collapsed .sidebar-brand{padding:14px 8px;justify-content:center}
       .workspace-app .sidebar.collapsed .brand-mark{width:38px;height:38px}
       .workspace-app .sidebar.collapsed .brand-mark img{width:38px;height:38px}
-      .workspace-app .sidebar.collapsed .sidebar-collapse{position:absolute;right:-14px;top:56px;background:#fff;border:1px solid #dbe4f0;color:#0D9488;box-shadow:0 3px 10px rgba(13,148,136,.16)}
+      .workspace-app .sidebar.collapsed .sidebar-collapse{position:absolute;right:-14px;top:56px;background:#fff;border:1px solid #dbe4f0;color:#2563EB;box-shadow:0 3px 10px rgba(37,99,235,.16)}
       .workspace-app .sidebar.collapsed .nav-link{margin:3px 8px;padding:10px;justify-content:center}
       .workspace-app .sidebar.collapsed .nav-group-header{justify-content:center;margin:3px 8px;padding:10px}
       .workspace-app .sidebar.collapsed .nav-group-chevron{display:none}
@@ -190,18 +190,18 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .top-search-panel{position:absolute;top:calc(100% + 8px);left:0;right:0;background:#fff;border:1px solid #e5eaf2;border-radius:12px;box-shadow:0 18px 40px rgba(15,23,42,.14);overflow:hidden;z-index:60;max-height:360px;overflow-y:auto}
       .workspace-app .top-search-item{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;padding:10px 14px;border:0;border-bottom:1px solid #f1f5f9;background:#fff;cursor:pointer}
       .workspace-app .top-search-item:hover{background:#f8fafc}
-      .workspace-app .top-search-item-label{font-size:10px;font-weight:800;color:#0D9488;text-transform:uppercase}
+      .workspace-app .top-search-item-label{font-size:10px;font-weight:800;color:#2563EB;text-transform:uppercase}
       .workspace-app .top-search-item strong{font-size:13px;color:#0f172a;font-weight:600}
       .workspace-app .top-search-empty{padding:14px;font-size:13px;color:#94a3b8;text-align:center}
-      .workspace-app .assistant-topbar{border:1px solid #dbe4f0;background:#f8fafc;color:#0D9488;border-radius:14px;padding:9px 13px;gap:8px;transition:.2s;box-shadow:none}
+      .workspace-app .assistant-topbar{border:1px solid #dbe4f0;background:#f8fafc;color:#2563EB;border-radius:14px;padding:9px 13px;gap:8px;transition:.2s;box-shadow:none}
       .workspace-app .assistant-topbar:hover,.workspace-app .assistant-topbar.active{background:#EEF2FF;border-color:#C7D2FE;color:#172554;transform:translateY(-1px)}
       .workspace-app .assistant-attention-badge{display:none}
       .workspace-app .header-icon,.workspace-app .icon-button{border-radius:12px}
       .workspace-app .header-icon{color:#475569;background:#fff;border:1px solid #e5eaf2}
-      .workspace-app .header-icon:hover{color:#0D9488;background:#f8fafc;border-color:#dbe4f0}
+      .workspace-app .header-icon:hover{color:#2563EB;background:#f8fafc;border-color:#dbe4f0}
       .workspace-app .profile-button{border:1px solid #e5eaf2;background:#fff;border-radius:14px;padding:5px 8px 5px 6px;gap:8px}
       .workspace-app .profile-button:hover{background:#f8fafc;border-color:#dbe4f0}
-      .workspace-app .avatar{background:#0D9488;box-shadow:0 4px 10px rgba(13,148,136,.18)}
+      .workspace-app .avatar{background:#2563EB;box-shadow:0 4px 10px rgba(37,99,235,.18)}
       .workspace-app .sidebar{background:#ffffff;border-right:1px solid #e5eaf2;color:#0f172a}
       .workspace-app .sidebar:before{content:none}
       .workspace-app .sidebar-brand{background:#ffffff;border-bottom:1px solid #e5eaf2}
@@ -212,10 +212,10 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .nav-label{color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:.06em;padding:14px 18px 6px}
       .workspace-app .nav-link{position:relative;border-radius:10px;margin:3px 10px;padding:10px 12px;color:#475569;border:1px solid transparent;box-shadow:none;font-weight:600;font-size:13px}
       .workspace-app .nav-link:hover{background:#f8fafc;border-color:#eef2f7;color:#0f172a}
-      .workspace-app .nav-link.active{background:#EEF2FF;border-color:#C7D2FE;color:#172554;font-weight:800;box-shadow:0 1px 3px rgba(13,148,136,.08)}
-      .workspace-app .nav-link.active:before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:4px;border-radius:0 4px 4px 0;background:#0D9488}
+      .workspace-app .nav-link.active{background:#EEF2FF;border-color:#C7D2FE;color:#172554;font-weight:800;box-shadow:0 1px 3px rgba(37,99,235,.08)}
+      .workspace-app .nav-link.active:before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:4px;border-radius:0 4px 4px 0;background:#2563EB}
       .workspace-app .nav-icon{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex:0 0 26px;border-radius:8px;color:#64748b;background:transparent;transition:color .16s,background .16s}
-      .workspace-app .nav-link.active .nav-icon{color:#0D9488;background:transparent}
+      .workspace-app .nav-link.active .nav-icon{color:#2563EB;background:transparent}
       /* Yêu cầu tường minh "nên thiết kế sidebar sao cho phù hợp và đẹp hơn" —
          icon mỗi NHÓM (không phải từng mục con, để hàng mục con vẫn gọn/dễ
          quét mắt) tô badge màu tròn luân phiên, tái dùng đúng bộ tông
@@ -233,7 +233,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .nav-group-header:hover{background:#f8fafc;border-color:#eef2f7}
       .workspace-app .nav-group.expanded>.nav-group-header{background:#f8fafc}
       .workspace-app .nav-group.active-context>.nav-group-header{background:#eef2ff}
-      .workspace-app .nav-group.active-context>.nav-group-header .nav-group-icon{color:#0d9488!important}
+      .workspace-app .nav-group.active-context>.nav-group-header .nav-group-icon{color:#2563eb!important}
       .workspace-app .nav-group-chevron{flex:0 0 auto;color:#94a3b8;transform:rotate(-90deg);transition:transform .16s}
       .workspace-app .nav-group-chevron.expanded{transform:rotate(0deg)}
       .workspace-app .nav-group-children{display:flex;flex-direction:column;padding-bottom:4px}
@@ -261,9 +261,9 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          intended margin/icon-size — which is exactly why EMR read as visually
          indistinguishable from a child row: neither the wider group-link
          margin nor the smaller child-icon size was ever actually applied. */
-      .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#0d9488!important;font-weight:800!important;font-size:14px!important;letter-spacing:.01em}
+      .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#2563eb!important;font-weight:800!important;font-size:14px!important;letter-spacing:.01em}
       .workspace-app.workspace-app .nav-group.active-context>.nav-group-header,.workspace-app.workspace-app .nav-group.active-context>.nav-group-header .nav-group-label{color:#172554!important}
-      .workspace-app.workspace-app .nav-group-link{color:#0d9488!important;font-weight:800!important;font-size:14px!important;margin:6px 10px!important}
+      .workspace-app.workspace-app .nav-group-link{color:#2563eb!important;font-weight:800!important;font-size:14px!important;margin:6px 10px!important}
       /* brand-overrides.css's generic .nav-link-label{overflow:hidden;
          text-overflow:ellipsis;white-space:nowrap} truncates a promoted
          single-child group's label the same as a real (level-2) child link —
@@ -283,7 +283,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          already has its own active-icon override (line below); the promoted
          single-child link never did. */
       .workspace-app.workspace-app .nav-group-link.active .nav-icon,.workspace-app.workspace-app .nav-group-link.active svg{color:#172554!important}
-      .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#0d9488!important;font-weight:600!important;font-size:12px!important}
+      .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#2563eb!important;font-weight:600!important;font-size:12px!important}
       .workspace-app.workspace-app .nav-child-link{margin:1px 10px 1px 26px!important}
       /* The collapsed-rail flyout popover is a small floating popup, not the
          full sidebar list — its child links intentionally use a flat, compact
@@ -292,7 +292,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          specificity, or the generic 26px-indent rule above (now !important
          to survive qms-enterprise-redesign.css) would leak into it too. */
       .workspace-app.workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px!important}
-      .workspace-app.workspace-app .nav-child-link .nav-icon{color:#0d9488!important;width:20px!important;height:20px!important;flex:0 0 20px!important}
+      .workspace-app.workspace-app .nav-child-link .nav-icon{color:#2563eb!important;width:20px!important;height:20px!important;flex:0 0 20px!important}
       .workspace-app.workspace-app .nav-child-link:hover,.workspace-app.workspace-app .nav-child-link:hover .nav-link-label{color:#172554!important}
       .workspace-app.workspace-app .nav-child-link.active,.workspace-app.workspace-app .nav-child-link.active .nav-link-label{background:#EEF2FF!important;color:#172554!important;font-weight:800!important}
       /* Same white-icon-on-light-background bug as nav-group-link.active
@@ -302,7 +302,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
          last loaded wins), which sets the <svg>'s own color directly and so
          always beats a rule that only targets the wrapping .nav-icon span,
          no matter how specific that span rule is. Must target svg itself. */
-      .workspace-app.workspace-app .nav-child-link.active .nav-icon,.workspace-app.workspace-app .nav-child-link.active svg{color:#0D9488!important}
+      .workspace-app.workspace-app .nav-child-link.active .nav-icon,.workspace-app.workspace-app .nav-child-link.active svg{color:#2563EB!important}
       @media(max-width:860px){
         .workspace-app .nav-group-flyout{display:none!important}
         .workspace-app .nav-group-header{min-height:46px;padding:11px 12px}
