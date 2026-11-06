@@ -245,12 +245,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .scope-controls .button{white-space:nowrap}
       .qcc-dashboard .scope-controls input,.qcc-dashboard .scope-controls select{width:auto;min-height:38px}
       .qcc-dashboard .title-with-icon{display:flex;align-items:center;gap:12px}
-      .qcc-dashboard .title-with-icon .icon-badge{width:40px;height:40px;border-radius:12px;background:#EEF2FF;color:#2563EB;display:flex;align-items:center;justify-content:center;flex:0 0 40px}
+      .qcc-dashboard .title-with-icon .icon-badge{width:40px;height:40px;border-radius:12px;background:#EEF2FF;color:#1D4ED8;display:flex;align-items:center;justify-content:center;flex:0 0 40px}
       .qcc-dashboard .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
       .qcc-dashboard .kpi-card{background:#fff;border:1px solid #e5eaf2;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.03)}
       .qcc-dashboard .kpi-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
       .qcc-dashboard .kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}
-      .qcc-dashboard .kpi-icon.blue{background:#dbeafe;color:#2563eb}.qcc-dashboard .kpi-icon.green{background:#dcfce7;color:#16a34a}.qcc-dashboard .kpi-icon.amber{background:#fef3c7;color:#b45309}.qcc-dashboard .kpi-icon.red{background:#fee2e2;color:#dc2626}.qcc-dashboard .kpi-icon.purple{background:#ede9fe;color:#7c3aed}
+      .qcc-dashboard .kpi-icon.blue{background:#dbeafe;color:#1d4ed8}.qcc-dashboard .kpi-icon.green{background:#dcfce7;color:#16a34a}.qcc-dashboard .kpi-icon.amber{background:#fef3c7;color:#b45309}.qcc-dashboard .kpi-icon.red{background:#fee2e2;color:#dc2626}.qcc-dashboard .kpi-icon.purple{background:#ede9fe;color:#7c3aed}
       .qcc-dashboard .kpi-title{font-size:13px;color:#475569;font-weight:600;margin-top:2px}
       .qcc-dashboard .kpi-value{font-size:26px;font-weight:800;color:#0f172a}
       .qcc-dashboard .quick-links{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:16px}
@@ -269,14 +269,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .compliance-rows{display:grid;gap:12px;padding:14px 18px 18px}
       .qcc-dashboard .compliance-row{display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:8px;font-size:12px;color:#334155}
       .qcc-dashboard .compliance-row .bar-track{grid-column:1/-1;height:6px;background:#eef2f6;border-radius:99px;overflow:hidden}
-      .qcc-dashboard .compliance-row .bar-track i{display:block;height:100%;background:#2563EB;border-radius:99px}
+      .qcc-dashboard .compliance-row .bar-track i{display:block;height:100%;background:#1D4ED8;border-radius:99px}
       @media(max-width:1100px){.qcc-dashboard .grid2b,.qcc-dashboard .grid3b{grid-template-columns:1fr}}
       .qcc-dashboard .kpi-trend{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
       .qcc-dashboard .kpi-trend.up{color:#16a34a;background:#eafaf0}.qcc-dashboard .kpi-trend.down{color:#dc2626;background:#fef2f2}.qcc-dashboard .kpi-trend.flat{color:#94a3b8;background:#f1f5f9}
       .qcc-dashboard .chart-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
       .qcc-dashboard .range-toggle{display:flex;gap:2px;background:#f1f5f9;border-radius:9px;padding:2px}
       .qcc-dashboard .range-toggle a{padding:6px 12px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b}
-      .qcc-dashboard .range-toggle a.active{background:#2563EB;color:#fff}
+      .qcc-dashboard .range-toggle a.active{background:#1D4ED8;color:#fff}
       .qcc-dashboard .grid2{display:grid;grid-template-columns:1.3fr .9fr;gap:14px}
       .qcc-dashboard .head{padding:16px 18px 4px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
       .qcc-dashboard .head h2{margin:0;font-size:15px}
@@ -293,7 +293,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .alerts{display:grid;gap:10px;padding:8px 16px 16px}
       .qcc-dashboard .alert-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;border:1px solid #eef2f7;border-radius:12px;padding:12px}
       .qcc-dashboard .alert-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 34px}
-      .qcc-dashboard .alert-icon.red{background:#fef2f2;color:#dc2626}.qcc-dashboard .alert-icon.amber{background:#fffbeb;color:#d97706}.qcc-dashboard .alert-icon.purple{background:#f5f3ff;color:#7c3aed}.qcc-dashboard .alert-icon.blue{background:#eff6ff;color:#2563eb}
+      .qcc-dashboard .alert-icon.red{background:#fef2f2;color:#dc2626}.qcc-dashboard .alert-icon.amber{background:#fffbeb;color:#d97706}.qcc-dashboard .alert-icon.purple{background:#f5f3ff;color:#7c3aed}.qcc-dashboard .alert-icon.blue{background:#eff6ff;color:#1d4ed8}
       .qcc-dashboard .alert-row strong{display:block;font-size:13px}
       .qcc-dashboard .alert-row small{color:#94a3b8;font-size:11px}
       .qcc-dashboard .alert-when{font-size:11px;color:#94a3b8;white-space:nowrap}
@@ -340,7 +340,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <section className="grid2b">
       <article className="panel"><div className="head"><h2>Tình trạng CAPA</h2><Link className="button tertiary small" href="/capa">Xem chi tiết →</Link></div>
         <div className="capa-stat-row">
-          <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#dbeafe",color:"#2563eb"}}><Icon name="folder-check" size={16}/></span><strong>{capaByStatus.NOT_STARTED}</strong><span>Chưa bắt đầu</span></div>
+          <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#dbeafe",color:"#1d4ed8"}}><Icon name="folder-check" size={16}/></span><strong>{capaByStatus.NOT_STARTED}</strong><span>Chưa bắt đầu</span></div>
           <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#fef3c7",color:"#b45309"}}><Icon name="workflow" size={16}/></span><strong>{capaByStatus.IN_PROGRESS}</strong><span>Đang triển khai</span></div>
           <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#dcfce7",color:"#16a34a"}}><Icon name="badge-check" size={16}/></span><strong>{capaByStatus.DONE}</strong><span>Đã hiệu lực</span></div>
           <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#fee2e2",color:"#dc2626"}}><Icon name="triangle-alert" size={16}/></span><strong>{capaByStatus.OVERDUE}</strong><span>Quá hạn</span></div>
@@ -375,9 +375,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <Link className="quick-link" href="/incidents"><span className="quick-link-icon" style={{background:"#fee2e2",color:"#dc2626"}}><Icon name="shield-alert" size={18}/></span>Sự cố</Link>
       <Link className="quick-link" href="/capa"><span className="quick-link-icon" style={{background:"#ede9fe",color:"#7c3aed"}}><Icon name="workflow" size={18}/></span>CAPA</Link>
       <Link className="quick-link" href="/risks"><span className="quick-link-icon" style={{background:"#fef3c7",color:"#b45309"}}><Icon name="triangle-alert" size={18}/></span>Rủi ro</Link>
-      <Link className="quick-link" href="/audits"><span className="quick-link-icon" style={{background:"#dbeafe",color:"#2563eb"}}><Icon name="search-check" size={18}/></span>Audit</Link>
+      <Link className="quick-link" href="/audits"><span className="quick-link-icon" style={{background:"#dbeafe",color:"#1d4ed8"}}><Icon name="search-check" size={18}/></span>Audit</Link>
       <Link className="quick-link" href="/indicators"><span className="quick-link-icon" style={{background:"#dcfce7",color:"#16a34a"}}><Icon name="gauge" size={18}/></span>Chỉ số</Link>
-      <Link className="quick-link" href="/plans"><span className="quick-link-icon" style={{background:"#dbeafe",color:"#2563eb"}}><Icon name="calendar-range" size={18}/></span>Kế hoạch</Link>
+      <Link className="quick-link" href="/plans"><span className="quick-link-icon" style={{background:"#dbeafe",color:"#1d4ed8"}}><Icon name="calendar-range" size={18}/></span>Kế hoạch</Link>
       <Link className="quick-link" href="/assessments"><span className="quick-link-icon" style={{background:"#dcfce7",color:"#16a34a"}}><Icon name="badge-check" size={18}/></span>Đánh giá</Link>
       <Link className="quick-link" href="/evidence"><span className="quick-link-icon" style={{background:"#ede9fe",color:"#7c3aed"}}><Icon name="folder-check" size={18}/></span>Minh chứng</Link>
     </div></article></section>

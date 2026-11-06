@@ -131,9 +131,9 @@ export default async function CalendarBlueprintPage() {
     <style>{`
       .calendar-blueprint-page{width:100%;max-width:1450px;margin:0 auto;gap:14px!important}
       .calendar-blueprint-page .kpi-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:11px}
-      .calendar-blueprint-page .kpi-icon.blue{background:#dbeafe;color:#2563eb}.calendar-blueprint-page .kpi-icon.green{background:#dcfce7;color:#16a34a}.calendar-blueprint-page .kpi-icon.amber{background:#fef3c7;color:#b45309}.calendar-blueprint-page .kpi-icon.purple{background:#ede9fe;color:#7c3aed}
+      .calendar-blueprint-page .kpi-icon.blue{background:#dbeafe;color:#1d4ed8}.calendar-blueprint-page .kpi-icon.green{background:#dcfce7;color:#16a34a}.calendar-blueprint-page .kpi-icon.amber{background:#fef3c7;color:#b45309}.calendar-blueprint-page .kpi-icon.purple{background:#ede9fe;color:#7c3aed}
       .blueprint-principles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-      .blueprint-principle{padding:13px 14px;border:1px solid #dfe7ec;border-left:4px solid #2563eb;border-radius:12px;background:#fff}
+      .blueprint-principle{padding:13px 14px;border:1px solid #dfe7ec;border-left:4px solid #1d4ed8;border-radius:12px;background:#fff}
       .blueprint-principle:nth-child(2){border-left-color:#0f766e}.blueprint-principle:nth-child(3){border-left-color:#7c3aed}
       .blueprint-principle strong{display:block;font-size:12px;color:#243247}.blueprint-principle p{margin:5px 0 0;font-size:11px;line-height:1.5;color:#64748b}
       .blueprint-section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;padding:14px 15px 10px}
@@ -145,7 +145,7 @@ export default async function CalendarBlueprintPage() {
       .template-kind{font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.04em;padding:4px 6px;border-radius:999px;background:#f0fdfa;color:#0f766e;white-space:nowrap}
       .template-meta{display:grid;grid-template-columns:105px minmax(0,1fr);gap:4px 8px;font-size:10px;line-height:1.4}.template-meta span{color:#64748b}.template-meta b{color:#334155;font-weight:750}
       .engine-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:0 14px 14px}
-      .engine-card{display:grid;gap:7px;padding:12px 13px;border:1px solid #e2e8f0;border-left:4px solid #2563EB;border-radius:12px;background:#fff}
+      .engine-card{display:grid;gap:7px;padding:12px 13px;border:1px solid #e2e8f0;border-left:4px solid #1D4ED8;border-radius:12px;background:#fff}
       .engine-card strong{font-size:13px;color:#25354a}.engine-card p{margin:0;font-size:10px;color:#64748b;line-height:1.5}
       .engine-meta{display:grid;grid-template-columns:90px minmax(0,1fr);gap:4px 8px;font-size:10px}.engine-meta span{color:#64748b}.engine-meta b{color:#334155}
       .blueprint-rule{padding:12px 14px;border-top:1px solid #eef2f3;background:#f8fafc;color:#475569;font-size:11px;line-height:1.5}.blueprint-rule strong{color:#243247}

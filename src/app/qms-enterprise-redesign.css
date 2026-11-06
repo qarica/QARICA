@@ -8,7 +8,7 @@
   --qms-section:#868E96;
   --qms-line:#DEE2E6;
   --qms-line-strong:#CED4DA;
-  --qms-primary:#2563EB;
+  --qms-primary:#1D4ED8;
   --qms-primary-dark:#172554;
   --qms-primary-soft:#EEF2FF;
   --qms-success:#198754;
@@ -147,8 +147,8 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
 
 /* Buttons and forms */
 .workspace-app .button{border-radius:8px!important;min-height:40px!important;font-weight:750!important}
-.workspace-app .button.primary{background:var(--qms-primary)!important;border-color:var(--qms-primary)!important;color:#fff!important;box-shadow:0 2px 6px rgba(37,99,235,.18)!important}
-.workspace-app .button.primary:hover{background:var(--qms-primary-dark)!important;border-color:var(--qms-primary-dark)!important;box-shadow:0 3px 8px rgba(37,99,235,.22)!important}
+.workspace-app .button.primary{background:var(--qms-primary)!important;border-color:var(--qms-primary)!important;color:#fff!important;box-shadow:0 2px 6px rgba(29,78,216,.18)!important}
+.workspace-app .button.primary:hover{background:var(--qms-primary-dark)!important;border-color:var(--qms-primary-dark)!important;box-shadow:0 3px 8px rgba(29,78,216,.22)!important}
 .workspace-app .button.secondary,.workspace-app .button.tertiary{background:#fff!important;border-color:var(--qms-line-strong)!important;color:#343A40!important}
 .workspace-app .button.secondary:hover,.workspace-app .button.tertiary:hover{background:#F1F3F5!important;border-color:#ADB5BD!important}
 .workspace-app input,.workspace-app select,.workspace-app textarea{
@@ -157,7 +157,7 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
 }
 .workspace-app input::placeholder,.workspace-app textarea::placeholder{color:#7B8794!important}
 .workspace-app input:focus,.workspace-app select:focus,.workspace-app textarea:focus{
-  border-color:#8C9EC9!important;box-shadow:0 0 0 3px rgba(37,99,235,.14)!important;outline:0!important;
+  border-color:#8C9EC9!important;box-shadow:0 0 0 3px rgba(29,78,216,.14)!important;outline:0!important;
 }
 .workspace-app label>span,.workspace-app .form-grid label>span{color:#343A40!important;font-weight:750!important}
 .workspace-app label small,.workspace-app .helper-text{color:#6C757D!important;line-height:1.5!important}
@@ -174,11 +174,11 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
 .workspace-app tbody tr:hover{background:#F8FBFF!important}
 .workspace-app .table-link{color:var(--qms-primary-dark)!important}
 .workspace-app .search-box{background:#fff!important;border-color:var(--qms-line-strong)!important}
-.workspace-app .search-box:focus-within{border-color:#8C9EC9!important;box-shadow:0 0 0 3px rgba(37,99,235,.10)!important}
+.workspace-app .search-box:focus-within{border-color:#8C9EC9!important;box-shadow:0 0 0 3px rgba(29,78,216,.10)!important}
 
 /* WCAG-visible focus */
 .workspace-app a:focus-visible,.workspace-app button:focus-visible,.workspace-app input:focus-visible,.workspace-app select:focus-visible,.workspace-app textarea:focus-visible{
-  outline:3px solid rgba(37,99,235,.34)!important;outline-offset:2px!important;
+  outline:3px solid rgba(29,78,216,.34)!important;outline-offset:2px!important;
 }
 
 /* Responsive */
@@ -217,6 +217,6 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
 .workspace-app .panel{border-radius:13px!important}.workspace-app .kpi-card{border-radius:13px!important}
 .workspace-app .page-header h1{color:#12355f;font-size:25px}.workspace-app .page-header p{color:#718096}
 .workspace-app table th{background:#f7faff;color:#60758d;border-color:#e3ebf4}.workspace-app table td{border-color:#edf2f7}.workspace-app tbody tr:hover{background:#f8fbff}
-.workspace-app .button.primary{background:#2563EB}.workspace-app .button.secondary{border-color:#dce6f1;color:#34506f}.workspace-app .button.secondary:hover{background:#f3f8fe;border-color:#bcd1e7}
-.workspace-app input:focus,.workspace-app select:focus,.workspace-app textarea:focus{border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.11)}
+.workspace-app .button.primary{background:#1D4ED8}.workspace-app .button.secondary{border-color:#dce6f1;color:#34506f}.workspace-app .button.secondary:hover{background:#f3f8fe;border-color:#bcd1e7}
+.workspace-app input:focus,.workspace-app select:focus,.workspace-app textarea:focus{border-color:#1D4ED8;box-shadow:0 0 0 3px rgba(29,78,216,.11)}
 @media(max-width:860px){.workspace-app .main-shell{margin-left:0!important}.workspace-app .content{padding:18px 14px 30px}}

@@ -265,7 +265,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   // A fix must target `svg` directly with matching specificity+importance.
   it("gives both the promoted single-child link and a real child link an explicit active-icon color targeting svg directly, not just the wrapping .nav-icon span (a span-only override loses to final-visual-lock.css's .nav-link.active svg{color:#ffffff!important})", () => {
     expect(shell).toContain(".workspace-app.workspace-app .nav-group-link.active .nav-icon,.workspace-app.workspace-app .nav-group-link.active svg{color:#172554!important}");
-    expect(shell).toContain(".workspace-app.workspace-app .nav-child-link.active .nav-icon,.workspace-app.workspace-app .nav-child-link.active svg{color:#2563EB!important}");
+    expect(shell).toContain(".workspace-app.workspace-app .nav-child-link.active .nav-icon,.workspace-app.workspace-app .nav-child-link.active svg{color:#1D4ED8!important}");
   });
 
   // Reversed per explicit follow-up request: "Đưa tất cả các nút menu con của
@@ -373,8 +373,8 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain(".nav-group.active-context>.nav-group-header{");
     // .workspace-app.workspace-app doubles specificity so these always win,
     // regardless of stylesheet load order against other files' `.nav-link{color:...!important}` rules
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-header,\.workspace-app\.workspace-app \.nav-group-label\{color:#2563eb!important;font-weight:800!important;font-size:14px!important/);
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link,\.workspace-app\.workspace-app \.nav-child-link \.nav-link-label\{color:#2563eb!important;font-weight:600!important;font-size:12px!important\}/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-header,\.workspace-app\.workspace-app \.nav-group-label\{color:#1d4ed8!important;font-weight:800!important;font-size:14px!important/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link,\.workspace-app\.workspace-app \.nav-child-link \.nav-link-label\{color:#1d4ed8!important;font-weight:600!important;font-size:12px!important\}/);
     // parent (14px/800) must be strictly bolder AND larger than child (12px/600)
     expect(14).toBeGreaterThan(12);
     expect(800).toBeGreaterThan(600);
@@ -386,12 +386,12 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
   // uppercase+bold styling already reads as a distinct level from a child
   // link's sentence-case+lighter weight, without needing a second hue too.
   it("colors Level 1 (group headers, promoted single-child links) and Level 2 (child links) the same navy — case and weight/size carry the level distinction, not a separate hue", () => {
-    expect(shell).toContain(".nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#2563eb!important");
-    expect(shell).toContain(".nav-group-link{color:#2563eb!important");
+    expect(shell).toContain(".nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#1d4ed8!important");
+    expect(shell).toContain(".nav-group-link{color:#1d4ed8!important");
     expect(shell).toContain(".nav-group.active-context>.nav-group-header{background:#eef2ff}");
-    expect(shell).toContain(".nav-group.active-context>.nav-group-header .nav-group-icon{color:#2563eb!important}");
-    expect(shell).toContain(".nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#2563eb!important");
-    expect(shell).toContain(".nav-child-link .nav-icon{color:#2563eb!important");
+    expect(shell).toContain(".nav-group.active-context>.nav-group-header .nav-group-icon{color:#1d4ed8!important}");
+    expect(shell).toContain(".nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#1d4ed8!important");
+    expect(shell).toContain(".nav-child-link .nav-icon{color:#1d4ed8!important");
     expect(shell).not.toContain("#60a5fa");
   });
 
@@ -404,7 +404,7 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
   });
 
   it("a promoted single-child link reads as Level 1 (bold navy, 14px/800), not Level 2 (lighter-weight navy, 12px/600)", () => {
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#2563eb!important;font-weight:800!important;font-size:14px!important;margin:6px 10px!important\}/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#1d4ed8!important;font-weight:800!important;font-size:14px!important;margin:6px 10px!important\}/);
   });
 
   it("survives qms-enterprise-redesign.css's competing !important .nav-link{margin:2px 6px} and generic .nav-icon{width:27px;height:27px} rules — a second real collision found via real-device screenshots after the first fix (colors only) still left EMR/Cấu hình hệ thống visually indistinguishable from a child row, because their margin and icon size were still being silently overridden", () => {
@@ -420,7 +420,7 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     // child icons must actually shrink to 20px under !important — the generic
     // .nav-icon{width:27px;height:27px!important} rule otherwise forces every
     // icon (group and child alike) to the same size, erasing the size cue.
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link \.nav-icon\{color:#2563eb!important;width:20px!important;height:20px!important;flex:0 0 20px!important\}/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link \.nav-icon\{color:#1d4ed8!important;width:20px!important;height:20px!important;flex:0 0 20px!important\}/);
   });
 
   it("keeps the collapsed-rail flyout's compact child margin from being overridden by the new !important 26px indent (the flyout is a small popover, not the full list — there is no parent row to indent under inside it)", () => {
@@ -446,7 +446,7 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
   });
 
   it("active state nổi bật hơn: thanh nhấn trái dày hơn (4px) và có bóng nhẹ, không đổi cơ chế active hiện có", () => {
-    expect(shell).toContain('.workspace-app .nav-link.active:before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:4px;border-radius:0 4px 4px 0;background:#2563EB}');
-    expect(shell).toContain(".workspace-app .nav-link.active{background:#EEF2FF;border-color:#C7D2FE;color:#172554;font-weight:800;box-shadow:0 1px 3px rgba(37,99,235,.08)}");
+    expect(shell).toContain('.workspace-app .nav-link.active:before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:4px;border-radius:0 4px 4px 0;background:#1D4ED8}');
+    expect(shell).toContain(".workspace-app .nav-link.active{background:#EEF2FF;border-color:#C7D2FE;color:#172554;font-weight:800;box-shadow:0 1px 3px rgba(29,78,216,.08)}");
   });
 });

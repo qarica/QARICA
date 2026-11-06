@@ -32,7 +32,7 @@ const read = (p: string) => readFileSync(p, "utf8");
 describe("brand color token (--brand/--brand-dark/--brand-soft) has one source of truth", () => {
   it("globals.css defines the live brand values non-conditionally", () => {
     const globals = read("src/app/globals.css");
-    expect(globals).toContain("--brand:#2563EB;--brand-dark:#172554;--brand-soft:#EEF2FF;");
+    expect(globals).toContain("--brand:#1D4ED8;--brand-dark:#172554;--brand-soft:#EEF2FF;");
   });
 
   it("the 3 former !important-competing stylesheets no longer redeclare --brand*", () => {
@@ -49,11 +49,11 @@ describe("brand color token (--brand/--brand-dark/--brand-soft) has one source o
     for (const name of ["--brand", "--brand-dark", "--brand-soft", "--bg", "--surface", "--text", "--muted", "--line", "--info", "--info-soft", "--shadow"]) {
       expect(source).not.toContain(`${name}:`);
     }
-    expect(source).toContain("--accent-info:#2563EB;");
+    expect(source).toContain("--accent-info:#1D4ED8;");
   });
 
   it("app-shell.tsx's inline per-org brand default matches globals.css (so it now actually takes effect with no visible color change)", () => {
     const source = read("src/components/app-shell.tsx");
-    expect(source).toContain('organization?.primary_color || "#2563EB"');
+    expect(source).toContain('organization?.primary_color || "#1D4ED8"');
   });
 });
