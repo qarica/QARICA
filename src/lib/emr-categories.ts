@@ -259,7 +259,7 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
     // của biểu mẫu, độc lập với digitized (tình trạng số hóa trong EMR) và
     // status/deployment_phase (tiến độ triển khai EMR).
     { key: "issued_date", label: "Ngày ban hành", type: "date" },
-    { key: "usage_status", label: "Tình trạng sử dụng", type: "select", options: ["Đang sử dụng", "Ngưng sử dụng"] },
+    { key: "usage_status", label: "Tình trạng sử dụng", type: "select", options: ["Đang sử dụng", "Ngưng sử dụng", "Không thấy sử dụng", "Cần xác minh"] },
     // Mã tham chiếu chéo sang hệ thống EMR khác (nếu viện có dùng thêm 1 hệ
     // thống EMR riêng và cần đối chiếu mã biểu mẫu giữa 2 bên) — để tên field
     // chung chung, KHÔNG hard-code theo 1 nhà cung cấp cụ thể (CLAUDE.md

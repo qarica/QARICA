@@ -21,12 +21,12 @@ describe("EMR Biểu mẫu — issued_date, usage_status fields", () => {
     expect(fields.find((f) => f.key === "issuing_decision")).toBeUndefined();
   });
 
-  it("declares usage_status (Tình trạng sử dụng) as a select with Đang sử dụng/Ngưng sử dụng", () => {
+  it("declares usage_status (Tình trạng sử dụng) as a select with Đang sử dụng/Ngưng sử dụng/Không thấy sử dụng/Cần xác minh", () => {
     const field = fields.find((f) => f.key === "usage_status");
     expect(field).toBeTruthy();
     expect(field?.type).toBe("select");
     expect(field?.label).toBe("Tình trạng sử dụng");
-    expect(field?.options).toEqual(["Đang sử dụng", "Ngưng sử dụng"]);
+    expect(field?.options).toEqual(["Đang sử dụng", "Ngưng sử dụng", "Không thấy sử dụng", "Cần xác minh"]);
   });
 
   it("is independent of digitized (tình trạng số hóa EMR) — neither field carries progressField/pairWithStatus", () => {
