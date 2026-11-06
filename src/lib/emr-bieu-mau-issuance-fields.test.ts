@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 import { EMR_CATEGORY_FIELDS } from "./emr-categories";
 
 // Yêu cầu thực tế: "phân [loại] biểu mẫu còn thiếu ngày ban hành, quyết định
-// ban hành và tình trạng sử dụng" — 3 field tham chiếu về ban hành/hiệu lực
-// của biểu mẫu giấy, độc lập với digitized (tình trạng số hóa trong EMR) và
+// ban hành và tình trạng sử dụng" — sau đó yêu cầu bỏ "quyết định ban hành"
+// (không cần). Còn lại 2 field tham chiếu về ban hành/hiệu lực của biểu mẫu
+// giấy, độc lập với digitized (tình trạng số hóa trong EMR) và
 // status/deployment_phase (tiến độ triển khai EMR).
-describe("EMR Biểu mẫu — issued_date, issuing_decision, usage_status fields", () => {
+describe("EMR Biểu mẫu — issued_date, usage_status fields", () => {
   const fields = EMR_CATEGORY_FIELDS.BIEU_MAU;
 
   it("declares issued_date (Ngày ban hành) as a date field", () => {
@@ -16,12 +17,8 @@ describe("EMR Biểu mẫu — issued_date, issuing_decision, usage_status field
     expect(field?.label).toBe("Ngày ban hành");
   });
 
-  it("declares issuing_decision (Quyết định ban hành) as free text (số hiệu quyết định, không có danh sách lựa chọn cố định)", () => {
-    const field = fields.find((f) => f.key === "issuing_decision");
-    expect(field).toBeTruthy();
-    expect(field?.type).toBe("text");
-    expect(field?.label).toBe("Quyết định ban hành");
-    expect(field?.options).toBeUndefined();
+  it("does not declare issuing_decision (Quyết định ban hành) — explicitly removed per user request", () => {
+    expect(fields.find((f) => f.key === "issuing_decision")).toBeUndefined();
   });
 
   it("declares usage_status (Tình trạng sử dụng) as a select with Đang sử dụng/Ngưng sử dụng", () => {
@@ -32,8 +29,8 @@ describe("EMR Biểu mẫu — issued_date, issuing_decision, usage_status field
     expect(field?.options).toEqual(["Đang sử dụng", "Ngưng sử dụng"]);
   });
 
-  it("is independent of digitized (tình trạng số hóa EMR) — none of the 3 new fields carry progressField/pairWithStatus", () => {
-    for (const key of ["issued_date", "issuing_decision", "usage_status"]) {
+  it("is independent of digitized (tình trạng số hóa EMR) — neither field carries progressField/pairWithStatus", () => {
+    for (const key of ["issued_date", "usage_status"]) {
       const field = fields.find((f) => f.key === key);
       expect(field?.progressField).toBeFalsy();
       expect(field?.pairWithStatus).toBeFalsy();
