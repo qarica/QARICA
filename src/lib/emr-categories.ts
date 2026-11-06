@@ -253,6 +253,13 @@ export const EMR_CATEGORY_FIELDS: Record<EmrCategoryCode, EmrField[]> = {
   ],
   BIEU_MAU: [
     { key: "form_code", label: "Mã biểu mẫu", type: "text", showBeforeTitle: true },
+    // Yêu cầu thực tế: "phân [loại] biểu mẫu còn thiếu ngày ban hành, quyết
+    // định ban hành và tình trạng sử dụng" — 3 field tham chiếu về việc ban
+    // hành/hiệu lực của biểu mẫu, độc lập với digitized (tình trạng số hóa
+    // trong EMR) và status/deployment_phase (tiến độ triển khai EMR).
+    { key: "issued_date", label: "Ngày ban hành", type: "date" },
+    { key: "issuing_decision", label: "Quyết định ban hành", type: "text" },
+    { key: "usage_status", label: "Tình trạng sử dụng", type: "select", options: ["Đang sử dụng", "Ngưng sử dụng"] },
     // Mã tham chiếu chéo sang hệ thống EMR khác (nếu viện có dùng thêm 1 hệ
     // thống EMR riêng và cần đối chiếu mã biểu mẫu giữa 2 bên) — để tên field
     // chung chung, KHÔNG hard-code theo 1 nhà cung cấp cụ thể (CLAUDE.md
