@@ -15,6 +15,9 @@ type Department = {
   floor_label: string | null;
   room_label: string | null;
   area_sqm: number | null;
+  bed_count: number | null;
+  org_origin: string | null;
+  org_summary: string | null;
 };
 type Person = { user_id: string; full_name: string | null; email: string | null; job_title: string | null; primary_department_id: string | null; is_active: boolean };
 type Equipment = { id: string; equipment_name: string; model_code: string | null; status: "IN_USE" | "MAINTENANCE" | "INACTIVE"; department_id: string | null };
@@ -35,6 +38,34 @@ const FLOOR_LEGEND: { tone: string; label: string }[] = [
 ];
 
 type FloorGroup = { key: string; label: string; order: number; departments: Department[] };
+
+// Báo cáo thực tế: "Bổ sung sơ đồ này nữa" — tham khảo 1 sơ đồ phân cấp
+// theo khối (Phòng chức năng / Khoa lâm sàng / Khoa cận lâm sàng-hỗ trợ),
+// mỗi khoa hiện số giường + nguồn gốc (biên bản 2013 / lập mới theo QĐ 2018
+// / chỉ có trong mặt bằng hoặc hồ sơ 2019). Trục màu ở đây là org_origin
+// (lịch sử/pháp lý), KHÁC với trục màu department_type dùng ở sơ đồ tầng —
+// 2 sơ đồ trả lời 2 câu hỏi khác nhau (ở đâu vs nguồn gốc nào), không gộp
+// chung 1 bộ màu.
+const ORG_ORIGIN_LABEL: Record<string, string> = { ESTABLISHED_2013: "Biên bản 2013", NEW_2018: "Lập mới theo QĐ 2018", PLAN_ONLY_2019: "Chỉ có trong mặt bằng hoặc hồ sơ 2019" };
+const ORIGIN_BOX_TONE_CLASS: Record<string, string> = { ESTABLISHED_2013: "org-hier-box-established", NEW_2018: "org-hier-box-new", PLAN_ONLY_2019: "org-hier-box-planonly" };
+const ORIGIN_LEGEND: { tone: string; label: string }[] = [
+  { tone: "org-hier-box-established", label: ORG_ORIGIN_LABEL.ESTABLISHED_2013 },
+  { tone: "org-hier-box-new", label: ORG_ORIGIN_LABEL.NEW_2018 },
+  { tone: "org-hier-box-planonly", label: ORG_ORIGIN_LABEL.PLAN_ONLY_2019 },
+];
+const HIERARCHY_BLOCKS: { key: string; label: string; types: string[] }[] = [
+  { key: "MANAGEMENT", label: "Phòng chức năng, lãnh đạo", types: ["MANAGEMENT"] },
+  { key: "CLINICAL", label: "Khoa lâm sàng", types: ["CLINICAL"] },
+  { key: "PARA_SUPPORT", label: "Khoa cận lâm sàng và hỗ trợ", types: ["PARACLINICAL", "SUPPORT"] },
+];
+
+function buildHierarchyBlocks(departments: Department[]): { key: string; label: string; departments: Department[] }[] {
+  return HIERARCHY_BLOCKS.map((b) => ({
+    key: b.key,
+    label: b.label,
+    departments: departments.filter((d) => b.types.includes(d.department_type || "")).sort((a, c) => a.name.localeCompare(c.name, "vi")),
+  })).filter((b) => b.departments.length);
+}
 
 // Báo cáo thực tế: "Sơ đồ nên thể hiện cha con gần nhau trực quan" — trước
 // đây mỗi tầng chỉ sort theo tên (A-Z phẳng), cha/con cùng tầng (vd Khoa Nhi
@@ -110,10 +141,13 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
   const [showInactive, setShowInactive] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [floorOpen, setFloorOpen] = useState(true);
+  const [hierOpen, setHierOpen] = useState(true);
 
   const tree = useMemo(() => buildTree(departments.filter((d) => showInactive || d.is_active || d.id === selectedId)), [departments, showInactive, selectedId]);
   const floorGroups = useMemo(() => buildFloorGroups(departments.filter((d) => showInactive || d.is_active)), [departments, showInactive]);
   const hasFloorData = departments.some((d) => d.floor_label);
+  const hierarchyBlocks = useMemo(() => buildHierarchyBlocks(departments.filter((d) => showInactive || d.is_active)), [departments, showInactive]);
+  const hasHierarchyData = departments.some((d) => d.org_origin || d.bed_count != null || d.org_summary);
   const departmentById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments]);
   const selected = departments.find((d) => d.id === selectedId) ?? null;
   const parentName = selected?.parent_department_id ? departments.find((d) => d.id === selected.parent_department_id)?.name ?? null : null;
@@ -169,7 +203,11 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
         .org-floor-chevron { transition: transform 0.15s; }
         .org-floor-chevron.is-open { transform: rotate(180deg); }
         .org-floor-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 0 16px 14px; font-size: 12px; color: #64748b; }
-        .org-floor-legend-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: middle; }
+        .org-floor-legend-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: middle; border: 1.5px solid #cbd5e1; background: #fff; }
+        .org-floor-legend-swatch.org-floor-box-mgmt { border-color: #1D4ED8; background: #EEF2FF; }
+        .org-floor-legend-swatch.org-floor-box-clinical { border-color: #cbd5e1; background: #fff; }
+        .org-floor-legend-swatch.org-floor-box-para { border-color: #dc2626; background: #FEE2E2; }
+        .org-floor-legend-swatch.org-floor-box-support { border-color: #94a3b8; border-style: dashed; background: #fff; }
         .org-floor-body { padding: 0 16px 16px; display: grid; gap: 10px; }
         .org-floor-row { display: grid; grid-template-columns: 90px 1fr; gap: 12px; align-items: start; }
         .org-floor-row > * { min-width:0; }
@@ -186,9 +224,16 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
         .org-floor-box-clinical { border-color: #cbd5e1; }
         .org-floor-box-para { border-color: #dc2626; }
         .org-floor-box-support { border-style: dashed; border-color: #94a3b8; }
+        .org-hier-box-established { border-color: #cbd5e1; }
+        .org-hier-box-new { border-color: #1D4ED8; }
+        .org-hier-box-planonly { border-style: dashed; border-color: #94a3b8; }
+        .org-floor-legend-swatch.org-hier-box-established { border-color: #cbd5e1; background: #fff; }
+        .org-floor-legend-swatch.org-hier-box-new { border-color: #1D4ED8; background: #EEF2FF; }
+        .org-floor-legend-swatch.org-hier-box-planonly { border-color: #94a3b8; border-style: dashed; background: #fff; }
+        .org-chart-full-width { grid-column: 1 / -1; }
       `}</style>
 
-      <section className="panel">
+      <section className="panel org-chart-full-width">
         <button type="button" className="org-floor-head" onClick={() => setFloorOpen((v) => !v)}>
           <h2>Sơ đồ bố trí theo tầng</h2>
           <Icon name="chevron-down" size={18} className={`org-floor-chevron${floorOpen ? " is-open" : ""}`} />
@@ -230,6 +275,48 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
           ) : (
             <div className="empty-state" style={{ margin: "0 16px 16px" }}>
               Chưa có đơn vị nào khai báo tầng/phòng. Vào trang Khoa/Phòng → Sửa để nhập Thứ tự tầng, Tên tầng, Phòng/vị trí, Diện tích cho từng đơn vị.
+            </div>
+          )
+        ) : null}
+      </section>
+
+      <section className="panel org-chart-full-width">
+        <button type="button" className="org-floor-head" onClick={() => setHierOpen((v) => !v)}>
+          <h2>Sơ đồ phân cấp theo khối</h2>
+          <Icon name="chevron-down" size={18} className={`org-floor-chevron${hierOpen ? " is-open" : ""}`} />
+        </button>
+        {hierOpen ? (
+          hasHierarchyData ? (
+            <>
+              <div className="org-floor-legend">
+                {ORIGIN_LEGEND.map((l) => (
+                  <span key={l.tone}><span className={`org-floor-legend-swatch ${l.tone}`} />{l.label}</span>
+                ))}
+              </div>
+              <div className="org-floor-body">
+                {hierarchyBlocks.map((block) => (
+                  <div className="org-floor-row" key={block.key}>
+                    <div className="org-floor-row-label">{block.label}</div>
+                    <div className="org-floor-boxes">
+                      {block.departments.map((d) => (
+                        <button
+                          type="button"
+                          key={d.id}
+                          className={`org-floor-box ${ORIGIN_BOX_TONE_CLASS[d.org_origin || ""] || "org-hier-box-established"}${selectedId === d.id ? " is-selected" : ""}`}
+                          onClick={() => setSelectedId(d.id)}
+                        >
+                          <strong>{d.name}{d.bed_count != null ? ` · ${d.bed_count === 0 ? "Không giường" : `${d.bed_count} giường`}` : ""}</strong>
+                          {d.org_summary ? <small>{d.org_summary}</small> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="empty-state" style={{ margin: "0 16px 16px" }}>
+              Chưa có đơn vị nào khai báo số giường/nguồn gốc. Vào trang Khoa/Phòng → Sửa để nhập Số giường, Nguồn gốc, Mô tả cơ cấu cho từng đơn vị.
             </div>
           )
         ) : null}

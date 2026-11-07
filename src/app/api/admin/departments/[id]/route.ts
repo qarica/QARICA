@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+const ORG_ORIGINS = new Set(["ESTABLISHED_2013", "NEW_2018", "PLAN_ONLY_2019"]);
+
 export async function PATCH(request:Request,context:{params:Promise<{id:string}>}){
   const auth=await requireApiPermission("departments.manage");
   if(!auth.ok)return auth.response;
@@ -16,6 +18,10 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
   if(floorOrder!==null&&!Number.isInteger(floorOrder))return NextResponse.json({error:"Thứ tự tầng phải là số nguyên."},{status:400});
   const areaSqm=body.area_sqm===""||body.area_sqm===null||body.area_sqm===undefined?null:Number(body.area_sqm);
   if(areaSqm!==null&&(!Number.isFinite(areaSqm)||areaSqm<0))return NextResponse.json({error:"Diện tích không hợp lệ."},{status:400});
+  const bedCount=body.bed_count===""||body.bed_count===null||body.bed_count===undefined?null:Number(body.bed_count);
+  if(bedCount!==null&&(!Number.isInteger(bedCount)||bedCount<0))return NextResponse.json({error:"Số giường không hợp lệ."},{status:400});
+  const orgOrigin=body.org_origin?String(body.org_origin):null;
+  if(orgOrigin!==null&&!ORG_ORIGINS.has(orgOrigin))return NextResponse.json({error:"Nguồn gốc đơn vị không hợp lệ."},{status:400});
 
   const admin=createAdminClient();
   const {data:caller,error:callerError}=await admin
@@ -79,6 +85,9 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
       floor_label:body.floor_label?String(body.floor_label).trim()||null:null,
       room_label:body.room_label?String(body.room_label).trim()||null:null,
       area_sqm:areaSqm,
+      bed_count:bedCount,
+      org_origin:orgOrigin,
+      org_summary:body.org_summary?String(body.org_summary).trim()||null:null,
       updated_at:new Date().toISOString(),
     })
     .eq("id",id)

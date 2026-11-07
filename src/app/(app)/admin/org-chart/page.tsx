@@ -16,7 +16,7 @@ export default async function OrgChartPage() {
   requirePermission(user, "departments.manage");
   const supabase = await createClient();
   const [{ data: departments, error }, { data: people }, { data: equipment }] = await Promise.all([
-    supabase.from("departments").select("id,code,name,short_name,department_type,parent_department_id,is_active,floor_order,floor_label,room_label,area_sqm").order("name"),
+    supabase.from("departments").select("id,code,name,short_name,department_type,parent_department_id,is_active,floor_order,floor_label,room_label,area_sqm,bed_count,org_origin,org_summary").order("name"),
     supabase.from("profiles").select("user_id,full_name,email,job_title,primary_department_id,is_active").eq("is_active", true).order("full_name"),
     supabase.from("medical_equipment").select("id,equipment_name,model_code,status,department_id").order("equipment_name"),
   ]);
