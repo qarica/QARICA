@@ -94,7 +94,7 @@ export function DocumentPublicationsClient({
   // nghĩa: Phát hành tại chỗ, Nhập văn bản đã phát hành, và Sửa văn bản đã
   // phát hành — không thêm ở bước "Đề nghị" vì lúc đó chưa có bản phát hành
   // chính thức nào để gắn số.
-  const [versionLabel, setVersionLabel] = useState("");
+  const [versionLabel, setVersionLabel] = useState("01");
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
   const [unconfirmedOpenId, setUnconfirmedOpenId] = useState<string | null>(null);
 
@@ -134,7 +134,7 @@ export function DocumentPublicationsClient({
   const [directDraftingDepartmentId, setDirectDraftingDepartmentId] = useState("");
   const [directDocumentCode, setDirectDocumentCode] = useState("");
   const [directEffectiveDate, setDirectEffectiveDate] = useState("");
-  const [directVersionLabel, setDirectVersionLabel] = useState("");
+  const [directVersionLabel, setDirectVersionLabel] = useState("01");
   const [directDisseminationType, setDirectDisseminationType] = useState<DisseminationType>(DISSEMINATION_TYPES[0]);
   const [directBusy, setDirectBusy] = useState(false);
   const [directError, setDirectError] = useState("");
@@ -267,7 +267,7 @@ export function DocumentPublicationsClient({
     setDirectTitle("");
     setDirectDocumentCode("");
     setDirectEffectiveDate("");
-    setDirectVersionLabel("");
+    setDirectVersionLabel("01");
   }
 
   async function advance(doc: DocumentPublication, extra: Record<string, unknown> = {}) {
@@ -286,7 +286,7 @@ export function DocumentPublicationsClient({
     setPublishingId(null);
     setDocumentCode("");
     setEffectiveDate("");
-    setVersionLabel("");
+    setVersionLabel("01");
     setDisseminationType(DISSEMINATION_TYPES[0]);
   }
 
@@ -311,7 +311,7 @@ export function DocumentPublicationsClient({
     setPublishingId(doc.id);
     setDocumentCode("");
     setEffectiveDate(today);
-    setVersionLabel("");
+    setVersionLabel("01");
     setDisseminationType(DISSEMINATION_TYPES[0]);
   }
 
@@ -510,8 +510,8 @@ export function DocumentPublicationsClient({
             <p>Đơn vị sử dụng gửi đề nghị soạn thảo/sửa đổi văn bản — không cần quyền quản lý để gửi đề nghị.</p>
           </div>
         </div>
-        <button type="button" className="button secondary mobile-form-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Gửi đề nghị văn bản"}</button>
-        <div className={mobileFormOpen ? "dp-form mobile-collapsible-form is-open" : "dp-form mobile-collapsible-form"}>
+        <button type="button" className="button secondary mobile-form-toggle dp-request-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Gửi đề nghị văn bản"}</button>
+        <div className={mobileFormOpen ? "dp-form mobile-collapsible-form dp-request-form is-open" : "dp-form mobile-collapsible-form dp-request-form"}>
           <input className="input" placeholder="Tên văn bản..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
           <div className="dp-form-row">
             <select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value as DocumentPublicationType)}>

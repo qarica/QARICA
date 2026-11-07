@@ -60,13 +60,20 @@ describe("Document publications — version_label (Lần phát hành) bắt bu�
     expect(client).toContain('setEditVersionLabel(doc.version_label || "");');
   });
 
-  it("client: cả 3 nơi reset lại state version_label về rỗng sau khi submit/mở form mới, không giữ giá trị cũ sang văn bản khác", () => {
+  it("client: cả 3 nơi reset lại state version_label về mặc định '01' (không phải rỗng) sau khi submit/mở form mới, không giữ giá trị cũ sang văn bản khác", () => {
     const client = read("src/components/document-publications-client.tsx");
-    expect(client).toContain('setDirectVersionLabel("");');
+    expect(client).toContain('setDirectVersionLabel("01");');
     const advanceFn = client.slice(client.indexOf("async function advance("), client.indexOf("async function removeDocument"));
-    expect(advanceFn).toContain('setVersionLabel("");');
+    expect(advanceFn).toContain('setVersionLabel("01");');
     const startPublishFn = client.slice(client.indexOf("function startPublish("), client.indexOf("function toggleFolder"));
-    expect(startPublishFn).toContain('setVersionLabel("");');
+    expect(startPublishFn).toContain('setVersionLabel("01");');
+  });
+
+  it("client: state versionLabel/directVersionLabel khởi tạo sẵn '01' nhưng vẫn là input chỉnh sửa được (không readOnly/disabled)", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain('const [versionLabel, setVersionLabel] = useState("01");');
+    expect(client).toContain('const [directVersionLabel, setDirectVersionLabel] = useState("01");');
+    expect(client).not.toMatch(/placeholder="Lần phát hành \(vd: Lần ban hành 01\)\.\.\."[^>]*readOnly/);
   });
 });
 
@@ -126,5 +133,34 @@ describe("Document publications — thứ tự trường nhập + không mặc �
   it("cả 2 select khoa/phòng soạn thảo (đề nghị + nhập văn bản đã phát hành) đều có option rỗng bắt chọn tay", () => {
     const matches = client.match(/<option value="">\{departments\.length \? "— Chọn khoa\/phòng soạn thảo —" : "— Chưa có khoa\/phòng nào —"\}<\/option>/g) ?? [];
     expect(matches.length).toBe(2);
+  });
+});
+
+// Báo cáo thực tế: hỏi "có nên tách Đề nghị văn bản mới / Nhập văn bản đã
+// phát hành thành 2 menu con" -> quyết định KHÔNG tách (giữ 1 trang, tránh
+// rời rạc ngữ cảnh), thay vào đó thu gọn "Đề nghị văn bản mới" mặc định ở cả
+// desktop (trước đây chỉ thu gọn trên mobile, desktop luôn mở sẵn) để trang
+// đỡ dài — dùng class riêng dp-request-toggle/dp-request-form (không đụng
+// vào mobile-form-toggle/mobile-collapsible-form dùng chung cho các form
+// khác như "Nhập văn bản đã phát hành"/"Thống kê toàn viện" trên cùng trang
+// và các trang procurement/pt-overview khác).
+describe("Document publications — thu gọn 'Đề nghị văn bản mới' mặc định ở cả desktop", () => {
+  const client = read("src/components/document-publications-client.tsx");
+  const css = read("src/app/final-visual-lock.css");
+
+  it("nút toggle + form 'Đề nghị văn bản mới' có thêm class riêng dp-request-toggle/dp-request-form", () => {
+    expect(client).toContain('className="button secondary mobile-form-toggle dp-request-toggle"');
+    expect(client).toContain('mobileFormOpen ? "dp-form mobile-collapsible-form dp-request-form is-open" : "dp-form mobile-collapsible-form dp-request-form"');
+  });
+
+  it("CSS thu gọn dp-request-form ở desktop (min-width:761px), không đụng mobile-form-toggle dùng chung", () => {
+    const block = css.slice(css.indexOf("thu gọn mặc định ở cả desktop"), css.indexOf("thu gọn mặc định ở cả desktop") + 500);
+    expect(block).toContain(".document-publications-overview .dp-request-toggle{display:flex!important");
+    expect(block).toContain(".document-publications-overview .dp-request-form:not(.is-open){display:none!important}");
+    expect(block).toContain(".document-publications-overview .dp-request-form.is-open{display:grid!important}");
+  });
+
+  it("mobileFormOpen vẫn khởi tạo false — thu gọn là mặc định, không phải mở sẵn", () => {
+    expect(client).toContain('const [mobileFormOpen, setMobileFormOpen] = useState(false);');
   });
 });

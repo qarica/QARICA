@@ -978,6 +978,15 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .pt-overview .mobile-form-toggle{display:none!important}
 }
 
+/* "Đề nghị văn bản mới" thu gọn mặc định ở cả desktop (không chỉ mobile) —
+   form ít dùng hằng ngày hơn "Đang xử lý"/"Thư viện văn bản", thu gọn giúp
+   trang đỡ dài mà không cần tách hẳn thành menu con riêng. */
+@media(min-width:761px){
+ .document-publications-overview .dp-request-toggle{display:flex!important;width:auto;margin:0 0 12px}
+ .document-publications-overview .dp-request-form:not(.is-open){display:none!important}
+ .document-publications-overview .dp-request-form.is-open{display:grid!important}
+}
+
 .mobile-module-redesign .mobile-workflow-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .mobile-module-redesign .mobile-workflow-kpis>div{display:grid;gap:5px;padding:13px;background:white;border:1px solid #dce5ee;border-radius:13px}
 .mobile-module-redesign .mobile-workflow-kpis small{font-size:12px;color:#64748b}
