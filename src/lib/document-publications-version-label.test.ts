@@ -164,3 +164,34 @@ describe("Document publications — thu gọn 'Đề nghị văn bản mới' m�
     expect(client).toContain('const [mobileFormOpen, setMobileFormOpen] = useState(false);');
   });
 });
+
+// Báo cáo thực tế: "Phần dashboard hiện chỉ có 3 hình là tổng văn bản, đang
+// xử lý và đã ban hành. Còn thiếu Cần rà soát" — thêm KPI thứ 4 ngay trong
+// trang Kiểm soát tài liệu (không phải Dashboard tổng, đã có cảnh báo riêng
+// ở đó — xem dashboard-document-review-alert.test.ts), cùng ngưỡng "Quá hạn
+// rà soát" với badge trong Thư viện văn bản. Không đổi rule CSS chung
+// .mobile-workflow-kpis (dùng chung với emr-bieu-mau-groups/procedure-
+// trainings/procurement-requests, đều chỉ có 3 KPI) — override riêng bằng
+// class .dp-kpis.
+describe("Document publications — KPI thứ 4 'Cần rà soát'", () => {
+  const client = read("src/components/document-publications-client.tsx");
+  const css = read("src/app/final-visual-lock.css");
+
+  it("thêm KPI 'Cần rà soát' đếm đúng ngưỡng quá hạn review_date (cùng luật reviewStatus), dựa trên published chứ không phải documents thô", () => {
+    expect(client).toContain(
+      'const needsReviewCount = published.filter((d) => d.review_date && d.review_date.slice(0, 10) < today).length;',
+    );
+    expect(client).toContain("<small>Cần rà soát</small>");
+    expect(client).toContain("<strong>{needsReviewCount}</strong>");
+  });
+
+  it("wrapper KPI có thêm class dp-kpis (4 cột), không sửa rule .mobile-workflow-kpis dùng chung 3 module khác", () => {
+    expect(client).toContain('<div className="mobile-workflow-kpis dp-kpis">');
+    expect(css).toContain(".document-publications-overview .dp-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}");
+    expect(css).toContain(".mobile-module-redesign .mobile-workflow-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}");
+  });
+
+  it("mobile (<=760px) xếp dp-kpis thành 2 cột thay vì 4 cột chật", () => {
+    expect(css).toContain("@media(max-width:760px){.document-publications-overview .dp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}");
+  });
+});

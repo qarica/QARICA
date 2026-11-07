@@ -143,6 +143,9 @@ export function DocumentPublicationsClient({
   const departmentName = (id: string | null) => departments.find((d) => d.id === id)?.name || "—";
   const inProgress = documents.filter((d) => d.stage !== "PUBLISHED").sort((a, b) => (a.stage_due_date || "9999").localeCompare(b.stage_due_date || "9999"));
   const published = documents.filter((d) => d.stage === "PUBLISHED").sort((a, b) => (b.effective_date || "").localeCompare(a.effective_date || ""));
+  // KPI "Cần rà soát": cùng ngưỡng "Quá hạn rà soát" với badge trong Thư viện
+  // văn bản (reviewStatus() bên dưới) — review_date đã qua hôm nay.
+  const needsReviewCount = published.filter((d) => d.review_date && d.review_date.slice(0, 10) < today).length;
   // Thư viện văn bản: thư mục theo khoa/phòng soạn thảo, giữ thứ tự xuất
   // hiện đầu tiên (khoa có văn bản phát hành gần nhất lên trước).
   const publishedGroups: { key: string; name: string; docs: DocumentPublication[] }[] = [];
@@ -479,7 +482,7 @@ export function DocumentPublicationsClient({
 
   return (
     <div className="document-publications-overview mobile-module-redesign">
-      <div className="mobile-workflow-kpis">
+      <div className="mobile-workflow-kpis dp-kpis">
         <div>
           <span className="dp-kpi-icon info"><Icon name="file-text" size={18} /></span>
           <small>Tổng văn bản</small>
@@ -494,6 +497,11 @@ export function DocumentPublicationsClient({
           <span className="dp-kpi-icon success"><Icon name="folder-check" size={18} /></span>
           <small>Đã ban hành</small>
           <strong>{published.length}</strong>
+        </div>
+        <div>
+          <span className="dp-kpi-icon danger"><Icon name="triangle-alert" size={18} /></span>
+          <small>Cần rà soát</small>
+          <strong>{needsReviewCount}</strong>
         </div>
       </div>
 
@@ -939,6 +947,10 @@ export function DocumentPublicationsClient({
         .dp-kpi-icon.success {
           background: var(--success-soft);
           color: var(--success);
+        }
+        .dp-kpi-icon.danger {
+          background: var(--danger-soft);
+          color: var(--danger);
         }
         .dp-section-icon {
           display: inline-flex;
