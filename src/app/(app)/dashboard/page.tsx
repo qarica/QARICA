@@ -80,10 +80,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const selectedDept = isHospitalScope ? String(query.dept || "").trim() : "";
   const months = monthsBetween(from.slice(0, 7), today.slice(0, 7));
 
-  const recordsRes = await supabase.from("records").select("id,record_type,record_code,title,work_year,lifecycle_status,owner_department_id").eq("work_year",year);
+  // Báo cáo thực tế: "Dashboard thiếu văn bản cần xem xét lại" — Kiểm soát
+  // tài liệu (document_publications) đã có review_date + badge "Quá hạn rà
+  // soát" ngay trong trang riêng, nhưng không hề xuất hiện ở Dashboard tổng
+  // (Cảnh báo & công việc cần chú ý) như CAPA quá hạn/chỉ số vượt ngưỡng —
+  // không liên quan work_year/records nên truy vấn độc lập, không qua
+  // recordIdList.
+  const [recordsRes, docPublicationsRes] = await Promise.all([
+    supabase.from("records").select("id,record_type,record_code,title,work_year,lifecycle_status,owner_department_id").eq("work_year",year),
+    supabase.from("document_publications").select("id,review_date,drafting_department_id").eq("stage","PUBLISHED"),
+  ]);
   const records = ((recordsRes.data ?? []) as any[]).filter((r:any)=>!CLOSED.has(r.lifecycle_status)&&(!selectedDept||r.owner_department_id===selectedDept));
   const recordIdList=records.map((r:any)=>r.id).filter(Boolean);
   const incidentRecordIds = new Set(records.filter((r: any) => r.record_type === "INCIDENT").map((r: any) => r.id));
+  const docReviewOverdue = ((docPublicationsRes.data ?? []) as any[]).filter((d: any) => d.review_date && d.review_date < today && (!selectedDept || d.drafting_department_id === selectedDept)).length;
 
   // Tự rà lại sau phản hồi "rà chưa sát" (lỗi KPI "Việc của tôi" bỏ sót note
   // cá nhân): kiểm tra cùng lớp lỗi ở Dashboard — risks và audits là 2 nguồn
@@ -179,6 +189,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     outTargetIndicators.length ? { icon: "chart-no-axes-column-increasing", tone: "amber", title: `${outTargetIndicators.length} chỉ số vượt ngưỡng`, sub: "Ngoài mục tiêu trong kỳ đo gần nhất", when: today, href: "/indicators" } : null,
     auditNearDue.length ? { icon: "calendar-days", tone: "purple", title: `${auditNearDue.length} Audit sắp đến hạn`, sub: auditNearDue[0]?.end_date ? `Dự kiến: ${auditNearDue[0].end_date}` : "", when: today, href: "/audits" } : null,
     investigating > 0 ? { icon: "file-text", tone: "blue", title: `${investigating} sự cố đang điều tra RCA`, sub: "Cần theo dõi tiến độ phân tích nguyên nhân", when: today, href: "/incidents" } : null,
+    docReviewOverdue > 0 ? { icon: "file-text", tone: "red", title: `${docReviewOverdue} văn bản cần xem xét lại`, sub: "Đã quá hạn rà soát định kỳ", when: today, href: "/document-publications" } : null,
   ].filter(Boolean) as { icon: string; tone: string; title: string; sub: string; when: string; href: string }[];
 
   // Legacy TQM operational sections (Plan/Indicator/Monitoring/Finding/Improvement) - kept
@@ -235,7 +246,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const legacySeriousOpen = incidentsAll.filter((x: any) => activeRecordIds.has(x.record_id) && x.serious_event_flag && !["CLOSED", "CANCELLED", "REJECTED"].includes(String(x.workflow_status))).length;
   const legacyHotspots = [{ label: "Finding quá hạn", value: legacyOverdueFindings, href: "/findings", tone: "red" as const }, { label: "CAPA đến hạn đánh giá", value: legacyCapaDue, href: "/capa", tone: "amber" as const }, { label: "Sự cố nghiêm trọng đang mở", value: legacySeriousOpen, href: "/incidents", tone: "red" as const }, { label: "Chỉ số ngoài mục tiêu", value: legacyOutTarget, href: "/indicators", tone: "amber" as const }].sort((a, b) => b.value - a.value);
 
-  const firstError = [recordsRes, incidentsAllRes, capasRes, risksRes, auditsRes, indicatorsRes, domainLinksRes, domainsRes, programProgressRes, departmentsRes, monitoringRes].find((x: any) => x.error)?.error;
+  const firstError = [recordsRes, docPublicationsRes, incidentsAllRes, capasRes, risksRes, auditsRes, indicatorsRes, domainLinksRes, domainsRes, programProgressRes, departmentsRes, monitoringRes].find((x: any) => x.error)?.error;
 
   return <div className="page-stack qcc-dashboard dashboard-page">
     <style>{TQM_CHART_CSS + `
@@ -380,6 +391,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <Link className="quick-link" href="/plans"><span className="quick-link-icon" style={{background:"#dbeafe",color:"#1d4ed8"}}><Icon name="calendar-range" size={18}/></span>Kế hoạch</Link>
       <Link className="quick-link" href="/assessments"><span className="quick-link-icon" style={{background:"#dcfce7",color:"#16a34a"}}><Icon name="badge-check" size={18}/></span>Đánh giá</Link>
       <Link className="quick-link" href="/evidence"><span className="quick-link-icon" style={{background:"#ede9fe",color:"#7c3aed"}}><Icon name="folder-check" size={18}/></span>Minh chứng</Link>
+      <Link className="quick-link" href="/document-publications"><span className="quick-link-icon" style={{background:"#fee2e2",color:"#dc2626"}}><Icon name="file-text" size={18}/></span>Kiểm soát tài liệu</Link>
     </div></article></section>
   </div>;
 }
