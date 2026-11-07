@@ -112,28 +112,30 @@ describe("Sơ đồ bố trí theo tầng — field cấu hình mới + migratio
 // Báo cáo thực tế: "Sơ đồ nên thể hiện cha con gần nhau trực quan" — trước
 // đây mỗi tầng chỉ sort A-Z phẳng, cha/con cùng tầng (vd Khoa Nhi + Đơn vị
 // Sơ sinh, cùng Tầng 2) bị tách rời bởi các đơn vị không liên quan xen giữa.
-describe("Sơ đồ bố trí theo tầng — gom cha/con cùng tầng gần nhau trực quan", () => {
+// orderWithinGroup() dùng chung cho cả 2 cách nhóm (tầng/khối) — xem describe
+// "2 trạng thái tầng/khối với nút chuyển đổi + animation FLIP" bên dưới.
+describe("Sơ đồ bố trí — gom cha/con cùng nhóm (tầng hoặc khối) gần nhau trực quan", () => {
   const client = read("src/components/admin-org-chart-client.tsx");
 
-  it("orderWithinFloor() chỉ xét quan hệ cha/con TRONG PHẠM VI CHÍNH tầng đó (idsInFloor), đặt con liền ngay sau cha bằng duyệt đệ quy visit()", () => {
-    expect(client).toContain("function orderWithinFloor(depts: Department[]): Department[] {");
-    expect(client).toContain("const idsInFloor = new Set(depts.map((d) => d.id));");
-    expect(client).toContain("const parentInFloor = d.parent_department_id && idsInFloor.has(d.parent_department_id) ? d.parent_department_id : null;");
+  it("orderWithinGroup() chỉ xét quan hệ cha/con TRONG PHẠM VI CHÍNH nhóm đang xét (idsInGroup), đặt con liền ngay sau cha bằng duyệt đệ quy visit()", () => {
+    expect(client).toContain("function orderWithinGroup(depts: Department[]): Department[] {");
+    expect(client).toContain("const idsInGroup = new Set(depts.map((d) => d.id));");
+    expect(client).toContain("const parentInGroup = d.parent_department_id && idsInGroup.has(d.parent_department_id) ? d.parent_department_id : null;");
     expect(client).toContain("const visit = (d: Department) => {");
-    expect(client).toContain("buildFloorGroups");
-    expect(client).toContain("departments: orderWithinFloor(g.departments)");
-    expect(client).toContain("departments: orderWithinFloor(unassigned)");
+    expect(client).toContain("departments: orderWithinGroup(g.departments)");
+    expect(client).toContain("departments: orderWithinGroup(unassigned)");
+    expect(client).toContain("departments: orderWithinGroup(departments.filter((d) => b.types.includes(d.department_type || \"\")))");
   });
 
-  it("box con cùng tầng với cha được đánh dấu is-child-here (thụt vào, viền trái dày hơn) + tiền tố ↳, không lẫn với box độc lập", () => {
-    expect(client).toContain('const parentSameFloor = !!parent && group.departments.some((x) => x.id === parent.id);');
-    expect(client).toContain('parentSameFloor ? " is-child-here" : ""');
-    expect(client).toContain('{parentSameFloor ? "↳ " : ""}{d.name}');
+  it("box con cùng nhóm với cha được đánh dấu is-child-here (thụt vào, viền trái dày hơn) + tiền tố ↳, không lẫn với box độc lập", () => {
+    expect(client).toContain('const parentInGroup = !!parent && group.departments.some((x) => x.id === parent.id);');
+    expect(client).toContain('parentInGroup ? " is-child-here" : ""');
+    expect(client).toContain('{parentInGroup ? "↳ " : ""}{d.name}');
     expect(client).toContain(".org-floor-box.is-child-here { margin-left: 14px; border-left-width: 3px; background: #f8fafc; }");
   });
 
-  it("box con có cha ở TẦNG KHÁC (không gom cạnh được) hiện gợi ý '— thuộc {tên cha}, {tầng cha}' thay vì im lặng mất quan hệ cha/con", () => {
-    expect(client).toContain('{parent && !parentSameFloor ? <small className="org-floor-box-parent-hint">— thuộc {parent.name}{parent.floor_label ? `, ${parent.floor_label}` : ""}</small> : null}');
+  it("box con có cha ở NHÓM KHÁC (không gom cạnh được) hiện gợi ý '— thuộc {tên cha}, {nhóm cha}' thay vì im lặng mất quan hệ cha/con", () => {
+    expect(client).toContain('{parent && !parentInGroup ? <small className="org-floor-box-parent-hint">— thuộc {parent.name}{parentGroupLabel ? `, ${parentGroupLabel}` : ""}</small> : null}');
   });
 });
 
@@ -143,7 +145,7 @@ describe("Sơ đồ bố trí theo tầng — gom cha/con cùng tầng gần nha
 // (dùng cho .org-floor-box đã có sẵn border-width/style riêng) — gắn thẳng
 // lên span chú thích (không có .org-floor-box) thì border-color vô hình do
 // không có border nào để tô màu, ô chú thích hiện trống trơn.
-describe("Sơ đồ bố trí theo tầng — ô màu chú thích (legend) phải tự có border/background riêng, không dựa vào .org-floor-box", () => {
+describe("Sơ đồ bố trí — ô màu chú thích (legend) phải tự có border/background riêng, không dựa vào .org-floor-box", () => {
   const client = read("src/components/admin-org-chart-client.tsx");
 
   it("org-floor-legend-swatch tự định nghĩa border + background mặc định, không chỉ có border-color suông", () => {
@@ -160,10 +162,9 @@ describe("Sơ đồ bố trí theo tầng — ô màu chú thích (legend) phả
 // Báo cáo thực tế: "Bổ sung sơ đồ này nữa" (ảnh sơ đồ phân cấp theo khối:
 // Phòng chức năng / Khoa lâm sàng / Khoa cận lâm sàng-hỗ trợ, mỗi khoa có
 // giường + nguồn gốc 2013/2018/2019) — thêm field cấu hình chung
-// bed_count/org_origin/org_summary (không hard-code 1 bệnh viện), vẽ thành
-// sơ đồ thứ 3 trong trang Sơ đồ tổ chức, trục màu khác với sơ đồ tầng
-// (org_origin thay vì department_type).
-describe("Sơ đồ phân cấp theo khối (bed_count/org_origin/org_summary)", () => {
+// bed_count/org_origin/org_summary (không hard-code 1 bệnh viện), nhập ở
+// trang Khoa/Phòng.
+describe("Field giường/nguồn gốc/mô tả cơ cấu (bed_count/org_origin/org_summary)", () => {
   it("migration thêm đúng 3 cột + check constraint org_origin giới hạn đúng 3 giá trị, dùng add column if not exists", () => {
     const migration = read("supabase/migrations/20261123000000_department_org_hierarchy_v1.sql");
     expect(migration).toContain("add column if not exists bed_count integer");
@@ -191,34 +192,84 @@ describe("Sơ đồ phân cấp theo khối (bed_count/org_origin/org_summary)",
     expect(client).toContain("org_origin:form.orgOrigin||null");
     expect(client).toContain("org_summary:form.orgSummary.trim()||null");
   });
+});
 
-  it("buildHierarchyBlocks nhóm đúng 3 khối theo department_type (MANAGEMENT / CLINICAL / PARACLINICAL+SUPPORT), không bịa khối mới", () => {
-    const client = read("src/components/admin-org-chart-client.tsx");
+// Báo cáo thực tế: "Ko phải gộp lại mà là sơ đồ 2 trạng thái có nút chuyển
+// đổi 1 là bấm vào theo khối 1 là về theo tầng. Khi bấm các khối tự di
+// chuyển" — 1 panel "Sơ đồ bố trí" với 2 trạng thái (groupMode: floor/block)
+// đổi qua nút Theo tầng/Theo khối, và khi đổi thì từng box tự di chuyển
+// (animation FLIP qua animateGroupModeChange + useLayoutEffect) từ vị trí cũ
+// sang vị trí mới, không phải load lại tĩnh. Dùng 1 trục màu department_type
+// (1 chú thích duy nhất) — nguồn gốc (org_origin) và giường hiện bằng chữ
+// trong box.
+describe("2 trạng thái tầng/khối với nút chuyển đổi + animation FLIP", () => {
+  const client = read("src/components/admin-org-chart-client.tsx");
+
+  it("chỉ còn đúng 1 panel org-chart-full-width (không còn 2 panel riêng), tiêu đề chung 'Sơ đồ bố trí'", () => {
+    const fullWidthCount = (client.match(/className="panel org-chart-full-width"/g) ?? []).length;
+    expect(fullWidthCount).toBe(1);
+    expect(client).toContain("<h2>Sơ đồ bố trí</h2>");
+    expect(client).not.toContain("Sơ đồ bố trí theo tầng</h2>");
+    expect(client).not.toContain("Sơ đồ phân cấp theo khối</h2>");
+  });
+
+  it("có toggle 'Theo tầng' / 'Theo khối' gọi animateGroupModeChange (không set trực tiếp groupMode), groups chọn đúng floorGroups hoặc blockGroups theo state", () => {
+    expect(client).toContain('const [groupMode, setGroupMode] = useState<"floor" | "block">("floor");');
+    expect(client).toContain('const groups = groupMode === "floor" ? floorGroups : blockGroups;');
+    expect(client).toContain('onClick={() => animateGroupModeChange("floor")}>Theo tầng</button>');
+    expect(client).toContain('onClick={() => animateGroupModeChange("block")}>Theo khối</button>');
+  });
+
+  it("animateGroupModeChange() chụp vị trí (getBoundingClientRect) của mọi box TRƯỚC khi đổi groupMode, lưu vào prevRectsRef theo id", () => {
+    expect(client).toContain('const boxRefs = useRef<Map<string, HTMLButtonElement>>(new Map());');
+    expect(client).toContain('const prevRectsRef = useRef<Map<string, DOMRect> | null>(null);');
+    expect(client).toContain('function animateGroupModeChange(mode: "floor" | "block") {');
+    expect(client).toContain('boxRefs.current.forEach((el, id) => rects.set(id, el.getBoundingClientRect()));');
+  });
+
+  it("sau khi React render lại (groupMode đổi), useLayoutEffect tính delta vị trí cũ/mới rồi phát animation FLIP (translate ngược, reflow, rồi transition về transform:none)", () => {
+    expect(client).toContain("useLayoutEffect(() => {");
+    expect(client).toContain("}, [groupMode]);");
+    expect(client).toContain('el.style.transition = "none";');
+    expect(client).toContain("void el.offsetHeight;");
+    expect(client).toContain('el.style.transition = "transform 280ms ease";');
+  });
+
+  it("mỗi box department gắn ref callback để đăng ký/gỡ khỏi boxRefs theo id, phục vụ animation khi box đổi nhóm (unmount/remount giữa các container khác nhau)", () => {
+    expect(client).toContain("if (el) boxRefs.current.set(d.id, el);");
+    expect(client).toContain("else boxRefs.current.delete(d.id);");
+  });
+
+  it("chỉ dùng 1 trục màu department_type (FLOOR_BOX_TONE_CLASS) cho box ở CẢ 2 cách nhóm — không còn ORIGIN_BOX_TONE_CLASS/bộ màu riêng cho org_origin", () => {
+    expect(client).not.toContain("ORIGIN_BOX_TONE_CLASS");
+    expect(client).not.toContain("org-hier-box-established");
+    expect(client).not.toContain("org-hier-box-new");
+    expect(client).not.toContain("org-hier-box-planonly");
+    expect(client).toContain('FLOOR_BOX_TONE_CLASS[d.department_type || ""] || "org-floor-box-support"');
+  });
+
+  it("giường + nguồn gốc hiện bằng chữ trong box (không phải màu viền) — 0 giường ghi rõ 'Không giường', org_origin tra qua ORG_ORIGIN_LABEL", () => {
+    expect(client).toContain('d.bed_count != null ? (d.bed_count === 0 ? "Không giường" : `${d.bed_count} giường`) : null');
+    expect(client).toContain("d.org_origin ? ORG_ORIGIN_LABEL[d.org_origin] : null");
+  });
+
+  it("buildBlockGroups vẫn nhóm đúng 3 khối theo department_type (MANAGEMENT / CLINICAL / PARACLINICAL+SUPPORT), tái dùng orderWithinGroup", () => {
     expect(client).toContain('{ key: "MANAGEMENT", label: "Phòng chức năng, lãnh đạo", types: ["MANAGEMENT"] }');
     expect(client).toContain('{ key: "CLINICAL", label: "Khoa lâm sàng", types: ["CLINICAL"] }');
     expect(client).toContain('{ key: "PARA_SUPPORT", label: "Khoa cận lâm sàng và hỗ trợ", types: ["PARACLINICAL", "SUPPORT"] }');
   });
 
-  it("trục màu sơ đồ phân cấp dùng org_origin (3 tone established/new/planonly), khác trục màu department_type của sơ đồ tầng — không dùng chung FLOOR_BOX_TONE_CLASS", () => {
-    const client = read("src/components/admin-org-chart-client.tsx");
-    expect(client).toContain('const ORIGIN_BOX_TONE_CLASS: Record<string, string> = { ESTABLISHED_2013: "org-hier-box-established", NEW_2018: "org-hier-box-new", PLAN_ONLY_2019: "org-hier-box-planonly" };');
-    expect(client).toContain("ORIGIN_BOX_TONE_CLASS[d.org_origin || \"\"] || \"org-hier-box-established\"");
+  it("gợi ý cha ở nhóm khác dùng đúng nhãn theo groupMode hiện tại (floor_label hoặc blockLabelFor), không lẫn nhãn của mode kia", () => {
+    expect(client).toContain("function blockLabelFor(d: Department): string | null {");
+    expect(client).toContain('const parentGroupLabel = parent ? (groupMode === "floor" ? parent.floor_label : blockLabelFor(parent)) : null;');
   });
 
-  it("hiển thị số giường: 0 giường ghi rõ 'Không giường' (không phải im lặng/0), null thì không hiện gì (không bịa số)", () => {
-    const client = read("src/components/admin-org-chart-client.tsx");
-    expect(client).toContain('d.bed_count != null ? ` · ${d.bed_count === 0 ? "Không giường" : `${d.bed_count} giường`}` : ""');
-  });
-
-  it("cả 2 sơ đồ (tầng + phân cấp) luôn chiếm trọn chiều ngang (org-chart-full-width = grid-column 1/-1), không bị bó hẹp vào 1 nửa lưới 2 cột cùng cây+chi tiết", () => {
-    const client = read("src/components/admin-org-chart-client.tsx");
-    const fullWidthCount = (client.match(/className="panel org-chart-full-width"/g) ?? []).length;
-    expect(fullWidthCount).toBe(2);
+  it("panel vẫn chiếm trọn chiều ngang (org-chart-full-width = grid-column 1/-1)", () => {
     expect(client).toContain(".org-chart-full-width { grid-column: 1 / -1; }");
   });
 
-  it("khi chưa có đơn vị nào khai báo giường/nguồn gốc, hiện hướng dẫn thay vì khung trống", () => {
-    const client = read("src/components/admin-org-chart-client.tsx");
-    expect(client).toContain("Chưa có đơn vị nào khai báo số giường/nguồn gốc");
+  it("khi ở mode 'Theo tầng' mà chưa có đơn vị nào khai báo tầng/phòng, hiện hướng dẫn thay vì khung trống (mode 'Theo khối' luôn có nội dung vì department_type luôn có sẵn)", () => {
+    expect(client).toContain('const hasLayoutData = groupMode === "floor" ? hasFloorData : blockGroups.length > 0;');
+    expect(client).toContain("Chưa có đơn vị nào khai báo tầng/phòng");
   });
 });

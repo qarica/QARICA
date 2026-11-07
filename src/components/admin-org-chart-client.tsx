@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
 
 type Department = {
@@ -25,10 +25,15 @@ type Equipment = { id: string; equipment_name: string; model_code: string | null
 const TYPE_LABEL: Record<string, string> = { CLINICAL: "Lâm sàng", PARACLINICAL: "Cận lâm sàng", MANAGEMENT: "Quản lý", SUPPORT: "Hỗ trợ" };
 const EQUIPMENT_STATUS_LABEL: Record<string, string> = { IN_USE: "Đang sử dụng", MAINTENANCE: "Bảo trì/Sửa chữa", INACTIVE: "Ngưng sử dụng" };
 const EQUIPMENT_STATUS_TONE: Record<string, string> = { IN_USE: "success", MAINTENANCE: "warning", INACTIVE: "muted" };
-// Báo cáo thực tế: "phải vẽ sơ đồ bố trí theo tầng" — tham khảo 1 sơ đồ mặt
-// bằng (lưới khoa/phòng theo tầng, viền màu theo loại đơn vị: xanh=phòng
-// chức năng/lãnh đạo, thường=khoa lâm sàng, đỏ=khoa cận lâm sàng, nét đứt=hỗ
-// trợ/chưa rõ). Dùng đúng 4 department_type đã có, không bịa thêm phân loại.
+
+// Báo cáo thực tế: "Ko phải gộp lại mà là sơ đồ 2 trạng thái có nút chuyển
+// đổi, 1 là bấm vào theo khối 1 là về theo tầng. Khi bấm các khối tự di
+// chuyển" — 1 panel "Sơ đồ bố trí" với nút Theo tầng/Theo khối đổi CÁCH
+// NHÓM (floorGroups/blockGroups, state groupMode) — mỗi ô (department) có
+// animation FLIP tự di chuyển mượt từ vị trí cũ sang vị trí mới khi đổi
+// trạng thái (xem animateGroupModeChange/useLayoutEffect bên dưới), không
+// phải load lại tĩnh. Dùng 1 trục màu department_type (1 chú thích duy
+// nhất) — nguồn gốc (org_origin) và giường hiện bằng chữ trong box.
 const FLOOR_BOX_TONE_CLASS: Record<string, string> = { MANAGEMENT: "org-floor-box-mgmt", CLINICAL: "org-floor-box-clinical", PARACLINICAL: "org-floor-box-para", SUPPORT: "org-floor-box-support" };
 const FLOOR_LEGEND: { tone: string; label: string }[] = [
   { tone: "org-floor-box-mgmt", label: "Phòng chức năng, lãnh đạo" },
@@ -36,57 +41,33 @@ const FLOOR_LEGEND: { tone: string; label: string }[] = [
   { tone: "org-floor-box-para", label: "Khoa cận lâm sàng" },
   { tone: "org-floor-box-support", label: "Hỗ trợ / chưa phân loại" },
 ];
-
-type FloorGroup = { key: string; label: string; order: number; departments: Department[] };
-
-// Báo cáo thực tế: "Bổ sung sơ đồ này nữa" — tham khảo 1 sơ đồ phân cấp
-// theo khối (Phòng chức năng / Khoa lâm sàng / Khoa cận lâm sàng-hỗ trợ),
-// mỗi khoa hiện số giường + nguồn gốc (biên bản 2013 / lập mới theo QĐ 2018
-// / chỉ có trong mặt bằng hoặc hồ sơ 2019). Trục màu ở đây là org_origin
-// (lịch sử/pháp lý), KHÁC với trục màu department_type dùng ở sơ đồ tầng —
-// 2 sơ đồ trả lời 2 câu hỏi khác nhau (ở đâu vs nguồn gốc nào), không gộp
-// chung 1 bộ màu.
 const ORG_ORIGIN_LABEL: Record<string, string> = { ESTABLISHED_2013: "Biên bản 2013", NEW_2018: "Lập mới theo QĐ 2018", PLAN_ONLY_2019: "Chỉ có trong mặt bằng hoặc hồ sơ 2019" };
-const ORIGIN_BOX_TONE_CLASS: Record<string, string> = { ESTABLISHED_2013: "org-hier-box-established", NEW_2018: "org-hier-box-new", PLAN_ONLY_2019: "org-hier-box-planonly" };
-const ORIGIN_LEGEND: { tone: string; label: string }[] = [
-  { tone: "org-hier-box-established", label: ORG_ORIGIN_LABEL.ESTABLISHED_2013 },
-  { tone: "org-hier-box-new", label: ORG_ORIGIN_LABEL.NEW_2018 },
-  { tone: "org-hier-box-planonly", label: ORG_ORIGIN_LABEL.PLAN_ONLY_2019 },
-];
 const HIERARCHY_BLOCKS: { key: string; label: string; types: string[] }[] = [
   { key: "MANAGEMENT", label: "Phòng chức năng, lãnh đạo", types: ["MANAGEMENT"] },
   { key: "CLINICAL", label: "Khoa lâm sàng", types: ["CLINICAL"] },
   { key: "PARA_SUPPORT", label: "Khoa cận lâm sàng và hỗ trợ", types: ["PARACLINICAL", "SUPPORT"] },
 ];
 
-function buildHierarchyBlocks(departments: Department[]): { key: string; label: string; departments: Department[] }[] {
-  return HIERARCHY_BLOCKS.map((b) => ({
-    key: b.key,
-    label: b.label,
-    departments: departments.filter((d) => b.types.includes(d.department_type || "")).sort((a, c) => a.name.localeCompare(c.name, "vi")),
-  })).filter((b) => b.departments.length);
-}
+type DeptGroup = { key: string; label: string; order: number; departments: Department[] };
 
-// Báo cáo thực tế: "Sơ đồ nên thể hiện cha con gần nhau trực quan" — trước
-// đây mỗi tầng chỉ sort theo tên (A-Z phẳng), cha/con cùng tầng (vd Khoa Nhi
-// + Đơn vị Sơ sinh, cùng ở Tầng 2) bị tách rời, chen giữa các đơn vị không
-// liên quan. orderWithinFloor() gom con liền ngay sau cha NẾU cả hai cùng ở
-// chung 1 tầng (chỉ xét quan hệ cha/con trong phạm vi departments của CHÍNH
-// tầng đó, không phải toàn bộ cây) — con có cha ở tầng khác thì giữ nguyên vị
-// trí theo tên, không gom được vì cha không ở cùng hàng để đặt cạnh.
-function orderWithinFloor(depts: Department[]): Department[] {
-  const idsInFloor = new Set(depts.map((d) => d.id));
+// Báo cáo thực tế: "Sơ đồ nên thể hiện cha con gần nhau trực quan" — gom con
+// liền ngay sau cha NẾU cả hai cùng nằm trong CHÍNH nhóm đang xét (1 tầng
+// hoặc 1 khối, tuỳ groupMode) — con có cha ở nhóm khác thì giữ nguyên vị trí
+// theo tên, không gom được vì cha không ở cùng hàng để đặt cạnh. Dùng chung
+// cho cả 2 cách nhóm (tầng/khối), không phải viết lại riêng từng kiểu.
+function orderWithinGroup(depts: Department[]): Department[] {
+  const idsInGroup = new Set(depts.map((d) => d.id));
   const childrenOf = new Map<string, Department[]>();
   const roots: Department[] = [];
   for (const d of depts) {
-    const parentInFloor = d.parent_department_id && idsInFloor.has(d.parent_department_id) ? d.parent_department_id : null;
-    if (!parentInFloor) {
+    const parentInGroup = d.parent_department_id && idsInGroup.has(d.parent_department_id) ? d.parent_department_id : null;
+    if (!parentInGroup) {
       roots.push(d);
       continue;
     }
-    const list = childrenOf.get(parentInFloor) ?? [];
+    const list = childrenOf.get(parentInGroup) ?? [];
     list.push(d);
-    childrenOf.set(parentInFloor, list);
+    childrenOf.set(parentInGroup, list);
   }
   const out: Department[] = [];
   const visit = (d: Department) => {
@@ -97,8 +78,8 @@ function orderWithinFloor(depts: Department[]): Department[] {
   return out;
 }
 
-function buildFloorGroups(departments: Department[]): FloorGroup[] {
-  const groups = new Map<string, FloorGroup>();
+function buildFloorGroups(departments: Department[]): DeptGroup[] {
+  const groups = new Map<string, DeptGroup>();
   const unassigned: Department[] = [];
   for (const d of departments) {
     if (!d.floor_label) {
@@ -110,10 +91,24 @@ function buildFloorGroups(departments: Department[]): FloorGroup[] {
     groups.set(d.floor_label, group);
   }
   const sorted = Array.from(groups.values())
-    .map((g) => ({ ...g, departments: orderWithinFloor(g.departments) }))
+    .map((g) => ({ ...g, departments: orderWithinGroup(g.departments) }))
     .sort((a, b) => b.order - a.order);
-  if (unassigned.length) sorted.push({ key: "__unassigned", label: "Chưa gắn tầng", order: Number.NEGATIVE_INFINITY, departments: orderWithinFloor(unassigned) });
+  if (unassigned.length) sorted.push({ key: "__unassigned", label: "Chưa gắn tầng", order: Number.NEGATIVE_INFINITY, departments: orderWithinGroup(unassigned) });
   return sorted;
+}
+
+function buildBlockGroups(departments: Department[]): DeptGroup[] {
+  return HIERARCHY_BLOCKS.map((b, i) => ({
+    key: b.key,
+    label: b.label,
+    order: HIERARCHY_BLOCKS.length - i,
+    departments: orderWithinGroup(departments.filter((d) => b.types.includes(d.department_type || ""))),
+  })).filter((g) => g.departments.length);
+}
+
+function blockLabelFor(d: Department): string | null {
+  const block = HIERARCHY_BLOCKS.find((b) => b.types.includes(d.department_type || ""));
+  return block ? block.label : null;
 }
 
 type TreeNode = { department: Department; children: TreeNode[] };
@@ -140,14 +135,53 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [floorOpen, setFloorOpen] = useState(true);
-  const [hierOpen, setHierOpen] = useState(true);
+  const [layoutOpen, setLayoutOpen] = useState(true);
+  const [groupMode, setGroupMode] = useState<"floor" | "block">("floor");
+
+  // FLIP (First-Last-Invert-Play): bấm đổi Theo tầng/Theo khối đổi hẳn
+  // nhóm cha (group.key đổi từ "Tầng 1" sang "MANAGEMENT"...) nên React gỡ
+  // bỏ/dựng lại DOM của từng ô ở vị trí mới, không tái dùng node cũ — ghi
+  // lại vị trí CŨ của từng ô (theo department id, không phụ thuộc node DOM
+  // còn tồn tại hay không) ngay trước khi đổi state, rồi so với vị trí MỚI
+  // sau khi React render xong để tính delta và tự chạy animation dịch
+  // chuyển, thay vì bật nhóm mới ngay lập tức không có chuyển động.
+  const boxRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const prevRectsRef = useRef<Map<string, DOMRect> | null>(null);
+
+  function animateGroupModeChange(mode: "floor" | "block") {
+    if (mode === groupMode) return;
+    const rects = new Map<string, DOMRect>();
+    boxRefs.current.forEach((el, id) => rects.set(id, el.getBoundingClientRect()));
+    prevRectsRef.current = rects;
+    setGroupMode(mode);
+  }
+
+  useLayoutEffect(() => {
+    const prevRects = prevRectsRef.current;
+    if (!prevRects) return;
+    prevRectsRef.current = null;
+    boxRefs.current.forEach((el, id) => {
+      const prev = prevRects.get(id);
+      if (!prev) return;
+      const next = el.getBoundingClientRect();
+      const dx = prev.left - next.left;
+      const dy = prev.top - next.top;
+      if (!dx && !dy) return;
+      el.style.transition = "none";
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      void el.offsetHeight;
+      el.style.transition = "transform 280ms ease";
+      el.style.transform = "";
+    });
+  }, [groupMode]);
 
   const tree = useMemo(() => buildTree(departments.filter((d) => showInactive || d.is_active || d.id === selectedId)), [departments, showInactive, selectedId]);
-  const floorGroups = useMemo(() => buildFloorGroups(departments.filter((d) => showInactive || d.is_active)), [departments, showInactive]);
+  const visibleDepartments = useMemo(() => departments.filter((d) => showInactive || d.is_active), [departments, showInactive]);
+  const floorGroups = useMemo(() => buildFloorGroups(visibleDepartments), [visibleDepartments]);
+  const blockGroups = useMemo(() => buildBlockGroups(visibleDepartments), [visibleDepartments]);
+  const groups = groupMode === "floor" ? floorGroups : blockGroups;
   const hasFloorData = departments.some((d) => d.floor_label);
-  const hierarchyBlocks = useMemo(() => buildHierarchyBlocks(departments.filter((d) => showInactive || d.is_active)), [departments, showInactive]);
-  const hasHierarchyData = departments.some((d) => d.org_origin || d.bed_count != null || d.org_summary);
+  const hasLayoutData = groupMode === "floor" ? hasFloorData : blockGroups.length > 0;
   const departmentById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments]);
   const selected = departments.find((d) => d.id === selectedId) ?? null;
   const parentName = selected?.parent_department_id ? departments.find((d) => d.id === selected.parent_department_id)?.name ?? null : null;
@@ -202,6 +236,9 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
         .org-floor-head h2 { margin: 0; font-size: 15px; }
         .org-floor-chevron { transition: transform 0.15s; }
         .org-floor-chevron.is-open { transform: rotate(180deg); }
+        .org-floor-mode-toggle { display: flex; gap: 6px; padding: 0 16px 14px; }
+        .org-floor-mode-toggle button { border: 1px solid #d7e1e5; background: #fff; color: #475569; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+        .org-floor-mode-toggle button.is-active { background: var(--brand); border-color: var(--brand); color: #fff; }
         .org-floor-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 0 16px 14px; font-size: 12px; color: #64748b; }
         .org-floor-legend-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: middle; border: 1.5px solid #cbd5e1; background: #fff; }
         .org-floor-legend-swatch.org-floor-box-mgmt { border-color: #1D4ED8; background: #EEF2FF; }
@@ -224,101 +261,70 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
         .org-floor-box-clinical { border-color: #cbd5e1; }
         .org-floor-box-para { border-color: #dc2626; }
         .org-floor-box-support { border-style: dashed; border-color: #94a3b8; }
-        .org-hier-box-established { border-color: #cbd5e1; }
-        .org-hier-box-new { border-color: #1D4ED8; }
-        .org-hier-box-planonly { border-style: dashed; border-color: #94a3b8; }
-        .org-floor-legend-swatch.org-hier-box-established { border-color: #cbd5e1; background: #fff; }
-        .org-floor-legend-swatch.org-hier-box-new { border-color: #1D4ED8; background: #EEF2FF; }
-        .org-floor-legend-swatch.org-hier-box-planonly { border-color: #94a3b8; border-style: dashed; background: #fff; }
         .org-chart-full-width { grid-column: 1 / -1; }
       `}</style>
 
       <section className="panel org-chart-full-width">
-        <button type="button" className="org-floor-head" onClick={() => setFloorOpen((v) => !v)}>
-          <h2>Sơ đồ bố trí theo tầng</h2>
-          <Icon name="chevron-down" size={18} className={`org-floor-chevron${floorOpen ? " is-open" : ""}`} />
+        <button type="button" className="org-floor-head" onClick={() => setLayoutOpen((v) => !v)}>
+          <h2>Sơ đồ bố trí</h2>
+          <Icon name="chevron-down" size={18} className={`org-floor-chevron${layoutOpen ? " is-open" : ""}`} />
         </button>
-        {floorOpen ? (
-          hasFloorData ? (
-            <>
-              <div className="org-floor-legend">
-                {FLOOR_LEGEND.map((l) => (
-                  <span key={l.tone}><span className={`org-floor-legend-swatch ${l.tone}`} />{l.label}</span>
-                ))}
-              </div>
-              <div className="org-floor-body">
-                {floorGroups.map((group) => (
-                  <div className="org-floor-row" key={group.key}>
-                    <div className="org-floor-row-label">{group.label}</div>
-                    <div className="org-floor-boxes">
-                      {group.departments.map((d) => {
-                        const parent = d.parent_department_id ? departmentById.get(d.parent_department_id) ?? null : null;
-                        const parentSameFloor = !!parent && group.departments.some((x) => x.id === parent.id);
-                        return (
-                          <button
-                            type="button"
-                            key={d.id}
-                            className={`org-floor-box ${FLOOR_BOX_TONE_CLASS[d.department_type || ""] || "org-floor-box-support"}${selectedId === d.id ? " is-selected" : ""}${parentSameFloor ? " is-child-here" : ""}`}
-                            onClick={() => setSelectedId(d.id)}
-                          >
-                            <strong>{parentSameFloor ? "↳ " : ""}{d.name}</strong>
-                            {d.room_label || d.area_sqm != null ? <small>{[d.room_label, d.area_sqm != null ? `${d.area_sqm} m²` : null].filter(Boolean).join(" · ")}</small> : null}
-                            {parent && !parentSameFloor ? <small className="org-floor-box-parent-hint">— thuộc {parent.name}{parent.floor_label ? `, ${parent.floor_label}` : ""}</small> : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="empty-state" style={{ margin: "0 16px 16px" }}>
-              Chưa có đơn vị nào khai báo tầng/phòng. Vào trang Khoa/Phòng → Sửa để nhập Thứ tự tầng, Tên tầng, Phòng/vị trí, Diện tích cho từng đơn vị.
+        {layoutOpen ? (
+          <>
+            <div className="org-floor-mode-toggle">
+              <button type="button" className={groupMode === "floor" ? "is-active" : ""} onClick={() => animateGroupModeChange("floor")}>Theo tầng</button>
+              <button type="button" className={groupMode === "block" ? "is-active" : ""} onClick={() => animateGroupModeChange("block")}>Theo khối</button>
             </div>
-          )
-        ) : null}
-      </section>
-
-      <section className="panel org-chart-full-width">
-        <button type="button" className="org-floor-head" onClick={() => setHierOpen((v) => !v)}>
-          <h2>Sơ đồ phân cấp theo khối</h2>
-          <Icon name="chevron-down" size={18} className={`org-floor-chevron${hierOpen ? " is-open" : ""}`} />
-        </button>
-        {hierOpen ? (
-          hasHierarchyData ? (
-            <>
-              <div className="org-floor-legend">
-                {ORIGIN_LEGEND.map((l) => (
-                  <span key={l.tone}><span className={`org-floor-legend-swatch ${l.tone}`} />{l.label}</span>
-                ))}
-              </div>
-              <div className="org-floor-body">
-                {hierarchyBlocks.map((block) => (
-                  <div className="org-floor-row" key={block.key}>
-                    <div className="org-floor-row-label">{block.label}</div>
-                    <div className="org-floor-boxes">
-                      {block.departments.map((d) => (
-                        <button
-                          type="button"
-                          key={d.id}
-                          className={`org-floor-box ${ORIGIN_BOX_TONE_CLASS[d.org_origin || ""] || "org-hier-box-established"}${selectedId === d.id ? " is-selected" : ""}`}
-                          onClick={() => setSelectedId(d.id)}
-                        >
-                          <strong>{d.name}{d.bed_count != null ? ` · ${d.bed_count === 0 ? "Không giường" : `${d.bed_count} giường`}` : ""}</strong>
-                          {d.org_summary ? <small>{d.org_summary}</small> : null}
-                        </button>
-                      ))}
+            {hasLayoutData ? (
+              <>
+                <div className="org-floor-legend">
+                  {FLOOR_LEGEND.map((l) => (
+                    <span key={l.tone}><span className={`org-floor-legend-swatch ${l.tone}`} />{l.label}</span>
+                  ))}
+                </div>
+                <div className="org-floor-body">
+                  {groups.map((group) => (
+                    <div className="org-floor-row" key={group.key}>
+                      <div className="org-floor-row-label">{group.label}</div>
+                      <div className="org-floor-boxes">
+                        {group.departments.map((d) => {
+                          const parent = d.parent_department_id ? departmentById.get(d.parent_department_id) ?? null : null;
+                          const parentInGroup = !!parent && group.departments.some((x) => x.id === parent.id);
+                          const parentGroupLabel = parent ? (groupMode === "floor" ? parent.floor_label : blockLabelFor(parent)) : null;
+                          const placeDetails = [d.room_label, d.area_sqm != null ? `${d.area_sqm} m²` : null].filter(Boolean).join(" · ");
+                          const orgDetails = [d.bed_count != null ? (d.bed_count === 0 ? "Không giường" : `${d.bed_count} giường`) : null, d.org_origin ? ORG_ORIGIN_LABEL[d.org_origin] : null]
+                            .filter(Boolean)
+                            .join(" · ");
+                          return (
+                            <button
+                              type="button"
+                              key={d.id}
+                              ref={(el) => {
+                                if (el) boxRefs.current.set(d.id, el);
+                                else boxRefs.current.delete(d.id);
+                              }}
+                              className={`org-floor-box ${FLOOR_BOX_TONE_CLASS[d.department_type || ""] || "org-floor-box-support"}${selectedId === d.id ? " is-selected" : ""}${parentInGroup ? " is-child-here" : ""}`}
+                              onClick={() => setSelectedId(d.id)}
+                            >
+                              <strong>{parentInGroup ? "↳ " : ""}{d.name}</strong>
+                              {placeDetails ? <small>{placeDetails}</small> : null}
+                              {orgDetails ? <small>{orgDetails}</small> : null}
+                              {d.org_summary ? <small>{d.org_summary}</small> : null}
+                              {parent && !parentInGroup ? <small className="org-floor-box-parent-hint">— thuộc {parent.name}{parentGroupLabel ? `, ${parentGroupLabel}` : ""}</small> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="empty-state" style={{ margin: "0 16px 16px" }}>
+                Chưa có đơn vị nào khai báo tầng/phòng. Vào trang Khoa/Phòng → Sửa để nhập Thứ tự tầng, Tên tầng, Phòng/vị trí, Diện tích cho từng đơn vị.
               </div>
-            </>
-          ) : (
-            <div className="empty-state" style={{ margin: "0 16px 16px" }}>
-              Chưa có đơn vị nào khai báo số giường/nguồn gốc. Vào trang Khoa/Phòng → Sửa để nhập Số giường, Nguồn gốc, Mô tả cơ cấu cho từng đơn vị.
-            </div>
-          )
+            )}
+          </>
         ) : null}
       </section>
 
