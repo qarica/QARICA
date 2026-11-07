@@ -111,6 +111,7 @@ export const WORKSPACES: WorkspaceDefinition[] = [
       { label: "Người dùng", href: "/admin/users", icon: "users", permission: "users.manage" },
       { label: "Nhóm phân công", href: "/admin/user-groups", icon: "users-round", permission: "users.manage" },
       { label: "Khoa / Phòng", href: "/admin/departments", icon: "building-2", permission: "departments.manage" },
+      { label: "Sơ đồ tổ chức", href: "/admin/org-chart", icon: "network", permission: "departments.manage" },
       { label: "Vai trò & Phân quyền", href: "/admin/permissions", icon: "key-round", permission: "permissions.manage" },
       { label: "Danh mục", href: "/admin/catalogs", icon: "list-tree", permission: "system.manage" },
       { label: "Cấu hình", href: "/admin/settings", icon: "settings", permission: "system.manage" },
