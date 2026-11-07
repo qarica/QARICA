@@ -229,7 +229,7 @@ describe("2 trạng thái tầng/khối với nút chuyển đổi + animation F
 
   it("sau khi React render lại (groupMode đổi), useLayoutEffect tính delta vị trí VÀ kích thước cũ/mới rồi phát animation FLIP (translate+scale ngược, reflow, rồi transition về transform:none) — chạy đủ lâu (480ms) để nhìn thấy rõ ô di chuyển lên/xuống, không chỉ snap tức thời", () => {
     expect(client).toContain("useLayoutEffect(() => {");
-    expect(client).toContain("}, [groupMode]);");
+    expect(client).toContain("}, [groupMode, detailMode]);");
     expect(client).toContain("const sx = next.width ? prev.width / next.width : 1;");
     expect(client).toContain("const sy = next.height ? prev.height / next.height : 1;");
     expect(client).toContain('el.style.transition = "none";');
@@ -274,5 +274,38 @@ describe("2 trạng thái tầng/khối với nút chuyển đổi + animation F
   it("khi ở mode 'Theo tầng' mà chưa có đơn vị nào khai báo tầng/phòng, hiện hướng dẫn thay vì khung trống (mode 'Theo khối' luôn có nội dung vì department_type luôn có sẵn)", () => {
     expect(client).toContain('const hasLayoutData = groupMode === "floor" ? hasFloorData : blockGroups.length > 0;');
     expect(client).toContain("Chưa có đơn vị nào khai báo tầng/phòng");
+  });
+});
+
+// Báo cáo thực tế: "Có nên có chế độ thu gọn mở rộng ko. Gọn là chỉ thấy
+// tên đơn vị. Mở rộng thì xem cả chi tiết" — "Làm luôn đi" — thêm toggle
+// Gọn/Mở rộng (detailMode) độc lập với Theo tầng/Theo khối (groupMode),
+// tái dùng cơ chế FLIP animation chung (animateLayoutChange) cho cả 2
+// toggle vì cả 2 đều làm kích thước/vị trí ô đổi.
+describe("Toggle Gọn/Mở rộng (detailMode) — ẩn/hiện chi tiết trong ô, dùng chung animation FLIP", () => {
+  const client = read("src/components/admin-org-chart-client.tsx");
+
+  it("state detailMode mặc định 'full' (giữ nguyên hành vi cũ), có toggle Gọn/Mở rộng gọi animateDetailModeChange", () => {
+    expect(client).toContain('const [detailMode, setDetailMode] = useState<"compact" | "full">("full");');
+    expect(client).toContain('onClick={() => animateDetailModeChange("compact")}>Gọn</button>');
+    expect(client).toContain('onClick={() => animateDetailModeChange("full")}>Mở rộng</button>');
+  });
+
+  it("animateGroupModeChange và animateDetailModeChange đều dùng chung animateLayoutChange() để chụp vị trí cũ trước khi đổi state", () => {
+    expect(client).toContain("function animateLayoutChange(apply: () => void) {");
+    expect(client).toContain("animateLayoutChange(() => setGroupMode(mode));");
+    expect(client).toContain("animateLayoutChange(() => setDetailMode(mode));");
+    expect(client).toContain("}, [groupMode, detailMode]);");
+  });
+
+  it("chỉ ở detailMode 'full' mới hiện các dòng chi tiết (room/area, giường/nguồn gốc, mô tả, gợi ý cha khác nhóm) — detailMode 'compact' chỉ còn tên đơn vị", () => {
+    expect(client).toContain('{detailMode === "full" ? (');
+    expect(client).toContain("{placeDetails ? <small>{placeDetails}</small> : null}");
+    expect(client).toContain("{orgDetails ? <small>{orgDetails}</small> : null}");
+    expect(client).toContain("{d.org_summary ? <small>{d.org_summary}</small> : null}");
+  });
+
+  it("tiền tố ↳ và thụt lề cha/con cùng nhóm (is-child-here) KHÔNG phụ thuộc detailMode — vẫn hiện ở cả chế độ Gọn", () => {
+    expect(client).toContain("<strong>{parentInGroup ? \"↳ \" : \"\"}{d.name}</strong>");
   });
 });

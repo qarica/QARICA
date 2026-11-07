@@ -37,7 +37,11 @@ const EQUIPMENT_STATUS_TONE: Record<string, string> = { IN_USE: "success", MAINT
 // thước (scale, vì số ô/dòng khác nhau giữa 2 cách nhóm làm bề rộng ô đổi)
 // trong 480ms với easing ease-out-quint, đủ chậm để thấy rõ chuyển động.
 // Dùng 1 trục màu department_type (1 chú thích duy nhất) — nguồn gốc
-// (org_origin) và giường hiện bằng chữ trong box.
+// (org_origin) và giường hiện bằng chữ trong box. Theo yêu cầu "có nên có
+// chế độ thu gọn mở rộng ko, gọn là chỉ thấy tên đơn vị, mở rộng thì xem
+// cả chi tiết" — thêm toggle Gọn/Mở rộng (detailMode) độc lập với Theo
+// tầng/Theo khối, ẩn/hiện các dòng chi tiết (room/area/giường/nguồn gốc/
+// mô tả/gợi ý cha khác nhóm) trong box, dùng chung cơ chế FLIP animation.
 const FLOOR_BOX_TONE_CLASS: Record<string, string> = { MANAGEMENT: "org-floor-box-mgmt", CLINICAL: "org-floor-box-clinical", PARACLINICAL: "org-floor-box-para", SUPPORT: "org-floor-box-support" };
 const FLOOR_LEGEND: { tone: string; label: string }[] = [
   { tone: "org-floor-box-mgmt", label: "Phòng chức năng, lãnh đạo" },
@@ -141,23 +145,33 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(true);
   const [groupMode, setGroupMode] = useState<"floor" | "block">("floor");
+  const [detailMode, setDetailMode] = useState<"compact" | "full">("full");
 
-  // FLIP (First-Last-Invert-Play): bấm đổi Theo tầng/Theo khối đổi hẳn
-  // nhóm cha (group.key đổi từ "Tầng 1" sang "MANAGEMENT"...) nên React gỡ
-  // bỏ/dựng lại DOM của từng ô ở vị trí mới, không tái dùng node cũ — ghi
-  // lại vị trí CŨ của từng ô (theo department id, không phụ thuộc node DOM
-  // còn tồn tại hay không) ngay trước khi đổi state, rồi so với vị trí MỚI
-  // sau khi React render xong để tính delta và tự chạy animation dịch
-  // chuyển, thay vì bật nhóm mới ngay lập tức không có chuyển động.
+  // FLIP (First-Last-Invert-Play): bấm đổi Theo tầng/Theo khối (groupMode)
+  // HOẶC Gọn/Mở rộng (detailMode, ẩn/hiện chi tiết trong ô làm chiều cao ô
+  // đổi) đều cần dựng lại DOM/đổi kích thước — ghi lại vị trí CŨ của từng ô
+  // (theo department id, không phụ thuộc node DOM còn tồn tại hay không)
+  // ngay trước khi đổi state, rồi so với vị trí MỚI sau khi React render
+  // xong để tính delta và tự chạy animation dịch chuyển, thay vì bật trạng
+  // thái mới ngay lập tức không có chuyển động.
   const boxRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const prevRectsRef = useRef<Map<string, DOMRect> | null>(null);
 
-  function animateGroupModeChange(mode: "floor" | "block") {
-    if (mode === groupMode) return;
+  function animateLayoutChange(apply: () => void) {
     const rects = new Map<string, DOMRect>();
     boxRefs.current.forEach((el, id) => rects.set(id, el.getBoundingClientRect()));
     prevRectsRef.current = rects;
-    setGroupMode(mode);
+    apply();
+  }
+
+  function animateGroupModeChange(mode: "floor" | "block") {
+    if (mode === groupMode) return;
+    animateLayoutChange(() => setGroupMode(mode));
+  }
+
+  function animateDetailModeChange(mode: "compact" | "full") {
+    if (mode === detailMode) return;
+    animateLayoutChange(() => setDetailMode(mode));
   }
 
   useLayoutEffect(() => {
@@ -180,7 +194,7 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
       el.style.transition = "transform 480ms cubic-bezier(0.22, 1, 0.36, 1)";
       el.style.transform = "";
     });
-  }, [groupMode]);
+  }, [groupMode, detailMode]);
 
   const tree = useMemo(() => buildTree(departments.filter((d) => showInactive || d.is_active || d.id === selectedId)), [departments, showInactive, selectedId]);
   const visibleDepartments = useMemo(() => departments.filter((d) => showInactive || d.is_active), [departments, showInactive]);
@@ -243,9 +257,10 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
         .org-floor-head h2 { margin: 0; font-size: 15px; }
         .org-floor-chevron { transition: transform 0.15s; }
         .org-floor-chevron.is-open { transform: rotate(180deg); }
-        .org-floor-mode-toggle { display: flex; gap: 6px; padding: 0 16px 14px; }
+        .org-floor-mode-toggle { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 0 16px 14px; }
         .org-floor-mode-toggle button { border: 1px solid #d7e1e5; background: #fff; color: #475569; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
         .org-floor-mode-toggle button.is-active { background: var(--brand); border-color: var(--brand); color: #fff; }
+        .org-floor-mode-sep { width: 1px; height: 18px; background: #e2e8f0; margin: 0 2px; }
         .org-floor-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 0 16px 14px; font-size: 12px; color: #64748b; }
         .org-floor-legend-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: middle; border: 1.5px solid #cbd5e1; background: #fff; }
         .org-floor-legend-swatch.org-floor-box-mgmt { border-color: #1D4ED8; background: #EEF2FF; }
@@ -281,6 +296,9 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
             <div className="org-floor-mode-toggle">
               <button type="button" className={groupMode === "floor" ? "is-active" : ""} onClick={() => animateGroupModeChange("floor")}>Theo tầng</button>
               <button type="button" className={groupMode === "block" ? "is-active" : ""} onClick={() => animateGroupModeChange("block")}>Theo khối</button>
+              <span className="org-floor-mode-sep" />
+              <button type="button" className={detailMode === "compact" ? "is-active" : ""} onClick={() => animateDetailModeChange("compact")}>Gọn</button>
+              <button type="button" className={detailMode === "full" ? "is-active" : ""} onClick={() => animateDetailModeChange("full")}>Mở rộng</button>
             </div>
             {hasLayoutData ? (
               <>
@@ -314,10 +332,14 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
                               onClick={() => setSelectedId(d.id)}
                             >
                               <strong>{parentInGroup ? "↳ " : ""}{d.name}</strong>
-                              {placeDetails ? <small>{placeDetails}</small> : null}
-                              {orgDetails ? <small>{orgDetails}</small> : null}
-                              {d.org_summary ? <small>{d.org_summary}</small> : null}
-                              {parent && !parentInGroup ? <small className="org-floor-box-parent-hint">— thuộc {parent.name}{parentGroupLabel ? `, ${parentGroupLabel}` : ""}</small> : null}
+                              {detailMode === "full" ? (
+                                <>
+                                  {placeDetails ? <small>{placeDetails}</small> : null}
+                                  {orgDetails ? <small>{orgDetails}</small> : null}
+                                  {d.org_summary ? <small>{d.org_summary}</small> : null}
+                                  {parent && !parentInGroup ? <small className="org-floor-box-parent-hint">— thuộc {parent.name}{parentGroupLabel ? `, ${parentGroupLabel}` : ""}</small> : null}
+                                </>
+                              ) : null}
                             </button>
                           );
                         })}
