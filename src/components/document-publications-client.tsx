@@ -103,6 +103,13 @@ export function DocumentPublicationsClient({
   // thảo từ văn bản đó (vẫn sửa được tên nếu cần), đỡ gõ lại từ đầu.
   const [requestType, setRequestType] = useState<DocumentPublicationRequestType>("NEW");
   const [targetDocumentId, setTargetDocumentId] = useState("");
+  // "Chỗ chọn văn bản cập nhật/thu hồi nên cho phép gõ tìm nhanh hơn là kéo
+  // list" — thay <select> (phải kéo/dò qua hàng trăm văn bản) bằng ô gõ tìm
+  // theo tên/mã, hiện tối đa 20 gợi ý khớp nhất; bấm chọn 1 gợi ý mới chốt
+  // targetDocumentId (gõ dở chưa chọn thì chưa gửi được — nút Gửi yêu cầu
+  // vẫn đòi targetDocumentId).
+  const [targetQuery, setTargetQuery] = useState("");
+  const [targetMenuOpen, setTargetMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [publishingId, setPublishingId] = useState<string | null>(null);
@@ -249,24 +256,32 @@ export function DocumentPublicationsClient({
     setAcks((v) => [...v, { document_publication_id: doc.id, user_id: currentUserId }]);
   }
 
-  function selectTarget(id: string) {
-    setTargetDocumentId(id);
-    const target = published.find((d) => d.id === id);
-    if (target) {
-      setTitle(target.title);
-      setDocumentType(target.document_type);
-      setDraftingDepartmentId(target.drafting_department_id || "");
-    }
+  function targetLabel(d: DocumentPublication) {
+    return `${d.document_code ? `${d.document_code} — ` : ""}${d.title} (${d.version_label})`;
+  }
+
+  function selectTarget(doc: DocumentPublication) {
+    setTargetDocumentId(doc.id);
+    setTargetQuery(targetLabel(doc));
+    setTargetMenuOpen(false);
+    setTitle(doc.title);
+    setDocumentType(doc.document_type);
+    setDraftingDepartmentId(doc.drafting_department_id || "");
   }
 
   function selectRequestType(type: DocumentPublicationRequestType) {
     setRequestType(type);
     setTargetDocumentId("");
+    setTargetQuery("");
+    setTargetMenuOpen(false);
     if (type === "NEW") {
       setTitle("");
       setDraftingDepartmentId("");
     }
   }
+
+  const targetQueryNorm = targetQuery.trim().toLocaleLowerCase("vi");
+  const targetMatches = (targetQueryNorm ? published.filter((d) => d.title.toLocaleLowerCase("vi").includes(targetQueryNorm) || (d.document_code || "").toLocaleLowerCase("vi").includes(targetQueryNorm)) : published).slice(0, 20);
 
   async function submit() {
     if (!title.trim()) {
@@ -622,14 +637,34 @@ export function DocumentPublicationsClient({
             ))}
           </select>
           {requestType !== "NEW" ? (
-            <select className="input" value={targetDocumentId} onChange={(e) => selectTarget(e.target.value)} disabled={!published.length}>
-              <option value="">{published.length ? "— Chọn văn bản cần cập nhật/thu hồi —" : "— Chưa có văn bản nào đã phát hành —"}</option>
-              {published.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.document_code ? `${d.document_code} — ` : ""}{d.title} ({d.version_label})
-                </option>
-              ))}
-            </select>
+            <div className="dp-target-picker">
+              <input
+                className="input"
+                placeholder={published.length ? "Gõ tìm tên hoặc mã văn bản cần cập nhật/thu hồi..." : "— Chưa có văn bản nào đã phát hành —"}
+                disabled={!published.length}
+                value={targetQuery}
+                onFocus={() => setTargetMenuOpen(true)}
+                onChange={(e) => {
+                  setTargetQuery(e.target.value);
+                  setTargetDocumentId("");
+                  setTargetMenuOpen(true);
+                }}
+                onBlur={() => setTimeout(() => setTargetMenuOpen(false), 150)}
+              />
+              {targetMenuOpen && published.length ? (
+                <div className="dp-target-menu">
+                  {targetMatches.length ? (
+                    targetMatches.map((d) => (
+                      <button type="button" key={d.id} className="dp-target-option" onClick={() => selectTarget(d)}>
+                        {targetLabel(d)}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="dp-target-empty">Không tìm thấy văn bản khớp.</div>
+                  )}
+                </div>
+              ) : null}
+            </div>
           ) : null}
           <input className="input" placeholder="Tên văn bản..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
           <div className="dp-form-row">
@@ -1175,6 +1210,43 @@ export function DocumentPublicationsClient({
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 8px;
+        }
+        .dp-target-picker {
+          position: relative;
+        }
+        .dp-target-menu {
+          position: absolute;
+          z-index: 20;
+          top: calc(100% + 4px);
+          left: 0;
+          right: 0;
+          max-height: 260px;
+          overflow-y: auto;
+          background: var(--surface);
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          box-shadow: var(--shadow);
+          padding: 4px;
+        }
+        .dp-target-option {
+          display: block;
+          width: 100%;
+          text-align: left;
+          border: 0;
+          background: transparent;
+          padding: 8px 9px;
+          border-radius: 7px;
+          font-size: 13px;
+          color: var(--text);
+          cursor: pointer;
+        }
+        .dp-target-option:hover {
+          background: var(--brand-soft);
+        }
+        .dp-target-empty {
+          padding: 10px;
+          font-size: 12px;
+          color: var(--muted);
         }
         .dp-publish-form {
           display: grid;

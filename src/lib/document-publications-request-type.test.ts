@@ -74,21 +74,32 @@ describe("Document publications — Tạo yêu cầu (NEW/UPDATE/RETRACT), đố
     expect(route).toContain("documentPublicationId: targetId!,");
   });
 
-  it("UI: section đổi tên 'Đề nghị văn bản mới' -> 'Tạo yêu cầu', có select Loại yêu cầu (REQUEST_TYPES) và select văn bản đích khi khác NEW", () => {
+  it("UI: section đổi tên 'Đề nghị văn bản mới' -> 'Tạo yêu cầu', có select Loại yêu cầu (REQUEST_TYPES) và ô gõ tìm văn bản đích khi khác NEW", () => {
     const client = read("src/components/document-publications-client.tsx");
     expect(client).toContain("Tạo yêu cầu</h2>");
     expect(client).not.toContain("Đề nghị văn bản mới</h2>");
     expect(client).toContain('value={requestType} onChange={(e) => selectRequestType(e.target.value as DocumentPublicationRequestType)}');
     expect(client).toContain('{requestType !== "NEW" ? (');
-    expect(client).toContain('value={targetDocumentId} onChange={(e) => selectTarget(e.target.value)}');
+    expect(client).toContain('className="dp-target-picker"');
+  });
+
+  // Báo cáo thực tế: "Chỗ chọn văn bản cập nhật/thu hồi nên cho phép gõ tìm
+  // nhanh hơn là kéo list" — thay <select> (phải kéo/dò qua hàng trăm văn
+  // bản) bằng ô input gõ tìm theo tên/mã + dropdown tối đa 20 gợi ý khớp
+  // nhất, bấm 1 gợi ý mới chốt targetDocumentId (gõ dở chưa chọn thì nút Gửi
+  // yêu cầu vẫn disabled vì targetDocumentId rỗng).
+  it("UI: ô gõ tìm văn bản đích lọc theo tên/mã, tối đa 20 gợi ý, bấm 1 gợi ý mới chốt targetDocumentId", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("const targetMatches = (targetQueryNorm ? published.filter((d) => d.title.toLocaleLowerCase(\"vi\").includes(targetQueryNorm) || (d.document_code || \"\").toLocaleLowerCase(\"vi\").includes(targetQueryNorm)) : published).slice(0, 20);");
+    expect(client).toContain('onClick={() => selectTarget(d)}');
   });
 
   it("UI: selectTarget() tự nạp title/document_type/drafting_department_id từ văn bản đích đã chọn (đỡ gõ lại, vẫn sửa được)", () => {
     const client = read("src/components/document-publications-client.tsx");
     const fn = client.slice(client.indexOf("function selectTarget("), client.indexOf("function selectRequestType("));
-    expect(fn).toContain("setTitle(target.title);");
-    expect(fn).toContain("setDocumentType(target.document_type);");
-    expect(fn).toContain("setDraftingDepartmentId(target.drafting_department_id || \"\");");
+    expect(fn).toContain("setTitle(doc.title);");
+    expect(fn).toContain("setDocumentType(doc.document_type);");
+    expect(fn).toContain("setDraftingDepartmentId(doc.drafting_department_id || \"\");");
   });
 
   it("UI: submit() chặn gửi khi UPDATE/RETRACT mà chưa chọn target_document_id, gửi đúng request_type/target_document_id lên API", () => {
