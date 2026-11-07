@@ -61,8 +61,9 @@ describe("Document publications 6-stage pipeline (src/lib/document-publication-t
     );
   });
 
-  it("nextStage() advances one step at a time and returns null after PUBLISHED (no transition past the end)", () => {
-    expect(types).toContain("export function nextStage(stage: DocumentPublicationStage): DocumentPublicationStage | null {");
+  it("nextStage() advances one step at a time and returns null after PUBLISHED (no transition past the end) — RETRACT nhảy thẳng REQUESTED→PUBLISHED (QT.06 thật: thu hồi chỉ qua 1 bước duyệt, không qua soạn thảo/góp ý/rà soát/phê duyệt)", () => {
+    expect(types).toContain("export function nextStage(stage: DocumentPublicationStage, requestType?: DocumentPublicationRequestType): DocumentPublicationStage | null {");
+    expect(types).toContain('if (requestType === "RETRACT" && stage === "REQUESTED") return "PUBLISHED";');
     expect(types).toContain("if (idx < 0 || idx === DOCUMENT_PUBLICATION_STAGES.length - 1) return null;");
   });
 
@@ -99,7 +100,7 @@ describe("Document publications 6-stage pipeline (src/lib/document-publication-t
     const route = read("src/app/api/document-publications/[id]/route.ts");
     expect(route).toContain('if (!documentCode) return NextResponse.json({ error: "Chưa nhập mã văn bản." }, { status: 400 });');
     expect(route).toContain('if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(effectiveDate)) return NextResponse.json({ error: "Ngày hiệu lực không hợp lệ." }, { status: 400 });');
-    expect(route).toContain("update.review_date = addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS);");
+    expect(route).toContain("review_date: addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS),");
     const server = read("src/lib/document-publication-server.ts");
     expect(server).toContain("export const REVIEW_CYCLE_DAYS = 730;");
   });
@@ -115,13 +116,13 @@ describe("Document publications: phổ biến (dissemination) sau khi phát hàn
 
   it("requires an explicit dissemination_type (SELF_READ or TRAINING_REQUIRED) before PUBLISHED, same as document_code/effective_date", () => {
     expect(patchRoute).toContain('if (!isDisseminationType(disseminationType)) return NextResponse.json({ error: "Chưa chọn hình thức phổ biến." }, { status: 400 });');
-    expect(patchRoute).toContain("update.dissemination_type = disseminationType;");
+    expect(patchRoute).toContain("dissemination_type: disseminationType,");
   });
 
   it("TRAINING_REQUIRED auto-creates a procedure_trainings row linked back via document_publication_id, instead of building a separate training workflow for documents (shared helper, so both the normal advance-to-PUBLISHED path and direct-publish use the exact same insert)", () => {
     expect(patchRoute).toContain('if (disseminationType === "TRAINING_REQUIRED") {');
     expect(patchRoute).toContain("createTrainingForDocument(admin, {");
-    expect(patchRoute).toContain("documentPublicationId: id,");
+    expect(patchRoute).toContain("documentPublicationId: targetId!,");
     const server = read("src/lib/document-publication-server.ts");
     expect(server).toContain('admin.from("procedure_trainings").insert({');
     expect(server).toContain("document_publication_id: params.documentPublicationId,");
@@ -413,10 +414,19 @@ describe("Document publications: sửa văn bản + tìm kiếm thư viện + ba
     expect(route).toContain('action_type: "DOCUMENT_PUBLICATION_EDIT",');
   });
 
-  it("action EDIT: chỉ văn bản đã PUBLISHED mới sửa được mã văn bản/ngày hiệu lực, tính lại review_date đúng REVIEW_CYCLE_DAYS (không lệch luật so với lúc Phát hành)", () => {
+  // Báo cáo thực tế: "Nếu a muốn cập nhật hay thu hồi hay viết mới đều phải
+  // qua đề nghị văn bản mới" — handleEdit KHÔNG còn sửa mã văn bản/ngày hiệu
+  // lực/lần phát hành nữa (đã bỏ hẳn khối `if (current.stage === "PUBLISHED")`
+  // từng cho sửa 3 field đó tại chỗ, không qua duyệt) — mọi thay đổi version
+  // giờ bắt buộc qua 1 yêu cầu loại UPDATE/RETRACT (xem describe "Tạo yêu
+  // cầu" bên dưới), có kiểm soát/phê duyệt đầy đủ.
+  it("action EDIT KHÔNG còn sửa được mã văn bản/ngày hiệu lực/lần phát hành — chỉ còn tên/loại/đơn vị soạn thảo/người đề nghị/lý do", () => {
     const route = read("src/app/api/document-publications/[id]/route.ts");
-    expect(route).toContain('if (current.stage === "PUBLISHED") {');
-    expect(route).toContain("update.review_date = addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS);");
+    const editFn = route.slice(route.indexOf("async function handleEdit("), route.indexOf("export async function PATCH("));
+    expect(editFn).not.toContain('if (current.stage === "PUBLISHED")');
+    expect(editFn).not.toContain("recordDocumentVersion(");
+    expect(editFn).not.toContain("body.document_code");
+    expect(editFn).not.toContain("body.version_label");
   });
 
   it("UI: có nút Sửa ở cả Đang xử lý và Thư viện văn bản, chỉ canManage mới thấy; form sửa gọi action EDIT", () => {

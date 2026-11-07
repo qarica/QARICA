@@ -7,8 +7,11 @@ import {
   DISSEMINATION_TYPES,
   DOCUMENT_TYPE_LABEL,
   DOCUMENT_TYPES,
+  REQUEST_TYPE_LABEL,
+  REQUEST_TYPES,
   STAGE_LABEL,
   type DisseminationType,
+  type DocumentPublicationRequestType,
   type DocumentPublicationStage,
   type DocumentPublicationType,
 } from "@/lib/document-publication-types";
@@ -33,6 +36,9 @@ type DocumentPublication = {
   dissemination_type: DisseminationType | null;
   file_name: string | null;
   created_at: string;
+  request_type: DocumentPublicationRequestType;
+  target_document_id: string | null;
+  retracted_at: string | null;
 };
 type VersionRow = {
   id: string;
@@ -90,6 +96,13 @@ export function DocumentPublicationsClient({
   const [draftingDepartmentId, setDraftingDepartmentId] = useState("");
   const [requestedByName, setRequestedByName] = useState("");
   const [reason, setReason] = useState("");
+  // "Nếu a muốn cập nhật hay thu hồi hay viết mới đều phải qua đề nghị văn
+  // bản mới. Có thể đổi thành Tạo yêu cầu" — 1 yêu cầu giờ có 3 loại, cùng đi
+  // qua pipeline 6 bước như cũ. UPDATE/RETRACT bắt buộc chọn targetDocumentId
+  // (1 văn bản ĐANG Phát hành) — chọn xong tự nạp sẵn tên/loại/đơn vị soạn
+  // thảo từ văn bản đó (vẫn sửa được tên nếu cần), đỡ gõ lại từ đầu.
+  const [requestType, setRequestType] = useState<DocumentPublicationRequestType>("NEW");
+  const [targetDocumentId, setTargetDocumentId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [publishingId, setPublishingId] = useState<string | null>(null);
@@ -115,19 +128,16 @@ export function DocumentPublicationsClient({
   const [fileBusyId, setFileBusyId] = useState<string | null>(null);
   const [libraryQuery, setLibraryQuery] = useState("");
 
-  // Sửa thông tin 1 văn bản đã tạo — trước đây chỉ tạo/chuyển bước/xoá
-  // (REQUESTED) được, không có cách nào sửa lỗi gõ nhầm tên/mã/ngày hiệu lực
-  // sau khi đã gửi đi. Dùng chung 1 form cho cả "Đang xử lý" lẫn "Thư viện
-  // văn bản" (mã văn bản/ngày hiệu lực chỉ hiện khi văn bản đã PUBLISHED).
+  // Sửa thông tin 1 văn bản đã tạo — chữa lỗi gõ nhầm tên/đơn vị soạn thảo/
+  // người đề nghị/lý do ở mọi bước. KHÔNG còn sửa được mã văn bản/ngày hiệu
+  // lực/lần phát hành ở đây — những thay đổi đó giờ bắt buộc qua 1 yêu cầu
+  // loại Cập nhật/Thu hồi (Tạo yêu cầu), có kiểm soát/phê duyệt.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDocumentType, setEditDocumentType] = useState<DocumentPublicationType>(DOCUMENT_TYPES[0]);
   const [editDraftingDepartmentId, setEditDraftingDepartmentId] = useState("");
   const [editRequestedByName, setEditRequestedByName] = useState("");
   const [editReason, setEditReason] = useState("");
-  const [editDocumentCode, setEditDocumentCode] = useState("");
-  const [editEffectiveDate, setEditEffectiveDate] = useState("");
-  const [editVersionLabel, setEditVersionLabel] = useState("");
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState("");
 
@@ -180,8 +190,21 @@ export function DocumentPublicationsClient({
 
   const today = hcmToday();
   const departmentName = (id: string | null) => departments.find((d) => d.id === id)?.name || "—";
-  const inProgress = documents.filter((d) => d.stage !== "PUBLISHED").sort((a, b) => (a.stage_due_date || "9999").localeCompare(b.stage_due_date || "9999"));
-  const published = documents.filter((d) => d.stage === "PUBLISHED").sort((a, b) => (b.effective_date || "").localeCompare(a.effective_date || ""));
+  const documentById = new Map(documents.map((d) => [d.id, d]));
+  // "Cập nhật hay thu hồi hay viết mới đều phải qua đề nghị" — 1 yêu cầu
+  // UPDATE/RETRACT cũng tạm chạm stage PUBLISHED khi chạy xong (xem PATCH
+  // .../[id] route.ts), nhưng KHÔNG phải là văn bản thật — lọc request_type
+  // "NEW" để Thư viện văn bản/Đang xử lý/Tài liệu hết hiệu lực chỉ hiện đúng
+  // văn bản thật (target), không lẫn các yêu cầu đã xử lý xong.
+  const inProgress = documents
+    .filter((d) => d.stage !== "PUBLISHED" && d.stage !== "RETRACTED")
+    .sort((a, b) => (a.stage_due_date || "9999").localeCompare(b.stage_due_date || "9999"));
+  const published = documents
+    .filter((d) => d.stage === "PUBLISHED" && d.request_type === "NEW")
+    .sort((a, b) => (b.effective_date || "").localeCompare(a.effective_date || ""));
+  const retracted = documents
+    .filter((d) => d.stage === "RETRACTED")
+    .sort((a, b) => (b.retracted_at || "").localeCompare(a.retracted_at || ""));
   // KPI "Cần rà soát": cùng ngưỡng "Quá hạn rà soát" với badge trong Thư viện
   // văn bản (reviewStatus() bên dưới) — review_date đã qua hôm nay.
   const needsReviewCount = published.filter((d) => d.review_date && d.review_date.slice(0, 10) < today).length;
@@ -226,6 +249,25 @@ export function DocumentPublicationsClient({
     setAcks((v) => [...v, { document_publication_id: doc.id, user_id: currentUserId }]);
   }
 
+  function selectTarget(id: string) {
+    setTargetDocumentId(id);
+    const target = published.find((d) => d.id === id);
+    if (target) {
+      setTitle(target.title);
+      setDocumentType(target.document_type);
+      setDraftingDepartmentId(target.drafting_department_id || "");
+    }
+  }
+
+  function selectRequestType(type: DocumentPublicationRequestType) {
+    setRequestType(type);
+    setTargetDocumentId("");
+    if (type === "NEW") {
+      setTitle("");
+      setDraftingDepartmentId("");
+    }
+  }
+
   async function submit() {
     if (!title.trim()) {
       setError("Chưa nhập tên văn bản.");
@@ -233,6 +275,10 @@ export function DocumentPublicationsClient({
     }
     if (!draftingDepartmentId) {
       setError("Chưa chọn đơn vị soạn thảo.");
+      return;
+    }
+    if (requestType !== "NEW" && !targetDocumentId) {
+      setError("Chưa chọn văn bản cần cập nhật/thu hồi.");
       return;
     }
     setBusy(true);
@@ -246,6 +292,8 @@ export function DocumentPublicationsClient({
         drafting_department_id: draftingDepartmentId,
         requested_by_name: requestedByName.trim() || null,
         reason: reason.trim() || null,
+        request_type: requestType,
+        target_document_id: requestType === "NEW" ? null : targetDocumentId,
       }),
     });
     const body = await res.json().catch(() => ({}));
@@ -259,6 +307,9 @@ export function DocumentPublicationsClient({
     setTitle("");
     setRequestedByName("");
     setReason("");
+    setRequestType("NEW");
+    setTargetDocumentId("");
+    setDraftingDepartmentId("");
   }
 
   async function submitDirectPublish() {
@@ -357,6 +408,16 @@ export function DocumentPublicationsClient({
     setDisseminationType(DISSEMINATION_TYPES[0]);
   }
 
+  // Theo QT.06 (quy trình thật): "Thu hồi" chỉ qua đúng 1 bước duyệt
+  // (REQUESTED), không qua Soạn thảo/Góp ý/Rà soát/Phê duyệt như viết mới/
+  // sửa đổi — nextStage() đã nhảy thẳng REQUESTED→PUBLISHED cho loại RETRACT
+  // nên không cần form "Phát hành" (startPublish/publishingId), chỉ cần xác
+  // nhận rồi advance() thẳng.
+  async function confirmRetract(doc: DocumentPublication) {
+    if (!window.confirm('Xác nhận thu hồi? Văn bản đích sẽ chuyển sang "Tài liệu hết hiệu lực", không còn hiện trong Thư viện văn bản và không còn nhắc rà soát lại.')) return;
+    await advance(doc);
+  }
+
   function toggleFolder(key: string) {
     setOpenFolders((prev) => {
       const next = new Set(prev);
@@ -416,9 +477,6 @@ export function DocumentPublicationsClient({
     setEditDraftingDepartmentId(doc.drafting_department_id || "");
     setEditRequestedByName(doc.requested_by_name || "");
     setEditReason(doc.reason || "");
-    setEditDocumentCode(doc.document_code || "");
-    setEditEffectiveDate(doc.effective_date || "");
-    setEditVersionLabel(doc.version_label || "");
   }
 
   function cancelEdit() {
@@ -447,9 +505,6 @@ export function DocumentPublicationsClient({
         drafting_department_id: editDraftingDepartmentId,
         requested_by_name: editRequestedByName.trim() || null,
         reason: editReason.trim() || null,
-        document_code: editDocumentCode.trim(),
-        effective_date: editEffectiveDate,
-        version_label: editVersionLabel.trim(),
       }),
     });
     const body = await res.json().catch(() => ({}));
@@ -553,12 +608,29 @@ export function DocumentPublicationsClient({
       <section className="panel">
         <div className="panel-title">
           <div>
-            <h2><span className="dp-section-icon"><Icon name="file-input" size={15} /></span>Đề nghị văn bản mới</h2>
-            <p>Đơn vị sử dụng gửi đề nghị soạn thảo/sửa đổi văn bản — không cần quyền quản lý để gửi đề nghị.</p>
+            <h2><span className="dp-section-icon"><Icon name="file-input" size={15} /></span>Tạo yêu cầu</h2>
+            <p>Viết văn bản mới, cập nhật phiên bản, hoặc thu hồi 1 văn bản đã phát hành — cả 3 đều đi qua đúng 1 quy trình kiểm soát/phê duyệt.</p>
           </div>
         </div>
-        <button type="button" className="button secondary mobile-form-toggle dp-request-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Gửi đề nghị văn bản"}</button>
+        <button type="button" className="button secondary mobile-form-toggle dp-request-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Tạo yêu cầu"}</button>
         <div className={mobileFormOpen ? "dp-form mobile-collapsible-form dp-request-form is-open" : "dp-form mobile-collapsible-form dp-request-form"}>
+          <select className="input" value={requestType} onChange={(e) => selectRequestType(e.target.value as DocumentPublicationRequestType)}>
+            {REQUEST_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {REQUEST_TYPE_LABEL[t]}
+              </option>
+            ))}
+          </select>
+          {requestType !== "NEW" ? (
+            <select className="input" value={targetDocumentId} onChange={(e) => selectTarget(e.target.value)} disabled={!published.length}>
+              <option value="">{published.length ? "— Chọn văn bản cần cập nhật/thu hồi —" : "— Chưa có văn bản nào đã phát hành —"}</option>
+              {published.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.document_code ? `${d.document_code} — ` : ""}{d.title} ({d.version_label})
+                </option>
+              ))}
+            </select>
+          ) : null}
           <input className="input" placeholder="Tên văn bản..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
           <div className="dp-form-row">
             <select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value as DocumentPublicationType)}>
@@ -578,10 +650,10 @@ export function DocumentPublicationsClient({
             </select>
           </div>
           <input className="input" placeholder="Người đề nghị (tùy chọn)" value={requestedByName} onChange={(e) => setRequestedByName(e.target.value)} />
-          <textarea className="input" rows={2} placeholder="Lý do đề nghị (tùy chọn)..." value={reason} onChange={(e) => setReason(e.target.value)} />
+          <textarea className="input" rows={2} placeholder="Lý do (tùy chọn)..." value={reason} onChange={(e) => setReason(e.target.value)} />
           {error ? <div className="alert error">{error}</div> : null}
-          <button className="button primary" disabled={busy || !title.trim() || !draftingDepartmentId} onClick={() => void submit()}>
-            Gửi đề nghị
+          <button className="button primary" disabled={busy || !title.trim() || !draftingDepartmentId || (requestType !== "NEW" && !targetDocumentId)} onClick={() => void submit()}>
+            Gửi yêu cầu
           </button>
         </div>
       </section>
@@ -645,9 +717,12 @@ export function DocumentPublicationsClient({
             return (
               <div className="work-row" key={d.id}>
                 <div className="work-main">
-                  <strong>{d.title}</strong>
+                  <strong>
+                    {d.request_type !== "NEW" ? <span className={`status-badge ${d.request_type === "RETRACT" ? "danger" : "warning"}`}>{REQUEST_TYPE_LABEL[d.request_type]}</span> : null} {d.title}
+                  </strong>
                   <small>
                     {DOCUMENT_TYPE_LABEL[d.document_type]} · {departmentName(d.drafting_department_id)} · {d.version_label}
+                    {d.request_type !== "NEW" && d.target_document_id ? <> · Văn bản đích: {documentById.get(d.target_document_id)?.title || "—"}</> : null}
                     <br />
                     Bước: {STAGE_LABEL[d.stage]} · Đang xử lý: {d.current_owner_label || "—"} · Hạn:{" "}
                     <span className={overdue ? "text-danger" : ""}>{formatDate(d.stage_due_date)}</span>
@@ -713,7 +788,11 @@ export function DocumentPublicationsClient({
                 </div>
                 {canManage && publishingId !== d.id && editingId !== d.id ? (
                   <div className="dp-actions">
-                    {d.stage === "APPROVING" ? (
+                    {d.request_type === "RETRACT" ? (
+                      <button className="button primary small" onClick={() => void confirmRetract(d)}>
+                        Xác nhận thu hồi
+                      </button>
+                    ) : d.stage === "APPROVING" ? (
                       <button className="button primary small" onClick={() => startPublish(d)}>
                         Phát hành
                       </button>
@@ -945,11 +1024,6 @@ export function DocumentPublicationsClient({
                               <tr key={`${d.id}-edit`}>
                                 <td colSpan={9}>
                                   <div className="dp-edit-form">
-                                    <div className="dp-form-row">
-                                      <input className="input" placeholder="Mã văn bản..." value={editDocumentCode} onChange={(e) => setEditDocumentCode(e.target.value)} />
-                                      <input className="input" type="date" value={editEffectiveDate} onChange={(e) => setEditEffectiveDate(e.target.value)} />
-                                    </div>
-                                    <input className="input" placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={editVersionLabel} onChange={(e) => setEditVersionLabel(e.target.value)} />
                                     <input className="input" placeholder="Tên văn bản..." value={editTitle} maxLength={300} onChange={(e) => setEditTitle(e.target.value)} />
                                     <div className="dp-form-row">
                                       <select className="input" value={editDocumentType} onChange={(e) => setEditDocumentType(e.target.value as DocumentPublicationType)}>
@@ -973,7 +1047,7 @@ export function DocumentPublicationsClient({
                                     <div className="dp-publish-actions">
                                       <button
                                         className="button primary small"
-                                        disabled={editBusy || !editTitle.trim() || !editDraftingDepartmentId || !editDocumentCode.trim() || !editEffectiveDate || !editVersionLabel.trim()}
+                                        disabled={editBusy || !editTitle.trim() || !editDraftingDepartmentId}
                                         onClick={() => void saveEdit(d)}
                                       >
                                         Lưu
@@ -997,6 +1071,48 @@ export function DocumentPublicationsClient({
           );
         })}
         {!published.length ? <div className="empty-state compact">Chưa có văn bản nào được phát hành.</div> : null}
+      </section>
+
+      {/* "Phải có 1 chổ là Tài liệu hết hiệu lực để lưu" — văn bản đã được
+          duyệt thu hồi (stage RETRACTED) không còn trong Thư viện văn bản,
+          nhưng vẫn giữ nguyên dữ liệu (không xoá) — tra lại ở đây. */}
+      <section className="panel">
+        <div className="panel-title">
+          <div>
+            <h2><span className="dp-section-icon"><Icon name="archive" size={15} /></span>Tài liệu hết hiệu lực</h2>
+            <p>Văn bản đã được duyệt thu hồi — không còn hiệu lực sử dụng, giữ lại để tra cứu/đối chiếu.</p>
+          </div>
+        </div>
+        {retracted.length ? (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mã văn bản</th>
+                  <th>Tên văn bản</th>
+                  <th>Phiên bản cuối</th>
+                  <th>Loại</th>
+                  <th>Khoa/phòng soạn thảo</th>
+                  <th>Ngày thu hồi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {retracted.map((d) => (
+                  <tr key={d.id}>
+                    <td>{d.document_code || "—"}</td>
+                    <td>{d.title}</td>
+                    <td>{d.version_label}</td>
+                    <td>{DOCUMENT_TYPE_LABEL[d.document_type]}</td>
+                    <td>{departmentName(d.drafting_department_id)}</td>
+                    <td>{d.retracted_at ? formatDate(d.retracted_at) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="empty-state compact">Chưa có văn bản nào bị thu hồi.</div>
+        )}
       </section>
 
       <style jsx>{`

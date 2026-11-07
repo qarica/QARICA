@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { currentOwnerLabel, isDisseminationType, isDocumentPublicationType, STAGE_DUE_DAYS } from "@/lib/document-publication-types";
+import { currentOwnerLabel, isDisseminationType, isDocumentPublicationType, isRequestType, STAGE_DUE_DAYS } from "@/lib/document-publication-types";
 import { addDaysISO, createTrainingForDocument, recordDocumentVersion, REVIEW_CYCLE_DAYS } from "@/lib/document-publication-server";
 
 function addDaysFromNowISO(days: number) {
@@ -9,7 +9,7 @@ function addDaysFromNowISO(days: number) {
 }
 
 const SELECT_COLUMNS =
-  "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,file_name,created_at";
+  "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,file_name,created_at,request_type,target_document_id,retracted_at";
 
 export async function GET(request: Request) {
   const auth = await requireApiPermission("document_publication.view");
@@ -61,6 +61,38 @@ export async function POST(request: Request) {
   if (departmentError) return NextResponse.json({ error: departmentError.message }, { status: 400 });
   if (!department) return NextResponse.json({ error: "Đơn vị soạn thảo không hợp lệ." }, { status: 400 });
 
+  // "Cập nhật hay thu hồi hay viết mới đều phải qua đề nghị văn bản mới" —
+  // direct_publish luôn là NEW (nhập 1 văn bản đã có sẵn ngoài thực tế, chưa
+  // từng ở trong hệ thống — không áp dụng khái niệm "cập nhật/thu hồi 1 văn
+  // bản đã có trong QARICA"). Yêu cầu bình thường (không direct_publish) mới
+  // được chọn UPDATE/RETRACT, luôn phải trỏ đúng 1 văn bản ĐANG PUBLISHED
+  // (request_type=NEW, chưa bị thu hồi) cùng tổ chức.
+  const requestType = directPublish ? "NEW" : body.request_type ?? "NEW";
+  if (!isRequestType(requestType)) return NextResponse.json({ error: "Loại yêu cầu không hợp lệ." }, { status: 400 });
+  let targetDocumentId: string | null = null;
+  if (requestType !== "NEW") {
+    targetDocumentId = String(body.target_document_id || "").trim() || null;
+    if (!targetDocumentId) return NextResponse.json({ error: "Chưa chọn văn bản cần cập nhật/thu hồi." }, { status: 400 });
+    const { data: target, error: targetError } = await admin
+      .from("document_publications")
+      .select("id,stage,request_type")
+      .eq("id", targetDocumentId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    if (targetError) return NextResponse.json({ error: targetError.message }, { status: 400 });
+    if (!target || target.stage !== "PUBLISHED" || target.request_type !== "NEW") {
+      return NextResponse.json({ error: "Văn bản cần cập nhật/thu hồi không hợp lệ hoặc chưa phát hành." }, { status: 400 });
+    }
+    const { data: pending, error: pendingError } = await admin
+      .from("document_publications")
+      .select("id")
+      .eq("target_document_id", targetDocumentId)
+      .neq("stage", "PUBLISHED")
+      .limit(1);
+    if (pendingError) return NextResponse.json({ error: pendingError.message }, { status: 400 });
+    if (pending && pending.length) return NextResponse.json({ error: "Văn bản này đang có 1 yêu cầu cập nhật/thu hồi khác chưa xử lý xong." }, { status: 400 });
+  }
+
   const insertPayload: Record<string, unknown> = {
     organization_id: organizationId,
     title,
@@ -68,6 +100,8 @@ export async function POST(request: Request) {
     drafting_department_id: draftingDepartmentId,
     requested_by_name: body.requested_by_name ? String(body.requested_by_name).trim() || null : null,
     reason: body.reason ? String(body.reason).trim() || null : null,
+    request_type: requestType,
+    target_document_id: targetDocumentId,
     created_by: auth.user.id,
   };
 
@@ -128,7 +162,7 @@ export async function POST(request: Request) {
     table_name: "document_publications",
     row_id: data.id,
     action_type: directPublish ? "DOCUMENT_PUBLICATION_DIRECT_PUBLISH" : "DOCUMENT_PUBLICATION_CREATE",
-    new_value: { title: data.title, document_type: data.document_type, drafting_department_id: data.drafting_department_id, stage: data.stage },
+    new_value: { title: data.title, document_type: data.document_type, drafting_department_id: data.drafting_department_id, stage: data.stage, request_type: data.request_type, target_document_id: data.target_document_id },
     request_meta: { source: "qlcl-ui" },
   });
   if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });

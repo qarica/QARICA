@@ -9,11 +9,12 @@ const read = (p: string) => fs.readFileSync(path.join(process.cwd(), p), "utf8")
 // NOT NULL với default 'Dự thảo 01' trong DB, nhưng không nơi nào trong UI
 // từng hỏi/ghi giá trị thật (chỉ có trong SELECT, chưa bao giờ xuất hiện
 // trong insert/update payload) — mọi văn bản vì vậy luôn hiện đúng y chang
-// default, không kiểm soát được phiên bản thật. Thêm ở đúng 3 nơi
-// version_label thật sự có ý nghĩa: Phát hành tại chỗ (ADVANCE -> PUBLISHED),
-// Nhập văn bản đã phát hành (direct_publish), và Sửa văn bản đã phát hành
-// (EDIT khi stage=PUBLISHED) — không thêm ở bước "Đề nghị" vì lúc đó chưa
-// có bản phát hành chính thức nào để gắn số.
+// default, không kiểm soát được phiên bản thật. Thêm ở 2 nơi version_label
+// thật sự có ý nghĩa: Phát hành tại chỗ (ADVANCE -> PUBLISHED, dùng chung cho
+// cả yêu cầu loại NEW/UPDATE — xem describe "Tạo yêu cầu" bên dưới) và Nhập
+// văn bản đã phát hành (direct_publish). KHÔNG còn ở "Sửa" (EDIT) nữa — theo
+// yêu cầu sau "cập nhật hay thu hồi hay viết mới đều phải qua đề nghị văn
+// bản mới", EDIT đã bỏ hẳn khả năng đổi version_label tại chỗ.
 describe("Document publications — version_label (Lần phát hành) bắt buộc khi phát hành", () => {
   it("POST direct_publish bắt buộc version_label, cùng mức với document_code/effective_date/dissemination_type", () => {
     const route = read("src/app/api/document-publications/route.ts");
@@ -22,42 +23,37 @@ describe("Document publications — version_label (Lần phát hành) bắt bu�
     expect(route).toContain("insertPayload.version_label = versionLabel;");
   });
 
-  it("PATCH ADVANCE sang PUBLISHED bắt buộc version_label", () => {
+  it("PATCH ADVANCE sang PUBLISHED bắt buộc version_label (dùng chung cho cả yêu cầu NEW và UPDATE, chỉ RETRACT mới không cần)", () => {
     const route = read("src/app/api/document-publications/[id]/route.ts");
-    const advanceBlock = route.slice(route.indexOf('if (upcoming === "PUBLISHED")'), route.indexOf("if (disseminationType ==="));
+    const advanceBlock = route.slice(route.indexOf('} else if (upcoming === "PUBLISHED") {'), route.indexOf("if (disseminationType ==="));
     expect(advanceBlock).toContain('const versionLabel = String(body.version_label || "").trim();');
     expect(advanceBlock).toContain('if (!versionLabel) return NextResponse.json({ error: "Chưa nhập lần phát hành." }, { status: 400 });');
-    expect(advanceBlock).toContain("update.version_label = versionLabel;");
+    expect(advanceBlock).toContain("version_label: versionLabel,");
   });
 
-  it("PATCH EDIT khi stage đã PUBLISHED bắt buộc version_label, cùng điều kiện với document_code/effective_date", () => {
-    const route = read("src/app/api/document-publications/[id]/route.ts");
-    const editBlock = route.slice(route.indexOf('if (current.stage === "PUBLISHED")'), route.indexOf("const { data, error } = await admin.from(\"document_publications\").update(update)"));
-    expect(editBlock).toContain('const versionLabel = String(body.version_label || "").trim();');
-    expect(editBlock).toContain('if (!versionLabel) return NextResponse.json({ error: "Chưa nhập lần phát hành." }, { status: 400 });');
-    expect(editBlock).toContain("update.version_label = versionLabel;");
-  });
-
-  it("client: có đúng 3 input 'Lần phát hành' — Phát hành tại chỗ, Nhập văn bản đã phát hành, Sửa văn bản đã phát hành", () => {
+  // KHÔNG còn input "Lần phát hành" ở Sửa (EDIT) — chỉ còn 2 nơi: Phát hành
+  // tại chỗ (dp-publish-form, dùng chung NEW/UPDATE) và Nhập văn bản đã phát
+  // hành (direct_publish).
+  it("client: có đúng 2 input 'Lần phát hành' — Phát hành tại chỗ, Nhập văn bản đã phát hành (không còn ở Sửa)", () => {
     const client = read("src/components/document-publications-client.tsx");
     const matches = client.match(/placeholder="Lần phát hành \(vd: Lần ban hành 01\)\.\.\."/g) ?? [];
-    expect(matches.length).toBe(3);
+    expect(matches.length).toBe(2);
   });
 
-  it("client: cả 3 nút submit tương ứng đều disabled khi chưa nhập lần phát hành", () => {
+  it("client: cả 2 nút submit tương ứng đều disabled khi chưa nhập lần phát hành; nút Sửa chỉ còn đòi tên/đơn vị soạn thảo", () => {
     const client = read("src/components/document-publications-client.tsx");
     expect(client).toContain("disabled={!documentCode.trim() || !effectiveDate || !versionLabel.trim()}");
     expect(client).toContain(
       "disabled={directBusy || !directTitle.trim() || !directDraftingDepartmentId || !directDocumentCode.trim() || !directEffectiveDate || !directVersionLabel.trim()}"
     );
-    expect(client).toContain(
-      "disabled={editBusy || !editTitle.trim() || !editDraftingDepartmentId || !editDocumentCode.trim() || !editEffectiveDate || !editVersionLabel.trim()}"
-    );
+    expect(client).toContain("disabled={editBusy || !editTitle.trim() || !editDraftingDepartmentId}");
   });
 
-  it("client: startEdit() nạp sẵn version_label hiện có của văn bản khi mở form sửa", () => {
+  it("client: startEdit() KHÔNG còn nạp version_label/document_code/effective_date (đã bỏ khỏi form Sửa)", () => {
     const client = read("src/components/document-publications-client.tsx");
-    expect(client).toContain('setEditVersionLabel(doc.version_label || "");');
+    expect(client).not.toContain("setEditVersionLabel");
+    expect(client).not.toContain("setEditDocumentCode");
+    expect(client).not.toContain("setEditEffectiveDate");
   });
 
   it("client: cả 3 nơi reset lại state version_label về mặc định '01' (không phải rỗng) sau khi submit/mở form mới, không giữ giá trị cũ sang văn bản khác", () => {
@@ -218,12 +214,20 @@ describe("Document publications — lịch sử phiên bản (document_publicati
     expect(server).toContain('admin.from("document_publication_versions").insert({');
   });
 
-  it("CẢ 3 nơi version_label được chốt đều gọi recordDocumentVersion() — không chỉ riêng lúc Sửa/phát hành lại: POST direct_publish, PATCH ADVANCE→PUBLISHED, PATCH EDIT khi đã PUBLISHED", () => {
+  // Sau yêu cầu "cập nhật hay thu hồi hay viết mới đều phải qua đề nghị văn
+  // bản mới", handleEdit (Sửa) không còn gọi recordDocumentVersion() nữa —
+  // chỉ còn 2 nơi version_label thật sự được chốt: POST direct_publish, và
+  // PATCH ADVANCE→PUBLISHED (dùng CHUNG đúng 1 lệnh gọi cho cả yêu cầu loại
+  // NEW lẫn UPDATE — xem targetId trong PATCH route, ghi version cho target
+  // khi là UPDATE, ghi cho chính nó khi là NEW).
+  it("recordDocumentVersion() chỉ còn gọi ở POST direct_publish và PATCH ADVANCE→PUBLISHED — KHÔNG còn ở Sửa (EDIT)", () => {
     const listRoute = read("src/app/api/document-publications/route.ts");
     expect(listRoute).toContain("recordDocumentVersion(admin, {");
     const itemRoute = read("src/app/api/document-publications/[id]/route.ts");
     const occurrences = (itemRoute.match(/recordDocumentVersion\(admin, \{/g) ?? []).length;
-    expect(occurrences).toBe(2); // 1 trong handleEdit (PUBLISHED), 1 trong ADVANCE→PUBLISHED
+    expect(occurrences).toBe(1); // chỉ còn trong ADVANCE→PUBLISHED, dùng chung NEW/UPDATE qua targetId
+    const editFn = itemRoute.slice(itemRoute.indexOf("async function handleEdit("), itemRoute.indexOf("export async function PATCH("));
+    expect(editFn).not.toContain("recordDocumentVersion(");
   });
 
   it("route GET lịch sử phiên bản chỉ cần .view (xem, không phải thao tác kiểm soát), luôn chặn theo organization_id của văn bản trước khi trả dữ liệu", () => {

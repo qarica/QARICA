@@ -2,22 +2,24 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentOwnerLabel, DocumentPublicationType, isDisseminationType, isDocumentPublicationType, nextStage, STAGE_DUE_DAYS } from "@/lib/document-publication-types";
+import type { DocumentPublicationRequestType } from "@/lib/document-publication-types";
 import { addDaysISO, createTrainingForDocument, recordDocumentVersion, REVIEW_CYCLE_DAYS } from "@/lib/document-publication-server";
 
 const SELECT_COLUMNS =
-  "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,file_name,created_at";
+  "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,file_name,created_at,request_type,target_document_id,retracted_at";
 
-// Sửa thông tin 1 văn bản đã tạo — trước đây không có cách nào sửa lỗi
-// gõ nhầm tên/mã/ngày hiệu lực sau khi gửi đề nghị hay phát hành, trong khi
-// "xoá rồi tạo lại" không áp dụng được cho văn bản đã qua REQUESTED (DELETE
-// chỉ cho phép ở REQUESTED). Luôn sửa được title/loại/đơn vị soạn thảo/người
-// đề nghị/lý do ở mọi bước; riêng mã văn bản + ngày hiệu lực chỉ sửa được khi
-// đã PUBLISHED (tính lại review_date theo đúng REVIEW_CYCLE_DAYS, không lệch
-// luật so với lúc Phát hành/Nhập văn bản đã có).
+// Sửa thông tin 1 văn bản đã tạo — chữa lỗi gõ nhầm tên/đơn vị soạn thảo/
+// người đề nghị/lý do ở mọi bước ("xoá rồi tạo lại" không áp dụng được cho
+// văn bản đã qua REQUESTED, DELETE chỉ cho phép ở REQUESTED). KHÔNG còn sửa
+// được mã văn bản/ngày hiệu lực/lần phát hành ở đây nữa — "cập nhật hay thu
+// hồi hay viết mới đều phải qua đề nghị (Tạo yêu cầu)" nên những thay đổi đó
+// giờ bắt buộc qua 1 yêu cầu loại UPDATE/RETRACT, có kiểm soát/phê duyệt,
+// thay vì sửa tại chỗ không qua duyệt — xem nhánh request_type==="UPDATE"/
+// "RETRACT" trong PATCH ADVANCE bên dưới.
 async function handleEdit(admin: ReturnType<typeof createAdminClient>, userId: string, organizationId: string, id: string, body: Record<string, unknown>) {
   const { data: current, error: currentError } = await admin
     .from("document_publications")
-    .select("id,stage,title,document_type,drafting_department_id,document_code,effective_date,requested_by_name,reason")
+    .select("id,stage,title,document_type,drafting_department_id,requested_by_name,reason")
     .eq("id", id)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -50,41 +52,15 @@ async function handleEdit(admin: ReturnType<typeof createAdminClient>, userId: s
     updated_at: new Date().toISOString(),
   };
 
-  if (current.stage === "PUBLISHED") {
-    const documentCode = String(body.document_code || "").trim();
-    const effectiveDate = String(body.effective_date || "").trim();
-    const versionLabel = String(body.version_label || "").trim();
-    if (!documentCode) return NextResponse.json({ error: "Chưa nhập mã văn bản." }, { status: 400 });
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) return NextResponse.json({ error: "Ngày hiệu lực không hợp lệ." }, { status: 400 });
-    if (!versionLabel) return NextResponse.json({ error: "Chưa nhập lần phát hành." }, { status: 400 });
-    update.document_code = documentCode;
-    update.effective_date = effectiveDate;
-    update.review_date = addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS);
-    update.version_label = versionLabel;
-  }
-
   const { data, error } = await admin.from("document_publications").update(update).eq("id", id).eq("organization_id", organizationId).select(SELECT_COLUMNS).single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-
-  if (current.stage === "PUBLISHED") {
-    const { error: versionError } = await recordDocumentVersion(admin, {
-      organizationId,
-      documentPublicationId: id,
-      versionLabel: data.version_label,
-      documentCode: data.document_code,
-      effectiveDate: data.effective_date,
-      fileName: data.file_name,
-      createdBy: userId,
-    });
-    if (versionError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được lịch sử phiên bản: ${versionError.message}` }, { status: 500 });
-  }
 
   const { error: auditError } = await admin.from("audit_logs").insert({
     actor_user_id: userId,
     table_name: "document_publications",
     row_id: id,
     action_type: "DOCUMENT_PUBLICATION_EDIT",
-    old_value: { title: current.title, document_type: current.document_type, drafting_department_id: current.drafting_department_id, document_code: current.document_code, effective_date: current.effective_date, requested_by_name: current.requested_by_name, reason: current.reason },
+    old_value: { title: current.title, document_type: current.document_type, drafting_department_id: current.drafting_department_id, requested_by_name: current.requested_by_name, reason: current.reason },
     new_value: update,
     request_meta: { source: "qlcl-ui" },
   });
@@ -112,14 +88,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { data: current, error: currentError } = await admin
     .from("document_publications")
-    .select("id,stage,title,document_type,drafting_department_id")
+    .select("id,stage,title,document_type,drafting_department_id,request_type,target_document_id")
     .eq("id", id)
     .eq("organization_id", organizationId)
     .maybeSingle();
   if (currentError) return NextResponse.json({ error: currentError.message }, { status: 400 });
   if (!current) return NextResponse.json({ error: "Không tìm thấy văn bản." }, { status: 404 });
 
-  const upcoming = nextStage(current.stage);
+  const requestType = (current.request_type || "NEW") as DocumentPublicationRequestType;
+  const upcoming = nextStage(current.stage, requestType);
   if (!upcoming) return NextResponse.json({ error: "Văn bản đã phát hành, không còn bước tiếp theo." }, { status: 400 });
 
   const documentType = current.document_type as DocumentPublicationType;
@@ -135,7 +112,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     updated_at: new Date().toISOString(),
   };
 
-  if (upcoming === "PUBLISHED") {
+  // "Nếu a muốn cập nhật hay thu hồi hay viết mới đều phải qua đề nghị văn
+  // bản mới" — khi 1 yêu cầu chạm PUBLISHED, hiệu ứng áp dụng khác nhau theo
+  // request_type: NEW tự nó trở thành văn bản (như cũ); UPDATE áp version
+  // mới lên target_document_id (văn bản ĐÃ PUBLISHED), ghi lịch sử phiên bản
+  // cho TARGET chứ không phải cho chính yêu cầu; RETRACT chuyển
+  // target_document_id sang stage RETRACTED — không cần mã/ngày/phổ biến/
+  // phiên bản vì không phải phát hành nội dung gì mới.
+  if (upcoming === "PUBLISHED" && requestType === "RETRACT") {
+    if (!current.target_document_id) return NextResponse.json({ error: "Yêu cầu thu hồi thiếu văn bản đích." }, { status: 400 });
+    update.stage_due_date = null;
+    const { error: retractError } = await admin
+      .from("document_publications")
+      .update({ stage: "RETRACTED", retracted_at: new Date().toISOString(), current_owner_label: null, review_date: null, updated_at: new Date().toISOString() })
+      .eq("id", current.target_document_id)
+      .eq("organization_id", organizationId);
+    if (retractError) return NextResponse.json({ error: retractError.message }, { status: 400 });
+  } else if (upcoming === "PUBLISHED") {
     const documentCode = String(body.document_code || "").trim();
     const effectiveDate = String(body.effective_date || "").trim();
     const disseminationType = body.dissemination_type;
@@ -144,12 +137,30 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) return NextResponse.json({ error: "Ngày hiệu lực không hợp lệ." }, { status: 400 });
     if (!isDisseminationType(disseminationType)) return NextResponse.json({ error: "Chưa chọn hình thức phổ biến." }, { status: 400 });
     if (!versionLabel) return NextResponse.json({ error: "Chưa nhập lần phát hành." }, { status: 400 });
-    update.document_code = documentCode;
-    update.effective_date = effectiveDate;
-    update.review_date = addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS);
     update.stage_due_date = null;
-    update.dissemination_type = disseminationType;
-    update.version_label = versionLabel;
+
+    const targetId = requestType === "UPDATE" ? current.target_document_id : id;
+    if (requestType === "UPDATE" && !targetId) return NextResponse.json({ error: "Yêu cầu cập nhật thiếu văn bản đích." }, { status: 400 });
+
+    const targetUpdate: Record<string, unknown> = {
+      document_code: documentCode,
+      effective_date: effectiveDate,
+      review_date: addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS),
+      dissemination_type: disseminationType,
+      version_label: versionLabel,
+    };
+    if (requestType === "UPDATE") {
+      // Yêu cầu UPDATE có thể kèm sửa tên/loại/đơn vị soạn thảo — áp luôn
+      // cho văn bản gốc, vì từ lúc này target mới là văn bản hiển thị thật.
+      targetUpdate.title = current.title;
+      targetUpdate.document_type = documentType;
+      targetUpdate.drafting_department_id = current.drafting_department_id;
+      targetUpdate.updated_at = new Date().toISOString();
+      const { error: targetError } = await admin.from("document_publications").update(targetUpdate).eq("id", targetId).eq("organization_id", organizationId);
+      if (targetError) return NextResponse.json({ error: targetError.message }, { status: 400 });
+    } else {
+      Object.assign(update, targetUpdate);
+    }
 
     if (disseminationType === "TRAINING_REQUIRED") {
       const { error: trainingError } = await createTrainingForDocument(admin, {
@@ -158,11 +169,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         title: current.title,
         draftingDepartmentName,
         effectiveDate,
-        documentPublicationId: id,
+        documentPublicationId: targetId!,
         createdBy: auth.user.id,
       });
       if (trainingError) return NextResponse.json({ error: trainingError.message }, { status: 400 });
     }
+
+    const { error: versionError } = await recordDocumentVersion(admin, {
+      organizationId,
+      documentPublicationId: targetId!,
+      versionLabel,
+      documentCode,
+      effectiveDate,
+      fileName: null,
+      createdBy: auth.user.id,
+    });
+    if (versionError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được lịch sử phiên bản: ${versionError.message}` }, { status: 500 });
   } else {
     update.stage_due_date = addDaysISO(new Date().toISOString().slice(0, 10), STAGE_DUE_DAYS[upcoming]);
   }
@@ -170,26 +192,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { data, error } = await admin.from("document_publications").update(update).eq("id", id).eq("organization_id", organizationId).select(SELECT_COLUMNS).single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  if (upcoming === "PUBLISHED") {
-    const { error: versionError } = await recordDocumentVersion(admin, {
-      organizationId,
-      documentPublicationId: id,
-      versionLabel: data.version_label,
-      documentCode: data.document_code,
-      effectiveDate: data.effective_date,
-      fileName: data.file_name,
-      createdBy: auth.user.id,
-    });
-    if (versionError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được lịch sử phiên bản: ${versionError.message}` }, { status: 500 });
-  }
-
   const { error: auditError } = await admin.from("audit_logs").insert({
     actor_user_id: auth.user.id,
     table_name: "document_publications",
     row_id: id,
     action_type: `DOCUMENT_PUBLICATION_ADVANCE_${upcoming}`,
     old_value: { stage: current.stage },
-    new_value: { stage: upcoming },
+    new_value: { stage: upcoming, request_type: requestType, target_document_id: current.target_document_id },
     request_meta: { source: "qlcl-ui" },
   });
   if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
