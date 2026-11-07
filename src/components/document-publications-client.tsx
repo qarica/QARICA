@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
 import {
   DISSEMINATION_TYPE_LABEL,
@@ -32,6 +32,15 @@ type DocumentPublication = {
   review_date: string | null;
   dissemination_type: DisseminationType | null;
   file_name: string | null;
+  created_at: string;
+};
+type VersionRow = {
+  id: string;
+  version_label: string;
+  document_code: string | null;
+  effective_date: string | null;
+  file_name: string | null;
+  created_by: string;
   created_at: string;
 };
 
@@ -121,6 +130,36 @@ export function DocumentPublicationsClient({
   const [editVersionLabel, setEditVersionLabel] = useState("");
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState("");
+
+  // "Khi phát hành phiên bản mới phải có lịch sử chứ" — mỗi lần văn bản được
+  // phát hành (lần đầu) hoặc phát hành lại (Sửa khi đã PUBLISHED), server ghi
+  // thêm 1 dòng vào document_publication_versions (append-only, không mất
+  // phiên bản cũ). Tải theo-yêu-cầu khi bấm "Lịch sử" trên 1 dòng, cache lại
+  // theo id để không gọi lại API mỗi lần mở/đóng.
+  const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
+  const [versionHistory, setVersionHistory] = useState<Record<string, VersionRow[]>>({});
+  const [historyBusy, setHistoryBusy] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState("");
+  const staffNameById = useMemo(() => new Map(staffRoster.map((s) => [s.id, s.name])), [staffRoster]);
+
+  async function toggleHistory(doc: DocumentPublication) {
+    if (historyOpenId === doc.id) {
+      setHistoryOpenId(null);
+      return;
+    }
+    setHistoryOpenId(doc.id);
+    setHistoryError("");
+    if (versionHistory[doc.id]) return;
+    setHistoryBusy(doc.id);
+    const res = await fetch(`/api/document-publications/${doc.id}/versions`);
+    const body = await res.json().catch(() => ({}));
+    setHistoryBusy(null);
+    if (!res.ok) {
+      setHistoryError(body.error || "Không tải được lịch sử phiên bản.");
+      return;
+    }
+    setVersionHistory((v) => ({ ...v, [doc.id]: body.versions || [] }));
+  }
 
   // Nhập trực tiếp văn bản ĐÃ PHÁT HÀNH từ trước (QT/quy định/thông báo đã có
   // sẵn ngoài thực tế) — bỏ qua toàn bộ vòng Đề nghị -> ... -> Phê duyệt, vì
@@ -772,7 +811,7 @@ export function DocumentPublicationsClient({
                         <th>Ngày xem xét lại</th>
                         <th>Phổ biến</th>
                         <th>Tệp đính kèm</th>
-                        {canManage ? <th>Thao tác</th> : null}
+                        <th>Thao tác</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -854,19 +893,57 @@ export function DocumentPublicationsClient({
                                   "—"
                                 )}
                               </td>
-                              {canManage ? (
-                                <td>
-                                  {editingId !== d.id ? (
+                              <td>
+                                <div className="dp-row-actions">
+                                  {canManage && editingId !== d.id ? (
                                     <button type="button" className="button tertiary small" onClick={() => startEdit(d)}>
                                       Sửa
                                     </button>
                                   ) : null}
-                                </td>
-                              ) : null}
+                                  <button type="button" className="button tertiary small" disabled={historyBusy === d.id} onClick={() => void toggleHistory(d)}>
+                                    {historyBusy === d.id ? "..." : `Lịch sử ${historyOpenId === d.id ? "▾" : "▸"}`}
+                                  </button>
+                                </div>
+                              </td>
                             </tr>
+                            {historyOpenId === d.id ? (
+                              <tr key={`${d.id}-history`}>
+                                <td colSpan={9}>
+                                  <div className="dp-version-history">
+                                    {historyError ? <div className="alert error">{historyError}</div> : null}
+                                    {(versionHistory[d.id] || []).length ? (
+                                      <table className="dp-version-history-table">
+                                        <thead>
+                                          <tr>
+                                            <th>Phiên bản</th>
+                                            <th>Mã văn bản</th>
+                                            <th>Ngày hiệu lực</th>
+                                            <th>Người phát hành</th>
+                                            <th>Thời điểm</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {(versionHistory[d.id] || []).map((v) => (
+                                            <tr key={v.id}>
+                                              <td>{v.version_label}</td>
+                                              <td>{v.document_code || "—"}</td>
+                                              <td>{formatDate(v.effective_date)}</td>
+                                              <td>{staffNameById.get(v.created_by) || "—"}</td>
+                                              <td>{new Date(v.created_at).toLocaleString("vi-VN")}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    ) : !historyError ? (
+                                      <div className="empty-state compact">Chưa có lịch sử phiên bản.</div>
+                                    ) : null}
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : null}
                             {editingId === d.id ? (
                               <tr key={`${d.id}-edit`}>
-                                <td colSpan={canManage ? 9 : 8}>
+                                <td colSpan={9}>
                                   <div className="dp-edit-form">
                                     <div className="dp-form-row">
                                       <input className="input" placeholder="Mã văn bản..." value={editDocumentCode} onChange={(e) => setEditDocumentCode(e.target.value)} />
@@ -1029,6 +1106,30 @@ export function DocumentPublicationsClient({
         }
         .dp-dissemination-link {
           font-size: 13px;
+          font-weight: 600;
+        }
+        .dp-row-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .dp-version-history {
+          padding: 8px 2px;
+        }
+        .dp-version-history-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .dp-version-history-table th,
+        .dp-version-history-table td {
+          padding: 6px 10px;
+          font-size: 12px;
+          border-bottom: 1px solid var(--line);
+          text-align: left;
+        }
+        .dp-version-history-table th {
+          color: var(--muted);
           font-weight: 600;
         }
         .dp-stats-grid {

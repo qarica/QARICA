@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentOwnerLabel, DocumentPublicationType, isDisseminationType, isDocumentPublicationType, nextStage, STAGE_DUE_DAYS } from "@/lib/document-publication-types";
-import { addDaysISO, createTrainingForDocument, REVIEW_CYCLE_DAYS } from "@/lib/document-publication-server";
+import { addDaysISO, createTrainingForDocument, recordDocumentVersion, REVIEW_CYCLE_DAYS } from "@/lib/document-publication-server";
 
 const SELECT_COLUMNS =
   "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,file_name,created_at";
@@ -65,6 +65,19 @@ async function handleEdit(admin: ReturnType<typeof createAdminClient>, userId: s
 
   const { data, error } = await admin.from("document_publications").update(update).eq("id", id).eq("organization_id", organizationId).select(SELECT_COLUMNS).single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  if (current.stage === "PUBLISHED") {
+    const { error: versionError } = await recordDocumentVersion(admin, {
+      organizationId,
+      documentPublicationId: id,
+      versionLabel: data.version_label,
+      documentCode: data.document_code,
+      effectiveDate: data.effective_date,
+      fileName: data.file_name,
+      createdBy: userId,
+    });
+    if (versionError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được lịch sử phiên bản: ${versionError.message}` }, { status: 500 });
+  }
 
   const { error: auditError } = await admin.from("audit_logs").insert({
     actor_user_id: userId,
@@ -156,6 +169,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { data, error } = await admin.from("document_publications").update(update).eq("id", id).eq("organization_id", organizationId).select(SELECT_COLUMNS).single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  if (upcoming === "PUBLISHED") {
+    const { error: versionError } = await recordDocumentVersion(admin, {
+      organizationId,
+      documentPublicationId: id,
+      versionLabel: data.version_label,
+      documentCode: data.document_code,
+      effectiveDate: data.effective_date,
+      fileName: data.file_name,
+      createdBy: auth.user.id,
+    });
+    if (versionError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được lịch sử phiên bản: ${versionError.message}` }, { status: 500 });
+  }
 
   const { error: auditError } = await admin.from("audit_logs").insert({
     actor_user_id: auth.user.id,

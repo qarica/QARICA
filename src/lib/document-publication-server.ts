@@ -36,3 +36,33 @@ export async function createTrainingForDocument(
     created_by: params.createdBy,
   });
 }
+
+// "Khi phát hành phiên bản mới phải có lịch sử chứ" — version_label trên
+// document_publications là 1 field bị GHI ĐÈ mỗi lần chốt (lần đầu phát hành
+// hoặc phát hành lại văn bản đã PUBLISHED), phiên bản cũ biến mất khỏi UI.
+// Gọi hàm này ngay sau khi version_label được set thành công, từ cả 3 nơi:
+// POST direct_publish, PATCH ADVANCE→PUBLISHED, PATCH EDIT khi đã PUBLISHED —
+// ghi thêm 1 dòng append-only vào document_publication_versions, không xoá/
+// sửa dòng cũ, nên luôn tra lại được đủ các phiên bản đã từng phát hành.
+export async function recordDocumentVersion(
+  admin: SupabaseClient,
+  params: {
+    organizationId: string;
+    documentPublicationId: string;
+    versionLabel: string;
+    documentCode: string | null;
+    effectiveDate: string | null;
+    fileName: string | null;
+    createdBy: string;
+  },
+) {
+  return admin.from("document_publication_versions").insert({
+    organization_id: params.organizationId,
+    document_publication_id: params.documentPublicationId,
+    version_label: params.versionLabel,
+    document_code: params.documentCode,
+    effective_date: params.effectiveDate,
+    file_name: params.fileName,
+    created_by: params.createdBy,
+  });
+}

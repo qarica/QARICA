@@ -91,8 +91,8 @@ describe("Document publications — Thư viện văn bản có cột Phiên bả
     expect(client).toContain('<td>{d.document_code || "—"}</td>\n                              <td>{d.title}</td>\n                              <td>{d.version_label}</td>\n                              <td>{DOCUMENT_TYPE_LABEL[d.document_type]}</td>');
   });
 
-  it("colSpan của dòng form Sửa cộng thêm 1 cho cột Phiên bản mới, tránh lệch bảng", () => {
-    expect(client).toContain("<td colSpan={canManage ? 9 : 8}>");
+  it("colSpan của dòng form Sửa luôn là 9 (cột Thao tác giờ luôn hiện vì có nút Lịch sử cho mọi người xem được, không chỉ canManage)", () => {
+    expect(client).toContain("<td colSpan={9}>");
   });
 
   it("Xuất Excel cũng có cột 'Phiên bản', khớp với bảng chính", () => {
@@ -193,5 +193,61 @@ describe("Document publications — KPI thứ 4 'Cần rà soát'", () => {
 
   it("mobile (<=760px) xếp dp-kpis thành 2 cột thay vì 4 cột chật", () => {
     expect(css).toContain("@media(max-width:760px){.document-publications-overview .dp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}");
+  });
+});
+
+// Báo cáo thực tế: "Quản lý văn bản khi 1 văn bản update phiên bản mới thì
+// làm sao e" -> "Khi phát hành phiên bản mới phải có lịch sử chứ" — trước
+// đây version_label chỉ là 1 field bị GHI ĐÈ mỗi lần phát hành (lần đầu
+// ADVANCE→PUBLISHED/direct_publish) hoặc phát hành lại (EDIT khi đã
+// PUBLISHED) — phiên bản cũ biến mất khỏi UI, chỉ còn trong audit_logs
+// (không phải nơi người dùng tra cứu). Thêm bảng append-only
+// document_publication_versions, ghi 1 dòng mỗi lần version_label được chốt
+// ở ĐỦ CẢ 3 nơi (không riêng EDIT) — recordDocumentVersion() dùng chung.
+describe("Document publications — lịch sử phiên bản (document_publication_versions, append-only)", () => {
+  it("migration tạo bảng append-only, không có cột update_at/trigger sửa tại chỗ — tenant-scoped qua organization_id + RLS select theo tổ chức", () => {
+    const migration = read("supabase/migrations/20261124000000_document_publication_version_history_v1.sql");
+    expect(migration).toContain("create table if not exists public.document_publication_versions");
+    expect(migration).toContain("document_publication_id uuid not null references public.document_publications(id) on delete cascade");
+    expect(migration).toContain("organization_id = (select organization_id from public.profiles where user_id = auth.uid())");
+  });
+
+  it("recordDocumentVersion() là helper dùng chung, insert 1 dòng mới (không update/upsert đè lên dòng cũ)", () => {
+    const server = read("src/lib/document-publication-server.ts");
+    expect(server).toContain("export async function recordDocumentVersion(");
+    expect(server).toContain('admin.from("document_publication_versions").insert({');
+  });
+
+  it("CẢ 3 nơi version_label được chốt đều gọi recordDocumentVersion() — không chỉ riêng lúc Sửa/phát hành lại: POST direct_publish, PATCH ADVANCE→PUBLISHED, PATCH EDIT khi đã PUBLISHED", () => {
+    const listRoute = read("src/app/api/document-publications/route.ts");
+    expect(listRoute).toContain("recordDocumentVersion(admin, {");
+    const itemRoute = read("src/app/api/document-publications/[id]/route.ts");
+    const occurrences = (itemRoute.match(/recordDocumentVersion\(admin, \{/g) ?? []).length;
+    expect(occurrences).toBe(2); // 1 trong handleEdit (PUBLISHED), 1 trong ADVANCE→PUBLISHED
+  });
+
+  it("route GET lịch sử phiên bản chỉ cần .view (xem, không phải thao tác kiểm soát), luôn chặn theo organization_id của văn bản trước khi trả dữ liệu", () => {
+    const route = read("src/app/api/document-publications/[id]/versions/route.ts");
+    expect(route).toContain('requireApiPermission("document_publication.view")');
+    expect(route).not.toContain('requireApiPermission("document_publication.manage")');
+    expect(route).toContain('.eq("organization_id", organizationId)');
+    expect(route).toContain('if (!document) return NextResponse.json({ error: "Không tìm thấy văn bản." }, { status: 404 });');
+  });
+
+  it("UI: cột Thao tác giờ luôn hiện (không chỉ canManage) vì nút Lịch sử là xem, không phải quản lý — nút Sửa vẫn chỉ canManage mới thấy", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("<th>Thao tác</th>");
+    expect(client).not.toContain("{canManage ? <th>Thao tác</th> : null}");
+    expect(client).toContain("{canManage && editingId !== d.id ? (");
+    expect(client).toContain("async function toggleHistory(doc: DocumentPublication) {");
+    expect(client).toContain("disabled={historyBusy === d.id} onClick={() => void toggleHistory(d)}");
+  });
+
+  it("UI: bấm Lịch sử tải GET .../versions, cache theo id (không gọi lại API nếu đã có), hiện người phát hành qua staffNameById (không lộ user_id trần)", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("fetch(`/api/document-publications/${doc.id}/versions`)");
+    expect(client).toContain("if (versionHistory[doc.id]) return;");
+    expect(client).toContain("const staffNameById = useMemo(() => new Map(staffRoster.map((s) => [s.id, s.name])), [staffRoster]);");
+    expect(client).toContain("{staffNameById.get(v.created_by) || \"—\"}");
   });
 });

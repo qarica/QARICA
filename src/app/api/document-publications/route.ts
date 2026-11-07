@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentOwnerLabel, isDisseminationType, isDocumentPublicationType, STAGE_DUE_DAYS } from "@/lib/document-publication-types";
-import { addDaysISO, createTrainingForDocument, REVIEW_CYCLE_DAYS } from "@/lib/document-publication-server";
+import { addDaysISO, createTrainingForDocument, recordDocumentVersion, REVIEW_CYCLE_DAYS } from "@/lib/document-publication-server";
 
 function addDaysFromNowISO(days: number) {
   return addDaysISO(new Date().toISOString().slice(0, 10), days);
@@ -96,6 +96,19 @@ export async function POST(request: Request) {
 
   const { data, error } = await admin.from("document_publications").insert(insertPayload).select(SELECT_COLUMNS).single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  if (directPublish) {
+    const { error: versionError } = await recordDocumentVersion(admin, {
+      organizationId,
+      documentPublicationId: data.id,
+      versionLabel: data.version_label,
+      documentCode: data.document_code,
+      effectiveDate: data.effective_date,
+      fileName: data.file_name,
+      createdBy: auth.user.id,
+    });
+    if (versionError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được lịch sử phiên bản: ${versionError.message}` }, { status: 500 });
+  }
 
   if (directPublish && body.dissemination_type === "TRAINING_REQUIRED") {
     const { error: trainingError } = await createTrainingForDocument(admin, {
