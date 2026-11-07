@@ -12,6 +12,10 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
   const code=String(body.code||"").trim().toUpperCase();
   if(!name||!code)return NextResponse.json({error:"Tên và mã đơn vị là bắt buộc."},{status:400});
   if(body.parent_department_id===id)return NextResponse.json({error:"Đơn vị không thể là đơn vị cha của chính nó."},{status:400});
+  const floorOrder=body.floor_order===""||body.floor_order===null||body.floor_order===undefined?null:Number(body.floor_order);
+  if(floorOrder!==null&&!Number.isInteger(floorOrder))return NextResponse.json({error:"Thứ tự tầng phải là số nguyên."},{status:400});
+  const areaSqm=body.area_sqm===""||body.area_sqm===null||body.area_sqm===undefined?null:Number(body.area_sqm);
+  if(areaSqm!==null&&(!Number.isFinite(areaSqm)||areaSqm<0))return NextResponse.json({error:"Diện tích không hợp lệ."},{status:400});
 
   const admin=createAdminClient();
   const {data:caller,error:callerError}=await admin
@@ -71,6 +75,10 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
       department_type:body.department_type||null,
       parent_department_id:parentDepartmentId,
       is_active:body.is_active!==false,
+      floor_order:floorOrder,
+      floor_label:body.floor_label?String(body.floor_label).trim()||null:null,
+      room_label:body.room_label?String(body.room_label).trim()||null:null,
+      area_sqm:areaSqm,
       updated_at:new Date().toISOString(),
     })
     .eq("id",id)

@@ -3,13 +3,57 @@
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
 
-type Department = { id: string; code: string | null; name: string; short_name: string | null; department_type: string | null; parent_department_id: string | null; is_active: boolean };
+type Department = {
+  id: string;
+  code: string | null;
+  name: string;
+  short_name: string | null;
+  department_type: string | null;
+  parent_department_id: string | null;
+  is_active: boolean;
+  floor_order: number | null;
+  floor_label: string | null;
+  room_label: string | null;
+  area_sqm: number | null;
+};
 type Person = { user_id: string; full_name: string | null; email: string | null; job_title: string | null; primary_department_id: string | null; is_active: boolean };
 type Equipment = { id: string; equipment_name: string; model_code: string | null; status: "IN_USE" | "MAINTENANCE" | "INACTIVE"; department_id: string | null };
 
 const TYPE_LABEL: Record<string, string> = { CLINICAL: "Lâm sàng", PARACLINICAL: "Cận lâm sàng", MANAGEMENT: "Quản lý", SUPPORT: "Hỗ trợ" };
 const EQUIPMENT_STATUS_LABEL: Record<string, string> = { IN_USE: "Đang sử dụng", MAINTENANCE: "Bảo trì/Sửa chữa", INACTIVE: "Ngưng sử dụng" };
 const EQUIPMENT_STATUS_TONE: Record<string, string> = { IN_USE: "success", MAINTENANCE: "warning", INACTIVE: "muted" };
+// Báo cáo thực tế: "phải vẽ sơ đồ bố trí theo tầng" — tham khảo 1 sơ đồ mặt
+// bằng (lưới khoa/phòng theo tầng, viền màu theo loại đơn vị: xanh=phòng
+// chức năng/lãnh đạo, thường=khoa lâm sàng, đỏ=khoa cận lâm sàng, nét đứt=hỗ
+// trợ/chưa rõ). Dùng đúng 4 department_type đã có, không bịa thêm phân loại.
+const FLOOR_BOX_TONE_CLASS: Record<string, string> = { MANAGEMENT: "org-floor-box-mgmt", CLINICAL: "org-floor-box-clinical", PARACLINICAL: "org-floor-box-para", SUPPORT: "org-floor-box-support" };
+const FLOOR_LEGEND: { tone: string; label: string }[] = [
+  { tone: "org-floor-box-mgmt", label: "Phòng chức năng, lãnh đạo" },
+  { tone: "org-floor-box-clinical", label: "Khoa lâm sàng" },
+  { tone: "org-floor-box-para", label: "Khoa cận lâm sàng" },
+  { tone: "org-floor-box-support", label: "Hỗ trợ / chưa phân loại" },
+];
+
+type FloorGroup = { key: string; label: string; order: number; departments: Department[] };
+
+function buildFloorGroups(departments: Department[]): FloorGroup[] {
+  const groups = new Map<string, FloorGroup>();
+  const unassigned: Department[] = [];
+  for (const d of departments) {
+    if (!d.floor_label) {
+      unassigned.push(d);
+      continue;
+    }
+    const group = groups.get(d.floor_label) ?? { key: d.floor_label, label: d.floor_label, order: d.floor_order ?? Number.NEGATIVE_INFINITY, departments: [] };
+    group.departments.push(d);
+    groups.set(d.floor_label, group);
+  }
+  const sorted = Array.from(groups.values())
+    .map((g) => ({ ...g, departments: g.departments.sort((a, b) => a.name.localeCompare(b.name, "vi")) }))
+    .sort((a, b) => b.order - a.order);
+  if (unassigned.length) sorted.push({ key: "__unassigned", label: "Chưa gắn tầng", order: Number.NEGATIVE_INFINITY, departments: unassigned.sort((a, b) => a.name.localeCompare(b.name, "vi")) });
+  return sorted;
+}
 
 type TreeNode = { department: Department; children: TreeNode[] };
 
@@ -35,8 +79,11 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [floorOpen, setFloorOpen] = useState(true);
 
   const tree = useMemo(() => buildTree(departments.filter((d) => showInactive || d.is_active || d.id === selectedId)), [departments, showInactive, selectedId]);
+  const floorGroups = useMemo(() => buildFloorGroups(departments.filter((d) => showInactive || d.is_active)), [departments, showInactive]);
+  const hasFloorData = departments.some((d) => d.floor_label);
   const selected = departments.find((d) => d.id === selectedId) ?? null;
   const parentName = selected?.parent_department_id ? departments.find((d) => d.id === selected.parent_department_id)?.name ?? null : null;
   const staff = selected ? people.filter((p) => p.primary_department_id === selected.id).sort((a, b) => (a.full_name || "").localeCompare(b.full_name || "", "vi")) : [];
@@ -71,6 +118,7 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
     <div className="org-chart-layout">
       <style>{`
         .org-chart-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; align-items: start; }
+        .org-chart-layout > * { min-width:0; }
         @media (max-width: 920px) { .org-chart-layout { grid-template-columns: 1fr; } }
         .org-chart-tree-panel .search-box { margin: 0 16px 10px; }
         .org-chart-tree { padding: 0 8px 16px; max-height: 70vh; overflow: auto; }
@@ -85,7 +133,69 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
         .org-chart-section { margin-top: 16px; }
         .org-chart-section h3 { font-size: 13px; margin: 0 0 8px; display: flex; align-items: center; gap: 6px; }
         .org-chart-person-row, .org-chart-asset-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid #eef2f7; border-radius: 10px; margin-bottom: 6px; font-size: 13px; }
+        .org-floor-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; background: none; border: none; cursor: pointer; padding: 16px; text-align: left; }
+        .org-floor-head h2 { margin: 0; font-size: 15px; }
+        .org-floor-chevron { transition: transform 0.15s; }
+        .org-floor-chevron.is-open { transform: rotate(180deg); }
+        .org-floor-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 0 16px 14px; font-size: 12px; color: #64748b; }
+        .org-floor-legend-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: middle; }
+        .org-floor-body { padding: 0 16px 16px; display: grid; gap: 10px; }
+        .org-floor-row { display: grid; grid-template-columns: 90px 1fr; gap: 12px; align-items: start; }
+        .org-floor-row > * { min-width:0; }
+        @media (max-width: 760px) { .org-floor-row { grid-template-columns: 1fr; } }
+        .org-floor-row-label { font-weight: 700; font-size: 13px; color: #334155; padding-top: 10px; }
+        .org-floor-boxes { display: flex; flex-wrap: wrap; gap: 8px; }
+        .org-floor-box { flex: 1 1 170px; max-width: 260px; text-align: left; border-radius: 10px; background: #fff; padding: 8px 10px; cursor: pointer; border: 1.5px solid #cbd5e1; display: grid; gap: 3px; }
+        .org-floor-box strong { font-size: 12.5px; }
+        .org-floor-box small { color: #64748b; font-size: 11px; }
+        .org-floor-box.is-selected { background: var(--brand-soft); }
+        .org-floor-box-mgmt { border-color: #1D4ED8; }
+        .org-floor-box-clinical { border-color: #cbd5e1; }
+        .org-floor-box-para { border-color: #dc2626; }
+        .org-floor-box-support { border-style: dashed; border-color: #94a3b8; }
       `}</style>
+
+      <section className="panel">
+        <button type="button" className="org-floor-head" onClick={() => setFloorOpen((v) => !v)}>
+          <h2>Sơ đồ bố trí theo tầng</h2>
+          <Icon name="chevron-down" size={18} className={`org-floor-chevron${floorOpen ? " is-open" : ""}`} />
+        </button>
+        {floorOpen ? (
+          hasFloorData ? (
+            <>
+              <div className="org-floor-legend">
+                {FLOOR_LEGEND.map((l) => (
+                  <span key={l.tone}><span className={`org-floor-legend-swatch ${l.tone}`} />{l.label}</span>
+                ))}
+              </div>
+              <div className="org-floor-body">
+                {floorGroups.map((group) => (
+                  <div className="org-floor-row" key={group.key}>
+                    <div className="org-floor-row-label">{group.label}</div>
+                    <div className="org-floor-boxes">
+                      {group.departments.map((d) => (
+                        <button
+                          type="button"
+                          key={d.id}
+                          className={`org-floor-box ${FLOOR_BOX_TONE_CLASS[d.department_type || ""] || "org-floor-box-support"}${selectedId === d.id ? " is-selected" : ""}`}
+                          onClick={() => setSelectedId(d.id)}
+                        >
+                          <strong>{d.name}</strong>
+                          {d.room_label || d.area_sqm != null ? <small>{[d.room_label, d.area_sqm != null ? `${d.area_sqm} m²` : null].filter(Boolean).join(" · ")}</small> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="empty-state" style={{ margin: "0 16px 16px" }}>
+              Chưa có đơn vị nào khai báo tầng/phòng. Vào trang Khoa/Phòng → Sửa để nhập Thứ tự tầng, Tên tầng, Phòng/vị trí, Diện tích cho từng đơn vị.
+            </div>
+          )
+        ) : null}
+      </section>
 
       <section className="panel org-chart-tree-panel">
         <div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm khoa/phòng..." /></div>
