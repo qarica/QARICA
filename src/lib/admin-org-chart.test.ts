@@ -227,12 +227,15 @@ describe("2 trạng thái tầng/khối với nút chuyển đổi + animation F
     expect(client).toContain('boxRefs.current.forEach((el, id) => rects.set(id, el.getBoundingClientRect()));');
   });
 
-  it("sau khi React render lại (groupMode đổi), useLayoutEffect tính delta vị trí cũ/mới rồi phát animation FLIP (translate ngược, reflow, rồi transition về transform:none)", () => {
+  it("sau khi React render lại (groupMode đổi), useLayoutEffect tính delta vị trí VÀ kích thước cũ/mới rồi phát animation FLIP (translate+scale ngược, reflow, rồi transition về transform:none) — chạy đủ lâu (480ms) để nhìn thấy rõ ô di chuyển lên/xuống, không chỉ snap tức thời", () => {
     expect(client).toContain("useLayoutEffect(() => {");
     expect(client).toContain("}, [groupMode]);");
+    expect(client).toContain("const sx = next.width ? prev.width / next.width : 1;");
+    expect(client).toContain("const sy = next.height ? prev.height / next.height : 1;");
     expect(client).toContain('el.style.transition = "none";');
+    expect(client).toContain('el.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;');
     expect(client).toContain("void el.offsetHeight;");
-    expect(client).toContain('el.style.transition = "transform 280ms ease";');
+    expect(client).toContain('el.style.transition = "transform 480ms cubic-bezier(0.22, 1, 0.36, 1)";');
   });
 
   it("mỗi box department gắn ref callback để đăng ký/gỡ khỏi boxRefs theo id, phục vụ animation khi box đổi nhóm (unmount/remount giữa các container khác nhau)", () => {

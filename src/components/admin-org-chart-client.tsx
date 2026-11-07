@@ -32,8 +32,12 @@ const EQUIPMENT_STATUS_TONE: Record<string, string> = { IN_USE: "success", MAINT
 // NHÓM (floorGroups/blockGroups, state groupMode) — mỗi ô (department) có
 // animation FLIP tự di chuyển mượt từ vị trí cũ sang vị trí mới khi đổi
 // trạng thái (xem animateGroupModeChange/useLayoutEffect bên dưới), không
-// phải load lại tĩnh. Dùng 1 trục màu department_type (1 chú thích duy
-// nhất) — nguồn gốc (org_origin) và giường hiện bằng chữ trong box.
+// phải load lại tĩnh. Theo yêu cầu "chạy lên chạy xuống, mình có thể nhìn
+// thấy được, đẹp" — animation dịch chuyển (translate) VÀ co/giãn kích
+// thước (scale, vì số ô/dòng khác nhau giữa 2 cách nhóm làm bề rộng ô đổi)
+// trong 480ms với easing ease-out-quint, đủ chậm để thấy rõ chuyển động.
+// Dùng 1 trục màu department_type (1 chú thích duy nhất) — nguồn gốc
+// (org_origin) và giường hiện bằng chữ trong box.
 const FLOOR_BOX_TONE_CLASS: Record<string, string> = { MANAGEMENT: "org-floor-box-mgmt", CLINICAL: "org-floor-box-clinical", PARACLINICAL: "org-floor-box-para", SUPPORT: "org-floor-box-support" };
 const FLOOR_LEGEND: { tone: string; label: string }[] = [
   { tone: "org-floor-box-mgmt", label: "Phòng chức năng, lãnh đạo" },
@@ -166,11 +170,14 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
       const next = el.getBoundingClientRect();
       const dx = prev.left - next.left;
       const dy = prev.top - next.top;
-      if (!dx && !dy) return;
+      const sx = next.width ? prev.width / next.width : 1;
+      const sy = next.height ? prev.height / next.height : 1;
+      if (!dx && !dy && sx === 1 && sy === 1) return;
       el.style.transition = "none";
-      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      el.style.transformOrigin = "top left";
+      el.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
       void el.offsetHeight;
-      el.style.transition = "transform 280ms ease";
+      el.style.transition = "transform 480ms cubic-bezier(0.22, 1, 0.36, 1)";
       el.style.transform = "";
     });
   }, [groupMode]);
