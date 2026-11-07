@@ -75,12 +75,15 @@ export async function POST(request: Request) {
     const documentCode = String(body.document_code || "").trim();
     const effectiveDate = String(body.effective_date || "").trim();
     const disseminationType = body.dissemination_type;
+    const versionLabel = String(body.version_label || "").trim();
     if (!documentCode) return NextResponse.json({ error: "Chưa nhập mã văn bản." }, { status: 400 });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) return NextResponse.json({ error: "Ngày hiệu lực không hợp lệ." }, { status: 400 });
     if (!isDisseminationType(disseminationType)) return NextResponse.json({ error: "Chưa chọn hình thức phổ biến." }, { status: 400 });
+    if (!versionLabel) return NextResponse.json({ error: "Chưa nhập lần phát hành." }, { status: 400 });
     insertPayload.stage = "PUBLISHED";
     insertPayload.stage_due_date = null;
     insertPayload.current_owner_label = currentOwnerLabel("PUBLISHED", documentType, department.name);
+    insertPayload.version_label = versionLabel;
     insertPayload.document_code = documentCode;
     insertPayload.effective_date = effectiveDate;
     insertPayload.review_date = addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS);

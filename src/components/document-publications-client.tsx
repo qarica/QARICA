@@ -87,6 +87,14 @@ export function DocumentPublicationsClient({
   const [documentCode, setDocumentCode] = useState("");
   const [effectiveDate, setEffectiveDate] = useState("");
   const [disseminationType, setDisseminationType] = useState<DisseminationType>(DISSEMINATION_TYPES[0]);
+  // Báo cáo thực tế: "khi nhập thiếu lần phát hành để kiểm soát phiên bản đó"
+  // — version_label đã có sẵn trong DB (default 'Dự thảo 01') nhưng không
+  // nơi nào trong UI từng hỏi/ghi giá trị thật, nên mọi văn bản đều hiện
+  // đúng y chang default. Thêm input ở cả 3 nơi version_label thật sự có ý
+  // nghĩa: Phát hành tại chỗ, Nhập văn bản đã phát hành, và Sửa văn bản đã
+  // phát hành — không thêm ở bước "Đề nghị" vì lúc đó chưa có bản phát hành
+  // chính thức nào để gắn số.
+  const [versionLabel, setVersionLabel] = useState("");
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
   const [unconfirmedOpenId, setUnconfirmedOpenId] = useState<string | null>(null);
 
@@ -110,6 +118,7 @@ export function DocumentPublicationsClient({
   const [editReason, setEditReason] = useState("");
   const [editDocumentCode, setEditDocumentCode] = useState("");
   const [editEffectiveDate, setEditEffectiveDate] = useState("");
+  const [editVersionLabel, setEditVersionLabel] = useState("");
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState("");
 
@@ -125,6 +134,7 @@ export function DocumentPublicationsClient({
   const [directDraftingDepartmentId, setDirectDraftingDepartmentId] = useState(departments[0]?.id || "");
   const [directDocumentCode, setDirectDocumentCode] = useState("");
   const [directEffectiveDate, setDirectEffectiveDate] = useState("");
+  const [directVersionLabel, setDirectVersionLabel] = useState("");
   const [directDisseminationType, setDirectDisseminationType] = useState<DisseminationType>(DISSEMINATION_TYPES[0]);
   const [directBusy, setDirectBusy] = useState(false);
   const [directError, setDirectError] = useState("");
@@ -226,6 +236,10 @@ export function DocumentPublicationsClient({
       setDirectError("Chưa nhập ngày hiệu lực.");
       return;
     }
+    if (!directVersionLabel.trim()) {
+      setDirectError("Chưa nhập lần phát hành.");
+      return;
+    }
     setDirectBusy(true);
     setDirectError("");
     const res = await fetch("/api/document-publications", {
@@ -238,6 +252,7 @@ export function DocumentPublicationsClient({
         drafting_department_id: directDraftingDepartmentId,
         document_code: directDocumentCode.trim(),
         effective_date: directEffectiveDate,
+        version_label: directVersionLabel.trim(),
         dissemination_type: directDisseminationType,
       }),
     });
@@ -252,6 +267,7 @@ export function DocumentPublicationsClient({
     setDirectTitle("");
     setDirectDocumentCode("");
     setDirectEffectiveDate("");
+    setDirectVersionLabel("");
   }
 
   async function advance(doc: DocumentPublication, extra: Record<string, unknown> = {}) {
@@ -270,6 +286,7 @@ export function DocumentPublicationsClient({
     setPublishingId(null);
     setDocumentCode("");
     setEffectiveDate("");
+    setVersionLabel("");
     setDisseminationType(DISSEMINATION_TYPES[0]);
   }
 
@@ -294,6 +311,7 @@ export function DocumentPublicationsClient({
     setPublishingId(doc.id);
     setDocumentCode("");
     setEffectiveDate(today);
+    setVersionLabel("");
     setDisseminationType(DISSEMINATION_TYPES[0]);
   }
 
@@ -358,6 +376,7 @@ export function DocumentPublicationsClient({
     setEditReason(doc.reason || "");
     setEditDocumentCode(doc.document_code || "");
     setEditEffectiveDate(doc.effective_date || "");
+    setEditVersionLabel(doc.version_label || "");
   }
 
   function cancelEdit() {
@@ -388,6 +407,7 @@ export function DocumentPublicationsClient({
         reason: editReason.trim() || null,
         document_code: editDocumentCode.trim(),
         effective_date: editEffectiveDate,
+        version_label: editVersionLabel.trim(),
       }),
     });
     const body = await res.json().catch(() => ({}));
@@ -532,6 +552,7 @@ export function DocumentPublicationsClient({
               <input className="input" placeholder="Mã văn bản..." value={directDocumentCode} onChange={(e) => setDirectDocumentCode(e.target.value)} />
               <input className="input" type="date" value={directEffectiveDate} onChange={(e) => setDirectEffectiveDate(e.target.value)} />
             </div>
+            <input className="input" placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={directVersionLabel} onChange={(e) => setDirectVersionLabel(e.target.value)} />
             <input className="input" placeholder="Tên văn bản..." value={directTitle} maxLength={300} onChange={(e) => setDirectTitle(e.target.value)} />
             <div className="dp-form-row">
               <select className="input" value={directDocumentType} onChange={(e) => setDirectDocumentType(e.target.value as DocumentPublicationType)}>
@@ -558,7 +579,7 @@ export function DocumentPublicationsClient({
               ))}
             </select>
             {directError ? <div className="alert error">{directError}</div> : null}
-            <button className="button primary" disabled={directBusy || !directTitle.trim() || !directDraftingDepartmentId || !directDocumentCode.trim() || !directEffectiveDate} onClick={() => void submitDirectPublish()}>
+            <button className="button primary" disabled={directBusy || !directTitle.trim() || !directDraftingDepartmentId || !directDocumentCode.trim() || !directEffectiveDate || !directVersionLabel.trim()} onClick={() => void submitDirectPublish()}>
               Lưu văn bản đã phát hành
             </button>
           </div>
@@ -587,6 +608,7 @@ export function DocumentPublicationsClient({
                     <div className="dp-publish-form">
                       <input className="input" placeholder="Mã văn bản..." value={documentCode} onChange={(e) => setDocumentCode(e.target.value)} />
                       <input className="input" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+                      <input className="input" placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={versionLabel} onChange={(e) => setVersionLabel(e.target.value)} />
                       <select className="input dp-publish-dissemination" value={disseminationType} onChange={(e) => setDisseminationType(e.target.value as DisseminationType)}>
                         {DISSEMINATION_TYPES.map((t) => (
                           <option key={t} value={t}>
@@ -597,8 +619,8 @@ export function DocumentPublicationsClient({
                       <div className="dp-publish-actions">
                         <button
                           className="button primary small"
-                          disabled={!documentCode.trim() || !effectiveDate}
-                          onClick={() => void advance(d, { document_code: documentCode.trim(), effective_date: effectiveDate, dissemination_type: disseminationType })}
+                          disabled={!documentCode.trim() || !effectiveDate || !versionLabel.trim()}
+                          onClick={() => void advance(d, { document_code: documentCode.trim(), effective_date: effectiveDate, version_label: versionLabel.trim(), dissemination_type: disseminationType })}
                         >
                           Xác nhận phát hành
                         </button>
@@ -839,6 +861,7 @@ export function DocumentPublicationsClient({
                                       <input className="input" placeholder="Mã văn bản..." value={editDocumentCode} onChange={(e) => setEditDocumentCode(e.target.value)} />
                                       <input className="input" type="date" value={editEffectiveDate} onChange={(e) => setEditEffectiveDate(e.target.value)} />
                                     </div>
+                                    <input className="input" placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={editVersionLabel} onChange={(e) => setEditVersionLabel(e.target.value)} />
                                     <input className="input" placeholder="Tên văn bản..." value={editTitle} maxLength={300} onChange={(e) => setEditTitle(e.target.value)} />
                                     <div className="dp-form-row">
                                       <select className="input" value={editDocumentType} onChange={(e) => setEditDocumentType(e.target.value as DocumentPublicationType)}>
@@ -862,7 +885,7 @@ export function DocumentPublicationsClient({
                                     <div className="dp-publish-actions">
                                       <button
                                         className="button primary small"
-                                        disabled={editBusy || !editTitle.trim() || !editDraftingDepartmentId || !editDocumentCode.trim() || !editEffectiveDate}
+                                        disabled={editBusy || !editTitle.trim() || !editDraftingDepartmentId || !editDocumentCode.trim() || !editEffectiveDate || !editVersionLabel.trim()}
                                         onClick={() => void saveEdit(d)}
                                       >
                                         Lưu

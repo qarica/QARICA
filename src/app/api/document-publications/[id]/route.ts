@@ -53,11 +53,14 @@ async function handleEdit(admin: ReturnType<typeof createAdminClient>, userId: s
   if (current.stage === "PUBLISHED") {
     const documentCode = String(body.document_code || "").trim();
     const effectiveDate = String(body.effective_date || "").trim();
+    const versionLabel = String(body.version_label || "").trim();
     if (!documentCode) return NextResponse.json({ error: "Chưa nhập mã văn bản." }, { status: 400 });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) return NextResponse.json({ error: "Ngày hiệu lực không hợp lệ." }, { status: 400 });
+    if (!versionLabel) return NextResponse.json({ error: "Chưa nhập lần phát hành." }, { status: 400 });
     update.document_code = documentCode;
     update.effective_date = effectiveDate;
     update.review_date = addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS);
+    update.version_label = versionLabel;
   }
 
   const { data, error } = await admin.from("document_publications").update(update).eq("id", id).eq("organization_id", organizationId).select(SELECT_COLUMNS).single();
@@ -123,14 +126,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const documentCode = String(body.document_code || "").trim();
     const effectiveDate = String(body.effective_date || "").trim();
     const disseminationType = body.dissemination_type;
+    const versionLabel = String(body.version_label || "").trim();
     if (!documentCode) return NextResponse.json({ error: "Chưa nhập mã văn bản." }, { status: 400 });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) return NextResponse.json({ error: "Ngày hiệu lực không hợp lệ." }, { status: 400 });
     if (!isDisseminationType(disseminationType)) return NextResponse.json({ error: "Chưa chọn hình thức phổ biến." }, { status: 400 });
+    if (!versionLabel) return NextResponse.json({ error: "Chưa nhập lần phát hành." }, { status: 400 });
     update.document_code = documentCode;
     update.effective_date = effectiveDate;
     update.review_date = addDaysISO(effectiveDate, REVIEW_CYCLE_DAYS);
     update.stage_due_date = null;
     update.dissemination_type = disseminationType;
+    update.version_label = versionLabel;
 
     if (disseminationType === "TRAINING_REQUIRED") {
       const { error: trainingError } = await createTrainingForDocument(admin, {
