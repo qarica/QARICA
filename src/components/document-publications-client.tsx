@@ -78,7 +78,7 @@ export function DocumentPublicationsClient({
   const [acks, setAcks] = useState(acknowledgments);
   const [title, setTitle] = useState("");
   const [documentType, setDocumentType] = useState<DocumentPublicationType>(DOCUMENT_TYPES[0]);
-  const [draftingDepartmentId, setDraftingDepartmentId] = useState(departments[0]?.id || "");
+  const [draftingDepartmentId, setDraftingDepartmentId] = useState("");
   const [requestedByName, setRequestedByName] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -131,7 +131,7 @@ export function DocumentPublicationsClient({
   const [directPublishOpen, setDirectPublishOpen] = useState(false);
   const [directTitle, setDirectTitle] = useState("");
   const [directDocumentType, setDirectDocumentType] = useState<DocumentPublicationType>(DOCUMENT_TYPES[0]);
-  const [directDraftingDepartmentId, setDirectDraftingDepartmentId] = useState(departments[0]?.id || "");
+  const [directDraftingDepartmentId, setDirectDraftingDepartmentId] = useState("");
   const [directDocumentCode, setDirectDocumentCode] = useState("");
   const [directEffectiveDate, setDirectEffectiveDate] = useState("");
   const [directVersionLabel, setDirectVersionLabel] = useState("");
@@ -522,7 +522,7 @@ export function DocumentPublicationsClient({
               ))}
             </select>
             <select className="input" value={draftingDepartmentId} onChange={(e) => setDraftingDepartmentId(e.target.value)} disabled={!departments.length}>
-              {departments.length ? null : <option value="">— Chưa có khoa/phòng nào —</option>}
+              <option value="">{departments.length ? "— Chọn khoa/phòng soạn thảo —" : "— Chưa có khoa/phòng nào —"}</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -549,12 +549,12 @@ export function DocumentPublicationsClient({
           </div>
           <button type="button" className="button secondary mobile-form-toggle" aria-expanded={directPublishOpen} onClick={() => setDirectPublishOpen((v) => !v)}>{directPublishOpen ? "Thu gọn" : "+ Nhập văn bản đã có"}</button>
           <div className={directPublishOpen ? "dp-form mobile-collapsible-form is-open" : "dp-form mobile-collapsible-form"}>
-            <div className="dp-form-row">
-              <input className="input" placeholder="Mã văn bản..." value={directDocumentCode} onChange={(e) => setDirectDocumentCode(e.target.value)} />
-              <input className="input" type="date" value={directEffectiveDate} onChange={(e) => setDirectEffectiveDate(e.target.value)} />
-            </div>
-            <input className="input" placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={directVersionLabel} onChange={(e) => setDirectVersionLabel(e.target.value)} />
+            <input className="input" placeholder="Mã văn bản..." value={directDocumentCode} onChange={(e) => setDirectDocumentCode(e.target.value)} />
             <input className="input" placeholder="Tên văn bản..." value={directTitle} maxLength={300} onChange={(e) => setDirectTitle(e.target.value)} />
+            <div className="dp-form-row">
+              <input className="input" type="date" value={directEffectiveDate} onChange={(e) => setDirectEffectiveDate(e.target.value)} />
+              <input className="input" placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={directVersionLabel} onChange={(e) => setDirectVersionLabel(e.target.value)} />
+            </div>
             <div className="dp-form-row">
               <select className="input" value={directDocumentType} onChange={(e) => setDirectDocumentType(e.target.value as DocumentPublicationType)}>
                 {DOCUMENT_TYPES.map((t) => (
@@ -564,7 +564,7 @@ export function DocumentPublicationsClient({
                 ))}
               </select>
               <select className="input" value={directDraftingDepartmentId} onChange={(e) => setDirectDraftingDepartmentId(e.target.value)} disabled={!departments.length}>
-                {departments.length ? null : <option value="">— Chưa có khoa/phòng nào —</option>}
+                <option value="">{departments.length ? "— Chọn khoa/phòng soạn thảo —" : "— Chưa có khoa/phòng nào —"}</option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}

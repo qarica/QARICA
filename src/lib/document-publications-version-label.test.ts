@@ -93,3 +93,38 @@ describe("Document publications — Thư viện văn bản có cột Phiên bả
     expect(client).toContain('d.document_code || "",\n          d.title,\n          d.version_label,\n          DOCUMENT_TYPE_LABEL[d.document_type],');
   });
 });
+
+// Báo cáo thực tế: "Sắp xếp lại thứ tự các trường nhập văn bản đã phát hành
+// như sau: mã, tên, ngày, lần phát hành... cho dễ nhập. Còn chỗ đơn vị thì
+// không nên để mặc định ban giám đốc dễ chọn nhầm" — form "Nhập văn bản đã
+// phát hành" (direct_publish) có thứ tự input lộn xộn (mã+ngày, rồi lần phát
+// hành, rồi tên) khác với luồng đọc tự nhiên mã->tên->ngày->lần phát hành.
+// Đồng thời cả 2 select "khoa/phòng soạn thảo" (đề nghị văn bản mới lẫn nhập
+// văn bản đã phát hành) tự chọn sẵn departments[0] — do danh sách khoa/phòng
+// được sắp theo tên (order("name")) nên "Ban Giám đốc" luôn đứng đầu, khiến
+// người dùng vô tình gửi/phát hành nhầm đơn vị nếu quên đổi lại.
+describe("Document publications — thứ tự trường nhập + không mặc định khoa/phòng", () => {
+  const client = read("src/components/document-publications-client.tsx");
+
+  it("form Nhập văn bản đã phát hành có thứ tự mã -> tên -> ngày -> lần phát hành", () => {
+    const codeIdx = client.indexOf('placeholder="Mã văn bản..." value={directDocumentCode}');
+    const titleIdx = client.indexOf('placeholder="Tên văn bản..." value={directTitle}');
+    const dateIdx = client.indexOf("type=\"date\" value={directEffectiveDate}");
+    const versionIdx = client.indexOf('placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={directVersionLabel}');
+    expect(codeIdx).toBeGreaterThan(-1);
+    expect(titleIdx).toBeGreaterThan(codeIdx);
+    expect(dateIdx).toBeGreaterThan(titleIdx);
+    expect(versionIdx).toBeGreaterThan(dateIdx);
+  });
+
+  it("không còn useState(departments[0]?.id || \"\") cho khoa/phòng soạn thảo ở bất kỳ form nào", () => {
+    expect(client).not.toContain("useState(departments[0]?.id");
+    expect(client).toContain('const [draftingDepartmentId, setDraftingDepartmentId] = useState("");');
+    expect(client).toContain('const [directDraftingDepartmentId, setDirectDraftingDepartmentId] = useState("");');
+  });
+
+  it("cả 2 select khoa/phòng soạn thảo (đề nghị + nhập văn bản đã phát hành) đều có option rỗng bắt chọn tay", () => {
+    const matches = client.match(/<option value="">\{departments\.length \? "— Chọn khoa\/phòng soạn thảo —" : "— Chưa có khoa\/phòng nào —"\}<\/option>/g) ?? [];
+    expect(matches.length).toBe(2);
+  });
+});
