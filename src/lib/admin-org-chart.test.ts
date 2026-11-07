@@ -108,3 +108,31 @@ describe("Sơ đồ bố trí theo tầng — field cấu hình mới + migratio
     expect(client).toContain("Chưa có đơn vị nào khai báo tầng/phòng");
   });
 });
+
+// Báo cáo thực tế: "Sơ đồ nên thể hiện cha con gần nhau trực quan" — trước
+// đây mỗi tầng chỉ sort A-Z phẳng, cha/con cùng tầng (vd Khoa Nhi + Đơn vị
+// Sơ sinh, cùng Tầng 2) bị tách rời bởi các đơn vị không liên quan xen giữa.
+describe("Sơ đồ bố trí theo tầng — gom cha/con cùng tầng gần nhau trực quan", () => {
+  const client = read("src/components/admin-org-chart-client.tsx");
+
+  it("orderWithinFloor() chỉ xét quan hệ cha/con TRONG PHẠM VI CHÍNH tầng đó (idsInFloor), đặt con liền ngay sau cha bằng duyệt đệ quy visit()", () => {
+    expect(client).toContain("function orderWithinFloor(depts: Department[]): Department[] {");
+    expect(client).toContain("const idsInFloor = new Set(depts.map((d) => d.id));");
+    expect(client).toContain("const parentInFloor = d.parent_department_id && idsInFloor.has(d.parent_department_id) ? d.parent_department_id : null;");
+    expect(client).toContain("const visit = (d: Department) => {");
+    expect(client).toContain("buildFloorGroups");
+    expect(client).toContain("departments: orderWithinFloor(g.departments)");
+    expect(client).toContain("departments: orderWithinFloor(unassigned)");
+  });
+
+  it("box con cùng tầng với cha được đánh dấu is-child-here (thụt vào, viền trái dày hơn) + tiền tố ↳, không lẫn với box độc lập", () => {
+    expect(client).toContain('const parentSameFloor = !!parent && group.departments.some((x) => x.id === parent.id);');
+    expect(client).toContain('parentSameFloor ? " is-child-here" : ""');
+    expect(client).toContain('{parentSameFloor ? "↳ " : ""}{d.name}');
+    expect(client).toContain(".org-floor-box.is-child-here { margin-left: 14px; border-left-width: 3px; background: #f8fafc; }");
+  });
+
+  it("box con có cha ở TẦNG KHÁC (không gom cạnh được) hiện gợi ý '— thuộc {tên cha}, {tầng cha}' thay vì im lặng mất quan hệ cha/con", () => {
+    expect(client).toContain('{parent && !parentSameFloor ? <small className="org-floor-box-parent-hint">— thuộc {parent.name}{parent.floor_label ? `, ${parent.floor_label}` : ""}</small> : null}');
+  });
+});

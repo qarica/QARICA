@@ -36,6 +36,36 @@ const FLOOR_LEGEND: { tone: string; label: string }[] = [
 
 type FloorGroup = { key: string; label: string; order: number; departments: Department[] };
 
+// Báo cáo thực tế: "Sơ đồ nên thể hiện cha con gần nhau trực quan" — trước
+// đây mỗi tầng chỉ sort theo tên (A-Z phẳng), cha/con cùng tầng (vd Khoa Nhi
+// + Đơn vị Sơ sinh, cùng ở Tầng 2) bị tách rời, chen giữa các đơn vị không
+// liên quan. orderWithinFloor() gom con liền ngay sau cha NẾU cả hai cùng ở
+// chung 1 tầng (chỉ xét quan hệ cha/con trong phạm vi departments của CHÍNH
+// tầng đó, không phải toàn bộ cây) — con có cha ở tầng khác thì giữ nguyên vị
+// trí theo tên, không gom được vì cha không ở cùng hàng để đặt cạnh.
+function orderWithinFloor(depts: Department[]): Department[] {
+  const idsInFloor = new Set(depts.map((d) => d.id));
+  const childrenOf = new Map<string, Department[]>();
+  const roots: Department[] = [];
+  for (const d of depts) {
+    const parentInFloor = d.parent_department_id && idsInFloor.has(d.parent_department_id) ? d.parent_department_id : null;
+    if (!parentInFloor) {
+      roots.push(d);
+      continue;
+    }
+    const list = childrenOf.get(parentInFloor) ?? [];
+    list.push(d);
+    childrenOf.set(parentInFloor, list);
+  }
+  const out: Department[] = [];
+  const visit = (d: Department) => {
+    out.push(d);
+    for (const child of (childrenOf.get(d.id) ?? []).sort((a, b) => a.name.localeCompare(b.name, "vi"))) visit(child);
+  };
+  for (const root of roots.sort((a, b) => a.name.localeCompare(b.name, "vi"))) visit(root);
+  return out;
+}
+
 function buildFloorGroups(departments: Department[]): FloorGroup[] {
   const groups = new Map<string, FloorGroup>();
   const unassigned: Department[] = [];
@@ -49,9 +79,9 @@ function buildFloorGroups(departments: Department[]): FloorGroup[] {
     groups.set(d.floor_label, group);
   }
   const sorted = Array.from(groups.values())
-    .map((g) => ({ ...g, departments: g.departments.sort((a, b) => a.name.localeCompare(b.name, "vi")) }))
+    .map((g) => ({ ...g, departments: orderWithinFloor(g.departments) }))
     .sort((a, b) => b.order - a.order);
-  if (unassigned.length) sorted.push({ key: "__unassigned", label: "Chưa gắn tầng", order: Number.NEGATIVE_INFINITY, departments: unassigned.sort((a, b) => a.name.localeCompare(b.name, "vi")) });
+  if (unassigned.length) sorted.push({ key: "__unassigned", label: "Chưa gắn tầng", order: Number.NEGATIVE_INFINITY, departments: orderWithinFloor(unassigned) });
   return sorted;
 }
 
@@ -84,6 +114,7 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
   const tree = useMemo(() => buildTree(departments.filter((d) => showInactive || d.is_active || d.id === selectedId)), [departments, showInactive, selectedId]);
   const floorGroups = useMemo(() => buildFloorGroups(departments.filter((d) => showInactive || d.is_active)), [departments, showInactive]);
   const hasFloorData = departments.some((d) => d.floor_label);
+  const departmentById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments]);
   const selected = departments.find((d) => d.id === selectedId) ?? null;
   const parentName = selected?.parent_department_id ? departments.find((d) => d.id === selected.parent_department_id)?.name ?? null : null;
   const staff = selected ? people.filter((p) => p.primary_department_id === selected.id).sort((a, b) => (a.full_name || "").localeCompare(b.full_name || "", "vi")) : [];
@@ -149,6 +180,8 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
         .org-floor-box strong { font-size: 12.5px; }
         .org-floor-box small { color: #64748b; font-size: 11px; }
         .org-floor-box.is-selected { background: var(--brand-soft); }
+        .org-floor-box.is-child-here { margin-left: 14px; border-left-width: 3px; background: #f8fafc; }
+        .org-floor-box-parent-hint { font-style: italic; }
         .org-floor-box-mgmt { border-color: #1D4ED8; }
         .org-floor-box-clinical { border-color: #cbd5e1; }
         .org-floor-box-para { border-color: #dc2626; }
@@ -173,17 +206,22 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
                   <div className="org-floor-row" key={group.key}>
                     <div className="org-floor-row-label">{group.label}</div>
                     <div className="org-floor-boxes">
-                      {group.departments.map((d) => (
-                        <button
-                          type="button"
-                          key={d.id}
-                          className={`org-floor-box ${FLOOR_BOX_TONE_CLASS[d.department_type || ""] || "org-floor-box-support"}${selectedId === d.id ? " is-selected" : ""}`}
-                          onClick={() => setSelectedId(d.id)}
-                        >
-                          <strong>{d.name}</strong>
-                          {d.room_label || d.area_sqm != null ? <small>{[d.room_label, d.area_sqm != null ? `${d.area_sqm} m²` : null].filter(Boolean).join(" · ")}</small> : null}
-                        </button>
-                      ))}
+                      {group.departments.map((d) => {
+                        const parent = d.parent_department_id ? departmentById.get(d.parent_department_id) ?? null : null;
+                        const parentSameFloor = !!parent && group.departments.some((x) => x.id === parent.id);
+                        return (
+                          <button
+                            type="button"
+                            key={d.id}
+                            className={`org-floor-box ${FLOOR_BOX_TONE_CLASS[d.department_type || ""] || "org-floor-box-support"}${selectedId === d.id ? " is-selected" : ""}${parentSameFloor ? " is-child-here" : ""}`}
+                            onClick={() => setSelectedId(d.id)}
+                          >
+                            <strong>{parentSameFloor ? "↳ " : ""}{d.name}</strong>
+                            {d.room_label || d.area_sqm != null ? <small>{[d.room_label, d.area_sqm != null ? `${d.area_sqm} m²` : null].filter(Boolean).join(" · ")}</small> : null}
+                            {parent && !parentSameFloor ? <small className="org-floor-box-parent-hint">— thuộc {parent.name}{parent.floor_label ? `, ${parent.floor_label}` : ""}</small> : null}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
