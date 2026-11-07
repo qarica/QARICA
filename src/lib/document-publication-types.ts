@@ -31,14 +31,15 @@ export const STAGE_DUE_DAYS: Record<DocumentPublicationStage, number> = {
   PUBLISHED: 0,
 };
 
-export const DOCUMENT_TYPES = ["OPERATIONAL", "CLINICAL_PROCEDURE", "CLINICAL_PROTOCOL", "NURSING"] as const;
+export const DOCUMENT_TYPES = ["OPERATIONAL", "CLINICAL_PROCEDURE", "CLINICAL_PROTOCOL", "NURSING", "CLINICAL_GUIDELINE"] as const;
 export type DocumentPublicationType = (typeof DOCUMENT_TYPES)[number];
 
 export const DOCUMENT_TYPE_LABEL: Record<DocumentPublicationType, string> = {
   OPERATIONAL: "Vận hành",
-  CLINICAL_PROCEDURE: "Chuyên môn khối BS — Quy trình kỹ thuật & Hướng dẫn điều trị",
-  CLINICAL_PROTOCOL: "Chuyên môn khối BS — Phác đồ điều trị",
-  NURSING: "Chuyên môn khối Điều dưỡng / Hộ sinh / KTV",
+  CLINICAL_PROCEDURE: "Quy trình kỹ thuật",
+  CLINICAL_PROTOCOL: "Phác đồ điều trị",
+  NURSING: "Quy trình kỹ thuật chăm sóc",
+  CLINICAL_GUIDELINE: "Hướng dẫn chẩn đoán và điều trị",
 };
 
 // Cấp phê duyệt tương ứng từng loại tài liệu — chỉ hiển thị để biết hồ sơ cần
@@ -50,6 +51,7 @@ export const DOCUMENT_TYPE_APPROVER_LABEL: Record<DocumentPublicationType, strin
   CLINICAL_PROCEDURE: "GĐ Chuyên môn",
   CLINICAL_PROTOCOL: "GĐ Chuyên môn",
   NURSING: "GĐ Chuyên môn",
+  CLINICAL_GUIDELINE: "GĐ Chuyên môn",
 };
 
 export function isDocumentPublicationStage(value: unknown): value is DocumentPublicationStage {

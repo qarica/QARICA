@@ -66,10 +66,27 @@ describe("Document publications 6-stage pipeline (src/lib/document-publication-t
     expect(types).toContain("if (idx < 0 || idx === DOCUMENT_PUBLICATION_STAGES.length - 1) return null;");
   });
 
-  it("defines 4 document types, each mapped to an informational approver label (not permission-enforced in Đợt 1 — QARICA lacks Ban Giám Đốc sub-roles yet)", () => {
-    expect(types).toContain('export const DOCUMENT_TYPES = ["OPERATIONAL", "CLINICAL_PROCEDURE", "CLINICAL_PROTOCOL", "NURSING"] as const;');
+  it("defines 5 document types, each mapped to an informational approver label (not permission-enforced in Đợt 1 — QARICA lacks Ban Giám Đốc sub-roles yet)", () => {
+    expect(types).toContain('export const DOCUMENT_TYPES = ["OPERATIONAL", "CLINICAL_PROCEDURE", "CLINICAL_PROTOCOL", "NURSING", "CLINICAL_GUIDELINE"] as const;');
     expect(types).toContain("OPERATIONAL: \"GĐ Điều hành\",");
     expect(types).toContain("CLINICAL_PROCEDURE: \"GĐ Chuyên môn\",");
+    expect(types).toContain("CLINICAL_GUIDELINE: \"GĐ Chuyên môn\",");
+  });
+
+  // Báo cáo thực tế: "Phân loại văn bản sửa thành: Vận hành, Quy trình kỹ
+  // thuật, Phác đồ điều trị, Quy trình kỹ thuật chăm sóc, Hướng dẫn chẩn
+  // đoán và điều trị" — thêm loại thứ 5 CLINICAL_GUIDELINE, đổi tên 3 loại
+  // cũ cho gọn (giữ nguyên document_type của văn bản đã có, chỉ đổi nhãn).
+  it("5 nhãn hiển thị đúng theo yêu cầu thực tế, theo đúng thứ tự Vận hành -> Quy trình kỹ thuật -> Phác đồ điều trị -> Quy trình kỹ thuật chăm sóc -> Hướng dẫn chẩn đoán và điều trị", () => {
+    expect(types).toContain(
+      'export const DOCUMENT_TYPE_LABEL: Record<DocumentPublicationType, string> = {\n  OPERATIONAL: "Vận hành",\n  CLINICAL_PROCEDURE: "Quy trình kỹ thuật",\n  CLINICAL_PROTOCOL: "Phác đồ điều trị",\n  NURSING: "Quy trình kỹ thuật chăm sóc",\n  CLINICAL_GUIDELINE: "Hướng dẫn chẩn đoán và điều trị",\n};',
+    );
+  });
+
+  it("migration cập nhật check constraint document_type trên DB sống cho phép đủ 5 giá trị, khớp DOCUMENT_TYPES ở TS", () => {
+    const migration = read("supabase/migrations/20261121000000_document_publication_type_clinical_guideline_v1.sql");
+    expect(migration).toContain("add constraint document_publications_document_type_check");
+    expect(migration).toContain("check (document_type = any (array['OPERATIONAL','CLINICAL_PROCEDURE','CLINICAL_PROTOCOL','NURSING','CLINICAL_GUIDELINE']));");
   });
 
   it("the PATCH route recomputes stage_due_date from STAGE_DUE_DAYS on every advance, clearing it once PUBLISHED", () => {
