@@ -257,12 +257,12 @@ export function AdminOrgChartClient({ departments, people, equipment }: { depart
         .org-floor-row > * { min-width:0; }
         @media (max-width: 760px) { .org-floor-row { grid-template-columns: 1fr; } }
         .org-floor-row-label { font-weight: 700; font-size: 13px; color: #334155; padding-top: 10px; }
-        .org-floor-boxes { display: flex; flex-wrap: wrap; gap: 8px; }
-        .org-floor-box { flex: 1 1 170px; max-width: 260px; text-align: left; border-radius: 10px; background: #fff; padding: 8px 10px; cursor: pointer; border: 1.5px solid #cbd5e1; display: grid; gap: 3px; }
-        .org-floor-box strong { font-size: 12.5px; }
-        .org-floor-box small { color: #64748b; font-size: 11px; }
+        .org-floor-boxes { display: flex; flex-wrap: wrap; gap: 6px; }
+        .org-floor-box { flex: 1 1 128px; max-width: 200px; text-align: left; border-radius: 8px; background: #fff; padding: 5px 7px; cursor: pointer; border: 1.5px solid #cbd5e1; display: grid; gap: 1px; line-height: 1.25; }
+        .org-floor-box strong { font-size: 11px; }
+        .org-floor-box small { color: #64748b; font-size: 9.5px; }
         .org-floor-box.is-selected { background: var(--brand-soft); }
-        .org-floor-box.is-child-here { margin-left: 14px; border-left-width: 3px; background: #f8fafc; }
+        .org-floor-box.is-child-here { margin-left: 10px; border-left-width: 3px; background: #f8fafc; }
         .org-floor-box-parent-hint { font-style: italic; }
         .org-floor-box-mgmt { border-color: #1D4ED8; }
         .org-floor-box-clinical { border-color: #cbd5e1; }

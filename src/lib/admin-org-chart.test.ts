@@ -131,7 +131,7 @@ describe("Sơ đồ bố trí — gom cha/con cùng nhóm (tầng hoặc khối)
     expect(client).toContain('const parentInGroup = !!parent && group.departments.some((x) => x.id === parent.id);');
     expect(client).toContain('parentInGroup ? " is-child-here" : ""');
     expect(client).toContain('{parentInGroup ? "↳ " : ""}{d.name}');
-    expect(client).toContain(".org-floor-box.is-child-here { margin-left: 14px; border-left-width: 3px; background: #f8fafc; }");
+    expect(client).toContain(".org-floor-box.is-child-here { margin-left: 10px; border-left-width: 3px; background: #f8fafc; }");
   });
 
   it("box con có cha ở NHÓM KHÁC (không gom cạnh được) hiện gợi ý '— thuộc {tên cha}, {nhóm cha}' thay vì im lặng mất quan hệ cha/con", () => {
