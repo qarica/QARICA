@@ -69,3 +69,27 @@ describe("Document publications — version_label (Lần phát hành) bắt bu�
     expect(startPublishFn).toContain('setVersionLabel("");');
   });
 });
+
+// Báo cáo thực tế tiếp theo: "thư viện cần có 1 cột là phiên bản để biết" —
+// version_label giờ đã nhập được (xem describe phía trên) nhưng Thư viện
+// văn bản (danh sách Đã phát hành) lại không có cột nào hiển thị nó, phải
+// bấm Sửa từng văn bản mới thấy. Thêm cột "Phiên bản" vào cả bảng chính và
+// Xuất Excel — cùng loại lệch nhất quán UI↔export CLAUDE.md yêu cầu đối
+// chiếu đã gặp ở EMR (emr-export-hides-hidefromgrid-fields.test.ts).
+describe("Document publications — Thư viện văn bản có cột Phiên bản", () => {
+  const client = read("src/components/document-publications-client.tsx");
+
+  it("bảng Thư viện văn bản có cột 'Phiên bản' ngay sau 'Tên văn bản', hiển thị version_label", () => {
+    expect(client).toContain("<th>Mã văn bản</th>\n                        <th>Tên văn bản</th>\n                        <th>Phiên bản</th>\n                        <th>Loại</th>");
+    expect(client).toContain('<td>{d.document_code || "—"}</td>\n                              <td>{d.title}</td>\n                              <td>{d.version_label}</td>\n                              <td>{DOCUMENT_TYPE_LABEL[d.document_type]}</td>');
+  });
+
+  it("colSpan của dòng form Sửa cộng thêm 1 cho cột Phiên bản mới, tránh lệch bảng", () => {
+    expect(client).toContain("<td colSpan={canManage ? 9 : 8}>");
+  });
+
+  it("Xuất Excel cũng có cột 'Phiên bản', khớp với bảng chính", () => {
+    expect(client).toContain('const header = ["Mã văn bản", "Tên văn bản", "Phiên bản", "Loại", "Khoa/phòng soạn thảo", "Bước", "Ngày hiệu lực", "Ngày xem xét lại", "Trạng thái rà soát", "Phổ biến"];');
+    expect(client).toContain('d.document_code || "",\n          d.title,\n          d.version_label,\n          DOCUMENT_TYPE_LABEL[d.document_type],');
+  });
+});

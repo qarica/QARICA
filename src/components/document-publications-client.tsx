@@ -444,7 +444,7 @@ export function DocumentPublicationsClient({
   // gần nhất, giống giới hạn của danh sách làm việc) — theo đúng quy ước
   // "xuất .xls bằng bảng HTML" đã dùng ở EMR/Kế hoạch, không cần route riêng.
   function exportExcel() {
-    const header = ["Mã văn bản", "Tên văn bản", "Loại", "Khoa/phòng soạn thảo", "Bước", "Ngày hiệu lực", "Ngày xem xét lại", "Trạng thái rà soát", "Phổ biến"];
+    const header = ["Mã văn bản", "Tên văn bản", "Phiên bản", "Loại", "Khoa/phòng soạn thảo", "Bước", "Ngày hiệu lực", "Ngày xem xét lại", "Trạng thái rà soát", "Phổ biến"];
     const rows = documents
       .slice()
       .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
@@ -453,6 +453,7 @@ export function DocumentPublicationsClient({
         return [
           d.document_code || "",
           d.title,
+          d.version_label,
           DOCUMENT_TYPE_LABEL[d.document_type],
           departmentName(d.drafting_department_id),
           STAGE_LABEL[d.stage],
@@ -757,6 +758,7 @@ export function DocumentPublicationsClient({
                       <tr>
                         <th>Mã văn bản</th>
                         <th>Tên văn bản</th>
+                        <th>Phiên bản</th>
                         <th>Loại</th>
                         <th>Ngày hiệu lực</th>
                         <th>Ngày xem xét lại</th>
@@ -773,6 +775,7 @@ export function DocumentPublicationsClient({
                             <tr>
                               <td>{d.document_code || "—"}</td>
                               <td>{d.title}</td>
+                              <td>{d.version_label}</td>
                               <td>{DOCUMENT_TYPE_LABEL[d.document_type]}</td>
                               <td>{formatDate(d.effective_date)}</td>
                               <td>
@@ -855,7 +858,7 @@ export function DocumentPublicationsClient({
                             </tr>
                             {editingId === d.id ? (
                               <tr key={`${d.id}-edit`}>
-                                <td colSpan={canManage ? 8 : 7}>
+                                <td colSpan={canManage ? 9 : 8}>
                                   <div className="dp-edit-form">
                                     <div className="dp-form-row">
                                       <input className="input" placeholder="Mã văn bản..." value={editDocumentCode} onChange={(e) => setEditDocumentCode(e.target.value)} />
