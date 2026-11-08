@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import { Icon } from "@/components/icon";
 import {
   AssignmentTargetSelect,
   AssignmentTargetsMultiSelect,
@@ -411,9 +412,13 @@ export function IncomingDocumentsClient({
                     </td>
                     <td data-label="Đính kèm">
                       {doc.file_name ? (
-                        <button type="button" className="doc-file-link" onClick={() => void viewFile(doc)}>📎 {doc.file_name}</button>
+                        <button type="button" className="doc-file-icon has-file" onClick={() => void viewFile(doc)} title={doc.file_name} aria-label={`Xem file đính kèm: ${doc.file_name}`}>
+                          <Icon name="paperclip" size={16} />
+                        </button>
                       ) : (
-                        "—"
+                        <span className="doc-file-icon" aria-label="Không có tệp đính kèm" title="Không có tệp đính kèm">
+                          <Icon name="paperclip" size={16} />
+                        </span>
                       )}
                     </td>
                     <td data-label="Cơ quan">{doc.issuing_authority}</td>
@@ -604,6 +609,11 @@ export function IncomingDocumentsClient({
         .table-wrap td:nth-child(3) {
           min-width: 280px;
         }
+        .table-wrap th:nth-child(5),
+        .table-wrap td:nth-child(5) {
+          width: 56px;
+          text-align: center;
+        }
         .doc-form {
           display: grid;
           gap: 8px;
@@ -620,13 +630,25 @@ export function IncomingDocumentsClient({
           flex-wrap: wrap;
           align-items: center;
         }
-        .doc-file-link {
+        /* Báo cáo thực tế: "Đính kèm chỉ cần hiện icon — có tệp thì hiện
+           nổi xanh, ko có thì chìm thôi, thu gọn cột" — trước đây mỗi dòng
+           hiện cả emoji 📎 lẫn tên file đầy đủ, chiếm nhiều chỗ ngang và
+           không tô màu được (emoji có màu cố định, CSS color không áp
+           dụng). Chuyển sang Icon component (SVG, currentColor) để tô
+           đúng xanh brand khi có file / xám mờ khi không có; tên file vẫn
+           xem được qua title (tooltip hover) + aria-label (đọc màn hình).
+        */
+        .doc-file-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           border: 0;
           background: transparent;
-          color: var(--brand, #1D4ED8);
-          font-weight: 700;
-          font-size: 11px;
           padding: 0;
+          color: #b7c0c6;
+        }
+        .doc-file-icon.has-file {
+          color: var(--brand, #1D4ED8);
           cursor: pointer;
         }
         .doc-task-panel-cell {

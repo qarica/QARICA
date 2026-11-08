@@ -105,9 +105,41 @@ describe("Bảng theo dõi công văn — cột Đính kèm tách riêng, ngay s
     expect(client).toContain('<td data-label="Trích yếu">{doc.summary}</td>');
   });
 
-  it("ô Đính kèm hiện nút xem file khi có file, '—' khi không có", () => {
+  it("ô Đính kèm hiện nút xem file khi có file, icon chìm (không phải nút) khi không có", () => {
     expect(client).toContain('<td data-label="Đính kèm">');
-    expect(client).toContain('<button type="button" className="doc-file-link" onClick={() => void viewFile(doc)}>📎 {doc.file_name}</button>');
+    expect(client).toContain('<button type="button" className="doc-file-icon has-file" onClick={() => void viewFile(doc)} title={doc.file_name} aria-label={`Xem file đính kèm: ${doc.file_name}`}>');
+    expect(client).toContain('<span className="doc-file-icon" aria-label="Không có tệp đính kèm" title="Không có tệp đính kèm">');
+  });
+});
+
+// Báo cáo thực tế: "Đính kèm chỉ cần hiện icon có tệp thì hiện nổi xanh, ko
+// có thì chìm thôi, thu gọn cột" — trước đây hiện cả emoji 📎 lẫn tên file
+// đầy đủ trong ô, chiếm nhiều chỗ ngang. Emoji có màu cố định (CSS color
+// không áp dụng được), nên đổi sang Icon component (SVG, currentColor) để
+// tô đúng xanh khi có file / xám mờ khi không có.
+describe("Cột Đính kèm chỉ còn icon (không hiện tên file trần), tô màu theo trạng thái, thu gọn bề rộng cột", () => {
+  const client = read("src/components/incoming-documents-client.tsx");
+
+  it("dùng Icon component 'paperclip' (SVG màu theo currentColor), không còn emoji 📎 cố định màu trong phần render", () => {
+    expect(client).toContain('import { Icon } from "@/components/icon";');
+    expect(client).toContain('<Icon name="paperclip" size={16} />');
+    expect(client).not.toContain('📎 {doc.file_name}');
+  });
+
+  it("tên file vẫn xem được qua title (tooltip) + aria-label khi đã bỏ hiện trực tiếp trong ô", () => {
+    expect(client).toContain("title={doc.file_name}");
+    expect(client).toContain("`Xem file đính kèm: ${doc.file_name}`");
+  });
+
+  it("có file tô xanh brand (.has-file), không có file chìm màu xám mờ — 2 trạng thái khác class rõ ràng", () => {
+    expect(client).toContain(".doc-file-icon {");
+    expect(client).toContain("color: #b7c0c6;");
+    expect(client).toContain(".doc-file-icon.has-file {");
+    expect(client).toContain("color: var(--brand, #1D4ED8);");
+  });
+
+  it("thu gọn cột Đính kèm (thứ 5) còn 56px, canh giữa icon — nhường chỗ ngang cho cột Trích yếu", () => {
+    expect(client).toContain(".table-wrap th:nth-child(5),\n        .table-wrap td:nth-child(5) {\n          width: 56px;\n          text-align: center;\n        }");
   });
 });
 
