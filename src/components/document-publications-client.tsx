@@ -257,7 +257,7 @@ export function DocumentPublicationsClient({
   }
 
   function targetLabel(d: DocumentPublication) {
-    return `${d.document_code ? `${d.document_code} — ` : ""}${d.title} (${d.version_label})`;
+    return `${d.document_code ? `${d.document_code} - ` : ""}${d.title} (${d.version_label})`;
   }
 
   function selectTarget(doc: DocumentPublication) {
@@ -624,7 +624,7 @@ export function DocumentPublicationsClient({
         <div className="panel-title">
           <div>
             <h2><span className="dp-section-icon"><Icon name="file-input" size={15} /></span>Tạo yêu cầu</h2>
-            <p>Viết văn bản mới, cập nhật phiên bản, hoặc thu hồi 1 văn bản đã phát hành — cả 3 đều đi qua đúng 1 quy trình kiểm soát/phê duyệt.</p>
+            <p>Viết văn bản mới, cập nhật phiên bản, hoặc thu hồi 1 văn bản đã phát hành - cả 3 đều đi qua đúng 1 quy trình kiểm soát/phê duyệt.</p>
           </div>
         </div>
         <button type="button" className="button secondary mobile-form-toggle dp-request-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Tạo yêu cầu"}</button>
@@ -640,7 +640,7 @@ export function DocumentPublicationsClient({
             <div className="dp-target-picker">
               <input
                 className="input"
-                placeholder={published.length ? "Gõ tìm tên hoặc mã văn bản cần cập nhật/thu hồi..." : "— Chưa có văn bản nào đã phát hành —"}
+                placeholder={published.length ? "Gõ tìm tên hoặc mã văn bản cần cập nhật/thu hồi..." : "- Chưa có văn bản nào đã phát hành -"}
                 disabled={!published.length}
                 value={targetQuery}
                 onFocus={() => setTargetMenuOpen(true)}
@@ -676,7 +676,7 @@ export function DocumentPublicationsClient({
               ))}
             </select>
             <select className="input" value={draftingDepartmentId} onChange={(e) => setDraftingDepartmentId(e.target.value)} disabled={!departments.length}>
-              <option value="">{departments.length ? "— Chọn khoa/phòng soạn thảo —" : "— Chưa có khoa/phòng nào —"}</option>
+              <option value="">{departments.length ? "- Chọn khoa/phòng soạn thảo -" : "- Chưa có khoa/phòng nào -"}</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -698,7 +698,7 @@ export function DocumentPublicationsClient({
           <div className="panel-title">
             <div>
               <h2><span className="dp-section-icon"><Icon name="save" size={15} /></span>Nhập văn bản đã phát hành</h2>
-              <p>Dành cho QT/quy định/thông báo đã ban hành từ trước (ngoài thực tế) — lưu thẳng vào &ldquo;Đã phát hành&rdquo;, không cần đi qua các bước kiểm soát.</p>
+              <p>Dành cho QT/quy định/thông báo đã ban hành từ trước (ngoài thực tế) - lưu thẳng vào &ldquo;Đã phát hành&rdquo;, không cần đi qua các bước kiểm soát.</p>
             </div>
           </div>
           <button type="button" className="button secondary mobile-form-toggle" aria-expanded={directPublishOpen} onClick={() => setDirectPublishOpen((v) => !v)}>{directPublishOpen ? "Thu gọn" : "+ Nhập văn bản đã có"}</button>
@@ -718,7 +718,7 @@ export function DocumentPublicationsClient({
                 ))}
               </select>
               <select className="input" value={directDraftingDepartmentId} onChange={(e) => setDirectDraftingDepartmentId(e.target.value)} disabled={!departments.length}>
-                <option value="">{departments.length ? "— Chọn khoa/phòng soạn thảo —" : "— Chưa có khoa/phòng nào —"}</option>
+                <option value="">{departments.length ? "- Chọn khoa/phòng soạn thảo -" : "- Chưa có khoa/phòng nào -"}</option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
@@ -891,7 +891,7 @@ export function DocumentPublicationsClient({
         <div className="panel-title">
           <div>
             <h2><span className="dp-section-icon"><Icon name="folder-archive" size={15} /></span>Thư viện văn bản</h2>
-            <p>Văn bản đã phát hành, chia theo thư mục khoa/phòng soạn thảo — bấm vào thư mục để xem, có thể đính kèm file lưu trữ cho từng văn bản.</p>
+            <p>Văn bản đã phát hành, chia theo thư mục khoa/phòng soạn thảo - bấm vào thư mục để xem, có thể đính kèm file lưu trữ cho từng văn bản.</p>
           </div>
         </div>
         {published.length ? (
@@ -946,7 +946,7 @@ export function DocumentPublicationsClient({
                               <td>
                                 {d.dissemination_type === "TRAINING_REQUIRED" ? (
                                   <a href="/procedure-trainings" className="dp-dissemination-link">
-                                    Cần đào tạo — xem tiến độ →
+                                    Cần đào tạo - xem tiến độ →
                                   </a>
                                 ) : d.dissemination_type === "SELF_READ" ? (
                                   <div className="dp-ack">
@@ -1115,7 +1115,7 @@ export function DocumentPublicationsClient({
         <div className="panel-title">
           <div>
             <h2><span className="dp-section-icon"><Icon name="archive" size={15} /></span>Tài liệu hết hiệu lực</h2>
-            <p>Văn bản đã được duyệt thu hồi — không còn hiệu lực sử dụng, giữ lại để tra cứu/đối chiếu.</p>
+            <p>Văn bản đã được duyệt thu hồi - không còn hiệu lực sử dụng, giữ lại để tra cứu/đối chiếu.</p>
           </div>
         </div>
         {retracted.length ? (

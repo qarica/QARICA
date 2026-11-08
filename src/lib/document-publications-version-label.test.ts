@@ -127,7 +127,7 @@ describe("Document publications — thứ tự trường nhập + không mặc �
   });
 
   it("cả 2 select khoa/phòng soạn thảo (đề nghị + nhập văn bản đã phát hành) đều có option rỗng bắt chọn tay", () => {
-    const matches = client.match(/<option value="">\{departments\.length \? "— Chọn khoa\/phòng soạn thảo —" : "— Chưa có khoa\/phòng nào —"\}<\/option>/g) ?? [];
+    const matches = client.match(/<option value="">\{departments\.length \? "- Chọn khoa\/phòng soạn thảo -" : "- Chưa có khoa\/phòng nào -"\}<\/option>/g) ?? [];
     expect(matches.length).toBe(2);
   });
 });

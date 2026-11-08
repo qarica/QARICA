@@ -94,11 +94,33 @@
     min-width: 42px !important;
   }
 
+  /* Real report (phone screenshot): the year-selector box visibly overlapped
+     the hamburger/sidebar-toggle button. Root cause — topbar-right holds 6-7
+     fixed-width icons (year selector, calendar, inbox, notebook, modules,
+     notification bell, profile) that together need more width than remains
+     next to topbar-left (flex:0 0 auto, never shrinks) on a narrow phone;
+     `.topbar-right > *{flex:0 0 auto}` stops them shrinking, so with the old
+     justify-content:flex-end the overflow spilled to the LEFT, under
+     topbar-left's own icons, instead of just running off past the visible
+     area. flex-start + its own overflow-x:auto makes the row scroll instead
+     of overflow left: the year selector (first child, most used) stays the
+     first visible icon right after the hamburger, and anything that doesn't
+     fit (profile/avatar, further right) scrolls into view instead of ever
+     bleeding into topbar-left — overlap becomes structurally impossible
+     regardless of exact icon count/width on any given phone. */
   .workspace-app .topbar-right {
     flex: 1 1 auto !important;
     min-width: 0 !important;
-    justify-content: flex-end !important;
+    justify-content: flex-start !important;
     gap: 6px !important;
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+
+  .workspace-app .topbar-right::-webkit-scrollbar {
+    display: none !important;
   }
 
   .workspace-app .topbar-right > * {

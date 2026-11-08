@@ -253,7 +253,7 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
     expect(client).toContain("publishedGroups.map((group) =>");
     expect(client).toContain("const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());");
     // Vẫn giữ nguyên cơ chế xác nhận "Tự đọc hiểu" / liên kết Đào tạo bên trong thư mục.
-    expect(client).toContain('Cần đào tạo — xem tiến độ →');
+    expect(client).toContain('Cần đào tạo - xem tiến độ →');
     expect(client).toContain("Tôi đã đọc và hiểu");
   });
 
