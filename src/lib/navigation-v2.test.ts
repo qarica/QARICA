@@ -24,6 +24,7 @@ const GROUP_IDS = [
   "procurement",
   "medical-equipment",
   "infection-control",
+  "work-plans",
   "system-config",
 ];
 
@@ -41,10 +42,10 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 10 primary groups (Việc của tôi/Sổ tay cá nhân are intentionally not sidebar groups — see the topbar and floating-capture tests below)", () => {
+  it("defines exactly 11 primary groups (Việc của tôi/Sổ tay cá nhân are intentionally not sidebar groups — see the topbar and floating-capture tests below)", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no additional group ids besides these ten
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(11);
+    // no additional group ids besides these eleven
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(12);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ HSBA"');

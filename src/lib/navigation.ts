@@ -158,6 +158,19 @@ const NAV_GROUPS: NavGroupDef[] = [
       { label: "Giám sát vệ sinh tay", href: "/infection-control/hand-hygiene", icon: "droplets", permission: "infection_control.view" },
     ],
   },
+  // Yêu cầu tường minh: áp dụng 5W1H/SMART/Eisenhower/RACI vào QARICA, "xây
+  // thành tính năng". Công cụ phối hợp nhóm nhẹ (ad-hoc, không qua phê
+  // duyệt) — KHÁC với "Kế hoạch & Điều hành" (workspaceRoot /plans, Plan
+  // Composer QLCL chính thức có automation/materialization) nên đặt tên rõ
+  // ràng, nhóm riêng, tránh gây nhầm lẫn 2 khái niệm "kế hoạch" khác nhau.
+  {
+    id: "work-plans",
+    label: "KẾ HOẠCH CÔNG VIỆC",
+    icon: "target",
+    children: [
+      { label: "Kế hoạch công việc", href: "/work-plans", icon: "target", permission: "work_plans.view" },
+    ],
+  },
   {
     id: "system-config",
     label: "CẤU HÌNH HỆ THỐNG",

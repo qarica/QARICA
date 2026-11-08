@@ -90,11 +90,13 @@ export function PersonalReminders({initialRows,organizationId,userId}:{initialRo
    .pr-time{width:auto;min-width:110px}
    .pr-plan-toggle{justify-self:start}
    .pr-plan-fields{display:grid;gap:8px;padding:10px;border:1px dashed var(--line);border-radius:12px;background:#fafcfd}
+   .pr-plan-fields>*{min-width:0}
    .pr-eisenhower{padding:12px;border-top:1px solid var(--line)}
    .pr-eisenhower-head{display:flex;flex-direction:column;gap:2px;margin-bottom:10px}
    .pr-eisenhower-head strong{font-size:13px}
    .pr-eisenhower-head small{color:var(--muted);font-size:11px}
    .pr-eisenhower-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+   .pr-eisenhower-grid>*{min-width:0}
    .pr-quadrant{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
    .pr-quadrant-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;font-weight:700}
    .pr-quadrant-head strong{font-size:16px}
