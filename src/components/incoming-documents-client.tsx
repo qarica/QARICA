@@ -303,11 +303,17 @@ export function IncomingDocumentsClient({
             </label>
             <input className="input" placeholder="Trích yếu nội dung..." value={summary} onChange={(e) => setSummary(e.target.value)} />
             <div className="doc-form-row">
-              <input className="input" type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />
+              <label className="doc-task-field">
+                <span>Ngày đến</span>
+                <input className="input" type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />
+              </label>
               <input className="input" placeholder="Cơ quan ban hành..." value={issuingAuthority} onChange={(e) => setIssuingAuthority(e.target.value)} />
               <input className="input" placeholder="Số văn bản (tùy chọn)" value={documentNo} onChange={(e) => setDocumentNo(e.target.value)} />
               <input className="input" placeholder="Loại công văn (tùy chọn)" value={documentType} onChange={(e) => setDocumentType(e.target.value)} />
-              <input className="input" type="date" title="Hạn xử lý (tùy chọn)" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <label className="doc-task-field">
+                <span>Hạn xử lý (tùy chọn)</span>
+                <input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              </label>
             </div>
             {error ? <div className="alert error">{error}</div> : null}
             <button className="button primary" disabled={busy || !issuingAuthority.trim() || !summary.trim()} onClick={() => void submit()}>

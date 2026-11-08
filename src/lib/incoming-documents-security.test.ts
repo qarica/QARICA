@@ -47,3 +47,23 @@ describe("Incoming document status is computed, not manually typed", () => {
     expect(client).toContain('return { label: "Đang xử lý"');
   });
 });
+
+// Báo cáo thực tế (ảnh chụp điện thoại): "2 trường nhập thời gian ko rõ là
+// thời gian cho cái gì" — form "Tiếp nhận công văn mới" có 2 input
+// type="date" trần (Ngày đến, Hạn xử lý) không nhãn hiển thị nào — input
+// date không hiện được placeholder khi rỗng, và title chỉ là tooltip hover
+// (vô dụng trên di động), nên cả 2 ô ngày trông giống hệt nhau, không biết
+// ô nào là ngày gì. Bọc cả 2 trong <label className="doc-task-field"> có
+// <span> nhãn phía trên, đúng quy ước label>span chung của app.
+describe("Form Tiếp nhận công văn mới — 2 ô ngày có nhãn hiển thị rõ ràng", () => {
+  const client = read("src/components/incoming-documents-client.tsx");
+
+  it("ô Ngày đến (receivedAt) có nhãn hiển thị 'Ngày đến', không chỉ còn là input date trần", () => {
+    expect(client).toContain('<label className="doc-task-field">\n                <span>Ngày đến</span>\n                <input className="input" type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />\n              </label>');
+  });
+
+  it("ô Hạn xử lý (dueDate) có nhãn hiển thị, không chỉ dựa vào title (tooltip hover, vô dụng trên di động)", () => {
+    expect(client).toContain('<label className="doc-task-field">\n                <span>Hạn xử lý (tùy chọn)</span>\n                <input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />\n              </label>');
+    expect(client).not.toContain('type="date" title="Hạn xử lý (tùy chọn)"');
+  });
+});
