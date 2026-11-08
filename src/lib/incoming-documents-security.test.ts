@@ -89,3 +89,29 @@ describe("Loại công văn (document_type) là list chọn cố định, không
     expect(client).toContain('{INCOMING_DOCUMENT_TYPES.map((t) => (');
   });
 });
+
+// Báo cáo thực tế: "Bảng theo dõi công văn nên chia thành 1 cột đính kèm
+// riêng kế bên trích yếu" — trước đây nút file đính kèm nằm lồng bên trong
+// ô Trích yếu (dưới nội dung trích yếu), không có cột riêng. Tách thành
+// cột "Đính kèm" độc lập, ngay sau cột Trích yếu — bảng có thêm 1 cột nên
+// mọi colSpan dùng để gộp hàng (task panel mở rộng, "Chưa có công văn
+// nào") phải cộng thêm 1 theo đúng tổng số cột mới.
+describe("Bảng theo dõi công văn — cột Đính kèm tách riêng, ngay sau cột Trích yếu", () => {
+  const client = read("src/components/incoming-documents-client.tsx");
+
+  it("có đúng <th>Đính kèm</th> ngay sau <th>Trích yếu</th>, Trích yếu không còn lồng nút file bên trong", () => {
+    expect(client).toContain("<th>Ngày đến</th>\n                <th>Trích yếu</th>\n                <th>Đính kèm</th>\n                <th>Cơ quan</th>");
+    expect(client).toContain('<td data-label="Trích yếu">{doc.summary}</td>');
+  });
+
+  it("ô Đính kèm hiện nút xem file khi có file, '—' khi không có", () => {
+    expect(client).toContain('<td data-label="Đính kèm">');
+    expect(client).toContain('<button type="button" className="doc-file-link" onClick={() => void viewFile(doc)}>📎 {doc.file_name}</button>');
+  });
+
+  it("colSpan gộp hàng (task panel, empty-state) cộng thêm 1 cho cột Đính kèm mới, không lệch bảng", () => {
+    expect(client).toContain('<td colSpan={canManage ? 10 : 9} className="doc-task-panel-cell">');
+    expect(client).toContain('<td colSpan={canManage ? 10 : 9} className="empty-state compact">');
+    expect(client).not.toContain("colSpan={canManage ? 9 : 8}");
+  });
+});

@@ -359,6 +359,7 @@ export function IncomingDocumentsClient({
               <tr>
                 <th>Ngày đến</th>
                 <th>Trích yếu</th>
+                <th>Đính kèm</th>
                 <th>Cơ quan</th>
                 <th>Bút phê GĐ</th>
                 <th>Đơn vị triển khai</th>
@@ -378,11 +379,13 @@ export function IncomingDocumentsClient({
                   <Fragment key={doc.id}>
                   <tr>
                     <td data-label="Ngày đến">{formatDate(doc.received_at)}</td>
-                    <td data-label="Trích yếu">
-                      {doc.summary}
+                    <td data-label="Trích yếu">{doc.summary}</td>
+                    <td data-label="Đính kèm">
                       {doc.file_name ? (
-                        <div><button type="button" className="doc-file-link" onClick={() => void viewFile(doc)}>📎 {doc.file_name}</button></div>
-                      ) : null}
+                        <button type="button" className="doc-file-link" onClick={() => void viewFile(doc)}>📎 {doc.file_name}</button>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td data-label="Cơ quan">{doc.issuing_authority}</td>
                     <td data-label="Bút phê GĐ">
@@ -473,7 +476,7 @@ export function IncomingDocumentsClient({
                   </tr>
                   {taskPanelOpen ? (
                     <tr>
-                      <td colSpan={canManage ? 9 : 8} className="doc-task-panel-cell">
+                      <td colSpan={canManage ? 10 : 9} className="doc-task-panel-cell">
                         <div className="doc-task-panel">
                           {taskError ? <div className="alert error">{taskError}</div> : null}
                           {docTasks.length ? (
@@ -540,7 +543,7 @@ export function IncomingDocumentsClient({
               })}
               {!filteredDocuments.length ? (
                 <tr>
-                  <td colSpan={canManage ? 9 : 8} className="empty-state compact">
+                  <td colSpan={canManage ? 10 : 9} className="empty-state compact">
                     Chưa có công văn nào.
                   </td>
                 </tr>
