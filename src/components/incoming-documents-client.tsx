@@ -26,6 +26,25 @@ const INCOMING_DOCUMENT_TYPES = [
   "Khác",
 ] as const;
 
+// Báo cáo thực tế: "Cần có màu theo phân loại công văn để ưu tiên xử lý" —
+// gắn mức ưu tiên cho từng loại công văn (chỉ đạo/đôn đốc cần xử lý gấp
+// nhất, thông báo/giải trình không cấp thiết), tái dùng đúng 4 tone màu có
+// sẵn của .status-badge (danger/warning/info/muted) trong globals.css —
+// không thêm màu tuỳ ý mới ngoài bảng màu chung của app.
+const DOCUMENT_TYPE_TONE: Record<string, string> = {
+  "Công văn chỉ đạo": "danger",
+  "Công văn đôn đốc": "danger",
+  "Công văn đề nghị, yêu cầu": "warning",
+  "Công văn hướng dẫn": "info",
+  "Công văn phúc đáp": "info",
+  "Công văn giải trình": "muted",
+  "Công văn thông báo": "muted",
+  "Khác": "muted",
+};
+function docTypeTone(type: string | null): string {
+  return (type && DOCUMENT_TYPE_TONE[type]) || "muted";
+}
+
 type Department = { id: string; name: string };
 type Profile = { user_id: string; full_name: string | null; email: string | null; primary_department_id: string | null };
 type Task = {
@@ -358,7 +377,9 @@ export function IncomingDocumentsClient({
             <thead>
               <tr>
                 <th>Ngày đến</th>
+                <th>Số văn bản</th>
                 <th>Trích yếu</th>
+                <th>Loại công văn</th>
                 <th>Đính kèm</th>
                 <th>Cơ quan</th>
                 <th>Bút phê GĐ</th>
@@ -379,7 +400,15 @@ export function IncomingDocumentsClient({
                   <Fragment key={doc.id}>
                   <tr>
                     <td data-label="Ngày đến">{formatDate(doc.received_at)}</td>
+                    <td data-label="Số văn bản">{doc.document_no || "—"}</td>
                     <td data-label="Trích yếu">{doc.summary}</td>
+                    <td data-label="Loại công văn">
+                      {doc.document_type ? (
+                        <span className={`status-badge ${docTypeTone(doc.document_type)}`}>{doc.document_type}</span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td data-label="Đính kèm">
                       {doc.file_name ? (
                         <button type="button" className="doc-file-link" onClick={() => void viewFile(doc)}>📎 {doc.file_name}</button>
@@ -476,7 +505,7 @@ export function IncomingDocumentsClient({
                   </tr>
                   {taskPanelOpen ? (
                     <tr>
-                      <td colSpan={canManage ? 10 : 9} className="doc-task-panel-cell">
+                      <td colSpan={canManage ? 12 : 11} className="doc-task-panel-cell">
                         <div className="doc-task-panel">
                           {taskError ? <div className="alert error">{taskError}</div> : null}
                           {docTasks.length ? (
@@ -543,7 +572,7 @@ export function IncomingDocumentsClient({
               })}
               {!filteredDocuments.length ? (
                 <tr>
-                  <td colSpan={canManage ? 10 : 9} className="empty-state compact">
+                  <td colSpan={canManage ? 12 : 11} className="empty-state compact">
                     Chưa có công văn nào.
                   </td>
                 </tr>

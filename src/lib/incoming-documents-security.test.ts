@@ -99,8 +99,9 @@ describe("Loại công văn (document_type) là list chọn cố định, không
 describe("Bảng theo dõi công văn — cột Đính kèm tách riêng, ngay sau cột Trích yếu", () => {
   const client = read("src/components/incoming-documents-client.tsx");
 
-  it("có đúng <th>Đính kèm</th> ngay sau <th>Trích yếu</th>, Trích yếu không còn lồng nút file bên trong", () => {
-    expect(client).toContain("<th>Ngày đến</th>\n                <th>Trích yếu</th>\n                <th>Đính kèm</th>\n                <th>Cơ quan</th>");
+  it("có đúng <th>Đính kèm</th> có cột riêng, không còn lồng trong Trích yếu", () => {
+    expect(client).toContain("<th>Trích yếu</th>");
+    expect(client).toContain("<th>Đính kèm</th>");
     expect(client).toContain('<td data-label="Trích yếu">{doc.summary}</td>');
   });
 
@@ -108,11 +109,51 @@ describe("Bảng theo dõi công văn — cột Đính kèm tách riêng, ngay s
     expect(client).toContain('<td data-label="Đính kèm">');
     expect(client).toContain('<button type="button" className="doc-file-link" onClick={() => void viewFile(doc)}>📎 {doc.file_name}</button>');
   });
+});
 
-  it("colSpan gộp hàng (task panel, empty-state) cộng thêm 1 cho cột Đính kèm mới, không lệch bảng", () => {
-    expect(client).toContain('<td colSpan={canManage ? 10 : 9} className="doc-task-panel-cell">');
-    expect(client).toContain('<td colSpan={canManage ? 10 : 9} className="empty-state compact">');
-    expect(client).not.toContain("colSpan={canManage ? 9 : 8}");
+// Báo cáo thực tế: "Tại sao bắt điền số và loại công văn nhưng xuống danh
+// sách thì ko có thông tin này" — form Tiếp nhận công văn mới có 2 trường
+// Số văn bản (documentNo) và Loại công văn (documentType) nhưng bảng Danh
+// sách công văn trước đây không hiện lại 2 giá trị này ở đâu — dữ liệu
+// nhập vào "biến mất" khỏi tầm nhìn người xử lý. Thêm đúng 2 cột tương ứng
+// vào bảng, cộng colSpan gộp hàng (task panel, empty-state) thêm 2.
+describe("Bảng theo dõi công văn hiện lại Số văn bản và Loại công văn đã nhập ở form tiếp nhận", () => {
+  const client = read("src/components/incoming-documents-client.tsx");
+
+  it("có cột riêng <th>Số văn bản</th> và <th>Loại công văn</th>, không còn bị bỏ sót khỏi bảng", () => {
+    expect(client).toContain("<th>Ngày đến</th>\n                <th>Số văn bản</th>\n                <th>Trích yếu</th>\n                <th>Loại công văn</th>\n                <th>Đính kèm</th>\n                <th>Cơ quan</th>");
+    expect(client).toContain('<td data-label="Số văn bản">{doc.document_no || "—"}</td>');
+  });
+
+  it("colSpan gộp hàng (task panel, empty-state) cộng thêm 2 cho 2 cột mới, không lệch bảng", () => {
+    expect(client).toContain('<td colSpan={canManage ? 12 : 11} className="doc-task-panel-cell">');
+    expect(client).toContain('<td colSpan={canManage ? 12 : 11} className="empty-state compact">');
+    expect(client).not.toContain("colSpan={canManage ? 10 : 9}");
+  });
+});
+
+// Báo cáo thực tế: "Cần có màu theo phân loại công văn để ưu tiên xử lý" —
+// ô Loại công văn hiện badge màu theo mức ưu tiên xử lý (chỉ đạo/đôn đốc
+// gấp nhất → danger, đề nghị/yêu cầu → warning, hướng dẫn/phúc đáp →
+// info, giải trình/thông báo/khác → muted), tái dùng đúng class
+// .status-badge + 4 tone có sẵn trong globals.css, không thêm màu mới.
+describe("Loại công văn hiện badge màu theo mức ưu tiên xử lý", () => {
+  const client = read("src/components/incoming-documents-client.tsx");
+
+  it("định nghĩa DOCUMENT_TYPE_TONE gắn đúng tone ưu tiên cho cả 8 loại công văn", () => {
+    expect(client).toContain('"Công văn chỉ đạo": "danger"');
+    expect(client).toContain('"Công văn đôn đốc": "danger"');
+    expect(client).toContain('"Công văn đề nghị, yêu cầu": "warning"');
+    expect(client).toContain('"Công văn hướng dẫn": "info"');
+    expect(client).toContain('"Công văn phúc đáp": "info"');
+    expect(client).toContain('"Công văn giải trình": "muted"');
+    expect(client).toContain('"Công văn thông báo": "muted"');
+    expect(client).toContain('"Khác": "muted"');
+  });
+
+  it("ô Loại công văn dùng .status-badge với tone từ docTypeTone(), '—' khi chưa chọn loại", () => {
+    expect(client).toContain('<td data-label="Loại công văn">');
+    expect(client).toContain('<span className={`status-badge ${docTypeTone(doc.document_type)}`}>{doc.document_type}</span>');
   });
 });
 
