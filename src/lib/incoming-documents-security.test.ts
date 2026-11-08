@@ -67,3 +67,25 @@ describe("Form Tiếp nhận công văn mới — 2 ô ngày có nhãn hiển th
     expect(client).not.toContain('type="date" title="Hạn xử lý (tùy chọn)"');
   });
 });
+
+// Báo cáo thực tế: "Các loại công văn nên có list chọn: Công văn hướng dẫn,
+// Công văn chỉ đạo, Công văn đôn đốc; Công văn đề nghị, yêu cầu, Công văn
+// phúc đáp, Công văn giải trình, Công văn thông báo, Khác" — trước đây
+// document_type là input gõ tay tự do (mỗi người ghi một kiểu, không nhất
+// quán). Đổi thành select cố định đúng 8 loại người dùng liệt kê.
+describe("Loại công văn (document_type) là list chọn cố định, không còn gõ tay tự do", () => {
+  const client = read("src/components/incoming-documents-client.tsx");
+
+  it("định nghĩa đúng 8 loại công văn theo đúng thứ tự người dùng liệt kê, kết thúc bằng 'Khác'", () => {
+    expect(client).toContain(
+      'const INCOMING_DOCUMENT_TYPES = [\n  "Công văn hướng dẫn",\n  "Công văn chỉ đạo",\n  "Công văn đôn đốc",\n  "Công văn đề nghị, yêu cầu",\n  "Công văn phúc đáp",\n  "Công văn giải trình",\n  "Công văn thông báo",\n  "Khác",\n] as const;',
+    );
+  });
+
+  it("form Tiếp nhận công văn mới dùng select (không còn input gõ tay) cho Loại công văn, có option rỗng để vẫn là tùy chọn", () => {
+    expect(client).not.toContain('placeholder="Loại công văn (tùy chọn)"');
+    expect(client).toContain('<select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value)}>');
+    expect(client).toContain('<option value="">— Chọn loại công văn (tùy chọn) —</option>');
+    expect(client).toContain('{INCOMING_DOCUMENT_TYPES.map((t) => (');
+  });
+});

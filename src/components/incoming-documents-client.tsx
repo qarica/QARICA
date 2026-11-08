@@ -9,6 +9,23 @@ import {
   type AssignmentTargetOption,
 } from "@/components/assignment-target-select";
 
+// Báo cáo thực tế: "Các loại công văn nên có list chọn" — trước đây
+// document_type là input gõ tay tự do, mỗi người ghi một kiểu (không nhất
+// quán, khó lọc/thống kê sau này). Danh mục cố định theo đúng 8 loại người
+// dùng liệt kê — đây là phân loại nghiệp vụ hành chính chung (không khoá
+// cứng theo 1 tổ chức/năm cụ thể, CLAUDE.md nguyên tắc 1), nên định nghĩa
+// cố định như DOCUMENT_TYPES ở module document-publications là hợp lý.
+const INCOMING_DOCUMENT_TYPES = [
+  "Công văn hướng dẫn",
+  "Công văn chỉ đạo",
+  "Công văn đôn đốc",
+  "Công văn đề nghị, yêu cầu",
+  "Công văn phúc đáp",
+  "Công văn giải trình",
+  "Công văn thông báo",
+  "Khác",
+] as const;
+
 type Department = { id: string; name: string };
 type Profile = { user_id: string; full_name: string | null; email: string | null; primary_department_id: string | null };
 type Task = {
@@ -309,7 +326,14 @@ export function IncomingDocumentsClient({
               </label>
               <input className="input" placeholder="Cơ quan ban hành..." value={issuingAuthority} onChange={(e) => setIssuingAuthority(e.target.value)} />
               <input className="input" placeholder="Số văn bản (tùy chọn)" value={documentNo} onChange={(e) => setDocumentNo(e.target.value)} />
-              <input className="input" placeholder="Loại công văn (tùy chọn)" value={documentType} onChange={(e) => setDocumentType(e.target.value)} />
+              <select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value)}>
+                <option value="">— Chọn loại công văn (tùy chọn) —</option>
+                {INCOMING_DOCUMENT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
               <label className="doc-task-field">
                 <span>Hạn xử lý (tùy chọn)</span>
                 <input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
