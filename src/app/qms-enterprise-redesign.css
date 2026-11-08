@@ -41,13 +41,13 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
 
 /* Sidebar */
 .workspace-app .sidebar{
-  width:276px!important;
+  width:320px!important;
   background:var(--qms-sidebar)!important;
   color:#343A40!important;
   border-right:1px solid var(--qms-line)!important;
   box-shadow:4px 0 18px rgba(33,37,41,.04)!important;
 }
-.workspace-app .main-shell{margin-left:276px!important}
+.workspace-app .main-shell{margin-left:320px!important}
 .workspace-app .sidebar-brand{
   min-height:78px!important;
   padding:14px 16px!important;
@@ -207,8 +207,8 @@ html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
 .workspace-app .main-shell{background:#f5f8fc}
 .workspace-app .content{max-width:1760px;padding:24px 28px 36px}
 .workspace-app .topbar{height:68px;background:rgba(255,255,255,.97)!important;border-bottom:1px solid #dfe8f2!important;box-shadow:0 2px 12px rgba(26,65,110,.035)}
-.workspace-app .sidebar{width:248px!important;box-shadow:4px 0 18px rgba(27,67,112,.045)!important}
-.workspace-app .main-shell{margin-left:248px!important}
+.workspace-app .sidebar{width:320px!important;box-shadow:4px 0 18px rgba(27,67,112,.045)!important}
+.workspace-app .main-shell{margin-left:320px!important}
 .workspace-app .sidebar-brand{min-height:68px!important;padding:10px 14px!important}
 .workspace-app .sidebar-brand-copy strong{font-size:18px!important;letter-spacing:.02em}.workspace-app .sidebar-brand-copy span{font-size:10px!important;letter-spacing:.04em}
 .workspace-app .sidebar-nav{padding:9px 7px 88px!important}.workspace-app .nav-section{margin-bottom:7px!important}.workspace-app .nav-label{padding:8px 12px 4px!important;font-size:9px!important;letter-spacing:.1em!important}

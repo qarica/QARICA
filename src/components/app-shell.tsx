@@ -140,7 +140,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
   // same brand color as the rest of the app, not a stale fallback.
   return <div className="app-root workspace-app" style={{ ["--brand" as string]: organization?.primary_color || "#1D4ED8" }}>
     <style>{`
-      .workspace-app{--sidebar-width:266px;--sidebar-collapsed-width:76px;background:#f5f8fc;color:#0f172a}
+      .workspace-app{--sidebar-width:320px;--sidebar-collapsed-width:76px;background:#f5f8fc;color:#0f172a}
       .workspace-app .main-shell{margin-left:var(--sidebar-width);padding-top:68px;transition:margin-left .2s}
       .workspace-app .main-shell.sidebar-collapsed{margin-left:var(--sidebar-collapsed-width)}
       .workspace-app .sidebar{width:var(--sidebar-width);transition:width .2s,transform .2s}
@@ -162,7 +162,7 @@ export function AppShell({ children, user, organization, navGroups, year }: { ch
       .workspace-app .sidebar:not(.collapsed) .sidebar-collapse{margin-left:auto;color:#64748b;background:#fff;border:1px solid #e5eaf2}
       .workspace-app .qarica-topbar{background:#ffffff!important;background-image:none!important;backdrop-filter:none;border-bottom:1px solid #e5eaf2;min-height:68px;padding:10px 22px;box-shadow:0 1px 2px rgba(15,23,42,.03);color:#0f172a}
       .workspace-app .topbar:before{content:none}
-      .workspace-app .topbar{position:fixed;left:var(--sidebar-width,266px);right:0;width:auto;max-width:none;display:flex;align-items:center;gap:16px}
+      .workspace-app .topbar{position:fixed;left:var(--sidebar-width,320px);right:0;width:auto;max-width:none;display:flex;align-items:center;gap:16px}
       .workspace-app .main-shell.sidebar-collapsed .topbar{left:var(--sidebar-collapsed-width,76px)}
       .workspace-app .topbar-left,.workspace-app .topbar-right{position:relative;z-index:1}
       .workspace-app .topbar-left{display:flex;align-items:center;gap:16px;min-width:0;flex:1 1 auto}
