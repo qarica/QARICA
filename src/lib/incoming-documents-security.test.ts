@@ -115,3 +115,28 @@ describe("Bảng theo dõi công văn — cột Đính kèm tách riêng, ngay s
     expect(client).not.toContain("colSpan={canManage ? 9 : 8}");
   });
 });
+
+// Báo cáo thực tế (2 ảnh chụp điện thoại): "Lỗi giao diện khi bấm vào nút
+// công việc" — bấm "Chưa có ▴" mở panel giao việc (Nội dung, Chủ trì *,
+// Phối hợp, ngày, Giao công việc) nhưng cả form bị bóp vào 1 cột hẹp ~300px
+// lệch phải, để trống mảng xám lớn bên trái. Nguyên nhân: CSS responsive
+// biến mỗi <td> thành grid "nhãn 105px | giá trị 1fr" trong
+// final-visual-lock.css, áp dụng luôn cho <td colSpan className=
+// "doc-task-panel-cell"> dù nó không có data-label (không phải cặp
+// nhãn:giá trị, mà là panel full-width) — toàn bộ form bị nhồi vào cột 1fr
+// còn lại. Đã sửa bằng override display:block!important giống cách đã làm
+// cho td.empty-state (cùng khối @media, cùng nguyên nhân).
+describe("Panel giao việc (doc-task-panel-cell) không còn bị bóp cột hẹp trên di động", () => {
+  const css = read("src/app/final-visual-lock.css");
+
+  it("td.doc-task-panel-cell có override display:block!important, không còn kế thừa grid nhãn:giá trị của td chung", () => {
+    expect(css).toContain(".incoming-doc-overview .table-wrap tbody td.doc-task-panel-cell{display:block!important}");
+  });
+
+  it("override đứng sau rule td.empty-state đã sửa trước đó trong cùng khối @media (cùng gốc lỗi)", () => {
+    const emptyStateIdx = css.indexOf(".incoming-doc-overview .table-wrap tbody td.empty-state{display:block!important}");
+    const panelCellIdx = css.indexOf(".incoming-doc-overview .table-wrap tbody td.doc-task-panel-cell{display:block!important}");
+    expect(emptyStateIdx).toBeGreaterThan(-1);
+    expect(panelCellIdx).toBeGreaterThan(emptyStateIdx);
+  });
+});

@@ -926,6 +926,18 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .incoming-doc-overview .table-wrap tbody td :is(input,select){min-width:0;width:100%;font-size:16px}
  .incoming-doc-overview .doc-edit-actions{display:flex;flex-wrap:wrap;gap:8px}
  .incoming-doc-overview .table-wrap tbody td.empty-state{display:block!important}
+ /* Real report (phone screenshot): clicking "Công việc" expands a colSpan
+    td (.doc-task-panel-cell, no data-label — it's a full-width panel, not a
+    label:value pair) into the task-assignment form, but the generic td rule
+    above forces display:grid with a 105px label column + 1fr value column
+    on EVERY td regardless of content. With no data-label text to fill the
+    empty :before pseudo-element's grid cell, the entire form (Nội dung,
+    Chủ trì, Phối hợp, Mô tả, Giao công việc) got placed in the remaining
+    ~minmax(0,1fr) column, squeezed to a narrow strip instead of the full
+    row width. Same fix already applied to the other full-width exception,
+    td.empty-state, two lines above — this cell needs the identical
+    override. */
+ .incoming-doc-overview .table-wrap tbody td.doc-task-panel-cell{display:block!important}
 }
 
 @media(max-width:760px){
