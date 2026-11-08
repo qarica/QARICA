@@ -167,6 +167,25 @@ describe("Loại công văn hiện badge màu theo mức ưu tiên xử lý", ()
 // nhãn:giá trị, mà là panel full-width) — toàn bộ form bị nhồi vào cột 1fr
 // còn lại. Đã sửa bằng override display:block!important giống cách đã làm
 // cho td.empty-state (cùng khối @media, cùng nguyên nhân).
+// Báo cáo thực tế: "Xem lại dàn trang luôn" (ảnh chụp bảng trên màn hình
+// rộng) — table-layout mặc định chia đều chiều rộng cho cả 12 cột, cột
+// Trích yếu (nội dung dài) bị bóp hẹp, xuống dòng nhiều lần, hàng cao bất
+// thường, các cột ngắn thừa khoảng trắng. Đặt min-width cho bảng + cột
+// Trích yếu để trình duyệt ưu tiên đúng, .table-wrap đã có overflow-x:auto
+// sẵn để cuộn ngang trên màn hẹp hơn — cùng cách tasks/page.tsx đã làm cho
+// bảng "Việc của tôi" (th/td:nth-child(2){min-width:180px}).
+describe("Bảng theo dõi công văn trên màn hình rộng: cột Trích yếu không còn bị bóp hẹp bất thường", () => {
+  const client = read("src/components/incoming-documents-client.tsx");
+
+  it("đặt min-width cho <table> để trình duyệt không chia đều 12 cột trong 1 viewport hẹp hơn nội dung thật cần", () => {
+    expect(client).toContain(".table-wrap table {\n          min-width: 1500px;\n        }");
+  });
+
+  it("cột Trích yếu (thứ 3, nhiều chữ nhất) có min-width riêng rộng hơn hẳn mức chia đều", () => {
+    expect(client).toContain(".table-wrap th:nth-child(3),\n        .table-wrap td:nth-child(3) {\n          min-width: 280px;\n        }");
+  });
+});
+
 describe("Panel giao việc (doc-task-panel-cell) không còn bị bóp cột hẹp trên di động", () => {
   const css = read("src/app/final-visual-lock.css");
 
