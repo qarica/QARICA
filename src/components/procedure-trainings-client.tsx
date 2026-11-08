@@ -36,6 +36,18 @@ type Attendee = {
   notes: string | null;
 };
 
+// Báo cáo thực tế: "Phần theo dõi quy trình đào tạo chưa thấy kết nối với
+// kiểm soát tài liệu... nên làm menu theo dõi gồm cả 2 nội dung [Tự đọc
+// hiểu + Cần đào tạo] để control chứ ko đưa phần xác nhận vào thư viện văn
+// bản" — "Tự đọc hiểu" dời từ document-publications-client.tsx sang đây
+// nguyên vẹn logic (ackCount/hasAcked/unconfirmedStaff/acknowledge), chỉ đổi
+// nơi hiển thị. SelfReadDocument chỉ cần 4 cột hiển thị, không cần toàn bộ
+// shape DocumentPublication (loại/bước/đơn vị soạn thảo... không liên quan
+// tới việc xác nhận đã đọc).
+type SelfReadDocument = { id: string; title: string; document_code: string | null; version_label: string; effective_date: string | null };
+type Acknowledgment = { document_publication_id: string; user_id: string };
+type Staff = { id: string; name: string };
+
 const STATUS_LABEL: Record<string, string> = {
   TRAINED: "Đã đào tạo",
   PLANNED: "Chưa đào tạo — đã có kế hoạch",
@@ -48,11 +60,31 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short" }).format(new Date(`${value}T00:00:00`));
 }
 
-export function ProcedureTrainingsClient({ initialTrainings, canManage }: { initialTrainings: Training[]; canManage: boolean }) {
+export function ProcedureTrainingsClient({
+  initialTrainings,
+  canManage,
+  selfReadDocuments,
+  acknowledgments,
+  staffRoster,
+  currentUserId,
+  canManageDocuments,
+}: {
+  initialTrainings: Training[];
+  canManage: boolean;
+  selfReadDocuments: SelfReadDocument[];
+  acknowledgments: Acknowledgment[];
+  staffRoster: Staff[];
+  currentUserId: string;
+  canManageDocuments: boolean;
+}) {
+  const [view, setView] = useState<"training" | "self_read">("training");
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [trainings, setTrainings] = useState(initialTrainings);
   const [listQuery, setListQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [acks, setAcks] = useState(acknowledgments);
+  const [acknowledging, setAcknowledging] = useState<string | null>(null);
+  const [unconfirmedOpenId, setUnconfirmedOpenId] = useState<string | null>(null);
   const [procedureCode, setProcedureCode] = useState("");
   const [procedureName, setProcedureName] = useState("");
   const [draftingUnit, setDraftingUnit] = useState("");
@@ -96,6 +128,27 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
     setProcedureName("");
     setDraftingUnit("");
     setEffectiveDate("");
+  }
+
+  const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId).length;
+  const hasAcked = (documentId: string) => acks.some((a) => a.document_publication_id === documentId && a.user_id === currentUserId);
+  // Chưa xác nhận = toàn bộ nhân sự đang hoạt động - những ai đã có trong acks.
+  const unconfirmedStaff = (documentId: string) => {
+    const ackedIds = new Set(acks.filter((a) => a.document_publication_id === documentId).map((a) => a.user_id));
+    return staffRoster.filter((s) => !ackedIds.has(s.id));
+  };
+
+  async function acknowledge(doc: SelfReadDocument) {
+    setAcknowledging(doc.id);
+    setError("");
+    const res = await fetch(`/api/document-publications/${doc.id}/acknowledge`, { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    setAcknowledging(null);
+    if (!res.ok) {
+      setError(body.error || "Không xác nhận được.");
+      return;
+    }
+    setAcks((v) => [...v, { document_publication_id: doc.id, user_id: currentUserId }]);
   }
 
   function startEdit(t: Training) {
@@ -281,6 +334,20 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
     <div className="pt-overview mobile-module-redesign">
       <div className="mobile-workflow-kpis"><div><small>Tổng quy trình</small><strong>{trainings.length}</strong></div><div><small>Đã đào tạo</small><strong>{trainings.filter((t) => t.status === "TRAINED").length}</strong></div><div><small>Chưa có kế hoạch</small><strong>{trainings.filter((t) => t.status === "NOT_PLANNED").length}</strong></div></div>
       {rosterModal}
+      {/* Báo cáo thực tế: "Phần theo dõi quy trình đào tạo chưa thấy kết nối
+          với kiểm soát tài liệu... nên làm menu theo dõi gồm cả 2 nội dung
+          [Tự đọc hiểu + Cần đào tạo] để control" — 1 menu theo dõi, 2 tab,
+          thay vì 2 trang/menu tách rời như trước. */}
+      <div className="pt-view-tabs" role="group" aria-label="Hình thức phổ biến">
+        <button type="button" className={view === "training" ? "active" : ""} aria-pressed={view === "training"} onClick={() => setView("training")}>
+          Cần đào tạo
+        </button>
+        <button type="button" className={view === "self_read" ? "active" : ""} aria-pressed={view === "self_read"} onClick={() => setView("self_read")}>
+          Tự đọc hiểu
+        </button>
+      </div>
+      {view === "training" ? (
+      <>
       {canManage ? (
         <section className="panel">
           <div className="panel-title">
@@ -489,6 +556,83 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
           </table>
         </div>
       </section>
+      </>
+      ) : (
+        <section className="panel">
+          <div className="panel-title">
+            <div>
+              <h2>Tự đọc hiểu</h2>
+              <p>Từng nhân viên tự bấm xác nhận đã đọc & hiểu — theo dõi ai còn chưa xác nhận để nhắc.</p>
+            </div>
+          </div>
+          {error ? <div className="alert error">{error}</div> : null}
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mã văn bản</th>
+                  <th>Tên văn bản</th>
+                  <th>Phiên bản</th>
+                  <th>Ngày hiệu lực</th>
+                  <th>Xác nhận</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selfReadDocuments.map((d) => (
+                  <tr key={d.id}>
+                    <td>{d.document_code || "—"}</td>
+                    <td>
+                      {d.title} <Link className="table-link" href="/document-publications">Xem →</Link>
+                    </td>
+                    <td>{d.version_label}</td>
+                    <td>{formatDate(d.effective_date)}</td>
+                    <td>
+                      <div className="pt-ack">
+                        <span className="status-badge success">{ackCount(d.id)} đã xác nhận</span>
+                        {canManageDocuments ? (
+                          <button type="button" className="button tertiary small" onClick={() => setUnconfirmedOpenId(unconfirmedOpenId === d.id ? null : d.id)}>
+                            {unconfirmedStaff(d.id).length} chưa xác nhận {unconfirmedOpenId === d.id ? "▾" : "▸"}
+                          </button>
+                        ) : null}
+                        {hasAcked(d.id) ? (
+                          <span className="pt-ack-done">✓ Bạn đã xác nhận</span>
+                        ) : (
+                          <button type="button" className="button secondary small" disabled={acknowledging === d.id} onClick={() => void acknowledge(d)}>
+                            {acknowledging === d.id ? "..." : "Tôi đã đọc và hiểu"}
+                          </button>
+                        )}
+                        {unconfirmedOpenId === d.id ? (
+                          <div className="pt-unconfirmed-list">
+                            {unconfirmedStaff(d.id).length ? (
+                              unconfirmedStaff(d.id)
+                                .slice(0, 30)
+                                .map((s) => (
+                                  <span key={s.id} className="chip">
+                                    {s.name}
+                                  </span>
+                                ))
+                            ) : (
+                              <small>Mọi người đã xác nhận.</small>
+                            )}
+                            {unconfirmedStaff(d.id).length > 30 ? <small>+{unconfirmedStaff(d.id).length - 30} người khác</small> : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!selfReadDocuments.length ? (
+                  <tr>
+                    <td colSpan={5} className="empty-state compact">
+                      Chưa có văn bản nào chọn hình thức Tự đọc hiểu.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
       <style jsx>{`
         .pt-overview {
           display: grid;
@@ -512,6 +656,44 @@ export function ProcedureTrainingsClient({ initialTrainings, canManage }: { init
         .pt-edit-actions {
           display: flex;
           gap: 6px;
+        }
+        .pt-view-tabs {
+          display: flex;
+          gap: 7px;
+          flex-wrap: wrap;
+        }
+        .pt-view-tabs button {
+          border: 1px solid var(--line);
+          border-radius: 999px;
+          background: #fff;
+          padding: 9px 13px;
+          white-space: nowrap;
+          color: var(--muted);
+          font-weight: 700;
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .pt-view-tabs button.active {
+          background: var(--brand);
+          color: #fff;
+          border-color: var(--brand);
+        }
+        .pt-ack {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .pt-ack-done {
+          font-size: 12px;
+          color: var(--muted);
+        }
+        .pt-unconfirmed-list {
+          flex-basis: 100%;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-top: 4px;
         }
         @media (max-width: 900px) {
           .pt-form-row {

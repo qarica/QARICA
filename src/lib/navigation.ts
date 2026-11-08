@@ -122,7 +122,15 @@ const NAV_GROUPS: NavGroupDef[] = [
     icon: "file-text",
     children: [
       { label: "Kiểm soát tài liệu", href: "/document-publications", icon: "file-text", permission: "document_publication.view" },
-      { label: "Đào tạo quy trình", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" },
+      // Báo cáo thực tế: "Phần theo dõi quy trình đào tạo chưa thấy kết nối với
+      // kiểm soát tài liệu... nên làm menu theo dõi gồm cả 2 nội dung [Tự đọc
+      // hiểu + Cần đào tạo] để control chứ ko đưa phần xác nhận vào thư viện
+      // văn bản" — trang này giờ theo dõi CẢ 2 hình thức phổ biến tài liệu
+      // (DISSEMINATION_TYPES), không chỉ Cần đào tạo như tên cũ. anyPermissions
+      // thay vì permission đơn: ai xem được 1 trong 2 module liên quan
+      // (document_publication.view hoặc procedure_training.view) đều thấy menu
+      // theo dõi chung này.
+      { label: "Phổ biến & đào tạo", href: "/procedure-trainings", icon: "book-open", anyPermissions: ["procedure_training.view", "document_publication.view"] },
     ],
   },
   {

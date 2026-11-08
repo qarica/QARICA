@@ -57,16 +57,28 @@ describe("Công văn/Phát hành văn bản/Mua sắm: audit_logs + validate dep
   });
 });
 
+// "Tự đọc hiểu" dời sang /procedure-trainings (menu theo dõi gộp chung với
+// "Cần đào tạo" — xem procedure-trainings-security.test.ts và
+// document-publications-security.test.ts describe "phổ biến... dời sang
+// /procedure-trainings" cho các assertion đầy đủ hơn). 2 test dưới đây chỉ
+// còn xác nhận ĐÚNG NƠI logic này hiện sống, không còn ở document-publications.
 describe("Phát hành văn bản: xác nhận 'Tự đọc hiểu' hiện danh sách chưa xác nhận, không chỉ đếm số", () => {
-  it("trang server fetch toàn bộ nhân sự đang hoạt động để tính phần bù chưa xác nhận", () => {
-    const page = read("src/app/(app)/document-publications/page.tsx");
+  it("trang procedure-trainings/page.tsx (menu theo dõi gộp) fetch toàn bộ nhân sự đang hoạt động để tính phần bù chưa xác nhận", () => {
+    const page = read("src/app/(app)/procedure-trainings/page.tsx");
     expect(page).toContain('.from("profiles").select("user_id,full_name,email").eq("organization_id", user.organizationId).eq("is_active", true)');
     expect(page).toContain("staffRoster=");
   });
 
-  it("client tính unconfirmedStaff = staffRoster trừ những ai đã có trong acks, và có nút mở danh sách", () => {
-    const client = read("src/components/document-publications-client.tsx");
+  it("client procedure-trainings-client.tsx tính unconfirmedStaff = staffRoster trừ những ai đã có trong acks, và có nút mở danh sách", () => {
+    const client = read("src/components/procedure-trainings-client.tsx");
     expect(client).toContain("const unconfirmedStaff = (documentId: string) =>");
     expect(client).toContain("chưa xác nhận");
+  });
+
+  it("không còn sống trong document-publications-client.tsx — Thư viện văn bản chỉ còn 1 liên kết trỏ sang /procedure-trainings", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).not.toContain("const unconfirmedStaff = (documentId: string) =>");
+    expect(client).not.toContain("Tôi đã đọc và hiểu");
+    expect(client).toContain("Tự đọc hiểu - xem tiến độ →");
   });
 });

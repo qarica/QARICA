@@ -17,7 +17,6 @@ import {
 } from "@/lib/document-publication-types";
 
 type Department = { id: string; name: string };
-type Acknowledgment = { document_publication_id: string; user_id: string };
 type Staff = { id: string; name: string };
 type DocumentPublication = {
   id: string;
@@ -64,18 +63,14 @@ type StatsRow = { drafting_department_id: string | null; document_type: Document
 export function DocumentPublicationsClient({
   departments,
   initialDocuments,
-  acknowledgments,
   staffRoster,
   initialStatsRows,
-  currentUserId,
   canManage,
 }: {
   departments: Department[];
   initialDocuments: DocumentPublication[];
-  acknowledgments: Acknowledgment[];
   staffRoster: Staff[];
   initialStatsRows: StatsRow[];
-  currentUserId: string;
   canManage: boolean;
 }) {
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
@@ -90,7 +85,6 @@ export function DocumentPublicationsClient({
   // mặc định thay vì tách hẳn sang tab/menu con riêng.
   const [statsOpen, setStatsOpen] = useState(false);
   const [listQuery, setListQuery] = useState("");
-  const [acks, setAcks] = useState(acknowledgments);
   const [title, setTitle] = useState("");
   const [documentType, setDocumentType] = useState<DocumentPublicationType>(DOCUMENT_TYPES[0]);
   const [draftingDepartmentId, setDraftingDepartmentId] = useState("");
@@ -124,8 +118,6 @@ export function DocumentPublicationsClient({
   // phát hành — không thêm ở bước "Đề nghị" vì lúc đó chưa có bản phát hành
   // chính thức nào để gắn số.
   const [versionLabel, setVersionLabel] = useState("01");
-  const [acknowledging, setAcknowledging] = useState<string | null>(null);
-  const [unconfirmedOpenId, setUnconfirmedOpenId] = useState<string | null>(null);
 
   // Thư viện văn bản: nhóm "Đã phát hành" theo khoa/phòng soạn thảo thành
   // các thư mục đóng/mở, mỗi văn bản có thể đính kèm 1 file lưu trữ. Có ô
@@ -233,28 +225,6 @@ export function DocumentPublicationsClient({
     .map((d) => ({ key: d.id, name: d.name, count: statsRows.filter((row) => row.drafting_department_id === d.id).length }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "vi"));
   const statsByType = DOCUMENT_TYPES.map((t) => ({ key: t, name: DOCUMENT_TYPE_LABEL[t], count: statsRows.filter((row) => row.document_type === t).length }));
-
-  const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId).length;
-  const hasAcked = (documentId: string) => acks.some((a) => a.document_publication_id === documentId && a.user_id === currentUserId);
-  // Trước đây chỉ hiện "N đã xác nhận" — không biết AI còn chưa đọc để nhắc.
-  // Chưa xác nhận = toàn bộ nhân sự đang hoạt động - những ai đã có trong acks.
-  const unconfirmedStaff = (documentId: string) => {
-    const ackedIds = new Set(acks.filter((a) => a.document_publication_id === documentId).map((a) => a.user_id));
-    return staffRoster.filter((s) => !ackedIds.has(s.id));
-  };
-
-  async function acknowledge(doc: DocumentPublication) {
-    setAcknowledging(doc.id);
-    setError("");
-    const res = await fetch(`/api/document-publications/${doc.id}/acknowledge`, { method: "POST" });
-    const body = await res.json().catch(() => ({}));
-    setAcknowledging(null);
-    if (!res.ok) {
-      setError(body.error || "Không xác nhận được.");
-      return;
-    }
-    setAcks((v) => [...v, { document_publication_id: doc.id, user_id: currentUserId }]);
-  }
 
   function targetLabel(d: DocumentPublication) {
     return `${d.document_code ? `${d.document_code} - ` : ""}${d.title} (${d.version_label})`;
@@ -944,36 +914,22 @@ export function DocumentPublicationsClient({
                                 {status ? <span className={`status-badge ${status.tone}`}> {status.label}</span> : null}
                               </td>
                               <td>
+                                {/* Báo cáo thực tế: "Phần theo dõi quy trình đào tạo chưa thấy kết nối
+                                    với kiểm soát tài liệu... nên làm menu theo dõi gồm cả 2 nội dung
+                                    [Tự đọc hiểu + Cần đào tạo] để control chứ ko đưa phần xác nhận vào
+                                    thư viện văn bản" — toàn bộ việc tự xác nhận đã đọc & theo dõi "Tự
+                                    đọc hiểu" (đếm đã xác nhận, danh sách chưa xác nhận, nút tự xác nhận)
+                                    đã dời sang trang /procedure-trainings (tab "Tự đọc hiểu"), cùng 1 nơi
+                                    với "Cần đào tạo" thay vì tách rời 2 nơi. Thư viện văn bản chỉ còn 1
+                                    liên kết trỏ sang, giống hệt cách TRAINING_REQUIRED đã làm từ trước. */}
                                 {d.dissemination_type === "TRAINING_REQUIRED" ? (
                                   <a href="/procedure-trainings" className="dp-dissemination-link">
                                     Cần đào tạo - xem tiến độ →
                                   </a>
                                 ) : d.dissemination_type === "SELF_READ" ? (
-                                  <div className="dp-ack">
-                                    <span className="status-badge success">{ackCount(d.id)} đã xác nhận</span>
-                                    {canManage ? (
-                                      <button type="button" className="button tertiary small" onClick={() => setUnconfirmedOpenId(unconfirmedOpenId === d.id ? null : d.id)}>
-                                        {unconfirmedStaff(d.id).length} chưa xác nhận {unconfirmedOpenId === d.id ? "▾" : "▸"}
-                                      </button>
-                                    ) : null}
-                                    {hasAcked(d.id) ? (
-                                      <span className="dp-ack-done">✓ Bạn đã xác nhận</span>
-                                    ) : (
-                                      <button type="button" className="button secondary small" disabled={acknowledging === d.id} onClick={() => void acknowledge(d)}>
-                                        {acknowledging === d.id ? "..." : "Tôi đã đọc và hiểu"}
-                                      </button>
-                                    )}
-                                    {unconfirmedOpenId === d.id ? (
-                                      <div className="dp-unconfirmed-list">
-                                        {unconfirmedStaff(d.id).length ? (
-                                          unconfirmedStaff(d.id).slice(0, 30).map((s) => <span key={s.id} className="chip">{s.name}</span>)
-                                        ) : (
-                                          <small>Mọi người đã xác nhận.</small>
-                                        )}
-                                        {unconfirmedStaff(d.id).length > 30 ? <small>+{unconfirmedStaff(d.id).length - 30} người khác</small> : null}
-                                      </div>
-                                    ) : null}
-                                  </div>
+                                  <a href="/procedure-trainings" className="dp-dissemination-link">
+                                    Tự đọc hiểu - xem tiến độ →
+                                  </a>
                                 ) : (
                                   "—"
                                 )}
@@ -1274,23 +1230,6 @@ export function DocumentPublicationsClient({
           align-items: flex-start;
           gap: 6px;
           flex-wrap: wrap;
-        }
-        .dp-unconfirmed-list {
-          flex-basis: 100%;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
-          margin-top: 4px;
-        }
-        .dp-ack {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        .dp-ack-done {
-          font-size: 12px;
-          color: var(--muted);
         }
         .dp-dissemination-link {
           font-size: 13px;

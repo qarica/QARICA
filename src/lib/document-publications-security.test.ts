@@ -30,7 +30,7 @@ describe("Document publications module security and control gates", () => {
     expect(client).toContain("Đề nghị văn bản mới");
   });
 
-  it("is reachable from the sidebar only behind document_publication.view (now a child row inside the merged QUẢN LÝ VĂN BẢN group, alongside Đào tạo quy trình)", () => {
+  it("is reachable from the sidebar only behind document_publication.view (now a child row inside the merged QUẢN LÝ VĂN BẢN group, alongside Phổ biến & đào tạo)", () => {
     const nav = read("src/lib/navigation.ts");
     expect(nav).toContain('{ label: "Kiểm soát tài liệu", href: "/document-publications", icon: "file-text", permission: "document_publication.view" }');
   });
@@ -252,9 +252,13 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
     expect(client).toContain("Thư viện văn bản</h2>");
     expect(client).toContain("publishedGroups.map((group) =>");
     expect(client).toContain("const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());");
-    // Vẫn giữ nguyên cơ chế xác nhận "Tự đọc hiểu" / liên kết Đào tạo bên trong thư mục.
+    // "Tự đọc hiểu"/"Cần đào tạo" bên trong thư mục giờ chỉ còn 1 liên kết trỏ
+    // sang /procedure-trainings (menu theo dõi gộp) — không còn tự xác nhận
+    // tại chỗ ở đây nữa, xem describe "Theo dõi phổ biến & đào tạo..." trong
+    // procedure-trainings-security.test.ts cho cơ chế xác nhận đầy đủ.
     expect(client).toContain('Cần đào tạo - xem tiến độ →');
-    expect(client).toContain("Tôi đã đọc và hiểu");
+    expect(client).toContain('Tự đọc hiểu - xem tiến độ →');
+    expect(client).not.toContain("Tôi đã đọc và hiểu");
   });
 
   it("UI: xem/tải file không cần canManage, nhưng đính kèm mới và xoá file chỉ hiện cho canManage", () => {

@@ -14,9 +14,9 @@ describe("Procedure trainings module security and control gates", () => {
     expect(read("src/app/api/procedure-trainings/[id]/route.ts")).toContain('requireApiPermission("procedure_training.manage")');
   });
 
-  it("is reachable from the sidebar only behind procedure_training.view (now a child row inside the merged QUẢN LÝ VĂN BẢN group, alongside Kiểm soát tài liệu)", () => {
+  it("is reachable from the sidebar behind procedure_training.view OR document_publication.view (child row inside the merged QUẢN LÝ VĂN BẢN group — combined Phổ biến & đào tạo tracking menu, alongside Kiểm soát tài liệu)", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "Đào tạo quy trình", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" }');
+    expect(nav).toContain('{ label: "Phổ biến & đào tạo", href: "/procedure-trainings", icon: "book-open", anyPermissions: ["procedure_training.view", "document_publication.view"] }');
   });
 
   it("keeps every write tenant-scoped by organization_id", () => {
@@ -98,5 +98,44 @@ describe("Procedure trainings track per-employee attendance for a real completio
     expect(client).toContain("Quản lý nhân sự");
     expect(client).toContain("t.attendee_attended}/{t.attendee_total}");
     expect(client).toContain("canManage ? (\n            <div style={{ display: \"grid\", gridTemplateColumns: \"2fr 1fr auto\", gap: 8 }}>");
+  });
+});
+
+// Báo cáo thực tế: "Phần theo dõi quy trình đào tạo chưa thấy kết nối với
+// kiểm soát tài liệu. Vì tài liệu chia làm 2 loại là Tự đọc hiểu và cần đào
+// tạo nên a nghĩ mình nên làm menu theo dõi gồm cả 2 nội dung này để control
+// chứ ko đưa phần xác nhận vào thư viện văn bản" — trang này giờ có 2 tab
+// (Cần đào tạo / Tự đọc hiểu), gộp cả 2 hình thức phổ biến tài liệu
+// (DISSEMINATION_TYPES) vào đúng 1 menu theo dõi, thay vì "Tự đọc hiểu" nằm
+// lạc trong Thư viện văn bản còn "Cần đào tạo" nằm riêng ở đây.
+describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần đào tạo vào 1 menu, 2 tab", () => {
+  it("client có 2 tab Cần đào tạo / Tự đọc hiểu, mặc định mở tab Cần đào tạo", () => {
+    const client = read("src/components/procedure-trainings-client.tsx");
+    expect(client).toContain('const [view, setView] = useState<"training" | "self_read">("training");');
+    expect(client).toContain('<button type="button" className={view === "training" ? "active" : ""} aria-pressed={view === "training"} onClick={() => setView("training")}>');
+    expect(client).toContain('<button type="button" className={view === "self_read" ? "active" : ""} aria-pressed={view === "self_read"} onClick={() => setView("self_read")}>');
+  });
+
+  it("trang server fetch văn bản Tự đọc hiểu đúng điều kiện API acknowledge chấp nhận (PUBLISHED, request_type NEW, dissemination_type SELF_READ)", () => {
+    const page = read("src/app/(app)/procedure-trainings/page.tsx");
+    expect(page).toContain('.eq("stage", "PUBLISHED")');
+    expect(page).toContain('.eq("request_type", "NEW")');
+    expect(page).toContain('.eq("dissemination_type", "SELF_READ")');
+    expect(page).toContain("selfReadDocuments={selfReadDocs as any}");
+  });
+
+  it("tab Tự đọc hiểu tái dùng nguyên API /acknowledge đã có sẵn, cùng 1 nguồn sự thật (không tạo route xác nhận thứ 2)", () => {
+    const client = read("src/components/procedure-trainings-client.tsx");
+    expect(client).toContain("fetch(`/api/document-publications/${doc.id}/acknowledge`, { method: \"POST\" })");
+    expect(client).toContain('"Tôi đã đọc và hiểu"');
+    expect(client).toContain("✓ Bạn đã xác nhận");
+  });
+
+  it("nút mở danh sách chưa xác nhận chỉ hiện với canManageDocuments (document_publication.manage), tách biệt canManage (procedure_training.manage) của tab đào tạo", () => {
+    const client = read("src/components/procedure-trainings-client.tsx");
+    expect(client).toContain("canManageDocuments: boolean");
+    expect(client).toContain("canManageDocuments ? (\n                          <button type=\"button\" className=\"button tertiary small\" onClick={() => setUnconfirmedOpenId(unconfirmedOpenId === d.id ? null : d.id)}>");
+    const page = read("src/app/(app)/procedure-trainings/page.tsx");
+    expect(page).toContain('const canManageDocuments = hasPermission(user, "document_publication.manage");');
   });
 });

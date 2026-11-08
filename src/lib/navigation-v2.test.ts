@@ -137,7 +137,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     const block = groupBlock(navigation, "document-publications");
     expect(block).toContain('label: "QUẢN LÝ VĂN BẢN"');
     expect(block).toContain('{ label: "Kiểm soát tài liệu", href: "/document-publications", icon: "file-text", permission: "document_publication.view" }');
-    expect(block).toContain('{ label: "Đào tạo quy trình", href: "/procedure-trainings", icon: "book-open", permission: "procedure_training.view" }');
+    expect(block).toContain('{ label: "Phổ biến & đào tạo", href: "/procedure-trainings", icon: "book-open", anyPermissions: ["procedure_training.view", "document_publication.view"] }');
   });
 
   // Module mới theo yêu cầu tường minh "Kiểm soát nhiễm khuẩn" — phạm vi đã

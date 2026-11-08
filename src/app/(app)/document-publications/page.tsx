@@ -8,7 +8,7 @@ export default async function DocumentPublicationsPage() {
   const canManage = hasPermission(user, "document_publication.manage");
   const supabase = await createClient();
 
-  const [departmentsRes, documentsRes, acknowledgmentsRes, staffRes, statsRes] = await Promise.all([
+  const [departmentsRes, documentsRes, staffRes, statsRes] = await Promise.all([
     supabase.from("departments").select("id,name").eq("is_active", true).order("name"),
     supabase
       .from("document_publications")
@@ -17,10 +17,9 @@ export default async function DocumentPublicationsPage() {
       )
       .order("created_at", { ascending: false })
       .limit(300),
-    supabase.from("document_publication_acknowledgments").select("document_publication_id,user_id").limit(5000),
-    // Trước đây "Tự đọc hiểu" chỉ hiện số lượng đã xác nhận, không biết AI
-    // chưa xác nhận để nhắc — cần toàn bộ nhân sự đang hoạt động của tổ chức
-    // để tính phần bù (chưa xác nhận = toàn bộ - đã xác nhận).
+    // "Tự đọc hiểu" xác nhận/theo dõi đã dời sang /procedure-trainings — chỉ
+    // còn cần roster nhân sự ở đây để hiện tên người phát hành (staffNameById,
+    // cột Lịch sử phiên bản), không còn tính phần bù chưa xác nhận tại trang này.
     supabase.from("profiles").select("user_id,full_name,email").eq("organization_id", user.organizationId).eq("is_active", true).order("full_name"),
     // "Thống kê toàn viện" phải đếm ĐỦ mọi văn bản, không chỉ 300 bản gần
     // nhất mà documentsRes giới hạn cho danh sách làm việc — truy vấn riêng,
@@ -38,10 +37,8 @@ export default async function DocumentPublicationsPage() {
       <DocumentPublicationsClient
         departments={(departmentsRes.data ?? []) as any}
         initialDocuments={(documentsRes.data ?? []) as any}
-        acknowledgments={(acknowledgmentsRes.data ?? []) as any}
         staffRoster={((staffRes.data ?? []) as any[]).map((p) => ({ id: p.user_id, name: p.full_name || p.email || p.user_id }))}
         initialStatsRows={(statsRes.data ?? []) as any}
-        currentUserId={user.id}
         canManage={canManage}
       />
     </div>

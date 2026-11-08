@@ -24,8 +24,9 @@ describe("Đào tạo quy trình hiện liên kết ngược tới văn bản đ
     expect(client).toContain('href="/document-publications"');
   });
 
-  it("không tự dựng link tới 1 trang chi tiết văn bản chưa tồn tại — chỉ về trang danh sách", () => {
+  it("không tự dựng link tới 1 trang chi tiết văn bản chưa tồn tại — chỉ về trang danh sách (API fetch tới /api/document-publications/${doc.id}/acknowledge là route có thật, không phải link UI, nên không tính)", () => {
     const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).not.toContain("/document-publications/${");
+    expect(client).not.toContain("href={`/document-publications/${");
+    expect(client).not.toContain('href="/document-publications/${');
   });
 });

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 export default async function ProcedureTrainingsPage() {
   const { user } = await requireUserContext();
   const canManage = hasPermission(user, "procedure_training.manage");
+  const canManageDocuments = hasPermission(user, "document_publication.manage");
   const supabase = await createClient();
 
   const { data } = await supabase
@@ -49,14 +50,47 @@ export default async function ProcedureTrainingsPage() {
     source_document: t.document_publication_id ? sourceDocMap.get(t.document_publication_id) || null : null,
   }));
 
+  // Báo cáo thực tế: "Phần theo dõi quy trình đào tạo chưa thấy kết nối với
+  // kiểm soát tài liệu... nên làm menu theo dõi gồm cả 2 nội dung [Tự đọc
+  // hiểu + Cần đào tạo] để control chứ ko đưa phần xác nhận vào thư viện văn
+  // bản" — trang này giờ còn theo dõi "Tự đọc hiểu" (tab riêng), dữ liệu lấy
+  // từ document_publications (dissemination_type=SELF_READ, PUBLISHED, request_
+  // type NEW — khớp đúng điều kiện API acknowledge/route.ts chấp nhận xác
+  // nhận). Việc xác nhận ("Tôi đã đọc và hiểu") không còn render trong Thư
+  // viện văn bản nữa, chỉ còn ở đây.
+  const { data: selfReadData } = await supabase
+    .from("document_publications")
+    .select("id,title,document_code,version_label,effective_date")
+    .eq("stage", "PUBLISHED")
+    .eq("request_type", "NEW")
+    .eq("dissemination_type", "SELF_READ")
+    .order("effective_date", { ascending: false })
+    .limit(300);
+  const selfReadDocs = selfReadData ?? [];
+  const selfReadIds = selfReadDocs.map((d) => d.id);
+  const { data: acknowledgmentsData } = selfReadIds.length
+    ? await supabase.from("document_publication_acknowledgments").select("document_publication_id,user_id").in("document_publication_id", selfReadIds)
+    : { data: [] as { document_publication_id: string; user_id: string }[] };
+  // "Tự đọc hiểu" chưa xác nhận = toàn bộ nhân sự đang hoạt động - những ai
+  // đã có trong acks — cần roster đầy đủ để tính phần bù, không chỉ đếm số.
+  const { data: staffData } = await supabase.from("profiles").select("user_id,full_name,email").eq("organization_id", user.organizationId).eq("is_active", true).order("full_name");
+
   return (
     <div className="page-stack procedure-trainings-page">
       <PageHeader
-        title="Theo dõi quy trình đào tạo"
-        description="Theo dõi việc phổ biến/đào tạo quy trình, biểu mẫu mới ban hành cho các đơn vị — đào tạo lần 1 và lần 2 nếu cần đào tạo lại."
+        title="Theo dõi phổ biến & đào tạo"
+        description="Theo dõi việc phổ biến tài liệu sau khi phát hành — Tự đọc hiểu (từng nhân viên tự xác nhận) và Cần đào tạo (đào tạo lần 1, lần 2 nếu cần)."
         icon="list-checks"
       />
-      <ProcedureTrainingsClient initialTrainings={trainings as any} canManage={canManage} />
+      <ProcedureTrainingsClient
+        initialTrainings={trainings as any}
+        canManage={canManage}
+        selfReadDocuments={selfReadDocs as any}
+        acknowledgments={(acknowledgmentsData ?? []) as any}
+        staffRoster={((staffData ?? []) as any[]).map((p) => ({ id: p.user_id, name: p.full_name || p.email || p.user_id }))}
+        currentUserId={user.id}
+        canManageDocuments={canManageDocuments}
+      />
     </div>
   );
 }
