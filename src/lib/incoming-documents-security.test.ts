@@ -202,19 +202,21 @@ describe("Loại công văn hiện badge màu theo mức ưu tiên xử lý", ()
 // Báo cáo thực tế: "Xem lại dàn trang luôn" (ảnh chụp bảng trên màn hình
 // rộng) — table-layout mặc định chia đều chiều rộng cho cả 12 cột, cột
 // Trích yếu (nội dung dài) bị bóp hẹp, xuống dòng nhiều lần, hàng cao bất
-// thường, các cột ngắn thừa khoảng trắng. Đặt min-width cho bảng + cột
-// Trích yếu để trình duyệt ưu tiên đúng, .table-wrap đã có overflow-x:auto
-// sẵn để cuộn ngang trên màn hẹp hơn — cùng cách tasks/page.tsx đã làm cho
-// bảng "Việc của tôi" (th/td:nth-child(2){min-width:180px}).
-describe("Bảng theo dõi công văn trên màn hình rộng: cột Trích yếu không còn bị bóp hẹp bất thường", () => {
+// thường, các cột ngắn thừa khoảng trắng. Lần sửa đầu đặt min-width:1500px
+// cho cả bảng — quá rộng, báo cáo tiếp theo "Xem giao diện phải kéo qua
+// lại" cho thấy bảng giờ lúc nào cũng phải cuộn ngang, kể cả màn hình rộng
+// (~1920px). Bỏ hẳn min-width bảng, chỉ còn min-width vừa đủ cho cột Trích
+// yếu để bảng vẫn vừa trong width:100% của .table-wrap ở màn hình thường —
+// .table-wrap vẫn còn overflow-x:auto làm lưới an toàn cho màn hẹp hơn.
+describe("Bảng theo dõi công văn: cột Trích yếu đủ rộng để đọc, bảng không bắt buộc cuộn ngang ở màn hình thường", () => {
   const client = read("src/components/incoming-documents-client.tsx");
 
-  it("đặt min-width cho <table> để trình duyệt không chia đều 12 cột trong 1 viewport hẹp hơn nội dung thật cần", () => {
-    expect(client).toContain(".table-wrap table {\n          min-width: 1500px;\n        }");
+  it("không còn ép min-width cho cả <table> — để bảng tự vừa trong width:100% của .table-wrap, tránh luôn phải cuộn ngang kể cả màn hình rộng", () => {
+    expect(client).not.toContain("min-width: 1500px");
   });
 
-  it("cột Trích yếu (thứ 3, nhiều chữ nhất) có min-width riêng rộng hơn hẳn mức chia đều", () => {
-    expect(client).toContain(".table-wrap th:nth-child(3),\n        .table-wrap td:nth-child(3) {\n          min-width: 280px;\n        }");
+  it("cột Trích yếu (thứ 3, nhiều chữ nhất) vẫn có min-width riêng, ở mức vừa phải (220px) thay vì đòi hỏi quá nhiều bề rộng", () => {
+    expect(client).toContain(".table-wrap th:nth-child(3),\n        .table-wrap td:nth-child(3) {\n          min-width: 220px;\n        }");
   });
 });
 

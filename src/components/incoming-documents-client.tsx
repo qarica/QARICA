@@ -591,23 +591,22 @@ export function IncomingDocumentsClient({
           display: grid;
           gap: 16px;
         }
-        /* Báo cáo thực tế: "Xem lại dàn trang luôn" — ảnh chụp bảng trên màn
-           hình rộng cho thấy table-layout mặc định (auto) chia đều chiều
-           rộng cho cả 12 cột, khiến cột Trích yếu (nội dung dài) bị bóp hẹp
-           và xuống dòng 6-7 lần, làm hàng cao bất thường, trong khi các cột
-           ngắn (Ngày đến, Trạng thái...) thừa khoảng trắng. Đặt min-width
-           cho <table> (đủ chỗ cho mọi cột, .table-wrap đã có overflow-x:auto
-           sẵn để cuộn ngang trên màn hẹp hơn) + min-width riêng cho cột
-           Trích yếu (thứ 3) để trình duyệt ưu tiên đúng cột cần nhiều chữ
-           nhất — cùng cách tasks/page.tsx đã làm cho bảng "Việc của tôi"
-           (th/td:nth-child(2){min-width:180px}).
+        /* Báo cáo thực tế: "Xem lại dàn trang luôn" — table-layout mặc định
+           (auto) chia đều chiều rộng cho cả 12 cột, khiến cột Trích yếu
+           (nội dung dài) bị bóp hẹp, xuống dòng 6-7 lần, hàng cao bất
+           thường. Lần sửa đầu đặt min-width:1500px cho cả bảng — QUÁ RỘNG:
+           báo cáo tiếp theo "Xem giao diện phải kéo qua lại" cho thấy bảng
+           giờ rộng hơn cả khung nhìn thông thường (~1920px), lúc nào cũng
+           phải cuộn ngang mới xem hết, kể cả màn hình rộng. Bỏ hẳn min-
+           width cho <table> — chỉ còn min-width riêng cho cột Trích yếu
+           (thứ 3, ở mức vừa đủ giảm số dòng xuống, không đòi hỏi quá nhiều
+           bề rộng) để bảng vẫn vừa trong width:100% của .table-wrap ở màn
+           hình thường, .table-wrap vẫn có overflow-x:auto làm lưới an toàn
+           cho màn hẹp hơn (không phải lúc nào cũng cuộn như trước).
         */
-        .table-wrap table {
-          min-width: 1500px;
-        }
         .table-wrap th:nth-child(3),
         .table-wrap td:nth-child(3) {
-          min-width: 280px;
+          min-width: 220px;
         }
         .table-wrap th:nth-child(5),
         .table-wrap td:nth-child(5) {
