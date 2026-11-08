@@ -30,6 +30,15 @@ function mondayOfWeek(dateStr:string){const [y,m,d]=dateStr.split("-").map(Numbe
 function addDays(dateStr:string,days:number){const [y,m,d]=dateStr.split("-").map(Number);const dt=new Date(Date.UTC(y,m-1,d));dt.setUTCDate(dt.getUTCDate()+days);return dt.toISOString().slice(0,10)}
 function priorityLabel(value?:string|null){if(value==="CRITICAL")return"Rất khẩn";if(value==="URGENT")return"Khẩn";if(value==="HIGH")return"Cao";if(value==="LOW")return"Thấp";return"Bình thường"}
 function priorityTone(value?:string|null){if(["CRITICAL","URGENT"].includes(String(value)))return"danger";if(value==="HIGH")return"warning";if(value==="LOW")return"muted";return"info"}
+// Đề xuất báo cáo kiểm thử menu: "gắn đầu việc RACI (Kế hoạch công việc)
+// vào Việc của tôi" — work_plan_items không có priority riêng, chỉ có
+// eisenhower_quadrant (2 trục quan trọng x khẩn cấp). Quy đổi gần đúng sang
+// thang priority 1 trục sẵn có để tái dùng đúng priorityLabel/priorityTone,
+// không tạo badge/màu riêng cho 1 nguồn dữ liệu: P1 (quan trọng+khẩn cấp)
+// ->CRITICAL, P2 (quan trọng, không khẩn)->HIGH, P3 (không quan trọng,
+// khẩn cấp)->URGENT (giữ tính khẩn cấp vì đó là tín hiệu quan trọng hơn ở
+// màn hình này), P4->LOW.
+function eisenhowerToPriority(quadrant?:string|null){if(quadrant==="P1")return"CRITICAL";if(quadrant==="P2")return"HIGH";if(quadrant==="P3")return"URGENT";return"LOW"}
 function workCue(row:any){const days=Number(row.days_to_due||0);if(row.is_overdue){const late=Math.abs(days);if(late>=7)return`Đôn đốc ngay · quá hạn ${late} ngày`;return`Xử lý ngay · quá hạn ${late} ngày`}if(["EVIDENCE_SUBMITTED","VERIFYING"].includes(String(row.workflow_status)))return"Cần kiểm tra / xác minh";if(row.workflow_status==="RETURNED")return"Cần bổ sung sau khi bị trả lại";if(days===0)return"Hoàn tất trong hôm nay";if(days>0&&days<=3)return`Chuẩn bị xử lý · còn ${days} ngày`;if(["CRITICAL","URGENT"].includes(String(row.priority)))return"Ưu tiên xử lý sớm";return days>0?`Theo dõi · còn ${days} ngày`:"Cần kiểm tra tiến độ"}
 // Báo cáo thực tế: việc đã hoàn thành vẫn chỉ hiện hạn xử lý cũ ("08/10/2026")
 // thay vì ngày hoàn thành thật — nhìn vào không biết việc đó xong lúc nào,
@@ -96,6 +105,22 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const myEmrItems=user.primaryDepartmentId
   ?(emrItemsRes.data??[]).filter((item:any)=>!(item.category==="BIEU_MAU"&&item.publish_status==="DRAFT")&&(item.owner_department_id===user.primaryDepartmentId||item.department_ids?.includes(user.primaryDepartmentId)))
   :[];
+ // Đề xuất báo cáo kiểm thử menu: người được gán vai trò R (thực hiện) hoặc
+ // A (chịu trách nhiệm chính) trên 1 đầu việc Kế hoạch công việc trước đây
+ // không thấy việc đó ở "Việc của tôi" trừ khi tự vào module riêng kiểm
+ // tra — dễ bỏ sót việc được giao. work_plan_items vẫn là nguồn dữ liệu
+ // duy nhất (không copy sang bảng khác). C/I không kéo vào đây vì đó là
+ // vai trò "tham vấn/nhận thông tin", không phải người phải tự hoàn thành.
+ const workPlanRaciRes=await supabase.from("work_plan_item_raci").select("work_plan_item_id,raci_role").eq("user_id",user.id).in("raci_role",["R","A"]);
+ const myWorkPlanItemIds=Array.from(new Set((workPlanRaciRes.data??[]).map((r:any)=>r.work_plan_item_id)));
+ const workPlanItemsRes=myWorkPlanItemIds.length
+  ?await supabase.from("work_plan_items").select("id,work_plan_id,title,due_date,eisenhower_quadrant,status,created_at,updated_at").in("id",myWorkPlanItemIds).neq("status","CANCELLED")
+  :{data:[] as any[],error:null};
+ const myWorkPlanItems=(workPlanItemsRes.data??[]) as any[];
+ const workPlanIds=Array.from(new Set(myWorkPlanItems.map((i:any)=>i.work_plan_id)));
+ const workPlansRes=workPlanIds.length?await supabase.from("work_plans").select("id,title").in("id",workPlanIds):{data:[] as any[],error:null};
+ const workPlanTitleMap=new Map((workPlansRes.data??[]).map((p:any)=>[p.id,p.title]));
+ const raciRoleByItem=new Map((workPlanRaciRes.data??[]).map((r:any)=>[r.work_plan_item_id,r.raci_role]));
  const actionRowsById=new Map<string,any>();
  for(const row of [...(directActionsRes.data??[]),...(groupActionsRes.data??[]),...(departmentActionsRes.data??[])])actionRowsById.set((row as any).action_id,row);
  const actionsRes={data:Array.from(actionRowsById.values()),error:directActionsRes.error||groupActionsRes.error||departmentActionsRes.error||groupAssignmentRes.error||departmentRoleRes.error||departmentExecutionRes.error};
@@ -117,7 +142,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   : {data:[],error:null};
  const workFollowups=(workFollowupsRes.data??[]) as any[];
  const followupBySource=new Map(workFollowups.map((f:any)=>[f.source_type+":"+f.source_id,f]));
- const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=legacyPersonalError||actionsRes.error||attentionRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||creatorsRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error;
+ const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=legacyPersonalError||actionsRes.error||attentionRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||creatorsRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error||workPlanRaciRes.error||workPlanItemsRes.error||workPlansRes.error;
  // EMR items chưa DONE được tính gộp vào 4 KPI đầu (quá hạn/đến hạn/sắp tới/
  // đang mở) — không tính vào "Hoàn thành" vì emrItemsRes chỉ tải các mục
  // chưa DONE (không có lịch sử hoàn thành để đếm ở đây).
@@ -130,8 +155,13 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  // phần của "quá hạn". dueDate dùng dateOnly (giống unifiedReminderRows) vì
  // due_at là mốc UTC của nửa đêm giờ VN, không được cắt chuỗi trực tiếp.
  const personalReminderKpiRows=personalReminders.map((p:any)=>{const dueDate=p.due_at?dateOnly(p.due_at):null;const isOverdue=p.status==="OPEN"&&!!dueDate&&dueDate<today;const daysToDue=dueDate?Math.round((new Date(`${dueDate}T00:00:00Z`).getTime()-new Date(`${today}T00:00:00Z`).getTime())/86400000):null;return{is_overdue:isOverdue,days_to_due:daysToDue,workflow_status:p.status};});
- const kpiRows=[...rows,...emrKpiRows,...personalReminderKpiRows];
- const overdue=kpiRows.filter(r=>r.is_overdue).length,dueToday=kpiRows.filter(r=>!r.is_overdue&&Number(r.days_to_due)===0).length,dueSoon=kpiRows.filter(r=>!r.is_overdue&&Number(r.days_to_due)>0&&Number(r.days_to_due)<=7).length,open=kpiRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status)).length,completed=rows.filter(r=>r.workflow_status==="COMPLETED").length+personalReminders.filter((p:any)=>p.status==="COMPLETED").length;
+ // Đề xuất báo cáo kiểm thử menu: đầu việc Kế hoạch công việc (gán R/A cho
+ // mình) cũng tính vào 4 KPI đầu + Hoàn thành, cùng cách EMR/note cá nhân
+ // đã làm — status="DONE" quy về "COMPLETED" vì open-KPI loại trừ đúng chữ
+ // "COMPLETED", không loại "DONE".
+ const workPlanItemKpiRows=myWorkPlanItems.map((item:any)=>{const isDone=item.status==="DONE";const isOverdue=!isDone&&!!item.due_date&&item.due_date<today;const daysToDue=item.due_date?Math.round((new Date(`${item.due_date}T00:00:00Z`).getTime()-new Date(`${today}T00:00:00Z`).getTime())/86400000):null;return{is_overdue:isOverdue,days_to_due:daysToDue,workflow_status:isDone?"COMPLETED":item.status};});
+ const kpiRows=[...rows,...emrKpiRows,...personalReminderKpiRows,...workPlanItemKpiRows];
+ const overdue=kpiRows.filter(r=>r.is_overdue).length,dueToday=kpiRows.filter(r=>!r.is_overdue&&Number(r.days_to_due)===0).length,dueSoon=kpiRows.filter(r=>!r.is_overdue&&Number(r.days_to_due)>0&&Number(r.days_to_due)<=7).length,open=kpiRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED"].includes(r.workflow_status)).length,completed=rows.filter(r=>r.workflow_status==="COMPLETED").length+personalReminders.filter((p:any)=>p.status==="COMPLETED").length+myWorkPlanItems.filter((i:any)=>i.status==="DONE").length;
  // Tự rà lại sau phản hồi "rà chưa sát": overdue7 (mức cảnh báo cao nhất
  // trong secretaryHeadline) trước đây cũng chỉ đếm từ rows (Action), bỏ sót
  // EMR/note cá nhân giống hệt lỗi kpiRows vừa sửa ở trên — một note cá nhân
@@ -145,7 +175,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const attentionTitle=isBoard?"Cần theo dõi / quyết định":isQlcl?"Hồ sơ cần QLCL xử lý / xác minh":isDepartmentHead?"Hồ sơ khoa/phòng cần xử lý":"Cần tôi xử lý / xác minh";
  const secretaryHeadline=overdue7>0?`${overdue7} việc đã quá hạn từ 7 ngày trở lên cần đôn đốc ngay.`:overdue>0?`${overdue} việc đang quá hạn; ưu tiên xử lý trước các công việc mới.`:dueToday>0?`${dueToday} việc đến hạn hôm nay cần hoàn tất trước cuối ngày.`:attention.length>0?`${attention.length} hồ sơ/thông báo đang chờ bạn xử lý.`:"Không có việc cá nhân quá hạn. Tiếp tục theo dõi hàng đợi nghiệp vụ theo vai trò.";
 
- type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;completedAt:string|null;createdAt:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"|"legacy";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null};
+ type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;completedAt:string|null;createdAt:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"|"legacy"|"work_plan";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null};
  const unifiedActionRows:UnifiedRow[]=rows.map(r=>({
   key:`a-${r.action_id}`,title:r.title,typeLabel:RECORD_TYPE_LABEL[recordTypeMap.get(r.record_id)||""]||"—",
   relatedTo:recordCodeMap.get(r.record_id)||"—",priority:r.priority,dueDate:r.due_date,
@@ -184,7 +214,26 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
    isWatch:!overdueItem,assignedBy:"—",href:category?`/emr/${category.slug}`:"/emr",source:"emr",sourceId:item.id,sourceType:"EMR",followup:followupBySource.get("EMR:"+item.id)??null,
   };
  });
- const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows];
+ // Đề xuất báo cáo kiểm thử menu: đầu việc Kế hoạch công việc gán R/A cho
+ // mình — chưa có trang chi tiết theo id (giống Cần đào tạo/Tự đọc hiểu ở
+ // module khác) nên chỉ liên kết về trang danh sách /work-plans, không có
+ // WorkFollowupControl (chưa có cơ chế "đang chờ" cho nguồn này).
+ const unifiedWorkPlanRows:UnifiedRow[]=myWorkPlanItems.map((item:any):UnifiedRow=>{
+  const isDone=item.status==="DONE";
+  const isOverdue=!isDone&&!!item.due_date&&item.due_date<today;
+  const role=raciRoleByItem.get(item.id);
+  return{
+   key:`wp-${item.id}`,title:item.title,
+   typeLabel:`Kế hoạch công việc${role==="A"?" · Chịu trách nhiệm chính":role==="R"?" · Thực hiện":""}`,
+   relatedTo:workPlanTitleMap.get(item.work_plan_id)||"—",priority:eisenhowerToPriority(item.eisenhower_quadrant),
+   dueDate:item.due_date,completedAt:isDone&&item.updated_at?dateOnly(item.updated_at):null,
+   createdAt:item.created_at?dateOnly(item.created_at):null,
+   statusLabel:isDone?"COMPLETED":(isOverdue?"OVERDUE":item.status),isOverdue,isDone,
+   isWatch:!isDone&&(!item.due_date||item.due_date>=today),
+   assignedBy:"—",href:"/work-plans",source:"work_plan",sourceId:item.id,sourceType:null,followup:null,
+  };
+ });
+ const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows,...unifiedWorkPlanRows];
  const allWorkRows=[...unifiedAssignedRows,...unifiedReminderRows].sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999"));
  // Báo cáo thực tế: tab trống (0 việc) vẫn luôn hiện trong thanh tab, gây
  // thắc mắc "3 loại này là gì" — ẩn hẳn pill của tab khi không có việc nào

@@ -83,10 +83,10 @@ describe("Kế hoạch công việc: API routes tách view/manage, tenant-scoped
     expect((route.match(/requireApiPermission\("work_plans\.manage"\)/g) || []).length).toBe(2);
   });
 
-  it("POST thêm 1 người RACI chặn thêm người A thứ 2", () => {
+  it("POST thêm 1 người RACI chặn thêm người A thứ 2 (trừ khi gửi kèm replace_existing để chuyển giao — xem work-plans-my-work-integration.test.ts)", () => {
     const route = read("src/app/api/work-plans/[id]/items/[itemId]/raci/route.ts");
     expect(route).toContain('requireApiPermission("work_plans.manage")');
-    expect(route).toContain('return NextResponse.json({ error: "Đầu việc đã có người chữ A — xoá vai trò A hiện tại trước khi gán người khác." }, { status: 400 });');
+    expect(route).toContain("Đầu việc đã có người chữ A — xoá vai trò A hiện tại trước khi gán người khác, hoặc chuyển giao trực tiếp.");
   });
 
   it("DELETE 1 vai trò RACI chặn xoá người A duy nhất hoặc người R cuối cùng", () => {

@@ -13,11 +13,11 @@ describe("Việc của tôi (/tasks) — KPI quá hạn/đến hạn/đang mở/
 
   it("dựng personalReminderKpiRows từ personalReminders (dùng dateOnly, không cắt chuỗi trực tiếp) và gộp vào kpiRows", () => {
     expect(source).toContain("const personalReminderKpiRows=personalReminders.map((p:any)=>{const dueDate=p.due_at?dateOnly(p.due_at):null;const isOverdue=p.status===\"OPEN\"&&!!dueDate&&dueDate<today;");
-    expect(source).toContain("const kpiRows=[...rows,...emrKpiRows,...personalReminderKpiRows];");
+    expect(source).toContain("const kpiRows=[...rows,...emrKpiRows,...personalReminderKpiRows,...workPlanItemKpiRows];");
   });
 
   it("KPI Hoàn thành cũng tính note cá nhân đã COMPLETED, không chỉ Action", () => {
-    expect(source).toContain('completed=rows.filter(r=>r.workflow_status==="COMPLETED").length+personalReminders.filter((p:any)=>p.status==="COMPLETED").length;');
+    expect(source).toContain('completed=rows.filter(r=>r.workflow_status==="COMPLETED").length+personalReminders.filter((p:any)=>p.status==="COMPLETED").length+myWorkPlanItems.filter((i:any)=>i.status==="DONE").length;');
   });
 
   // Tự rà lại sau phản hồi "rà chưa sát": overdue7 (mức cảnh báo cao nhất

@@ -201,6 +201,36 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
     setPlans((v) => v.map((p) => (p.id === planId ? { ...p, items: p.items.map((i) => (i.id === item.id ? { ...i, raci: i.raci.filter((r) => r.id !== raci.id) } : i)) } : p)));
   }
 
+  // Đề xuất báo cáo kiểm thử menu: "chưa có thao tác đổi người A mà không
+  // xoá/tạo lại" — chuyển giao trực tiếp trong 1 lần gọi API
+  // (replace_existing: true), thay vì phải tự xoá rồi gán lại thủ công.
+  const [transferItemId, setTransferItemId] = useState<string | null>(null);
+  const [transferPerson, setTransferPerson] = useState("");
+
+  async function transferAccountable(planId: string, item: Item) {
+    if (!transferPerson) return;
+    setError("");
+    const res = await fetch(`/api/work-plans/${planId}/items/${item.id}/raci`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: transferPerson, raci_role: "A", replace_existing: true }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(body.error || "Không chuyển giao được.");
+      return;
+    }
+    setPlans((v) =>
+      v.map((p) =>
+        p.id === planId
+          ? { ...p, items: p.items.map((i) => (i.id === item.id ? { ...i, raci: [...i.raci.filter((r) => r.raci_role !== "A"), body.raci as Raci] } : i)) }
+          : p,
+      ),
+    );
+    setTransferItemId(null);
+    setTransferPerson("");
+  }
+
   // Ma trận Eisenhower: tổng hợp mọi đầu việc đang mở (OPEN) của mọi kế
   // hoạch — quadrant ở đây là lựa chọn trực tiếp lúc tạo (không tính như
   // personal_reminders), xem src/lib/eisenhower.ts.
@@ -338,9 +368,32 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
                             )),
                         )}
                       </div>
+                      {canManage && transferItemId === item.id ? (
+                        <div className="wp-transfer-row">
+                          <select className="input" value={transferPerson} onChange={(e) => setTransferPerson(e.target.value)}>
+                            <option value="">— Chọn người A mới —</option>
+                            {staffRoster.filter((s) => !item.raci.some((r) => r.raci_role === "A" && r.user_id === s.id)).map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button type="button" className="button secondary small" disabled={!transferPerson} onClick={() => void transferAccountable(plan.id, item)}>
+                            Xác nhận
+                          </button>
+                          <button type="button" className="button tertiary small" onClick={() => (setTransferItemId(null), setTransferPerson(""))}>
+                            Hủy
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                     {canManage ? (
                       <div className="wp-item-actions">
+                        {item.raci.some((r) => r.raci_role === "A") ? (
+                          <button type="button" className="button tertiary small" onClick={() => setTransferItemId(transferItemId === item.id ? null : item.id)}>
+                            Chuyển giao A
+                          </button>
+                        ) : null}
                         <button type="button" className="button tertiary small" onClick={() => void toggleItemStatus(plan.id, item)}>
                           {item.status === "DONE" ? "Mở lại" : "Hoàn thành"}
                         </button>
@@ -593,6 +646,20 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
           flex-wrap: wrap;
           gap: 5px;
           margin-top: 6px;
+        }
+        .wp-transfer-row {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px;
+          margin-top: 8px;
+        }
+        .wp-transfer-row > * {
+          min-width:0;
+        }
+        .wp-transfer-row select {
+          min-width: 160px;
+          width: auto;
         }
         .wp-raci-chip {
           display: inline-flex;
