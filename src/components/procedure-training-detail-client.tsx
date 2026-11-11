@@ -524,13 +524,13 @@ function RosterTab({
                 const myResults = resultsByAttendee.get(a.id) || [];
                 return (
                   <tr key={a.id}>
-                    <td>
+                    <td data-label="Họ tên">
                       {a.employee_name}
                       {a.employee_code ? ` (${a.employee_code})` : ""}
                     </td>
-                    <td>{a.department || "—"}</td>
-                    <td>{a.job_title || "—"}</td>
-                    <td>
+                    <td data-label="Đơn vị">{a.department || "—"}</td>
+                    <td data-label="Chức danh">{a.job_title || "—"}</td>
+                    <td data-label="Đã đào tạo">
                       {canManage ? (
                         <label className="inline-check">
                           <input type="checkbox" checked={a.attended} onChange={() => void toggleAttended(a)} />
@@ -543,7 +543,7 @@ function RosterTab({
                       const result = myResults.find((res) => res.round_id === r.id);
                       const editing = scoreEdit?.attendeeId === a.id && scoreEdit.roundId === r.id;
                       return (
-                        <td key={r.id}>
+                        <td key={r.id} data-label={r.round_label}>
                           {editing ? (
                             <div className="ptd-score-edit">
                               <input className="input" type="number" autoFocus value={scoreEdit.value} onChange={(e) => setScoreEdit((v) => (v ? { ...v, value: e.target.value } : v))} />
@@ -562,7 +562,7 @@ function RosterTab({
                         </td>
                       );
                     })}
-                    <td>
+                    <td data-label="Thao tác">
                       <div className="pt-edit-actions">
                         <button className="button secondary small" onClick={() => setDetailAttendeeId(a.id)}>
                           Xem chi tiết
@@ -635,6 +635,78 @@ function RosterTab({
           .ptd-round-add,
           .ptd-attendee-add {
             grid-template-columns: 1fr 1fr;
+          }
+        }
+        /* Báo cáo thực tế: "giao diện xấu, cứng đờ ko kéo được" — bảng nhân
+           sự có thể có nhiều cột đợt kiểm tra tùy ý (không giới hạn 2), càng
+           dễ tràn ngang trên điện thoại. Chuyển mỗi hàng thành 1 thẻ (card),
+           mỗi ô thành 1 dòng "nhãn: giá trị" — đúng quy ước mobile-responsive
+           đã dùng cho bảng công văn đến/hành nghề (xem final-visual-lock.css
+           .incoming-doc-overview, .physician-license-overview) — thay vì chỉ
+           cuộn ngang (dễ bị tưởng là "kẹt cứng" trên màn hình nhỏ). */
+        @media (max-width: 760px) {
+          .table-wrap {
+            overflow: visible !important;
+          }
+          .table-wrap table {
+            display: block !important;
+            min-width:0 !important;
+            width: 100% !important;
+          }
+          .table-wrap thead {
+            display: none !important;
+          }
+          .table-wrap tbody {
+            display: grid !important;
+            gap: 12px;
+          }
+          .table-wrap tbody tr {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 0;
+            padding: 12px;
+            border: 1px solid #dce5ee;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: 0 3px 12px #10233a0a;
+          }
+          .table-wrap tbody td {
+            display: grid !important;
+            grid-template-columns: 95px minmax(0, 1fr);
+            gap: 9px;
+            align-items: start;
+            min-width:0 !important;
+            width: 100% !important;
+            padding: 9px 0 !important;
+            border: 0 !important;
+            border-bottom: 1px solid #edf1f5 !important;
+            overflow-wrap: anywhere;
+            white-space: normal !important;
+          }
+          .table-wrap tbody td:last-child {
+            border-bottom: 0 !important;
+          }
+          .table-wrap tbody td[data-label]::before {
+            content: attr(data-label);
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+          }
+          .table-wrap tbody td[data-label="Họ tên"] {
+            font-weight: 700;
+            color: #12324d;
+          }
+          .table-wrap tbody td[data-label="Thao tác"] {
+            display: flex !important;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+          }
+          .table-wrap tbody td[data-label="Thao tác"]::before {
+            flex: 0 0 100%;
+          }
+          .table-wrap tbody td.empty-state {
+            display: block !important;
           }
         }
       `}</style>
@@ -811,9 +883,9 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
             <tbody>
               {byRound.map(({ round, count, average }) => (
                 <tr key={round.id}>
-                  <td>{round.round_label}</td>
-                  <td>{count}</td>
-                  <td>{average != null ? `${average.toFixed(2)}${round.score_max ? `/${round.score_max}` : ""}` : "—"}</td>
+                  <td data-label="Đợt">{round.round_label}</td>
+                  <td data-label="Số người có điểm">{count}</td>
+                  <td data-label="Điểm TB">{average != null ? `${average.toFixed(2)}${round.score_max ? `/${round.score_max}` : ""}` : "—"}</td>
                 </tr>
               ))}
               {!byRound.length ? (
@@ -851,10 +923,10 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
               <tbody>
                 {beforeAfter.map((row) => (
                   <tr key={row.key}>
-                    <td>{row.key}</td>
-                    <td>{row.before != null ? row.before.toFixed(2) : "—"}</td>
-                    <td>{row.after != null ? row.after.toFixed(2) : "—"}</td>
-                    <td className={row.delta != null ? (row.delta >= 0 ? "text-success" : "text-danger") : ""}>{row.delta != null ? (row.delta >= 0 ? `+${row.delta.toFixed(2)}` : row.delta.toFixed(2)) : "—"}</td>
+                    <td data-label="Đơn vị">{row.key}</td>
+                    <td data-label={`${firstRound!.round_label} (TB)`}>{row.before != null ? row.before.toFixed(2) : "—"}</td>
+                    <td data-label={`${lastRound!.round_label} (TB)`}>{row.after != null ? row.after.toFixed(2) : "—"}</td>
+                    <td data-label="Chênh lệch" className={row.delta != null ? (row.delta >= 0 ? "text-success" : "text-danger") : ""}>{row.delta != null ? (row.delta >= 0 ? `+${row.delta.toFixed(2)}` : row.delta.toFixed(2)) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -879,9 +951,9 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
             <tbody>
               {byDept.map((row) => (
                 <tr key={row.key}>
-                  <td>{row.key}</td>
-                  <td>{row.count}</td>
-                  <td>{row.average != null ? row.average.toFixed(2) : "—"}</td>
+                  <td data-label="Đơn vị">{row.key}</td>
+                  <td data-label="Số lượt có điểm">{row.count}</td>
+                  <td data-label="Điểm TB">{row.average != null ? row.average.toFixed(2) : "—"}</td>
                 </tr>
               ))}
               {!byDept.length ? (
@@ -912,9 +984,9 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
             <tbody>
               {byTitle.map((row) => (
                 <tr key={row.key}>
-                  <td>{row.key}</td>
-                  <td>{row.count}</td>
-                  <td>{row.average != null ? row.average.toFixed(2) : "—"}</td>
+                  <td data-label="Chức danh">{row.key}</td>
+                  <td data-label="Số lượt có điểm">{row.count}</td>
+                  <td data-label="Điểm TB">{row.average != null ? row.average.toFixed(2) : "—"}</td>
                 </tr>
               ))}
               {!byTitle.length ? (
@@ -950,10 +1022,10 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
               <tbody>
                 {questionDifficulty.map((q) => (
                   <tr key={q.questionNo}>
-                    <td>Câu {q.questionNo}</td>
-                    <td>{q.total}</td>
-                    <td>{q.correctCount}</td>
-                    <td>{q.pctCorrect != null ? `${q.pctCorrect}%` : "—"}</td>
+                    <td data-label="Câu">Câu {q.questionNo}</td>
+                    <td data-label="Số lượt trả lời">{q.total}</td>
+                    <td data-label="Số lượt đúng">{q.correctCount}</td>
+                    <td data-label="% đúng">{q.pctCorrect != null ? `${q.pctCorrect}%` : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -961,6 +1033,60 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
           </div>
         </section>
       ) : null}
+      <style jsx>{`
+        @media (max-width: 760px) {
+          .table-wrap {
+            overflow: visible !important;
+          }
+          .table-wrap table {
+            display: block !important;
+            min-width:0 !important;
+            width: 100% !important;
+          }
+          .table-wrap thead {
+            display: none !important;
+          }
+          .table-wrap tbody {
+            display: grid !important;
+            gap: 12px;
+          }
+          .table-wrap tbody tr {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 0;
+            padding: 12px;
+            border: 1px solid #dce5ee;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: 0 3px 12px #10233a0a;
+          }
+          .table-wrap tbody td {
+            display: grid !important;
+            grid-template-columns: 105px minmax(0, 1fr);
+            gap: 9px;
+            align-items: start;
+            min-width:0 !important;
+            width: 100% !important;
+            padding: 9px 0 !important;
+            border: 0 !important;
+            border-bottom: 1px solid #edf1f5 !important;
+            overflow-wrap: anywhere;
+            white-space: normal !important;
+          }
+          .table-wrap tbody td:last-child {
+            border-bottom: 0 !important;
+          }
+          .table-wrap tbody td[data-label]::before {
+            content: attr(data-label);
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+          }
+          .table-wrap tbody td.empty-state {
+            display: block !important;
+          }
+        }
+      `}</style>
     </>
   );
 }

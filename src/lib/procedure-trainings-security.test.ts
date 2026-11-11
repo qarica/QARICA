@@ -304,4 +304,40 @@ describe("Procedure trainings: import điểm từ file khảo sát (Google/Micr
     expect(client).toContain("void commitImport()");
     expect(client).toContain("toggleRow");
   });
+
+  // "E tester xem a thấy vẫn chưa ổn" — chụp màn hình ở viewport điện thoại
+  // (390x844) cho thấy bảng nhân sự (RosterTab) và mọi bảng phân tích
+  // (AnalysisTab) bị cắt cột ngang, không theo quy ước mobile-responsive đã
+  // có sẵn trong repo (data-label + @media(max-width:760px) chuyển mỗi hàng
+  // thành 1 thẻ, như .incoming-doc-overview/.physician-license-overview
+  // trong final-visual-lock.css). Styled-jsx chỉ scope đúng component chứa
+  // nó, nên RosterTab và AnalysisTab mỗi cái cần khối <style jsx> riêng.
+  it("RosterTab: mọi <td> của bảng nhân sự có data-label, và có khối @media(max-width:760px) chuyển bảng thành thẻ trên điện thoại", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain('<td data-label="Họ tên">');
+    expect(client).toContain('<td data-label="Đơn vị">');
+    expect(client).toContain('<td data-label="Chức danh">');
+    expect(client).toContain('<td data-label="Đã đào tạo">');
+    expect(client).toContain("data-label={r.round_label}");
+    expect(client).toContain('<td data-label="Thao tác"');
+    expect(client).toContain("@media (max-width: 760px) {");
+    expect(client).toContain(".table-wrap tbody tr {");
+    expect(client).toContain('.table-wrap tbody td[data-label]::before {');
+  });
+
+  it("AnalysisTab: mọi bảng (theo đợt/trước-sau/đơn vị/chức danh/độ khó câu) có data-label trên từng <td>, và có khối <style jsx> riêng với cùng quy ước mobile card", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    const analysisStart = client.indexOf("function AnalysisTab");
+    const analysisEnd = client.indexOf("function groupByBeforeAfter");
+    expect(analysisStart).toBeGreaterThan(-1);
+    expect(analysisEnd).toBeGreaterThan(analysisStart);
+    const analysisSrc = client.slice(analysisStart, analysisEnd);
+    expect(analysisSrc).toContain('data-label="Đợt"');
+    expect(analysisSrc).toContain('data-label={`${firstRound!.round_label} (TB)`}');
+    expect(analysisSrc).toContain('data-label="Chênh lệch"');
+    expect(analysisSrc).toContain('data-label="Chức danh"');
+    expect(analysisSrc).toContain('data-label="Câu"');
+    expect(analysisSrc).toContain("<style jsx>{`");
+    expect(analysisSrc).toContain("@media (max-width: 760px) {");
+  });
 });
