@@ -24,6 +24,7 @@ type Training = {
   attendee_attended: number;
   document_publication_id: string | null;
   source_document: { id: string; title: string; document_code: string | null } | null;
+  test_score_max: number | null;
 };
 
 type Attendee = {
@@ -34,6 +35,8 @@ type Attendee = {
   attended: boolean;
   attended_at: string | null;
   notes: string | null;
+  pre_test_score: number | null;
+  post_test_score: number | null;
 };
 
 // Báo cáo thực tế: "Phần theo dõi quy trình đào tạo chưa thấy kết nối với
@@ -99,6 +102,12 @@ export function ProcedureTrainingsClient({
   const [rosterError, setRosterError] = useState("");
   const [newEmployeeName, setNewEmployeeName] = useState("");
   const [newEmployeeCode, setNewEmployeeCode] = useState("");
+  const [newPreScore, setNewPreScore] = useState("");
+  const [newPostScore, setNewPostScore] = useState("");
+  const [scoreEditId, setScoreEditId] = useState<string | null>(null);
+  const [scoreDraft, setScoreDraft] = useState<{ pre: string; post: string }>({ pre: "", post: "" });
+  const [maxScoreEditing, setMaxScoreEditing] = useState(false);
+  const [maxScoreDraft, setMaxScoreDraft] = useState("");
 
   async function submit() {
     if (!procedureName.trim()) {
@@ -188,11 +197,59 @@ export function ProcedureTrainingsClient({
     setRosterError("");
     setNewEmployeeName("");
     setNewEmployeeCode("");
+    setNewPreScore("");
+    setNewPostScore("");
+    setScoreEditId(null);
+    setMaxScoreEditing(false);
+    setMaxScoreDraft(t.test_score_max != null ? String(t.test_score_max) : "");
   }
 
   function closeRoster() {
     setRosterTraining(null);
     setRosterAttendees([]);
+  }
+
+  async function saveMaxScore() {
+    if (!rosterTraining) return;
+    setRosterError("");
+    const res = await fetch(`/api/procedure-trainings/${rosterTraining.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ test_score_max: maxScoreDraft.trim() === "" ? null : Number(maxScoreDraft) }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setRosterError(body.error || "Không lưu được thang điểm.");
+      return;
+    }
+    setTrainings((v) => v.map((x) => (x.id === rosterTraining.id ? { ...x, ...body.training } : x)));
+    setRosterTraining((t) => (t ? { ...t, ...body.training } : t));
+    setMaxScoreEditing(false);
+  }
+
+  function startScoreEdit(a: Attendee) {
+    setScoreEditId(a.id);
+    setScoreDraft({ pre: a.pre_test_score != null ? String(a.pre_test_score) : "", post: a.post_test_score != null ? String(a.post_test_score) : "" });
+  }
+
+  async function saveScoreEdit(a: Attendee) {
+    if (!rosterTraining) return;
+    setRosterError("");
+    const res = await fetch(`/api/procedure-trainings/${rosterTraining.id}/attendees/${a.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pre_test_score: scoreDraft.pre.trim() === "" ? null : Number(scoreDraft.pre),
+        post_test_score: scoreDraft.post.trim() === "" ? null : Number(scoreDraft.post),
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setRosterError(body.error || "Không lưu được điểm.");
+      return;
+    }
+    setRosterAttendees((v) => v.map((x) => (x.id === a.id ? (body.attendee as Attendee) : x)));
+    setScoreEditId(null);
   }
 
   function syncRosterCounts(trainingId: string, list: Attendee[]) {
@@ -228,7 +285,12 @@ export function ProcedureTrainingsClient({
     const res = await fetch(`/api/procedure-trainings/${rosterTraining.id}/attendees`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employee_name: newEmployeeName.trim(), employee_code: newEmployeeCode.trim() || null }),
+      body: JSON.stringify({
+        employee_name: newEmployeeName.trim(),
+        employee_code: newEmployeeCode.trim() || null,
+        pre_test_score: newPreScore.trim() === "" ? null : Number(newPreScore),
+        post_test_score: newPostScore.trim() === "" ? null : Number(newPostScore),
+      }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -240,6 +302,8 @@ export function ProcedureTrainingsClient({
     syncRosterCounts(rosterTraining.id, next);
     setNewEmployeeName("");
     setNewEmployeeCode("");
+    setNewPreScore("");
+    setNewPostScore("");
   }
 
   async function toggleAttended(attendee: Attendee) {
@@ -286,10 +350,42 @@ export function ProcedureTrainingsClient({
         </div>
         <div style={{ padding: "0 20px 20px", display: "grid", gap: 12 }}>
           {rosterError ? <div className="alert error">{rosterError}</div> : null}
+          {/* Báo cáo thực tế: "A muốn cập nhật vào quản lý đào tạo" — báo cáo
+              Pre/Post-test đánh giá hiệu quả đào tạo có điểm theo từng người,
+              trước đây module này chỉ điểm danh có/vắng. Thang điểm bài test
+              là thuộc tính của CẢ đợt đào tạo (mọi người cùng làm 1 bài test),
+              nên sửa ở đây 1 lần, không lặp lại cho từng người. */}
+          <div className="pt-score-max-row">
+            <span className="muted">Thang điểm bài test (Pre/Post):</span>
+            {maxScoreEditing ? (
+              <>
+                <input
+                  className="input"
+                  type="number"
+                  min={1}
+                  style={{ width: 90 }}
+                  placeholder="VD: 17"
+                  value={maxScoreDraft}
+                  onChange={(e) => setMaxScoreDraft(e.target.value)}
+                />
+                <button className="button primary small" onClick={() => void saveMaxScore()}>Lưu</button>
+                <button className="button tertiary small" onClick={() => setMaxScoreEditing(false)}>Hủy</button>
+              </>
+            ) : (
+              <>
+                <strong>{rosterTraining.test_score_max != null ? `/${rosterTraining.test_score_max}` : "Chưa đặt"}</strong>
+                {canManage ? (
+                  <button className="button tertiary small" onClick={() => setMaxScoreEditing(true)}>Sửa</button>
+                ) : null}
+              </>
+            )}
+          </div>
           {canManage ? (
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8 }}>
+            <div className="pt-roster-add-form">
               <input className="input" placeholder="Tên nhân viên..." value={newEmployeeName} onChange={(e) => setNewEmployeeName(e.target.value)} />
               <input className="input" placeholder="Mã NV (tùy chọn)" value={newEmployeeCode} onChange={(e) => setNewEmployeeCode(e.target.value)} />
+              <input className="input" type="number" placeholder="Điểm Pre-test" value={newPreScore} onChange={(e) => setNewPreScore(e.target.value)} />
+              <input className="input" type="number" placeholder="Điểm Post-test" value={newPostScore} onChange={(e) => setNewPostScore(e.target.value)} />
               <button className="button primary small" disabled={!newEmployeeName.trim()} onClick={() => void addAttendee()}>
                 + Thêm
               </button>
@@ -299,7 +395,10 @@ export function ProcedureTrainingsClient({
             <div className="muted">Đang tải...</div>
           ) : (
             <div className="work-list">
-              {rosterAttendees.map((a) => (
+              {rosterAttendees.map((a) => {
+                const editingScore = scoreEditId === a.id;
+                const scoreMax = rosterTraining.test_score_max;
+                return (
                 <div className="work-row" key={a.id}>
                   <div className="work-main">
                     <strong>
@@ -307,12 +406,29 @@ export function ProcedureTrainingsClient({
                       {a.employee_code ? ` (${a.employee_code})` : ""}
                     </strong>
                     <small>{a.attended ? `Đã đào tạo${a.attended_at ? ` · ${formatDate(a.attended_at)}` : ""}` : "Chưa đào tạo"}</small>
+                    {editingScore ? (
+                      <div className="pt-score-edit">
+                        <input className="input" type="number" placeholder="Pre" value={scoreDraft.pre} onChange={(e) => setScoreDraft((v) => ({ ...v, pre: e.target.value }))} />
+                        <input className="input" type="number" placeholder="Post" value={scoreDraft.post} onChange={(e) => setScoreDraft((v) => ({ ...v, post: e.target.value }))} />
+                        <button className="button primary small" onClick={() => void saveScoreEdit(a)}>Lưu</button>
+                        <button className="button tertiary small" onClick={() => setScoreEditId(null)}>Hủy</button>
+                      </div>
+                    ) : (a.pre_test_score != null || a.post_test_score != null) ? (
+                      <small>
+                        Pre: {a.pre_test_score != null ? `${a.pre_test_score}${scoreMax ? `/${scoreMax}` : ""}` : "—"} · Post: {a.post_test_score != null ? `${a.post_test_score}${scoreMax ? `/${scoreMax}` : ""}` : "—"}
+                      </small>
+                    ) : null}
                   </div>
                   {canManage ? (
                     <>
                       <label className="inline-check">
                         <input type="checkbox" checked={a.attended} onChange={() => void toggleAttended(a)} /> Đã đào tạo
                       </label>
+                      {!editingScore ? (
+                        <button className="button tertiary small" onClick={() => startScoreEdit(a)}>
+                          Sửa điểm
+                        </button>
+                      ) : null}
                       <button className="button tertiary small" onClick={() => void removeAttendee(a)}>
                         Xóa
                       </button>
@@ -321,7 +437,8 @@ export function ProcedureTrainingsClient({
                     <span className={`status-badge ${a.attended ? "success" : "warning"}`}>{a.attended ? "Đã đào tạo" : "Chưa đào tạo"}</span>
                   )}
                 </div>
-              ))}
+                );
+              })}
               {!rosterAttendees.length ? <div className="empty-state compact">Chưa có nhân sự nào trong danh sách.</div> : null}
             </div>
           )}
@@ -657,6 +774,29 @@ export function ProcedureTrainingsClient({
           display: flex;
           gap: 6px;
         }
+        .pt-score-max-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .pt-roster-add-form {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr 1fr auto;
+          gap: 8px;
+        }
+        .pt-roster-add-form > * {
+          min-width: 0;
+        }
+        .pt-score-edit {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          margin-top: 4px;
+        }
+        .pt-score-edit input {
+          width: 72px;
+        }
         .pt-view-tabs {
           display: flex;
           gap: 7px;
@@ -698,6 +838,9 @@ export function ProcedureTrainingsClient({
         @media (max-width: 900px) {
           .pt-form-row {
             grid-template-columns: 1fr;
+          }
+          .pt-roster-add-form {
+            grid-template-columns: 1fr 1fr;
           }
         }
       `}</style>

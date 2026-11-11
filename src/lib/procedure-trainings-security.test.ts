@@ -97,7 +97,7 @@ describe("Procedure trainings track per-employee attendance for a real completio
     const client = read("src/components/procedure-trainings-client.tsx");
     expect(client).toContain("Quản lý nhân sự");
     expect(client).toContain("t.attendee_attended}/{t.attendee_total}");
-    expect(client).toContain("canManage ? (\n            <div style={{ display: \"grid\", gridTemplateColumns: \"2fr 1fr auto\", gap: 8 }}>");
+    expect(client).toContain('canManage ? (\n            <div className="pt-roster-add-form">');
   });
 });
 
@@ -137,5 +137,63 @@ describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần
     expect(client).toContain("canManageDocuments ? (\n                          <button type=\"button\" className=\"button tertiary small\" onClick={() => setUnconfirmedOpenId(unconfirmedOpenId === d.id ? null : d.id)}>");
     const page = read("src/app/(app)/procedure-trainings/page.tsx");
     expect(page).toContain('const canManageDocuments = hasPermission(user, "document_publication.manage");');
+  });
+});
+
+// Báo cáo thực tế: "A muốn cập nhật vào quản lý đào tạo" — báo cáo Pre/Post-
+// test đánh giá hiệu quả đào tạo (điểm theo từng người) không có chỗ lưu:
+// procedure_training_attendees trước đây chỉ có attended (có/vắng). Thang
+// điểm bài test là thuộc tính của CẢ đợt đào tạo (mọi người làm cùng 1 bài),
+// nên đặt ở procedure_trainings (test_score_max); điểm Pre/Post là thuộc
+// tính của từng người, đặt ở procedure_training_attendees. Cả 2 đều nullable
+// — không bắt buộc, các đợt đào tạo chỉ điểm danh vẫn hoạt động như cũ.
+describe("Procedure trainings: điểm Pre/Post-test theo từng người (đánh giá hiệu quả đào tạo)", () => {
+  it("migration thêm test_score_max (ở procedure_trainings) và pre_test_score/post_test_score (ở procedure_training_attendees), đều nullable", () => {
+    const migration = read("supabase/migrations/20261128000000_procedure_training_pre_post_test_scores_v1.sql");
+    expect(migration).toContain("alter table public.procedure_trainings");
+    expect(migration).toContain("add column if not exists test_score_max numeric");
+    expect(migration).toContain("alter table public.procedure_training_attendees");
+    expect(migration).toContain("add column if not exists pre_test_score numeric");
+    expect(migration).toContain("add column if not exists post_test_score numeric");
+  });
+
+  it("API training (PATCH) và attendees (POST/PATCH) đọc/ghi đủ 3 field — field trong form state -> body gửi lên -> API xử lý -> SELECT trả về phải khớp nhau (CLAUDE.md nguyên tắc 5)", () => {
+    const trainingRoute = read("src/app/api/procedure-trainings/route.ts");
+    expect(trainingRoute).toContain("test_score_max");
+    const trainingIdRoute = read("src/app/api/procedure-trainings/[id]/route.ts");
+    expect(trainingIdRoute).toContain('"test_score_max",');
+    expect(trainingIdRoute).toMatch(/SELECT_COLUMNS =\s*\n?\s*"[^"]*test_score_max[^"]*";/);
+
+    const attendeesRoute = read("src/app/api/procedure-trainings/[id]/attendees/route.ts");
+    expect(attendeesRoute).toMatch(/SELECT_COLUMNS = "[^"]*pre_test_score[^"]*post_test_score[^"]*";/);
+    expect(attendeesRoute).toContain("pre_test_score: preScore.score");
+    expect(attendeesRoute).toContain("post_test_score: postScore.score");
+
+    const attendeeIdRoute = read("src/app/api/procedure-trainings/[id]/attendees/[attendeeId]/route.ts");
+    expect(attendeeIdRoute).toContain("update.pre_test_score = parsed.score");
+    expect(attendeeIdRoute).toContain("update.post_test_score = parsed.score");
+  });
+
+  it("client thực sự render input cho cả 3 field (không chỉ có trong state) — thêm mới lẫn sửa điểm người đã có, cộng với sửa thang điểm chung của đợt đào tạo", () => {
+    const client = read("src/components/procedure-trainings-client.tsx");
+    // Thang điểm chung của đợt đào tạo (test_score_max) — sửa 1 lần cho cả đợt.
+    expect(client).toContain("rosterTraining.test_score_max");
+    expect(client).toContain("void saveMaxScore()");
+    // Thêm nhân sự mới kèm điểm Pre/Post ngay từ đầu.
+    expect(client).toContain('placeholder="Điểm Pre-test"');
+    expect(client).toContain('placeholder="Điểm Post-test"');
+    expect(client).toContain("newPreScore");
+    expect(client).toContain("newPostScore");
+    // Sửa điểm cho người đã có sẵn trong danh sách.
+    expect(client).toContain("startScoreEdit(a)");
+    expect(client).toContain("void saveScoreEdit(a)");
+    expect(client).toContain("scoreDraft.pre");
+    expect(client).toContain("scoreDraft.post");
+  });
+
+  it(".pt-roster-add-form (grid) có escape hatch min-width:0 cho các ô input co giãn trên màn hẹp, giống quy ước các grid khác trong app", () => {
+    const client = read("src/components/procedure-trainings-client.tsx");
+    expect(client).toContain(".pt-roster-add-form {\n          display: grid;");
+    expect(client).toContain(".pt-roster-add-form > * {\n          min-width: 0;\n        }");
   });
 });

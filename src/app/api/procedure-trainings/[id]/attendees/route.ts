@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT_COLUMNS = "id,training_id,employee_name,employee_code,attended,attended_at,notes";
+const SELECT_COLUMNS = "id,training_id,employee_name,employee_code,attended,attended_at,notes,pre_test_score,post_test_score";
+
+function parseOptionalScore(value: unknown): { ok: true; score: number | null } | { ok: false } {
+  if (value === undefined || value === null || value === "") return { ok: true, score: null };
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return { ok: false };
+  return { ok: true, score: parsed };
+}
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("procedure_training.view");
@@ -36,6 +43,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body = await request.json().catch(() => ({}));
   const employeeName = String(body.employee_name || "").trim();
   if (!employeeName) return NextResponse.json({ error: "Chưa nhập tên nhân viên." }, { status: 400 });
+  const preScore = parseOptionalScore(body.pre_test_score);
+  const postScore = parseOptionalScore(body.post_test_score);
+  if (!preScore.ok || !postScore.ok) return NextResponse.json({ error: "Điểm Pre/Post-test không hợp lệ." }, { status: 400 });
 
   const { data, error } = await admin
     .from("procedure_training_attendees")
@@ -44,6 +54,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       organization_id: organizationId,
       employee_name: employeeName,
       employee_code: body.employee_code ? String(body.employee_code).trim() || null : null,
+      pre_test_score: preScore.score,
+      post_test_score: postScore.score,
     })
     .select(SELECT_COLUMNS)
     .single();

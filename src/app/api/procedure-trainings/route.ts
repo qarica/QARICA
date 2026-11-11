@@ -3,7 +3,7 @@ import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const SELECT_COLUMNS =
-  "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,session_2_time,session_2_location,session_2_method,notes";
+  "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,session_2_time,session_2_location,session_2_method,notes,test_score_max";
 
 export async function GET() {
   const auth = await requireApiPermission("procedure_training.view");
@@ -54,6 +54,12 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const procedureName = String(body.procedure_name || "").trim();
   if (!procedureName) return NextResponse.json({ error: "Chưa nhập tên quy trình." }, { status: 400 });
+  let testScoreMax: number | null = null;
+  if (body.test_score_max !== undefined && body.test_score_max !== null && body.test_score_max !== "") {
+    const parsed = Number(body.test_score_max);
+    if (!Number.isFinite(parsed) || parsed <= 0) return NextResponse.json({ error: "Thang điểm bài test không hợp lệ." }, { status: 400 });
+    testScoreMax = parsed;
+  }
 
   const { data, error } = await admin
     .from("procedure_trainings")
@@ -63,6 +69,7 @@ export async function POST(request: Request) {
       procedure_name: procedureName,
       drafting_unit: body.drafting_unit ? String(body.drafting_unit).trim() || null : null,
       effective_date: body.effective_date || null,
+      test_score_max: testScoreMax,
       created_by: auth.user.id,
     })
     .select(SELECT_COLUMNS)
