@@ -197,3 +197,57 @@ describe("Procedure trainings: điểm Pre/Post-test theo từng người (đán
     expect(client).toContain(".pt-roster-add-form > * {\n          min-width: 0;\n        }");
   });
 });
+
+// Báo cáo thực tế: "Thông thường khi tập huấn đào tạo, anh sẽ tạo gg form
+// hoặc microsoft form để khảo sát, sau đó xuất file để thống kê. Nếu áp
+// dụng vào phần mềm thì nên làm như thế nào hay có thể import file lên
+// qarica" — thay vì chỉ nhập tay từng người, cho import thẳng file khảo sát
+// (Google/Microsoft Form xuất ra, mỗi cột 1 câu hỏi, số câu tùy file —
+// src/lib/training-import.ts) hoặc file đã chấm sẵn, tự chấm theo đáp án
+// khai báo riêng từng đợt, tự ghép Pre/Post theo tên (không ép ghép khi mơ
+// hồ), xem trước trước khi lưu thật.
+describe("Procedure trainings: import điểm Pre/Post-test từ file khảo sát (Google/Microsoft Form)", () => {
+  it("migration đáp án (procedure_training_questions) lưu 1 hàng/câu — số câu không cố định giữa các đợt đào tạo", () => {
+    const migration = read("supabase/migrations/20261129000000_procedure_training_questions_v1.sql");
+    expect(migration).toContain("create table if not exists public.procedure_training_questions");
+    expect(migration).toContain("references public.procedure_trainings(id) on delete cascade");
+    expect(migration).toContain("unique(training_id, question_no)");
+  });
+
+  it("API đáp án (GET/PUT) tách view/manage, thay toàn bộ danh sách khi lưu (không sửa từng câu lẻ tẻ)", () => {
+    const route = read("src/app/api/procedure-trainings/[id]/questions/route.ts");
+    expect(route).toContain('requireApiPermission("procedure_training.view")');
+    expect(route).toContain('requireApiPermission("procedure_training.manage")');
+    expect(route).toContain('.eq("training_id", trainingId).eq("organization_id", organizationId)'); // xoá hết trước khi ghi lại
+  });
+
+  it("API xem trước (import) KHÔNG ghi gì vào DB — chỉ đọc file + tính toán, để người dùng xác nhận trước khi lưu thật", () => {
+    const route = read("src/app/api/procedure-trainings/[id]/import/route.ts");
+    expect(route).toContain('requireApiPermission("procedure_training.manage")');
+    expect(route).not.toMatch(/\.(insert|update|delete)\(/);
+    expect(route).toContain("buildImportPlan(scoredRows, existing)");
+  });
+
+  it("API xem trước dùng read-excel-file (không dùng exceljs — exceljs 4.4.0 đọc lỗi 'Cannot read properties of undefined' với file Excel thật xuất từ Google/Microsoft Form, đã tự kiểm chứng bằng file thật trước khi chọn thư viện)", () => {
+    const route = read("src/app/api/procedure-trainings/[id]/import/route.ts");
+    expect(route).toContain('import { readSheet } from "read-excel-file/node"');
+    const pkg = read("package.json");
+    expect(pkg).not.toContain('"exceljs"');
+    expect(pkg).toContain('"read-excel-file"');
+  });
+
+  it("API lưu thật (commit) luôn kiểm tra lại attendeeId thuộc đúng training_id + organization_id trước khi update — không tin dữ liệu client gửi lên", () => {
+    const route = read("src/app/api/procedure-trainings/[id]/import/commit/route.ts");
+    expect(route).toContain('requireApiPermission("procedure_training.manage")');
+    expect(route).toContain('.eq("id", u.attendeeId)\n      .eq("training_id", trainingId)\n      .eq("organization_id", organizationId)');
+  });
+
+  it("client thực sự render đủ luồng: đáp án, chọn file, chọn nhóm mặc định khi file không có cột Nhóm, xem trước, xác nhận nhập", () => {
+    const client = read("src/components/procedure-trainings-client.tsx");
+    expect(client).toContain("void saveAnswerKey()");
+    expect(client).toContain("void previewImport()");
+    expect(client).toContain("importDefaultGroup");
+    expect(client).toContain("void commitImport()");
+    expect(client).toContain("toggleImportRow");
+  });
+});
