@@ -2,14 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT_COLUMNS = "id,training_id,employee_name,employee_code,attended,attended_at,notes,pre_test_score,post_test_score";
-
-function parseOptionalScore(value: unknown): { ok: true; score: number | null } | { ok: false } {
-  if (value === null || value === "") return { ok: true, score: null };
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) return { ok: false };
-  return { ok: true, score: parsed };
-}
+const SELECT_COLUMNS = "id,training_id,employee_name,employee_code,department,job_title,attended,attended_at,notes";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; attendeeId: string }> }) {
   const auth = await requireApiPermission("procedure_training.manage");
@@ -27,16 +20,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     update.attended_at = body.attended ? new Date().toISOString().slice(0, 10) : null;
   }
   if (body.notes !== undefined) update.notes = String(body.notes).trim() || null;
-  if (body.pre_test_score !== undefined) {
-    const parsed = parseOptionalScore(body.pre_test_score);
-    if (!parsed.ok) return NextResponse.json({ error: "Điểm Pre-test không hợp lệ." }, { status: 400 });
-    update.pre_test_score = parsed.score;
-  }
-  if (body.post_test_score !== undefined) {
-    const parsed = parseOptionalScore(body.post_test_score);
-    if (!parsed.ok) return NextResponse.json({ error: "Điểm Post-test không hợp lệ." }, { status: 400 });
-    update.post_test_score = parsed.score;
-  }
+  if (body.department !== undefined) update.department = String(body.department).trim() || null;
+  if (body.job_title !== undefined) update.job_title = String(body.job_title).trim() || null;
   if (Object.keys(update).length === 1) return NextResponse.json({ error: "Không có thay đổi nào." }, { status: 400 });
 
   const { data, error } = await admin

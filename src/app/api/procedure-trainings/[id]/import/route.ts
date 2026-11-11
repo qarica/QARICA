@@ -2,7 +2,7 @@ import { readSheet } from "read-excel-file/node";
 import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { applyAnswerKey, buildImportPlan, detectColumns, parseRows, type ExistingAttendee, type ImportGroup } from "@/lib/training-import";
+import { applyAnswerKey, buildImportPlan, detectColumns, parseRows, type ExistingAttendee } from "@/lib/training-import";
 
 export const runtime = "nodejs";
 
@@ -15,9 +15,9 @@ async function readFirstSheetRows(buffer: Buffer): Promise<unknown[][]> {
 
 // Đọc file khảo sát thô (Google/Microsoft Form xuất ra) HOẶC file đã chấm
 // sẵn (có cột Điểm), tự suy ra cột từ chính file (không giả định cố định số
-// câu hỏi — xem src/lib/training-import.ts), ghép Pre/Post với roster đã có
-// + ghép trong cùng file, rồi trả về bản xem trước — KHÔNG ghi gì vào DB ở
-// bước này, chỉ /import/commit mới ghi.
+// câu hỏi — xem src/lib/training-import.ts), ghép theo tên với roster đã có
+// + ghép trong cùng file (không giới hạn 2 đợt — "kỳ thi nào"), rồi trả về
+// bản xem trước — KHÔNG ghi gì vào DB ở bước này, chỉ /import/commit mới ghi.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("procedure_training.manage");
   if (!auth.ok) return auth.response;
@@ -53,9 +53,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Không tìm thấy cột câu hỏi (tiêu đề bắt đầu bằng 'Câu') hoặc cột Điểm có sẵn trong file." }, { status: 400 });
   }
 
-  const defaultGroupRaw = String(formData?.get("default_group") || "");
-  const defaultGroup: ImportGroup = defaultGroupRaw === "POST" ? "POST" : "PRE";
-  const rawRows = parseRows(dataRows, columns, defaultGroup);
+  const defaultRoundLabel = String(formData?.get("default_round_label") || "").trim() || "Pre-test";
+  const rawRows = parseRows(dataRows, columns, defaultRoundLabel);
   if (!rawRows.length) return NextResponse.json({ error: "Không có dòng dữ liệu hợp lệ (thiếu Họ tên ở mọi dòng)." }, { status: 400 });
 
   const { data: questionRows } = await admin.from("procedure_training_questions").select("question_no,correct_answer").eq("training_id", trainingId).order("question_no");
@@ -64,16 +63,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const scoredRows = applyAnswerKey(rawRows, answerKey.length ? answerKey : null);
   const scoringSkippedCount = scoredRows.filter((r) => r.scoringSkipped).length;
 
-  const { data: attendeeRows } = await admin
-    .from("procedure_training_attendees")
-    .select("id,employee_name,employee_code,pre_test_score,post_test_score")
-    .eq("training_id", trainingId);
+  const { data: attendeeRows } = await admin.from("procedure_training_attendees").select("id,employee_name,employee_code").eq("training_id", trainingId);
+  const attendeeIds = (attendeeRows ?? []).map((a) => a.id);
+  const { data: resultRows } = attendeeIds.length
+    ? await admin.from("procedure_training_results").select("attendee_id,score,procedure_training_rounds(round_label)").in("attendee_id", attendeeIds)
+    : { data: [] as never[] };
+  const resultsByAttendee = new Map<string, Record<string, number | null>>();
+  for (const r of (resultRows ?? []) as unknown as { attendee_id: string; score: number | null; procedure_training_rounds: { round_label: string } | null }[]) {
+    if (!r.procedure_training_rounds) continue;
+    const map = resultsByAttendee.get(r.attendee_id) || {};
+    map[r.procedure_training_rounds.round_label] = r.score;
+    resultsByAttendee.set(r.attendee_id, map);
+  }
   const existing: ExistingAttendee[] = (attendeeRows ?? []).map((a) => ({
     id: a.id,
     employeeName: a.employee_name,
     employeeCode: a.employee_code,
-    preScore: a.pre_test_score,
-    postScore: a.post_test_score,
+    resultsByRound: resultsByAttendee.get(a.id) || {},
   }));
 
   const actions = buildImportPlan(scoredRows, existing);

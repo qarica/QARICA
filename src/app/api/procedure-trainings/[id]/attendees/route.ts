@@ -2,15 +2,12 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT_COLUMNS = "id,training_id,employee_name,employee_code,attended,attended_at,notes,pre_test_score,post_test_score";
+const SELECT_COLUMNS = "id,training_id,employee_name,employee_code,department,job_title,attended,attended_at,notes";
 
-function parseOptionalScore(value: unknown): { ok: true; score: number | null } | { ok: false } {
-  if (value === undefined || value === null || value === "") return { ok: true, score: null };
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) return { ok: false };
-  return { ok: true, score: parsed };
-}
-
+// Điểm số không còn nằm trên chính attendee (xem migration
+// 20261130000000_procedure_training_rounds_results_v1.sql — "kỳ thi nào",
+// 1 người có thể có N đợt kiểm tra) — GET gắn thêm `results` (điểm theo
+// từng đợt) bằng 1 query tổng hợp, không N+1 theo từng người.
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("procedure_training.view");
   if (!auth.ok) return auth.response;
@@ -25,7 +22,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const { data, error } = await admin.from("procedure_training_attendees").select(SELECT_COLUMNS).eq("training_id", trainingId).order("employee_name");
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true, attendees: data ?? [] });
+  const attendees = data ?? [];
+
+  const attendeeIds = attendees.map((a) => a.id);
+  const { data: resultRows } = attendeeIds.length
+    ? await admin
+        .from("procedure_training_results")
+        .select("id,attendee_id,score,procedure_training_rounds(id,round_label,round_date,score_max)")
+        .in("attendee_id", attendeeIds)
+    : { data: [] as never[] };
+  const resultsByAttendee = new Map<string, { id: string; score: number | null; round_id: string; round_label: string; round_date: string | null; score_max: number | null }[]>();
+  for (const row of (resultRows ?? []) as unknown as { id: string; attendee_id: string; score: number | null; procedure_training_rounds: { id: string; round_label: string; round_date: string | null; score_max: number | null } | null }[]) {
+    if (!row.procedure_training_rounds) continue;
+    const list = resultsByAttendee.get(row.attendee_id) || [];
+    list.push({ id: row.id, score: row.score, round_id: row.procedure_training_rounds.id, round_label: row.procedure_training_rounds.round_label, round_date: row.procedure_training_rounds.round_date, score_max: row.procedure_training_rounds.score_max });
+    resultsByAttendee.set(row.attendee_id, list);
+  }
+
+  return NextResponse.json({ ok: true, attendees: attendees.map((a) => ({ ...a, results: resultsByAttendee.get(a.id) || [] })) });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -43,9 +57,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body = await request.json().catch(() => ({}));
   const employeeName = String(body.employee_name || "").trim();
   if (!employeeName) return NextResponse.json({ error: "Chưa nhập tên nhân viên." }, { status: 400 });
-  const preScore = parseOptionalScore(body.pre_test_score);
-  const postScore = parseOptionalScore(body.post_test_score);
-  if (!preScore.ok || !postScore.ok) return NextResponse.json({ error: "Điểm Pre/Post-test không hợp lệ." }, { status: 400 });
 
   const { data, error } = await admin
     .from("procedure_training_attendees")
@@ -54,11 +65,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       organization_id: organizationId,
       employee_name: employeeName,
       employee_code: body.employee_code ? String(body.employee_code).trim() || null : null,
-      pre_test_score: preScore.score,
-      post_test_score: postScore.score,
+      department: body.department ? String(body.department).trim() || null : null,
+      job_title: body.job_title ? String(body.job_title).trim() || null : null,
     })
     .select(SELECT_COLUMNS)
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true, attendee: data });
+  return NextResponse.json({ ok: true, attendee: { ...data, results: [] } });
 }

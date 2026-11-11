@@ -38,24 +38,23 @@ describe("Procedure trainings module security and control gates", () => {
     expect(route).toContain('if (!["TRAINED", "PLANNED", "NOT_PLANNED"].includes(body.status))');
   });
 
-  // Real finding from a full-app review: the edit form built editDraft state
-  // for trainer, feedback_qlcl, session_2_* and notes (all processed fine by
-  // this same PATCH route and all selected back from the DB) but never
-  // rendered an <input> for any of them — a classic UI-form-state-exists-but-
-  // no-field-renders bug (CLAUDE.md principle 5: UI form state -> submitted
-  // body -> API handling -> SELECT must all agree). Fixed by adding the 4
-  // missing columns/inputs.
-  it("the edit UI actually renders inputs for trainer, session 2, feedback_qlcl and notes (not just tracked in state)", () => {
-    const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).toContain('placeholder="Người đào tạo..."');
-    expect(client).toContain("editDraft.trainer");
-    expect(client).toContain("editDraft.session_2_time");
-    expect(client).toContain("editDraft.session_2_location");
-    expect(client).toContain("editDraft.session_2_method");
-    expect(client).toContain('placeholder="Phản hồi QLCL..."');
-    expect(client).toContain("editDraft.feedback_qlcl");
-    expect(client).toContain('placeholder="Ghi chú..."');
-    expect(client).toContain("editDraft.notes");
+  // Báo cáo thực tế: "giao diện xấu và ko đẹp, cứng đờ ko kéo được" — sửa
+  // tại-chỗ trong các ô bé xíu của bảng danh sách (12 cột) đã bị bỏ hẳn.
+  // Thông tin đào tạo (trainer/session 2/feedback_qlcl/notes) giờ sửa ở 1
+  // form riêng, full-width, trong trang chi tiết — không còn trong bảng
+  // danh sách tổng quan nữa.
+  it("thông tin đào tạo (trainer/session 2/feedback_qlcl/notes) sửa ở form riêng trong trang chi tiết, KHÔNG sửa-tại-chỗ trong bảng danh sách", () => {
+    const listClient = read("src/components/procedure-trainings-client.tsx");
+    expect(listClient).not.toContain("editDraft.trainer");
+    expect(listClient).not.toContain("editDraft.feedback_qlcl");
+
+    const detailClient = read("src/components/procedure-training-detail-client.tsx");
+    expect(detailClient).toContain("draft.trainer");
+    expect(detailClient).toContain("draft.session_2_time");
+    expect(detailClient).toContain("draft.session_2_location");
+    expect(detailClient).toContain("draft.session_2_method");
+    expect(detailClient).toContain("draft.feedback_qlcl");
+    expect(detailClient).toContain("draft.notes");
   });
 });
 
@@ -93,11 +92,20 @@ describe("Procedure trainings track per-employee attendance for a real completio
     expect(page).toContain('.from("procedure_training_attendees").select("training_id,attended").in("training_id", trainingIds)');
   });
 
-  it("the table shows the completion rate and a roster manager, with add/toggle/remove gated behind canManage (not just viewable)", () => {
+  // Báo cáo thực tế: "giao diện xấu... cứng đờ ko kéo được" — modal roster
+  // nhồi hết mọi thứ (điểm danh/điểm số/nhập file) vào 1 hộp 560px đã bỏ.
+  // Danh sách tổng quan giờ chỉ hiện tỷ lệ hoàn thành + liên kết sang trang
+  // chi tiết riêng (/procedure-trainings/[id]).
+  it("the overview list shows the completion rate and links to a dedicated detail page (not a cramped modal)", () => {
     const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).toContain("Quản lý nhân sự");
     expect(client).toContain("t.attendee_attended}/{t.attendee_total}");
-    expect(client).toContain('canManage ? (\n            <div className="pt-roster-add-form">');
+    expect(client).toContain("Xem chi tiết →");
+    expect(client).toContain('href={`/procedure-trainings/${t.id}`}');
+    expect(client).not.toContain("Quản lý nhân sự");
+    expect(client).not.toContain("createPortal");
+
+    const detailPage = read("src/app/(app)/procedure-trainings/[id]/page.tsx");
+    expect(detailPage).toContain('requirePermission(user, "procedure_training.view")');
   });
 });
 
@@ -140,61 +148,106 @@ describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần
   });
 });
 
-// Báo cáo thực tế: "A muốn cập nhật vào quản lý đào tạo" — báo cáo Pre/Post-
-// test đánh giá hiệu quả đào tạo (điểm theo từng người) không có chỗ lưu:
-// procedure_training_attendees trước đây chỉ có attended (có/vắng). Thang
-// điểm bài test là thuộc tính của CẢ đợt đào tạo (mọi người làm cùng 1 bài),
-// nên đặt ở procedure_trainings (test_score_max); điểm Pre/Post là thuộc
-// tính của từng người, đặt ở procedure_training_attendees. Cả 2 đều nullable
-// — không bắt buộc, các đợt đào tạo chỉ điểm danh vẫn hoạt động như cũ.
-describe("Procedure trainings: điểm Pre/Post-test theo từng người (đánh giá hiệu quả đào tạo)", () => {
-  it("migration thêm test_score_max (ở procedure_trainings) và pre_test_score/post_test_score (ở procedure_training_attendees), đều nullable", () => {
-    const migration = read("supabase/migrations/20261128000000_procedure_training_pre_post_test_scores_v1.sql");
-    expect(migration).toContain("alter table public.procedure_trainings");
-    expect(migration).toContain("add column if not exists test_score_max numeric");
-    expect(migration).toContain("alter table public.procedure_training_attendees");
-    expect(migration).toContain("add column if not exists pre_test_score numeric");
-    expect(migration).toContain("add column if not exists post_test_score numeric");
+// Báo cáo thực tế (vòng 2): "giao diện xấu..., Muốn xem 1 người thì làm sao
+// tra cứu bao nhiêu điểm, sai câu nào đúng câu nào. kỳ thi nào. chưa có phân
+// tích kết quả theo đối tượng, trước sau" — thiết kế vòng 1 (pre_test_score/
+// post_test_score cố định 2 cột trên attendee) không trả lời được những câu
+// hỏi này. Đổi sang 3 bảng: procedure_training_rounds (N đợt kiểm tra, không
+// giới hạn 2), procedure_training_results (điểm/người/đợt), procedure_
+// training_responses (câu trả lời + đúng/sai từng câu). Cột department/
+// job_title tách khỏi notes (free text) để group-by được khi phân tích.
+describe("Procedure trainings: nhiều đợt kiểm tra (round) + điểm theo từng đợt + đúng/sai từng câu", () => {
+  it("migration tạo rounds + results + responses, cascade đúng thứ tự, và bỏ hẳn 2 cột pre/post cố định cũ", () => {
+    const migration = read("supabase/migrations/20261130000000_procedure_training_rounds_results_v1.sql");
+    expect(migration).toContain("create table if not exists public.procedure_training_rounds");
+    expect(migration).toContain("references public.procedure_trainings(id) on delete cascade");
+    expect(migration).toContain("unique(training_id, round_label)");
+    expect(migration).toContain("create table if not exists public.procedure_training_results");
+    expect(migration).toContain("references public.procedure_training_rounds(id) on delete cascade");
+    expect(migration).toContain("unique(round_id, attendee_id)");
+    expect(migration).toContain("create table if not exists public.procedure_training_responses");
+    expect(migration).toContain("references public.procedure_training_results(id) on delete cascade");
+    expect(migration).toContain("alter table public.procedure_training_attendees drop column if exists pre_test_score");
+    expect(migration).toContain("alter table public.procedure_training_attendees drop column if exists post_test_score");
   });
 
-  it("API training (PATCH) và attendees (POST/PATCH) đọc/ghi đủ 3 field — field trong form state -> body gửi lên -> API xử lý -> SELECT trả về phải khớp nhau (CLAUDE.md nguyên tắc 5)", () => {
-    const trainingRoute = read("src/app/api/procedure-trainings/route.ts");
-    expect(trainingRoute).toContain("test_score_max");
-    const trainingIdRoute = read("src/app/api/procedure-trainings/[id]/route.ts");
-    expect(trainingIdRoute).toContain('"test_score_max",');
-    expect(trainingIdRoute).toMatch(/SELECT_COLUMNS =\s*\n?\s*"[^"]*test_score_max[^"]*";/);
-
-    const attendeesRoute = read("src/app/api/procedure-trainings/[id]/attendees/route.ts");
-    expect(attendeesRoute).toMatch(/SELECT_COLUMNS = "[^"]*pre_test_score[^"]*post_test_score[^"]*";/);
-    expect(attendeesRoute).toContain("pre_test_score: preScore.score");
-    expect(attendeesRoute).toContain("post_test_score: postScore.score");
-
-    const attendeeIdRoute = read("src/app/api/procedure-trainings/[id]/attendees/[attendeeId]/route.ts");
-    expect(attendeeIdRoute).toContain("update.pre_test_score = parsed.score");
-    expect(attendeeIdRoute).toContain("update.post_test_score = parsed.score");
+  it("migration backfill dữ liệu thật đã nhập (25 người ATPT-HSBA) từ 2 cột cũ sang rounds + results trước khi xoá cột", () => {
+    const migration = read("supabase/migrations/20261130000000_procedure_training_rounds_results_v1.sql");
+    expect(migration).toContain("'Pre-test'");
+    expect(migration).toContain("'Post-test'");
+    expect(migration).toContain("where a.pre_test_score is not null");
+    expect(migration).toContain("where a.post_test_score is not null");
   });
 
-  it("client thực sự render input cho cả 3 field (không chỉ có trong state) — thêm mới lẫn sửa điểm người đã có, cộng với sửa thang điểm chung của đợt đào tạo", () => {
-    const client = read("src/components/procedure-trainings-client.tsx");
-    // Thang điểm chung của đợt đào tạo (test_score_max) — sửa 1 lần cho cả đợt.
-    expect(client).toContain("rosterTraining.test_score_max");
-    expect(client).toContain("void saveMaxScore()");
-    // Thêm nhân sự mới kèm điểm Pre/Post ngay từ đầu.
-    expect(client).toContain('placeholder="Điểm Pre-test"');
-    expect(client).toContain('placeholder="Điểm Post-test"');
-    expect(client).toContain("newPreScore");
-    expect(client).toContain("newPostScore");
-    // Sửa điểm cho người đã có sẵn trong danh sách.
-    expect(client).toContain("startScoreEdit(a)");
-    expect(client).toContain("void saveScoreEdit(a)");
-    expect(client).toContain("scoreDraft.pre");
-    expect(client).toContain("scoreDraft.post");
+  it("department/job_title tách thành cột riêng (group-by được khi phân tích), không còn gộp vào notes dạng text tự do", () => {
+    const migration = read("supabase/migrations/20261130000001_procedure_training_attendee_dept_title_v1.sql");
+    expect(migration).toContain("add column if not exists department text");
+    expect(migration).toContain("add column if not exists job_title text");
+    const commitRoute = read("src/app/api/procedure-trainings/[id]/import/commit/route.ts");
+    expect(commitRoute).toContain("department: action.dept");
+    expect(commitRoute).toContain("job_title: action.title");
   });
 
-  it(".pt-roster-add-form (grid) có escape hatch min-width:0 cho các ô input co giãn trên màn hẹp, giống quy ước các grid khác trong app", () => {
-    const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).toContain(".pt-roster-add-form {\n          display: grid;");
-    expect(client).toContain(".pt-roster-add-form > * {\n          min-width: 0;\n        }");
+  it("API rounds (GET/POST) và rounds/[roundId] (PATCH/DELETE) tách view/manage, tenant-scoped", () => {
+    const listRoute = read("src/app/api/procedure-trainings/[id]/rounds/route.ts");
+    expect(listRoute).toContain('requireApiPermission("procedure_training.view")');
+    expect(listRoute).toContain('requireApiPermission("procedure_training.manage")');
+    const itemRoute = read("src/app/api/procedure-trainings/[id]/rounds/[roundId]/route.ts");
+    expect(itemRoute).toContain('requireApiPermission("procedure_training.manage")');
+    expect(itemRoute).toContain('.eq("training_id", trainingId)');
+    expect(itemRoute).toContain('.eq("organization_id", organizationId)');
+  });
+
+  it("API kết quả của 1 người (GET/POST results) gắn kèm đáp án đúng để tra đúng/sai, tenant-scoped qua chính attendee", () => {
+    const route = read("src/app/api/procedure-trainings/[id]/attendees/[attendeeId]/results/route.ts");
+    expect(route).toContain('requireApiPermission("procedure_training.view")');
+    expect(route).toContain('requireApiPermission("procedure_training.manage")');
+    expect(route).toContain("procedure_training_questions");
+    expect(route).toContain("correct_answer: answerByQuestion.get(r.question_no)");
+  });
+
+  it("buildImportPlan tổng quát hoá: ghép theo cụm tên (không còn chỉ 2 nhóm Pre/Post cố định), mỗi hành động mang mảng results theo round_label bất kỳ", () => {
+    const lib = read("src/lib/training-import.ts");
+    expect(lib).toContain("roundLabel: string");
+    expect(lib).not.toContain('"PRE" | "POST"');
+    expect(lib).toContain("function clusterRows");
+    expect(lib).toContain("results: ImportRoundResult[]");
+  });
+
+  it("client trang chi tiết (procedure-training-detail-client.tsx) có đủ 5 tab: Thông tin đào tạo, Nhân sự & điểm, Phân tích, Câu hỏi & đáp án, Nhập dữ liệu", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    for (const label of ["Thông tin đào tạo", "Nhân sự & điểm", "Phân tích", "Câu hỏi & đáp án", "Nhập dữ liệu"]) {
+      expect(client).toContain(`"${label}"`);
+    }
+  });
+
+  // "kỳ thi nào" — thêm/xoá đợt kiểm tra tự do, không giới hạn Pre/Post.
+  it("tab Nhân sự & điểm cho thêm đợt kiểm tra tự do (không giới hạn Pre/Post) và sửa điểm theo từng ô (đợt × người)", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain("void addRound()");
+    expect(client).toContain("void removeRound(r)");
+    expect(client).toContain("startScoreEdit(a.id, r.id");
+    expect(client).toContain("void saveScoreEdit()");
+  });
+
+  // "Muốn xem 1 người thì làm sao tra cứu bao nhiêu điểm, sai câu nào đúng
+  // câu nào" — panel chi tiết hiện điểm + từng câu đúng/sai theo từng đợt.
+  it("panel 'Xem chi tiết' 1 người hiện điểm theo từng đợt VÀ đúng/sai từng câu (khi có), không chỉ điểm tổng", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain("function AttendeeDetailPanel");
+    expect(client).toContain("resp.is_correct ? \"Đúng\" : \"Sai\"");
+    expect(client).toContain("Câu {resp.question_no}:");
+  });
+
+  // "chưa có phân tích kết quả theo đối tượng, trước sau"
+  it("tab Phân tích: điểm TB theo đợt, theo đơn vị, theo chức danh, và so sánh trước/sau theo đơn vị", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain("function AnalysisTab");
+    expect(client).toContain("Điểm trung bình theo đợt kiểm tra");
+    expect(client).toContain("Điểm trung bình theo đơn vị");
+    expect(client).toContain("Điểm trung bình theo chức danh");
+    expect(client).toContain("function groupByBeforeAfter");
+    expect(client).toContain("Độ khó từng câu");
   });
 });
 
@@ -204,9 +257,9 @@ describe("Procedure trainings: điểm Pre/Post-test theo từng người (đán
 // qarica" — thay vì chỉ nhập tay từng người, cho import thẳng file khảo sát
 // (Google/Microsoft Form xuất ra, mỗi cột 1 câu hỏi, số câu tùy file —
 // src/lib/training-import.ts) hoặc file đã chấm sẵn, tự chấm theo đáp án
-// khai báo riêng từng đợt, tự ghép Pre/Post theo tên (không ép ghép khi mơ
-// hồ), xem trước trước khi lưu thật.
-describe("Procedure trainings: import điểm Pre/Post-test từ file khảo sát (Google/Microsoft Form)", () => {
+// khai báo riêng từng đợt, tự ghép theo tên (không ép ghép khi mơ hồ), xem
+// trước trước khi lưu thật.
+describe("Procedure trainings: import điểm từ file khảo sát (Google/Microsoft Form)", () => {
   it("migration đáp án (procedure_training_questions) lưu 1 hàng/câu — số câu không cố định giữa các đợt đào tạo", () => {
     const migration = read("supabase/migrations/20261129000000_procedure_training_questions_v1.sql");
     expect(migration).toContain("create table if not exists public.procedure_training_questions");
@@ -236,18 +289,19 @@ describe("Procedure trainings: import điểm Pre/Post-test từ file khảo sá
     expect(pkg).toContain('"read-excel-file"');
   });
 
-  it("API lưu thật (commit) luôn kiểm tra lại attendeeId thuộc đúng training_id + organization_id trước khi update — không tin dữ liệu client gửi lên", () => {
+  it("API lưu thật (commit) find-or-create đợt kiểm tra 1 lần cho cả batch, và luôn kiểm tra lại attendeeId thuộc đúng training_id + organization_id trước khi ghi kết quả — không tin dữ liệu client gửi lên", () => {
     const route = read("src/app/api/procedure-trainings/[id]/import/commit/route.ts");
     expect(route).toContain('requireApiPermission("procedure_training.manage")');
-    expect(route).toContain('.eq("id", u.attendeeId)\n      .eq("training_id", trainingId)\n      .eq("organization_id", organizationId)');
+    expect(route).toContain("roundIdByLabel");
+    expect(route).toContain('.eq("id", attendeeId).eq("training_id", trainingId).eq("organization_id", organizationId)');
   });
 
-  it("client thực sự render đủ luồng: đáp án, chọn file, chọn nhóm mặc định khi file không có cột Nhóm, xem trước, xác nhận nhập", () => {
-    const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).toContain("void saveAnswerKey()");
+  it("client (tab Nhập dữ liệu) thực sự render đủ luồng: cảnh báo thiếu đáp án, chọn file, đặt tên đợt mặc định khi file không có cột Nhóm, xem trước (bỏ được từng dòng), xác nhận nhập", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain("function ImportTab");
     expect(client).toContain("void previewImport()");
-    expect(client).toContain("importDefaultGroup");
+    expect(client).toContain("defaultRoundLabel");
     expect(client).toContain("void commitImport()");
-    expect(client).toContain("toggleImportRow");
+    expect(client).toContain("toggleRow");
   });
 });

@@ -1,36 +1,40 @@
-// Nhập điểm Pre/Post-test từ file khảo sát (Google Form/Microsoft Form xuất
-// ra, hoặc file đã chấm sẵn như báo cáo thật ATPT-HSBA) vào procedure_
-// training_attendees. Số câu hỏi khác nhau giữa các đợt đào tạo — mọi logic
-// ở đây đều suy ra số câu/cột từ chính file, không giả định cố định.
+// Nhập điểm từ file khảo sát (Google Form/Microsoft Form xuất ra, hoặc file
+// đã chấm sẵn như báo cáo thật ATPT-HSBA) vào procedure_training_results.
+// Số câu hỏi VÀ số đợt kiểm tra (Pre-test/Post-test/định kỳ...) khác nhau
+// giữa các đợt đào tạo — mọi logic ở đây đều suy ra từ chính file, không
+// giả định cố định 2 đợt cứng (xem "kỳ thi nào" — báo cáo thực tế yêu cầu
+// hỗ trợ nhiều hơn 2 đợt kiểm tra cho 1 đợt đào tạo).
 //
-// Ghép Pre<->Post theo tên không bao giờ hoàn hảo (báo cáo thật ATPT-HSBA tự
-// phân loại "ghép chắc chắn" / "cần rà soát thủ công" — không phải lỗi, là
-// bản chất dữ liệu tên người gõ tay). Module này chỉ tự ghép khi tin cậy cao
-// (tên khớp sau khi chuẩn hoá, hoặc khớp sau khi bỏ tiền tố học hàm/chức
-// danh như "Bs", "Ths"); khi có NHIỀU hơn 1 khả năng khớp, không tự chọn —
-// để lại thành 2 dòng riêng, người dùng tự ghép tay bằng công cụ roster đã
-// có (Sửa điểm) sau khi xem bản xem trước.
-
-export type ImportGroup = "PRE" | "POST";
+// Ghép theo tên không bao giờ hoàn hảo (báo cáo thật ATPT-HSBA tự phân loại
+// "ghép chắc chắn" / "cần rà soát thủ công" — không phải lỗi, là bản chất dữ
+// liệu tên người gõ tay). Module này chỉ tự ghép khi tin cậy cao (tên khớp
+// sau khi chuẩn hoá, hoặc khớp sau khi bỏ tiền tố học hàm/chức danh như "Bs",
+// "Ths"); khi có NHIỀU hơn 1 khả năng khớp, không tự chọn — để riêng cho
+// người dùng tự ghép tay bằng công cụ roster đã có sau khi xem bản xem trước.
 
 export type RawPersonRow = {
   employeeName: string;
   employeeCode: string | null;
   dept: string | null;
   title: string | null;
-  group: ImportGroup;
+  // Tên đợt kiểm tra ("Pre-test", "Post-test", "Kiểm tra định kỳ T3/2027"...)
+  // — lấy thẳng từ cột Nhóm trong file, hoặc defaultRoundLabel khi file
+  // không có cột Nhóm (mỗi file 1 đợt riêng).
+  roundLabel: string;
   score: number | null;
   rawAnswers: string[] | null;
 };
 
-export type ScoredPersonRow = RawPersonRow & { scoringSkipped: boolean };
+export type ScoredResponse = { questionNo: number; answerText: string; isCorrect: boolean };
+
+export type ScoredPersonRow = RawPersonRow & { scoringSkipped: boolean; responses: ScoredResponse[] | null };
 
 export type ExistingAttendee = {
   id: string;
   employeeName: string;
   employeeCode: string | null;
-  preScore: number | null;
-  postScore: number | null;
+  // điểm đã có sẵn theo từng đợt (để phát hiện ghi đè) — key là round_label.
+  resultsByRound: Record<string, number | null>;
 };
 
 export type DetectedColumns = {
@@ -44,6 +48,8 @@ export type DetectedColumns = {
   questionIdxs: number[];
 };
 
+export type ImportRoundResult = { roundLabel: string; score: number | null; conflict: boolean; responses: ScoredResponse[] | null };
+
 export type ImportAction =
   | {
       type: "insert";
@@ -52,18 +58,14 @@ export type ImportAction =
       employeeCode: string | null;
       dept: string | null;
       title: string | null;
-      preScore: number | null;
-      postScore: number | null;
+      results: ImportRoundResult[];
     }
   | {
       type: "update";
       key: string;
       attendeeId: string;
       employeeName: string;
-      preScore: number | null;
-      postScore: number | null;
-      preConflict: boolean;
-      postConflict: boolean;
+      results: ImportRoundResult[];
     };
 
 function stripDiacritics(s: string): string {
@@ -118,6 +120,21 @@ export function scoreAnswers(answers: string[], answerKey: string[]): number {
     if (normalizeAnswer(answers[i]) === normalizeAnswer(answerKey[i])) score++;
   }
   return score;
+}
+
+// Chấm từng câu + giữ lại câu trả lời gốc — để tra cứu sau này "câu nào
+// đúng/sai" cho 1 người (báo cáo thực tế: "sai câu nào đúng câu nào").
+export function buildResponses(answers: string[], answerKey: string[]): ScoredResponse[] {
+  const len = Math.min(answers.length, answerKey.length);
+  const responses: ScoredResponse[] = [];
+  for (let i = 0; i < len; i++) {
+    responses.push({
+      questionNo: i + 1,
+      answerText: String(answers[i] ?? ""),
+      isCorrect: normalizeAnswer(answers[i]) === normalizeAnswer(answerKey[i]),
+    });
+  }
+  return responses;
 }
 
 // "ho ten"/"ho va ten" ưu tiên trước — nhiều file Microsoft Form có sẵn cột
@@ -206,10 +223,10 @@ function cellString(row: unknown[], idx: number | null): string | null {
   return s || null;
 }
 
-// defaultGroup áp dụng khi file không có cột Nhóm (vd upload riêng từng file
-// Pre-test/Post-test thay vì 1 file gộp cả hai như "Du lieu cham diem") —
-// người dùng tự chọn trước khi xem trước, không đoán bừa là Pre-test.
-export function parseRows(dataRows: unknown[][], columns: DetectedColumns, defaultGroup: ImportGroup = "PRE"): RawPersonRow[] {
+// defaultRoundLabel áp dụng khi file không có cột Nhóm (vd upload riêng từng
+// file Pre-test/Post-test thay vì 1 file gộp cả hai như "Du lieu cham diem")
+// — người dùng tự chọn/đặt tên đợt trước khi xem trước, không đoán bừa.
+export function parseRows(dataRows: unknown[][], columns: DetectedColumns, defaultRoundLabel: string = "Pre-test"): RawPersonRow[] {
   const rows: RawPersonRow[] = [];
   for (const row of dataRows) {
     const name = cellString(row, columns.nameIdx);
@@ -218,11 +235,7 @@ export function parseRows(dataRows: unknown[][], columns: DetectedColumns, defau
     const code = codeRaw && looksLikeRealCode(codeRaw) ? codeRaw : null;
     const dept = cellString(row, columns.deptIdx);
     const title = cellString(row, columns.titleIdx);
-    let group: ImportGroup = defaultGroup;
-    if (columns.groupIdx != null) {
-      const groupRaw = normalizeName(String(row[columns.groupIdx] ?? ""));
-      group = groupRaw.includes("post") ? "POST" : "PRE";
-    }
+    const roundLabel = columns.groupIdx != null ? cellString(row, columns.groupIdx) || defaultRoundLabel : defaultRoundLabel;
 
     let score: number | null = null;
     let rawAnswers: string[] | null = null;
@@ -234,18 +247,19 @@ export function parseRows(dataRows: unknown[][], columns: DetectedColumns, defau
       rawAnswers = columns.questionIdxs.map((i) => String(row[i] ?? ""));
     }
 
-    rows.push({ employeeName: name, employeeCode: code, dept, title, group, score, rawAnswers });
+    rows.push({ employeeName: name, employeeCode: code, dept, title, roundLabel, score, rawAnswers });
   }
   return rows;
 }
 
 export function applyAnswerKey(rows: RawPersonRow[], answerKey: string[] | null): ScoredPersonRow[] {
   return rows.map((r) => {
-    if (r.score != null) return { ...r, scoringSkipped: false };
+    if (r.score != null) return { ...r, scoringSkipped: false, responses: null };
     if (r.rawAnswers && answerKey && answerKey.length) {
-      return { ...r, score: scoreAnswers(r.rawAnswers, answerKey), scoringSkipped: false };
+      const responses = buildResponses(r.rawAnswers, answerKey);
+      return { ...r, score: scoreAnswers(r.rawAnswers, answerKey), scoringSkipped: false, responses };
     }
-    return { ...r, score: null, scoringSkipped: !!r.rawAnswers };
+    return { ...r, score: null, scoringSkipped: !!r.rawAnswers, responses: null };
   });
 }
 
@@ -253,51 +267,74 @@ function codesConflict(a: string | null, b: string | null): boolean {
   return !!a && !!b && a !== b;
 }
 
+// Gộp các dòng cùng 1 người (có thể khác đợt kiểm tra) lại thành 1 nhóm —
+// tổng quát hoá việc ghép Pre<->Post trước đây sang N đợt bất kỳ. Thuật
+// toán tham lam: 1 dòng gia nhập cụm đầu tiên có bất kỳ thành viên nào khớp
+// tên (và không mâu thuẫn mã NV) — đủ tốt cho vài chục/vài trăm dòng mỗi lần
+// nhập, không cần thuật toán union-find phức tạp hơn.
+function clusterRows(rows: ScoredPersonRow[]): ScoredPersonRow[][] {
+  const clusters: ScoredPersonRow[][] = [];
+  for (const row of rows) {
+    const cluster = clusters.find((c) => c.some((member) => namesMatch(member.employeeName, row.employeeName) && !codesConflict(member.employeeCode, row.employeeCode)));
+    if (cluster) cluster.push(row);
+    else clusters.push([row]);
+  }
+  return clusters;
+}
+
+function firstNonNull<T>(values: (T | null)[]): T | null {
+  for (const v of values) if (v != null) return v;
+  return null;
+}
+
+// results theo round_label — nếu cụm có 2 dòng trùng round_label (lỗi dữ
+// liệu hiếm gặp), chỉ giữ dòng đầu tiên, không ghi đè âm thầm.
+function clusterResults(cluster: ScoredPersonRow[], existingByRound?: Record<string, number | null>): ImportRoundResult[] {
+  const seen = new Set<string>();
+  const results: ImportRoundResult[] = [];
+  for (const row of cluster) {
+    if (seen.has(row.roundLabel)) continue;
+    seen.add(row.roundLabel);
+    const existingScore = existingByRound?.[row.roundLabel];
+    const conflict = existingScore != null && row.score != null && existingScore !== row.score;
+    results.push({ roundLabel: row.roundLabel, score: row.score, conflict, responses: row.responses });
+  }
+  return results;
+}
+
 export function buildImportPlan(scoredRows: ScoredPersonRow[], existing: ExistingAttendee[]): ImportAction[] {
   const existingPool = existing.map((e) => ({ ...e, consumed: false }));
-  const pre = scoredRows.filter((r) => r.group === "PRE").map((r) => ({ ...r, consumed: false }));
-  const post = scoredRows.filter((r) => r.group === "POST").map((r) => ({ ...r, consumed: false }));
+  const clusters = clusterRows(scoredRows);
   const actions: ImportAction[] = [];
   let keySeq = 0;
 
-  for (const row of [...pre, ...post]) {
-    const candidates = existingPool.filter((e) => !e.consumed && namesMatch(row.employeeName, e.employeeName) && !codesConflict(row.employeeCode, e.employeeCode));
-    if (candidates.length !== 1) continue;
-    const match = candidates[0];
-    match.consumed = true;
-    row.consumed = true;
-    const preScore = row.group === "PRE" ? row.score : match.preScore;
-    const postScore = row.group === "POST" ? row.score : match.postScore;
-    const preConflict = row.group === "PRE" && match.preScore != null && row.score != null && match.preScore !== row.score;
-    const postConflict = row.group === "POST" && match.postScore != null && row.score != null && match.postScore !== row.score;
-    actions.push({ type: "update", key: `u${keySeq++}`, attendeeId: match.id, employeeName: row.employeeName, preScore, postScore, preConflict, postConflict });
-  }
-
-  const preLeft = pre.filter((r) => !r.consumed);
-  const postLeft = post.filter((r) => !r.consumed);
-
-  for (const p of preLeft) {
-    const candidates = postLeft.filter((q) => !q.consumed && namesMatch(p.employeeName, q.employeeName) && !codesConflict(p.employeeCode, q.employeeCode));
+  for (const cluster of clusters) {
+    const representativeName = cluster[0].employeeName;
+    const representativeCode = firstNonNull(cluster.map((r) => r.employeeCode));
+    const candidates = existingPool.filter(
+      (e) => !e.consumed && cluster.some((row) => namesMatch(row.employeeName, e.employeeName) && !codesConflict(row.employeeCode, e.employeeCode)),
+    );
     if (candidates.length === 1) {
-      const q = candidates[0];
-      q.consumed = true;
+      const match = candidates[0];
+      match.consumed = true;
+      actions.push({
+        type: "update",
+        key: `u${keySeq++}`,
+        attendeeId: match.id,
+        employeeName: representativeName,
+        results: clusterResults(cluster, match.resultsByRound),
+      });
+    } else {
       actions.push({
         type: "insert",
         key: `i${keySeq++}`,
-        employeeName: p.employeeName,
-        employeeCode: p.employeeCode || q.employeeCode,
-        dept: p.dept || q.dept,
-        title: p.title || q.title,
-        preScore: p.score,
-        postScore: q.score,
+        employeeName: representativeName,
+        employeeCode: representativeCode,
+        dept: firstNonNull(cluster.map((r) => r.dept)),
+        title: firstNonNull(cluster.map((r) => r.title)),
+        results: clusterResults(cluster),
       });
-    } else {
-      actions.push({ type: "insert", key: `i${keySeq++}`, employeeName: p.employeeName, employeeCode: p.employeeCode, dept: p.dept, title: p.title, preScore: p.score, postScore: null });
     }
-  }
-  for (const q of postLeft) {
-    if (q.consumed) continue;
-    actions.push({ type: "insert", key: `i${keySeq++}`, employeeName: q.employeeName, employeeCode: q.employeeCode, dept: q.dept, title: q.title, preScore: null, postScore: q.score });
   }
 
   return actions;

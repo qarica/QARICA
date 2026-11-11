@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Fragment, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
 import {
@@ -923,13 +924,13 @@ export function DocumentPublicationsClient({
                                     với "Cần đào tạo" thay vì tách rời 2 nơi. Thư viện văn bản chỉ còn 1
                                     liên kết trỏ sang, giống hệt cách TRAINING_REQUIRED đã làm từ trước. */}
                                 {d.dissemination_type === "TRAINING_REQUIRED" ? (
-                                  <a href="/procedure-trainings" className="dp-dissemination-link">
+                                  <Link href="/procedure-trainings" className="dp-dissemination-link">
                                     Cần đào tạo - xem tiến độ →
-                                  </a>
+                                  </Link>
                                 ) : d.dissemination_type === "SELF_READ" ? (
-                                  <a href="/procedure-trainings" className="dp-dissemination-link">
+                                  <Link href="/procedure-trainings" className="dp-dissemination-link">
                                     Tự đọc hiểu - xem tiến độ →
-                                  </a>
+                                  </Link>
                                 ) : (
                                   "—"
                                 )}
