@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { TQM_CHART_CSS, TqmHorizontalBars } from "@/components/tqm-charts";
 
 type Training = {
   id: string;
@@ -733,19 +734,20 @@ function AttendeeDetailPanel({
   onClose: () => void;
 }) {
   return (
-    <section className="panel">
-      <div className="panel-title">
-        <div>
-          <h2>Chi tiết: {attendee.employee_name}</h2>
-          <p>
-            {attendee.department || "—"} · {attendee.job_title || "—"}
-          </p>
+    <div className="modal-backdrop">
+      <div className="modal-card">
+        <div className="modal-head">
+          <div>
+            <h2>Chi tiết: {attendee.employee_name}</h2>
+            <p>
+              {attendee.department || "—"} · {attendee.job_title || "—"}
+            </p>
+          </div>
+          <button type="button" className="icon-button" aria-label="Đóng" onClick={onClose}>
+            ×
+          </button>
         </div>
-        <button className="icon-button" aria-label="Đóng" onClick={onClose}>
-          ×
-        </button>
-      </div>
-      <div style={{ padding: "0 19px 19px", display: "grid", gap: 14 }}>
+        <div className="modal-body" style={{ display: "grid", gap: 14 }}>
         {results.length ? (
           results
             .map((r) => ({ r, round: roundById.get(r.round_id) }))
@@ -778,6 +780,7 @@ function AttendeeDetailPanel({
         ) : (
           <p className="empty-state compact">Chưa có kết quả kiểm tra nào.</p>
         )}
+        </div>
       </div>
       <style jsx>{`
         .ptd-detail-round {
@@ -812,7 +815,7 @@ function AttendeeDetailPanel({
           background: var(--danger-soft, #fee2e2);
         }
       `}</style>
-    </section>
+    </div>
   );
 }
 
@@ -865,12 +868,36 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
     })
     .sort((a, b) => a.questionNo - b.questionNo);
 
+  const roundChartRows = byRound
+    .filter((b) => b.average != null)
+    .map((b) => ({ label: b.round.round_label, value: Math.round((b.average as number) * 100) / 100, caption: `${b.count} người có điểm`, tone: "blue" as const }));
+  const deptChartRows = byDept.filter((d) => d.average != null).map((d) => ({ label: d.key, value: Math.round((d.average as number) * 100) / 100, caption: `${d.count} lượt`, tone: "brand" as const }));
+  const titleChartRows = byTitle.filter((d) => d.average != null).map((d) => ({ label: d.key, value: Math.round((d.average as number) * 100) / 100, caption: `${d.count} lượt`, tone: "blue" as const }));
+  const beforeAfterChartRows = (beforeAfter || [])
+    .filter((r) => r.before != null && r.after != null && r.delta != null)
+    .map((r) => ({
+      label: r.key,
+      value: Math.round(Math.abs(r.delta as number) * 100) / 100,
+      caption: `${(r.before as number).toFixed(1)} → ${(r.after as number).toFixed(1)} (${(r.delta as number) >= 0 ? "+" : ""}${(r.delta as number).toFixed(1)})`,
+      tone: (r.delta as number) >= 0 ? ("green" as const) : ("red" as const),
+    }))
+    .sort((a, b) => b.value - a.value);
+  const questionChartRows = questionDifficulty
+    .filter((q) => q.pctCorrect != null)
+    .map((q) => ({
+      label: `Câu ${q.questionNo}`,
+      value: q.pctCorrect as number,
+      caption: `${q.correctCount}/${q.total} đúng`,
+      tone: (q.pctCorrect as number) < 60 ? ("red" as const) : (q.pctCorrect as number) < 80 ? ("amber" as const) : ("green" as const),
+    }));
+
   return (
     <>
       <section className="panel">
         <div className="panel-title">
           <h2>Điểm trung bình theo đợt kiểm tra</h2>
         </div>
+        {roundChartRows.length ? <TqmHorizontalBars rows={roundChartRows} /> : null}
         <div className="table-wrap">
           <table>
             <thead>
@@ -910,6 +937,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
               </p>
             </div>
           </div>
+          {beforeAfterChartRows.length ? <TqmHorizontalBars rows={beforeAfterChartRows} /> : null}
           <div className="table-wrap">
             <table>
               <thead>
@@ -939,6 +967,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
         <div className="panel-title">
           <h2>Điểm trung bình theo đơn vị</h2>
         </div>
+        {deptChartRows.length ? <TqmHorizontalBars rows={deptChartRows} /> : null}
         <div className="table-wrap">
           <table>
             <thead>
@@ -972,6 +1001,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
         <div className="panel-title">
           <h2>Điểm trung bình theo chức danh</h2>
         </div>
+        {titleChartRows.length ? <TqmHorizontalBars rows={titleChartRows} /> : null}
         <div className="table-wrap">
           <table>
             <thead>
@@ -1009,6 +1039,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
               <p>% trả lời đúng — câu nào thấp nghĩa là nhiều người hay sai, cần nhấn mạnh lại khi đào tạo.</p>
             </div>
           </div>
+          {questionChartRows.length ? <TqmHorizontalBars rows={questionChartRows} max={100} /> : null}
           <div className="table-wrap">
             <table>
               <thead>
@@ -1087,6 +1118,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
           }
         }
       `}</style>
+      <style>{TQM_CHART_CSS}</style>
     </>
   );
 }

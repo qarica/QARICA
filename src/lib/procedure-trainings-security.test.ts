@@ -340,4 +340,52 @@ describe("Procedure trainings: import điểm từ file khảo sát (Google/Micr
     expect(analysisSrc).toContain("<style jsx>{`");
     expect(analysisSrc).toContain("@media (max-width: 760px) {");
   });
+
+  // "Phần xem chi tiết có mở ra được gì đâu" — AttendeeDetailPanel trước đây
+  // là 1 <section className="panel"> nối thêm vào CUỐI trang, sau cả bảng
+  // nhân sự (có thể vài chục dòng) — bấm "Xem chi tiết" ở dòng đầu tiên
+  // trong khi đang cuộn giữa trang thì panel mở ra ở tận đáy trang, ngoài
+  // màn hình, trông như "không mở được gì". Sửa bằng cách dùng đúng quy ước
+  // modal đã có sẵn của repo (.modal-backdrop/.modal-card/.modal-head —
+  // position:fixed;inset:0, luôn hiện giữa màn hình bất kể đang cuộn ở đâu).
+  it("AttendeeDetailPanel là modal overlay thật (.modal-backdrop/.modal-card/.modal-head), không còn là <section> nối cuối trang — luôn hiện trong màn hình dù đang cuộn ở đâu", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    const start = client.indexOf("function AttendeeDetailPanel");
+    expect(start).toBeGreaterThan(-1);
+    const panelSrc = client.slice(start, client.indexOf("\n}\n", start));
+    expect(panelSrc).toContain('<div className="modal-backdrop">');
+    expect(panelSrc).toContain('<div className="modal-card">');
+    expect(panelSrc).toContain('<div className="modal-head">');
+    expect(panelSrc).toContain('<div className="modal-body"');
+    expect(panelSrc).not.toContain('<section className="panel">');
+  });
+
+  // "phần phân tích cũng ko xem được dạng biểu đồ để so sánh" — AnalysisTab
+  // trước đây chỉ có bảng số, không có biểu đồ trực quan. Thêm biểu đồ cột
+  // ngang dùng lại component dùng chung TqmHorizontalBars (src/components/
+  // tqm-charts.tsx, đã qua dataviz skill's validator) cho cả 5 biểu đồ —
+  // không build riêng 1 bộ biểu đồ mới. "So sánh trước/sau theo đơn
+  // vị" ban đầu thử TqmMultiTrend (đường nối nhiều kỳ) nhưng với vài chục
+  // đơn vị không theo thứ tự thời gian thật, trục ngang bị chữ chồng lên
+  // nhau và đường nối ngụ ý 1 xu hướng liên tục giữa các đơn vị không liên
+  // quan — gây hiểu lầm, không chỉ là xấu. Đổi sang cột ngang chênh lệch
+  // (trị tuyệt đối, sắp xếp giảm dần, tông xanh lá/đỏ kèm số +/- rõ ràng
+  // trong caption — không chỉ dựa vào màu vì xanh lá/đỏ không phân biệt
+  // được với mù màu đỏ-lục, đúng ghi chú ở đầu tqm-charts.tsx).
+  it("AnalysisTab dùng TqmHorizontalBars (component biểu đồ dùng chung, đã qua dataviz validator) cho cả 5 biểu đồ (theo đợt, trước/sau theo đơn vị, theo đơn vị, theo chức danh, độ khó câu), không phải chỉ có bảng số — và nạp đúng TQM_CHART_CSS (plain <style>, không phải <style jsx>, vì Tqm* là component con khác, style jsx không scope qua được)", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain('import { TQM_CHART_CSS, TqmHorizontalBars } from "@/components/tqm-charts"');
+    const analysisStart = client.indexOf("function AnalysisTab");
+    const analysisEnd = client.indexOf("function groupByBeforeAfter");
+    const analysisSrc = client.slice(analysisStart, analysisEnd);
+    expect(analysisSrc.match(/<TqmHorizontalBars/g)?.length).toBe(5);
+    expect(analysisSrc).toContain("<style>{TQM_CHART_CSS}</style>");
+    expect(analysisSrc).not.toContain("TqmMultiTrend");
+  });
+
+  it("biểu đồ so sánh trước/sau theo đơn vị dùng chênh lệch tuyệt đối + tông xanh/đỏ kèm số +/- rõ trong caption (không chỉ dựa vào màu để phân biệt tăng/giảm)", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain('tone: (r.delta as number) >= 0 ? ("green" as const) : ("red" as const)');
+    expect(client).toContain('caption: `${(r.before as number).toFixed(1)} → ${(r.after as number).toFixed(1)} (${(r.delta as number) >= 0 ? "+" : ""}${(r.delta as number).toFixed(1)})`');
+  });
 });
