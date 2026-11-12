@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -8,11 +7,10 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export async function GET(req: NextRequest) {
   const auth = await requireApiPermission("emr.view");
   if (!auth.ok) return auth.response;
-  const admin = createAdminClient();
-  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(auth.supabase, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
-  const { data, error } = await admin.from("emr_rollout_items")
+  const { data, error } = await auth.supabase.from("emr_rollout_items")
     .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,publish_status,created_at,updated_at")
     .eq("organization_id", organizationId).order("updated_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -61,14 +59,14 @@ export async function GET(req: NextRequest) {
   // the Go-live gate), since milestones aren't standardized checklist items
   // and mixing the two would make that gate's number impossible to audit.
   // Surfaced as its own distinct KPI instead.
-  const { data: milestoneRows, error: me } = await admin.from("emr_timeline_milestones")
+  const { data: milestoneRows, error: me } = await auth.supabase.from("emr_timeline_milestones")
     .select("id,status").eq("organization_id", organizationId);
   if (me) return NextResponse.json({ error: me.message }, { status: 400 });
   const milestones = milestoneRows ?? [];
   const milestonesDone = milestones.filter(x => x.status === "DONE").length;
   const milestoneStats = { total: milestones.length, done: milestonesDone, completion: milestones.length ? Math.round(milestonesDone * 100 / milestones.length) : null };
 
-  const { data: departments, error: de } = await admin.from("departments")
+  const { data: departments, error: de } = await auth.supabase.from("departments")
     .select("id,name,short_name,department_type").eq("organization_id", organizationId).eq("is_active", true).order("name");
   if (de) return NextResponse.json({ error: de.message }, { status: 400 });
 

@@ -27,12 +27,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Danh mục không hợp lệ." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(auth.supabase, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
-  const { data, error } = await admin
+  const { data, error } = await auth.supabase
     .from("emr_rollout_items")
     .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,publish_status,published_at,published_by,created_at,updated_at")
     .eq("organization_id", organizationId)
@@ -77,7 +76,7 @@ export async function POST(request: Request) {
   if (!["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(priority)) return NextResponse.json({ error: "Mức ưu tiên không hợp lệ." }, { status: 400 });
 
   const admin = createAdminClient();
-  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(auth.supabase, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 

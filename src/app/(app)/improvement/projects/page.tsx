@@ -7,7 +7,6 @@ import { TQM_CHART_CSS, TqmGantt, TqmHorizontalBars } from "@/components/tqm-cha
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { routeForRecord } from "@/lib/record-route";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 import { DomainCreateClient } from "@/components/domain-create-client";
@@ -27,7 +26,7 @@ export default async function ImprovementProjectsPage({searchParams}:PageProps){
  const {user}=await requireUserContext(); if(!hasAnyPermission(user,["projects.view","projects.propose","projects.manage"])) redirect("/dashboard?forbidden=1");
  const canManage=hasAnyPermission(user,["projects.manage"]);
  const filters=await searchParams; const selectedStatus=String(filters?.status||""); const selectedDomain=String(filters?.domain||""); const qRaw=String(filters?.q||"").trim(); const q=qRaw.toLocaleLowerCase("vi");
- const year=await getWorkYear(); const supabase=await createClient(); const admin=createAdminClient();
+ const year=await getWorkYear(); const supabase=await createClient();
  const [recordsRes,projectsRes]=await Promise.all([
   supabase.from("records").select("id,record_code,title,lifecycle_status,owner_department_id,owner_user_id,updated_at").eq("record_type","IMPROVEMENT_PROJECT").eq("work_year",year).order("updated_at",{ascending:false}),
   supabase.from("improvement_projects").select("id,record_id,problem_statement,start_date,target_end_date,actual_end_date,scope_description,workflow_status,approved_at,lead_department_id,project_leader_user_id").order("updated_at",{ascending:false})
@@ -39,12 +38,12 @@ export default async function ImprovementProjectsPage({searchParams}:PageProps){
   projectIds.length?supabase.from("project_objectives").select("project_id,objective_text,indicator_name,baseline_value,target_value,target_date").in("project_id",projectIds):Promise.resolve({data:[] as any[],error:null}),
   projectIds.length?supabase.from("project_milestones").select("project_id,status,pdsa_phase,due_date,planned_end_date,study_result,learning_summary,act_decision").in("project_id",projectIds):Promise.resolve({data:[] as any[],error:null}),
   projectIds.length?supabase.from("project_closure_reviews").select("project_id,overall_result,sustainability_required,scaleout_recommended,reviewed_at").in("project_id",projectIds):Promise.resolve({data:[] as any[],error:null}),
-  recordIds.length?admin.from("record_quality_domain_links").select("record_id,domain_id").in("record_id",recordIds):Promise.resolve({data:[] as any[],error:null}),
+  recordIds.length?supabase.from("record_quality_domain_links").select("record_id,domain_id").in("record_id",recordIds):Promise.resolve({data:[] as any[],error:null}),
  ] as any);
  const links=(linksRes.data??[]) as any[]; const actionIds=Array.from(new Set(links.map((x:any)=>x.target_record_id).filter(Boolean)));
  const [actionsRes,domainsRes,departmentsRes,profilesRes]=await Promise.all([
   actionIds.length?supabase.from("actions").select("record_id,workflow_status,due_date").in("record_id",actionIds):Promise.resolve({data:[] as any[],error:null}),
-  admin.from("quality_domains").select("id,name,sort_order").eq("is_active",true).order("sort_order"),
+  supabase.from("quality_domains").select("id,name,sort_order").eq("is_active",true).order("sort_order"),
   supabase.from("departments").select("id,name,short_name").eq("is_active",true),
   supabase.from("profiles").select("user_id,full_name,email").eq("is_active",true),
  ] as any);

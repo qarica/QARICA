@@ -10,14 +10,13 @@ const CREATE_RPC = "qlcl_create_hsba_checklist_template_v1";
 export async function GET(request: Request) {
   const auth = await requireApiPermission("hsba_audit.view");
   if (!auth.ok) return auth.response;
-  const admin = createAdminClient();
-  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(auth.supabase, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const auditType = normalizeInternalAuditType(new URL(request.url).searchParams.get("audit_type"));
 
-  const { data: templates, error: templatesError } = await admin
+  const { data: templates, error: templatesError } = await auth.supabase
     .from("hsba_checklist_templates")
     .select("id,name,description,is_active")
     .eq("organization_id", organizationId)
@@ -28,9 +27,9 @@ export async function GET(request: Request) {
   const templateIds = (templates ?? []).map((t) => t.id);
   const [versionsRes, itemsRes] = await Promise.all([
     templateIds.length
-      ? admin.from("hsba_checklist_versions").select("id,checklist_template_id,version_no,status,published_at").in("checklist_template_id", templateIds)
+      ? auth.supabase.from("hsba_checklist_versions").select("id,checklist_template_id,version_no,status,published_at").in("checklist_template_id", templateIds)
       : Promise.resolve({ data: [] as any[], error: null }),
-    templateIds.length ? admin.from("hsba_checklist_items").select("id,checklist_version_id").eq("is_active", true) : Promise.resolve({ data: [] as any[], error: null }),
+    templateIds.length ? auth.supabase.from("hsba_checklist_items").select("id,checklist_version_id").eq("is_active", true) : Promise.resolve({ data: [] as any[], error: null }),
   ]);
   if (versionsRes.error) return NextResponse.json({ error: versionsRes.error.message }, { status: 400 });
 

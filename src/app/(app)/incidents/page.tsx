@@ -10,7 +10,6 @@ import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { hcmMonthNumber, incidentAttentionRank, incidentDomainDistribution, incidentHarmClassification, incidentReportedSameHcmDay } from "@/lib/incident-dashboard";
 import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { routeForRecord } from "@/lib/record-route";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 
@@ -27,10 +26,10 @@ export default async function IncidentsPage(){
  ]);
  const records=((recordsRes.data??[]) as any[]).filter(r=>!isOperationallyHiddenStatus(r.lifecycle_status));const recordMap=new Map(records.map(r=>[r.id,r]));const depMap=new Map((depsRes.data??[]).map((d:any)=>[d.id,d.short_name||d.name]));
  const rows=((incidentsRes.data??[]) as any[]).filter(x=>recordMap.has(x.record_id)).map(x=>{const r:any=recordMap.get(x.record_id);return{...x,...r,department:String(depMap.get(x.incident_location_department_id)||"Chưa xác định"),route:routeForRecord("INCIDENT",x.record_id)}});
- const incidentRecordIds=rows.map((x:any)=>String(x.record_id||x.id)).filter(Boolean);const admin=createAdminClient();
- const domainLinksRes=incidentRecordIds.length?await admin.from("record_quality_domain_links").select("record_id,domain_id").in("record_id",incidentRecordIds):{data:[],error:null} as any;
+ const incidentRecordIds=rows.map((x:any)=>String(x.record_id||x.id)).filter(Boolean);
+ const domainLinksRes=incidentRecordIds.length?await supabase.from("record_quality_domain_links").select("record_id,domain_id").in("record_id",incidentRecordIds):{data:[],error:null} as any;
  const domainIds=Array.from(new Set((domainLinksRes.data??[]).map((x:any)=>String(x.domain_id||"")).filter(Boolean)));
- const domainsRes=domainIds.length?await admin.from("quality_domains").select("id,name,sort_order,is_active").in("id",domainIds).eq("is_active",true):{data:[],error:null} as any;
+ const domainsRes=domainIds.length?await supabase.from("quality_domains").select("id,name,sort_order,is_active").in("id",domainIds).eq("is_active",true):{data:[],error:null} as any;
  const domainDistribution=incidentDomainDistribution(incidentRecordIds,(domainLinksRes.data??[]) as any[],(domainsRes.data??[]) as any[]);
  const domainNameById=new Map<string,string>((domainsRes.data??[]).map((d:any)=>[String(d.id),String(d.name)]));
  const domainLabelByRecord=new Map<string,string>();((domainLinksRes.data??[]) as any[]).forEach((l:any)=>{const name=domainNameById.get(String(l.domain_id));if(!name)return;const key=String(l.record_id);const cur=domainLabelByRecord.get(key);domainLabelByRecord.set(key,cur?`${cur}, ${name}`:name)});

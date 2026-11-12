@@ -8,7 +8,6 @@ import { TqmPriorityBoard } from "@/components/tqm-priority-board";
 import { requireUserContext } from "@/lib/auth";
 import { buildIndicatorKpi, buildProjectActionKpi, isDueOnOrBeforeToday } from "@/lib/dashboard-kpi";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { getWorkYear } from "@/lib/work-year";
 import { incidentHarmClassification, incidentDomainDistribution } from "@/lib/incident-dashboard";
 
@@ -68,7 +67,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { user } = await requireUserContext();
   const year = await getWorkYear();
   const supabase = await createClient();
-  const admin = createAdminClient();
   const query = await searchParams;
   const range = ["week", "month", "quarter"].includes(String(query.range || "")) ? String(query.range) : "month";
   const requestedAsOf = String(query.asOf || "").trim();
@@ -151,9 +149,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const outTargetIndicators = ((indicatorsRes.data ?? []) as any[]).filter((x: any) => x.result_level === "OUT_OF_TARGET");
 
-  const domainLinksRes = incidentRecordIds.size ? await admin.from("record_quality_domain_links").select("record_id,domain_id").in("record_id", Array.from(incidentRecordIds)) : { data: [], error: null };
+  const domainLinksRes = incidentRecordIds.size ? await supabase.from("record_quality_domain_links").select("record_id,domain_id").in("record_id", Array.from(incidentRecordIds)) : { data: [], error: null };
   const domainIds = Array.from(new Set(((domainLinksRes.data ?? []) as any[]).map((x: any) => String(x.domain_id || "")).filter(Boolean)));
-  const domainsRes = domainIds.length ? await admin.from("quality_domains").select("id,name,sort_order,is_active").in("id", domainIds).eq("is_active", true) : { data: [], error: null };
+  const domainsRes = domainIds.length ? await supabase.from("quality_domains").select("id,name,sort_order,is_active").in("id", domainIds).eq("is_active", true) : { data: [], error: null };
   const domainDistribution = incidentDomainDistribution(Array.from(incidentRecordIds) as string[], (domainLinksRes.data ?? []) as any[], (domainsRes.data ?? []) as any[]);
   const domainSegments = domainDistribution.rows.slice(0, 6).map((r: any, i: number) => ({ label: r.label as string, value: r.value as number, tone: (["brand", "green", "amber", "red", "blue", "slate"] as const)[i % 6] }));
 

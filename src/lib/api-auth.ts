@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadRequestContext } from "@/lib/request-context";
 import { createClient } from "@/lib/supabase/server";
-import type { createAdminClient } from "@/lib/supabase/admin";
 
 async function authenticatedApiUser() {
   const supabase = await createClient();
@@ -40,8 +40,17 @@ export async function requireApiContext(permission?: string) {
 
 // Legacy compatibility for routes not yet moved to requireApiContext().
 // Fail-closed: callers must stop when error is non-null or organizationId is null.
-export async function callerOrganizationId(admin: ReturnType<typeof createAdminClient>, userId: string) {
-  const { data, error } = await admin.from("profiles").select("organization_id").eq("user_id", userId).maybeSingle();
+//
+// Audit giao diện QARICA (ưu tiên #2): trước đây đòi admin client cụ thể —
+// nhưng việc này chỉ tra organization_id của CHÍNH người gọi, và bảng
+// `profiles` đã có policy RLS select đúng phạm vi tổ chức từ trước (không
+// phải lỗ hổng). Đổi sang nhận bất kỳ SupabaseClient nào (client thường
+// qua createClient() tôn trọng RLS, hoặc admin khi route vẫn cần admin cho
+// phần ghi khác trong cùng request) — để các route chỉ đọc không còn bắt
+// buộc tạo admin client (sẽ crash ở môi trường thiếu service-role-key)
+// chỉ vì gọi đúng hàm dùng chung này.
+export async function callerOrganizationId(supabase: SupabaseClient, userId: string) {
+  const { data, error } = await supabase.from("profiles").select("organization_id").eq("user_id", userId).maybeSingle();
   return { organizationId: data?.organization_id ?? null, error };
 }
 

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-async function loadVersionForOrg(admin: ReturnType<typeof createAdminClient>, versionId: string, organizationId: string) {
-  const { data: version, error } = await admin
+async function loadVersionForOrg(client: SupabaseClient, versionId: string, organizationId: string) {
+  const { data: version, error } = await client
     .from("hsba_checklist_versions")
     .select("id,status,checklist_template_id,hsba_checklist_templates!inner(id,organization_id,audit_type)")
     .eq("id", versionId)
@@ -17,24 +18,23 @@ async function loadVersionForOrg(admin: ReturnType<typeof createAdminClient>, ve
 export async function GET(request: Request) {
   const auth = await requireApiPermission("hsba_audit.view");
   if (!auth.ok) return auth.response;
-  const admin = createAdminClient();
-  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(auth.supabase, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const versionId = new URL(request.url).searchParams.get("checklist_version_id");
   if (!versionId) return NextResponse.json({ error: "Thiếu phiên bản bảng kiểm." }, { status: 400 });
-  const version = await loadVersionForOrg(admin, versionId, organizationId);
+  const version = await loadVersionForOrg(auth.supabase, versionId, organizationId);
   if (!version) return NextResponse.json({ error: "Không tìm thấy phiên bản bảng kiểm." }, { status: 404 });
 
-  const { data, error } = await admin
+  const { data, error } = await auth.supabase
     .from("hsba_checklist_items")
     .select("id,content,category,sort_order,is_active,audit_type,checklist_version_id,group_id,create_finding_on_partial")
     .eq("checklist_version_id", versionId)
     .order("sort_order")
     .order("content");
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  const { data: groups, error: groupsError } = await admin
+  const { data: groups, error: groupsError } = await auth.supabase
     .from("hsba_checklist_groups")
     .select("id,name,sort_order,is_active,checklist_version_id")
     .eq("checklist_version_id", versionId)
