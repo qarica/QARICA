@@ -39,7 +39,7 @@ export function AdminRolePermissionsClient({ roles, groupedPermissions, initialG
   }
 
   return (
-    <section className="panel">
+    <section className="panel admin-role-permissions-panel">
       <div className="panel-title">
         <div>
           <h2>Gán quyền mặc định theo Role</h2>
@@ -48,7 +48,7 @@ export function AdminRolePermissionsClient({ roles, groupedPermissions, initialG
       </div>
       {error ? <div className="alert error" style={{ margin: "0 18px 12px" }}>{error}</div> : null}
       {groupedPermissions.map(([module, permissions]) => (
-        <div key={module} className="table-wrap" style={{ marginBottom: 6 }}>
+        <div key={module} className="table-wrap admin-role-permissions-scroll" style={{ marginBottom: 6 }}>
           <table>
             <thead>
               <tr>
@@ -88,6 +88,18 @@ export function AdminRolePermissionsClient({ roles, groupedPermissions, initialG
           </table>
         </div>
       ))}
+      <style>{`
+        /* Audit giao diện QARICA: mỗi module 1 bảng riêng (thiết kế đúng, giữ
+           nguyên) nhưng trên mobile chỉ 2/7 vai trò thấy được theo chiều ngang,
+           không có dấu hiệu còn cột để cuộn — thêm bóng mờ 2 cạnh báo còn nội
+           dung, cùng kỹ thuật dùng cho Risk Heatmap ở /risks. */
+        .workspace-app .panel .admin-role-permissions-scroll{
+          background:linear-gradient(to right,#fff 30%,rgba(255,255,255,0)),linear-gradient(to right,rgba(255,255,255,0),#fff 70%) 100% 0,radial-gradient(farthest-side at 0 50%,rgba(16,35,58,.18),rgba(16,35,58,0)),radial-gradient(farthest-side at 100% 50%,rgba(16,35,58,.18),rgba(16,35,58,0)) 100% 0 !important;
+          background-repeat:no-repeat !important;
+          background-size:40px 100%,40px 100%,14px 100%,14px 100% !important;
+          background-attachment:local,local,scroll,scroll !important;
+        }
+      `}</style>
     </section>
   );
 }

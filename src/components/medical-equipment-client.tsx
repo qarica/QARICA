@@ -226,7 +226,7 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel medical-equipment-panel">
         <div className="toolbar">
           <div className="toolbar-left">
             <div className="search-box">
@@ -272,12 +272,12 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
             <tbody>
               {rows.map((e) => (
                 <tr key={e.id}>
-                  <td><strong>{e.equipment_name}</strong></td>
-                  <td>{e.model_code || "—"}</td>
-                  <td>{[e.manufacturer, e.origin_country].filter(Boolean).join(" · ") || "—"}</td>
-                  <td>{[e.year_manufactured, e.year_in_use].filter(Boolean).join(" / ") || "—"}</td>
-                  <td>{e.machine_code || "—"}</td>
-                  <td>
+                  <td data-label="Tên thiết bị"><strong>{e.equipment_name}</strong></td>
+                  <td data-label="Ký hiệu">{e.model_code || "—"}</td>
+                  <td data-label="Hãng SX">{[e.manufacturer, e.origin_country].filter(Boolean).join(" · ") || "—"}</td>
+                  <td data-label="Năm SX / SD">{[e.year_manufactured, e.year_in_use].filter(Boolean).join(" / ") || "—"}</td>
+                  <td data-label="Mã máy">{e.machine_code || "—"}</td>
+                  <td data-label="Khoa sử dụng">
                     {e.department_id ? (
                       departments.find((d) => d.id === e.department_id)?.name || "—"
                     ) : e.department_label ? (
@@ -288,15 +288,15 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
                       "—"
                     )}
                   </td>
-                  <td><span className={`status-badge ${STATUS_BADGE_TONE[e.status]}`}>{STATUS_LABEL[e.status]}</span></td>
-                  <td>{e.risk_classification ? <span className="code-pill" title={RISK_CLASSIFICATION_LABEL[e.risk_classification]}>{e.risk_classification}</span> : "—"}</td>
-                  <td>
+                  <td data-label="Trạng thái"><span className={`status-badge ${STATUS_BADGE_TONE[e.status]}`}>{STATUS_LABEL[e.status]}</span></td>
+                  <td data-label="Phân loại">{e.risk_classification ? <span className="code-pill" title={RISK_CLASSIFICATION_LABEL[e.risk_classification]}>{e.risk_classification}</span> : "—"}</td>
+                  <td data-label="QR / Lịch sử">
                     <Link className="button tertiary small" href={`/medical-equipment/${e.id}`}>
                       <Icon name="qr-code" size={15} /> Chi tiết
                     </Link>
                   </td>
                   {canManage ? (
-                    <td>
+                    <td data-label="Sửa">
                       <button className="button tertiary small" onClick={() => { setForm(toForm(e)); setMessage(null); }}>
                         <Icon name="pencil" size={15} /> Sửa
                       </button>
@@ -389,7 +389,8 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
         .ttbyt-dashboard .ttbyt-charts h3{margin:0 0 6px;font-size:13px}
         .ttbyt-dashboard .ttbyt-charts h3 .status-badge{font-size:9px;padding:2px 7px;vertical-align:middle}
         .ttbyt-dashboard .ttbyt-charts .span-2{grid-column:1/-1}
-        @media(max-width:760px){.ttbyt-dashboard .ttbyt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ttbyt-dashboard .ttbyt-charts{grid-template-columns:1fr}.ttbyt-dashboard .ttbyt-charts .span-2{grid-column:auto}}
+        @media(max-width:760px){.ttbyt-dashboard .ttbyt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ttbyt-dashboard .ttbyt-charts{grid-template-columns:1fr}.ttbyt-dashboard .ttbyt-charts .span-2{grid-column:auto}
+          .medical-equipment-panel .table-wrap{overflow:visible!important}.medical-equipment-panel .table-wrap table{display:block!important;min-width:0!important;width:100%!important}.medical-equipment-panel .table-wrap thead{display:none!important}.medical-equipment-panel .table-wrap tbody{display:grid!important;gap:12px}.medical-equipment-panel .table-wrap tbody tr{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:0;padding:12px;border:1px solid #dce5ee;border-radius:14px;background:#fff;box-shadow:0 3px 12px #10233a0a}.medical-equipment-panel .table-wrap tbody td{display:grid!important;grid-template-columns:105px minmax(0,1fr);gap:9px;align-items:start;min-width:0!important;width:100%!important;padding:9px 0!important;border:0!important;border-bottom:1px solid #edf1f5!important;overflow-wrap:anywhere;white-space:normal!important}.medical-equipment-panel .table-wrap tbody td:last-child{border-bottom:0!important}.medical-equipment-panel .table-wrap tbody td[data-label]::before{content:attr(data-label);font-size:12px;font-weight:700;color:#64748b}.medical-equipment-panel .table-wrap tbody td.empty-state{display:block!important}}
       `}</style>
     </>
   );

@@ -753,6 +753,16 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .workspace-app .toolbar .search-box{flex:1 1 190px;min-width:0;max-width:100%;}
 }
 
+/* Audit giao diện QARICA: .search-box kế thừa flex-basis:190px tính cho layout
+   ROW ở breakpoint trên, nhưng .toolbar/.toolbar-left chuyển flex-direction:column
+   ở breakpoint hẹp hơn (620px, xem globals.css) — flex-basis 190px khi đó áp lên
+   chiều CAO thay vì rộng, ô tìm kiếm bị bóp cao gần 190px, đẩy nội dung phía dưới
+   (nút lọc/tab, FAB che nội dung...) trên mọi trang dùng .toolbar+.search-box. */
+@media(max-width:620px){
+ .workspace-app .toolbar .search-box,
+ .workspace-app .toolbar-left .search-box{flex:1 1 auto;}
+}
+
 /* Visibly redesigned mobile operations: distinguish input and record sections. */
 @media(max-width:760px){
  .workspace-app .mobile-module-redesign{display:flex!important;flex-direction:column;gap:13px!important;}
@@ -1042,4 +1052,16 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .mobile-module-redesign .mobile-workflow-kpis>div{min-width:0;overflow-wrap:anywhere}
  .mobile-module-redesign .mobile-workflow-filters .input{min-width:0;box-sizing:border-box}
  .emr-group-overview .table-wrap{overscroll-behavior-x:contain}
+}
+
+/* Audit giao diện QARICA: FAB "Quick Capture" toàn cục (position:fixed,
+   right/bottom:14px, 52px cao ở mobile — xem global-quick-capture.tsx) che
+   mất link/nút cuối trang trên màn hình ngắn (vd "Việc của tôi →",
+   "Findings →"). .content ở đây bị rất nhiều rule !important khác giành
+   quyền set padding-bottom qua nhiều breakpoint — đặt rule này cuối file
+   (final-visual-lock.css nạp sau cùng trong layout.tsx) để thắng cascade
+   cho đúng 1 property padding-bottom, không đụng padding-top/left/right
+   các rule khác đã set. */
+@media(max-width:620px){
+ .workspace-app .content{padding-bottom:calc(76px + env(safe-area-inset-bottom))!important}
 }

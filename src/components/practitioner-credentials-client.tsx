@@ -319,7 +319,7 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
 
   return (
     <>
-      <section className="panel">
+      <section className="panel practitioner-credentials-panel">
         <div className="toolbar">
           <div className="toolbar-left">
             <div className="search-box">
@@ -374,37 +374,37 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
                 const latestScopeAdjustment = scopeAdjustments[scopeAdjustments.length - 1];
                 return (
                   <tr key={c.id}>
-                    <td><strong>{c.full_name}</strong>{c.date_of_birth ? <span className="subline">{c.date_of_birth.split("-").reverse().join("/")}</span> : null}</td>
-                    <td>{c.gender || "—"}</td>
-                    <td>{c.national_id || "—"}</td>
-                    <td>{c.phone || "—"}{c.email ? <span className="subline">{c.email}</span> : null}</td>
-                    <td>{departmentName(c.department_id)}</td>
-                    <td>{c.license_number ? <>{c.license_type ? LICENSE_TYPE_LABEL[c.license_type] : ""}<span className="subline">{c.license_number}</span></> : "—"}</td>
-                    <td>{c.license_issued_at ? c.license_issued_at.split("-").reverse().join("/") : "—"}{c.license_issued_by ? <span className="subline">{c.license_issued_by}</span> : null}</td>
-                    <td>{c.display_title || c.professional_title || "—"}</td>
-                    <td>{c.scope_of_practice || "—"}</td>
-                    <td>{latestScopeAdjustment ? <>{latestScopeAdjustment.title}{latestScopeAdjustment.document_no ? <span className="subline">{latestScopeAdjustment.document_no}{latestScopeAdjustment.issued_at ? ` · ${latestScopeAdjustment.issued_at.split("-").reverse().join("/")}` : ""}</span> : null}</> : "—"}</td>
-                    <td>{degree ? <>{degree.title}{degree.issued_by ? <span className="subline">{degree.issued_by}</span> : null}</> : "—"}</td>
-                    <td>{specialistDegree ? <>{specialistDegree.title}{specialistDegree.specialization ? <span className="subline">{specialistDegree.specialization}</span> : null}</> : "—"}</td>
-                    <td>{certificates.length ? certificates.map((cert) => <div key={cert.id}>{cert.title}{cert.document_no ? <span className="subline">{cert.document_no}</span> : null}</div>) : "—"}</td>
-                    <td>{c.proposed_technique || "—"}</td>
-                    <td>{c.registration_date ? c.registration_date.split("-").reverse().join("/") : "—"}</td>
-                    <td>
+                    <td data-label="Họ và tên"><strong>{c.full_name}</strong>{c.date_of_birth ? <span className="subline">{c.date_of_birth.split("-").reverse().join("/")}</span> : null}</td>
+                    <td data-label="Giới tính">{c.gender || "—"}</td>
+                    <td data-label="CCCD">{c.national_id || "—"}</td>
+                    <td data-label="SĐT / Email">{c.phone || "—"}{c.email ? <span className="subline">{c.email}</span> : null}</td>
+                    <td data-label="Khoa">{departmentName(c.department_id)}</td>
+                    <td data-label="Loại hồ sơ / Số">{c.license_number ? <>{c.license_type ? LICENSE_TYPE_LABEL[c.license_type] : ""}<span className="subline">{c.license_number}</span></> : "—"}</td>
+                    <td data-label="Ngày cấp / Nơi cấp">{c.license_issued_at ? c.license_issued_at.split("-").reverse().join("/") : "—"}{c.license_issued_by ? <span className="subline">{c.license_issued_by}</span> : null}</td>
+                    <td data-label="Chức danh">{c.display_title || c.professional_title || "—"}</td>
+                    <td data-label="Phạm vi hành nghề">{c.scope_of_practice || "—"}</td>
+                    <td data-label="Phạm vi bổ sung/điều chỉnh">{latestScopeAdjustment ? <>{latestScopeAdjustment.title}{latestScopeAdjustment.document_no ? <span className="subline">{latestScopeAdjustment.document_no}{latestScopeAdjustment.issued_at ? ` · ${latestScopeAdjustment.issued_at.split("-").reverse().join("/")}` : ""}</span> : null}</> : "—"}</td>
+                    <td data-label="Văn bằng chuyên môn">{degree ? <>{degree.title}{degree.issued_by ? <span className="subline">{degree.issued_by}</span> : null}</> : "—"}</td>
+                    <td data-label="Văn bằng chuyên khoa">{specialistDegree ? <>{specialistDegree.title}{specialistDegree.specialization ? <span className="subline">{specialistDegree.specialization}</span> : null}</> : "—"}</td>
+                    <td data-label="Chứng chỉ">{certificates.length ? certificates.map((cert) => <div key={cert.id}>{cert.title}{cert.document_no ? <span className="subline">{cert.document_no}</span> : null}</div>) : "—"}</td>
+                    <td data-label="Kỹ thuật đề xuất">{c.proposed_technique || "—"}</td>
+                    <td data-label="Ngày ĐK HN">{c.registration_date ? c.registration_date.split("-").reverse().join("/") : "—"}</td>
+                    <td data-label="Quyết định phân công">
                       <span className={`status-badge ${DECISION_STATUS_TONE[c.decision_status]}`}>{DECISION_STATUS_LABEL[c.decision_status]}</span>
                       {c.decision_no ? <span className="subline">{c.decision_no}{c.decision_signed_at ? ` · ${c.decision_signed_at.split("-").reverse().join("/")}` : ""}</span> : null}
                       {c.decision_signed_by ? <span className="subline">{c.decision_signed_by}</span> : null}
                       {c.decision_status === "DA_KY" && c.decision_verified_at ? <span className="subline">✓ Đã xác minh {c.decision_verified_at.slice(0, 10).split("-").reverse().join("/")}</span> : null}
                     </td>
-                    <td>{c.practice_status_note || "—"}</td>
-                    <td>{c.license_expiry_date ? <span className={`status-badge ${expiryTone(c.license_expiry_date)}`}>{c.license_expiry_date.split("-").reverse().join("/")}</span> : "—"}</td>
-                    <td>{c.notes || "—"}</td>
-                    <td>
+                    <td data-label="Tình trạng hành nghề">{c.practice_status_note || "—"}</td>
+                    <td data-label="Hạn GPHN/CME">{c.license_expiry_date ? <span className={`status-badge ${expiryTone(c.license_expiry_date)}`}>{c.license_expiry_date.split("-").reverse().join("/")}</span> : "—"}</td>
+                    <td data-label="Ghi chú">{c.notes || "—"}</td>
+                    <td data-label="Thao tác">
                       <button className="button tertiary small" onClick={() => { setDecisionFor(c); setCopied(false); }}>
                         <Icon name="file-text" size={15} /> Soạn QĐ
                       </button>
                     </td>
                     {canManage ? (
-                      <td>
+                      <td data-label="Sửa">
                         <button className="button tertiary small" onClick={() => { setForm(toForm(c)); setDocDraft(DOC_DRAFT_EMPTY); setMessage(null); }}>
                           <Icon name="pencil" size={15} /> Sửa
                         </button>
@@ -418,6 +418,7 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
           </table>
         </div>
       </section>
+      <style>{`@media(max-width:760px){.practitioner-credentials-panel .table-wrap{overflow:visible!important}.practitioner-credentials-panel .table-wrap table{display:block!important;min-width:0!important;width:100%!important}.practitioner-credentials-panel .table-wrap thead{display:none!important}.practitioner-credentials-panel .table-wrap tbody{display:grid!important;gap:12px}.practitioner-credentials-panel .table-wrap tbody tr{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:0;padding:12px;border:1px solid #dce5ee;border-radius:14px;background:#fff;box-shadow:0 3px 12px #10233a0a}.practitioner-credentials-panel .table-wrap tbody td{display:grid!important;grid-template-columns:140px minmax(0,1fr);gap:9px;align-items:start;min-width:0!important;width:100%!important;padding:9px 0!important;border:0!important;border-bottom:1px solid #edf1f5!important;overflow-wrap:anywhere;white-space:normal!important}.practitioner-credentials-panel .table-wrap tbody td:last-child{border-bottom:0!important}.practitioner-credentials-panel .table-wrap tbody td[data-label]::before{content:attr(data-label);font-size:12px;font-weight:700;color:#64748b}.practitioner-credentials-panel .table-wrap tbody td.empty-state{display:block!important}}`}</style>
 
       {form ? (
         <div className="modal-backdrop">
