@@ -637,7 +637,7 @@ export function DocumentPublicationsClient({
               ) : null}
             </div>
           ) : null}
-          <input className="input" placeholder="Tên văn bản..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
+          <input className="input" aria-label="Tên văn bản" placeholder="Tên văn bản..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
           <div className="dp-form-row">
             <select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value as DocumentPublicationType)}>
               {DOCUMENT_TYPES.map((t) => (
@@ -674,8 +674,8 @@ export function DocumentPublicationsClient({
           </div>
           <button type="button" className="button secondary mobile-form-toggle" aria-expanded={directPublishOpen} onClick={() => setDirectPublishOpen((v) => !v)}>{directPublishOpen ? "Thu gọn" : "+ Nhập văn bản đã có"}</button>
           <div className={directPublishOpen ? "dp-form mobile-collapsible-form is-open" : "dp-form mobile-collapsible-form"}>
-            <input className="input" placeholder="Mã văn bản..." value={directDocumentCode} onChange={(e) => setDirectDocumentCode(e.target.value)} />
-            <input className="input" placeholder="Tên văn bản..." value={directTitle} maxLength={300} onChange={(e) => setDirectTitle(e.target.value)} />
+            <input className="input" aria-label="Mã văn bản" placeholder="Mã văn bản..." value={directDocumentCode} onChange={(e) => setDirectDocumentCode(e.target.value)} />
+            <input className="input" aria-label="Tên văn bản" placeholder="Tên văn bản..." value={directTitle} maxLength={300} onChange={(e) => setDirectTitle(e.target.value)} />
             <div className="dp-form-row">
               <input className="input" type="date" value={directEffectiveDate} onChange={(e) => setDirectEffectiveDate(e.target.value)} />
               <input className="input" placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={directVersionLabel} onChange={(e) => setDirectVersionLabel(e.target.value)} />
@@ -735,7 +735,7 @@ export function DocumentPublicationsClient({
                   </small>
                   {publishingId === d.id ? (
                     <div className="dp-publish-form">
-                      <input className="input" placeholder="Mã văn bản..." value={documentCode} onChange={(e) => setDocumentCode(e.target.value)} />
+                      <input className="input" aria-label="Mã văn bản" placeholder="Mã văn bản..." value={documentCode} onChange={(e) => setDocumentCode(e.target.value)} />
                       <input className="input" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
                       <input className="input" placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={versionLabel} onChange={(e) => setVersionLabel(e.target.value)} />
                       <select className="input dp-publish-dissemination" value={disseminationType} onChange={(e) => setDisseminationType(e.target.value as DisseminationType)}>
@@ -761,7 +761,7 @@ export function DocumentPublicationsClient({
                   ) : null}
                   {editingId === d.id ? (
                     <div className="dp-edit-form">
-                      <input className="input" placeholder="Tên văn bản..." value={editTitle} maxLength={300} onChange={(e) => setEditTitle(e.target.value)} />
+                      <input className="input" aria-label="Tên văn bản" placeholder="Tên văn bản..." value={editTitle} maxLength={300} onChange={(e) => setEditTitle(e.target.value)} />
                       <div className="dp-form-row">
                         <select className="input" value={editDocumentType} onChange={(e) => setEditDocumentType(e.target.value as DocumentPublicationType)}>
                           {DOCUMENT_TYPES.map((t) => (
@@ -1016,7 +1016,7 @@ export function DocumentPublicationsClient({
                               <tr key={`${d.id}-edit`}>
                                 <td colSpan={9}>
                                   <div className="dp-edit-form">
-                                    <input className="input" placeholder="Tên văn bản..." value={editTitle} maxLength={300} onChange={(e) => setEditTitle(e.target.value)} />
+                                    <input className="input" aria-label="Tên văn bản" placeholder="Tên văn bản..." value={editTitle} maxLength={300} onChange={(e) => setEditTitle(e.target.value)} />
                                     <div className="dp-form-row">
                                       <select className="input" value={editDocumentType} onChange={(e) => setEditDocumentType(e.target.value as DocumentPublicationType)}>
                                         {DOCUMENT_TYPES.map((t) => (

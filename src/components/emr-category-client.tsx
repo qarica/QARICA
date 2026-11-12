@@ -162,8 +162,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     setError(null);
     try {
       const res = await fetch(`/api/emr/items?category=${encodeURIComponent(categoryCode)}`);
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không tải được dữ liệu.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không tải được dữ liệu.");
       setItems(json.items);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -257,8 +257,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(isEdit ? form : { ...form, category: categoryCode }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
       if (!isEdit && pendingFile && json.item?.id) {
         await uploadFile(json.item.id, pendingFile);
       }
@@ -283,8 +283,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: next } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: next }) });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
       await load({ silent: true });
@@ -300,8 +300,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: next } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: next }) });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
       await load({ silent: true });
@@ -318,8 +318,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: [] } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: [] }) });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
       await load({ silent: true });
@@ -335,8 +335,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, publish_status: "PUBLISHED", published_at: now } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ publish: true }) });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không duyệt được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không duyệt được.");
       await load({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -357,8 +357,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, details: nextDetails } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ details: nextDetails }) });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
       await load({ silent: true });
@@ -369,8 +369,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     if (!window.confirm(`Xoá "${item.title}"? Không thể hoàn tác.`)) return;
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "DELETE" });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không xoá được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không xoá được.");
       await load({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -380,8 +380,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   async function viewFile(item: Item) {
     try {
       const res = await fetch(`/api/emr/items/${item.id}/file`);
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không mở được file.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không mở được file.");
       window.open(json.url, "_blank", "noopener,noreferrer");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -395,8 +395,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
       const body = new FormData();
       body.append("file", file);
       const res = await fetch(`/api/emr/items/${itemId}/file`, { method: "POST", body });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không tải lên được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không tải lên được.");
       await load({ silent: true });
       setEditing((prev) => (prev && prev.id === itemId ? { ...prev, details: { ...prev.details, file_name: json.file_name } } : prev));
     } catch (e) {
@@ -410,8 +410,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     if (!window.confirm("Xoá file đính kèm này?")) return;
     try {
       const res = await fetch(`/api/emr/items/${itemId}/file`, { method: "DELETE" });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không xoá được file.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không xoá được file.");
       await load({ silent: true });
       setEditing((prev) => { if (!prev || prev.id !== itemId) return prev; const d = { ...prev.details }; delete d.file_name; delete d.file_path; return { ...prev, details: d }; });
     } catch (e) {

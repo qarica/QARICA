@@ -1,6 +1,7 @@
 import { normalizeInternalAuditType } from "@/lib/internal-audit-types";
 import { requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { TQM_CHART_CSS, TqmHorizontalBars } from "@/components/tqm-charts";
 
 function currentPeriod() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()).slice(0, 7);
@@ -65,35 +66,40 @@ export default async function HsbaReportPage({ searchParams }: { searchParams: P
         </a>
       </form>
 
-      <div className="hsba-report-kpis">
-        <div className="kpi-tile">
+      <section className="kpi-grid" style={{ marginBottom: 16 }}>
+        <article className="kpi-card">
           <span>Lượt kiểm tra</span>
           <strong>{audits.length}</strong>
-        </div>
-        <div className="kpi-tile">
+        </article>
+        <article className="kpi-card success">
           <span>Đạt</span>
           <strong>{passCount}</strong>
-        </div>
+        </article>
         {auditType !== "HSBA" ? (
-          <div className="kpi-tile">
+          <article className="kpi-card warning">
             <span>Đạt 1 phần</span>
             <strong>{partialCount}</strong>
-          </div>
+          </article>
         ) : null}
-        <div className="kpi-tile">
+        <article className="kpi-card danger">
           <span>Chưa đạt</span>
           <strong>{failCount}</strong>
-        </div>
-        <div className="kpi-tile">
+        </article>
+        <article className="kpi-card danger">
           <span>Tổng lỗi</span>
           <strong>{findings.length}</strong>
-        </div>
-      </div>
+        </article>
+      </section>
 
       <section className="panel">
         <div className="panel-title">
           <h2>Lỗi theo khoa/phòng — kỳ {period}</h2>
         </div>
+        <TqmHorizontalBars
+          rows={Array.from(findingsByDept.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([deptId, count]) => ({ label: departmentName.get(deptId) || "—", value: count, tone: "red" as const }))}
+        />
         <div className="table-wrap">
           <table>
             <thead>
@@ -153,13 +159,7 @@ export default async function HsbaReportPage({ searchParams }: { searchParams: P
           </table>
         </div>
       </section>
-      <style>{`
-        .hsba-report-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
-        .kpi-tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px}
-        .kpi-tile span{font-size:11px;color:#64748b;font-weight:700}
-        .kpi-tile strong{font-size:22px}
-        @media(max-width:640px){.hsba-report-kpis{grid-template-columns:repeat(2,1fr)}}
-      `}</style>
+      <style>{TQM_CHART_CSS}</style>
     </div>
   );
 }

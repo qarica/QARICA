@@ -338,14 +338,23 @@ export function IncomingDocumentsClient({
                 onChange={(e) => setAttachFile(e.target.files?.[0] || null)}
               />
             </label>
-            <input className="input" placeholder="Trích yếu nội dung..." value={summary} onChange={(e) => setSummary(e.target.value)} />
+            <label className="doc-task-field">
+              <span>Trích yếu nội dung</span>
+              <input className="input" placeholder="Trích yếu nội dung..." value={summary} onChange={(e) => setSummary(e.target.value)} />
+            </label>
             <div className="doc-form-row">
               <label className="doc-task-field">
                 <span>Ngày đến</span>
                 <input className="input" type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />
               </label>
-              <input className="input" placeholder="Cơ quan ban hành..." value={issuingAuthority} onChange={(e) => setIssuingAuthority(e.target.value)} />
-              <input className="input" placeholder="Số văn bản (tùy chọn)" value={documentNo} onChange={(e) => setDocumentNo(e.target.value)} />
+              <label className="doc-task-field">
+                <span>Cơ quan ban hành</span>
+                <input className="input" placeholder="Cơ quan ban hành..." value={issuingAuthority} onChange={(e) => setIssuingAuthority(e.target.value)} />
+              </label>
+              <label className="doc-task-field">
+                <span>Số văn bản (tùy chọn)</span>
+                <input className="input" placeholder="Số văn bản (tùy chọn)" value={documentNo} onChange={(e) => setDocumentNo(e.target.value)} />
+              </label>
               <select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value)}>
                 <option value="">— Chọn loại công văn (tùy chọn) —</option>
                 {INCOMING_DOCUMENT_TYPES.map((t) => (

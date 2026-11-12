@@ -31,12 +31,12 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
     setError(null);
     try {
       const [groupsRes, itemsRes] = await Promise.all([
-        fetch("/api/emr/binding-groups").then((r) => r.json()),
-        fetch("/api/emr/items?category=BIEU_MAU").then((r) => r.json()),
+        fetch("/api/emr/binding-groups").then((r) => r.json().catch(() => null)),
+        fetch("/api/emr/items?category=BIEU_MAU").then((r) => r.json().catch(() => null)),
       ]);
-      if (!groupsRes.ok) throw new Error(groupsRes.error || "Không tải được danh sách nhóm gáy.");
+      if (!groupsRes?.ok) throw new Error(groupsRes?.error || "Không tải được danh sách nhóm gáy.");
       setGroups(groupsRes.groups || []);
-      if (itemsRes.ok) setItems(itemsRes.items || []);
+      if (itemsRes?.ok) setItems(itemsRes.items || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Có lỗi xảy ra.");
     } finally {
@@ -53,8 +53,8 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
     setDeclaring(true);
     try {
       const res = await fetch("/api/emr/binding-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, code: newGroupCode.trim() || null }) });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không khai báo được nhóm gáy.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không khai báo được nhóm gáy.");
       setNewGroupName("");
       setNewGroupCode("");
       await loadAll({ silent: true });
@@ -69,8 +69,8 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
     setBusyId(group.id);
     try {
       const res = await fetch(`/api/emr/binding-groups/${group.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không cập nhật được nhóm gáy.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không cập nhật được nhóm gáy.");
       onSuccess?.();
       await loadAll({ silent: true });
     } catch (e) {
@@ -98,8 +98,8 @@ export function EmrBieuMauGroupsClient({ canManage }: { canManage: boolean }) {
     setBusyId(group.id);
     try {
       const res = await fetch(`/api/emr/binding-groups/${group.id}`, { method: "DELETE" });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không xoá được nhóm gáy.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không xoá được nhóm gáy.");
       await loadAll({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");

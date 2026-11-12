@@ -64,12 +64,12 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
     setError(null);
     try {
       const [itemsRes, groupsRes] = await Promise.all([
-        fetch("/api/emr/items?category=BIEU_MAU").then((r) => r.json()),
-        fetch("/api/emr/binding-groups").then((r) => r.json()),
+        fetch("/api/emr/items?category=BIEU_MAU").then((r) => r.json().catch(() => null)),
+        fetch("/api/emr/binding-groups").then((r) => r.json().catch(() => null)),
       ]);
-      if (!itemsRes.ok) throw new Error(itemsRes.error || "Không tải được dữ liệu.");
+      if (!itemsRes?.ok) throw new Error(itemsRes?.error || "Không tải được dữ liệu.");
       setItems(itemsRes.items || []);
-      if (groupsRes.ok) setGroups(groupsRes.groups || []);
+      if (groupsRes?.ok) setGroups(groupsRes.groups || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Có lỗi xảy ra.");
     } finally {
@@ -93,8 +93,8 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ details: { ...item.details, ...patch } }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không cập nhật được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không cập nhật được.");
       onSuccess?.();
       await loadAll({ silent: true });
     } catch (e) {
@@ -127,8 +127,8 @@ export function EmrBieuMauTreeClient({ canManage }: { canManage: boolean }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ details: { ...it.details, binding_group_order: newOrder } }),
         });
-        const json = await res.json();
-        if (!res.ok || !json.ok) throw new Error(json.error || "Không cập nhật được thứ tự.");
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.ok) throw new Error(json?.error || "Không cập nhật được thứ tự.");
       }
       await loadAll({ silent: true });
     } catch (e) {

@@ -23,6 +23,7 @@ export function TqmDonut({value,label,segments}:{value:number;label:string;segme
 }
 
 export function TqmHorizontalBars({rows,max}:{rows:{label:string;value:number;tone?:Tone;caption?:string}[];max?:number}){
+  if(!rows.length) return <div className="empty-state compact">Chưa có dữ liệu.</div>;
   const ceiling=Math.max(1,max??Math.max(1,...rows.map(r=>r.value)));
   return <div className="tqm-hbars">{rows.map((r,i)=><div className="tqm-hbar-row" key={`${r.label}-${i}`}><div className="tqm-hbar-label"><strong>{r.label}</strong>{r.caption?<span>{r.caption}</span>:null}</div><div className="tqm-hbar-track"><span className="tqm-hbar-fill" style={{width:`${Math.max(0,Math.min(100,r.value/ceiling*100))}%`,background:COLORS[r.tone||"brand"]}}/></div><b>{r.value}</b></div>)}</div>
 }

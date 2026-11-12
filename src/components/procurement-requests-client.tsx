@@ -133,7 +133,7 @@ export function ProcurementRequestsClient({
           </div>
           <button type="button" className="button secondary mobile-form-toggle" aria-expanded={mobileFormOpen} onClick={() => setMobileFormOpen((v) => !v)}>{mobileFormOpen ? "Thu gọn" : "+ Tạo đề xuất mua sắm"}</button>
         <div className={mobileFormOpen ? "procurement-form mobile-collapsible-form is-open" : "procurement-form mobile-collapsible-form"}>
-            <input className="input" placeholder="Tên đề xuất..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
+            <input className="input" aria-label="Tên đề xuất" placeholder="Tên đề xuất..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
             <div className="procurement-form-row">
               <select className="input" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={!departments.length}>
                 {departments.length ? null : <option value="">— Chưa có khoa/phòng nào —</option>}
@@ -155,9 +155,9 @@ export function ProcurementRequestsClient({
             </div>
             <textarea className="input" rows={2} placeholder="Mô tả chi tiết (tùy chọn)..." value={description} onChange={(e) => setDescription(e.target.value)} />
             <div className="procurement-form-row">
-              <input className="input" type="number" min="1" step="1" placeholder="Số lượng (tùy chọn)" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-              <input className="input" type="number" min="0" step="1000" placeholder="Đơn giá — VNĐ (tùy chọn)" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
-              <input className="input" disabled value={quantity && unitPrice ? currency.format(Number(quantity) * Number(unitPrice)) : "Chi phí dự kiến"} />
+              <input className="input" aria-label="Số lượng" type="number" min="1" step="1" placeholder="Số lượng (tùy chọn)" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+              <input className="input" aria-label="Đơn giá — VNĐ" type="number" min="0" step="1000" placeholder="Đơn giá — VNĐ (tùy chọn)" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
+              <input className="input" aria-label="Chi phí dự kiến" disabled value={quantity && unitPrice ? currency.format(Number(quantity) * Number(unitPrice)) : "Chi phí dự kiến"} />
             </div>
             {error ? <div className="alert error">{error}</div> : null}
             <button className="button primary" disabled={busy || !title.trim() || !departmentId} onClick={() => void submit()}>

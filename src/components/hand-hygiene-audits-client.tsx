@@ -116,7 +116,7 @@ export function HandHygieneAuditsClient({ departments, profiles, initialAudits, 
           <div className="kpi-tile"><span>Số đợt giám sát</span><strong>{overall.audits}</strong></div>
           <div className="kpi-tile"><span>Tổng cơ hội quan sát</span><strong>{overall.observed}</strong></div>
           <div className="kpi-tile"><span>Tổng lần tuân thủ</span><strong>{overall.compliant}</strong></div>
-          <div className="kpi-tile"><span>Tỷ lệ tuân thủ chung</span><strong className={`compliance-${complianceTone(overall.rate)}`}>{overall.rate}%</strong></div>
+          <div className="kpi-tile"><span>Tỷ lệ tuân thủ chung</span><strong className={overall.observed ? `compliance-${complianceTone(overall.rate)}` : "compliance-muted"}>{overall.observed ? `${overall.rate}%` : "Chưa có dữ liệu"}</strong></div>
         </div>
       </section>
       <section className="panel">
@@ -228,6 +228,7 @@ export function HandHygieneAuditsClient({ departments, profiles, initialAudits, 
         .ttbyt-kpis .kpi-tile strong.compliance-success{color:var(--success)}
         .ttbyt-kpis .kpi-tile strong.compliance-warning{color:var(--warning)}
         .ttbyt-kpis .kpi-tile strong.compliance-danger{color:var(--danger)}
+        .ttbyt-kpis .kpi-tile strong.compliance-muted{color:var(--muted);font-size:14px}
         @media(max-width:760px){.ttbyt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
       `}</style>
     </>

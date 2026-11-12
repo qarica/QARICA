@@ -36,8 +36,8 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
     setError(null);
     try {
       const res = await fetch("/api/emr/timeline-milestones");
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không tải được dữ liệu.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không tải được dữ liệu.");
       setMilestones(json.milestones);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -67,8 +67,8 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
 
   async function postMilestone(body: Record<string, unknown>) {
     const res = await fetch("/api/emr/timeline-milestones", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const json = await res.json();
-    if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
     return json.milestone as Milestone;
   }
 
@@ -79,8 +79,8 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
     try {
       if (modal.mode === "edit") {
         const res = await fetch(`/api/emr/timeline-milestones/${modal.target!.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-        const json = await res.json();
-        if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
       } else if (modal.mode === "create-child") {
         await postMilestone({ ...form, parent_id: modal.parentId });
       } else {
@@ -107,8 +107,8 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
     if (!window.confirm(confirmMsg)) return;
     try {
       const res = await fetch(`/api/emr/timeline-milestones/${target.id}`, { method: "DELETE" });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không xoá được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không xoá được.");
       await load({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
