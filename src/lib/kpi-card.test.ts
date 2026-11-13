@@ -10,17 +10,21 @@ const read = (p: string) => readFileSync(p, "utf8");
 describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng class mới .kpi-tile", () => {
   const source = read("src/components/kpi-card.tsx");
 
-  it("export KpiCard với đúng props: icon, tone, label, value, trend, visual, caption, href", () => {
+  it("export KpiCard với đúng props: icon, tone, label, value, trend, visual, caption, urgent, href", () => {
     expect(source).toContain("export function KpiCard({");
-    expect(source).toContain("icon, tone = \"blue\", label, value, trend, visual, caption, href,");
+    expect(source).toContain("icon, tone = \"blue\", label, value, trend, visual, caption, urgent, href,");
   });
 
   it("caption là slot tuỳ chọn (vd '12/20 Action'), chỉ render khi có — dùng cho các trang có dòng phụ dưới label (improvement/projects...)", () => {
     expect(source).toContain("{caption ? <div className=\"kpi-tile-caption\">{caption}</div> : null}");
   });
 
-  it("render className=\"kpi-tile\" (KHÔNG tái dùng kpi-card/kpi của 23 file cũ, tránh đụng CSS trang khác)", () => {
-    expect(source).toContain('className="kpi-tile"');
+  it("urgent (tuỳ chọn) thêm class 'urgent' lên kpi-tile — thay cho quy ước <article className={`kpi ${overdue?\"danger\":\"\"}`}> ở các trang cũ (capa/page.tsx...), gộp 2 biến thể danger/warning cũ thành 1 tông nhấn chung", () => {
+    expect(source).toContain('const className = `kpi-tile${urgent ? " urgent" : ""}`;');
+  });
+
+  it("render class gốc 'kpi-tile' (KHÔNG tái dùng kpi-card/kpi của 23 file cũ, tránh đụng CSS trang khác)", () => {
+    expect(source).toContain('`kpi-tile${urgent');
     expect(source).not.toContain('className="kpi-card"');
   });
 
@@ -39,12 +43,12 @@ describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng 
 
   it("có href thì bọc trong Link (card bấm được), không có thì render <article> tĩnh", () => {
     expect(source).toContain("import Link from \"next/link\";");
-    expect(source).toContain("href\n    ? <Link href={href} className=\"kpi-tile kpi-tile-link\">{body}</Link>\n    : <article className=\"kpi-tile\">{body}</article>;");
+    expect(source).toContain("href\n    ? <Link href={href} className={`${className} kpi-tile-link`}>{body}</Link>\n    : <article className={className}>{body}</article>;");
   });
 
-  it("globals.css định nghĩa .kpi-tile/.kpi-tile-top/.kpi-tile-value/.kpi-tile-visual/.kpi-tile-label/.kpi-tile-caption 1 lần duy nhất", () => {
+  it("globals.css định nghĩa .kpi-tile/.kpi-tile-top/.kpi-tile-value/.kpi-tile-visual/.kpi-tile-label/.kpi-tile-caption/.kpi-tile.urgent 1 lần duy nhất", () => {
     const css = read("src/app/globals.css");
-    for (const cls of [".kpi-tile{", ".kpi-tile-top{", ".kpi-tile-value{", ".kpi-tile-visual{", ".kpi-tile-label{", ".kpi-tile-caption{"]) {
+    for (const cls of [".kpi-tile{", ".kpi-tile-top{", ".kpi-tile-value{", ".kpi-tile-visual{", ".kpi-tile-label{", ".kpi-tile-caption{", ".kpi-tile.urgent{"]) {
       expect(css.split(cls).length - 1, `${cls} should appear exactly once`).toBe(1);
     }
   });

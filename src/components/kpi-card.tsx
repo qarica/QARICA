@@ -6,7 +6,7 @@ export type KpiTone = "blue" | "green" | "amber" | "red" | "purple";
 export type KpiTrend = { tone: "up" | "down" | "flat"; text: string };
 
 export function KpiCard({
-  icon, tone = "blue", label, value, trend, visual, caption, href,
+  icon, tone = "blue", label, value, trend, visual, caption, urgent, href,
 }: {
   icon: string;
   tone?: KpiTone;
@@ -15,8 +15,10 @@ export function KpiCard({
   trend?: KpiTrend;
   visual?: React.ReactNode;
   caption?: React.ReactNode;
+  urgent?: boolean;
   href?: string;
 }) {
+  const className = `kpi-tile${urgent ? " urgent" : ""}`;
   const body = <>
     <div className="kpi-tile-top">
       <span className={`kpi-icon ${tone}`}><Icon name={icon} size={18} /></span>
@@ -28,6 +30,6 @@ export function KpiCard({
     {caption ? <div className="kpi-tile-caption">{caption}</div> : null}
   </>;
   return href
-    ? <Link href={href} className="kpi-tile kpi-tile-link">{body}</Link>
-    : <article className="kpi-tile">{body}</article>;
+    ? <Link href={href} className={`${className} kpi-tile-link`}>{body}</Link>
+    : <article className={className}>{body}</article>;
 }
