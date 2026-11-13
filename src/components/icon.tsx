@@ -5,7 +5,7 @@ import {
   Cog, Download, Droplets, Eye, EyeOff, FileInput, FileText, FolderArchive, FolderCheck, Footprints, Gauge, GripVertical, Inbox, KeyRound, Layers, LayoutDashboard,
   Lightbulb, ListChecks, ListTree, LoaderCircle, Lock, LogOut, Megaphone, Menu, MessageCircleWarning, Network, PanelLeftClose, PanelLeftOpen,
   Paperclip, Pencil, PieChart, Plus, QrCode, RefreshCw, Save, Search, SearchCheck, Send, Settings, ShieldAlert, ShieldCheck,
-  Smartphone, Sparkles, Sprout, Target, TrendingUp, TriangleAlert, User, Users, UsersRound, Workflow, X
+  Smartphone, Sparkles, Sprout, Star, Target, TrendingUp, TriangleAlert, User, Users, UsersRound, Workflow, X
 } from "lucide-react";
 
 const map:Record<string,React.ComponentType<{size?:number;className?:string}>>={
@@ -23,7 +23,7 @@ const map:Record<string,React.ComponentType<{size?:number;className?:string}>>={
   "archive":Archive,"sparkles":Sparkles,"target":Target,"gauge":Gauge,"network":Network,"footprints":Footprints,
   "book-open":BookOpen,"cog":Cog,"refresh-cw":RefreshCw,"sprout":Sprout,"smartphone":Smartphone,"eye":Eye,"layers":Layers,
   "grip-vertical":GripVertical,"eye-off":EyeOff,"user":User,"lock":Lock,"loader-circle":LoaderCircle,"arrow-right":ArrowRight,
-  "download":Download,"qr-code":QrCode,"droplets":Droplets
+  "download":Download,"qr-code":QrCode,"droplets":Droplets,"star":Star
 };
 
 export function Icon({name,size=18,className}:{name:string;size?:number;className?:string}){
