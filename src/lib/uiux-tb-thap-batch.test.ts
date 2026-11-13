@@ -8,7 +8,12 @@ describe("UIUX TB/Thấp batch", () => {
     const page = read("src/app/(app)/dashboard/page.tsx");
     expect(page).not.toMatch(/<svg width="(18|20|26|16)"/);
     expect(page).toContain('<Icon name="building-2" size={20}/>');
-    expect(page).toContain('<Icon name="circle-alert" size={16}/>');
+    // 2026-11-13: the "Cảnh báo & công việc cần chú ý" row's circle-alert icon
+    // moved into AlertStrip (src/components/alert-strip.tsx) when the alerts
+    // list became a horizontal strip near the top of the page — it still
+    // uses the shared Icon component there, not a raw <svg>.
+    expect(read("src/components/alert-strip.tsx")).toContain('<Icon name={item.icon} size={18} />');
+    expect(read("src/components/alert-strip.tsx")).not.toMatch(/<svg width="(18|20|26|16)"/);
   });
 
   it("checkbox sizing no longer relies on repeated inline style overrides — uses .inline-check/.check-card like CLAUDE.md documents", () => {

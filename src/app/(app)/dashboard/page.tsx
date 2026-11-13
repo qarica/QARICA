@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
-import { TQM_CHART_CSS, TqmDonut, TqmGantt, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { KpiCard, type KpiTrend } from "@/components/kpi-card";
+import { AlertStrip } from "@/components/alert-strip";
+import { TQM_CHART_CSS, TqmDonut, TqmGantt, TqmGauge, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
 import { TqmSmartCommandCenter } from "@/components/tqm-smart-command-center";
 import { TqmInterventionLoop } from "@/components/tqm-intervention-loop";
 import { TqmPriorityBoard } from "@/components/tqm-priority-board";
 import { requireUserContext } from "@/lib/auth";
 import { buildIndicatorKpi, buildProjectActionKpi, isDueOnOrBeforeToday } from "@/lib/dashboard-kpi";
+import { buildQualityAlertItems } from "@/lib/quality-alert-strip";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 import { incidentHarmClassification, incidentDomainDistribution } from "@/lib/incident-dashboard";
@@ -39,6 +42,14 @@ function pctChange(current: number, previous: number): { text: string; tone: "up
   const pct = Math.round(((current - previous) / previous) * 100);
   if (pct === 0) return { text: "Không thay đổi", tone: "flat" };
   return { text: `${pct > 0 ? "+" : ""}${pct}% so với tháng trước`, tone: pct > 0 ? "up" : "down" };
+}
+// Badge ngắn cho KpiCard (chỉ hiện %, không hiện câu đầy đủ của pctChange —
+// giữ đúng nội dung hiển thị cũ trước khi có KpiCard, chỉ gom lại 1 hàm
+// dùng chung thay vì lặp lại ternary này 4 lần trong JSX).
+function trendBadge(current: number, previous: number): KpiTrend {
+  const { tone } = pctChange(current, previous);
+  const text = tone === "flat" ? "0%" : `${Math.abs(Math.round(((current - previous) / (previous || 1)) * 100))}%`;
+  return { tone, text };
 }
 const RISK_MED = new Set(["MEDIUM", "MODERATE"]);
 const RISK_LOW = new Set(["LOW"]);
@@ -125,6 +136,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const capaOverdue = capas.filter((x: any) => !["CLOSED", "CANCELLED", "EFFECTIVE"].includes(String(x.workflow_status)) && x.effectiveness_due_date && x.effectiveness_due_date < today);
   const capaOverdueLastMonth = capas.filter((x: any) => x.effectiveness_due_date && x.effectiveness_due_date < prevMonth + "-28").length;
   const capaByStatus = { DONE: capas.filter((x: any) => x.workflow_status === "EFFECTIVE").length, IN_PROGRESS: capas.filter((x: any) => ["IN_PROGRESS", "EFFECTIVENESS_REVIEW"].includes(String(x.workflow_status))).length, OVERDUE: capaOverdue.length, NOT_STARTED: capas.filter((x: any) => x.workflow_status === "DRAFT").length };
+  const capaOverduePct = capas.length ? Math.round((capaOverdue.length / capas.length) * 100) : 0;
 
   const risks = (risksRes.data ?? []) as any[];
   const riskIds = risks.map((x: any) => x.id);
@@ -182,13 +194,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const incidentStatusOverdue = openIncidents.filter((x: any) => { const days = Math.floor((Date.parse(today) - Date.parse(String(x.reported_at).slice(0, 10))) / 86400000); return days > 7; }).length;
 
 
-  const alerts = [
-    capaOverdue.length ? { icon: "clock", tone: "red", title: `${capaOverdue.length} CAPA đã quá hạn`, sub: "Cần phân công/đôn đốc thực hiện", when: "Hôm nay", href: "/capa" } : null,
-    outTargetIndicators.length ? { icon: "chart-no-axes-column-increasing", tone: "amber", title: `${outTargetIndicators.length} chỉ số vượt ngưỡng`, sub: "Ngoài mục tiêu trong kỳ đo gần nhất", when: today, href: "/indicators" } : null,
-    auditNearDue.length ? { icon: "calendar-days", tone: "purple", title: `${auditNearDue.length} Audit sắp đến hạn`, sub: auditNearDue[0]?.end_date ? `Dự kiến: ${auditNearDue[0].end_date}` : "", when: today, href: "/audits" } : null,
-    investigating > 0 ? { icon: "file-text", tone: "blue", title: `${investigating} sự cố đang điều tra RCA`, sub: "Cần theo dõi tiến độ phân tích nguyên nhân", when: today, href: "/incidents" } : null,
-    docReviewOverdue > 0 ? { icon: "file-text", tone: "red", title: `${docReviewOverdue} văn bản cần xem xét lại`, sub: "Đã quá hạn rà soát định kỳ", when: today, href: "/document-publications" } : null,
-  ].filter(Boolean) as { icon: string; tone: string; title: string; sub: string; when: string; href: string }[];
+  const alertItems = buildQualityAlertItems({
+    capaOverdueCount: capaOverdue.length,
+    outTargetIndicatorCount: outTargetIndicators.length,
+    auditNearDueCount: auditNearDue.length,
+    auditNearDueFirstEndDate: auditNearDue[0]?.end_date ?? null,
+    investigatingCount: investigating,
+    docReviewOverdueCount: docReviewOverdue,
+    today,
+  });
 
   // Legacy TQM operational sections (Plan/Indicator/Monitoring/Finding/Improvement) - kept
   // fully intact per "existing functionality must survive": this is a visual migration for
@@ -256,12 +270,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .title-with-icon{display:flex;align-items:center;gap:12px}
       .qcc-dashboard .title-with-icon .icon-badge{width:40px;height:40px;border-radius:12px;background:#EEF2FF;color:#1D4ED8;display:flex;align-items:center;justify-content:center;flex:0 0 40px}
       .qcc-dashboard .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
-      .qcc-dashboard .kpi-card{background:#fff;border:1px solid #e5eaf2;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.03)}
-      .qcc-dashboard .kpi-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-      .qcc-dashboard .kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}
-      .qcc-dashboard .kpi-icon.blue{background:#dbeafe;color:#1d4ed8}.qcc-dashboard .kpi-icon.green{background:#dcfce7;color:#16a34a}.qcc-dashboard .kpi-icon.amber{background:#fef3c7;color:#b45309}.qcc-dashboard .kpi-icon.red{background:#fee2e2;color:#dc2626}.qcc-dashboard .kpi-icon.purple{background:#ede9fe;color:#7c3aed}
-      .qcc-dashboard .kpi-title{font-size:13px;color:#475569;font-weight:600;margin-top:2px}
-      .qcc-dashboard .kpi-value{font-size:26px;font-weight:800;color:#0f172a}
+      .qcc-dashboard .alert-strip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+      .qcc-dashboard .alert-strip-head h2{margin:0;font-size:15px}
       .qcc-dashboard .quick-links{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:16px}
       .qcc-dashboard .quick-link{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:12px 6px;border-radius:12px;color:#334155;font-size:11px;font-weight:700}
       .qcc-dashboard .quick-link:hover{background:#f8fafc}
@@ -269,7 +279,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       @media(max-width:1100px){.qcc-dashboard .quick-links{grid-template-columns:repeat(4,1fr)}}
       @media(max-width:640px){.qcc-dashboard .quick-links{grid-template-columns:repeat(2,1fr)}}
       .qcc-dashboard .grid2b{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
-      .qcc-dashboard .grid3b{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+      .qcc-dashboard .grid3b{display:grid;grid-template-columns:1fr 1fr;gap:14px}
       .qcc-dashboard .capa-stat-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px 18px 18px}
       .qcc-dashboard .capa-stat{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
       .qcc-dashboard .capa-stat-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center}
@@ -280,8 +290,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .compliance-row .bar-track{grid-column:1/-1;height:6px;background:#eef2f6;border-radius:99px;overflow:hidden}
       .qcc-dashboard .compliance-row .bar-track i{display:block;height:100%;background:#1D4ED8;border-radius:99px}
       @media(max-width:1100px){.qcc-dashboard .grid2b,.qcc-dashboard .grid3b{grid-template-columns:1fr}}
-      .qcc-dashboard .kpi-trend{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
-      .qcc-dashboard .kpi-trend.up{color:#16a34a;background:#eafaf0}.qcc-dashboard .kpi-trend.down{color:#dc2626;background:#fef2f2}.qcc-dashboard .kpi-trend.flat{color:#94a3b8;background:#f1f5f9}
       .qcc-dashboard .chart-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
       .qcc-dashboard .range-toggle{display:flex;gap:2px;background:#f1f5f9;border-radius:9px;padding:2px}
       .qcc-dashboard .range-toggle a{padding:6px 12px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b}
@@ -299,13 +307,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .stacked-bar{width:26px;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden}
       .qcc-dashboard .stacked-bar-seg{width:100%}
       .qcc-dashboard .stacked-bar-label{font-size:10px;color:#94a3b8}
-      .qcc-dashboard .alerts{display:grid;gap:10px;padding:8px 16px 16px}
-      .qcc-dashboard .alert-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;border:1px solid #eef2f7;border-radius:12px;padding:12px}
-      .qcc-dashboard .alert-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 34px}
-      .qcc-dashboard .alert-icon.red{background:#fef2f2;color:#dc2626}.qcc-dashboard .alert-icon.amber{background:#fffbeb;color:#d97706}.qcc-dashboard .alert-icon.purple{background:#f5f3ff;color:#7c3aed}.qcc-dashboard .alert-icon.blue{background:#eff6ff;color:#1d4ed8}
-      .qcc-dashboard .alert-row strong{display:block;font-size:13px}
-      .qcc-dashboard .alert-row small{color:#94a3b8;font-size:11px}
-      .qcc-dashboard .alert-when{font-size:11px;color:#94a3b8;white-space:nowrap}
       @media(max-width:1100px){.qcc-dashboard .kpis{grid-template-columns:repeat(2,1fr)}.qcc-dashboard .grid2{grid-template-columns:1fr}}
       .qcc-dashboard .qcc-legacy-divider{display:flex;align-items:center;gap:14px;margin:8px 0 2px;color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
       .qcc-dashboard .qcc-legacy-divider:before,.qcc-dashboard .qcc-legacy-divider:after{content:"";flex:1;height:1px;background:#e5eaf2}
@@ -329,12 +330,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
 
+    <div className="alert-strip-head"><h2>Cảnh báo &amp; công việc cần chú ý</h2><Link className="button tertiary small" href="/tasks">Xem tất cả →</Link></div>
+    <AlertStrip items={alertItems} />
+
     <section className="kpis">
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon blue"><Icon name="file-text" size={18}/></span><span className={`kpi-trend ${pctChange(thisMonthNew, lastMonthNew).tone}`}>{pctChange(thisMonthNew, lastMonthNew).tone === "up" ? "▲" : pctChange(thisMonthNew, lastMonthNew).tone === "down" ? "▼" : ""} {pctChange(thisMonthNew, lastMonthNew).tone === "flat" ? "0%" : `${Math.abs(Math.round(((thisMonthNew - lastMonthNew) / (lastMonthNew || 1)) * 100))}%`}</span></div><div className="kpi-value">{thisMonthNew}</div><div className="kpi-title">Sự cố mới</div></article>
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon green"><Icon name="search" size={18}/></span><span className={`kpi-trend ${pctChange(investigating, investigatingLastMonth).tone}`}>{pctChange(investigating, investigatingLastMonth).tone === "up" ? "▲" : pctChange(investigating, investigatingLastMonth).tone === "down" ? "▼" : ""} {pctChange(investigating, investigatingLastMonth).tone === "flat" ? "0%" : `${Math.abs(Math.round(((investigating - investigatingLastMonth) / (investigatingLastMonth || 1)) * 100))}%`}</span></div><div className="kpi-value">{investigating}</div><div className="kpi-title">Đang phân tích RCA</div></article>
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon amber"><Icon name="calendar-days" size={18}/></span><span className={`kpi-trend ${pctChange(capaOverdue.length, capaOverdueLastMonth).tone}`}>{pctChange(capaOverdue.length, capaOverdueLastMonth).tone === "up" ? "▲" : pctChange(capaOverdue.length, capaOverdueLastMonth).tone === "down" ? "▼" : ""} {pctChange(capaOverdue.length, capaOverdueLastMonth).tone === "flat" ? "0%" : `${Math.abs(Math.round(((capaOverdue.length - capaOverdueLastMonth) / (capaOverdueLastMonth || 1)) * 100))}%`}</span></div><div className="kpi-value">{capaOverdue.length}</div><div className="kpi-title">CAPA quá hạn</div></article>
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon red"><Icon name="triangle-alert" size={18}/></span><span className="kpi-trend flat">0%</span></div><div className="kpi-value">{highRiskCount}</div><div className="kpi-title">Rủi ro mức cao</div></article>
-      <article className="kpi-card"><div className="kpi-card-top"><span className="kpi-icon purple"><Icon name="check-square" size={18}/></span><span className={`kpi-trend ${pctChange(auditInProgress, auditInProgressLastMonth).tone}`}>{pctChange(auditInProgress, auditInProgressLastMonth).tone === "up" ? "▲" : pctChange(auditInProgress, auditInProgressLastMonth).tone === "down" ? "▼" : ""} {pctChange(auditInProgress, auditInProgressLastMonth).tone === "flat" ? "0%" : `${Math.abs(Math.round(((auditInProgress - auditInProgressLastMonth) / (auditInProgressLastMonth || 1)) * 100))}%`}</span></div><div className="kpi-value">{auditInProgress}</div><div className="kpi-title">Audit đang thực hiện</div></article>
+      <KpiCard icon="file-text" tone="blue" label="Sự cố mới" value={thisMonthNew} trend={trendBadge(thisMonthNew, lastMonthNew)} />
+      <KpiCard icon="search" tone="green" label="Đang phân tích RCA" value={investigating} trend={trendBadge(investigating, investigatingLastMonth)} />
+      <KpiCard icon="calendar-days" tone="amber" label="CAPA quá hạn" value={capaOverdue.length} trend={trendBadge(capaOverdue.length, capaOverdueLastMonth)} visual={<TqmGauge value={capaOverduePct} label="% trên tổng CAPA" tone="amber" />} />
+      <KpiCard icon="triangle-alert" tone="red" label="Rủi ro mức cao" value={highRiskCount} trend={{ tone: "flat", text: "0%" }} />
+      <KpiCard icon="check-square" tone="purple" label="Audit đang thực hiện" value={auditInProgress} trend={trendBadge(auditInProgress, auditInProgressLastMonth)} />
     </section>
 
     <section className="grid2">
@@ -365,9 +369,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <div className="compliance-row"><Icon name="users" size={14}/><span>Có người phụ trách</span><b>{ownerCoveragePct}%</b><div className="bar-track"><i style={{width:`${ownerCoveragePct}%`}}/></div></div>
           <div className="compliance-row"><Icon name="building-2" size={14}/><span>Có khoa/phòng</span><b>{deptCoveragePct}%</b><div className="bar-track"><i style={{width:`${deptCoveragePct}%`}}/></div></div>
         </div>
-      </article>
-      <article className="panel"><div className="head"><h2>Cảnh báo &amp; công việc cần chú ý</h2><Link className="button tertiary small" href="/tasks">Xem tất cả →</Link></div>
-        <div className="alerts">{alerts.length === 0 ? <div className="empty-state">Không có cảnh báo nào đang mở.</div> : alerts.map((a, i) => <Link href={a.href} className="alert-row" key={i}><span className={`alert-icon ${a.tone}`}><Icon name="circle-alert" size={16}/></span><span><strong>{a.title}</strong><small>{a.sub}</small></span><span className="alert-when">{a.when}</span><span>→</span></Link>)}</div>
       </article>
     </section>
 
