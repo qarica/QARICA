@@ -46,7 +46,7 @@ describe("EMR security and control gates", () => {
   });
   it("hides EMR navigation from users without emr.view (nav group label renamed from the raw EMR acronym to Bệnh án điện tử — explicit request; every one of the 11 expanded EMR sidebar rows still requires emr.view)", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('label: "BỆNH ÁN ĐIỆN TỬ"');
+    expect(nav).toContain('label: "Bệnh án điện tử"');
     expect(nav).toContain('{ label: "Tổng quan EMR", href: "/emr", icon: "layout-dashboard", permission: "emr.view" }');
     expect(nav.match(/permission: "emr\.view"/g)?.length).toBe(3);
   });

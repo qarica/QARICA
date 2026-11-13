@@ -14,10 +14,10 @@ import { describe, expect, it } from "vitest";
 describe("Topbar header-icon launchers never carry an 'active' class", () => {
   const shell = readFileSync("src/components/app-shell.tsx", "utf8");
 
-  it("calendar-launcher, my-work-launcher, notebook-launcher and admin-launcher use a plain static className, not pathname.startsWith(...) ? \"active\" : \"\"", () => {
+  it("calendar-launcher, my-work-launcher and admin-launcher use a plain static className, not pathname.startsWith(...) ? \"active\" : \"\" (notebook-launcher removed entirely, 2026-11-13 — see navigation-v2.test.ts)", () => {
     expect(shell).toContain('className="icon-button header-icon calendar-launcher"');
     expect(shell).toContain('className="icon-button header-icon my-work-launcher"');
-    expect(shell).toContain('className="icon-button header-icon notebook-launcher"');
+    expect(shell).not.toContain("notebook-launcher");
     expect(shell).toContain('className="icon-button header-icon admin-launcher"');
   });
 

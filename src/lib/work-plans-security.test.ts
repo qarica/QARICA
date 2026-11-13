@@ -46,9 +46,15 @@ describe("Kế hoạch công việc: bảng riêng, không trùng/song song hoá
     expect(migration).toContain("'work_plans'");
   });
 
-  it("là nhóm menu riêng trên sidebar, nhãn phân biệt rõ với 'Kế hoạch & Điều hành' (Plan Composer), gate đúng permission work_plans.view", () => {
+  // Explicit request (2026-11-13): "Xoá luôn menu kế hoạch công việc" — the
+  // sidebar entry point is removed; /work-plans and its API/table are left
+  // untouched and still work, just unreachable from the sidebar now.
+  it("không còn nhóm menu 'Kế hoạch công việc' trên sidebar, nhưng route/API /work-plans vẫn còn nguyên", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "Kế hoạch công việc", href: "/work-plans", icon: "target", permission: "work_plans.view" }');
+    expect(nav).not.toContain('id: "work-plans"');
+    expect(nav).not.toContain('href: "/work-plans"');
+    const route = read("src/app/api/work-plans/route.ts");
+    expect(route).toContain('requireApiPermission("work_plans.view")');
   });
 });
 

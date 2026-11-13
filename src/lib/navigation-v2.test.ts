@@ -24,7 +24,6 @@ const GROUP_IDS = [
   "procurement",
   "medical-equipment",
   "infection-control",
-  "work-plans",
   "system-config",
 ];
 
@@ -42,16 +41,22 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 11 primary groups (Việc của tôi/Sổ tay cá nhân are intentionally not sidebar groups — see the topbar and floating-capture tests below)", () => {
+  it("defines exactly 11 primary groups (Việc của tôi is intentionally not a sidebar group — see the topbar test below; Kế hoạch công việc removed from the sidebar by explicit request, 2026-11-13)", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
     // no additional group ids besides these eleven
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(12);
-    expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
-    expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
-    expect(navigation).toContain('label: "QUẢN LÝ HSBA"');
-    expect(navigation).toContain('label: "BỆNH ÁN ĐIỆN TỬ"');
-    expect(navigation).toContain('label: "QUẢN LÝ VĂN BẢN"');
-    expect(navigation).toContain('label: "CẤU HÌNH HỆ THỐNG"');
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(11);
+    expect(navigation).not.toContain('id: "work-plans"');
+    expect(navigation).toContain('label: "Điều hành chất lượng"');
+    expect(navigation).toContain('label: "Quản lý chất lượng"');
+    expect(navigation).toContain('label: "Quản lý HSBA"');
+    expect(navigation).toContain('label: "Bệnh án điện tử"');
+    expect(navigation).toContain('label: "Quản lý văn bản"');
+    expect(navigation).toContain('label: "Cấu hình hệ thống"');
+    // top-level labels read as normal Title Case, not ALL CAPS (explicit
+    // request, 2026-11-13) — none of the old all-caps group labels survive.
+    for (const old of ["ĐIỀU HÀNH CHẤT LƯỢNG", "QUẢN LÝ CHẤT LƯỢNG", "QUẢN LÝ HSBA", "BỆNH ÁN ĐIỆN TỬ", "QUẢN LÝ HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "QUẢN LÝ VĂN BẢN", "MUA SẮM & SỬA CHỮA", "QUẢN LÝ TTBYT", "KIỂM SOÁT NHIỄM KHUẨN", "CẤU HÌNH HỆ THỐNG"]) {
+      expect(navigation).not.toContain(`label: "${old}"`);
+    }
   });
 
   it("orders the main (non-footer) groups exactly as requested: điều hành chất lượng, quản lý chất lượng, bệnh án điện tử, audit nội bộ KHTH, theo dõi hành nghề, quản lý công văn, quản lý văn bản, mua sắm & sửa chữa", () => {
@@ -101,11 +106,11 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(navigation).not.toContain('label: "CÁ NHÂN & VIỆC CỦA TÔI"');
   });
 
-  it("promotes MUA SẮM & SỬA CHỮA, QUẢN LÝ CÔNG VĂN and QUẢN LÝ HSBA to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
+  it("promotes Mua sắm & sửa chữa, Quản lý công văn and Quản lý HSBA to their own top-level single-item groups, in normal Title Case to match the other level-1 menus", () => {
     const expectations: [string, string, string][] = [
-      ["procurement", "MUA SẮM & SỬA CHỮA", "/procurement"],
-      ["incoming-documents", "QUẢN LÝ CÔNG VĂN", "/incoming-documents"],
-      ["hsba-audit", "QUẢN LÝ HSBA", "/hsba-audit"],
+      ["procurement", "Mua sắm & sửa chữa", "/procurement"],
+      ["incoming-documents", "Quản lý công văn", "/incoming-documents"],
+      ["hsba-audit", "Quản lý HSBA", "/hsba-audit"],
     ];
     for (const [id, label, href] of expectations) {
       const block = groupBlock(navigation, id);
@@ -123,7 +128,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   it("gộp THEO DÕI HÀNH NGHỀ và HỒ SƠ NĂNG LỰC HÀNH NGHỀ thành 2 mục con của 1 nhóm QUẢN LÝ HÀNH NGHỀ duy nhất (không còn là 2 nhóm cấp 1 tách rời)", () => {
     expect(navigation).not.toContain('id: "practitioner-credentials"');
     const block = groupBlock(navigation, "physician-license");
-    expect(block).toContain('label: "QUẢN LÝ HÀNH NGHỀ"');
+    expect(block).toContain('label: "Quản lý hành nghề"');
     expect(block).toContain('{ label: "Theo dõi hạn đăng ký hành nghề", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" }');
     expect(block).toContain('{ label: "Hồ sơ năng lực hành nghề", href: "/practitioner-credentials", icon: "folder-check", permission: "practitioner_credentials.view" }');
   });
@@ -136,7 +141,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   it("gộp KIỂM SOÁT TÀI LIỆU và ĐÀO TẠO QUY TRÌNH thành 2 mục con của 1 nhóm QUẢN LÝ VĂN BẢN duy nhất (không còn là 2 nhóm cấp 1 tách rời)", () => {
     expect(navigation).not.toContain('id: "procedure-training"');
     const block = groupBlock(navigation, "document-publications");
-    expect(block).toContain('label: "QUẢN LÝ VĂN BẢN"');
+    expect(block).toContain('label: "Quản lý văn bản"');
     expect(block).toContain('{ label: "Kiểm soát tài liệu", href: "/document-publications", icon: "file-text", permission: "document_publication.view" }');
     expect(block).toContain('{ label: "Phổ biến & đào tạo", href: "/procedure-trainings", icon: "book-open", anyPermissions: ["procedure_training.view", "document_publication.view"] }');
   });
@@ -147,7 +152,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   // không làm riêng để tránh trùng lặp.
   it("nhóm KIỂM SOÁT NHIỄM KHUẨN có 2 mục con: Giám sát nhiễm khuẩn bệnh viện và Giám sát vệ sinh tay", () => {
     const block = groupBlock(navigation, "infection-control");
-    expect(block).toContain('label: "KIỂM SOÁT NHIỄM KHUẨN"');
+    expect(block).toContain('label: "Kiểm soát nhiễm khuẩn"');
     expect(block).toContain('{ label: "Giám sát nhiễm khuẩn bệnh viện", href: "/infection-control", icon: "shield-alert", permission: "infection_control.view" }');
     expect(block).toContain('{ label: "Giám sát vệ sinh tay", href: "/infection-control/hand-hygiene", icon: "droplets", permission: "infection_control.view" }');
   });
@@ -159,18 +164,21 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(shell).toContain('aria-label="Việc của tôi"');
   });
 
-  // Báo cáo thực tế: "Mất chổ xem sổ ghi chú" — chỉ có GlobalQuickCapture
-  // (FAB góc dưới phải, icon bút — gợi ý viết mới) với 1 icon nhỏ book-open
-  // bên trong panel dẫn tới /me; không có cách nào trực tiếp/luôn hiện để
-  // XEM LẠI sổ tay. Thêm nút topbar riêng, không gate theo permission nào
-  // (khớp /me/page.tsx không yêu cầu permission riêng).
-  it("puts Sổ tay cá nhân (/me) in the topbar too, next to Việc của tôi, unconditional for any signed-in user", () => {
-    expect(shell).toContain('<Link href="/me" prefetch={true} className="icon-button header-icon notebook-launcher" onClick={() => startNavigation("/me")} title="Sổ tay cá nhân" aria-label="Sổ tay cá nhân"><Icon name="book-open" size={18} /></Link>');
+  // Explicit request (2026-11-13): "Xoá luôn menu cá nhân ko giữ riêng" —
+  // the dedicated "Sổ tay cá nhân" (/me) topbar icon button is removed; /me
+  // itself still exists and works, it just has no dedicated entry point
+  // anymore.
+  it("no longer puts a dedicated Sổ tay cá nhân (/me) icon button in the topbar", () => {
+    expect(shell).not.toContain("notebook-launcher");
+    expect(shell).not.toContain('title="Sổ tay cá nhân"');
   });
 
-  it("renders the floating quick-capture button (GlobalQuickCapture) in the protected layout, so a note or to-do can be captured from any screen without navigating away first", () => {
-    expect(layout).toContain('import { GlobalQuickCapture } from "@/components/global-quick-capture";');
-    expect(layout).toContain("<GlobalQuickCapture userId={user.id} organizationId={user.organizationId} />");
+  // Explicit request (2026-11-13): "Ẩn luôn nút nổi viết ghi chú vì ko cần
+  // thiết" — the floating quick-capture button (GlobalQuickCapture) is no
+  // longer rendered in the protected layout. The component file itself is
+  // left untouched (see the test below) in case it is re-enabled later.
+  it("no longer renders the floating quick-capture button (GlobalQuickCapture) in the protected layout", () => {
+    expect(layout).not.toContain("GlobalQuickCapture");
   });
 
   it("GlobalQuickCapture creates either a private knowledge note (reusing the existing POST /api/knowledge contract) or a personal_reminders row (reusing the existing RLS-scoped insert shape), with no new backend route", () => {
@@ -204,9 +212,9 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(block).not.toContain("workspaceRoot: \"/admin\"");
   });
 
-  it("Group — CẤU HÌNH HỆ THỐNG is a footer group, mapping to the existing Admin workspace, with a caps label matching the other level-1 menus", () => {
+  it("Group — Cấu hình hệ thống is a footer group, mapping to the existing Admin workspace, in normal Title Case matching the other level-1 menus", () => {
     const block = groupBlock(navigation, "system-config");
-    expect(block).toContain('label: "CẤU HÌNH HỆ THỐNG", icon: "settings", workspaceRoot: "/admin"');
+    expect(block).toContain('label: "Cấu hình hệ thống", icon: "settings", workspaceRoot: "/admin"');
     expect(block).toContain("footer: true");
   });
 

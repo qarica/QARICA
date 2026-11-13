@@ -27,23 +27,20 @@ type NavGroupDef = { id: string; label: string; icon: string; children: ChildDef
 // (Cấu hình hệ thống) read as a distinct tier from the shared QLCL/EMR/
 // procurement-style modules.
 //
-// "Việc của tôi" and "Sổ tay cá nhân" are intentionally NOT in this sidebar
-// at all (explicit request, 2026-10-15): they are personal/always-on tools,
-// not organization-wide modules, so hard-coding them into the master menu
-// buries them one accordion click away like everything else here. "Việc của
-// tôi" lives in the topbar (AppShell, next to the notification bell) —
-// always one click away regardless of which module is open. The floating
-// quick-capture button (GlobalQuickCapture, rendered in the (app) layout)
-// lets a note/to-do be CAPTURED from any screen without navigating away
-// first. "Sổ tay cá nhân" (/me, the full notebook with past notes) ALSO got
-// its own topbar icon button next to "Việc của tôi" (follow-up report: "Mất
-// chổ xem sổ ghi chú" — the quick-capture FAB's pencil icon reads as
-// "write new", not "view existing", and its own link to /me is a small icon
-// buried inside the panel you have to open first; a direct, always-visible
-// way to VIEW the notebook was missing). /me requires no permission of its
-// own, so the topbar button is unconditional for any signed-in user.
+// "Việc của tôi" is intentionally NOT in this sidebar at all (explicit
+// request, 2026-10-15): it's a personal/always-on tool, not an
+// organization-wide module, so hard-coding it into the master menu would
+// bury it one accordion click away like everything else here. It lives in
+// the topbar (AppShell, next to the notification bell) instead — always one
+// click away regardless of which module is open.
 //
-// "Lịch QLCL" moved out of the ĐIỀU HÀNH CHẤT LƯỢNG accordion the same way
+// The floating quick-capture button (GlobalQuickCapture) and the separate
+// "Sổ tay cá nhân" (/me) topbar icon button were both removed by explicit
+// request (2026-11-13) — neither needs its own dedicated entry point.
+// GlobalQuickCapture's component file and /me's page both still exist
+// (unlinked), only the entry points were removed.
+//
+// "Lịch QLCL" moved out of the Điều hành chất lượng accordion the same way
 // (explicit request: "dời Calendar thành 1 nút riêng để dễ xem lịch") — it
 // now has its own topbar icon button (AppShell, next to "Việc của tôi"),
 // reachable in one click instead of expand-group-then-click. The topbar
@@ -54,7 +51,7 @@ type NavGroupDef = { id: string; label: string; icon: string; children: ChildDef
 const NAV_GROUPS: NavGroupDef[] = [
   {
     id: "operations",
-    label: "ĐIỀU HÀNH CHẤT LƯỢNG",
+    label: "Điều hành chất lượng",
     icon: "layout-dashboard",
     children: [
       { label: "Tổng quan QLCL", href: "/dashboard", icon: "layout-dashboard", permission: "dashboard.view" },
@@ -63,7 +60,7 @@ const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     id: "quality-management",
-    label: "QUẢN LÝ CHẤT LƯỢNG",
+    label: "Quản lý chất lượng",
     icon: "shield-check",
     children: [
       { label: "Đo lường & Giám sát", icon: "gauge", workspaceRoot: "/indicators" },
@@ -78,7 +75,7 @@ const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     id: "digital-systems",
-    label: "BỆNH ÁN ĐIỆN TỬ",
+    label: "Bệnh án điện tử",
     icon: "network",
     // Explicit request: show all 11 EMR destinations as individual sidebar
     // rows instead of EMR's own horizontal EmrWorkspaceNav strip (removed).
@@ -93,15 +90,15 @@ const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     id: "hsba-audit",
-    label: "QUẢN LÝ HSBA",
+    label: "Quản lý HSBA",
     icon: "list-checks",
     children: [
-      { label: "QUẢN LÝ HSBA", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" },
+      { label: "Quản lý HSBA", href: "/hsba-audit", icon: "list-checks", permission: "hsba_audit.view" },
     ],
   },
   {
     id: "physician-license",
-    label: "QUẢN LÝ HÀNH NGHỀ",
+    label: "Quản lý hành nghề",
     icon: "badge-check",
     children: [
       { label: "Theo dõi hạn đăng ký hành nghề", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" },
@@ -110,15 +107,15 @@ const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     id: "incoming-documents",
-    label: "QUẢN LÝ CÔNG VĂN",
+    label: "Quản lý công văn",
     icon: "file-input",
     children: [
-      { label: "QUẢN LÝ CÔNG VĂN", href: "/incoming-documents", icon: "file-input", permission: "incoming_documents.view" },
+      { label: "Quản lý công văn", href: "/incoming-documents", icon: "file-input", permission: "incoming_documents.view" },
     ],
   },
   {
     id: "document-publications",
-    label: "QUẢN LÝ VĂN BẢN",
+    label: "Quản lý văn bản",
     icon: "file-text",
     children: [
       { label: "Kiểm soát tài liệu", href: "/document-publications", icon: "file-text", permission: "document_publication.view" },
@@ -135,49 +132,39 @@ const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     id: "procurement",
-    label: "MUA SẮM & SỬA CHỮA",
+    label: "Mua sắm & sửa chữa",
     icon: "archive",
     children: [
-      { label: "MUA SẮM & SỬA CHỮA", href: "/procurement", icon: "archive", permission: "procurement.view" },
+      { label: "Mua sắm & sửa chữa", href: "/procurement", icon: "archive", permission: "procurement.view" },
     ],
   },
   {
     id: "medical-equipment",
-    label: "QUẢN LÝ TTBYT",
+    label: "Quản lý TTBYT",
     icon: "cog",
     children: [
-      { label: "QUẢN LÝ TTBYT", href: "/medical-equipment", icon: "cog", permission: "medical_equipment.view" },
+      { label: "Quản lý TTBYT", href: "/medical-equipment", icon: "cog", permission: "medical_equipment.view" },
     ],
   },
   {
     id: "infection-control",
-    label: "KIỂM SOÁT NHIỄM KHUẨN",
+    label: "Kiểm soát nhiễm khuẩn",
     icon: "shield-alert",
     children: [
       { label: "Giám sát nhiễm khuẩn bệnh viện", href: "/infection-control", icon: "shield-alert", permission: "infection_control.view" },
       { label: "Giám sát vệ sinh tay", href: "/infection-control/hand-hygiene", icon: "droplets", permission: "infection_control.view" },
     ],
   },
-  // Yêu cầu tường minh: áp dụng 5W1H/SMART/Eisenhower/RACI vào QARICA, "xây
-  // thành tính năng". Công cụ phối hợp nhóm nhẹ (ad-hoc, không qua phê
-  // duyệt) — KHÁC với "Kế hoạch & Điều hành" (workspaceRoot /plans, Plan
-  // Composer QLCL chính thức có automation/materialization) nên đặt tên rõ
-  // ràng, nhóm riêng, tránh gây nhầm lẫn 2 khái niệm "kế hoạch" khác nhau.
-  {
-    id: "work-plans",
-    label: "KẾ HOẠCH CÔNG VIỆC",
-    icon: "target",
-    children: [
-      { label: "Kế hoạch công việc", href: "/work-plans", icon: "target", permission: "work_plans.view" },
-    ],
-  },
+  // Yêu cầu tường minh: xoá menu "Kế hoạch công việc" khỏi sidebar
+  // (2026-11-12) — các trang/API/bảng dữ liệu RACI/5W1H/SMART/Eisenhower vẫn
+  // giữ nguyên, chỉ không còn điểm vào từ menu chính nữa.
   {
     id: "system-config",
-    label: "CẤU HÌNH HỆ THỐNG",
+    label: "Cấu hình hệ thống",
     icon: "settings",
     footer: true,
     children: [
-      { label: "CẤU HÌNH HỆ THỐNG", icon: "settings", workspaceRoot: "/admin" },
+      { label: "Cấu hình hệ thống", icon: "settings", workspaceRoot: "/admin" },
     ],
   },
 ];
