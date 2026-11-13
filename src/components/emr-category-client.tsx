@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useEmrCreateSignal } from "@/components/emr-create-context";
 import { Icon } from "@/components/icon";
+import { KpiCard, type KpiTone } from "@/components/kpi-card";
 import { categoriesReferencing, EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, formatBooleanValue, formatSequenceStep, formatSequenceValue, parseSequenceStep, sequenceSteps, SEQUENCE_SEPARATOR, SEQUENCE_STEP_METHOD_SEPARATOR, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
 
 type Item = { id: string; category: string; title: string; description: string | null; status: string; department_ids:string[]; owner_department_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; publish_status: string; published_at: string | null; published_by: string | null; created_at: string; updated_at: string };
@@ -17,7 +18,7 @@ function sanitizeCustomRole(value: string): string {
   return value.split(SEQUENCE_STEP_METHOD_SEPARATOR).join(" ").split(SEQUENCE_SEPARATOR).join(" ").replace(/\s+/g, " ").trim();
 }
 
-const KPI_TONE: Record<EmrKpiBucket, string> = { TOTAL: "blue", DONE: "green", IN_PROGRESS: "amber", TODO: "slate", BLOCKED: "red", OVERDUE: "red", CERT_VALID: "green", CERT_EXPIRING: "amber", CERT_EXPIRED: "red" };
+const KPI_TONE: Record<EmrKpiBucket, KpiTone> = { TOTAL: "blue", DONE: "green", IN_PROGRESS: "amber", TODO: "purple", BLOCKED: "red", OVERDUE: "red", CERT_VALID: "green", CERT_EXPIRING: "amber", CERT_EXPIRED: "red" };
 const KPI_ICON: Record<EmrKpiBucket, string> = { TOTAL: "list-checks", DONE: "badge-check", IN_PROGRESS: "refresh-cw", TODO: "calendar-days", BLOCKED: "circle-alert", OVERDUE: "triangle-alert", CERT_VALID: "shield-check", CERT_EXPIRING: "triangle-alert", CERT_EXPIRED: "circle-alert" };
 
 function todayHcm() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()); }
@@ -466,13 +467,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
 
   return (
     <div className="page-stack">
-      {kpis.length ? <section className="kpis" style={{ display: "grid", gridTemplateColumns: `repeat(${kpis.length},minmax(0,1fr))`, gap: 12 }}>
-        {kpis.map((k) => <article className="kpi-card" key={k.bucket} style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <span className={`emr-cat-kpi-icon ${KPI_TONE[k.bucket]}`}><Icon name={KPI_ICON[k.bucket]} size={19} /></span>
-          <div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{bucketCount(k.bucket, kpiItems, hasBlockedBucket, categoryCode)}</div>
-          <div style={{ fontSize:13, color: "#475569", fontWeight: 600, marginTop: 2 }}>{k.label}</div></div>
-        </article>)}
-        <style>{`.emr-cat-kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}.emr-cat-kpi-icon.blue{background:#dbeafe;color:#2563eb}.emr-cat-kpi-icon.green{background:#dcfce7;color:#16a34a}.emr-cat-kpi-icon.amber{background:#fef3c7;color:#b45309}.emr-cat-kpi-icon.red{background:#fee2e2;color:#dc2626}.emr-cat-kpi-icon.slate{background:#e2e8f0;color:#475569}`}</style>
+      {kpis.length ? <section className="kpi-grid" style={{ gridTemplateColumns: `repeat(${kpis.length},minmax(0,1fr))` }}>
+        {kpis.map((k) => <KpiCard key={k.bucket} icon={KPI_ICON[k.bucket]} tone={KPI_TONE[k.bucket]} label={k.label} value={bucketCount(k.bucket, kpiItems, hasBlockedBucket, categoryCode)} />)}
       </section> : null}
       <div className="toolbar" style={{ padding: "0 0 4px" }}>
         <div className="toolbar-left"><div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Tìm trong ${categoryLabel.toLowerCase()}...`} /></div>

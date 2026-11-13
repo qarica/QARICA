@@ -1,6 +1,7 @@
 import { normalizeInternalAuditType } from "@/lib/internal-audit-types";
 import { requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { KpiCard } from "@/components/kpi-card";
 import { TQM_CHART_CSS, TqmHorizontalBars } from "@/components/tqm-charts";
 
 function currentPeriod() {
@@ -67,28 +68,13 @@ export default async function HsbaReportPage({ searchParams }: { searchParams: P
       </form>
 
       <section className="kpi-grid" style={{ marginBottom: 16 }}>
-        <article className="kpi-card">
-          <span>Lượt kiểm tra</span>
-          <strong>{audits.length}</strong>
-        </article>
-        <article className="kpi-card success">
-          <span>Đạt</span>
-          <strong>{passCount}</strong>
-        </article>
+        <KpiCard icon="search-check" tone="blue" label="Lượt kiểm tra" value={audits.length} />
+        <KpiCard icon="badge-check" tone="green" label="Đạt" value={passCount} />
         {auditType !== "HSBA" ? (
-          <article className="kpi-card warning">
-            <span>Đạt 1 phần</span>
-            <strong>{partialCount}</strong>
-          </article>
+          <KpiCard icon="triangle-alert" tone="amber" label="Đạt 1 phần" value={partialCount} />
         ) : null}
-        <article className="kpi-card danger">
-          <span>Chưa đạt</span>
-          <strong>{failCount}</strong>
-        </article>
-        <article className="kpi-card danger">
-          <span>Tổng lỗi</span>
-          <strong>{findings.length}</strong>
-        </article>
+        <KpiCard icon="circle-alert" tone="red" label="Chưa đạt" value={failCount} />
+        <KpiCard icon="shield-alert" tone="red" label="Tổng lỗi" value={findings.length} />
       </section>
 
       <section className="panel">

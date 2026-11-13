@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
+import { KpiCard } from "@/components/kpi-card";
 import { StatusBadge } from "@/components/status-badge";
 import { TaskWorkflowClient } from "@/components/task-workflow-client";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
@@ -142,10 +143,10 @@ export default async function TaskDetailPage({ params, searchParams }: { params:
     </div>
 
     <section className="kpi-grid">
-      <article className="kpi-card"><span>Trạng thái</span><div style={{ marginTop: 13 }}><StatusBadge status={status} /></div><small>Workflow của Action</small></article>
-      <article className="kpi-card"><span>Ưu tiên</span><strong style={{ fontSize: 22 }}>{PRIORITY_LABELS[action.priority] || action.priority}</strong><small>Mức độ ưu tiên xử lý</small></article>
-      <article className={isOverdue ? "kpi-card danger" : "kpi-card"}><span>Hạn hoàn thành</span><strong style={{ fontSize: 22 }}>{formatDate(action.due_date)}</strong><small>{isOverdue ? "Đã quá hạn" : "Theo kế hoạch"}</small></article>
-      <article className="kpi-card"><span>Minh chứng</span><strong>{evidenceItems.length}</strong><small>Đã liên kết với công việc</small></article>
+      <KpiCard icon="workflow" tone="blue" label="Trạng thái" value={<StatusBadge status={status} />} caption="Workflow của Action" />
+      <KpiCard icon="target" tone="purple" label="Ưu tiên" value={PRIORITY_LABELS[action.priority] || action.priority} caption="Mức độ ưu tiên xử lý" />
+      <KpiCard icon="calendar-days" tone={isOverdue ? "red" : "blue"} urgent={isOverdue} label="Hạn hoàn thành" value={formatDate(action.due_date)} caption={isOverdue ? "Đã quá hạn" : "Theo kế hoạch"} />
+      <KpiCard icon="paperclip" tone="green" label="Minh chứng" value={evidenceItems.length} caption="Đã liên kết với công việc" />
     </section>
 
     <section className="chart-grid">

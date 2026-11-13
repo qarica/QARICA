@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
+import { KpiCard } from "@/components/kpi-card";
 import { hasAnyPermission, hasPermission, requireUserContext } from "@/lib/auth";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
 import { createClient } from "@/lib/supabase/server";
@@ -493,8 +493,6 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
   return <div className="page-stack quality-calendar-page">
     <style>{`
       .quality-calendar-page{width:100%;max-width:1500px;margin:0 auto;gap:14px!important}
-      .quality-calendar-page .kpi-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;margin-bottom:11px}
-      .quality-calendar-page .kpi-icon.amber{background:#f59e0b}.quality-calendar-page .kpi-icon.red{background:#ef4444}.quality-calendar-page .kpi-icon.blue{background:#3b82f6}.quality-calendar-page .kpi-icon.green{background:#22c55e}
       .calendar-kind-filters{display:flex;gap:6px;flex-wrap:wrap;padding:0 15px 13px}.calendar-kind-filter{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:5px 9px;border:1px solid #d7e1e5;border-radius:999px;background:#fff;color:#52656d;text-decoration:none;font-size:10px;font-weight:800}.calendar-kind-filter:hover{border-color:#94a3b8;background:#f8fafc}.calendar-kind-filter.active{border-color:#1D4ED8;background:#EEF2FF;color:#172554}
       .calendar-kind-toggle.off{opacity:.5}.calendar-kind-switch{display:inline-block;width:22px;height:13px;border-radius:999px;background:#cbd5e1;position:relative;margin-left:2px;transition:background .15s ease}.calendar-kind-switch::after{content:"";position:absolute;top:1.5px;left:1.5px;width:10px;height:10px;border-radius:50%;background:#fff;transition:left .15s ease}.calendar-kind-toggle.on .calendar-kind-switch{background:#22c55e}.calendar-kind-toggle.on .calendar-kind-switch::after{left:10.5px}.calendar-source-note{display:flex;align-items:flex-start;gap:9px;padding:11px 13px;border:1px solid #dbe5ec;border-left:4px solid #1D4ED8;border-radius:12px;background:#f8fbff;color:#475569;font-size:11px;line-height:1.45}
       .calendar-source-note strong{color:#1e3a5f}
@@ -542,10 +540,10 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
     {firstError ? <div className="alert error">Một phần dữ liệu lịch chưa tải được: {firstError.message}</div> : null}
 
     <section className="kpi-grid">
-      <article className="kpi-card warning"><span className="kpi-icon amber"><Icon name="calendar-days" size={17}/></span><span>Cần xử lý hôm nay</span><strong>{todayCount}</strong><small>Từ dữ liệu vận hành</small></article>
-      <article className="kpi-card danger"><span className="kpi-icon red"><Icon name="triangle-alert" size={17}/></span><span>Đang quá hạn</span><strong>{overdueOpen}</strong><small>Action/hồ sơ vận hành</small></article>
-      <article className="kpi-card info"><span className="kpi-icon blue"><Icon name="list-checks" size={17}/></span><span>Mốc {periodLabel}</span><strong>{periodEvents.length}</strong><small>Từ dữ liệu hệ thống</small></article>
-      <article className="kpi-card success"><span className="kpi-icon green"><Icon name="refresh-cw" size={17}/></span><span>Giám sát/định kỳ</span><strong>{recurringMonthCount}</strong><small>Đợt đã lập hoặc run định kỳ</small></article>
+      <KpiCard icon="calendar-days" tone="amber" label="Cần xử lý hôm nay" value={todayCount} caption="Từ dữ liệu vận hành" />
+      <KpiCard icon="triangle-alert" tone="red" label="Đang quá hạn" value={overdueOpen} caption="Action/hồ sơ vận hành" />
+      <KpiCard icon="list-checks" tone="blue" label={`Mốc ${periodLabel}`} value={periodEvents.length} caption="Từ dữ liệu hệ thống" />
+      <KpiCard icon="refresh-cw" tone="green" label="Giám sát/định kỳ" value={recurringMonthCount} caption="Đợt đã lập hoặc run định kỳ" />
     </section>
 
     <section className="panel">

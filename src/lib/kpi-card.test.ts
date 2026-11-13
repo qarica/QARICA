@@ -56,10 +56,17 @@ describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng 
     expect(source).toContain("href\n    ? <Link href={href} className={`${className} kpi-tile-link`}>{body}</Link>\n    : <article className={className}>{body}</article>;");
   });
 
-  it("globals.css định nghĩa .kpi-tile/.kpi-tile-top/.kpi-tile-value/.kpi-tile-visual/.kpi-tile-label/.kpi-tile-caption/.kpi-tile.urgent 1 lần duy nhất", () => {
+  it("globals.css định nghĩa .kpi-tile-top/.kpi-tile-value/.kpi-tile-visual/.kpi-tile-label/.kpi-tile-caption/.kpi-tile.urgent 1 lần duy nhất", () => {
     const css = read("src/app/globals.css");
-    for (const cls of [".kpi-tile{", ".kpi-tile-top{", ".kpi-tile-value{", ".kpi-tile-visual{", ".kpi-tile-label{", ".kpi-tile-caption{", ".kpi-tile.urgent{", ".kpi-tile-foot{"]) {
+    for (const cls of [".kpi-tile-top{", ".kpi-tile-value{", ".kpi-tile-visual{", ".kpi-tile-label{", ".kpi-tile-caption{", ".kpi-tile.urgent{", ".kpi-tile-foot{"]) {
       expect(css.split(cls).length - 1, `${cls} should appear exactly once`).toBe(1);
     }
+  });
+
+  it(".kpi-tile{ xuất hiện đúng 2 lần: định nghĩa gốc + 1 lần thu gọn trong @media(max-width:620px) (giống quy ước .kpi-grid đã có sẵn trong file này) — không phải định nghĩa trùng lặp kiểu token-war", () => {
+    const css = read("src/app/globals.css");
+    expect(css.split(".kpi-tile{").length - 1).toBe(2);
+    expect(css).toContain("@media(max-width:620px)");
+    expect(css).toContain(".kpi-tile{min-height:104px;padding:14px}");
   });
 });

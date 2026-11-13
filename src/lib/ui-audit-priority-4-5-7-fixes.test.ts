@@ -52,18 +52,22 @@ describe("Ưu tiên #5: TqmHorizontalBars có empty-state; /hsba-audit/report c�
   });
 });
 
-// Ưu tiên #7 (lặt vặt): .kpi-tile riêng → .kpi-card chung (mất tông màu
-// danger/warning/success theo ngữ nghĩa); status text không bọc
-// status-badge; .status-badge.muted tương phản thấp (~4.19:1, dưới 4.5:1
-// AA cho chữ 10px không phải "large text" dù đậm); KPI tô đỏ khi chưa có
-// dữ liệu đo (rate mặc định 0 khi chưa có opportunities_observed nào).
-describe("Ưu tiên #7 (lặt vặt): kpi-card chung, status-badge nhất quán, tương phản đủ chuẩn, không báo động giả khi chưa có dữ liệu", () => {
-  it("hsba-audit/report/page.tsx dùng .kpi-grid/.kpi-card chung (success/warning/danger) thay vì .kpi-tile riêng", () => {
+// Ưu tiên #7 (lặt vặt): trước đây trang này có một .kpi-tile RIÊNG của
+// chính nó (page-local) làm mất tông màu danger/warning/success theo ngữ
+// nghĩa — fix lúc đó là quay về .kpi-card chung của app (còn giữ tông màu).
+// 2026-11-13: app giờ có component KpiCard dùng chung thật sự
+// (src/components/kpi-card.tsx, class .kpi-tile — trùng tên với
+// page-local cũ đã bị xoá, không phải cùng CSS) cho MỌI trang, bản thân nó
+// giữ đúng tông màu qua prop `tone` — nên ý định gốc của test này (không
+// được mất tông màu ngữ nghĩa) vẫn đúng, chỉ đổi cách diễn đạt.
+describe("Ưu tiên #7 (lặt vặt): KpiCard dùng chung giữ đúng tông màu ngữ nghĩa, status-badge nhất quán, tương phản đủ chuẩn, không báo động giả khi chưa có dữ liệu", () => {
+  it("hsba-audit/report/page.tsx dùng KpiCard dùng chung (tone=\"green\"/\"red\") thay vì .kpi-card cục bộ cũ", () => {
     const src = read("src/app/(app)/hsba-audit/report/page.tsx");
+    expect(src).toContain('import { KpiCard } from "@/components/kpi-card";');
     expect(src).toContain('<section className="kpi-grid"');
-    expect(src).toContain('<article className="kpi-card success">');
-    expect(src).toContain('<article className="kpi-card danger">');
-    expect(src).not.toContain("kpi-tile");
+    expect(src).toContain('<KpiCard icon="badge-check" tone="green" label="Đạt" value={passCount} />');
+    expect(src).toContain('<KpiCard icon="circle-alert" tone="red" label="Chưa đạt" value={failCount} />');
+    expect(src).not.toContain('className="kpi-card');
   });
 
   it("admin/permissions/page.tsx: cột Trạng thái của bảng 'Vai trò và số quyền mặc định' bọc trong status-badge, nhất quán với các bảng trạng thái khác cùng trang", () => {

@@ -9,6 +9,7 @@ import { MonitoringPrintClient } from "@/components/monitoring-print-client";
 import { MonitoringRecheckClient } from "@/components/monitoring-recheck-client";
 import { MonitoringStartClient } from "@/components/monitoring-start-client";
 import { PageHeader } from "@/components/page-header";
+import { KpiCard } from "@/components/kpi-card";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -119,7 +120,7 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
         .monitoring-sticky-actions{top:72px;padding:7px 0 9px}.monitoring-sticky-actions .button{min-height:40px}
         .monitoring-round-page{gap:10px!important}.monitoring-round-page .page-header h1{font-size:23px!important;line-height:1.25!important}
         .monitoring-round-page .kpi-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
-        .monitoring-round-page .kpi-card{min-height:90px!important;padding:11px!important}
+        .monitoring-round-page .kpi-tile{min-height:90px!important;padding:11px!important}
         .monitoring-result-desktop{display:none!important}.monitoring-result-mobile{display:grid;gap:10px;padding:0 12px 12px}
         .monitoring-result-card{border:1px solid #dce6e7;border-radius:14px;padding:13px;background:#fff;display:grid;gap:9px}
         .monitoring-result-card.fail{border-color:#f0c4c4;background:#fffafa}
@@ -134,7 +135,7 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
         .sidebar,.topbar,.no-print{display:none!important}.main-shell{margin-left:0!important}.content{padding:0!important;max-width:none!important}.page-stack{gap:5px!important}
         .monitoring-round-page{font-size:9px!important}.monitoring-round-page .page-header{margin:0 0 4px!important}.monitoring-round-page .page-header h1{font-size:16px!important;line-height:1.15!important;margin:2px 0!important}.monitoring-round-page .page-header p{font-size:9px!important;margin:1px 0!important}
         .monitoring-status-panel,.monitoring-info-panel{padding:7px 9px!important;border-radius:8px!important}.monitoring-status-panel strong{font-size:13px!important}.monitoring-status-panel .subline{font-size:8.5px!important}
-        .monitoring-round-page .kpi-grid.print-kpis{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important}.monitoring-round-page .kpi-card{min-height:0!important;padding:6px 8px!important;border-radius:7px!important;box-shadow:none!important}.monitoring-round-page .kpi-card span{font-size:8px!important}.monitoring-round-page .kpi-card strong{font-size:16px!important;margin:2px 0!important}.monitoring-round-page .kpi-card small{font-size:7.5px!important;line-height:1.15!important}
+        .monitoring-round-page .kpi-grid.print-kpis{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important}.monitoring-round-page .kpi-tile{min-height:0!important;padding:6px 8px!important;border-radius:7px!important;box-shadow:none!important;gap:0!important}.monitoring-round-page .kpi-tile .kpi-icon{display:none!important}.monitoring-round-page .kpi-tile-label{font-size:8px!important}.monitoring-round-page .kpi-tile-main{margin-top:2px!important}.monitoring-round-page .kpi-tile-value{font-size:16px!important}.monitoring-round-page .kpi-tile-caption{font-size:7.5px!important;line-height:1.15!important}
         .monitoring-info-panel .form-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}.monitoring-info-panel .eyebrow{font-size:9px!important}.monitoring-info-panel strong{font-size:9px!important}.monitoring-info-panel .scope-note{padding:4px 6px!important;margin-top:5px!important;font-size:10px!important}
         .panel{box-shadow:none!important}.print-results-panel{break-inside:auto!important}.print-results-panel .panel-title{padding:7px 9px!important}.print-results-panel .panel-title h2{font-size:12px!important}.print-results-panel .panel-title p{font-size:8px!important;margin-top:1px!important}.print-results-panel .table-wrap{overflow:visible!important}.print-results-panel table{font-size:8px!important;table-layout:fixed;width:100%}.print-results-panel th,.print-results-panel td{padding:3px 4px!important;vertical-align:top!important;line-height:1.22!important}.print-results-panel th:nth-child(1){width:4%}.print-results-panel th:nth-child(2){width:12%}.print-results-panel th:nth-child(3){width:30%}.print-results-panel th:nth-child(4){width:10%}.print-results-panel th:nth-child(5){width:44%}.print-results-panel tr{break-inside:avoid!important}.print-results-panel .status-badge{font-size:7px!important;padding:2px 4px!important}.print-results-panel .subline{font-size:7.5px!important;line-height:1.2!important}
         .monitoring-result-mobile{display:none!important}.monitoring-result-desktop{display:block!important}.monitoring-photo-group{margin-top:4px!important}.monitoring-photo-title{margin-bottom:3px!important;font-size:8px!important}.monitoring-photo-list{gap:5px!important}.monitoring-photo-item{width:118px!important}.monitoring-photo-item img{width:118px!important;height:86px!important;border-radius:3px!important}.monitoring-photo-item small{font-size:7.5px!important;line-height:1.08!important;margin-top:2px!important}
@@ -156,10 +157,10 @@ export default async function MonitoringRoundPage({ params }: { params: Promise<
 
     {hasResponses ? <>
       <section className="kpi-grid print-kpis">
-        <article className="kpi-card"><span>Ngày giám sát</span><strong style={{ fontSize: 20 }}>{formatDate(round.scheduled_date)}</strong><small>{context.staff_name ? `Nhân viên thực hiện: ${context.staff_name}` : "—"}</small></article>
-        <article className="kpi-card success"><span>Đạt</span><strong>{passCount}</strong><small>{rows.length} nội dung</small></article>
-        <article className="kpi-card warning"><span>Không đạt</span><strong>{failCount}</strong><small>{partialCount} đạt 1 phần · {naCount} nội dung “/”</small></article>
-        <article className="kpi-card"><span>Tỷ lệ đạt</span><strong>{compliance}%</strong><small>Đạt / (Đạt + Không đạt)</small></article>
+        <KpiCard icon="calendar-days" tone="blue" label="Ngày giám sát" value={formatDate(round.scheduled_date)} caption={context.staff_name ? `Nhân viên thực hiện: ${context.staff_name}` : "—"} />
+        <KpiCard icon="badge-check" tone="green" label="Đạt" value={passCount} caption={`${rows.length} nội dung`} />
+        <KpiCard icon="triangle-alert" tone="amber" label="Không đạt" value={failCount} caption={`${partialCount} đạt 1 phần · ${naCount} nội dung "/"`} />
+        <KpiCard icon="chart-no-axes-column-increasing" tone="blue" label="Tỷ lệ đạt" value={`${compliance}%`} caption="Đạt / (Đạt + Không đạt)" />
       </section>
 
       <section className="panel monitoring-info-panel" style={{ padding: 18 }}><div className="form-grid two"><div><div className="eyebrow">KHU VỰC ĐÁNH GIÁ</div><strong>{round.target_area || "—"}</strong></div><div><div className="eyebrow">NGƯỜI GIÁM SÁT</div><strong>{assessorName || "—"}</strong></div></div>{confirmation ? <div className="scope-note" style={{ marginTop: 14 }}><strong>Phòng QLCL đã xác nhận:</strong> {confirmation.full_name || "Tài khoản QLCL"} · {formatHcmDateTime(confirmation.confirmed_at)}</div> : isConfirmed ? <div className="scope-note" style={{ marginTop: 14 }}><strong>Phòng QLCL đã xác nhận trên hệ thống.</strong></div> : null}</section>

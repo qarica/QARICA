@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
+import { KpiCard } from "@/components/kpi-card";
 import { AdminRolePermissionsClient } from "@/components/admin-role-permissions-client";
 import { requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -29,7 +30,12 @@ export default async function PermissionsPage() {
 
   return <div className="page-stack" style={{ maxWidth: 1440, margin: "0 auto" }}>
     <PageHeader eyebrow="QUẢN TRỊ" title="Phân quyền" description="Tổng quan Role → Permission và các override theo người dùng. Chỉnh quyền chi tiết người dùng tiếp tục thực hiện trong màn hình Người dùng." actions={<Link className="button primary" href="/admin/users">Mở quản lý người dùng</Link>} icon="key-round" />
-    <section className="kpi-grid"><article className="kpi-card"><span>Vai trò</span><strong>{roles.filter((r:any)=>r.is_active).length}</strong><small>Role đang hoạt động</small></article><article className="kpi-card"><span>Quyền chức năng</span><strong>{permissions.length}</strong><small>Permission đang cấu hình</small></article><article className="kpi-card"><span>Gán quyền theo Role</span><strong>{rolePermissions.length}</strong><small>Role permissions</small></article><article className="kpi-card warning"><span>Override theo user</span><strong>{userPermissions.length}</strong><small>Cho phép / từ chối riêng</small></article></section>
+    <section className="kpi-grid">
+      <KpiCard icon="users" tone="blue" label="Vai trò" value={roles.filter((r:any)=>r.is_active).length} caption="Role đang hoạt động" />
+      <KpiCard icon="key-round" tone="blue" label="Quyền chức năng" value={permissions.length} caption="Permission đang cấu hình" />
+      <KpiCard icon="shield-check" tone="green" label="Gán quyền theo Role" value={rolePermissions.length} caption="Role permissions" />
+      <KpiCard icon="shield-alert" tone="amber" label="Override theo user" value={userPermissions.length} caption="Cho phép / từ chối riêng" />
+    </section>
     {firstError ? <div className="alert error">Không tải được đầy đủ dữ liệu phân quyền: {firstError.message}</div> : null}
     <section className="panel"><div className="panel-title"><div><h2>Vai trò và số quyền mặc định</h2><p>{roles.filter((r:any)=>!r.is_active).length} vai trò đã ngưng hoạt động đang được ẩn khỏi danh sách này.</p></div></div><div className="table-wrap"><table><thead><tr><th>Mã vai trò</th><th>Tên vai trò</th><th>Số quyền</th><th>Trạng thái</th></tr></thead><tbody>{(roles as any[]).filter((role)=>role.is_active).map((role)=><tr key={role.id}><td><strong>{role.code}</strong></td><td>{role.name}<span className="subline">{role.description || ""}</span></td><td>{rolePermissions.filter((row:any)=>row.role_id===role.id && permissionMap.has(row.permission_id)).length}</td><td><span className={`status-badge ${role.is_active ? "success" : "muted"}`}>{role.is_active ? "Đang hoạt động" : "Ngưng"}</span></td></tr>)}</tbody></table></div></section>
     <AdminRolePermissionsClient

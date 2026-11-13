@@ -48,7 +48,7 @@ describe("Chuẩn hoá font-size lẻ về thang cố định (ngoài vùng in �
   it("monitoring/[id]/page.tsx: các giá trị lẻ (7px/7.5px/8px/8.5px) bên trong @media print vẫn giữ nguyên — vùng in ấn ngoài phạm vi", () => {
     const source = read("src/app/(app)/monitoring/[id]/page.tsx");
     expect(source).toContain(".monitoring-status-panel .subline{font-size:8.5px!important}");
-    expect(source).toContain(".monitoring-round-page .kpi-card small{font-size:7.5px!important;line-height:1.15!important}");
+    expect(source).toContain(".monitoring-round-page .kpi-tile-caption{font-size:7.5px!important;line-height:1.15!important}");
   });
 
   it("monitoring-print-compact.css: toàn bộ file nằm trong @media print nên các giá trị lẻ (6.5px/7px/7.5px) giữ nguyên", () => {

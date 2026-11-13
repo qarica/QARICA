@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { KpiCard } from "@/components/kpi-card";
 import { prepareChecklistPhoto, type PreparedPhoto } from "@/lib/checklist-photo";
 import { clearDraftPhotos, loadDraftPhotos, saveDraftPhotos } from "@/lib/monitoring-draft";
 import { countPendingSubmissions, enqueueSubmission, initOfflineQueueAutoFlush, isNetworkError, requestBackgroundSync } from "@/lib/offline-submission-queue";
@@ -402,7 +403,12 @@ export function FiveSChecklistRunClient({ templateId, versionId, templateCode, s
       </div>
 
       <div className="five-s-desktop-summary" style={{ padding: 18, display: "grid", gap: 18 }}>
-        <section className="kpi-grid"><article className="kpi-card"><span>Đã đánh giá</span><strong>{assessed.length}/{items.length}</strong><small>Tiến độ {progress}%</small></article><article className="kpi-card success"><span>Đạt</span><strong>{passCount}</strong><small>Tính vào tỷ lệ</small></article><article className="kpi-card warning"><span>Không đạt</span><strong>{failCount}</strong><small>Sẽ mở 01 lần kiểm tra lại chung</small></article><article className="kpi-card"><span>Tỷ lệ đạt</span><strong>{compliance}%</strong><small>Loại trừ “/” ({naCount})</small></article></section>
+        <section className="kpi-grid">
+          <KpiCard icon="clipboard-check" tone="blue" label="Đã đánh giá" value={`${assessed.length}/${items.length}`} caption={`Tiến độ ${progress}%`} />
+          <KpiCard icon="badge-check" tone="green" label="Đạt" value={passCount} caption="Tính vào tỷ lệ" />
+          <KpiCard icon="triangle-alert" tone="amber" label="Không đạt" value={failCount} caption="Sẽ mở 01 lần kiểm tra lại chung" />
+          <KpiCard icon="chart-no-axes-column-increasing" tone="blue" label="Tỷ lệ đạt" value={`${compliance}%`} caption={`Loại trừ "/" (${naCount})`} />
+        </section>
         <div className="scope-note"><strong>Quy trình:</strong> Chấm đủ {items.length}/{items.length} → Lưu kết quả ban đầu (khóa kết quả gốc) → nếu có Không đạt, kiểm tra lại 01 lần chung chỉ với các tiêu chí Không đạt → gửi Phòng QLCL xác nhận.</div>
         <div style={{ display: "flex", justifyContent: "flex-end" }}><button className="button primary" disabled={busy || !!photoBusy} onClick={saveChecklist}><Icon name="save" size={17} /> {busy ? "Đang lưu..." : "Lưu kết quả ban đầu"}</button></div>
       </div>

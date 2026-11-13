@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Icon } from "@/components/icon";
+import { KpiCard } from "@/components/kpi-card";
 import {
   AssignmentTargetSelect,
   assignmentTargetToken,
@@ -496,12 +496,11 @@ export function RecurringWorkClient({
 
     {message ? <div className={`alert ${message.tone === "error" ? "error" : message.tone === "success" ? "success" : "info"}`} style={{ margin: "0 0 10px" }}>{message.text}</div> : null}
 
-    <section className="kpis" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 14 }}>
-      <article className="kpi-card" style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}><span className="recurring-kpi-icon blue"><Icon name="calendar-days" size={19} /></span><div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{kpi.total}</div><div style={{ fontSize:13, color: "#475569", fontWeight: 600, marginTop: 2 }}>Tổng số công việc</div></div></article>
-      <article className="kpi-card" style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}><span className="recurring-kpi-icon green"><Icon name="refresh-cw" size={19} /></span><div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{kpi.active}</div><div style={{ fontSize:13, color: "#475569", fontWeight: 600, marginTop: 2 }}>Đang kích hoạt</div></div></article>
-      <article className="kpi-card" style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}><span className="recurring-kpi-icon amber"><Icon name="circle-alert" size={19} /></span><div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{kpi.paused}</div><div style={{ fontSize:13, color: "#475569", fontWeight: 600, marginTop: 2 }}>Tạm dừng</div></div></article>
-      <article className="kpi-card" style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}><span className="recurring-kpi-icon red"><Icon name="triangle-alert" size={19} /></span><div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{kpi.expired}</div><div style={{ fontSize:13, color: "#475569", fontWeight: 600, marginTop: 2 }}>Hết hiệu lực</div></div></article>
-      <style>{`.recurring-kpi-icon{width:40px;height:40px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.recurring-kpi-icon.blue{background:#dbeafe;color:#1d4ed8}.recurring-kpi-icon.green{background:#dcfce7;color:#16a34a}.recurring-kpi-icon.amber{background:#fef3c7;color:#b45309}.recurring-kpi-icon.red{background:#fee2e2;color:#dc2626}@media(max-width:900px){.recurring-work-client .kpis{grid-template-columns:repeat(2,1fr)!important}}`}</style>
+    <section className="kpi-grid" style={{ marginBottom: 14 }}>
+      <KpiCard icon="calendar-days" tone="blue" label="Tổng số công việc" value={kpi.total} />
+      <KpiCard icon="refresh-cw" tone="green" label="Đang kích hoạt" value={kpi.active} />
+      <KpiCard icon="circle-alert" tone="amber" label="Tạm dừng" value={kpi.paused} />
+      <KpiCard icon="triangle-alert" tone="red" label="Hết hiệu lực" value={kpi.expired} />
     </section>
 
     <section className="panel blueprint-panel">
