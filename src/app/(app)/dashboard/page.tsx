@@ -17,6 +17,18 @@ import { incidentHarmClassification, incidentDomainDistribution } from "@/lib/in
 const CLOSED = new Set(["CANCELLED", "ARCHIVED", "INACTIVE", "RETIRED"]);
 
 function todayHcm() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()); }
+// Lời chào cá nhân hoá đầu Dashboard, đúng tinh thần "Chào buổi sáng, Emily"
+// trong ảnh tham khảo Oryvia — đặt là dòng nhỏ phía trên tiêu đề module
+// (không thay h1 "Trung tâm Điều hành Chất lượng" sẵn có, tránh 2 h1 trên
+// cùng 1 trang).
+function greetingLine(fullName?: string | null) {
+  const now = new Date();
+  const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Ho_Chi_Minh", hour: "numeric", hour12: false }).format(now));
+  const greeting = hour < 11 ? "Chào buổi sáng" : hour < 14 ? "Chào buổi trưa" : hour < 18 ? "Chào buổi chiều" : "Chào buổi tối";
+  const dateLabel = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", weekday: "long", day: "numeric", month: "long" }).format(now);
+  const givenName = (fullName || "").trim().split(/\s+/).filter(Boolean).pop();
+  return `${greeting}${givenName ? `, ${givenName}` : ""} · ${dateLabel}`;
+}
 function monthKey(value: string | null | undefined) { if (!value) return null; return String(value).slice(0, 7); }
 function addMonths(ym: string, delta: number) {
   const [y, m] = ym.split("-").map(Number);
@@ -262,6 +274,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   return <div className="page-stack qcc-dashboard dashboard-page">
     <style>{TQM_CHART_CSS + `
+      .qcc-dashboard .dashboard-greeting{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:2px}
       .qcc-dashboard .breadcrumb{display:flex;align-items:center;gap:6px;color:#64748b;font-size:12px;margin-bottom:4px}
       .qcc-dashboard .page-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
       .qcc-dashboard .page-header-row .scope-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -314,6 +327,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       @media(max-width:920px){.qcc-dashboard .legacy-grid3{grid-template-columns:1fr}}
     `}</style>
 
+    <div className="dashboard-greeting">{greetingLine(user.fullName)}</div>
     <div className="breadcrumb"><Link href="/dashboard">Tổng quan</Link></div>
     <div className="page-header-row">
       <div className="title-with-icon">

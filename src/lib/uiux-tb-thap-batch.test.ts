@@ -12,7 +12,7 @@ describe("UIUX TB/Thấp batch", () => {
     // moved into AlertStrip (src/components/alert-strip.tsx) when the alerts
     // list became a horizontal strip near the top of the page — it still
     // uses the shared Icon component there, not a raw <svg>.
-    expect(read("src/components/alert-strip.tsx")).toContain('<Icon name={item.icon} size={18} />');
+    expect(read("src/components/alert-strip.tsx")).toContain('<Icon name={item.icon} size={14} />');
     expect(read("src/components/alert-strip.tsx")).not.toMatch(/<svg width="(18|20|26|16)"/);
   });
 

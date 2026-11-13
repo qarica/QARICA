@@ -15,8 +15,13 @@ describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng 
     expect(source).toContain("icon, tone = \"blue\", label, value, trend, visual, caption, urgent, footer, href,");
   });
 
-  it("caption là slot tuỳ chọn (vd '12/20 Action'), chỉ render khi có — dùng cho các trang có dòng phụ dưới label (improvement/projects...)", () => {
+  it("caption là slot tuỳ chọn (vd '12/20 Action'), chỉ render khi có — dùng cho các trang có dòng phụ dưới giá trị (improvement/projects...)", () => {
     expect(source).toContain("{caption ? <div className=\"kpi-tile-caption\">{caption}</div> : null}");
+  });
+
+  it("layout theo tham khảo Oryvia: icon+title ở header, giá trị+visual nằm NGANG cùng hàng (.kpi-tile-main), trend ở cuối card — không còn visual xếp dưới giá trị như bản đầu", () => {
+    expect(source).toContain('<span className="kpi-tile-label">{label}</span>');
+    expect(source).toContain('<div className="kpi-tile-main">\n      <div className="kpi-tile-value">{value}</div>\n      {visual ? <div className="kpi-tile-visual">{visual}</div> : null}\n    </div>');
   });
 
   it("urgent (tuỳ chọn) thêm class 'urgent' lên kpi-tile — thay cho quy ước <article className={`kpi ${overdue?\"danger\":\"\"}`}> ở các trang cũ (capa/page.tsx...), gộp 2 biến thể danger/warning cũ thành 1 tông nhấn chung", () => {
@@ -38,7 +43,7 @@ describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng 
     expect(source).toContain("const showArrow = trend?.arrow !== false;");
   });
 
-  it("footer (tuỳ chọn) là link nhỏ ở cuối card (vd 'Xem chi tiết →') — KHÁC với href bọc cả card, dùng khi chỉ 1 phần nhỏ của card cần bấm được", () => {
+  it("footer (tuỳ chọn) là link nhỏ góc phải header, cạnh title (vd 'Xem tất cả →', đúng vị trí tham khảo Oryvia) — KHÁC với href bọc cả card, dùng khi chỉ 1 phần nhỏ của card cần bấm được", () => {
     expect(source).toContain('{footer ? <Link className="kpi-tile-foot" href={footer.href}>{footer.text}</Link> : null}');
   });
 

@@ -29,13 +29,15 @@ export function KpiCard({
   const body = <>
     <div className="kpi-tile-top">
       <span className={`kpi-icon ${tone}`}><Icon name={icon} size={18} /></span>
-      {trend ? <span className={`kpi-trend ${trend.tone}`}>{showArrow ? (trend.tone === "up" ? "▲ " : trend.tone === "down" ? "▼ " : "") : ""}{trend.text}</span> : null}
+      <span className="kpi-tile-label">{label}</span>
+      {footer ? <Link className="kpi-tile-foot" href={footer.href}>{footer.text}</Link> : null}
     </div>
-    <div className="kpi-tile-value">{value}</div>
-    {visual ? <div className="kpi-tile-visual">{visual}</div> : null}
-    <div className="kpi-tile-label">{label}</div>
+    <div className="kpi-tile-main">
+      <div className="kpi-tile-value">{value}</div>
+      {visual ? <div className="kpi-tile-visual">{visual}</div> : null}
+    </div>
     {caption ? <div className="kpi-tile-caption">{caption}</div> : null}
-    {footer ? <Link className="kpi-tile-foot" href={footer.href}>{footer.text}</Link> : null}
+    {trend ? <span className={`kpi-trend ${trend.tone}`}>{showArrow ? (trend.tone === "up" ? "▲ " : trend.tone === "down" ? "▼ " : "") : ""}{trend.text}</span> : null}
   </>;
   return href
     ? <Link href={href} className={`${className} kpi-tile-link`}>{body}</Link>
