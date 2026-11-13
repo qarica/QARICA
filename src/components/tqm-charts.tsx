@@ -136,6 +136,39 @@ export function TqmGantt({year,rows}:{year:number;rows:{label:string;start:strin
   return <div className="tqm-gantt"><div className="tqm-gantt-head"><div>Công việc / đề án</div>{months.map((m,i)=><span key={`${m.year}-${m.month}`}>{m.month===1&&i>0?`T1/${String(m.year).slice(-2)}`:`T${m.month}`}</span>)}</div>{rows.map((r,i)=>{const s=monthPos(r.start),e=monthPos(r.end);return <div className="tqm-gantt-row" key={`${r.label}-${i}`}><div className="tqm-gantt-name"><strong>{r.label}</strong><small>{r.start||"—"} → {r.end||"—"}</small></div><div className="tqm-gantt-grid">{months.map((m,i)=><i key={`${m.year}-${m.month}-${i}`}/>)}{s!==null&&e!==null?<span className="tqm-gantt-bar" title={`${r.label}: ${r.progress??0}% · ${r.start} → ${r.end}`} style={{left:`${s/15*100}%`,width:`${(Math.max(s,e)-s+1)/15*100}%`,background:COLORS[r.tone||"brand"]}}><em style={{width:`${Math.max(0,Math.min(100,r.progress??0))}%`}}/></span>:null}</div></div>})}</div>
 }
 
+/**
+ * Gauge hình cung 270° (không phải donut tròn đủ 360° như TqmDonut) — dùng
+ * cho KPI dạng % đạt mục tiêu/công suất, có thể kèm 1 vạch mốc mục tiêu.
+ * Kỹ thuật: 2 vòng <circle> chồng nhau, dùng pathLength=100 để stroke-
+ * dasharray tính trực tiếp theo %, xoay cả nhóm 135° để khoảng hở (90°,
+ * 25% chưa vẽ) nằm đúng dưới đáy — cách dựng gauge kiểu đồng hồ tốc độ
+ * chuẩn, không cần tính chu vi hình tròn thủ công.
+ */
+export function TqmGauge({ value, max = 100, label, tone = "brand", target }: {
+  value: number; max?: number; label: string; tone?: Tone; target?: number | null;
+}) {
+  const pct = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
+  const trackLen = 75; // 270° / 360° của vòng tròn, biểu diễn bằng % của pathLength=100
+  const fillLen = pct * trackLen;
+  const hasTarget = target !== null && target !== undefined && Number.isFinite(target) && max > 0;
+  const targetFrac = hasTarget ? Math.max(0, Math.min(1, (target as number) / max)) : 0;
+  const cx = 60, cy = 60, rInner = 42, rOuter = 51;
+  const targetAngleRad = ((135 + targetFrac * 270) * Math.PI) / 180;
+  const tickX1 = cx + rInner * Math.cos(targetAngleRad), tickY1 = cy + rInner * Math.sin(targetAngleRad);
+  const tickX2 = cx + rOuter * Math.cos(targetAngleRad), tickY2 = cy + rOuter * Math.sin(targetAngleRad);
+  return <div className="tqm-gauge">
+    <svg viewBox="0 0 120 120" role="img" aria-label={`${label}: ${Math.round(pct * 100)}%${hasTarget ? `, mục tiêu ${target}%` : ""}`}>
+      <g transform="rotate(135 60 60)">
+        <circle cx={cx} cy={cy} r="50" pathLength={100} fill="none" stroke="#edf2f3" strokeWidth="12" strokeLinecap="round" strokeDasharray={`${trackLen} ${100 - trackLen}`} />
+        <circle cx={cx} cy={cy} r="50" pathLength={100} fill="none" stroke={COLORS[tone]} strokeWidth="12" strokeLinecap="round" strokeDasharray={`${fillLen} ${100 - fillLen}`} />
+      </g>
+      {hasTarget ? <line x1={tickX1} y1={tickY1} x2={tickX2} y2={tickY2} stroke="#31515a" strokeWidth="3" strokeLinecap="round" /> : null}
+      <text x={cx} y={cy + 7} textAnchor="middle" fontSize="22" fontWeight="800" fill="#172126">{Math.round(pct * 100)}%</text>
+    </svg>
+    <div className="tqm-gauge-label">{label}</div>
+  </div>;
+}
+
 export const TQM_CHART_CSS = `
 .tqm-donut-wrap{display:grid;grid-template-columns:minmax(190px,.8fr) minmax(180px,1fr);gap:20px;align-items:center;padding:10px 18px 20px}.tqm-donut{width:190px;height:190px;border-radius:50%;display:grid;place-items:center;margin:auto}.tqm-donut-hole{width:122px;height:122px;border-radius:50%;background:white;display:grid;place-items:center;align-content:center;box-shadow:inset 0 0 0 1px #edf2f3;text-align:center}.tqm-donut-hole strong{font-size:34px;line-height:1}.tqm-donut-hole span{font-size:10px;color:#718187;margin-top:7px}.tqm-donut-legend{display:grid;gap:10px}.tqm-donut-legend>div{display:grid;grid-template-columns:10px 1fr auto;gap:9px;align-items:center;font-size:11px}.tqm-donut-legend i{width:9px;height:9px;border-radius:50%}.tqm-donut-legend span{color:#5d6f76}.tqm-donut-legend strong{font-size:12px}.tqm-hbars{display:grid;gap:10px;padding:8px 18px 20px}.tqm-hbar-row{display:grid;grid-template-columns:minmax(110px,180px) 1fr 42px;gap:11px;align-items:center}.tqm-hbar-label{display:grid}.tqm-hbar-label strong{font-size:11px}.tqm-hbar-label span{font-size:9px;color:#7a8b91;margin-top:2px}.tqm-hbar-track{height:10px;background:#edf2f3;border-radius:999px;overflow:hidden}.tqm-hbar-fill{display:block;height:100%;border-radius:999px;transition:filter .15s ease}.tqm-hbar-row:hover .tqm-hbar-fill{filter:brightness(.92)}.tqm-hbar-row>b{font-size:11px;text-align:right}
 .tqm-trend{padding:6px 12px 12px;overflow-x:auto;position:relative}.tqm-trend svg{min-width:520px;width:100%;height:auto;cursor:crosshair}.tqm-trend svg:focus{outline:2px solid #0b8a7f;outline-offset:2px}
@@ -145,4 +178,5 @@ export const TQM_CHART_CSS = `
 .tqm-trend-table{margin-top:10px;border-collapse:collapse;font-size:11px;width:100%;max-width:420px}.tqm-trend-table th,.tqm-trend-table td{text-align:left;padding:5px 10px;border-bottom:1px solid #edf2f3}.tqm-trend-table th{color:#718187;font-weight:800;text-transform:uppercase;font-size:10px}
 .tqm-gantt{overflow-x:auto;padding:0 16px 18px}.tqm-gantt-head,.tqm-gantt-row{min-width:860px;display:grid;grid-template-columns:240px 1fr}.tqm-gantt-head>div{font-size:10px;font-weight:900;color:#607279;padding:9px}.tqm-gantt-head{grid-template-columns:240px repeat(15,1fr);border-bottom:1px solid #e3eaec}.tqm-gantt-head span{font-size:9px;text-align:center;padding:9px 2px;color:#71838a}.tqm-gantt-row{min-height:54px;border-bottom:1px solid #edf2f3}.tqm-gantt-name{padding:9px;display:grid;align-content:center}.tqm-gantt-name strong{font-size:11px}.tqm-gantt-name small{font-size:9px;color:#7a8b91;margin-top:3px}.tqm-gantt-grid{position:relative;display:grid;grid-template-columns:repeat(15,1fr)}.tqm-gantt-grid>i{border-left:1px solid #edf2f3}.tqm-gantt-bar{position:absolute;top:15px;height:24px;border-radius:7px;overflow:hidden;box-shadow:0 4px 10px rgba(20,50,58,.12)}.tqm-gantt-bar em{display:block;height:100%;background:rgba(255,255,255,.28)}
 @media(max-width:700px){.tqm-gantt-head,.tqm-gantt-row{grid-template-columns:170px 1fr;min-width:980px}.tqm-gantt-head{grid-template-columns:170px repeat(15,1fr)}.tqm-gantt-name{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid #e3eaec}.tqm-gantt-head>div{position:sticky;left:0;z-index:3;background:#fff;border-right:1px solid #e3eaec}.tqm-donut-wrap{grid-template-columns:1fr}.tqm-donut{width:170px;height:170px}.tqm-donut-hole{width:110px;height:110px}.tqm-hbar-row{grid-template-columns:100px 1fr 34px}.tqm-gantt{padding-inline:8px}}
+.tqm-gauge{display:flex;flex-direction:column;align-items:center;gap:2px}.tqm-gauge svg{width:100px;height:100px}.tqm-gauge-label{font-size:10px;color:#718187;text-align:center}
 `;

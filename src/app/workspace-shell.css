@@ -4,11 +4,11 @@
    ========================================================= */
 
 :root {
-  --bg: #f5f8fc;
-  --surface: #ffffff;
-  --text: #172126;
-  --muted: #54657a; /* darkened from #65758a for WCAG AA margin on white */
-  --line: #e5eaf2;
+  /* --bg/--surface/--text/--muted/--line removed (2026-11-13) — globals.css
+     is the sole source of truth for these; a plain, non-!important :root
+     redeclaration here still silently outranked it by import order alone
+     (the exact bug class already fixed once for qlvb-theme.css — see
+     brand-token-single-source.test.ts). */
   --navy: #1D4ED8;
   --navy-dark: #172554;
   --navy-mid: #3B5BDB;
@@ -74,7 +74,7 @@ body {
   /* --brand/--brand-dark/--brand-soft now live only in globals.css —
      see the comment there. Do not redeclare here. */
   /* FIX: --line and --muted were previously self-referencing
-     ( --line: var(--line); ) inside this same rule, which the
+     (literally set to var() of themselves) inside this same rule, which the
      CSS spec treats as a cycle -> invalid value at computed time.
      Any child rule using var(--line) or var(--muted) silently fell
      back to the browser default (transparent / inherited), which is

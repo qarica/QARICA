@@ -23,21 +23,12 @@
   --qms-shadow-lg:0 14px 34px rgba(33,37,41,.10);
 }
 
-html,body{background:var(--qms-bg)!important;color:var(--qms-text)!important}
-.workspace-app{
-  --bg:var(--qms-bg)!important;
-  --surface:var(--qms-surface)!important;
-  --text:var(--qms-text)!important;
-  --muted:var(--qms-muted)!important;
-  --line:var(--qms-line)!important;
-  /* --brand/--brand-dark/--brand-soft now live only in globals.css (same
-     values as --qms-primary/-dark/-soft below, kept in sync manually). */
-  --success:var(--qms-success)!important;
-  --warning:var(--qms-warning-text)!important;
-  --danger:var(--qms-danger)!important;
-  background:var(--qms-bg)!important;
-  color:var(--qms-text)!important;
-}
+/* --bg/--surface/--text/--muted/--line/--success/--warning/--danger and the
+   html,body/.workspace-app background/color overrides removed (2026-11-13)
+   — globals.css is the sole source of truth for these; --qms-* tokens stay
+   (different namespace, still used elsewhere in this file).
+   --brand/--brand-dark/--brand-soft already live only in globals.css (same
+   values as --qms-primary/-dark/-soft below, kept in sync manually). */
 
 /* Sidebar */
 .workspace-app .sidebar{
