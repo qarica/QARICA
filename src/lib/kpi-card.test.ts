@@ -10,9 +10,13 @@ const read = (p: string) => readFileSync(p, "utf8");
 describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng class mới .kpi-tile", () => {
   const source = read("src/components/kpi-card.tsx");
 
-  it("export KpiCard với đúng props: icon, tone, label, value, trend, visual, href", () => {
+  it("export KpiCard với đúng props: icon, tone, label, value, trend, visual, caption, href", () => {
     expect(source).toContain("export function KpiCard({");
-    expect(source).toContain("icon, tone = \"blue\", label, value, trend, visual, href,");
+    expect(source).toContain("icon, tone = \"blue\", label, value, trend, visual, caption, href,");
+  });
+
+  it("caption là slot tuỳ chọn (vd '12/20 Action'), chỉ render khi có — dùng cho các trang có dòng phụ dưới label (improvement/projects...)", () => {
+    expect(source).toContain("{caption ? <div className=\"kpi-tile-caption\">{caption}</div> : null}");
   });
 
   it("render className=\"kpi-tile\" (KHÔNG tái dùng kpi-card/kpi của 23 file cũ, tránh đụng CSS trang khác)", () => {
@@ -38,9 +42,9 @@ describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng 
     expect(source).toContain("href\n    ? <Link href={href} className=\"kpi-tile kpi-tile-link\">{body}</Link>\n    : <article className=\"kpi-tile\">{body}</article>;");
   });
 
-  it("globals.css định nghĩa .kpi-tile/.kpi-tile-top/.kpi-tile-value/.kpi-tile-visual/.kpi-tile-label 1 lần duy nhất", () => {
+  it("globals.css định nghĩa .kpi-tile/.kpi-tile-top/.kpi-tile-value/.kpi-tile-visual/.kpi-tile-label/.kpi-tile-caption 1 lần duy nhất", () => {
     const css = read("src/app/globals.css");
-    for (const cls of [".kpi-tile{", ".kpi-tile-top{", ".kpi-tile-value{", ".kpi-tile-visual{", ".kpi-tile-label{"]) {
+    for (const cls of [".kpi-tile{", ".kpi-tile-top{", ".kpi-tile-value{", ".kpi-tile-visual{", ".kpi-tile-label{", ".kpi-tile-caption{"]) {
       expect(css.split(cls).length - 1, `${cls} should appear exactly once`).toBe(1);
     }
   });
