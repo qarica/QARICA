@@ -10,9 +10,9 @@ const read = (p: string) => readFileSync(p, "utf8");
 describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng class mới .kpi-tile", () => {
   const source = read("src/components/kpi-card.tsx");
 
-  it("export KpiCard với đúng props: icon, tone, label, value, trend, visual, caption, urgent, href", () => {
+  it("export KpiCard với đúng props: icon, tone, label, value, trend, visual, caption, urgent, footer, href", () => {
     expect(source).toContain("export function KpiCard({");
-    expect(source).toContain("icon, tone = \"blue\", label, value, trend, visual, caption, urgent, href,");
+    expect(source).toContain("icon, tone = \"blue\", label, value, trend, visual, caption, urgent, footer, href,");
   });
 
   it("caption là slot tuỳ chọn (vd '12/20 Action'), chỉ render khi có — dùng cho các trang có dòng phụ dưới label (improvement/projects...)", () => {
@@ -32,9 +32,14 @@ describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng 
     expect(source).toContain('className={`kpi-icon ${tone}`}');
   });
 
-  it("trend dùng className=\"kpi-trend <tone>\" với mũi tên lên/xuống", () => {
+  it("trend dùng className=\"kpi-trend <tone>\" với mũi tên lên/xuống, tắt được qua arrow:false khi down/up chỉ tô màu 1 badge đếm số chứ không phải trend thật (vd 'Việc của tôi' sau)", () => {
     expect(source).toContain('className={`kpi-trend ${trend.tone}`}');
-    expect(source).toContain('trend.tone === "up" ? "▲" : trend.tone === "down" ? "▼" : ""');
+    expect(source).toContain('trend.tone === "up" ? "▲ " : trend.tone === "down" ? "▼ " : ""');
+    expect(source).toContain("const showArrow = trend?.arrow !== false;");
+  });
+
+  it("footer (tuỳ chọn) là link nhỏ ở cuối card (vd 'Xem chi tiết →') — KHÁC với href bọc cả card, dùng khi chỉ 1 phần nhỏ của card cần bấm được", () => {
+    expect(source).toContain('{footer ? <Link className="kpi-tile-foot" href={footer.href}>{footer.text}</Link> : null}');
   });
 
   it("visual là slot tuỳ chọn (TqmGauge/TqmDonut...), chỉ render khi có", () => {
@@ -48,7 +53,7 @@ describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng 
 
   it("globals.css định nghĩa .kpi-tile/.kpi-tile-top/.kpi-tile-value/.kpi-tile-visual/.kpi-tile-label/.kpi-tile-caption/.kpi-tile.urgent 1 lần duy nhất", () => {
     const css = read("src/app/globals.css");
-    for (const cls of [".kpi-tile{", ".kpi-tile-top{", ".kpi-tile-value{", ".kpi-tile-visual{", ".kpi-tile-label{", ".kpi-tile-caption{", ".kpi-tile.urgent{"]) {
+    for (const cls of [".kpi-tile{", ".kpi-tile-top{", ".kpi-tile-value{", ".kpi-tile-visual{", ".kpi-tile-label{", ".kpi-tile-caption{", ".kpi-tile.urgent{", ".kpi-tile-foot{"]) {
       expect(css.split(cls).length - 1, `${cls} should appear exactly once`).toBe(1);
     }
   });
