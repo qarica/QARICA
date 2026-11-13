@@ -167,10 +167,6 @@ export function PersonalWorkspaceClient({ initialRows, userId, highlightedItemId
   async function add() {
     const cleanTitle = title.trim();
     if (!cleanTitle) return;
-    if (tab === "TASK" && !reminderChoice && window.confirm("Bạn có muốn đặt nhắc nhở cho việc này không?\\nChọn OK để thiết lập ngày nhắc, hoặc Hủy để lưu việc không có nhắc nhở.")) {
-      setReminderChoice(true);
-      return;
-    }
     if (tab === "TASK" && reminderChoice && !dueAt) {
       setError("Vui lòng chọn ngày đến hạn khi bật nhắc nhở.");
       return;
