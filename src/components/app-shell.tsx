@@ -11,7 +11,6 @@ import { Icon } from "@/components/icon";
 import { YearSelector } from "@/components/year-selector";
 import { NotificationBell } from "@/components/notification-bell";
 import { GROUP_TONES } from "@/lib/module-catalog";
-import { pinSidebarRoute, unpinSidebarRoute } from "@/lib/sidebar-pins";
 
 type AttentionState = Record<string, { count: number; urgent: boolean }>;
 
@@ -39,21 +38,9 @@ function resolveActiveGroupId(pathname: string, navGroups: NavGroup[], currentWo
   return navGroups.find((group) => group.children.some((child) => isChildActive(pathname, child, currentWorkspaceRoot)))?.id ?? null;
 }
 
-export function AppShell({ children, user, organization, navGroups, year, pinnedRoutes }: { children: React.ReactNode; user: UserContext; organization: OrganizationInfo | null; navGroups: NavGroup[]; year: number; pinnedRoutes?: string[]; }) {
+export function AppShell({ children, user, organization, navGroups, year }: { children: React.ReactNode; user: UserContext; organization: OrganizationInfo | null; navGroups: NavGroup[]; year: number; }) {
   const pathname = usePathname(); const router = useRouter(); const supabase = useMemo(() => createClient(), []);
   const [mobileOpen, setMobileOpen] = useState(false); const [profileOpen, setProfileOpen] = useState(false); const [navigating, setNavigating] = useState(false); const [sidebarCollapsed, setSidebarCollapsed] = useState(false); const [attention, setAttention] = useState<AttentionState>({});
-  // Ghim menu sidebar (Stage A5: bảng sidebar_pinned_items, đồng bộ nhiều
-  // thiết bị) — state cục bộ khởi tạo từ prop server-fetch, cập nhật lạc
-  // quan (optimistic) khi bấm ghim/bỏ ghim, không chờ round-trip.
-  const [pinned, setPinned] = useState<Set<string>>(() => new Set(pinnedRoutes ?? []));
-  function togglePin(itemRoot: string, event: React.MouseEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-    const nowPinned = !pinned.has(itemRoot);
-    setPinned((current) => { const next = new Set(current); if (nowPinned) next.add(itemRoot); else next.delete(itemRoot); return next; });
-    if (nowPinned) void pinSidebarRoute(user.id, user.organizationId || "", itemRoot, pinned.size);
-    else void unpinSidebarRoute(user.id, itemRoot);
-  }
   const workspace = visibleWorkspaceForPath(pathname, user); const currentWorkspaceRoot = workspaceRootForPath(pathname); const adminHref = adminLandingHref(user);
   // "Việc của tôi" is intentionally not a sidebar nav group (see navigation.ts)
   // — it lives here, in the topbar, so it is reachable in one click from
@@ -128,7 +115,7 @@ export function AppShell({ children, user, organization, navGroups, year, pinned
   const displayName = user.fullName || (user.email ? user.email.split("@")[0] : "Người dùng");
   function startNavigation(href: string) { const target = href.split("?")[0]; if (target !== pathname) setNavigating(true); setMobileOpen(false); }
   function renderBadge(badge: { count: number; urgent: boolean } | undefined, className = "nav-attention-badge") { if (!badge?.count) return null; return <span className={`${className} ${badge.urgent ? "urgent" : "warning"}`}>{badge.count > 99 ? "99+" : badge.count}</span>; }
-  function renderChild(item: NavItem, asGroupLink?: boolean, tone?: string) { const baseHref = item.href.split("?")[0]; const itemRoot = item.workspaceRoot || baseHref; const active = isChildActive(pathname, item, currentWorkspaceRoot); const badge = attention[itemRoot]; const isPinned = pinned.has(itemRoot); return <Link key={`${itemRoot}:${item.label}`} href={item.href} prefetch={true} aria-current={active ? "page" : undefined} className={asGroupLink ? `nav-link nav-group-link ${active ? "active" : ""}` : `nav-link nav-child-link ${active ? "active" : ""}`} title={`${item.label}${badge?.count ? ` · ${badge.count} việc cần chú ý` : ""}`} onMouseEnter={() => router.prefetch(item.href)} onFocus={() => router.prefetch(item.href)} onClick={() => startNavigation(item.href)}><span className={`nav-icon ${asGroupLink ? `nav-group-icon tone-${tone}` : ""} ${NAV_ICON_TONE[itemRoot] || "overview"}`} aria-hidden="true"><Icon name={item.icon} size={18} /></span><span className="nav-link-label">{item.label}</span>{renderBadge(badge)}<button type="button" className={`nav-pin-toggle ${isPinned ? "pinned" : ""}`} onClick={(event) => togglePin(itemRoot, event)} title={isPinned ? "Bỏ ghim" : "Ghim vào đầu menu"} aria-label={isPinned ? "Bỏ ghim" : "Ghim vào đầu menu"}><Icon name="star" size={14} /></button></Link>; }
+  function renderChild(item: NavItem, asGroupLink?: boolean, tone?: string) { const baseHref = item.href.split("?")[0]; const itemRoot = item.workspaceRoot || baseHref; const active = isChildActive(pathname, item, currentWorkspaceRoot); const badge = attention[itemRoot]; return <Link key={`${itemRoot}:${item.label}`} href={item.href} prefetch={true} aria-current={active ? "page" : undefined} className={asGroupLink ? `nav-link nav-group-link ${active ? "active" : ""}` : `nav-link nav-child-link ${active ? "active" : ""}`} title={`${item.label}${badge?.count ? ` · ${badge.count} việc cần chú ý` : ""}`} onMouseEnter={() => router.prefetch(item.href)} onFocus={() => router.prefetch(item.href)} onClick={() => startNavigation(item.href)}><span className={`nav-icon ${asGroupLink ? `nav-group-icon tone-${tone}` : ""} ${NAV_ICON_TONE[itemRoot] || "overview"}`} aria-hidden="true"><Icon name={item.icon} size={18} /></span><span className="nav-link-label">{item.label}</span>{renderBadge(badge)}</Link>; }
   // A group with exactly one authorized child (EMR; Cấu hình hệ thống) has
   // nothing to expand — showing it as a collapsible accordion with a chevron
   // promises children that never appear. Promote it to a plain top-level link
@@ -143,11 +130,6 @@ export function AppShell({ children, user, organization, navGroups, year, pinned
   }
   const mainNavGroups = navGroups.filter((group) => !group.footer);
   const footerNavGroups = navGroups.filter((group) => group.footer);
-  // "Đã ghim": chỉ hiện khi có ít nhất 1 mục đang ghim, lấy từ chính các mục
-  // navGroups người dùng đã được phép xem (không cần guard quyền riêng — mục
-  // đã mất quyền tự động biến mất khỏi đây vì không còn nằm trong navGroups).
-  const allNavItems = navGroups.flatMap((group) => group.children);
-  const pinnedItems = allNavItems.filter((item) => pinned.has(item.workspaceRoot || item.href.split("?")[0]));
   const currentNavLabel = navGroups.flatMap((group) => group.children)
     .filter((item) => pathname === item.href.split("?")[0] || pathname.startsWith(item.href.split("?")[0] + "/"))
     .sort((a, b) => b.href.length - a.href.length)[0]?.label ?? workspace?.title ?? "Tổng quan";
@@ -341,12 +323,6 @@ export function AppShell({ children, user, organization, navGroups, year, pinned
       .workspace-app .nav-attention-badge.urgent{background:#dc2626}
       .workspace-app .sidebar.collapsed .nav-attention-badge{position:absolute;right:5px;top:4px;min-width:16px;height:16px;padding:0 4px;font-size:9px;border:2px solid #fff}
       .workspace-app .sidebar.collapsed .nav-group-flyout .nav-attention-badge{position:static;min-width:20px;height:20px;padding:0 6px;font-size:11px;border:0}
-      .workspace-app .nav-pin-toggle{margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;background:transparent;border-radius:6px;color:#cbd5e1;padding:0}
-      .workspace-app .nav-pin-toggle:hover{color:#f59e0b;background:#fef3c7}
-      .workspace-app .nav-pin-toggle svg{fill:none;transition:fill .14s,color .14s}
-      .workspace-app .nav-pin-toggle.pinned{color:#f59e0b}
-      .workspace-app .nav-pin-toggle.pinned svg{fill:currentColor}
-      .workspace-app .sidebar.collapsed .nav-pin-toggle{display:none}
       .workspace-app .sidebar-bottom{position:absolute;left:0;right:0;bottom:0;background:#fff}
       .workspace-app .sidebar-footer{position:static;border-top:1px solid #f1f5f9;padding:12px 14px}
       .workspace-app .nav-footer-divider{height:1px;background:#eef2f7;margin:10px 14px}
@@ -376,7 +352,6 @@ export function AppShell({ children, user, organization, navGroups, year, pinned
     <aside className={`sidebar ${mobileOpen ? "open" : ""} ${sidebarCollapsed ? "collapsed" : ""}`}>
       <div className="sidebar-brand"><div className="brand-mark"><Image src="/brand/qarica-mark-v2.svg" alt="" width={32} height={32} aria-hidden="true" /></div><div className="sidebar-brand-copy"><strong>QARICA</strong><span>Quality</span></div><button className="icon-button sidebar-collapse" onClick={toggleSidebarCollapsed} title={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"} aria-label={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"}><Icon name={sidebarCollapsed ? "panel-left-open" : "panel-left-close"} size={18} /></button><button className="icon-button sidebar-close" onClick={() => setMobileOpen(false)} aria-label="Đóng menu"><Icon name="x" /></button></div>
       <nav id="qarica-main-navigation" className="sidebar-nav" aria-label="Điều hướng chính">
-        {pinnedItems.length ? <><div className="nav-label">Đã ghim</div>{pinnedItems.map((item) => renderChild(item, true, "brand"))}<div className="nav-footer-divider" aria-hidden="true" /></> : null}
         {mainNavGroups.map(renderGroup)}
         <div className="nav-footer-divider" aria-hidden="true" />
         {footerNavGroups.map(renderGroup)}
