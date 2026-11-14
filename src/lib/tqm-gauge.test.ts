@@ -51,8 +51,18 @@ describe("TqmGauge (src/components/tqm-charts.tsx): gauge hình cung 270°, khô
   });
 
   it("globals.css không định nghĩa .tqm-gauge (CSS của chart này sống trong TQM_CHART_CSS của chính file, theo đúng quy ước TqmDonut/TqmHorizontalBars đã có)", () => {
-    expect(source).toContain(".tqm-gauge{display:flex;flex-direction:column;align-items:center;gap:2px}");
+    expect(source).toContain(".tqm-gauge{display:flex;flex-direction:column;align-items:center;gap:2px;width:100px;max-width:100px;flex:0 0 100px}");
     const globals = read("src/app/globals.css");
     expect(globals).not.toContain(".tqm-gauge");
+  });
+
+  // Vỡ thật trên production (ảnh chụp điện thoại thật): nhãn dài (vd "Hợp lệ
+  // toàn kho") không bị giới hạn chiều rộng, flex item .tqm-gauge tự co giãn
+  // theo max-content của text bên trong (min-width:auto mặc định của flex
+  // item) — đẩy cả khối gauge rộng hơn 100px của svg, tràn ra ngoài card
+  // trong hàng ngang .kpi-tile-main trên màn hẹp. Khoá cứng width/max-width
+  // 100px (khớp svg) + flex:0 0 100px để không co giãn theo nội dung chữ.
+  it("khoá cứng chiều rộng .tqm-gauge = chiều rộng svg (100px), nhãn tự xuống dòng bên trong thay vì đẩy cả khối tràn ra ngoài card khi tên dài", () => {
+    expect(source).toContain(".tqm-gauge-label{font-size:10px;color:#718187;text-align:center;width:100%}");
   });
 });
