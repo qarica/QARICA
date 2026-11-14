@@ -242,10 +242,14 @@ export function AppShell({ children, user, organization, navGroups, year, pinned
          từ globals.css, --brand tự đổi theo organization.primary_color (xem
          style inline ở gốc component) nên badge "tone-brand" cũng tự theo
          màu thương hiệu riêng của từng tổ chức. */
-      .workspace-app .nav-group-icon.tone-brand{background:var(--brand-soft);color:var(--brand)}
-      .workspace-app .nav-group-icon.tone-info{background:var(--info-soft);color:var(--info)}
-      .workspace-app .nav-group-icon.tone-success{background:var(--success-soft);color:var(--success)}
-      .workspace-app .nav-group-icon.tone-warning{background:var(--warning-soft);color:var(--warning)}
+      /* 2026-11-14: đã bỏ nền màu theo tone (xem comment trên) — đối chiếu
+         trực tiếp ảnh tham khảo Oryvia, icon sidebar ở MỌI cấp đều phẳng,
+         đơn sắc xám, không khoanh nền màu nào (màu chỉ xuất hiện ở mục đang
+         active, xem .nav-group.active-context bên dưới) — ưu tiên khớp ảnh
+         tham khảo hơn yêu cầu "đẹp hơn" trước đó. Giữ nguyên className
+         "tone-" cộng tên tone trên icon (vô hại, không còn style) để không
+         phải đổi chữ ký renderGroup/GROUP_TONES đang dùng chung với /modules. */
+      .workspace-app .nav-group-icon.tone-brand,.workspace-app .nav-group-icon.tone-info,.workspace-app .nav-group-icon.tone-success,.workspace-app .nav-group-icon.tone-warning{background:transparent;color:#64748b}
       .workspace-app .nav-group{margin:6px 0}
       .workspace-app .nav-group-header{display:flex;align-items:center;gap:11px;width:100%;border-radius:10px;margin:3px 10px;padding:11px 12px;border:1px solid transparent;background:transparent;text-align:left;transition:background .14s,color .14s}
       .workspace-app .nav-group-header:hover{background:#f8fafc;border-color:#eef2f7}
@@ -279,9 +283,15 @@ export function AppShell({ children, user, organization, navGroups, year, pinned
          intended margin/icon-size — which is exactly why EMR read as visually
          indistinguishable from a child row: neither the wider group-link
          margin nor the smaller child-icon size was ever actually applied. */
-      .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#1d4ed8!important;font-weight:800!important;font-size:14px!important;letter-spacing:.01em}
+      /* 2026-11-14: màu chữ nav (trước là navy #1d4ed8 cho mọi cấp, theo yêu
+         cầu tường minh cũ "cùng 1 hue, phân biệt cấp bằng weight/size") đổi
+         thành xám trung tính (#475569, trùng màu .nav-link mặc định) — đối
+         chiếu trực tiếp ảnh tham khảo Oryvia, chữ nav không active là xám,
+         chỉ mục đang active mới có màu — cùng quyết định với việc bỏ icon
+         màu theo tone ở trên, người dùng đã xác nhận đổi hướng. */
+      .workspace-app.workspace-app .nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#475569!important;font-weight:800!important;font-size:14px!important;letter-spacing:.01em}
       .workspace-app.workspace-app .nav-group.active-context>.nav-group-header,.workspace-app.workspace-app .nav-group.active-context>.nav-group-header .nav-group-label{color:#172554!important}
-      .workspace-app.workspace-app .nav-group-link{color:#1d4ed8!important;font-weight:800!important;font-size:14px!important;margin:6px 10px!important}
+      .workspace-app.workspace-app .nav-group-link{color:#475569!important;font-weight:800!important;font-size:14px!important;margin:6px 10px!important}
       /* brand-overrides.css's generic .nav-link-label{overflow:hidden;
          text-overflow:ellipsis;white-space:nowrap} truncates a promoted
          single-child group's label the same as a real (level-2) child link —
@@ -301,7 +311,7 @@ export function AppShell({ children, user, organization, navGroups, year, pinned
          already has its own active-icon override (line below); the promoted
          single-child link never did. */
       .workspace-app.workspace-app .nav-group-link.active .nav-icon,.workspace-app.workspace-app .nav-group-link.active svg{color:#172554!important}
-      .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#1d4ed8!important;font-weight:600!important;font-size:12px!important}
+      .workspace-app.workspace-app .nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#475569!important;font-weight:600!important;font-size:12px!important}
       .workspace-app.workspace-app .nav-child-link{margin:1px 10px 1px 26px!important}
       /* The collapsed-rail flyout popover is a small floating popup, not the
          full sidebar list — its child links intentionally use a flat, compact
@@ -310,7 +320,7 @@ export function AppShell({ children, user, organization, navGroups, year, pinned
          specificity, or the generic 26px-indent rule above (now !important
          to survive qms-enterprise-redesign.css) would leak into it too. */
       .workspace-app.workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px!important}
-      .workspace-app.workspace-app .nav-child-link .nav-icon{color:#1d4ed8!important;width:20px!important;height:20px!important;flex:0 0 20px!important}
+      .workspace-app.workspace-app .nav-child-link .nav-icon{color:#475569!important;width:20px!important;height:20px!important;flex:0 0 20px!important}
       .workspace-app.workspace-app .nav-child-link:hover,.workspace-app.workspace-app .nav-child-link:hover .nav-link-label{color:#172554!important}
       .workspace-app.workspace-app .nav-child-link.active,.workspace-app.workspace-app .nav-child-link.active .nav-link-label{background:#EEF2FF!important;color:#172554!important;font-weight:800!important}
       /* Same white-icon-on-light-background bug as nav-group-link.active

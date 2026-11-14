@@ -106,13 +106,23 @@ describe("UI consistency fixes (checkbox class, modal-head wrapper)", () => {
     expect(source).toContain(".qcc-dashboard .scope-controls input,.qcc-dashboard .scope-controls select{width:auto;min-height:38px}");
   });
 
-  // Reported from a screenshot: the "Xin chào, ..." hero banner between the
-  // scope filters and the KPI cards added no information (just a greeting)
-  // and was called out as clutter — removed entirely, including its
-  // now-unused .hero-banner* CSS.
-  it("removes the Xin chào hero banner from the dashboard", () => {
+  // Reported from a screenshot (historical): a literal "Xin chào, ..." hero
+  // banner sat BETWEEN the scope filters and the KPI cards, adding no
+  // information beyond a greeting — called out as clutter, removed entirely
+  // (including its .hero-banner* CSS). 2026-11-14: user later confirmed (via
+  // explicit side-by-side comparison against the Oryvia reference image)
+  // that the greeting should come BACK — but as the page's actual h1 (time-
+  // of-day greeting + user's name), REPLACING the old static "Trung tâm
+  // Điều hành Chất lượng" title, with the date + page description as its
+  // subtitle — not a decorative extra banner alongside an existing title.
+  // That old .hero-banner class name and the literal legacy copy
+  // ("Xin chào") are still retired; only the *new*, functional hero stays
+  // retired-free. See greetingParts()/.dashboard-hero-row/.dashboard-hero-copy.
+  it("no leftover .hero-banner class or old literal 'Xin chào' copy from the retired decorative banner (the current hero greeting is a different, deliberate h1 — see greetingParts())", () => {
     const source = read("src/app/(app)/dashboard/page.tsx");
     expect(source).not.toContain("Xin chào");
     expect(source).not.toContain("hero-banner");
+    expect(source).toContain("function greetingParts(");
+    expect(source).toContain('<h1>{greeting.heading}</h1>');
   });
 });

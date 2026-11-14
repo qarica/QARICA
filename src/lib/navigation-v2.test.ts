@@ -377,30 +377,34 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain(".workspace-app .nav-child-link{min-height:44px;padding:11px 10px}");
   });
 
-  it("gives the parent group header stronger visual weight than child links (Level 1 vs Level 2), with high-specificity colors that survive legacy theme !important overrides on the shared .nav-link class", () => {
+  it("gives the parent group header stronger visual weight than child links (Level 1 vs Level 2) via weight/size, with high-specificity rules that survive legacy theme !important overrides on the shared .nav-link class", () => {
     expect(shell).toContain(".nav-group-header{");
     expect(shell).toContain(".nav-group.active-context>.nav-group-header{");
     // .workspace-app.workspace-app doubles specificity so these always win,
     // regardless of stylesheet load order against other files' `.nav-link{color:...!important}` rules
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-header,\.workspace-app\.workspace-app \.nav-group-label\{color:#1d4ed8!important;font-weight:800!important;font-size:14px!important/);
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link,\.workspace-app\.workspace-app \.nav-child-link \.nav-link-label\{color:#1d4ed8!important;font-weight:600!important;font-size:12px!important\}/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-header,\.workspace-app\.workspace-app \.nav-group-label\{color:#475569!important;font-weight:800!important;font-size:14px!important/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link,\.workspace-app\.workspace-app \.nav-child-link \.nav-link-label\{color:#475569!important;font-weight:600!important;font-size:12px!important\}/);
     // parent (14px/800) must be strictly bolder AND larger than child (12px/600)
     expect(14).toBeGreaterThan(12);
     expect(800).toBeGreaterThan(600);
   });
 
-  // Explicit request: the earlier design used a separate lighter-blue hue
-  // (#60a5fa) for Level 2 to set it apart from Level 1's dark navy — dropped
-  // in favor of one navy color everywhere, since the group header's own
-  // uppercase+bold styling already reads as a distinct level from a child
-  // link's sentence-case+lighter weight, without needing a second hue too.
-  it("colors Level 1 (group headers, promoted single-child links) and Level 2 (child links) the same navy — case and weight/size carry the level distinction, not a separate hue", () => {
-    expect(shell).toContain(".nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#1d4ed8!important");
-    expect(shell).toContain(".nav-group-link{color:#1d4ed8!important");
+  // Lịch sử: thiết kế trước (theo yêu cầu "cùng 1 hue, phân biệt cấp bằng
+  // weight/size") tô MỌI cấp nav (không active) màu navy #1d4ed8 — khác hue
+  // riêng #60a5fa cho Level 2 đã bị bỏ trước đó vì thừa, không cần 2 hue.
+  // 2026-11-14: đối chiếu trực tiếp ảnh tham khảo Oryvia do người dùng gửi,
+  // người dùng xác nhận đổi hướng lần nữa — nav không active giờ màu XÁM
+  // trung tính (#475569, trùng màu mặc định .nav-link), màu chỉ còn dành
+  // riêng cho mục đang active (xem .active-context/.active bên dưới, không
+  // đổi) — cùng quyết định với việc bỏ icon màu theo tone. Vẫn giữ nguyên lý
+  // "weight/size phân biệt cấp, không cần hue riêng" của quyết định cũ.
+  it("colors Level 1 (group headers, promoted single-child links) and Level 2 (child links) the same neutral gray when KHÔNG active — weight/size vẫn phân biệt cấp, màu chỉ dành cho active state, đúng ảnh tham khảo Oryvia (không còn navy #1d4ed8 ở trạng thái thường)", () => {
+    expect(shell).toContain(".nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#475569!important");
+    expect(shell).toContain(".nav-group-link{color:#475569!important");
     expect(shell).toContain(".nav-group.active-context>.nav-group-header{background:#eef2ff}");
     expect(shell).toContain(".nav-group.active-context>.nav-group-header .nav-group-icon{color:#1d4ed8!important}");
-    expect(shell).toContain(".nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#1d4ed8!important");
-    expect(shell).toContain(".nav-child-link .nav-icon{color:#1d4ed8!important");
+    expect(shell).toContain(".nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#475569!important");
+    expect(shell).toContain(".nav-child-link .nav-icon{color:#475569!important");
     expect(shell).not.toContain("#60a5fa");
   });
 
@@ -412,8 +416,8 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain("asGroupLink ? `nav-link nav-group-link");
   });
 
-  it("a promoted single-child link reads as Level 1 (bold navy, 14px/800), not Level 2 (lighter-weight navy, 12px/600)", () => {
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#1d4ed8!important;font-weight:800!important;font-size:14px!important;margin:6px 10px!important\}/);
+  it("a promoted single-child link reads as Level 1 (bold gray, 14px/800), not Level 2 (lighter-weight gray, 12px/600)", () => {
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#475569!important;font-weight:800!important;font-size:14px!important;margin:6px 10px!important\}/);
   });
 
   it("survives qms-enterprise-redesign.css's competing !important .nav-link{margin:2px 6px} and generic .nav-icon{width:27px;height:27px} rules — a second real collision found via real-device screenshots after the first fix (colors only) still left EMR/Cấu hình hệ thống visually indistinguishable from a child row, because their margin and icon size were still being silently overridden", () => {
@@ -429,19 +433,21 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     // child icons must actually shrink to 20px under !important — the generic
     // .nav-icon{width:27px;height:27px!important} rule otherwise forces every
     // icon (group and child alike) to the same size, erasing the size cue.
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link \.nav-icon\{color:#1d4ed8!important;width:20px!important;height:20px!important;flex:0 0 20px!important\}/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link \.nav-icon\{color:#475569!important;width:20px!important;height:20px!important;flex:0 0 20px!important\}/);
   });
 
   it("keeps the collapsed-rail flyout's compact child margin from being overridden by the new !important 26px indent (the flyout is a small popover, not the full list — there is no parent row to indent under inside it)", () => {
     expect(shell).toContain(".workspace-app.workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px!important}");
   });
 
-  // Yêu cầu tường minh: "nên thiết kế sidebar sao cho phù hợp và đẹp hơn ...
-  // vẫn đảm bảo thuận tiện thao tác trên máy tính và điện thoại" — chỉ thêm
-  // badge màu tròn cho icon NHÓM (tái dùng GROUP_TONES của /modules), làm
-  // active state rõ hơn và giãn khoảng cách dòng một chút — không đổi cơ chế
-  // accordion/thu gọn/breakpoint di động đã có.
-  it("mỗi nhóm có badge màu tròn luân phiên (tái dùng GROUP_TONES của trang Danh mục module), index tới từ Array.prototype.map tự động (không đổi chữ ký lời gọi mainNavGroups.map(renderGroup)/footerNavGroups.map(renderGroup) đã khoá ở trên)", () => {
+  // Yêu cầu tường minh ban đầu: "nên thiết kế sidebar sao cho phù hợp và đẹp
+  // hơn" → badge màu tròn luân phiên theo GROUP_TONES. 2026-11-14: đối chiếu
+  // trực tiếp ảnh tham khảo Oryvia do người dùng gửi (giao diện người dùng
+  // muốn hướng tới), icon sidebar mọi cấp đều phẳng/đơn sắc, không khoanh
+  // nền màu — người dùng xác nhận đổi hướng, ưu tiên khớp ảnh tham khảo.
+  // Giữ nguyên hạ tầng GROUP_TONES/index/className tone-${tone} (dùng chung
+  // với /modules, vô hại khi không còn style nền) — chỉ đổi phần CSS tô màu.
+  it("mỗi nhóm vẫn tính tone luân phiên (tái dùng GROUP_TONES của trang Danh mục module, index tới từ Array.prototype.map tự động, không đổi chữ ký lời gọi mainNavGroups.map(renderGroup)/footerNavGroups.map(renderGroup) đã khoá ở trên) nhưng icon KHÔNG còn tô nền màu theo tone — phẳng/đơn sắc đúng ảnh tham khảo", () => {
     expect(shell).toContain('import { GROUP_TONES } from "@/lib/module-catalog";');
     expect(shell).toContain("function renderGroup(group: NavGroup, index: number) {");
     expect(shell).toContain("const tone = GROUP_TONES[index % GROUP_TONES.length];");
@@ -449,8 +455,9 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain('<span className={`nav-icon nav-group-icon tone-${tone}`} aria-hidden="true">');
     expect(shell).toContain("mainNavGroups.map(renderGroup)");
     expect(shell).toContain("footerNavGroups.map(renderGroup)");
+    expect(shell).toContain(".workspace-app .nav-group-icon.tone-brand,.workspace-app .nav-group-icon.tone-info,.workspace-app .nav-group-icon.tone-success,.workspace-app .nav-group-icon.tone-warning{background:transparent;color:#64748b}");
     for (const tone of ["brand", "info", "success", "warning"]) {
-      expect(shell).toContain(`.workspace-app .nav-group-icon.tone-${tone}{background:var(--${tone}-soft);color:var(--${tone})}`);
+      expect(shell).not.toContain(`.workspace-app .nav-group-icon.tone-${tone}{background:var(--${tone}-soft)`);
     }
   });
 
