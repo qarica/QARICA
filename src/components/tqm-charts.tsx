@@ -169,6 +169,70 @@ export function TqmGauge({ value, max = 100, label, tone = "brand", target }: {
   </div>;
 }
 
+/**
+ * Biểu đồ cột nhóm: so sánh 2 giá trị (vd trước/sau) theo từng đơn vị, mỗi
+ * đơn vị 2 cột cạnh nhau 2 màu khác nhau, kèm 1 đường ngang cắt ngang đánh
+ * dấu 1 mốc (vd mức điểm đạt) — theo yêu cầu thực tế "1 khoa gồm 2 cột
+ * trước và sau tương ứng 2 màu, thêm 1 dòng mức điểm đạt cắt ngang". Giá
+ * trị luôn in trực tiếp trên đầu mỗi cột (không bắt buộc phải hover mới
+ * xem được), cuộn ngang khi nhiều đơn vị (như TqmGantt).
+ */
+export function TqmGroupedBars({ groups, beforeLabel, afterLabel, threshold, thresholdLabel = "Mức đạt" }: {
+  groups: { label: string; before: number | null; after: number | null }[];
+  beforeLabel: string; afterLabel: string; threshold?: number | null; thresholdLabel?: string;
+}) {
+  if (!groups.length) return <div className="empty-state compact">Chưa có dữ liệu.</div>;
+  const hasThreshold = threshold !== null && threshold !== undefined && Number.isFinite(threshold);
+  const allVals = groups.flatMap((g) => [g.before, g.after]).filter((v): v is number => v != null).concat(hasThreshold ? [threshold as number] : []);
+  const ceiling = Math.max(1, ...allVals) * 1.2;
+  const barW = 20, gapInGroup = 4, groupGap = 30, pad = 30, topPad = 18, height = 220;
+  const groupW = barW * 2 + gapInGroup;
+  const width = pad * 2 + groups.length * groupW + Math.max(0, groups.length - 1) * groupGap;
+  const baseY = height - pad;
+  const yFor = (v: number) => topPad + (1 - Math.max(0, v) / ceiling) * (baseY - topPad);
+  const thresholdY = hasThreshold ? yFor(threshold as number) : null;
+  return (
+    <div className="tqm-grouped-bars">
+      <div className="tqm-grouped-bars-legend">
+        <span><i className="tqm-swatch" style={{ background: COLORS.blue }} />{beforeLabel}</span>
+        <span><i className="tqm-swatch" style={{ background: COLORS.green }} />{afterLabel}</span>
+        {hasThreshold ? <span><i className="tqm-swatch" style={{ background: TARGET_LINE_COLOR }} />{thresholdLabel}: {threshold}</span> : null}
+      </div>
+      <div className="tqm-grouped-bars-scroll">
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Biểu đồ cột so sánh ${beforeLabel} và ${afterLabel} theo đơn vị`} style={{ minWidth: Math.max(480, width) }}>
+          <line x1={pad} y1={baseY} x2={width - pad} y2={baseY} stroke="#dce7ea" />
+          {thresholdY !== null ? (
+            <g>
+              <line x1={pad} y1={thresholdY} x2={width - pad} y2={thresholdY} stroke={TARGET_LINE_COLOR} strokeWidth="2" strokeDasharray="6 5" />
+              <text x={width - pad} y={thresholdY - 6} textAnchor="end" fontSize="10" fontWeight="800" fill={TARGET_LINE_COLOR}>{thresholdLabel}: {threshold}</text>
+            </g>
+          ) : null}
+          {groups.map((g, i) => {
+            const gx = pad + i * (groupW + groupGap);
+            return (
+              <g key={`${g.label}-${i}`}>
+                {g.before != null ? (
+                  <g>
+                    <rect x={gx} y={yFor(g.before)} width={barW} height={Math.max(0, baseY - yFor(g.before))} rx="3" fill={COLORS.blue} />
+                    <text x={gx + barW / 2} y={yFor(g.before) - 4} textAnchor="middle" fontSize="9" fontWeight="800" fill="#31515a">{g.before.toFixed(1)}</text>
+                  </g>
+                ) : null}
+                {g.after != null ? (
+                  <g>
+                    <rect x={gx + barW + gapInGroup} y={yFor(g.after)} width={barW} height={Math.max(0, baseY - yFor(g.after))} rx="3" fill={COLORS.green} />
+                    <text x={gx + barW + gapInGroup + barW / 2} y={yFor(g.after) - 4} textAnchor="middle" fontSize="9" fontWeight="800" fill="#31515a">{g.after.toFixed(1)}</text>
+                  </g>
+                ) : null}
+                <text x={gx + groupW / 2} y={height - 8} textAnchor="end" fontSize="9" fill="#71848b" transform={`rotate(-35 ${gx + groupW / 2} ${height - 8})`}>{g.label.length > 22 ? `${g.label.slice(0, 21)}…` : g.label}</text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 export const TQM_CHART_CSS = `
 .tqm-donut-wrap{display:grid;grid-template-columns:minmax(190px,.8fr) minmax(180px,1fr);gap:20px;align-items:center;padding:10px 18px 20px}.tqm-donut{width:190px;height:190px;border-radius:50%;display:grid;place-items:center;margin:auto}.tqm-donut-hole{width:122px;height:122px;border-radius:50%;background:white;display:grid;place-items:center;align-content:center;box-shadow:inset 0 0 0 1px #edf2f3;text-align:center}.tqm-donut-hole strong{font-size:34px;line-height:1}.tqm-donut-hole span{font-size:10px;color:#718187;margin-top:7px}.tqm-donut-legend{display:grid;gap:10px}.tqm-donut-legend>div{display:grid;grid-template-columns:10px 1fr auto;gap:9px;align-items:center;font-size:11px}.tqm-donut-legend i{width:9px;height:9px;border-radius:50%}.tqm-donut-legend span{color:#5d6f76}.tqm-donut-legend strong{font-size:12px}.tqm-hbars{display:grid;gap:10px;padding:8px 18px 20px}.tqm-hbar-row{display:grid;grid-template-columns:minmax(110px,180px) 1fr 42px;gap:11px;align-items:center}.tqm-hbar-label{display:grid}.tqm-hbar-label strong{font-size:11px}.tqm-hbar-label span{font-size:9px;color:#7a8b91;margin-top:2px}.tqm-hbar-track{height:10px;background:#edf2f3;border-radius:999px;overflow:hidden}.tqm-hbar-fill{display:block;height:100%;border-radius:999px;transition:filter .15s ease}.tqm-hbar-row:hover .tqm-hbar-fill{filter:brightness(.92)}.tqm-hbar-row>b{font-size:11px;text-align:right}
 .tqm-trend{padding:6px 12px 12px;overflow-x:auto;position:relative}.tqm-trend svg{min-width:520px;width:100%;height:auto;cursor:crosshair}.tqm-trend svg:focus{outline:2px solid #0b8a7f;outline-offset:2px}
@@ -179,4 +243,5 @@ export const TQM_CHART_CSS = `
 .tqm-gantt{overflow-x:auto;padding:0 16px 18px}.tqm-gantt-head,.tqm-gantt-row{min-width:860px;display:grid;grid-template-columns:240px 1fr}.tqm-gantt-head>div{font-size:10px;font-weight:900;color:#607279;padding:9px}.tqm-gantt-head{grid-template-columns:240px repeat(15,1fr);border-bottom:1px solid #e3eaec}.tqm-gantt-head span{font-size:9px;text-align:center;padding:9px 2px;color:#71838a}.tqm-gantt-row{min-height:54px;border-bottom:1px solid #edf2f3}.tqm-gantt-name{padding:9px;display:grid;align-content:center}.tqm-gantt-name strong{font-size:11px}.tqm-gantt-name small{font-size:9px;color:#7a8b91;margin-top:3px}.tqm-gantt-grid{position:relative;display:grid;grid-template-columns:repeat(15,1fr)}.tqm-gantt-grid>i{border-left:1px solid #edf2f3}.tqm-gantt-bar{position:absolute;top:15px;height:24px;border-radius:7px;overflow:hidden;box-shadow:0 4px 10px rgba(20,50,58,.12)}.tqm-gantt-bar em{display:block;height:100%;background:rgba(255,255,255,.28)}
 @media(max-width:700px){.tqm-gantt-head,.tqm-gantt-row{grid-template-columns:170px 1fr;min-width:980px}.tqm-gantt-head{grid-template-columns:170px repeat(15,1fr)}.tqm-gantt-name{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid #e3eaec}.tqm-gantt-head>div{position:sticky;left:0;z-index:3;background:#fff;border-right:1px solid #e3eaec}.tqm-donut-wrap{grid-template-columns:1fr}.tqm-donut{width:170px;height:170px}.tqm-donut-hole{width:110px;height:110px}.tqm-hbar-row{grid-template-columns:100px 1fr 34px}.tqm-gantt{padding-inline:8px}}
 .tqm-gauge{display:flex;flex-direction:column;align-items:center;gap:2px;width:100px;max-width:100px;flex:0 0 100px}.tqm-gauge svg{width:100px;height:100px}.tqm-gauge-label{font-size:10px;color:#718187;text-align:center;width:100%}
+.tqm-grouped-bars{padding:8px 18px 20px}.tqm-grouped-bars-legend{display:flex;flex-wrap:wrap;gap:14px;padding-bottom:10px;font-size:11px;font-weight:700;color:#5d6f76}.tqm-grouped-bars-legend span{display:inline-flex;align-items:center;gap:6px}.tqm-swatch{width:10px;height:10px;border-radius:3px;display:inline-block}.tqm-grouped-bars-scroll{overflow-x:auto}.tqm-grouped-bars-scroll svg{height:220px;display:block}
 `;

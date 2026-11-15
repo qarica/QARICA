@@ -32,7 +32,34 @@ describe("Procedure training registration (QR) + pass/fail threshold", () => {
     expect(route).toContain("createAdminClient");
     expect(route).toContain("if (!training.is_open_for_registration)");
     expect(route).toContain("normalizeEmployeeCode");
-    expect(route).toContain("Mã nhân viên này đã đăng ký đợt đào tạo này rồi.");
+    expect(route).toContain("Mã nhân viên này đã đăng ký buổi/đợt này rồi.");
+  });
+
+  // "mỗi đợt đào tạo có nhiều buổi/ngày khác nhau, cần đăng ký theo từng
+  // buổi" — tái dùng procedure_training_rounds làm "buổi" để chọn lúc đăng
+  // ký (không tạo bảng/khái niệm mới), bắt buộc chọn khi đợt đào tạo đã có
+  // buổi nào, bỏ qua khi chưa có buổi nào (không ép tạo "đợt kiểm tra"
+  // trước mới mở đăng ký được).
+  it("đăng ký bắt buộc chọn buổi/đợt khi đợt đào tạo đã có buổi — chặn trùng theo (mã NV, buổi), không phải theo cả đợt đào tạo", () => {
+    const migration = read("supabase/migrations/20261130000008_procedure_training_registration_round_v1.sql");
+    expect(migration).toContain("add column if not exists round_id uuid references public.procedure_training_rounds(id) on delete cascade");
+
+    const route = read("src/app/api/public/training-registration/[trainingId]/route.ts");
+    expect(route).toContain('"procedure_training_rounds"');
+    expect(route).toContain("Chưa chọn buổi/đợt đào tạo.");
+    expect(route).toContain("Buổi/đợt đào tạo không hợp lệ.");
+    expect(route).toContain('query.eq("round_id", validatedRoundId) : query.is("round_id", null)');
+
+    const page = read("src/app/dang-ky-dao-tao/[trainingId]/page.tsx");
+    expect(page).toContain("state.rounds.length ? (");
+    expect(page).toContain("round_id: roundId");
+    expect(page).toContain("state.rounds.length > 0 && !roundId");
+  });
+
+  it("UI tab Đăng ký hiện cột Buổi/đợt cho từng người đã đăng ký", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain("<th>Buổi/đợt</th>");
+    expect(client).toContain("round?.round_label || \"—\"");
   });
 
   it("trang công khai /dang-ky-dao-tao/[trainingId] tồn tại và gọi đúng route đăng ký", () => {

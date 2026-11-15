@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { Icon } from "@/components/icon";
-import { TQM_CHART_CSS, TqmHorizontalBars } from "@/components/tqm-charts";
+import { TQM_CHART_CSS, TqmGroupedBars, TqmHorizontalBars } from "@/components/tqm-charts";
 import { normalizeEmployeeCode } from "@/lib/training-self-test";
 
 type Training = {
@@ -33,7 +33,7 @@ type ResultRow = { id: string; attendee_id: string; round_id: string; score: num
 type ResponseRow = { result_id: string; question_no: number; answer_text: string | null; is_correct: boolean | null };
 type QuestionRow = { question_no: number; correct_answer: string; question_text: string | null; choices: string[] | null };
 type Department = { id: string; name: string; staff_count?: number | null };
-type Registration = { id: string; employee_name: string; employee_code: string | null; department: string | null; job_title: string | null; registered_at: string };
+type Registration = { id: string; employee_name: string; employee_code: string | null; department: string | null; job_title: string | null; registered_at: string; round_id: string | null };
 
 type ImportActionPreview =
   | {
@@ -185,11 +185,12 @@ export function ProcedureTrainingDetailClient({
           setRegistrations={setRegistrations}
           attendees={attendees}
           departments={departments}
+          roundById={roundById}
           canManage={canManage}
           setError={setError}
         />
       ) : null}
-      {tab === "analysis" ? <AnalysisTab rounds={rounds} attendees={attendees} results={results} responses={responses} questions={questions} /> : null}
+      {tab === "analysis" ? <AnalysisTab rounds={rounds} attendees={attendees} results={results} responses={responses} questions={questions} passThreshold={training.pass_threshold} /> : null}
       {tab === "questions" ? <QuestionsTab trainingId={training.id} questions={questions} setQuestions={setQuestions} canManage={canManage} setError={setError} /> : null}
       {tab === "import" ? (
         <ImportTab
@@ -239,8 +240,8 @@ export function ProcedureTrainingDetailClient({
 // Tab: Thông tin đào tạo — form thường, không sửa-tại-chỗ trong bảng (báo cáo
 // thực tế: "giao diện xấu và ko đẹp, cứng đờ ko kéo được").
 // ---------------------------------------------------------------------------
-function InfoTab({ training, setTraining, canManage, setError }: { training: Training; setTraining: (t: Training) => void; canManage: boolean; setError: (e: string) => void }) {
-  const [draft, setDraft] = useState({
+function buildInfoDraft(training: Training) {
+  return {
     trainer: training.trainer || "",
     session_1_time: training.session_1_time || "",
     session_1_location: training.session_1_location || "",
@@ -253,9 +254,18 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
     notes: training.notes || "",
     test_score_max: training.test_score_max != null ? String(training.test_score_max) : "",
     pass_threshold: training.pass_threshold != null ? String(training.pass_threshold) : "",
-  });
+  };
+}
+
+function InfoTab({ training, setTraining, canManage, setError }: { training: Training; setTraining: (t: Training) => void; canManage: boolean; setError: (e: string) => void }) {
+  const [draft, setDraft] = useState(() => buildInfoDraft(training));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Mặc định KHÓA (chỉ xem) — báo cáo thực tế: "khi tạo xong thì phải lưu và
+  // che lại, cần sửa thì bấm sửa để tránh bấm nhầm" (cùng quy ước với Câu
+  // hỏi & đáp án). Bấm "Sửa" mới mở lại form chỉnh sửa; "Hủy" bỏ thay đổi
+  // chưa lưu và khóa lại.
+  const [editing, setEditing] = useState(false);
 
   async function save() {
     setSaving(true);
@@ -278,6 +288,79 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
     }
     setTraining({ ...training, ...body.training });
     setSaved(true);
+    setEditing(false);
+  }
+
+  function cancelEdit() {
+    setDraft(buildInfoDraft(training));
+    setEditing(false);
+  }
+
+  if (!editing) {
+    return (
+      <section className="panel">
+        <div className="panel-title">
+          <h2>Thông tin đào tạo</h2>
+        </div>
+        <div className="detail-grid">
+          <div>
+            <span>Trạng thái</span>
+            {STATUS_LABEL[training.status] || training.status}
+          </div>
+          <div>
+            <span>Người đào tạo</span>
+            {training.trainer || "—"}
+          </div>
+          <div>
+            <span>Thang điểm bài test mặc định (Pre/Post)</span>
+            {training.test_score_max ?? "—"}
+          </div>
+          <div>
+            <span>Điểm đạt</span>
+            {training.pass_threshold ?? "—"}
+          </div>
+          <div>
+            <span>Đào tạo lần 1 — Thời gian</span>
+            {training.session_1_time || "—"}
+          </div>
+          <div>
+            <span>Đào tạo lần 1 — Địa điểm</span>
+            {training.session_1_location || "—"}
+          </div>
+          <div className="span-2">
+            <span>Đào tạo lần 1 — Cách thức</span>
+            {training.session_1_method || "—"}
+          </div>
+          <div>
+            <span>Đào tạo lần 2 — Thời gian</span>
+            {training.session_2_time || "—"}
+          </div>
+          <div>
+            <span>Đào tạo lần 2 — Địa điểm</span>
+            {training.session_2_location || "—"}
+          </div>
+          <div className="span-2">
+            <span>Đào tạo lần 2 — Cách thức</span>
+            {training.session_2_method || "—"}
+          </div>
+          <div className="span-2">
+            <span>Phản hồi QLCL</span>
+            {training.feedback_qlcl || "—"}
+          </div>
+          <div className="span-2">
+            <span>Ghi chú</span>
+            {training.notes || "—"}
+          </div>
+        </div>
+        {canManage ? (
+          <div className="pt-edit-actions" style={{ padding: "0 19px 19px" }}>
+            <button type="button" className="button secondary" onClick={() => setEditing(true)}>
+              Sửa
+            </button>
+          </div>
+        ) : null}
+      </section>
+    );
   }
 
   return (
@@ -364,6 +447,9 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
           <div className="pt-edit-actions">
             <button className="button primary" disabled={saving} onClick={() => void save()}>
               {saving ? "Đang lưu..." : "Lưu thông tin"}
+            </button>
+            <button type="button" className="button tertiary" onClick={cancelEdit}>
+              Hủy
             </button>
             {saved ? <span className="muted">Đã lưu.</span> : null}
           </div>
@@ -1201,6 +1287,7 @@ function RegistrationTab({
   setRegistrations,
   attendees,
   departments,
+  roundById,
   canManage,
   setError,
 }: {
@@ -1211,6 +1298,7 @@ function RegistrationTab({
   setRegistrations: (fn: Registration[] | ((v: Registration[]) => Registration[])) => void;
   attendees: Attendee[];
   departments: Department[];
+  roundById: Map<string, Round>;
   canManage: boolean;
   setError: (e: string) => void;
 }) {
@@ -1326,6 +1414,7 @@ function RegistrationTab({
               <tr>
                 <th>Họ tên</th>
                 <th>Mã NV</th>
+                <th>Buổi/đợt</th>
                 <th>Đơn vị</th>
                 <th>Chức danh</th>
                 <th>Đăng ký lúc</th>
@@ -1336,10 +1425,12 @@ function RegistrationTab({
             <tbody>
               {registrations.map((r) => {
                 const status = attendedStatus(r);
+                const round = r.round_id ? roundById.get(r.round_id) : null;
                 return (
                   <tr key={r.id}>
                     <td data-label="Họ tên">{r.employee_name}</td>
                     <td data-label="Mã NV">{r.employee_code || "—"}</td>
+                    <td data-label="Buổi/đợt">{round?.round_label || "—"}</td>
                     <td data-label="Đơn vị">{r.department || "—"}</td>
                     <td data-label="Chức danh">{r.job_title || "—"}</td>
                     <td data-label="Đăng ký lúc">{new Date(r.registered_at).toLocaleString("vi-VN")}</td>
@@ -1358,7 +1449,7 @@ function RegistrationTab({
               })}
               {!registrations.length ? (
                 <tr>
-                  <td colSpan={canManage ? 7 : 6} className="empty-state compact">
+                  <td colSpan={canManage ? 8 : 7} className="empty-state compact">
                     Chưa có ai đăng ký.
                   </td>
                 </tr>
@@ -1406,7 +1497,7 @@ function RegistrationTab({
 // Tab: Phân tích — điểm theo đợt, theo đơn vị/chức danh, độ khó từng câu
 // (báo cáo thực tế: "chưa có phân tích kết quả theo đối tượng, trước sau").
 // ---------------------------------------------------------------------------
-function AnalysisTab({ rounds, attendees, results, responses, questions }: { rounds: Round[]; attendees: Attendee[]; results: ResultRow[]; responses: ResponseRow[]; questions: QuestionRow[] }) {
+function AnalysisTab({ rounds, attendees, results, responses, questions, passThreshold }: { rounds: Round[]; attendees: Attendee[]; results: ResultRow[]; responses: ResponseRow[]; questions: QuestionRow[]; passThreshold: number | null }) {
   const attendeeById = useMemo(() => new Map(attendees.map((a) => [a.id, a])), [attendees]);
 
   const byRound = rounds.map((r) => {
@@ -1456,15 +1547,6 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
     .map((b) => ({ label: b.round.round_label, value: Math.round((b.average as number) * 100) / 100, caption: `${b.count} người có điểm`, tone: "blue" as const }));
   const deptChartRows = byDept.filter((d) => d.average != null).map((d) => ({ label: d.key, value: Math.round((d.average as number) * 100) / 100, caption: `${d.count} lượt`, tone: "brand" as const }));
   const titleChartRows = byTitle.filter((d) => d.average != null).map((d) => ({ label: d.key, value: Math.round((d.average as number) * 100) / 100, caption: `${d.count} lượt`, tone: "blue" as const }));
-  const beforeAfterChartRows = (beforeAfter || [])
-    .filter((r) => r.before != null && r.after != null && r.delta != null)
-    .map((r) => ({
-      label: r.key,
-      value: Math.round(Math.abs(r.delta as number) * 100) / 100,
-      caption: `${(r.before as number).toFixed(1)} → ${(r.after as number).toFixed(1)} (${(r.delta as number) >= 0 ? "+" : ""}${(r.delta as number).toFixed(1)})`,
-      tone: (r.delta as number) >= 0 ? ("green" as const) : ("red" as const),
-    }))
-    .sort((a, b) => b.value - a.value);
   const questionChartRows = questionDifficulty
     .filter((q) => q.pctCorrect != null)
     .map((q) => ({
@@ -1520,7 +1602,15 @@ function AnalysisTab({ rounds, attendees, results, responses, questions }: { rou
               </p>
             </div>
           </div>
-          {beforeAfterChartRows.length ? <TqmHorizontalBars rows={beforeAfterChartRows} /> : null}
+          {beforeAfter.length ? (
+            <TqmGroupedBars
+              groups={beforeAfter.map((r) => ({ label: r.key, before: r.before, after: r.after }))}
+              beforeLabel={firstRound!.round_label}
+              afterLabel={lastRound!.round_label}
+              threshold={passThreshold}
+              thresholdLabel="Mức đạt"
+            />
+          ) : null}
           <div className="table-wrap">
             <table>
               <thead>
@@ -1842,6 +1932,10 @@ function QuestionEditorRow({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [localError, setLocalError] = useState("");
+  // Câu đã lưu mặc định bị KHÓA (chỉ xem) — tránh bấm nhầm đổi đáp án đã
+  // chốt; phải bấm "Sửa" mới mở lại form chỉnh sửa. Câu mới (draft) thì mở
+  // sẵn vì chưa có gì để khóa.
+  const [editing, setEditing] = useState(isDraft);
 
   const isChoiceMode = choices.filter((c) => c.trim()).length >= 2;
 
@@ -1888,6 +1982,21 @@ function QuestionEditorRow({
       return;
     }
     onSaved(body.question as QuestionRow);
+    if (!isDraft) setEditing(false);
+  }
+
+  function cancelEdit() {
+    setLocalError("");
+    setQuestionText(question?.question_text || "");
+    const hc = !!question?.choices && question.choices.length > 1;
+    setChoices(hc ? [...(question!.choices as string[])] : []);
+    setCorrectIndex(() => {
+      if (!hc) return null;
+      const idx = (question!.choices as string[]).findIndex((c) => c === question!.correct_answer);
+      return idx >= 0 ? idx : null;
+    });
+    setFreeTextAnswer(hc ? "" : question?.correct_answer || "");
+    setEditing(false);
   }
 
   async function remove() {
@@ -1907,50 +2016,74 @@ function QuestionEditorRow({
   return (
     <fieldset>
       <legend>{isDraft ? `Câu mới (#${questionNo})` : `Câu ${questionNo}`}</legend>
-      <div style={{ display: "grid", gap: 8 }}>
-        <input disabled={!canManage} placeholder="Nội dung câu hỏi..." value={questionText} onChange={(e) => setQuestionText(e.target.value)} />
-        <div className="ptd-choice-list">
-          {choices.map((c, i) => (
-            <label key={i} className="ptd-choice-row">
-              <input type="radio" name={`correct-${questionNo}`} checked={correctIndex === i} onChange={() => setCorrectIndex(i)} disabled={!canManage || !c.trim()} />
-              <input className="ptd-choice-text" disabled={!canManage} placeholder={`Lựa chọn ${i + 1}...`} value={c} onChange={(e) => updateChoice(i, e.target.value)} />
-              {canManage ? (
-                <button type="button" aria-label={`Xoá lựa chọn ${i + 1}`} onClick={() => removeChoice(i)}>
-                  ×
-                </button>
-              ) : null}
-            </label>
-          ))}
+      {!editing ? (
+        <div className="ptd-question-locked">
+          <p className="ptd-question-locked-text">{question?.question_text}</p>
+          <ul className="ptd-choice-list-locked">
+            {(isChoiceMode ? choices : [freeTextAnswer]).map((c, i) => (
+              <li key={i} className={c === question?.correct_answer ? "correct" : undefined}>
+                {c === question?.correct_answer ? "✓ " : ""}
+                {c}
+              </li>
+            ))}
+          </ul>
           {canManage ? (
-            <button type="button" className="button tertiary small" onClick={addChoice} style={{ justifySelf: "start" }}>
-              + Thêm lựa chọn
-            </button>
-          ) : null}
-        </div>
-        {!isChoiceMode ? (
-          <label className="ptd-free-answer">
-            <span>Đáp án đúng (cần ít nhất 2 lựa chọn ở trên để chuyển sang trắc nghiệm):</span>
-            <input disabled={!canManage} placeholder="Đáp án đúng..." value={freeTextAnswer} onChange={(e) => setFreeTextAnswer(e.target.value)} />
-          </label>
-        ) : null}
-        {localError ? <p className="ptd-question-error">{localError}</p> : null}
-        {canManage ? (
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="button secondary small" disabled={saving} onClick={() => void save()}>
-              {saving ? "Đang lưu..." : "Lưu câu này"}
-            </button>
-            {isDraft ? (
-              <button type="button" className="button tertiary small" onClick={onCancelDraft}>
-                Hủy
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" className="button secondary small" onClick={() => setEditing(true)}>
+                Sửa
               </button>
-            ) : (
               <button type="button" className="button tertiary small" disabled={deleting} onClick={() => void remove()}>
                 {deleting ? "Đang xoá..." : "Xoá câu hỏi"}
               </button>
-            )}
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 8 }}>
+          <input disabled={!canManage} placeholder="Nội dung câu hỏi..." value={questionText} onChange={(e) => setQuestionText(e.target.value)} />
+          <div className="ptd-choice-list">
+            {choices.map((c, i) => (
+              <label key={i} className="ptd-choice-row">
+                <input type="radio" name={`correct-${questionNo}`} checked={correctIndex === i} onChange={() => setCorrectIndex(i)} disabled={!canManage || !c.trim()} />
+                <input className="ptd-choice-text" disabled={!canManage} placeholder={`Lựa chọn ${i + 1}...`} value={c} onChange={(e) => updateChoice(i, e.target.value)} />
+                {canManage ? (
+                  <button type="button" aria-label={`Xoá lựa chọn ${i + 1}`} onClick={() => removeChoice(i)}>
+                    ×
+                  </button>
+                ) : null}
+              </label>
+            ))}
+            {canManage ? (
+              <button type="button" className="button tertiary small" onClick={addChoice} style={{ justifySelf: "start" }}>
+                + Thêm lựa chọn
+              </button>
+            ) : null}
           </div>
-        ) : null}
-      </div>
+          {!isChoiceMode ? (
+            <label className="ptd-free-answer">
+              <span>Đáp án đúng (cần ít nhất 2 lựa chọn ở trên để chuyển sang trắc nghiệm):</span>
+              <input disabled={!canManage} placeholder="Đáp án đúng..." value={freeTextAnswer} onChange={(e) => setFreeTextAnswer(e.target.value)} />
+            </label>
+          ) : null}
+          {localError ? <p className="ptd-question-error">{localError}</p> : null}
+          {canManage ? (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="button secondary small" disabled={saving} onClick={() => void save()}>
+                {saving ? "Đang lưu..." : "Lưu câu này"}
+              </button>
+              {isDraft ? (
+                <button type="button" className="button tertiary small" onClick={onCancelDraft}>
+                  Hủy
+                </button>
+              ) : (
+                <button type="button" className="button tertiary small" onClick={cancelEdit}>
+                  Hủy
+                </button>
+              )}
+            </div>
+          ) : null}
+        </div>
+      )}
       <style jsx>{`
         .ptd-choice-list {
           display: grid;
@@ -1988,6 +2121,25 @@ function QuestionEditorRow({
           font-size: 12px;
           color: var(--danger, #dc2626);
           font-weight: 600;
+        }
+        .ptd-question-locked {
+          display: grid;
+          gap: 8px;
+        }
+        .ptd-question-locked-text {
+          margin: 0;
+          font-weight: 600;
+        }
+        .ptd-choice-list-locked {
+          margin: 0;
+          padding-left: 18px;
+          display: grid;
+          gap: 4px;
+          color: var(--muted);
+        }
+        .ptd-choice-list-locked li.correct {
+          color: var(--brand, #1d4ed8);
+          font-weight: 700;
         }
       `}</style>
     </fieldset>

@@ -26,7 +26,7 @@ export default async function ProcedureTrainingDetailPage({ params }: { params: 
     supabase.from("procedure_training_attendees").select("id,employee_name,employee_code,department,job_title,attended,attended_at,notes").eq("training_id", id).order("employee_name"),
     supabase.from("procedure_training_questions").select("question_no,correct_answer,question_text,choices").eq("training_id", id).order("question_no"),
     supabase.from("departments").select("id,name,staff_count").eq("is_active", true).order("name"),
-    supabase.from("procedure_training_registrations").select("id,employee_name,employee_code,department,job_title,registered_at").eq("training_id", id).order("registered_at"),
+    supabase.from("procedure_training_registrations").select("id,employee_name,employee_code,department,job_title,registered_at,round_id").eq("training_id", id).order("registered_at"),
   ]);
   const attendeeIds = (attendeesRes.data ?? []).map((a) => a.id);
 

@@ -398,24 +398,38 @@ describe("Procedure trainings: import điểm từ file khảo sát (Google/Micr
   // vị" ban đầu thử TqmMultiTrend (đường nối nhiều kỳ) nhưng với vài chục
   // đơn vị không theo thứ tự thời gian thật, trục ngang bị chữ chồng lên
   // nhau và đường nối ngụ ý 1 xu hướng liên tục giữa các đơn vị không liên
-  // quan — gây hiểu lầm, không chỉ là xấu. Đổi sang cột ngang chênh lệch
-  // (trị tuyệt đối, sắp xếp giảm dần, tông xanh lá/đỏ kèm số +/- rõ ràng
-  // trong caption — không chỉ dựa vào màu vì xanh lá/đỏ không phân biệt
-  // được với mù màu đỏ-lục, đúng ghi chú ở đầu tqm-charts.tsx).
-  it("AnalysisTab dùng TqmHorizontalBars (component biểu đồ dùng chung, đã qua dataviz validator) cho cả 5 biểu đồ (theo đợt, trước/sau theo đơn vị, theo đơn vị, theo chức danh, độ khó câu), không phải chỉ có bảng số — và nạp đúng TQM_CHART_CSS (plain <style>, không phải <style jsx>, vì Tqm* là component con khác, style jsx không scope qua được)", () => {
+  // quan — gây hiểu lầm, không chỉ là xấu. Sau đó đổi sang cột ngang chênh
+  // lệch (trị tuyệt đối, tông xanh lá/đỏ) — nhưng theo yêu cầu thực tế "nên
+  // thiết kế biểu đồ cột, 1 khoa gồm 2 cột trước và sau tương ứng 2 màu,
+  // thêm 1 dòng mức điểm đạt cắt ngang", đổi tiếp sang TqmGroupedBars
+  // (cột dọc nhóm 2 cột/đơn vị, tông xanh dương/xanh lá phân biệt được với
+  // mù màu — không dùng cặp xanh lá/đỏ cho 2 cột cạnh nhau, chỉ dùng màu
+  // cam cho đường mức điểm đạt) — 4 biểu đồ còn lại (theo đợt, theo đơn vị,
+  // theo chức danh, độ khó câu) vẫn dùng TqmHorizontalBars như cũ.
+  it("AnalysisTab dùng TqmHorizontalBars cho 4 biểu đồ (theo đợt, theo đơn vị, theo chức danh, độ khó câu) và TqmGroupedBars riêng cho so sánh trước/sau theo đơn vị — không phải chỉ có bảng số — và nạp đúng TQM_CHART_CSS (plain <style>, không phải <style jsx>, vì Tqm* là component con khác, style jsx không scope qua được)", () => {
     const client = read("src/components/procedure-training-detail-client.tsx");
-    expect(client).toContain('import { TQM_CHART_CSS, TqmHorizontalBars } from "@/components/tqm-charts"');
+    expect(client).toContain('import { TQM_CHART_CSS, TqmGroupedBars, TqmHorizontalBars } from "@/components/tqm-charts"');
     const analysisStart = client.indexOf("function AnalysisTab");
     const analysisEnd = client.indexOf("function groupByBeforeAfter");
     const analysisSrc = client.slice(analysisStart, analysisEnd);
-    expect(analysisSrc.match(/<TqmHorizontalBars/g)?.length).toBe(5);
+    expect(analysisSrc.match(/<TqmHorizontalBars/g)?.length).toBe(4);
+    expect(analysisSrc).toContain("<TqmGroupedBars");
     expect(analysisSrc).toContain("<style>{TQM_CHART_CSS}</style>");
     expect(analysisSrc).not.toContain("TqmMultiTrend");
   });
 
-  it("biểu đồ so sánh trước/sau theo đơn vị dùng chênh lệch tuyệt đối + tông xanh/đỏ kèm số +/- rõ trong caption (không chỉ dựa vào màu để phân biệt tăng/giảm)", () => {
+  it("biểu đồ cột so sánh trước/sau theo đơn vị: 2 cột/đơn vị (trước, sau) + đường ngang mức điểm đạt (pass_threshold) cắt ngang", () => {
     const client = read("src/components/procedure-training-detail-client.tsx");
-    expect(client).toContain('tone: (r.delta as number) >= 0 ? ("green" as const) : ("red" as const)');
-    expect(client).toContain('caption: `${(r.before as number).toFixed(1)} → ${(r.after as number).toFixed(1)} (${(r.delta as number) >= 0 ? "+" : ""}${(r.delta as number).toFixed(1)})`');
+    expect(client).toContain("passThreshold: number | null");
+    expect(client).toContain("groups={beforeAfter.map((r) => ({ label: r.key, before: r.before, after: r.after }))}");
+    expect(client).toContain("threshold={passThreshold}");
+
+    const charts = read("src/components/tqm-charts.tsx");
+    expect(charts).toContain("export function TqmGroupedBars(");
+    expect(charts).toContain("g.before != null");
+    expect(charts).toContain("g.after != null");
+    expect(charts).toContain("thresholdY");
+    expect(charts).toContain("fill={COLORS.blue}");
+    expect(charts).toContain("fill={COLORS.green}");
   });
 });
