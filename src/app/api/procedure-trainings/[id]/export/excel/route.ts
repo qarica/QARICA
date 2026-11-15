@@ -28,7 +28,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { data: training } = await admin
     .from("procedure_trainings")
-    .select("id,procedure_name,pass_threshold")
+    .select("id,procedure_name,pass_threshold,test_score_max")
     .eq("id", trainingId)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -38,7 +38,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     admin.from("procedure_training_rounds").select("id,round_label,round_date,score_max,sort_order").eq("training_id", trainingId).order("sort_order").order("round_date"),
     admin.from("procedure_training_attendees").select("id,employee_name,employee_code,department,job_title,attended").eq("training_id", trainingId).order("employee_name"),
   ]);
-  const rounds = roundsRes.data ?? [];
+  // "+ Thêm đợt" không có ô nhập thang điểm riêng — round.score_max gần như
+  // luôn null trên dữ liệu thật, chỉ training.test_score_max mới thật sự
+  // được điền; lấy thang điểm đợt nếu có, không thì dùng mặc định của đợt
+  // đào tạo (cùng fallback với UI — xem procedure-training-detail-client.tsx).
+  const rounds = (roundsRes.data ?? []).map((r) => ({ ...r, score_max: r.score_max ?? training.test_score_max }));
   const attendees = attendeesRes.data ?? [];
 
   const attendeeIds = attendees.map((a) => a.id);

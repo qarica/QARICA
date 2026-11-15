@@ -50,6 +50,10 @@ const STATUS_LABEL: Record<string, string> = {
   NOT_PLANNED: "Chưa đào tạo — chưa có kế hoạch",
 };
 const STATUS_TONE: Record<string, string> = { TRAINED: "success", PLANNED: "warning", NOT_PLANNED: "danger" };
+// "Các danh sách dài thì thu gọn mặc định, cần thì bấm nút mở rộng" — ngưỡng
+// chung cho mọi danh sách dài trong module đào tạo (bảng theo chủ đề, bảng
+// xếp hạng, danh sách tuyên dương, danh sách nhân sự).
+const LIST_COLLAPSE_LIMIT = 8;
 
 function formatDate(value: string | null) {
   if (!value) return "—";
@@ -90,6 +94,7 @@ export function ProcedureTrainingsClient({
   const [effectiveDate, setEffectiveDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
 
   async function submit() {
     if (!procedureName.trim()) {
@@ -162,11 +167,9 @@ export function ProcedureTrainingsClient({
         <button type="button" className={view === "self_read" ? "active" : ""} aria-pressed={view === "self_read"} onClick={() => setView("self_read")}>
           Tự đọc hiểu
         </button>
-        {topicGroups.length ? (
-          <button type="button" className={view === "topic" ? "active" : ""} aria-pressed={view === "topic"} onClick={() => setView("topic")}>
-            Theo chủ đề
-          </button>
-        ) : null}
+        <button type="button" className={view === "topic" ? "active" : ""} aria-pressed={view === "topic"} onClick={() => setView("topic")}>
+          Theo chủ đề
+        </button>
       </div>
       {view === "training" ? (
       <>
@@ -332,57 +335,84 @@ export function ProcedureTrainingsClient({
         </section>
       ) : (
         <>
-          {topicGroups.map((group) => (
-            <section className="panel" key={group.key}>
-              <div className="panel-title">
-                <div>
-                  <h2>{group.trainings[0]?.procedure_name || "Chủ đề đào tạo"}</h2>
-                  <p>
-                    Gộp {group.trainings.length} đợt: {group.trainings.map((t) => `${t.procedure_name}${t.effective_date ? ` (${formatDate(t.effective_date)})` : ""}`).join(" · ")}
-                  </p>
-                </div>
-              </div>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Họ tên</th>
-                      <th>Mã NV</th>
-                      <th>Đơn vị</th>
-                      <th>Chức danh</th>
-                      <th>Trạng thái</th>
-                      <th>Đạt ở đợt</th>
-                      <th>Số lần tham gia</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.rollup.map((row) => (
-                      <tr key={row.normalizedCode}>
-                        <td>{row.employeeName}</td>
-                        <td>{row.normalizedCode}</td>
-                        <td>{row.department || "—"}</td>
-                        <td>{row.jobTitle || "—"}</td>
-                        <td>
-                          <span className={`status-badge ${row.status === "pass" ? "success" : row.status === "fail" ? "danger" : "muted"}`}>
-                            {row.status === "pass" ? "Đạt" : row.status === "fail" ? "Không đạt — cần học lại" : "Chưa có kết quả"}
-                          </span>
-                        </td>
-                        <td>{row.passedTraining ? `${row.passedTraining.procedureName}${row.passedTraining.effectiveDate ? ` (${formatDate(row.passedTraining.effectiveDate)})` : ""}` : "—"}</td>
-                        <td>{row.attemptCount}</td>
-                      </tr>
-                    ))}
-                    {!group.rollup.length ? (
-                      <tr>
-                        <td colSpan={7} className="empty-state compact">
-                          Chưa có nhân sự nào có mã NV để gộp theo chủ đề này.
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
+          {!topicGroups.length ? (
+            <section className="panel">
+              <p className="empty-state compact">Chưa có chủ đề nào gộp được từ 2 đợt đào tạo trở lên. Khi cùng 1 văn bản/quy trình được mở nhiều lớp/đợt khác ngày, kết quả sẽ tự gộp lại ở đây.</p>
             </section>
-          ))}
+          ) : null}
+          {topicGroups.map((group) => {
+            const expanded = expandedTopics.has(group.key);
+            const visibleRollup = expanded ? group.rollup : group.rollup.slice(0, LIST_COLLAPSE_LIMIT);
+            return (
+              <section className="panel" key={group.key}>
+                <div className="panel-title">
+                  <div>
+                    <h2>{group.trainings[0]?.procedure_name || "Chủ đề đào tạo"}</h2>
+                    <p>
+                      Gộp {group.trainings.length} đợt: {group.trainings.map((t) => `${t.procedure_name}${t.effective_date ? ` (${formatDate(t.effective_date)})` : ""}`).join(" · ")}
+                    </p>
+                  </div>
+                </div>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Họ tên</th>
+                        <th>Mã NV</th>
+                        <th>Đơn vị</th>
+                        <th>Chức danh</th>
+                        <th>Trạng thái</th>
+                        <th>Đạt ở đợt</th>
+                        <th>Số lần tham gia</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleRollup.map((row) => (
+                        <tr key={row.normalizedCode}>
+                          <td>{row.employeeName}</td>
+                          <td>{row.normalizedCode}</td>
+                          <td>{row.department || "—"}</td>
+                          <td>{row.jobTitle || "—"}</td>
+                          <td>
+                            <span className={`status-badge ${row.status === "pass" ? "success" : row.status === "fail" ? "danger" : "muted"}`}>
+                              {row.status === "pass" ? "Đạt" : row.status === "fail" ? "Không đạt — cần học lại" : "Chưa có kết quả"}
+                            </span>
+                          </td>
+                          <td>{row.passedTraining ? `${row.passedTraining.procedureName}${row.passedTraining.effectiveDate ? ` (${formatDate(row.passedTraining.effectiveDate)})` : ""}` : "—"}</td>
+                          <td>{row.attemptCount}</td>
+                        </tr>
+                      ))}
+                      {!group.rollup.length ? (
+                        <tr>
+                          <td colSpan={7} className="empty-state compact">
+                            Chưa có nhân sự nào có mã NV để gộp theo chủ đề này.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+                {group.rollup.length > LIST_COLLAPSE_LIMIT ? (
+                  <div style={{ padding: "0 19px 19px" }}>
+                    <button
+                      type="button"
+                      className="button secondary small"
+                      onClick={() =>
+                        setExpandedTopics((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(group.key)) next.delete(group.key);
+                          else next.add(group.key);
+                          return next;
+                        })
+                      }
+                    >
+                      {expanded ? "Thu gọn" : `Xem tất cả (${group.rollup.length})`}
+                    </button>
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
         </>
       )}
       {qrDocId ? <DocumentAckQrModal doc={selfReadDocuments.find((d) => d.id === qrDocId) || null} onClose={() => setQrDocId(null)} /> : null}

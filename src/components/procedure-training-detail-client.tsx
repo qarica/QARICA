@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Mã QR là data URL tạo client-side (qrcode), không phải ảnh tĩnh/remote để Next tối ưu (theo đúng quy ước đã dùng ở medical-equipment-detail-client.tsx). */
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { Icon } from "@/components/icon";
 import { KpiCard } from "@/components/kpi-card";
@@ -36,6 +37,11 @@ type ResponseRow = { result_id: string; question_no: number; answer_text: string
 type QuestionRow = { question_no: number; correct_answer: string; question_text: string | null; choices: string[] | null };
 type Department = { id: string; name: string; staff_count?: number | null };
 type Registration = { id: string; employee_name: string; employee_code: string | null; department: string | null; job_title: string | null; registered_at: string; round_id: string | null };
+
+// "Các danh sách dài thì thu gọn mặc định, cần thì bấm nút mở rộng" — ngưỡng
+// chung cho mọi danh sách dài trong trang chi tiết đào tạo (nhân sự & điểm,
+// bảng xếp hạng, tuyên dương).
+const LIST_COLLAPSE_LIMIT = 8;
 
 type ImportActionPreview =
   | {
@@ -104,7 +110,15 @@ export function ProcedureTrainingDetailClient({
   const [registrations, setRegistrations] = useState(initialRegistrations);
   const [error, setError] = useState("");
 
-  const roundById = useMemo(() => new Map(rounds.map((r) => [r.id, r])), [rounds]);
+  // "+ Thêm đợt" không có ô nhập thang điểm riêng cho từng đợt — round.score_max
+  // gần như luôn null trên dữ liệu thật, chỉ training.test_score_max (tab
+  // Thông tin đào tạo) mới thật sự được admin điền. Dùng round.score_max làm
+  // thang điểm nếu có (vd nhập từ file import), nếu không thì lấy mặc định
+  // từ training — tính 1 lần ở đây, truyền xuống mọi nơi hiển thị/so điểm,
+  // tránh mỗi chỗ đọc thẳng round.score_max rồi âm thầm ra "—"/không vẽ được
+  // biểu đồ % (báo cáo thực tế: "% thang điểm" trống, chưa vẽ được cột).
+  const effectiveRounds = useMemo(() => rounds.map((r) => ({ ...r, score_max: r.score_max ?? training.test_score_max })), [rounds, training.test_score_max]);
+  const roundById = useMemo(() => new Map(effectiveRounds.map((r) => [r.id, r])), [effectiveRounds]);
   const resultsByAttendee = useMemo(() => {
     const map = new Map<string, ResultRow[]>();
     for (const r of results) map.set(r.attendee_id, [...(map.get(r.attendee_id) || []), r]);
@@ -142,7 +156,7 @@ export function ProcedureTrainingDetailClient({
       {tab === "roster" ? (
         <RosterTab
           trainingId={training.id}
-          rounds={rounds}
+          rounds={effectiveRounds}
           setRounds={setRounds}
           attendees={attendees}
           setAttendees={setAttendees}
@@ -172,7 +186,7 @@ export function ProcedureTrainingDetailClient({
           setError={setError}
         />
       ) : null}
-      {tab === "analysis" ? <AnalysisTab rounds={rounds} attendees={attendees} results={results} responses={responses} questions={questions} passThreshold={training.pass_threshold} /> : null}
+      {tab === "analysis" ? <AnalysisTab rounds={effectiveRounds} attendees={attendees} results={results} responses={responses} questions={questions} passThreshold={training.pass_threshold} /> : null}
       {tab === "questions" ? <QuestionsTab trainingId={training.id} questions={questions} setQuestions={setQuestions} canManage={canManage} setError={setError} /> : null}
       {tab === "import" ? (
         <ImportTab
@@ -240,9 +254,28 @@ function buildInfoDraft(training: Training) {
 }
 
 function InfoTab({ training, setTraining, canManage, setError }: { training: Training; setTraining: (t: Training) => void; canManage: boolean; setError: (e: string) => void }) {
+  const router = useRouter();
   const [draft, setDraft] = useState(() => buildInfoDraft(training));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+
+  // "1 chủ đề đào tạo có thể có nhiều lớp khác nhau, chủ động khai báo thông
+  // tin lớp và kế thừa thông tin đợt cũ" — tạo 1 lớp (procedure_trainings)
+  // MỚI kế thừa tên/mã quy trình/giảng viên/thang điểm, rồi chuyển sang
+  // trang lớp mới để sửa lại thời gian/địa điểm cho đúng.
+  async function duplicateTraining() {
+    setDuplicating(true);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${training.id}/duplicate`, { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    setDuplicating(false);
+    if (!res.ok) {
+      setError(body.error || "Không tạo được lớp mới.");
+      return;
+    }
+    router.push(`/procedure-trainings/${body.training.id}`);
+  }
   // Mặc định KHÓA (chỉ xem) — báo cáo thực tế: "khi tạo xong thì phải lưu và
   // che lại, cần sửa thì bấm sửa để tránh bấm nhầm" (cùng quy ước với Câu
   // hỏi & đáp án). Bấm "Sửa" mới mở lại form chỉnh sửa; "Hủy" bỏ thay đổi
@@ -338,6 +371,9 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
           <div className="pt-edit-actions" style={{ padding: "0 19px 19px" }}>
             <button type="button" className="button secondary" onClick={() => setEditing(true)}>
               Sửa
+            </button>
+            <button type="button" className="button tertiary" disabled={duplicating} onClick={() => void duplicateTraining()} title="Tạo 1 lớp mới cùng chủ đề, kế thừa thông tin của lớp này — dùng khi mở thêm 1 lớp/đợt khác ngày">
+              {duplicating ? "Đang tạo..." : "+ Tạo lớp mới cùng chủ đề"}
             </button>
           </div>
         ) : null}
@@ -490,6 +526,7 @@ function RosterTab({
   const [detailAttendeeId, setDetailAttendeeId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [resultFilter, setResultFilter] = useState<"all" | "pass" | "fail" | "none">("all");
+  const [showAllAttendees, setShowAllAttendees] = useState(false);
   const [qrRoundId, setQrRoundId] = useState<string | null>(null);
   const [toggleBusyId, setToggleBusyId] = useState<string | null>(null);
 
@@ -668,6 +705,7 @@ function RosterTab({
     return true;
   });
   const detailAttendee = attendees.find((a) => a.id === detailAttendeeId) || null;
+  const visibleAttendees = showAllAttendees ? filteredAttendees : filteredAttendees.slice(0, LIST_COLLAPSE_LIMIT);
 
   return (
     <>
@@ -785,7 +823,7 @@ function RosterTab({
               </tr>
             </thead>
             <tbody>
-              {filteredAttendees.map((a, idx) => {
+              {visibleAttendees.map((a, idx) => {
                 const myResults = resultsByAttendee.get(a.id) || [];
                 const editingDept = deptEdit?.attendeeId === a.id;
                 const deptMismatch = isDeptMismatch(a.department);
@@ -890,6 +928,13 @@ function RosterTab({
             </tbody>
           </table>
         </div>
+        {filteredAttendees.length > LIST_COLLAPSE_LIMIT ? (
+          <div style={{ padding: "0 19px 19px" }}>
+            <button type="button" className="button secondary small" onClick={() => setShowAllAttendees((v) => !v)}>
+              {showAllAttendees ? "Thu gọn" : `Xem tất cả (${filteredAttendees.length})`}
+            </button>
+          </div>
+        ) : null}
       </section>
 
       {detailAttendee ? (
@@ -1528,6 +1573,8 @@ function RegistrationTab({
 // (báo cáo thực tế: "chưa có phân tích kết quả theo đối tượng, trước sau").
 // ---------------------------------------------------------------------------
 function AnalysisTab({ rounds, attendees, results, responses, questions, passThreshold }: { rounds: Round[]; attendees: Attendee[]; results: ResultRow[]; responses: ResponseRow[]; questions: QuestionRow[]; passThreshold: number | null }) {
+  const [showAllLeaderboard, setShowAllLeaderboard] = useState(false);
+  const [showAllHonor, setShowAllHonor] = useState(false);
   const attendeeById = useMemo(() => new Map(attendees.map((a) => [a.id, a])), [attendees]);
 
   const byRound = rounds.map((r) => {
@@ -1546,18 +1593,26 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
   // trích xuất để xét đạt và báo cáo theo đơn vị/chức danh. Gộp cả Pre lẫn
   // Post vào 1 điểm TB sẽ làm sai lệch số liệu báo cáo (Pre thường thấp hơn
   // Post, kéo điểm TB xuống dù chất lượng đào tạo thực tế không như vậy).
+  // "Khoa Ung Bướu và Khoa Ung bướu gộp lại" — nhóm theo đơn vị/chức danh
+  // phải gộp không phân biệt hoa/thường (chữ viết tay tự do, không phải
+  // chọn từ danh mục chuẩn ở mọi nơi nhập liệu cũ) — chuẩn hoá khoá nhóm,
+  // vẫn hiện tên theo đúng chữ hoa/thường đầu tiên gặp để không tự ý đổi
+  // dữ liệu người dùng đã nhập.
   function groupBy(getKey: (a: Attendee) => string | null) {
-    const groups = new Map<string, { attendeeId: string; score: number }[]>();
+    const groups = new Map<string, { label: string; rows: { attendeeId: string; score: number }[] }>();
     if (!lastRound) return [];
     for (const res of results) {
       if (res.score == null || res.round_id !== lastRound.id) continue;
       const a = attendeeById.get(res.attendee_id);
       if (!a) continue;
-      const key = getKey(a) || "Chưa phân loại";
-      groups.set(key, [...(groups.get(key) || []), { attendeeId: res.attendee_id, score: res.score }]);
+      const label = (getKey(a) || "Chưa phân loại").trim();
+      const normKey = label.toLocaleLowerCase("vi");
+      const g = groups.get(normKey) || { label, rows: [] };
+      g.rows.push({ attendeeId: res.attendee_id, score: res.score });
+      groups.set(normKey, g);
     }
-    return Array.from(groups.entries())
-      .map(([key, rows]) => ({ key, count: rows.length, average: avg(rows.map((r) => r.score)) }))
+    return Array.from(groups.values())
+      .map(({ label, rows }) => ({ key: label, count: rows.length, average: avg(rows.map((r) => r.score)) }))
       .sort((a, b) => (b.average ?? 0) - (a.average ?? 0));
   }
   const byDept = groupBy((a) => a.department);
@@ -1719,7 +1774,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
                 </tr>
               </thead>
               <tbody>
-                {leaderboard.map((row) => (
+                {(showAllLeaderboard ? leaderboard : leaderboard.slice(0, LIST_COLLAPSE_LIMIT)).map((row) => (
                   <tr key={row.attendeeId}>
                     <td data-label="Hạng">{row.rank <= 3 ? <span className={`status-badge ${row.rank === 1 ? "success" : "info"}`}>#{row.rank}</span> : row.rank}</td>
                     <td data-label="Họ tên">{row.name}</td>
@@ -1734,6 +1789,13 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
               </tbody>
             </table>
           </div>
+          {leaderboard.length > LIST_COLLAPSE_LIMIT ? (
+            <div style={{ padding: "0 19px 19px" }}>
+              <button type="button" className="button secondary small" onClick={() => setShowAllLeaderboard((v) => !v)}>
+                {showAllLeaderboard ? "Thu gọn" : `Xem tất cả (${leaderboard.length})`}
+              </button>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -1748,7 +1810,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
             </div>
           </div>
           <div className="ptd-honor-grid" style={{ padding: "0 19px 19px" }}>
-            {maxScoreAchievers.map((row) => (
+            {(showAllHonor ? maxScoreAchievers : maxScoreAchievers.slice(0, LIST_COLLAPSE_LIMIT)).map((row) => (
               <div className="ptd-honor-card" key={row.attendeeId}>
                 <Icon name="badge-check" size={20} />
                 <strong>{row.name}</strong>
@@ -1759,6 +1821,13 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
               </div>
             ))}
           </div>
+          {maxScoreAchievers.length > LIST_COLLAPSE_LIMIT ? (
+            <div style={{ padding: "0 19px 19px" }}>
+              <button type="button" className="button secondary small" onClick={() => setShowAllHonor((v) => !v)}>
+                {showAllHonor ? "Thu gọn" : `Xem tất cả (${maxScoreAchievers.length})`}
+              </button>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -2041,23 +2110,27 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
 
 function groupByBeforeAfter(attendees: Attendee[], results: ResultRow[], beforeRoundId: string, afterRoundId: string, getKey: (a: Attendee) => string | null = (a) => a.department) {
   const attendeeById = new Map(attendees.map((a) => [a.id, a]));
-  const groups = new Map<string, { before: number[]; after: number[] }>();
+  // Chuẩn hoá khoá nhóm (không phân biệt hoa/thường) — cùng lý do với
+  // groupBy() trong AnalysisTab: tránh "Khoa Ung Bướu" và "Khoa Ung bướu"
+  // tách thành 2 dòng/2 cột khác nhau trên biểu đồ.
+  const groups = new Map<string, { label: string; before: number[]; after: number[] }>();
   for (const res of results) {
     if (res.score == null) continue;
     if (res.round_id !== beforeRoundId && res.round_id !== afterRoundId) continue;
     const a = attendeeById.get(res.attendee_id);
     if (!a) continue;
-    const key = getKey(a) || "Chưa phân loại";
-    const g = groups.get(key) || { before: [], after: [] };
+    const label = (getKey(a) || "Chưa phân loại").trim();
+    const normKey = label.toLocaleLowerCase("vi");
+    const g = groups.get(normKey) || { label, before: [], after: [] };
     if (res.round_id === beforeRoundId) g.before.push(res.score);
     else g.after.push(res.score);
-    groups.set(key, g);
+    groups.set(normKey, g);
   }
-  return Array.from(groups.entries())
-    .map(([key, g]) => {
+  return Array.from(groups.values())
+    .map((g) => {
       const before = avg(g.before);
       const after = avg(g.after);
-      return { key, before, after, delta: before != null && after != null ? after - before : null };
+      return { key: g.label, before, after, delta: before != null && after != null ? after - before : null };
     })
     .sort((a, b) => (b.delta ?? -999) - (a.delta ?? -999));
 }

@@ -24,6 +24,20 @@ describe("Procedure trainings module security and control gates", () => {
     expect(read("src/app/api/procedure-trainings/[id]/route.ts")).toContain('.eq("organization_id", organizationId)');
   });
 
+  // "1 chủ đề đào tạo có thể có nhiều lớp khác nhau, chủ động khai báo thông
+  // tin lớp và kế thừa thông tin đợt cũ, cho phép sửa lại" — "+ Tạo lớp mới
+  // cùng chủ đề" là 1 thao tác GHI (tạo lớp mới + sao chép câu hỏi), phải
+  // dùng đúng quyền .manage và scope theo organization_id cả lúc đọc lớp
+  // nguồn lẫn lúc ghi lớp mới — không rò dữ liệu/quyền giữa tổ chức.
+  it("scopes '+ Tạo lớp mới cùng chủ đề' (duplicate route) to .manage + organization_id on both read and write", () => {
+    const route = read("src/app/api/procedure-trainings/[id]/duplicate/route.ts");
+    expect(route).toContain('requireApiPermission("procedure_training.manage")');
+    expect(route).toContain('.eq("organization_id", organizationId)');
+    expect(route).toContain("organization_id: organizationId");
+    expect(route).toContain('.from("procedure_training_questions")');
+    expect(route).toContain('status: "PLANNED"');
+  });
+
   it("is its own table — not folded into incoming_documents or any other module", () => {
     const migration = read("supabase/migrations/20261017_procedure_trainings_v1.sql");
     expect(migration).toContain("create table if not exists public.procedure_trainings");
@@ -127,11 +141,12 @@ describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần
   // "1 chủ đề đào tạo có thể mở nhiều lớp nhiều đợt vào nhiều ngày khác
   // nhau... nếu tham gia đợt này nhưng cần học lại thì có thể đăng ký lại để
   // học lại đợt khác để đạt... chỉ tổng hợp kết quả nhân viên hoàn thành bài
-  // đào tạo nhưng chỉ khác ngày hoàn thành" — tab thứ 3 "Theo chủ đề" chỉ
-  // hiện khi có ít nhất 1 nhóm (2+ đợt cùng chủ đề), gộp Đạt/Không đạt theo
-  // mã NV qua các đợt bằng src/lib/procedure-training-topic-rollup.ts (dùng
-  // chung computePassStatus, không tính lại logic lần 2).
-  it("tab 'Theo chủ đề': gộp nhiều đợt đào tạo cùng chủ đề (document_publication_id hoặc tên chuẩn hoá), chỉ hiện khi có nhóm", () => {
+  // đào tạo nhưng chỉ khác ngày hoàn thành" — tab thứ 3 "Theo chủ đề" LUÔN
+  // hiện (báo cáo thực tế: "Ko thấy nút chủ đề" khi tab bị ẩn có điều kiện),
+  // hiện trạng thái trống khi chưa có nhóm nào, gộp Đạt/Không đạt theo mã NV
+  // qua các đợt bằng src/lib/procedure-training-topic-rollup.ts (dùng chung
+  // computePassStatus, không tính lại logic lần 2).
+  it("tab 'Theo chủ đề': gộp nhiều đợt đào tạo cùng chủ đề (document_publication_id hoặc tên chuẩn hoá), luôn hiện (có trạng thái trống)", () => {
     const lib = read("src/lib/procedure-training-topic-rollup.ts");
     expect(lib).toContain("export function topicKeyFor(");
     expect(lib).toContain('return `doc:${training.document_publication_id}`;');
@@ -145,7 +160,8 @@ describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần
     expect(page).toContain("topicGroups={topicGroups as any}");
 
     const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).toContain("{topicGroups.length ? (");
+    expect(client).not.toContain("{topicGroups.length ? (");
+    expect(client).toContain("!topicGroups.length ? (");
     expect(client).toContain('<button type="button" className={view === "topic" ? "active" : ""}');
   });
 

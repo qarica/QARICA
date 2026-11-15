@@ -3,12 +3,11 @@
 import { use, useEffect, useState } from "react";
 
 type Department = { id: string; name: string };
-type TrainingRound = { id: string; round_label: string };
 type LoadState =
   | { kind: "loading" }
   | { kind: "not_found" }
   | { kind: "closed"; trainingName: string }
-  | { kind: "open"; trainingName: string; departments: Department[]; rounds: TrainingRound[] };
+  | { kind: "open"; trainingName: string; departments: Department[] };
 
 const JOB_TITLE_OPTIONS = ["Bác sĩ", "Điều dưỡng/Hộ sinh/Kỹ thuật y", "Nhân viên văn phòng", "Khác"] as const;
 
@@ -17,7 +16,6 @@ export default function PublicTrainingRegistrationPage({ params }: { params: Pro
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [employeeName, setEmployeeName] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
-  const [roundId, setRoundId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [jobTitleOption, setJobTitleOption] = useState("");
   const [jobTitleOther, setJobTitleOther] = useState("");
@@ -39,7 +37,7 @@ export default function PublicTrainingRegistrationPage({ params }: { params: Pro
           setState({ kind: "closed", trainingName: body.trainingName || "" });
           return;
         }
-        setState({ kind: "open", trainingName: body.trainingName || "", departments: body.departments || [], rounds: body.rounds || [] });
+        setState({ kind: "open", trainingName: body.trainingName || "", departments: body.departments || [] });
       })
       .catch(() => {
         if (!cancelled) setState({ kind: "not_found" });
@@ -59,7 +57,6 @@ export default function PublicTrainingRegistrationPage({ params }: { params: Pro
       body: JSON.stringify({
         employee_name: employeeName,
         employee_code: employeeCode,
-        round_id: roundId,
         department_id: departmentId,
         job_title: jobTitleOption === "Khác" ? jobTitleOther.trim() : jobTitleOption,
       }),
@@ -109,19 +106,6 @@ export default function PublicTrainingRegistrationPage({ params }: { params: Pro
               <span>Mã nhân viên (tùy chọn)</span>
               <input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="NV0012" />
             </label>
-            {state.rounds.length ? (
-              <label>
-                <span>Buổi/đợt đào tạo *</span>
-                <select value={roundId} onChange={(e) => setRoundId(e.target.value)} required>
-                  <option value="">— Chọn buổi/đợt —</option>
-                  {state.rounds.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.round_label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
             <label>
               <span>Đơn vị công tác (tùy chọn)</span>
               <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
@@ -151,7 +135,7 @@ export default function PublicTrainingRegistrationPage({ params }: { params: Pro
               </label>
             ) : null}
 
-            <button type="submit" className="button primary wide" disabled={submitting || !employeeName.trim() || (state.rounds.length > 0 && !roundId)}>
+            <button type="submit" className="button primary wide" disabled={submitting || !employeeName.trim()}>
               {submitting ? "Đang đăng ký..." : "Đăng ký"}
             </button>
           </form>

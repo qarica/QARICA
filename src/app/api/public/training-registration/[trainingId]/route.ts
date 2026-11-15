@@ -2,15 +2,13 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeEmployeeCode } from "@/lib/training-self-test";
 
-// Route CÔNG KHAI — đăng ký slot tham gia đào tạo trước, không đăng nhập,
+// Route CÔNG KHAI — đăng ký tham gia 1 LỚP đào tạo trước, không đăng nhập,
 // cùng mẫu với /api/public/training-test (QR, service-role, không RLS cho
-// anon). Đăng ký thuộc về đợt đào tạo (training_id); khi đợt đào tạo đã có
-// buổi/đợt cụ thể (procedure_training_rounds — tái dùng nhãn này làm
-// "buổi", không tạo bảng mới riêng), bắt buộc chọn 1 buổi để đăng ký, vì
-// báo cáo thực tế "mỗi đợt đào tạo có nhiều buổi/ngày khác nhau, cần đăng
-// ký theo từng buổi". Chưa có buổi nào thì vẫn đăng ký được bình thường
-// (round_id null) — không ép phải tạo "đợt kiểm tra" trước mới mở đăng ký
-// được.
+// anon). "Khai báo lớp -> đăng ký chọn lớp -> test theo lớp" — đăng ký chỉ
+// để xác nhận tham gia LỚP này (training_id), KHÔNG chọn Pre-test/Post-test
+// ở đây: Pre-test chỉ vào được qua đúng mã QR riêng của đợt kiểm tra đó
+// (đầu buổi), tách khỏi đăng ký — không phải lúc nào cũng làm Pre-test nhưng
+// luôn phải làm Post-test.
 export async function GET(_request: Request, { params }: { params: Promise<{ trainingId: string }> }) {
   const { trainingId } = await params;
   const admin = createAdminClient();
@@ -26,12 +24,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tra
     return NextResponse.json({ ok: true, open: false, trainingName: training.procedure_name });
   }
 
-  const [{ data: departments }, { data: rounds }] = await Promise.all([
-    admin.from("departments").select("id,name").eq("organization_id", training.organization_id).eq("is_active", true).order("name"),
-    admin.from("procedure_training_rounds").select("id,round_label").eq("training_id", trainingId).order("sort_order").order("round_date"),
-  ]);
+  const { data: departments } = await admin.from("departments").select("id,name").eq("organization_id", training.organization_id).eq("is_active", true).order("name");
 
-  return NextResponse.json({ ok: true, open: true, trainingName: training.procedure_name, departments: departments ?? [], rounds: rounds ?? [] });
+  return NextResponse.json({ ok: true, open: true, trainingName: training.procedure_name, departments: departments ?? [] });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ trainingId: string }> }) {
@@ -42,7 +37,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tra
   const employeeCodeRaw = String(body.employee_code || "").trim();
   const departmentId = String(body.department_id || "").trim();
   const jobTitle = String(body.job_title || "").trim();
-  const roundId = String(body.round_id || "").trim();
 
   if (!employeeName) return NextResponse.json({ error: "Chưa nhập họ tên." }, { status: 400 });
 
@@ -58,28 +52,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ tra
     departmentName = department.name;
   }
 
-  // Đợt đào tạo đã có buổi/đợt nào thì bắt buộc chọn 1 buổi khi đăng ký
-  // ("mỗi đợt đào tạo có nhiều buổi/ngày khác nhau, cần đăng ký theo từng
-  // buổi") — chưa có buổi nào thì bỏ qua, round_id để null.
-  const { data: existingRounds } = await admin.from("procedure_training_rounds").select("id").eq("training_id", trainingId);
-  let validatedRoundId: string | null = null;
-  if (existingRounds && existingRounds.length) {
-    if (!roundId) return NextResponse.json({ error: "Chưa chọn buổi/đợt đào tạo." }, { status: 400 });
-    if (!existingRounds.some((r) => r.id === roundId)) return NextResponse.json({ error: "Buổi/đợt đào tạo không hợp lệ." }, { status: 400 });
-    validatedRoundId = roundId;
-  }
-
-  // Chặn đăng ký trùng (cùng mã NV, cùng buổi/đợt — hoặc cùng đợt đào tạo
-  // nếu chưa có buổi nào) — không chặn khi không có mã NV (đăng ký không
-  // bắt buộc phải có sẵn mã, khác bắt buộc làm bài phải có mã để chống nộp
-  // trùng kết quả).
+  // Chặn đăng ký trùng (cùng mã NV, cùng LỚP — ko còn phân theo buổi/đợt
+  // kiểm tra vì đăng ký chỉ còn là "tham gia lớp này", không chọn Pre/Post)
+  // — không chặn khi không có mã NV (đăng ký không bắt buộc phải có sẵn mã,
+  // khác bắt buộc làm bài phải có mã để chống nộp trùng kết quả).
   if (employeeCodeRaw) {
     const normalized = normalizeEmployeeCode(employeeCodeRaw);
-    let query = admin.from("procedure_training_registrations").select("employee_code").eq("training_id", trainingId);
-    query = validatedRoundId ? query.eq("round_id", validatedRoundId) : query.is("round_id", null);
-    const { data: existing } = await query;
+    const { data: existing } = await admin.from("procedure_training_registrations").select("employee_code").eq("training_id", trainingId);
     const already = (existing ?? []).some((r) => r.employee_code && normalizeEmployeeCode(r.employee_code) === normalized);
-    if (already) return NextResponse.json({ error: "Mã nhân viên này đã đăng ký buổi/đợt này rồi." }, { status: 409 });
+    if (already) return NextResponse.json({ error: "Mã nhân viên này đã đăng ký lớp này rồi." }, { status: 409 });
   }
 
   const { data: created, error } = await admin
@@ -87,7 +68,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tra
     .insert({
       training_id: trainingId,
       organization_id: training.organization_id,
-      round_id: validatedRoundId,
+      round_id: null,
       employee_name: employeeName,
       employee_code: employeeCodeRaw || null,
       department: departmentName,
