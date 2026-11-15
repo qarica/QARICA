@@ -507,6 +507,27 @@ describe("Procedure trainings: import điểm từ file khảo sát (Google/Micr
     expect(columnBarsSrc).toContain("<ValueLabel x={x + barW / 2} y={y - 5} text={`${r.value}${unit}`} fill=\"#172126\" />");
   });
 
+  // Mẫu báo cáo tham khảo người dùng gửi (infographic Pre/Post): 3 ý được
+  // chốt đưa vào — (1) thẻ KPI đầu trang (Tổng lượt làm bài + từng đợt),
+  // (2) mục Tuyên dương liệt kê TOÀN BỘ người đạt điểm tuyệt đối (không
+  // giới hạn top 3 như bảng xếp hạng), (3) so sánh trước/sau theo CHỨC
+  // DANH (mirror đúng theo đơn vị, dùng chung groupByBeforeAfter đã tổng
+  // quát hoá getKey thay vì hard-code a.department).
+  it("tab Phân tích: KPI đầu trang (Tổng lượt làm bài + từng đợt), Tuyên dương toàn bộ điểm tuyệt đối, và so sánh trước/sau theo chức danh", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain('import { KpiCard } from "@/components/kpi-card"');
+    expect(client).toContain("const totalSubmissions = byRound.reduce((s, b) => s + b.count, 0);");
+    expect(client).toContain('<KpiCard icon="users" tone="purple" label="Tổng lượt làm bài" value={totalSubmissions} />');
+
+    expect(client).toContain("const maxScoreAchievers = lastRound && lastRound.score_max != null ? leaderboard.filter((row) => row.score === lastRound.score_max) : [];");
+    expect(client).toContain("Tuyên dương — đạt điểm tuyệt đối");
+
+    expect(client).toContain("function groupByBeforeAfter(attendees: Attendee[], results: ResultRow[], beforeRoundId: string, afterRoundId: string, getKey: (a: Attendee) => string | null = (a) => a.department)");
+    expect(client).toContain("const beforeAfterByTitle =");
+    expect(client).toContain("groupByBeforeAfter(attendees, results, firstRound.id, lastRound.id, (a) => a.job_title)");
+    expect(client).toContain("So sánh trước/sau theo chức danh");
+  });
+
   // "Thống kê danh sách kiểm tra điểm cao nhất xuống thấp nhất để dùng tuyên
   // dương" — bảng xếp hạng dựa trên điểm đợt kiểm tra CUỐI CÙNG (cùng khái
   // niệm "đợt cuối" với computePassStatus), chỉ xếp người đã có điểm ở đợt

@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { Icon } from "@/components/icon";
+import { KpiCard } from "@/components/kpi-card";
 import { TQM_CHART_CSS, TqmColumnBars, TqmGroupedBars } from "@/components/tqm-charts";
 import { computePassStatus } from "@/lib/procedure-training-pass-status";
 import { normalizeEmployeeCode } from "@/lib/training-self-test";
@@ -1566,6 +1567,13 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
     firstRound && lastRound && firstRound.id !== lastRound.id
       ? groupByBeforeAfter(attendees, results, firstRound.id, lastRound.id)
       : null;
+  // "So sánh trước/sau theo CHỨC DANH" — cùng groupByBeforeAfter dùng chung
+  // với theo đơn vị, chỉ đổi getKey sang job_title (1 nguồn sự thật duy
+  // nhất, không viết lại logic gộp/tính delta lần 2).
+  const beforeAfterByTitle =
+    firstRound && lastRound && firstRound.id !== lastRound.id
+      ? groupByBeforeAfter(attendees, results, firstRound.id, lastRound.id, (a) => a.job_title)
+      : null;
 
   const responsesByQuestion = useMemo(() => {
     const map = new Map<number, ResponseRow[]>();
@@ -1626,8 +1634,25 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
         .map((row, _i, arr) => ({ ...row, rank: 1 + arr.filter((x) => x.score > row.score).length }))
     : [];
 
+  // "Tuyên dương" toàn bộ người đạt điểm TUYỆT ĐỐI (= score_max đợt cuối),
+  // không giới hạn top 3 như bảng xếp hạng — nhiều người có thể cùng đạt
+  // 100%. Lọc từ leaderboard có sẵn (đã có điểm đợt cuối), không truy vấn
+  // lại.
+  const maxScoreAchievers = lastRound && lastRound.score_max != null ? leaderboard.filter((row) => row.score === lastRound.score_max) : [];
+
+  const totalSubmissions = byRound.reduce((s, b) => s + b.count, 0);
+
   return (
     <>
+      {byRound.length ? (
+        <div className="kpi-grid ptd-analysis-kpis">
+          <KpiCard icon="users" tone="purple" label="Tổng lượt làm bài" value={totalSubmissions} />
+          {byRound.map((b, i) => (
+            <KpiCard key={b.round.id} icon="clipboard-check" tone={i === byRound.length - 1 ? "green" : "blue"} label={b.round.round_label} value={b.count} />
+          ))}
+        </div>
+      ) : null}
+
       <section className="panel">
         <div className="panel-title">
           <div>
@@ -1712,6 +1737,31 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
         </section>
       ) : null}
 
+      {lastRound && lastRound.score_max != null && maxScoreAchievers.length ? (
+        <section className="panel">
+          <div className="panel-title">
+            <div>
+              <h2>Tuyên dương — đạt điểm tuyệt đối ({lastRound.round_label})</h2>
+              <p>
+                Chúc mừng {maxScoreAchievers.length} học viên đạt {lastRound.score_max}/{lastRound.score_max} điểm (100%).
+              </p>
+            </div>
+          </div>
+          <div className="ptd-honor-grid" style={{ padding: "0 19px 19px" }}>
+            {maxScoreAchievers.map((row) => (
+              <div className="ptd-honor-card" key={row.attendeeId}>
+                <Icon name="badge-check" size={20} />
+                <strong>{row.name}</strong>
+                <span className="muted tiny">{row.jobTitle || row.department || "—"}</span>
+                <span className="status-badge success">
+                  {row.score}/{lastRound.score_max} (100%)
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {beforeAfter ? (
         <section className="panel">
           <div className="panel-title">
@@ -1745,6 +1795,50 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
                 {beforeAfter.map((row) => (
                   <tr key={row.key}>
                     <td data-label="Đơn vị">{row.key}</td>
+                    <td data-label={`${firstRound!.round_label} (TB)`}>{row.before != null ? row.before.toFixed(2) : "—"}</td>
+                    <td data-label={`${lastRound!.round_label} (TB)`}>{row.after != null ? row.after.toFixed(2) : "—"}</td>
+                    <td data-label="Chênh lệch" className={row.delta != null ? (row.delta >= 0 ? "text-success" : "text-danger") : ""}>{row.delta != null ? (row.delta >= 0 ? `+${row.delta.toFixed(2)}` : row.delta.toFixed(2)) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {beforeAfterByTitle ? (
+        <section className="panel">
+          <div className="panel-title">
+            <div>
+              <h2>So sánh trước/sau theo chức danh</h2>
+              <p>
+                {firstRound!.round_label} → {lastRound!.round_label}
+              </p>
+            </div>
+          </div>
+          {beforeAfterByTitle.length ? (
+            <TqmGroupedBars
+              groups={beforeAfterByTitle.map((r) => ({ label: r.key, before: r.before, after: r.after }))}
+              beforeLabel={firstRound!.round_label}
+              afterLabel={lastRound!.round_label}
+              threshold={passThreshold}
+              thresholdLabel="Mức đạt"
+            />
+          ) : null}
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Chức danh</th>
+                  <th>{firstRound!.round_label} (TB)</th>
+                  <th>{lastRound!.round_label} (TB)</th>
+                  <th>Chênh lệch</th>
+                </tr>
+              </thead>
+              <tbody>
+                {beforeAfterByTitle.map((row) => (
+                  <tr key={row.key}>
+                    <td data-label="Chức danh">{row.key}</td>
                     <td data-label={`${firstRound!.round_label} (TB)`}>{row.before != null ? row.before.toFixed(2) : "—"}</td>
                     <td data-label={`${lastRound!.round_label} (TB)`}>{row.after != null ? row.after.toFixed(2) : "—"}</td>
                     <td data-label="Chênh lệch" className={row.delta != null ? (row.delta >= 0 ? "text-success" : "text-danger") : ""}>{row.delta != null ? (row.delta >= 0 ? `+${row.delta.toFixed(2)}` : row.delta.toFixed(2)) : "—"}</td>
@@ -1864,6 +1958,29 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
         </section>
       ) : null}
       <style jsx>{`
+        .ptd-analysis-kpis {
+          grid-template-columns: repeat(auto-fit, minmax(170px, 230px));
+        }
+        .ptd-honor-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+          gap: 10px;
+        }
+        .ptd-honor-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          text-align: center;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          padding: 14px 10px;
+          color: var(--warning);
+        }
+        .ptd-honor-card strong {
+          color: var(--text);
+          font-size: 12px;
+        }
         @media (max-width: 760px) {
           .table-wrap {
             overflow: visible !important;
@@ -1922,7 +2039,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
   );
 }
 
-function groupByBeforeAfter(attendees: Attendee[], results: ResultRow[], beforeRoundId: string, afterRoundId: string) {
+function groupByBeforeAfter(attendees: Attendee[], results: ResultRow[], beforeRoundId: string, afterRoundId: string, getKey: (a: Attendee) => string | null = (a) => a.department) {
   const attendeeById = new Map(attendees.map((a) => [a.id, a]));
   const groups = new Map<string, { before: number[]; after: number[] }>();
   for (const res of results) {
@@ -1930,7 +2047,7 @@ function groupByBeforeAfter(attendees: Attendee[], results: ResultRow[], beforeR
     if (res.round_id !== beforeRoundId && res.round_id !== afterRoundId) continue;
     const a = attendeeById.get(res.attendee_id);
     if (!a) continue;
-    const key = a.department || "Chưa phân loại";
+    const key = getKey(a) || "Chưa phân loại";
     const g = groups.get(key) || { before: [], after: [] };
     if (res.round_id === beforeRoundId) g.before.push(res.score);
     else g.after.push(res.score);
