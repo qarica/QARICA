@@ -84,6 +84,27 @@ export function ProcedureTrainingsClient({
   const [trainings, setTrainings] = useState(initialTrainings);
   const [listQuery, setListQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  // Báo cáo thực tế: "Lớp tạo nhầm cũng không xóa được" — chưa có cách xoá cả
+  // 1 lớp trước đây (chỉ xoá được đợt kiểm tra/nhân sự/đăng ký riêng lẻ).
+  // Xoá cascade hết bảng con ở server (xem DELETE /api/procedure-trainings/[id]);
+  // cảnh báo rõ số nhân sự đã có nếu lớp không còn trống, tránh xoá nhầm lớp
+  // đã có dữ liệu thật.
+  async function removeTraining(t: Training) {
+    const warning = t.attendee_total > 0 ? `Lớp này đã có ${t.attendee_total} nhân sự! Xoá sẽ mất hết điểm/kết quả, KHÔNG thể hoàn tác.` : "Xoá lớp này, không thể hoàn tác.";
+    if (!window.confirm(`${warning}\n\nXoá "${t.procedure_name}"?`)) return;
+    setRemovingId(t.id);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${t.id}`, { method: "DELETE" });
+    const body = await res.json().catch(() => ({}));
+    setRemovingId(null);
+    if (!res.ok) {
+      setError(body.error || "Không xoá được lớp này.");
+      return;
+    }
+    setTrainings((v) => v.filter((x) => x.id !== t.id));
+  }
   const [acks, setAcks] = useState(acknowledgments);
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
   const [unconfirmedOpenId, setUnconfirmedOpenId] = useState<string | null>(null);
@@ -201,6 +222,7 @@ export function ProcedureTrainingsClient({
         <div className="panel-title">
           <h2>Danh sách quy trình</h2>
         </div>
+        {error ? <div className="alert error">{error}</div> : null}
         <div className="mobile-workflow-filters"><input className="input" aria-label="Tìm quy trình" placeholder="Tìm tên, mã số, đơn vị soạn thảo..." value={listQuery} onChange={(e) => setListQuery(e.target.value)} /><select className="input" aria-label="Lọc trạng thái đào tạo" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="ALL">Tất cả trạng thái</option><option value="NOT_PLANNED">Chưa có kế hoạch</option><option value="PLANNED">Đã có kế hoạch</option><option value="TRAINED">Đã đào tạo</option></select></div>
         <div className="table-wrap">
           <table>
@@ -234,9 +256,16 @@ export function ProcedureTrainingsClient({
                     {t.attendee_attended}/{t.attendee_total} ({t.attendee_total ? Math.round((t.attendee_attended / t.attendee_total) * 100) : 0}%)
                   </td>
                   <td>
-                    <Link className="button secondary small" href={`/procedure-trainings/${t.id}`}>
-                      Xem chi tiết →
-                    </Link>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <Link className="button secondary small" href={`/procedure-trainings/${t.id}`}>
+                        Xem chi tiết →
+                      </Link>
+                      {canManage ? (
+                        <button type="button" className="button tertiary small" disabled={removingId === t.id} onClick={() => void removeTraining(t)}>
+                          {removingId === t.id ? "Đang xoá..." : "Xóa"}
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

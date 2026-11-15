@@ -13,7 +13,7 @@ type LoadState =
 // Khớp đúng 4 lựa chọn "Chức danh chuyên môn" trong khảo sát giấy gốc —
 // "Khác" cho gõ tay (phát hiện từ dữ liệu thật: có người chọn Khác và ghi
 // "BS Trưởng Khoa").
-const JOB_TITLE_OPTIONS = ["Bác sĩ", "Điều dưỡng/Hộ sinh/Kỹ thuật y", "Nhân viên văn phòng", "Khác"] as const;
+const JOB_TITLE_OPTIONS = ["Bác sĩ", "Điều dưỡng/Hộ sinh/Kỹ thuật viên", "Nhân viên văn phòng", "Khác"] as const;
 type DetailedAnswer = { question_no: number; question_text: string; choices: string[] | null; answer_text: string | null; is_correct: boolean };
 type SubmitResult = { score: number; scoreMax: number | null; total: number; correctCount: number; perQuestion: DetailedAnswer[] };
 type LookupResult = { employeeName: string; roundLabel: string; submittedAt: string } & SubmitResult;

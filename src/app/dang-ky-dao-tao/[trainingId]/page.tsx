@@ -9,7 +9,7 @@ type LoadState =
   | { kind: "closed"; trainingName: string }
   | { kind: "open"; trainingName: string; departments: Department[] };
 
-const JOB_TITLE_OPTIONS = ["Bác sĩ", "Điều dưỡng/Hộ sinh/Kỹ thuật y", "Nhân viên văn phòng", "Khác"] as const;
+const JOB_TITLE_OPTIONS = ["Bác sĩ", "Điều dưỡng/Hộ sinh/Kỹ thuật viên", "Nhân viên văn phòng", "Khác"] as const;
 
 export default function PublicTrainingRegistrationPage({ params }: { params: Promise<{ trainingId: string }> }) {
   const { trainingId } = use(params);

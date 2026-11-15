@@ -14,6 +14,25 @@ describe("Procedure trainings module security and control gates", () => {
     expect(read("src/app/api/procedure-trainings/[id]/route.ts")).toContain('requireApiPermission("procedure_training.manage")');
   });
 
+  // Báo cáo thực tế: "Lớp tạo nhầm cũng không xóa được" — trước đây không có
+  // cách xoá cả 1 lớp (procedure_trainings), chỉ xoá được đợt kiểm
+  // tra/nhân sự/đăng ký riêng lẻ. DELETE dùng đúng quyền .manage + scope
+  // theo organization_id, dựa vào "on delete cascade" của mọi bảng con
+  // (attendees/registrations/rounds→results/questions) để không sót nguồn
+  // sự thật phụ nào (CLAUDE.md nguyên tắc 2) — UI xoá có cảnh báo số nhân sự
+  // đã có trước khi xoá.
+  it("DELETE /api/procedure-trainings/[id] (xoá cả lớp) dùng đúng quyền .manage + scope theo organization_id", () => {
+    const route = read("src/app/api/procedure-trainings/[id]/route.ts");
+    expect(route).toContain("export async function DELETE(");
+    expect(route).toContain('requireApiPermission("procedure_training.manage")');
+    expect(route).toContain('.from("procedure_trainings").delete().eq("id", id).eq("organization_id", organizationId)');
+
+    const client = read("src/components/procedure-trainings-client.tsx");
+    expect(client).toContain("async function removeTraining(");
+    expect(client).toContain("method: \"DELETE\"");
+    expect(client).toContain("t.attendee_total > 0");
+  });
+
   it("is reachable from the sidebar behind procedure_training.view OR document_publication.view (child row inside the merged QUẢN LÝ VĂN BẢN group — combined Phổ biến & đào tạo tracking menu, alongside Kiểm soát tài liệu)", () => {
     const nav = read("src/lib/navigation.ts");
     expect(nav).toContain('{ label: "Phổ biến & đào tạo", href: "/procedure-trainings", icon: "book-open", anyPermissions: ["procedure_training.view", "document_publication.view"] }');
