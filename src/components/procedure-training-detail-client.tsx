@@ -73,21 +73,27 @@ function avg(nums: number[]): number | null {
 
 // Đạt/Không đạt: so điểm ở ĐỢT KIỂM TRA CUỐI CÙNG (sort_order lớn nhất
 // trong TOÀN BỘ các đợt đã tạo cho khóa đào tạo này, không chỉ các đợt
-// người đó đã có điểm) với pass_threshold. Quyết định đã chốt với người
-// dùng: "nếu chỉ làm Pre không làm Post thì coi như không đạt, cần học
-// lại" — tức là CHƯA làm đợt cuối cùng (dù đã có điểm ở đợt trước đó, vd
-// Pre-test) vẫn tính là "Không đạt", không phải "chưa có kết quả" trung
-// lập. Chỉ trả "none" khi người đó CHƯA làm bài ở BẤT KỲ đợt nào (chưa có
-// hoạt động gì để đánh giá). Không lưu thêm cột trạng thái vào DB (tính
-// lại từ điểm mỗi lần hiển thị, tránh 2 nguồn sự thật lệch nhau nếu sửa
-// điểm/đổi ngưỡng/thêm đợt sau này — CLAUDE.md nguyên tắc 2).
-function computePassStatus(myResults: ResultRow[], rounds: Round[], passThreshold: number | null): "pass" | "fail" | "none" {
+// người đó đã có điểm) với pass_threshold, VÀ bắt buộc đã điểm danh
+// (attended=true). Quyết định đã chốt với người dùng: "nếu chỉ làm Pre
+// không làm Post thì coi như không đạt, cần học lại" — tức là CHƯA làm đợt
+// cuối cùng (dù đã có điểm ở đợt trước đó, vd Pre-test) vẫn tính là "Không
+// đạt", không phải "chưa có kết quả" trung lập. Theo đúng quy trình tập
+// huấn thật (người dùng mô tả): Pre-test chỉ để đánh giá nền tảng trước
+// học, không có giá trị xét đạt/cấp chứng nhận; CHỈ Post-test mới được xét
+// đạt — và kết quả Post-test chỉ được công nhận khi đã có đủ dữ liệu điểm
+// danh tham gia lớp học. Hệ thống hiện chỉ có 1 cờ điểm danh (attended)
+// theo từng người, chưa tách theo từng buổi đầu/cuối giờ. Chỉ trả "none"
+// khi người đó CHƯA làm bài ở BẤT KỲ đợt nào (chưa có hoạt động gì để đánh
+// giá). Không lưu thêm cột trạng thái vào DB (tính lại từ điểm mỗi lần
+// hiển thị, tránh 2 nguồn sự thật lệch nhau nếu sửa điểm/đổi ngưỡng/thêm
+// đợt sau này — CLAUDE.md nguyên tắc 2).
+function computePassStatus(myResults: ResultRow[], rounds: Round[], passThreshold: number | null, attended: boolean): "pass" | "fail" | "none" {
   if (passThreshold == null || !rounds.length) return "none";
   const hasAnyScore = myResults.some((r) => r.score != null);
   if (!hasAnyScore) return "none";
   const finalRound = [...rounds].sort((a, b) => b.sort_order - a.sort_order || (b.round_date || "").localeCompare(a.round_date || ""))[0];
   const finalResult = myResults.find((r) => r.round_id === finalRound.id && r.score != null);
-  if (!finalResult) return "fail";
+  if (!finalResult || !attended) return "fail";
   return (finalResult.score as number) >= passThreshold ? "pass" : "fail";
 }
 
@@ -801,7 +807,7 @@ function RosterTab({
                     {passThreshold != null ? (
                       <td data-label="Kết quả">
                         {(() => {
-                          const status = computePassStatus(myResults, rounds, passThreshold);
+                          const status = computePassStatus(myResults, rounds, passThreshold, a.attended);
                           if (status === "none") return <span className="muted">—</span>;
                           return <span className={`status-badge ${status === "pass" ? "success" : "danger"}`}>{status === "pass" ? "Đạt" : "Không đạt — cần học lại"}</span>;
                         })()}
@@ -1505,14 +1511,26 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
     return { round: r, count: scores.length, average: avg(scores) };
   });
 
+  const sortedRounds = [...rounds].sort((a, b) => a.sort_order - b.sort_order);
+  const firstRound = sortedRounds[0];
+  const lastRound = sortedRounds[sortedRounds.length - 1];
+
+  // Điểm trung bình theo đơn vị/chức danh CHỈ lấy điểm ĐỢT KIỂM TRA CUỐI
+  // CÙNG (Post-test) — không gộp lẫn Pre-test. Theo đúng quy trình tập huấn
+  // thật: Pre-test chỉ để giảng viên/ban tổ chức đánh giá nền tảng trước
+  // học, không có giá trị xét công nhận/báo cáo; chỉ Post-test mới được
+  // trích xuất để xét đạt và báo cáo theo đơn vị/chức danh. Gộp cả Pre lẫn
+  // Post vào 1 điểm TB sẽ làm sai lệch số liệu báo cáo (Pre thường thấp hơn
+  // Post, kéo điểm TB xuống dù chất lượng đào tạo thực tế không như vậy).
   function groupBy(getKey: (a: Attendee) => string | null) {
-    const groups = new Map<string, { attendeeId: string; roundId: string; score: number }[]>();
+    const groups = new Map<string, { attendeeId: string; score: number }[]>();
+    if (!lastRound) return [];
     for (const res of results) {
-      if (res.score == null) continue;
+      if (res.score == null || res.round_id !== lastRound.id) continue;
       const a = attendeeById.get(res.attendee_id);
       if (!a) continue;
       const key = getKey(a) || "Chưa phân loại";
-      groups.set(key, [...(groups.get(key) || []), { attendeeId: res.attendee_id, roundId: res.round_id, score: res.score }]);
+      groups.set(key, [...(groups.get(key) || []), { attendeeId: res.attendee_id, score: res.score }]);
     }
     return Array.from(groups.entries())
       .map(([key, rows]) => ({ key, count: rows.length, average: avg(rows.map((r) => r.score)) }))
@@ -1521,9 +1539,6 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
   const byDept = groupBy((a) => a.department);
   const byTitle = groupBy((a) => a.job_title);
 
-  const sortedRounds = [...rounds].sort((a, b) => a.sort_order - b.sort_order);
-  const firstRound = sortedRounds[0];
-  const lastRound = sortedRounds[sortedRounds.length - 1];
   const beforeAfter =
     firstRound && lastRound && firstRound.id !== lastRound.id
       ? groupByBeforeAfter(attendees, results, firstRound.id, lastRound.id)
@@ -1545,8 +1560,8 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
   const roundChartRows = byRound
     .filter((b) => b.average != null)
     .map((b) => ({ label: b.round.round_label, value: Math.round((b.average as number) * 100) / 100, caption: `${b.count} người có điểm`, tone: "blue" as const }));
-  const deptChartRows = byDept.filter((d) => d.average != null).map((d) => ({ label: d.key, value: Math.round((d.average as number) * 100) / 100, caption: `${d.count} lượt`, tone: "brand" as const }));
-  const titleChartRows = byTitle.filter((d) => d.average != null).map((d) => ({ label: d.key, value: Math.round((d.average as number) * 100) / 100, caption: `${d.count} lượt`, tone: "blue" as const }));
+  const deptChartRows = byDept.filter((d) => d.average != null).map((d) => ({ label: d.key, value: Math.round((d.average as number) * 100) / 100, caption: `${d.count} người`, tone: "brand" as const }));
+  const titleChartRows = byTitle.filter((d) => d.average != null).map((d) => ({ label: d.key, value: Math.round((d.average as number) * 100) / 100, caption: `${d.count} người`, tone: "blue" as const }));
   const questionChartRows = questionDifficulty
     .filter((q) => q.pctCorrect != null)
     .map((q) => ({
@@ -1692,7 +1707,10 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
 
       <section className="panel">
         <div className="panel-title">
-          <h2>Điểm trung bình theo đơn vị</h2>
+          <div>
+            <h2>Điểm trung bình theo đơn vị</h2>
+            <p>Chỉ tính điểm {lastRound ? lastRound.round_label : "đợt kiểm tra cuối cùng"} (Post-test) — không gộp Pre-test.</p>
+          </div>
         </div>
         {deptChartRows.length ? <TqmHorizontalBars rows={deptChartRows} /> : null}
         <div className="table-wrap">
@@ -1700,7 +1718,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
             <thead>
               <tr>
                 <th>Đơn vị</th>
-                <th>Số lượt có điểm</th>
+                <th>Số người có điểm</th>
                 <th>Điểm TB</th>
               </tr>
             </thead>
@@ -1708,7 +1726,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
               {byDept.map((row) => (
                 <tr key={row.key}>
                   <td data-label="Đơn vị">{row.key}</td>
-                  <td data-label="Số lượt có điểm">{row.count}</td>
+                  <td data-label="Số người có điểm">{row.count}</td>
                   <td data-label="Điểm TB">{row.average != null ? row.average.toFixed(2) : "—"}</td>
                 </tr>
               ))}
@@ -1726,7 +1744,10 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
 
       <section className="panel">
         <div className="panel-title">
-          <h2>Điểm trung bình theo chức danh</h2>
+          <div>
+            <h2>Điểm trung bình theo chức danh</h2>
+            <p>Chỉ tính điểm {lastRound ? lastRound.round_label : "đợt kiểm tra cuối cùng"} (Post-test) — không gộp Pre-test.</p>
+          </div>
         </div>
         {titleChartRows.length ? <TqmHorizontalBars rows={titleChartRows} /> : null}
         <div className="table-wrap">
@@ -1734,7 +1755,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
             <thead>
               <tr>
                 <th>Chức danh</th>
-                <th>Số lượt có điểm</th>
+                <th>Số người có điểm</th>
                 <th>Điểm TB</th>
               </tr>
             </thead>
@@ -1742,7 +1763,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
               {byTitle.map((row) => (
                 <tr key={row.key}>
                   <td data-label="Chức danh">{row.key}</td>
-                  <td data-label="Số lượt có điểm">{row.count}</td>
+                  <td data-label="Số người có điểm">{row.count}</td>
                   <td data-label="Điểm TB">{row.average != null ? row.average.toFixed(2) : "—"}</td>
                 </tr>
               ))}

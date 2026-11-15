@@ -109,11 +109,31 @@ describe("Procedure training registration (QR) + pass/fail threshold", () => {
   // trung lập. Chỉ "none" khi chưa làm bài ở bất kỳ đợt nào.
   it("Đạt/Không đạt xét theo đợt kiểm tra CUỐI CÙNG đã tạo — chưa làm đợt cuối (dù đã có điểm Pre) tính là KHÔNG ĐẠT, không phải trung lập", () => {
     const client = read("src/components/procedure-training-detail-client.tsx");
-    expect(client).toContain("function computePassStatus(myResults: ResultRow[], rounds: Round[], passThreshold: number | null)");
+    expect(client).toContain("function computePassStatus(myResults: ResultRow[], rounds: Round[], passThreshold: number | null, attended: boolean)");
     expect(client).toContain("const hasAnyScore = myResults.some((r) => r.score != null);");
     expect(client).toContain('if (!hasAnyScore) return "none";');
     expect(client).toContain("const finalRound = [...rounds].sort((a, b) => b.sort_order - a.sort_order");
-    expect(client).toContain('if (!finalResult) return "fail";');
+    expect(client).toContain('if (!finalResult || !attended) return "fail";');
+  });
+
+  // Người dùng mô tả quy trình thật: "Post-test là điều kiện bắt buộc... hệ
+  // thống chỉ trích xuất điểm Post-test để xét đạt... yêu cầu phải có đủ dữ
+  // liệu điểm danh mới công nhận kết quả Post-test" — Đạt đòi thêm attended,
+  // không chỉ điểm.
+  it("Đạt bắt buộc đã điểm danh (attended=true) — có điểm Post-test đạt ngưỡng nhưng chưa điểm danh vẫn tính KHÔNG ĐẠT", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain("computePassStatus(myResults, rounds, passThreshold, a.attended)");
+  });
+
+  // "điểm trung bình theo đơn vị chỉ lấy điểm post test, hiện tại app đang
+  // lấy các lần ko phân biệt" — groupBy (dùng cho cả theo đơn vị và theo
+  // chức danh) phải lọc chỉ lấy điểm ở ĐỢT CUỐI CÙNG (lastRound), không gộp
+  // Pre-test lẫn Post-test vào chung 1 điểm TB.
+  it("Điểm trung bình theo đơn vị/chức danh chỉ lấy điểm đợt kiểm tra cuối cùng (Post-test), không gộp Pre-test", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain("if (!lastRound) return [];");
+    expect(client).toContain("if (res.score == null || res.round_id !== lastRound.id) continue;");
+    expect(client).toContain("Chỉ tính điểm {lastRound ? lastRound.round_label : \"đợt kiểm tra cuối cùng\"} (Post-test) — không gộp Pre-test.");
   });
 
   it("UI tab Đăng ký: hiện QR, danh sách đăng ký đối chiếu đã/chưa tham gia, và cảnh báo khoa/phòng còn thiếu người đăng ký (chỉ khi đã khai staff_count)", () => {
