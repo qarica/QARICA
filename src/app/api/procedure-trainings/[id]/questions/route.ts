@@ -70,3 +70,51 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true, questions: data ?? [] });
 }
+
+// Thêm 1 câu hỏi mới (soạn câu hỏi + lựa chọn + chọn đáp án đúng ngay 1 lần,
+// không qua bước dán đáp án hàng loạt trước) — question_no tự tăng theo câu
+// cuối cùng hiện có của đợt đào tạo này.
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireApiPermission("procedure_training.manage");
+  if (!auth.ok) return auth.response;
+  const { id: trainingId } = await params;
+  const admin = createAdminClient();
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+
+  const { data: training } = await admin.from("procedure_trainings").select("id").eq("id", trainingId).eq("organization_id", organizationId).maybeSingle();
+  if (!training) return NextResponse.json({ error: "Không tìm thấy quy trình." }, { status: 404 });
+
+  const body = await request.json().catch(() => ({}));
+  const correctAnswer = String(body.correct_answer ?? "").trim();
+  if (!correctAnswer) return NextResponse.json({ error: "Chưa có đáp án đúng." }, { status: 400 });
+  if (correctAnswer.length > 2000) return NextResponse.json({ error: "Đáp án đúng quá dài." }, { status: 400 });
+  const questionText = String(body.question_text ?? "").trim() || null;
+  const choices = Array.isArray(body.choices) ? body.choices.map((c: unknown) => String(c ?? "").trim()).filter(Boolean) : [];
+
+  const { data: last } = await admin
+    .from("procedure_training_questions")
+    .select("question_no")
+    .eq("training_id", trainingId)
+    .eq("organization_id", organizationId)
+    .order("question_no", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextNo = (last?.question_no ?? 0) + 1;
+
+  const { data, error } = await admin
+    .from("procedure_training_questions")
+    .insert({
+      training_id: trainingId,
+      organization_id: organizationId,
+      question_no: nextNo,
+      correct_answer: correctAnswer,
+      question_text: questionText,
+      choices: choices.length > 1 ? choices : null,
+    })
+    .select(SELECT_COLUMNS)
+    .single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ ok: true, question: data });
+}

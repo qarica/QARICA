@@ -232,11 +232,17 @@ describe("Procedure trainings: nhiều đợt kiểm tra (round) + điểm theo 
 
   // "Muốn xem 1 người thì làm sao tra cứu bao nhiêu điểm, sai câu nào đúng
   // câu nào" — panel chi tiết hiện điểm + từng câu đúng/sai theo từng đợt.
-  it("panel 'Xem chi tiết' 1 người hiện điểm theo từng đợt VÀ đúng/sai từng câu (khi có), không chỉ điểm tổng", () => {
+  // Đọc "quá ngắn gọn không hiểu" (chỉ hiện đáp án đã chọn, không có nội
+  // dung câu hỏi lẫn các lựa chọn khác) — panel phải hiện đủ câu hỏi gốc và
+  // toàn bộ lựa chọn, đánh dấu rõ đã chọn gì / đáp án đúng là gì.
+  it("panel 'Xem chi tiết' 1 người hiện điểm theo từng đợt, đúng/sai từng câu, VÀ đủ nội dung câu hỏi + toàn bộ lựa chọn (không chỉ đáp án đã chọn)", () => {
     const client = read("src/components/procedure-training-detail-client.tsx");
     expect(client).toContain("function AttendeeDetailPanel");
     expect(client).toContain("resp.is_correct ? \"Đúng\" : \"Sai\"");
-    expect(client).toContain("Câu {resp.question_no}:");
+    expect(client).toContain("q?.question_text ? <p className=\"ptd-response-question\">{q.question_text}</p> : null");
+    expect(client).toContain("choices.map((choice) => {");
+    expect(client).toContain("isChosen ? <span className=\"ptd-choice-tag\">Đã chọn</span> : null");
+    expect(client).toContain("isAnswerKey && !isChosen ? <span className=\"ptd-choice-tag\">Đáp án đúng</span> : null");
   });
 
   // "chưa có phân tích kết quả theo đối tượng, trước sau"
@@ -267,11 +273,35 @@ describe("Procedure trainings: import điểm từ file khảo sát (Google/Micr
     expect(migration).toContain("unique(training_id, question_no)");
   });
 
-  it("API đáp án (GET/PUT) tách view/manage, thay toàn bộ danh sách khi lưu (không sửa từng câu lẻ tẻ)", () => {
+  it("API đáp án (GET/PUT) tách view/manage; PUT vẫn giữ để thay toàn bộ danh sách 1 lần khi dán từ file đáp án", () => {
     const route = read("src/app/api/procedure-trainings/[id]/questions/route.ts");
     expect(route).toContain('requireApiPermission("procedure_training.view")');
     expect(route).toContain('requireApiPermission("procedure_training.manage")');
     expect(route).toContain('.eq("training_id", trainingId).eq("organization_id", organizationId)'); // xoá hết trước khi ghi lại
+  });
+
+  // "bỏ phần chung ở trên, chỉ cần phần nội dung câu hỏi và đáp án, và chọn
+  // đáp án đúng luôn, không phải nhập 2 lần" — UI tab Câu hỏi & đáp án bỏ ô
+  // dán đáp án hàng loạt, sửa/thêm/xoá từng câu một, chọn đáp án đúng ngay
+  // trong các lựa chọn (radio) thay vì gõ lại đáp án ở chỗ khác.
+  it("API soạn từng câu hỏi: POST thêm 1 câu mới, PATCH sửa cả correct_answer cùng lúc với nội dung/lựa chọn, DELETE xoá 1 câu", () => {
+    const listRoute = read("src/app/api/procedure-trainings/[id]/questions/route.ts");
+    expect(listRoute).toContain("export async function POST(request: Request");
+    expect(listRoute).toContain('.order("question_no", { ascending: false })');
+
+    const itemRoute = read("src/app/api/procedure-trainings/[id]/questions/[questionNo]/route.ts");
+    expect(itemRoute).toContain("if (body.correct_answer !== undefined)");
+    expect(itemRoute).toContain("export async function DELETE(");
+    expect(itemRoute).toContain('requireApiPermission("procedure_training.manage")');
+  });
+
+  it("UI tab Câu hỏi & đáp án: không còn ô dán đáp án hàng loạt — mỗi câu tự chọn đáp án đúng trong danh sách lựa chọn (radio) của chính nó", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).not.toContain("Lưu đáp án (");
+    expect(client).toContain("function QuestionEditorRow");
+    expect(client).toContain('type="radio"');
+    expect(client).toContain("Chưa chọn đáp án đúng trong các lựa chọn.");
+    expect(client).toContain("+ Thêm câu hỏi");
   });
 
   it("API xem trước (import) KHÔNG ghi gì vào DB — chỉ đọc file + tính toán, để người dùng xác nhận trước khi lưu thật", () => {

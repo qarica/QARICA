@@ -30,6 +30,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const choices = Array.isArray(body.choices) ? body.choices.map((c: unknown) => String(c ?? "").trim()).filter(Boolean) : [];
     update.choices = choices.length > 1 ? choices : null;
   }
+  // correct_answer sửa cùng lúc với nội dung câu hỏi (chọn đáp án đúng ngay
+  // trong danh sách lựa chọn, không gõ lại đáp án ở 1 chỗ khác) — thay cho
+  // PUT /questions (thay toàn bộ danh sách) trước đây là cách duy nhất sửa
+  // đáp án đúng.
+  if (body.correct_answer !== undefined) {
+    const correctAnswer = String(body.correct_answer).trim();
+    if (!correctAnswer) return NextResponse.json({ error: "Chưa có đáp án đúng." }, { status: 400 });
+    if (correctAnswer.length > 2000) return NextResponse.json({ error: "Đáp án đúng quá dài." }, { status: 400 });
+    update.correct_answer = correctAnswer;
+  }
   if (!Object.keys(update).length) return NextResponse.json({ error: "Không có thay đổi nào." }, { status: 400 });
 
   const { data, error } = await admin
@@ -43,4 +53,29 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (!data) return NextResponse.json({ error: "Không tìm thấy câu hỏi." }, { status: 404 });
   return NextResponse.json({ ok: true, question: data });
+}
+
+// Xoá 1 câu hỏi lẻ (thêm nhầm, trùng, không còn dùng) — sửa theo từng câu
+// thay vì phải dán lại toàn bộ danh sách đáp án qua PUT /questions.
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string; questionNo: string }> }) {
+  const auth = await requireApiPermission("procedure_training.manage");
+  if (!auth.ok) return auth.response;
+  const { id: trainingId, questionNo } = await params;
+  const qNo = Number(questionNo);
+  if (!Number.isFinite(qNo) || qNo <= 0) return NextResponse.json({ error: "Số thứ tự câu hỏi không hợp lệ." }, { status: 400 });
+
+  const admin = createAdminClient();
+  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
+  if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+
+  const { error, count } = await admin
+    .from("procedure_training_questions")
+    .delete({ count: "exact" })
+    .eq("training_id", trainingId)
+    .eq("organization_id", organizationId)
+    .eq("question_no", qNo);
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (!count) return NextResponse.json({ error: "Không tìm thấy câu hỏi." }, { status: 404 });
+  return NextResponse.json({ ok: true });
 }

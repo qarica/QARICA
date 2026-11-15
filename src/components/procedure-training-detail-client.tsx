@@ -29,6 +29,7 @@ type Attendee = { id: string; employee_name: string; employee_code: string | nul
 type ResultRow = { id: string; attendee_id: string; round_id: string; score: number | null };
 type ResponseRow = { result_id: string; question_no: number; answer_text: string | null; is_correct: boolean | null };
 type QuestionRow = { question_no: number; correct_answer: string; question_text: string | null; choices: string[] | null };
+type Department = { id: string; name: string };
 
 type ImportActionPreview =
   | {
@@ -73,6 +74,7 @@ export function ProcedureTrainingDetailClient({
   results: initialResults,
   responses: initialResponses,
   questions: initialQuestions,
+  departments,
   canManage,
 }: {
   training: Training;
@@ -81,6 +83,7 @@ export function ProcedureTrainingDetailClient({
   results: ResultRow[];
   responses: ResponseRow[];
   questions: QuestionRow[];
+  departments: Department[];
   canManage: boolean;
 }) {
   const [tab, setTab] = useState<"info" | "roster" | "analysis" | "questions" | "import">("roster");
@@ -138,6 +141,8 @@ export function ProcedureTrainingDetailClient({
           responsesByResult={responsesByResult}
           roundById={roundById}
           hasQuestions={questions.length > 0}
+          questions={questions}
+          departments={departments}
           canManage={canManage}
           setError={setError}
         />
@@ -324,6 +329,8 @@ function RosterTab({
   responsesByResult,
   roundById,
   hasQuestions,
+  questions,
+  departments,
   canManage,
   setError,
 }: {
@@ -337,6 +344,8 @@ function RosterTab({
   responsesByResult: Map<string, ResponseRow[]>;
   roundById: Map<string, Round>;
   hasQuestions: boolean;
+  questions: QuestionRow[];
+  departments: Department[];
   canManage: boolean;
   setError: (e: string) => void;
 }) {
@@ -348,10 +357,43 @@ function RosterTab({
   const [newDept, setNewDept] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [scoreEdit, setScoreEdit] = useState<{ attendeeId: string; roundId: string; value: string } | null>(null);
+  const [deptEdit, setDeptEdit] = useState<{ attendeeId: string; value: string } | null>(null);
   const [detailAttendeeId, setDetailAttendeeId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [qrRoundId, setQrRoundId] = useState<string | null>(null);
   const [toggleBusyId, setToggleBusyId] = useState<string | null>(null);
+
+  // Báo cáo thực tế (khảo sát giấy cũ): "Mục đơn vị phụ trách là khoa phòng
+  // nên 1 số nhân viên điền chưa đúng" — đơn vị phải chọn từ danh mục
+  // khoa/phòng đã cấu hình, không tự gõ; dữ liệu cũ/nhập tay trước đó có thể
+  // không khớp danh mục (sai chính tả, viết tắt, đơn vị bên ngoài...) — đánh
+  // dấu "Cần xác nhận lại" để admin tự sửa, không tự động đổi dữ liệu người dùng.
+  const departmentNameSet = useMemo(() => new Set(departments.map((d) => d.name.trim().toLocaleLowerCase("vi"))), [departments]);
+  function isDeptMismatch(dept: string | null) {
+    if (!dept || !dept.trim()) return false;
+    return !departmentNameSet.has(dept.trim().toLocaleLowerCase("vi"));
+  }
+
+  function startDeptEdit(a: Attendee) {
+    setDeptEdit({ attendeeId: a.id, value: a.department || "" });
+  }
+
+  async function saveDeptEdit() {
+    if (!deptEdit) return;
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${trainingId}/attendees/${deptEdit.attendeeId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ department: deptEdit.value || null }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(body.error || "Không lưu được đơn vị.");
+      return;
+    }
+    setAttendees((v) => v.map((x) => (x.id === deptEdit.attendeeId ? { ...x, ...body.attendee } : x)));
+    setDeptEdit(null);
+  }
 
   async function toggleRoundOpen(round: Round) {
     setError("");
@@ -538,7 +580,14 @@ function RosterTab({
           <div className="ptd-attendee-add" style={{ padding: "0 19px 19px" }}>
             <input className="input" placeholder="Tên nhân viên..." value={newEmployeeName} onChange={(e) => setNewEmployeeName(e.target.value)} />
             <input className="input" placeholder="Mã NV (tùy chọn)" value={newEmployeeCode} onChange={(e) => setNewEmployeeCode(e.target.value)} />
-            <input className="input" placeholder="Đơn vị (tùy chọn)" value={newDept} onChange={(e) => setNewDept(e.target.value)} />
+            <select className="input" value={newDept} onChange={(e) => setNewDept(e.target.value)}>
+              <option value="">— Đơn vị (tùy chọn) —</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.name}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
             <input className="input" placeholder="Chức danh (tùy chọn)" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
             <button className="button primary small" disabled={!newEmployeeName.trim()} onClick={() => void addAttendee()}>
               + Thêm
@@ -549,7 +598,9 @@ function RosterTab({
           <table>
             <thead>
               <tr>
+                <th>STT</th>
                 <th>Họ tên</th>
+                <th>Mã NV</th>
                 <th>Đơn vị</th>
                 <th>Chức danh</th>
                 <th>Đã đào tạo</th>
@@ -560,15 +611,44 @@ function RosterTab({
               </tr>
             </thead>
             <tbody>
-              {filteredAttendees.map((a) => {
+              {filteredAttendees.map((a, idx) => {
                 const myResults = resultsByAttendee.get(a.id) || [];
+                const editingDept = deptEdit?.attendeeId === a.id;
+                const deptMismatch = isDeptMismatch(a.department);
                 return (
                   <tr key={a.id}>
-                    <td data-label="Họ tên">
-                      {a.employee_name}
-                      {a.employee_code ? ` (${a.employee_code})` : ""}
+                    <td data-label="STT">{idx + 1}</td>
+                    <td data-label="Họ tên">{a.employee_name}</td>
+                    <td data-label="Mã NV">{a.employee_code || "—"}</td>
+                    <td data-label="Đơn vị">
+                      {editingDept ? (
+                        <div className="ptd-dept-edit">
+                          <select className="input" autoFocus value={deptEdit.value} onChange={(e) => setDeptEdit((v) => (v ? { ...v, value: e.target.value } : v))}>
+                            <option value="">— Không có —</option>
+                            {departments.map((d) => (
+                              <option key={d.id} value={d.name}>
+                                {d.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button className="button primary small" onClick={() => void saveDeptEdit()}>
+                            Lưu
+                          </button>
+                          <button className="button tertiary small" onClick={() => setDeptEdit(null)}>
+                            Hủy
+                          </button>
+                        </div>
+                      ) : (
+                        <button type="button" className="ptd-dept-cell" disabled={!canManage} onClick={() => startDeptEdit(a)}>
+                          {a.department || "—"}
+                          {deptMismatch ? (
+                            <span className="status-badge warning" title="Đơn vị không khớp danh mục khoa/phòng đã cấu hình — bấm để xác nhận lại">
+                              Cần xác nhận lại
+                            </span>
+                          ) : null}
+                        </button>
+                      )}
                     </td>
-                    <td data-label="Đơn vị">{a.department || "—"}</td>
                     <td data-label="Chức danh">{a.job_title || "—"}</td>
                     <td data-label="Đã đào tạo">
                       {canManage ? (
@@ -619,7 +699,7 @@ function RosterTab({
               })}
               {!filteredAttendees.length ? (
                 <tr>
-                  <td colSpan={5 + rounds.length} className="empty-state compact">
+                  <td colSpan={7 + rounds.length} className="empty-state compact">
                     Chưa có nhân sự nào.
                   </td>
                 </tr>
@@ -630,7 +710,14 @@ function RosterTab({
       </section>
 
       {detailAttendee ? (
-        <AttendeeDetailPanel attendee={detailAttendee} results={resultsByAttendee.get(detailAttendee.id) || []} responsesByResult={responsesByResult} roundById={roundById} onClose={() => setDetailAttendeeId(null)} />
+        <AttendeeDetailPanel
+          attendee={detailAttendee}
+          results={resultsByAttendee.get(detailAttendee.id) || []}
+          responsesByResult={responsesByResult}
+          roundById={roundById}
+          questions={questions}
+          onClose={() => setDetailAttendeeId(null)}
+        />
       ) : null}
 
       {qrRoundId ? <RoundQrModal round={roundById.get(qrRoundId) || null} onClose={() => setQrRoundId(null)} /> : null}
@@ -692,6 +779,30 @@ function RosterTab({
         }
         .ptd-score-edit input {
           width: 64px;
+        }
+        .ptd-dept-edit {
+          display: flex;
+          gap: 4px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .ptd-dept-edit select {
+          min-width: 160px;
+        }
+        .ptd-dept-cell {
+          border: 0;
+          background: transparent;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font: inherit;
+          color: inherit;
+          text-align: left;
+          padding: 0;
+        }
+        .ptd-dept-cell:disabled {
+          cursor: default;
         }
         @media (max-width: 900px) {
           .ptd-round-add,
@@ -786,14 +897,17 @@ function AttendeeDetailPanel({
   results,
   responsesByResult,
   roundById,
+  questions,
   onClose,
 }: {
   attendee: Attendee;
   results: ResultRow[];
   responsesByResult: Map<string, ResponseRow[]>;
   roundById: Map<string, Round>;
+  questions: QuestionRow[];
   onClose: () => void;
 }) {
+  const questionByNo = useMemo(() => new Map(questions.map((q) => [q.question_no, q])), [questions]);
   return (
     <div className="modal-backdrop">
       <div className="modal-card">
@@ -825,12 +939,36 @@ function AttendeeDetailPanel({
                   </div>
                   {qResponses.length ? (
                     <ul className="ptd-response-list">
-                      {qResponses.map((resp) => (
-                        <li key={resp.question_no} className={resp.is_correct ? "is-correct" : "is-wrong"}>
-                          <span>Câu {resp.question_no}:</span> <span>{resp.answer_text || "—"}</span>
-                          <span className={`status-badge ${resp.is_correct ? "success" : "danger"}`}>{resp.is_correct ? "Đúng" : "Sai"}</span>
-                        </li>
-                      ))}
+                      {qResponses.map((resp) => {
+                        const q = questionByNo.get(resp.question_no);
+                        const choices = q?.choices && q.choices.length > 1 ? q.choices : null;
+                        return (
+                          <li key={resp.question_no} className={resp.is_correct ? "is-correct" : "is-wrong"}>
+                            <div className="ptd-response-head">
+                              <strong>Câu {resp.question_no}</strong>
+                              <span className={`status-badge ${resp.is_correct ? "success" : "danger"}`}>{resp.is_correct ? "Đúng" : "Sai"}</span>
+                            </div>
+                            {q?.question_text ? <p className="ptd-response-question">{q.question_text}</p> : null}
+                            {choices ? (
+                              <ul className="ptd-response-choices">
+                                {choices.map((choice) => {
+                                  const isChosen = choice === resp.answer_text;
+                                  const isAnswerKey = q?.correct_answer ? choice === q.correct_answer : false;
+                                  return (
+                                    <li key={choice} className={isChosen ? (resp.is_correct ? "is-chosen-correct" : "is-chosen-wrong") : isAnswerKey ? "is-answer-key" : ""}>
+                                      <span>{choice}</span>
+                                      {isChosen ? <span className="ptd-choice-tag">Đã chọn</span> : null}
+                                      {isAnswerKey && !isChosen ? <span className="ptd-choice-tag">Đáp án đúng</span> : null}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : (
+                              <p className="ptd-response-answer">Trả lời: {resp.answer_text || "—"}</p>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   ) : (
                     <p className="muted tiny">Không có chi tiết từng câu cho đợt này (nhập thủ công, hoặc nhập từ file đã chấm sẵn — chỉ có điểm tổng).</p>
@@ -860,20 +998,72 @@ function AttendeeDetailPanel({
           margin: 0;
           padding: 0;
           display: grid;
-          gap: 6px;
+          gap: 10px;
         }
-        .ptd-response-list li {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-          flex-wrap: wrap;
-          font-size: 12px;
-          padding: 6px 8px;
+        .ptd-response-list > li {
+          display: grid;
+          gap: 6px;
+          font-size: 13px;
+          padding: 10px 12px;
           border-radius: 8px;
           background: #f8fafb;
         }
-        .ptd-response-list li.is-wrong {
+        .ptd-response-list > li.is-wrong {
           background: var(--danger-soft, #fee2e2);
+        }
+        .ptd-response-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .ptd-response-question {
+          margin: 0;
+          font-weight: 600;
+          color: var(--text);
+        }
+        .ptd-response-answer {
+          margin: 0;
+          color: var(--muted);
+        }
+        .ptd-response-choices {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: grid;
+          gap: 4px;
+        }
+        .ptd-response-choices li {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
+          padding: 5px 8px;
+          border-radius: 6px;
+          background: #fff;
+          border: 1px solid var(--line);
+        }
+        .ptd-response-choices li.is-chosen-correct {
+          border-color: var(--success, #16a34a);
+          background: var(--success-soft, #dcfce7);
+          font-weight: 600;
+        }
+        .ptd-response-choices li.is-chosen-wrong {
+          border-color: var(--danger, #dc2626);
+          background: #fff;
+          font-weight: 600;
+          text-decoration: line-through;
+        }
+        .ptd-response-choices li.is-answer-key {
+          border-color: var(--success, #16a34a);
+          background: var(--success-soft, #dcfce7);
+        }
+        .ptd-choice-tag {
+          font-size: 11px;
+          font-weight: 700;
+          padding: 1px 7px;
+          border-radius: 20px;
+          background: rgba(0, 0, 0, 0.06);
         }
       `}</style>
     </div>
@@ -1266,29 +1456,18 @@ function QuestionsTab({
   canManage: boolean;
   setError: (e: string) => void;
 }) {
-  const [text, setText] = useState(questions.map((q) => q.correct_answer).join("\n"));
-  const [saving, setSaving] = useState(false);
+  // Báo cáo thực tế: "bỏ phần chung ở trên, chỉ cần phần nội dung câu hỏi và
+  // đáp án, và chọn đáp án đúng luôn, không phải nhập 2 lần" — trước đây có
+  // 1 ô dán danh sách đáp án đúng hàng loạt (để chấm điểm) TÁCH RIÊNG khỏi
+  // từng câu (nội dung + lựa chọn) ở dưới, nên cùng 1 đáp án phải gõ 2 chỗ.
+  // Giờ mỗi câu tự chọn đáp án đúng ngay trong danh sách lựa chọn của chính
+  // nó (radio) — gõ 1 lần duy nhất. "draftNos" là các câu mới thêm nhưng
+  // chưa lưu (chưa gọi API) — chỉ tạo hàng thật khi bấm "Lưu câu này".
+  const [draftNos, setDraftNos] = useState<number[]>([]);
 
-  async function save() {
-    setSaving(true);
-    setError("");
-    const answers = text
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const res = await fetch(`/api/procedure-trainings/${trainingId}/questions`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answers }),
-    });
-    const body = await res.json().catch(() => ({}));
-    setSaving(false);
-    if (!res.ok) {
-      setError(body.error || "Không lưu được đáp án.");
-      return;
-    }
-    setQuestions(body.questions as QuestionRow[]);
-    setText((body.questions as QuestionRow[]).map((q) => q.correct_answer).join("\n"));
+  function addDraft() {
+    const maxNo = Math.max(0, ...questions.map((q) => q.question_no), ...draftNos);
+    setDraftNos((v) => [...v, maxNo + 1]);
   }
 
   return (
@@ -1296,93 +1475,232 @@ function QuestionsTab({
       <div className="panel-title">
         <div>
           <h2>Câu hỏi & đáp án</h2>
-          <p>Mỗi dòng 1 câu, đúng thứ tự câu hỏi trong file khảo sát — dùng để tự chấm điểm khi nhập file câu trả lời thô.</p>
+          <p>Soạn từng câu: nội dung câu hỏi, các lựa chọn, và chọn luôn đáp án đúng trong số đó — dùng để tự chấm điểm và cho nhân viên tự làm bài qua QR.</p>
         </div>
       </div>
-      <div style={{ padding: "0 19px 19px", display: "grid", gap: 10 }}>
-        <textarea className="input" rows={12} disabled={!canManage} placeholder={"Câu 1: 24 giờ và 36 giờ\nCâu 2: SOAP\n..."} value={text} onChange={(e) => setText(e.target.value)} />
+      <div style={{ padding: "0 19px 19px", display: "grid", gap: 14 }}>
+        {questions.map((q) => (
+          <QuestionEditorRow
+            key={q.question_no}
+            trainingId={trainingId}
+            question={q}
+            questionNo={q.question_no}
+            canManage={canManage}
+            onSaved={(updated) => setQuestions((prev) => prev.map((x) => (x.question_no === updated.question_no ? updated : x)))}
+            onDeleted={() => setQuestions((prev) => prev.filter((x) => x.question_no !== q.question_no))}
+            setError={setError}
+          />
+        ))}
+        {draftNos.map((no) => (
+          <QuestionEditorRow
+            key={`draft-${no}`}
+            trainingId={trainingId}
+            question={null}
+            questionNo={no}
+            canManage={canManage}
+            onSaved={(created) => {
+              setQuestions((prev) => [...prev, created].sort((a, b) => a.question_no - b.question_no));
+              setDraftNos((v) => v.filter((n) => n !== no));
+            }}
+            onCancelDraft={() => setDraftNos((v) => v.filter((n) => n !== no))}
+            setError={setError}
+          />
+        ))}
+        {!questions.length && !draftNos.length ? <p className="empty-state compact">Chưa có câu hỏi nào.</p> : null}
         {canManage ? (
-          <button className="button primary" disabled={saving} onClick={() => void save()} style={{ justifySelf: "start" }}>
-            {saving ? "Đang lưu..." : `Lưu đáp án (${text.split("\n").filter((s) => s.trim()).length} câu)`}
+          <button type="button" className="button secondary" onClick={addDraft} style={{ justifySelf: "start" }}>
+            + Thêm câu hỏi
           </button>
         ) : null}
       </div>
-      {questions.length > 0 ? (
-        <div style={{ padding: "0 19px 19px", display: "grid", gap: 10, borderTop: "1px solid var(--line)", marginTop: 6, paddingTop: 16 }}>
-          <div>
-            <strong style={{ fontSize: 13 }}>Nội dung câu hỏi (để nhân viên tự làm bài trực tiếp qua QR)</strong>
-            <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>
-              Tuỳ chọn. Để trống lựa chọn nếu muốn nhân viên tự gõ câu trả lời thay vì chọn trắc nghiệm.
-            </p>
-          </div>
-          {questions.map((q) => (
-            <QuestionContentRow key={q.question_no} trainingId={trainingId} question={q} canManage={canManage} setQuestions={setQuestions} setError={setError} />
-          ))}
-        </div>
-      ) : null}
     </section>
   );
 }
 
-// 1 dòng soạn nội dung công khai (question_text + choices) cho 1 câu — tách
-// state sửa-tại-chỗ riêng từng câu, không dùng chung 1 state với ô dán đáp
-// án hàng loạt phía trên (2 việc khác nhau: đáp án đúng để chấm vs nội dung
-// hiển thị cho người làm bài).
-function QuestionContentRow({
+// 1 câu hỏi: nội dung + danh sách lựa chọn + chọn đáp án đúng ngay trong số
+// lựa chọn đó (radio) — hoặc gõ thẳng đáp án đúng khi không dùng trắc
+// nghiệm (dưới 2 lựa chọn). `question=null` là câu mới chưa lưu (POST khi
+// lưu lần đầu), khác với sửa câu đã có (PATCH).
+function QuestionEditorRow({
   trainingId,
   question,
+  questionNo,
   canManage,
-  setQuestions,
+  onSaved,
+  onDeleted,
+  onCancelDraft,
   setError,
 }: {
   trainingId: string;
-  question: QuestionRow;
+  question: QuestionRow | null;
+  questionNo: number;
   canManage: boolean;
-  setQuestions: (v: QuestionRow[] | ((prev: QuestionRow[]) => QuestionRow[])) => void;
+  onSaved: (q: QuestionRow) => void;
+  onDeleted?: () => void;
+  onCancelDraft?: () => void;
   setError: (e: string) => void;
 }) {
-  const [questionText, setQuestionText] = useState(question.question_text || "");
-  const [choicesText, setChoicesText] = useState((question.choices || []).join("\n"));
+  const isDraft = question === null;
+  const hasChoices = !!question?.choices && question.choices.length > 1;
+  const [questionText, setQuestionText] = useState(question?.question_text || "");
+  const [choices, setChoices] = useState<string[]>(hasChoices ? [...(question!.choices as string[])] : []);
+  const [correctIndex, setCorrectIndex] = useState<number | null>(() => {
+    if (!hasChoices) return null;
+    const idx = (question!.choices as string[]).findIndex((c) => c === question!.correct_answer);
+    return idx >= 0 ? idx : null;
+  });
+  const [freeTextAnswer, setFreeTextAnswer] = useState(hasChoices ? "" : question?.correct_answer || "");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [localError, setLocalError] = useState("");
+
+  const isChoiceMode = choices.filter((c) => c.trim()).length >= 2;
+
+  function updateChoice(i: number, value: string) {
+    setChoices((v) => v.map((c, idx) => (idx === i ? value : c)));
+  }
+  function addChoice() {
+    setChoices((v) => [...v, ""]);
+  }
+  function removeChoice(i: number) {
+    setChoices((v) => v.filter((_, idx) => idx !== i));
+    setCorrectIndex((cur) => (cur === null ? cur : cur === i ? null : cur > i ? cur - 1 : cur));
+  }
 
   async function save() {
+    setLocalError("");
+    let correctAnswer = "";
+    let finalChoices: string[] = [];
+    if (isChoiceMode) {
+      if (correctIndex === null || !choices[correctIndex]?.trim()) {
+        setLocalError("Chưa chọn đáp án đúng trong các lựa chọn.");
+        return;
+      }
+      correctAnswer = choices[correctIndex].trim();
+      finalChoices = choices.map((c) => c.trim()).filter(Boolean);
+    } else {
+      correctAnswer = freeTextAnswer.trim();
+      if (!correctAnswer) {
+        setLocalError("Chưa nhập đáp án đúng.");
+        return;
+      }
+    }
     setSaving(true);
     setError("");
-    const res = await fetch(`/api/procedure-trainings/${trainingId}/questions/${question.question_no}`, {
-      method: "PATCH",
+    const res = await fetch(isDraft ? `/api/procedure-trainings/${trainingId}/questions` : `/api/procedure-trainings/${trainingId}/questions/${questionNo}`, {
+      method: isDraft ? "POST" : "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        question_text: questionText,
-        choices: choicesText
-          .split("\n")
-          .map((s) => s.trim())
-          .filter(Boolean),
-      }),
+      body: JSON.stringify({ question_text: questionText, choices: finalChoices, correct_answer: correctAnswer }),
     });
     const body = await res.json().catch(() => ({}));
     setSaving(false);
     if (!res.ok) {
-      setError(body.error || "Không lưu được nội dung câu hỏi.");
+      setError(body.error || "Không lưu được câu hỏi.");
       return;
     }
-    const updated = body.question as QuestionRow;
-    setQuestions((prev) => prev.map((q) => (q.question_no === updated.question_no ? updated : q)));
+    onSaved(body.question as QuestionRow);
+  }
+
+  async function remove() {
+    if (!window.confirm(`Xoá câu ${questionNo}? Không thể hoàn tác.`)) return;
+    setDeleting(true);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${trainingId}/questions/${questionNo}`, { method: "DELETE" });
+    const body = await res.json().catch(() => ({}));
+    setDeleting(false);
+    if (!res.ok) {
+      setError(body.error || "Không xoá được câu hỏi.");
+      return;
+    }
+    onDeleted?.();
   }
 
   return (
     <fieldset>
-      <legend>
-        Câu {question.question_no} — Đáp án đúng: {question.correct_answer}
-      </legend>
+      <legend>{isDraft ? `Câu mới (#${questionNo})` : `Câu ${questionNo}`}</legend>
       <div style={{ display: "grid", gap: 8 }}>
         <input disabled={!canManage} placeholder="Nội dung câu hỏi..." value={questionText} onChange={(e) => setQuestionText(e.target.value)} />
-        <textarea disabled={!canManage} rows={3} placeholder={"Mỗi dòng 1 lựa chọn (để trống nếu để nhân viên tự gõ)..."} value={choicesText} onChange={(e) => setChoicesText(e.target.value)} />
+        <div className="ptd-choice-list">
+          {choices.map((c, i) => (
+            <label key={i} className="ptd-choice-row">
+              <input type="radio" name={`correct-${questionNo}`} checked={correctIndex === i} onChange={() => setCorrectIndex(i)} disabled={!canManage || !c.trim()} />
+              <input className="ptd-choice-text" disabled={!canManage} placeholder={`Lựa chọn ${i + 1}...`} value={c} onChange={(e) => updateChoice(i, e.target.value)} />
+              {canManage ? (
+                <button type="button" aria-label={`Xoá lựa chọn ${i + 1}`} onClick={() => removeChoice(i)}>
+                  ×
+                </button>
+              ) : null}
+            </label>
+          ))}
+          {canManage ? (
+            <button type="button" className="button tertiary small" onClick={addChoice} style={{ justifySelf: "start" }}>
+              + Thêm lựa chọn
+            </button>
+          ) : null}
+        </div>
+        {!isChoiceMode ? (
+          <label className="ptd-free-answer">
+            <span>Đáp án đúng (cần ít nhất 2 lựa chọn ở trên để chuyển sang trắc nghiệm):</span>
+            <input disabled={!canManage} placeholder="Đáp án đúng..." value={freeTextAnswer} onChange={(e) => setFreeTextAnswer(e.target.value)} />
+          </label>
+        ) : null}
+        {localError ? <p className="ptd-question-error">{localError}</p> : null}
         {canManage ? (
-          <button className="button secondary small" disabled={saving} onClick={() => void save()} style={{ justifySelf: "start" }}>
-            {saving ? "Đang lưu..." : "Lưu câu này"}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="button secondary small" disabled={saving} onClick={() => void save()}>
+              {saving ? "Đang lưu..." : "Lưu câu này"}
+            </button>
+            {isDraft ? (
+              <button type="button" className="button tertiary small" onClick={onCancelDraft}>
+                Hủy
+              </button>
+            ) : (
+              <button type="button" className="button tertiary small" disabled={deleting} onClick={() => void remove()}>
+                {deleting ? "Đang xoá..." : "Xoá câu hỏi"}
+              </button>
+            )}
+          </div>
         ) : null}
       </div>
+      <style jsx>{`
+        .ptd-choice-list {
+          display: grid;
+          gap: 6px;
+        }
+        .ptd-choice-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .ptd-choice-row input[type="radio"] {
+          width: auto;
+          min-height: 0;
+          flex: 0 0 auto;
+        }
+        .ptd-choice-text {
+          flex: 1;
+          min-width: 0;
+        }
+        .ptd-choice-row > button {
+          border: 0;
+          background: transparent;
+          cursor: pointer;
+          font-weight: 800;
+          color: var(--danger, #dc2626);
+        }
+        .ptd-free-answer {
+          display: grid;
+          gap: 4px;
+          font-size: 12px;
+          color: var(--muted);
+        }
+        .ptd-question-error {
+          margin: 0;
+          font-size: 12px;
+          color: var(--danger, #dc2626);
+          font-weight: 600;
+        }
+      `}</style>
     </fieldset>
   );
 }
