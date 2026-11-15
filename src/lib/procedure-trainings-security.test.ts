@@ -489,6 +489,24 @@ describe("Procedure trainings: import điểm từ file khảo sát (Google/Micr
     expect(charts).toContain("fill={COLORS.green}");
   });
 
+  // "rất xấu" — nhãn "Mức đạt: X" neo cứng ở mép phải SVG đè lên cột/nhãn
+  // số cuối cùng khi biểu đồ vừa khít nội dung; và nhãn số trên đầu cột bị
+  // đường mốc (dashed) cắt ngang trông như số khác khi giá trị gần bằng
+  // mốc (vd 13.0 cạnh mốc 14 trông như "43.0"). Sửa: bỏ hẳn nhãn chữ trong
+  // SVG (giữ legend phía trên đã có đủ thông tin), và mọi nhãn số trên đầu
+  // cột (TqmGroupedBars lẫn TqmColumnBars) dùng chung ValueLabel có nền
+  // trắng che đường kẻ phía sau.
+  it("TqmGroupedBars không còn in nhãn chữ 'Mức đạt: X' đè mép phải SVG; nhãn số trên đầu cột (cả TqmGroupedBars và TqmColumnBars) dùng ValueLabel có nền che đường kẻ", () => {
+    const charts = read("src/components/tqm-charts.tsx");
+    expect(charts).toContain("function ValueLabel(");
+    expect(charts).not.toContain("{thresholdLabel}: {threshold}</text>");
+    expect(charts).not.toMatch(/textAnchor="end"[^>]*>\{thresholdLabel\}/);
+    const groupedBarsSrc = charts.slice(charts.indexOf("export function TqmGroupedBars("), charts.indexOf("export function TqmColumnBars("));
+    expect(groupedBarsSrc.match(/<ValueLabel /g)?.length).toBe(2);
+    const columnBarsSrc = charts.slice(charts.indexOf("export function TqmColumnBars("));
+    expect(columnBarsSrc).toContain("<ValueLabel x={x + barW / 2} y={y - 5} text={`${r.value}${unit}`} fill=\"#172126\" />");
+  });
+
   // "Thống kê danh sách kiểm tra điểm cao nhất xuống thấp nhất để dùng tuyên
   // dương" — bảng xếp hạng dựa trên điểm đợt kiểm tra CUỐI CÙNG (cùng khái
   // niệm "đợt cuối" với computePassStatus), chỉ xếp người đã có điểm ở đợt

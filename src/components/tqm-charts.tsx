@@ -199,6 +199,26 @@ function wrapLabel(label: string, maxCharsPerLine: number, maxLines: number): st
 }
 
 /**
+ * Nhãn số trên đầu cột, có nền trắng đục phía sau — che đường mốc (threshold
+ * dashed line) hoặc bất kỳ nét kẻ nào đi ngang qua đúng vị trí nhãn khi giá
+ * trị cột gần bằng mốc, tránh chữ số bị nét kẻ "cắt" qua trông như số khác
+ * (báo cáo thực tế: cột 13.0 gần mốc 14 bị đường kẻ cắt qua trông như
+ * "43.0" — "rất xấu"). Độ rộng nền ước lượng theo số ký tự, không cần đo
+ * canvas thật vì chỉ cần đủ che, không cần khít tuyệt đối.
+ */
+function ValueLabel({ x, y, text, fill = "#31515a" }: { x: number; y: number; text: string; fill?: string }) {
+  const w = text.length * 6 + 6;
+  return (
+    <g>
+      <rect x={x - w / 2} y={y - 9} width={w} height={11} fill="#fff" />
+      <text x={x} y={y} textAnchor="middle" fontSize="9" fontWeight="800" fill={fill}>
+        {text}
+      </text>
+    </g>
+  );
+}
+
+/**
  * Biểu đồ cột nhóm: so sánh 2 giá trị (vd trước/sau) theo từng đơn vị, mỗi
  * đơn vị 2 cột cạnh nhau 2 màu khác nhau, kèm 1 đường ngang cắt ngang đánh
  * dấu 1 mốc (vd mức điểm đạt) — theo yêu cầu thực tế "1 khoa gồm 2 cột
@@ -230,14 +250,14 @@ export function TqmGroupedBars({ groups, beforeLabel, afterLabel, threshold, thr
         {hasThreshold ? <span><i className="tqm-swatch" style={{ background: TARGET_LINE_COLOR }} />{thresholdLabel}: {threshold}</span> : null}
       </div>
       <div className="tqm-grouped-bars-scroll">
-        <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} role="img" aria-label={`Biểu đồ cột so sánh ${beforeLabel} và ${afterLabel} theo đơn vị`}>
+        <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} role="img" aria-label={`Biểu đồ cột so sánh ${beforeLabel} và ${afterLabel} theo đơn vị${hasThreshold ? `, ${thresholdLabel} ${threshold}` : ""}`}>
           <line x1={sidePad} y1={baseY} x2={width - sidePad} y2={baseY} stroke="#dce7ea" />
-          {thresholdY !== null ? (
-            <g>
-              <line x1={sidePad} y1={thresholdY} x2={width - sidePad} y2={thresholdY} stroke={TARGET_LINE_COLOR} strokeWidth="2" strokeDasharray="6 5" />
-              <text x={width - sidePad} y={thresholdY - 6} textAnchor="end" fontSize="10" fontWeight="800" fill={TARGET_LINE_COLOR}>{thresholdLabel}: {threshold}</text>
-            </g>
-          ) : null}
+          {/* Chỉ vẽ đường mốc, KHÔNG in nhãn số trong biểu đồ nữa — nhãn
+              "Mức đạt: X" luôn neo sát mép phải (textAnchor="end") nên đè lên
+              cột/nhãn số cuối cùng khi biểu đồ vừa đúng khít nội dung (báo
+              cáo thực tế "rất xấu" — đúng lỗi này); giá trị mốc đã có sẵn
+              trong chú giải (legend) phía trên, không mất thông tin. */}
+          {thresholdY !== null ? <line x1={sidePad} y1={thresholdY} x2={width - sidePad} y2={thresholdY} stroke={TARGET_LINE_COLOR} strokeWidth="2" strokeDasharray="6 5" /> : null}
           {groups.map((g, i) => {
             const gx = sidePad + i * (groupW + groupGap);
             const labelLines = wrapLabel(g.label, 12, 2);
@@ -246,13 +266,13 @@ export function TqmGroupedBars({ groups, beforeLabel, afterLabel, threshold, thr
                 {g.before != null ? (
                   <g>
                     <rect x={gx} y={yFor(g.before)} width={barW} height={Math.max(0, baseY - yFor(g.before))} rx="3" fill={COLORS.blue} />
-                    <text x={gx + barW / 2} y={yFor(g.before) - 4} textAnchor="middle" fontSize="9" fontWeight="800" fill="#31515a">{g.before.toFixed(1)}</text>
+                    <ValueLabel x={gx + barW / 2} y={yFor(g.before) - 4} text={g.before.toFixed(1)} />
                   </g>
                 ) : null}
                 {g.after != null ? (
                   <g>
                     <rect x={gx + barW + gapInGroup} y={yFor(g.after)} width={barW} height={Math.max(0, baseY - yFor(g.after))} rx="3" fill={COLORS.green} />
-                    <text x={gx + barW + gapInGroup + barW / 2} y={yFor(g.after) - 4} textAnchor="middle" fontSize="9" fontWeight="800" fill="#31515a">{g.after.toFixed(1)}</text>
+                    <ValueLabel x={gx + barW + gapInGroup + barW / 2} y={yFor(g.after) - 4} text={g.after.toFixed(1)} />
                   </g>
                 ) : null}
                 <text x={gx + groupW / 2} y={baseY + 13} textAnchor="middle" fontSize="9" fill="#71848b">
@@ -298,10 +318,7 @@ export function TqmColumnBars({ rows, max, unit = "" }: { rows: { label: string;
             return (
               <g key={`${r.label}-${i}`}>
                 <rect x={x} y={y} width={barW} height={Math.max(0, baseY - y)} rx="4" fill={COLORS[r.tone || "brand"]} />
-                <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="10" fontWeight="800" fill="#172126">
-                  {r.value}
-                  {unit}
-                </text>
+                <ValueLabel x={x + barW / 2} y={y - 5} text={`${r.value}${unit}`} fill="#172126" />
                 <text x={x + barW / 2} y={baseY + 13} textAnchor="middle" fontSize="9" fill="#46545a">
                   {labelLines.map((line, li) => (
                     <tspan key={li} x={x + barW / 2} dy={li === 0 ? 0 : 11}>
