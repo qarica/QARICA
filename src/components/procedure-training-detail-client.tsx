@@ -265,6 +265,12 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
   // MỚI kế thừa tên/mã quy trình/giảng viên/thang điểm, rồi chuyển sang
   // trang lớp mới để sửa lại thời gian/địa điểm cho đúng.
   async function duplicateTraining() {
+    // Báo cáo thực tế: "Bấm tạo lớp mới mất hết dữ liệu cũ" — kiểm tra trực
+    // tiếp trên Supabase sống xác nhận KHÔNG mất dữ liệu (lớp cũ vẫn còn
+    // nguyên nhân sự/đợt kiểm tra/điểm/câu hỏi); nguyên nhân là chuyển trang
+    // ngay sang 1 lớp MỚI HOÀN TOÀN TRỐNG cùng tên/mã quy trình, nhìn như lớp
+    // cũ bị xoá sạch. Thêm xác nhận rõ ràng trước khi tạo để không bấm nhầm.
+    if (!window.confirm('Tạo 1 LỚP MỚI riêng (trống, chưa có nhân sự/điểm) cùng chủ đề này. Lớp hiện tại KHÔNG bị ảnh hưởng, vẫn xem lại được trong danh sách "Phổ biến & đào tạo". Tiếp tục?')) return;
     setDuplicating(true);
     setError("");
     const res = await fetch(`/api/procedure-trainings/${training.id}/duplicate`, { method: "POST" });
