@@ -1,7 +1,10 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Mã QR là data URL tạo client-side (qrcode), không phải ảnh tĩnh/remote để Next tối ưu (cùng quy ước đã dùng ở medical-equipment-detail-client.tsx và procedure-training-detail-client.tsx). */
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
+import { Icon } from "@/components/icon";
 
 type Training = {
   id: string;
@@ -24,7 +27,7 @@ type Training = {
 // đào tạo, quản lý nhiều đợt kiểm tra ("kỳ thi nào"), tra điểm + đúng/sai
 // từng câu của từng người, và phân tích theo đối tượng/trước-sau.
 type SelfReadDocument = { id: string; title: string; document_code: string | null; version_label: string; effective_date: string | null };
-type Acknowledgment = { document_publication_id: string; user_id: string };
+type Acknowledgment = { document_publication_id: string; user_id: string | null };
 type Staff = { id: string; name: string };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -64,6 +67,7 @@ export function ProcedureTrainingsClient({
   const [acks, setAcks] = useState(acknowledgments);
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
   const [unconfirmedOpenId, setUnconfirmedOpenId] = useState<string | null>(null);
+  const [qrDocId, setQrDocId] = useState<string | null>(null);
   const [procedureCode, setProcedureCode] = useState("");
   const [procedureName, setProcedureName] = useState("");
   const [draftingUnit, setDraftingUnit] = useState("");
@@ -101,7 +105,13 @@ export function ProcedureTrainingsClient({
     setEffectiveDate("");
   }
 
-  const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId).length;
+  // Tách riêng xác nhận qua tài khoản QARICA (so được với staffRoster) và
+  // xác nhận ẩn danh qua link/QR công khai (user_id null — người gửi email
+  // ban hành toàn viện có thể không có tài khoản QARICA) — gộp chung vào 1
+  // số "đã xác nhận" sẽ lệch mẫu số với "chưa xác nhận" (vốn chỉ so với
+  // staffRoster), gây hiểu lầm.
+  const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId && a.user_id).length;
+  const publicAckCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId && !a.user_id).length;
   const hasAcked = (documentId: string) => acks.some((a) => a.document_publication_id === documentId && a.user_id === currentUserId);
   // Chưa xác nhận = toàn bộ nhân sự đang hoạt động - những ai đã có trong acks.
   const unconfirmedStaff = (documentId: string) => {
@@ -249,10 +259,16 @@ export function ProcedureTrainingsClient({
                     <td>{formatDate(d.effective_date)}</td>
                     <td>
                       <div className="pt-ack">
-                        <span className="status-badge success">{ackCount(d.id)} đã xác nhận</span>
+                        <span className="status-badge success">{ackCount(d.id)} đã xác nhận (QARICA)</span>
+                        {publicAckCount(d.id) > 0 ? <span className="status-badge info">{publicAckCount(d.id)} đã xác nhận (qua link công khai)</span> : null}
                         {canManageDocuments ? (
                           <button type="button" className="button tertiary small" onClick={() => setUnconfirmedOpenId(unconfirmedOpenId === d.id ? null : d.id)}>
                             {unconfirmedStaff(d.id).length} chưa xác nhận {unconfirmedOpenId === d.id ? "▾" : "▸"}
+                          </button>
+                        ) : null}
+                        {canManageDocuments ? (
+                          <button type="button" className="button tertiary small" onClick={() => setQrDocId(d.id)}>
+                            <Icon name="qr-code" size={13} /> Link/QR gửi email
                           </button>
                         ) : null}
                         {hasAcked(d.id) ? (
@@ -294,6 +310,7 @@ export function ProcedureTrainingsClient({
           </div>
         </section>
       )}
+      {qrDocId ? <DocumentAckQrModal doc={selfReadDocuments.find((d) => d.id === qrDocId) || null} onClose={() => setQrDocId(null)} /> : null}
       <style jsx>{`
         .pt-overview {
           display: grid;
@@ -353,6 +370,47 @@ export function ProcedureTrainingsClient({
           }
         }
       `}</style>
+    </div>
+  );
+}
+
+// Mã QR + link dẫn tới /xac-nhan-doc-hieu/[id] — dán vào email ban hành
+// toàn viện, nhân viên không có tài khoản QARICA vẫn xác nhận được, không
+// cần đăng nhập (xem /api/public/document-ack/**).
+function DocumentAckQrModal({ doc, onClose }: { doc: SelfReadDocument | null; onClose: () => void }) {
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const link = doc && typeof window !== "undefined" ? `${window.location.origin}/xac-nhan-doc-hieu/${doc.id}` : "";
+
+  useEffect(() => {
+    if (!link) return;
+    QRCode.toDataURL(link, { width: 240, margin: 1 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [link]);
+
+  if (!doc) return null;
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-card">
+        <div className="modal-head">
+          <div>
+            <h2>Link/QR xác nhận: {doc.title}</h2>
+            <p>Dán link này vào email ban hành toàn viện, hoặc in mã QR — nhân viên bấm/quét vào xác nhận, không cần đăng nhập QARICA.</p>
+          </div>
+          <button type="button" className="icon-button" aria-label="Đóng" onClick={onClose}>
+            ×
+          </button>
+        </div>
+        <div className="modal-body" style={{ display: "grid", gap: 14, justifyItems: "center", textAlign: "center" }}>
+          {qrDataUrl ? <img src={qrDataUrl} alt={`Mã QR xác nhận ${doc.title}`} width={220} height={220} /> : <div className="loading-state compact">Đang tạo mã QR...</div>}
+          <code style={{ fontSize: 11, wordBreak: "break-all" }}>{link}</code>
+          {qrDataUrl ? (
+            <a className="button secondary small" download={`qr-xac-nhan-${doc.document_code || doc.id}.png`} href={qrDataUrl}>
+              <Icon name="download" size={15} /> Tải mã QR
+            </a>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

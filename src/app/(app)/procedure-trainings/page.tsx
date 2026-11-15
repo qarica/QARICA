@@ -70,7 +70,7 @@ export default async function ProcedureTrainingsPage() {
   const selfReadIds = selfReadDocs.map((d) => d.id);
   const { data: acknowledgmentsData } = selfReadIds.length
     ? await supabase.from("document_publication_acknowledgments").select("document_publication_id,user_id").in("document_publication_id", selfReadIds)
-    : { data: [] as { document_publication_id: string; user_id: string }[] };
+    : { data: [] as { document_publication_id: string; user_id: string | null }[] };
   // "Tự đọc hiểu" chưa xác nhận = toàn bộ nhân sự đang hoạt động - những ai
   // đã có trong acks — cần roster đầy đủ để tính phần bù, không chỉ đếm số.
   const { data: staffData } = await supabase.from("profiles").select("user_id,full_name,email").eq("organization_id", user.organizationId).eq("is_active", true).order("full_name");

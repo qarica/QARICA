@@ -55,6 +55,20 @@ describe("Public training self-test routes (/api/public/training-test/**): cố 
   });
 });
 
+describe("1 bộ câu hỏi dùng chung cho Pre/Post-test, nhưng mỗi lần làm bài là 1 đợt độc lập tính điểm riêng (đã xác nhận với người dùng)", () => {
+  it("chặn nộp trùng chỉ so với CÙNG round_id — không chặn người đã làm Pre-test khi họ làm tiếp Post-test (round_id khác)", () => {
+    const submitRoute = read("src/app/api/public/training-test/[roundId]/submit/route.ts");
+    expect(submitRoute).toContain('.eq("round_id", round.id)');
+  });
+
+  it("câu hỏi lấy theo training_id (dùng chung mọi round của cùng quy trình), điểm lưu riêng theo round_id (unique round_id+attendee_id)", () => {
+    const submitRoute = read("src/app/api/public/training-test/[roundId]/submit/route.ts");
+    expect(submitRoute).toContain('.eq("training_id", round.training_id)');
+    const migration = read("supabase/migrations/20261130000000_procedure_training_rounds_results_v1.sql");
+    expect(migration).toContain("unique(round_id, attendee_id)");
+  });
+});
+
 describe("middleware.ts: /lam-bai/** là route công khai (trang làm bài, không đăng nhập)", () => {
   it("publicPath bao gồm /lam-bai/", () => {
     const middleware = read("middleware.ts");
