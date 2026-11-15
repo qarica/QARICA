@@ -13,6 +13,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
 
   const employeeName = String(body.employee_name || "").trim();
   const employeeCodeRaw = String(body.employee_code || "").trim();
+  const departmentId = String(body.department_id || "").trim();
+  const jobTitle = String(body.job_title || "").trim();
   const answers: SubmittedAnswer[] = Array.isArray(body.answers)
     ? body.answers
         .map((a: unknown) => {
@@ -25,6 +27,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
 
   if (!employeeName) return NextResponse.json({ error: "Chưa nhập họ tên." }, { status: 400 });
   if (!employeeCodeRaw) return NextResponse.json({ error: "Chưa nhập mã nhân viên." }, { status: 400 });
+  if (!departmentId) return NextResponse.json({ error: "Chưa chọn đơn vị công tác." }, { status: 400 });
+  if (!jobTitle) return NextResponse.json({ error: "Chưa chọn chức danh chuyên môn." }, { status: 400 });
   if (!answers.length) return NextResponse.json({ error: "Chưa trả lời câu nào." }, { status: 400 });
 
   const admin = createAdminClient();
@@ -36,6 +40,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
     .maybeSingle();
   if (!round) return NextResponse.json({ error: "Không tìm thấy đợt kiểm tra." }, { status: 404 });
   if (!round.is_open_for_submission) return NextResponse.json({ error: "Đợt kiểm tra hiện chưa mở để làm bài." }, { status: 403 });
+
+  // department_id do client gửi lên — xác minh thuộc đúng tổ chức của đợt
+  // này trước khi dùng, không tin dữ liệu client (route công khai). Lưu tên
+  // khoa/phòng (không phải id) vào procedure_training_attendees.department
+  // (cột text có sẵn, dùng chung với dữ liệu nhập tay của admin) — chọn từ
+  // danh sách thật thay vì tự gõ để tránh sai chính tả/trùng tên (phát hiện
+  // từ dữ liệu khảo sát giấy cũ: "Khoa Ung Bướu" vs "Khoa ubg bướu"...).
+  const { data: department } = await admin.from("departments").select("id,name").eq("id", departmentId).eq("organization_id", round.organization_id).maybeSingle();
+  if (!department) return NextResponse.json({ error: "Đơn vị công tác không hợp lệ." }, { status: 400 });
 
   const { data: questions } = await admin
     .from("procedure_training_questions")
@@ -71,6 +84,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
         organization_id: round.organization_id,
         employee_name: employeeName,
         employee_code: employeeCodeRaw,
+        department: department.name,
+        job_title: jobTitle,
         attended: true,
         attended_at: new Date().toISOString().slice(0, 10),
       })

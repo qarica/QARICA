@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rou
 
   const { data: round } = await admin
     .from("procedure_training_rounds")
-    .select("id,training_id,round_label,score_max,is_open_for_submission")
+    .select("id,training_id,organization_id,round_label,score_max,is_open_for_submission")
     .eq("id", roundId)
     .maybeSingle();
   if (!round) return NextResponse.json({ error: "Không tìm thấy đợt kiểm tra." }, { status: 404 });
@@ -24,11 +24,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rou
     return NextResponse.json({ ok: true, open: false, trainingName, roundLabel: round.round_label });
   }
 
-  const { data: questions, error } = await admin
-    .from("procedure_training_questions")
-    .select("question_no,question_text,choices")
-    .eq("training_id", round.training_id)
-    .order("question_no");
+  // Danh sách khoa/phòng thật để người làm bài CHỌN — phát hiện thực tế từ
+  // dữ liệu khảo sát giấy cũ: để tự gõ "Đơn vị công tác" dẫn tới sai chính
+  // tả/trùng tên hàng loạt (vd "Khoa Ung Bướu" vs "Khoa ubg bướu", tên bệnh
+  // viện viết 3 kiểu khác nhau) — cùng cách đã làm ở /api/public/document-ack.
+  const [{ data: questions, error }, { data: departments }] = await Promise.all([
+    admin.from("procedure_training_questions").select("question_no,question_text,choices").eq("training_id", round.training_id).order("question_no"),
+    admin.from("departments").select("id,name").eq("organization_id", round.organization_id).eq("is_active", true).order("name"),
+  ]);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   return NextResponse.json({
@@ -37,6 +40,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rou
     trainingName,
     roundLabel: round.round_label,
     scoreMax: round.score_max,
+    departments: departments ?? [],
     questions: (questions ?? []).map((q) => ({
       question_no: q.question_no,
       question_text: q.question_text || `Câu ${q.question_no}`,

@@ -28,6 +28,26 @@ describe("Public training self-test routes (/api/public/training-test/**): cố 
     expect(getRoute).toContain('.select("question_no,question_text,choices")');
   });
 
+  // Phát hiện từ dữ liệu khảo sát giấy cũ anh gửi: "Khoa Ung Bướu" vs "Khoa
+  // ubg bướu", tên bệnh viện viết 3 kiểu khác nhau — Đơn vị công tác phải
+  // CHỌN từ danh sách khoa/phòng thật, không tự gõ, giống hệt cách đã làm ở
+  // /api/public/document-ack.
+  it("GET trả kèm danh sách khoa/phòng thật của tổ chức để chọn Đơn vị công tác", () => {
+    expect(getRoute).toContain('.from("departments").select("id,name").eq("organization_id", round.organization_id).eq("is_active", true)');
+  });
+
+  it("POST bắt buộc department_id + job_title, validate department_id thuộc đúng tổ chức của đợt", () => {
+    expect(submitRoute).toContain('if (!departmentId) return NextResponse.json({ error: "Chưa chọn đơn vị công tác." }');
+    expect(submitRoute).toContain('if (!jobTitle) return NextResponse.json({ error: "Chưa chọn chức danh chuyên môn." }');
+    expect(submitRoute).toContain('.from("departments").select("id,name").eq("id", departmentId).eq("organization_id", round.organization_id)');
+  });
+
+  it("lưu tên khoa/phòng (department.name) + job_title vào procedure_training_attendees khi tạo mới", () => {
+    const insertBlock = submitRoute.slice(submitRoute.indexOf(".insert({"));
+    expect(insertBlock).toContain("department: department.name");
+    expect(insertBlock).toContain("job_title: jobTitle");
+  });
+
   it("GET chỉ trả câu hỏi khi is_open_for_submission = true, đóng thì chỉ trả tên đợt (không lộ đề)", () => {
     expect(getRoute).toContain("if (!round.is_open_for_submission)");
     expect(getRoute).toContain("open: false");

@@ -3,11 +3,17 @@
 import { use, useEffect, useState } from "react";
 
 type Question = { question_no: number; question_text: string; choices: string[] | null };
+type Department = { id: string; name: string };
 type LoadState =
   | { kind: "loading" }
   | { kind: "not_found" }
   | { kind: "closed"; trainingName: string; roundLabel: string }
-  | { kind: "open"; trainingName: string; roundLabel: string; scoreMax: number | null; questions: Question[] };
+  | { kind: "open"; trainingName: string; roundLabel: string; scoreMax: number | null; questions: Question[]; departments: Department[] };
+
+// Khớp đúng 4 lựa chọn "Chức danh chuyên môn" trong khảo sát giấy gốc —
+// "Khác" cho gõ tay (phát hiện từ dữ liệu thật: có người chọn Khác và ghi
+// "BS Trưởng Khoa").
+const JOB_TITLE_OPTIONS = ["Bác sĩ", "Điều dưỡng/Hộ sinh/Kỹ thuật y", "Nhân viên văn phòng", "Khác"] as const;
 type DetailedAnswer = { question_no: number; question_text: string; choices: string[] | null; answer_text: string | null; is_correct: boolean };
 type SubmitResult = { score: number; scoreMax: number | null; total: number; correctCount: number; perQuestion: DetailedAnswer[] };
 type LookupResult = { employeeName: string; roundLabel: string; submittedAt: string } & SubmitResult;
@@ -17,6 +23,9 @@ export default function PublicTrainingTestPage({ params }: { params: Promise<{ r
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [employeeName, setEmployeeName] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [jobTitleOption, setJobTitleOption] = useState("");
+  const [jobTitleOther, setJobTitleOther] = useState("");
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -68,7 +77,7 @@ export default function PublicTrainingTestPage({ params }: { params: Promise<{ r
           setState({ kind: "closed", trainingName: body.trainingName || "", roundLabel: body.roundLabel || "" });
           return;
         }
-        setState({ kind: "open", trainingName: body.trainingName || "", roundLabel: body.roundLabel || "", scoreMax: body.scoreMax ?? null, questions: body.questions || [] });
+        setState({ kind: "open", trainingName: body.trainingName || "", roundLabel: body.roundLabel || "", scoreMax: body.scoreMax ?? null, questions: body.questions || [], departments: body.departments || [] });
       })
       .catch(() => {
         if (!cancelled) setState({ kind: "not_found" });
@@ -88,6 +97,8 @@ export default function PublicTrainingTestPage({ params }: { params: Promise<{ r
       body: JSON.stringify({
         employee_name: employeeName,
         employee_code: employeeCode,
+        department_id: departmentId,
+        job_title: jobTitleOption === "Khác" ? jobTitleOther.trim() : jobTitleOption,
         answers: state.questions.map((q) => ({ question_no: q.question_no, answer_text: answers[q.question_no] || "" })),
       }),
     });
@@ -140,6 +151,34 @@ export default function PublicTrainingTestPage({ params }: { params: Promise<{ r
               <span>Mã nhân viên *</span>
               <input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} required placeholder="NV0012" />
             </label>
+            <label>
+              <span>Đơn vị công tác *</span>
+              <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required>
+                <option value="">— Chọn khoa/phòng —</option>
+                {state.departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Chức danh chuyên môn *</span>
+              <div className="radio-row">
+                {JOB_TITLE_OPTIONS.map((opt) => (
+                  <label key={opt}>
+                    <input type="radio" name="job-title" value={opt} checked={jobTitleOption === opt} onChange={() => setJobTitleOption(opt)} required />
+                    {opt}
+                  </label>
+                ))}
+              </div>
+            </label>
+            {jobTitleOption === "Khác" ? (
+              <label>
+                <span>Chức danh cụ thể *</span>
+                <input value={jobTitleOther} onChange={(e) => setJobTitleOther(e.target.value)} required placeholder="VD: BS Trưởng khoa" />
+              </label>
+            ) : null}
 
             <div className="pbt-questions">
               {state.questions.map((q, idx) => (
