@@ -69,6 +69,53 @@ describe("1 bộ câu hỏi dùng chung cho Pre/Post-test, nhưng mỗi lần l�
   });
 });
 
+// "Nếu cần xem chi tiết từng bài làm từng đáp án nhân viên chọn cần có để
+// cho nhân viên xem vì họ thắc mắc" — nhân viên không có tài khoản nên
+// không đăng nhập lại tra cứu được, chỉ tự nhận diện lại bằng mã NV. Route
+// riêng (lookup), KHÔNG yêu cầu round đang mở (khác submit) vì thường tra
+// lại SAU khi đợt đã đóng.
+describe("POST /api/public/training-test/[roundId]/lookup: xem lại bài đã nộp (không đăng nhập), hoạt động kể cả khi round đã đóng", () => {
+  const lookupRoute = read("src/app/api/public/training-test/[roundId]/lookup/route.ts");
+
+  it("KHÔNG gọi requireApiPermission/requireUserContext, dùng createAdminClient", () => {
+    expect(lookupRoute).not.toContain("requireApiPermission(");
+    expect(lookupRoute).not.toContain("requireUserContext(");
+    expect(lookupRoute).toContain("createAdminClient");
+  });
+
+  it("KHÔNG kiểm tra is_open_for_submission trong code (không có if nào chặn theo cờ đó) — tra cứu được cả khi round đã đóng (khác route submit)", () => {
+    expect(lookupRoute).not.toContain("round.is_open_for_submission");
+  });
+
+  it("nhận diện lại bằng mã NV đã chuẩn hoá (normalizeEmployeeCode), không yêu cầu đăng nhập", () => {
+    expect(lookupRoute).toContain('from "@/lib/training-self-test"');
+    expect(lookupRoute).toContain("normalizeEmployeeCode(employeeCodeRaw)");
+  });
+
+  it("procedure_training_questions select KHÔNG lấy cột đáp án đúng — chỉ question_text, tránh lộ đáp án qua lần tra cứu lại", () => {
+    expect(lookupRoute).toContain('.select("question_no,question_text")');
+  });
+
+  it("trả kèm thời gian nộp bài (confirmed_at/created_at) làm bằng chứng khi có thắc mắc", () => {
+    expect(lookupRoute).toContain('.select("id,score,created_at")');
+    expect(lookupRoute).toContain("submittedAt: result.created_at");
+  });
+});
+
+describe("UI /lam-bai: màn hình kết quả (ngay sau khi nộp VÀ tra cứu lại) hiện đủ câu hỏi + đáp án đã chọn, không chỉ Đúng/Sai trống trơn", () => {
+  it("hiện question_text và answer_text cho từng câu, kèm lưu ý không lộ đáp án đúng", () => {
+    const page = read("src/app/lam-bai/[roundId]/page.tsx");
+    expect(page).toContain("Bạn chọn: {r.answer_text");
+    expect(page).toContain("Đã chọn: {r.answer_text");
+    expect(page).toContain("Không hiển thị đáp án đúng ở đây");
+  });
+
+  it("có lối vào 'Xem lại kết quả' từ cả màn hình đã đóng lẫn form đang mở (chưa nộp)", () => {
+    const page = read("src/app/lam-bai/[roundId]/page.tsx");
+    expect(page.split("Đã làm bài đợt này rồi? Xem lại kết quả →").length - 1).toBe(2);
+  });
+});
+
 describe("middleware.ts: /lam-bai/** là route công khai (trang làm bài, không đăng nhập)", () => {
   it("publicPath bao gồm /lam-bai/", () => {
     const middleware = read("middleware.ts");
