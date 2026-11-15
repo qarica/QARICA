@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { Icon } from "@/components/icon";
 import { TQM_CHART_CSS, TqmGroupedBars, TqmHorizontalBars } from "@/components/tqm-charts";
+import { computePassStatus } from "@/lib/procedure-training-pass-status";
 import { normalizeEmployeeCode } from "@/lib/training-self-test";
 
 type Training = {
@@ -69,32 +70,6 @@ function formatDate(value: string | null) {
 function avg(nums: number[]): number | null {
   if (!nums.length) return null;
   return nums.reduce((s, n) => s + n, 0) / nums.length;
-}
-
-// Đạt/Không đạt: so điểm ở ĐỢT KIỂM TRA CUỐI CÙNG (sort_order lớn nhất
-// trong TOÀN BỘ các đợt đã tạo cho khóa đào tạo này, không chỉ các đợt
-// người đó đã có điểm) với pass_threshold, VÀ bắt buộc đã điểm danh
-// (attended=true). Quyết định đã chốt với người dùng: "nếu chỉ làm Pre
-// không làm Post thì coi như không đạt, cần học lại" — tức là CHƯA làm đợt
-// cuối cùng (dù đã có điểm ở đợt trước đó, vd Pre-test) vẫn tính là "Không
-// đạt", không phải "chưa có kết quả" trung lập. Theo đúng quy trình tập
-// huấn thật (người dùng mô tả): Pre-test chỉ để đánh giá nền tảng trước
-// học, không có giá trị xét đạt/cấp chứng nhận; CHỈ Post-test mới được xét
-// đạt — và kết quả Post-test chỉ được công nhận khi đã có đủ dữ liệu điểm
-// danh tham gia lớp học. Hệ thống hiện chỉ có 1 cờ điểm danh (attended)
-// theo từng người, chưa tách theo từng buổi đầu/cuối giờ. Chỉ trả "none"
-// khi người đó CHƯA làm bài ở BẤT KỲ đợt nào (chưa có hoạt động gì để đánh
-// giá). Không lưu thêm cột trạng thái vào DB (tính lại từ điểm mỗi lần
-// hiển thị, tránh 2 nguồn sự thật lệch nhau nếu sửa điểm/đổi ngưỡng/thêm
-// đợt sau này — CLAUDE.md nguyên tắc 2).
-function computePassStatus(myResults: ResultRow[], rounds: Round[], passThreshold: number | null, attended: boolean): "pass" | "fail" | "none" {
-  if (passThreshold == null || !rounds.length) return "none";
-  const hasAnyScore = myResults.some((r) => r.score != null);
-  if (!hasAnyScore) return "none";
-  const finalRound = [...rounds].sort((a, b) => b.sort_order - a.sort_order || (b.round_date || "").localeCompare(a.round_date || ""))[0];
-  const finalResult = myResults.find((r) => r.round_id === finalRound.id && r.score != null);
-  if (!finalResult || !attended) return "fail";
-  return (finalResult.score as number) >= passThreshold ? "pass" : "fail";
 }
 
 export function ProcedureTrainingDetailClient({
@@ -725,6 +700,9 @@ function RosterTab({
       <section className="panel">
         <div className="panel-title">
           <h2>Nhân sự & điểm</h2>
+          <a className="button secondary small" href={`/api/procedure-trainings/${trainingId}/export/excel`}>
+            <Icon name="download" size={14} /> Xuất Excel
+          </a>
         </div>
         <div style={{ padding: "0 19px 12px" }}>
           <input className="input" placeholder="Tìm tên, mã NV, đơn vị, chức danh..." value={query} onChange={(e) => setQuery(e.target.value)} />

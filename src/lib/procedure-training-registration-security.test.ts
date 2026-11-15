@@ -96,7 +96,7 @@ describe("Procedure training registration (QR) + pass/fail threshold", () => {
   // nhất mỗi lần hiển thị.
   it("UI: Đạt/Không đạt tính thuần từ pass_threshold + điểm đợt kiểm tra gần nhất, không lưu cột trạng thái mới", () => {
     const client = read("src/components/procedure-training-detail-client.tsx");
-    expect(client).toContain("function computePassStatus(");
+    expect(client).toContain('import { computePassStatus } from "@/lib/procedure-training-pass-status"');
     expect(client).toContain("function RegistrationTab(");
     expect(client).toContain("Không đạt — cần học lại");
     expect(client).toContain('training.pass_threshold != null ? String(training.pass_threshold) : ""');
@@ -106,14 +106,16 @@ describe("Procedure training registration (QR) + pass/fail threshold", () => {
   // đánh giá theo ĐỢT CUỐI CÙNG đã tạo (sort_order lớn nhất), không phải
   // đợt gần nhất người đó TÌNH CỜ có điểm — chưa làm đợt cuối (dù đã có
   // điểm ở đợt trước, vd Pre-test) vẫn tính "fail", không phải "none"
-  // trung lập. Chỉ "none" khi chưa làm bài ở bất kỳ đợt nào.
+  // trung lập. Chỉ "none" khi chưa làm bài ở bất kỳ đợt nào. Logic này giờ
+  // sống ở src/lib/procedure-training-pass-status.ts — dùng chung giữa UI
+  // và route xuất Excel (1 nguồn sự thật duy nhất).
   it("Đạt/Không đạt xét theo đợt kiểm tra CUỐI CÙNG đã tạo — chưa làm đợt cuối (dù đã có điểm Pre) tính là KHÔNG ĐẠT, không phải trung lập", () => {
-    const client = read("src/components/procedure-training-detail-client.tsx");
-    expect(client).toContain("function computePassStatus(myResults: ResultRow[], rounds: Round[], passThreshold: number | null, attended: boolean)");
-    expect(client).toContain("const hasAnyScore = myResults.some((r) => r.score != null);");
-    expect(client).toContain('if (!hasAnyScore) return "none";');
-    expect(client).toContain("const finalRound = [...rounds].sort((a, b) => b.sort_order - a.sort_order");
-    expect(client).toContain('if (!finalResult || !attended) return "fail";');
+    const lib = read("src/lib/procedure-training-pass-status.ts");
+    expect(lib).toContain("export function computePassStatus(");
+    expect(lib).toContain("const hasAnyScore = myResults.some((r) => r.score != null);");
+    expect(lib).toContain('if (!hasAnyScore) return "none";');
+    expect(lib).toContain("const finalRound = [...rounds].sort((a, b) => b.sort_order - a.sort_order");
+    expect(lib).toContain('if (!finalResult || !attended) return "fail";');
   });
 
   // Người dùng mô tả quy trình thật: "Post-test là điều kiện bắt buộc... hệ
