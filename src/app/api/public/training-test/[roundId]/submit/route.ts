@@ -39,11 +39,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
 
   const { data: questions } = await admin
     .from("procedure_training_questions")
-    .select("question_no,correct_answer,question_text")
+    .select("question_no,correct_answer,question_text,choices")
     .eq("training_id", round.training_id)
     .order("question_no");
   if (!questions || !questions.length) return NextResponse.json({ error: "Đợt đào tạo này chưa có câu hỏi." }, { status: 400 });
-  const questionTextByNo = new Map(questions.map((q) => [q.question_no, q.question_text]));
+  const questionByNo = new Map(questions.map((q) => [q.question_no, q]));
 
   const normalizedCode = normalizeEmployeeCode(employeeCodeRaw);
   const { data: existingAttendees } = await admin
@@ -105,11 +105,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
     scoreMax: round.score_max,
     total: graded.length,
     correctCount: graded.filter((r) => r.is_correct).length,
-    perQuestion: graded.map((r) => ({
-      question_no: r.question_no,
-      question_text: questionTextByNo.get(r.question_no) || `Câu ${r.question_no}`,
-      answer_text: r.answer_text,
-      is_correct: r.is_correct,
-    })),
+    perQuestion: graded.map((r) => {
+      const q = questionByNo.get(r.question_no);
+      const choices = Array.isArray(q?.choices) && q.choices.length > 1 ? q.choices : null;
+      return {
+        question_no: r.question_no,
+        question_text: q?.question_text || `Câu ${r.question_no}`,
+        choices,
+        answer_text: r.answer_text,
+        is_correct: r.is_correct,
+      };
+    }),
   });
 }

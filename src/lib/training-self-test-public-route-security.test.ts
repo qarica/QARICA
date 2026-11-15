@@ -53,6 +53,15 @@ describe("Public training self-test routes (/api/public/training-test/**): cố 
     const responseBlock = submitRoute.slice(submitRoute.indexOf("return NextResponse.json({\n    ok: true,"));
     expect(responseBlock).not.toContain("correct_answer");
   });
+
+  // "Xem lại bài làm đủ 4 đáp án chứ ko chỉ 1 đáp án" — màn hình kết quả
+  // (ngay sau khi nộp) phải trả kèm cả bộ lựa chọn (choices) để UI vẽ lại
+  // đúng dạng trắc nghiệm, không chỉ 1 dòng text đáp án đã chọn.
+  it("kết quả trả kèm choices của từng câu (không chỉ answer_text) để UI hiện đủ các lựa chọn, không chỉ đáp án đã chọn", () => {
+    const responseBlock = submitRoute.slice(submitRoute.indexOf("return NextResponse.json({\n    ok: true,"));
+    expect(responseBlock).toContain("choices,");
+    expect(responseBlock).not.toContain("correct_answer");
+  });
 });
 
 describe("1 bộ câu hỏi dùng chung cho Pre/Post-test, nhưng mỗi lần làm bài là 1 đợt độc lập tính điểm riêng (đã xác nhận với người dùng)", () => {
@@ -92,8 +101,13 @@ describe("POST /api/public/training-test/[roundId]/lookup: xem lại bài đã n
     expect(lookupRoute).toContain("normalizeEmployeeCode(employeeCodeRaw)");
   });
 
-  it("procedure_training_questions select KHÔNG lấy cột đáp án đúng — chỉ question_text, tránh lộ đáp án qua lần tra cứu lại", () => {
-    expect(lookupRoute).toContain('.select("question_no,question_text")');
+  it("procedure_training_questions select KHÔNG lấy cột đáp án đúng — chỉ question_text + choices (để hiện đủ các lựa chọn), tránh lộ đáp án qua lần tra cứu lại", () => {
+    expect(lookupRoute).toContain('.select("question_no,question_text,choices")');
+  });
+
+  // "Xem lại bài làm đủ 4 đáp án chứ ko chỉ 1 đáp án"
+  it("trả kèm choices của từng câu, không chỉ answer_text đã chọn", () => {
+    expect(lookupRoute).toContain("choices,");
   });
 
   it("trả kèm thời gian nộp bài (confirmed_at/created_at) làm bằng chứng khi có thắc mắc", () => {
@@ -113,6 +127,21 @@ describe("UI /lam-bai: màn hình kết quả (ngay sau khi nộp VÀ tra cứu 
   it("có lối vào 'Xem lại kết quả' từ cả màn hình đã đóng lẫn form đang mở (chưa nộp)", () => {
     const page = read("src/app/lam-bai/[roundId]/page.tsx");
     expect(page.split("Đã làm bài đợt này rồi? Xem lại kết quả →").length - 1).toBe(2);
+  });
+
+  // "Xem lại bài làm đủ 4 đáp án chứ ko chỉ 1 đáp án" — câu trắc nghiệm phải
+  // hiện đủ bộ lựa chọn (giống lúc làm bài), không chỉ 1 dòng text đáp án đã
+  // chọn. Đáp án đã chọn được đánh dấu Đúng/Sai NGAY TRÊN lựa chọn đó, các
+  // lựa chọn còn lại không đánh dấu gì (không lộ đáp án đúng).
+  it("câu có choices hiện đủ danh sách lựa chọn (pbt-choice-review), không chỉ 1 dòng 'đã chọn'", () => {
+    const page = read("src/app/lam-bai/[roundId]/page.tsx");
+    expect(page.split('<ul className="pbt-choice-review">').length - 1).toBe(2);
+    expect(page).toContain("choice === r.answer_text");
+  });
+
+  it("chỉ đánh dấu đúng/sai lên lựa chọn đã chọn (class 'chosen'), các lựa chọn khác không có class gì — không gián tiếp lộ đáp án đúng", () => {
+    const page = read("src/app/lam-bai/[roundId]/page.tsx");
+    expect(page.split('className={choice === r.answer_text ? (r.is_correct ? "chosen is-correct" : "chosen is-wrong") : ""}').length - 1).toBe(2);
   });
 });
 

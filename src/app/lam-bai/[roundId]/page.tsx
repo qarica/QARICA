@@ -8,7 +8,7 @@ type LoadState =
   | { kind: "not_found" }
   | { kind: "closed"; trainingName: string; roundLabel: string }
   | { kind: "open"; trainingName: string; roundLabel: string; scoreMax: number | null; questions: Question[] };
-type DetailedAnswer = { question_no: number; question_text: string; answer_text: string | null; is_correct: boolean };
+type DetailedAnswer = { question_no: number; question_text: string; choices: string[] | null; answer_text: string | null; is_correct: boolean };
 type SubmitResult = { score: number; scoreMax: number | null; total: number; correctCount: number; perQuestion: DetailedAnswer[] };
 type LookupResult = { employeeName: string; roundLabel: string; submittedAt: string } & SubmitResult;
 
@@ -201,9 +201,20 @@ export default function PublicTrainingTestPage({ params }: { params: Promise<{ r
                   <strong>
                     Câu {idx + 1}. {r.question_text}
                   </strong>
-                  <span>
-                    Bạn chọn: {r.answer_text || "(không trả lời)"} — {r.is_correct ? "Đúng" : "Sai"}
-                  </span>
+                  {r.choices ? (
+                    <ul className="pbt-choice-review">
+                      {r.choices.map((choice) => (
+                        <li key={choice} className={choice === r.answer_text ? (r.is_correct ? "chosen is-correct" : "chosen is-wrong") : ""}>
+                          {choice}
+                          {choice === r.answer_text ? (r.is_correct ? " — bạn đã chọn (Đúng)" : " — bạn đã chọn (Sai)") : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span>
+                      Bạn chọn: {r.answer_text || "(không trả lời)"} — {r.is_correct ? "Đúng" : "Sai"}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -253,9 +264,20 @@ export default function PublicTrainingTestPage({ params }: { params: Promise<{ r
                       <strong>
                         Câu {idx + 1}. {r.question_text}
                       </strong>
-                      <span>
-                        Đã chọn: {r.answer_text || "(không trả lời)"} — {r.is_correct ? "Đúng" : "Sai"}
-                      </span>
+                      {r.choices ? (
+                        <ul className="pbt-choice-review">
+                          {r.choices.map((choice) => (
+                            <li key={choice} className={choice === r.answer_text ? (r.is_correct ? "chosen is-correct" : "chosen is-wrong") : ""}>
+                              {choice}
+                              {choice === r.answer_text ? (r.is_correct ? " — đã chọn (Đúng)" : " — đã chọn (Sai)") : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span>
+                          Đã chọn: {r.answer_text || "(không trả lời)"} — {r.is_correct ? "Đúng" : "Sai"}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -363,6 +385,32 @@ export default function PublicTrainingTestPage({ params }: { params: Promise<{ r
         }
         .pbt-answer-list .is-wrong span {
           color: var(--danger);
+        }
+        .pbt-choice-review {
+          list-style: none;
+          margin: 4px 0 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .pbt-choice-review li {
+          padding: 5px 8px;
+          border-radius: 6px;
+          background: #fff;
+          border: 1px solid var(--line);
+        }
+        .pbt-choice-review li.chosen.is-correct {
+          background: var(--success-soft);
+          border-color: transparent;
+          color: var(--success);
+          font-weight: 700;
+        }
+        .pbt-choice-review li.chosen.is-wrong {
+          background: var(--danger-soft);
+          border-color: transparent;
+          color: var(--danger);
+          font-weight: 700;
         }
       `}</style>
     </main>

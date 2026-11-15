@@ -31,9 +31,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
 
   const [{ data: responses }, { data: questions }] = await Promise.all([
     admin.from("procedure_training_responses").select("question_no,answer_text,is_correct").eq("result_id", result.id).order("question_no"),
-    admin.from("procedure_training_questions").select("question_no,question_text").eq("training_id", round.training_id).order("question_no"),
+    admin.from("procedure_training_questions").select("question_no,question_text,choices").eq("training_id", round.training_id).order("question_no"),
   ]);
-  const questionTextByNo = new Map((questions ?? []).map((q) => [q.question_no, q.question_text]));
+  const questionByNo = new Map((questions ?? []).map((q) => [q.question_no, q]));
 
   return NextResponse.json({
     ok: true,
@@ -45,11 +45,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
     submittedAt: result.created_at,
     total: (responses ?? []).length,
     correctCount: (responses ?? []).filter((r) => r.is_correct).length,
-    perQuestion: (responses ?? []).map((r) => ({
-      question_no: r.question_no,
-      question_text: questionTextByNo.get(r.question_no) || `Câu ${r.question_no}`,
-      answer_text: r.answer_text,
-      is_correct: r.is_correct,
-    })),
+    perQuestion: (responses ?? []).map((r) => {
+      const q = questionByNo.get(r.question_no);
+      const choices = Array.isArray(q?.choices) && q.choices.length > 1 ? q.choices : null;
+      return {
+        question_no: r.question_no,
+        question_text: q?.question_text || `Câu ${r.question_no}`,
+        choices,
+        answer_text: r.answer_text,
+        is_correct: r.is_correct,
+      };
+    }),
   });
 }
