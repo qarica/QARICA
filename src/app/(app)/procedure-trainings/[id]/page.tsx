@@ -14,18 +14,19 @@ export default async function ProcedureTrainingDetailPage({ params }: { params: 
   const { data: training } = await supabase
     .from("procedure_trainings")
     .select(
-      "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,session_2_time,session_2_location,session_2_method,notes,test_score_max",
+      "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,session_2_time,session_2_location,session_2_method,notes,test_score_max,pass_threshold,is_open_for_registration",
     )
     .eq("id", id)
     .eq("organization_id", user.organizationId)
     .maybeSingle();
   if (!training) notFound();
 
-  const [roundsRes, attendeesRes, questionsRes, departmentsRes] = await Promise.all([
+  const [roundsRes, attendeesRes, questionsRes, departmentsRes, registrationsRes] = await Promise.all([
     supabase.from("procedure_training_rounds").select("id,round_label,round_date,score_max,sort_order,is_open_for_submission").eq("training_id", id).order("sort_order").order("round_date"),
     supabase.from("procedure_training_attendees").select("id,employee_name,employee_code,department,job_title,attended,attended_at,notes").eq("training_id", id).order("employee_name"),
     supabase.from("procedure_training_questions").select("question_no,correct_answer,question_text,choices").eq("training_id", id).order("question_no"),
-    supabase.from("departments").select("id,name").eq("is_active", true).order("name"),
+    supabase.from("departments").select("id,name,staff_count").eq("is_active", true).order("name"),
+    supabase.from("procedure_training_registrations").select("id,employee_name,employee_code,department,job_title,registered_at").eq("training_id", id).order("registered_at"),
   ]);
   const attendeeIds = (attendeesRes.data ?? []).map((a) => a.id);
 
@@ -53,6 +54,7 @@ export default async function ProcedureTrainingDetailPage({ params }: { params: 
         responses={responseRows ?? []}
         questions={questionsRes.data ?? []}
         departments={departmentsRes.data ?? []}
+        registrations={registrationsRes.data ?? []}
         canManage={canManage}
       />
     </div>

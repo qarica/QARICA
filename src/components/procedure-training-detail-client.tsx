@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { Icon } from "@/components/icon";
 import { TQM_CHART_CSS, TqmHorizontalBars } from "@/components/tqm-charts";
+import { normalizeEmployeeCode } from "@/lib/training-self-test";
 
 type Training = {
   id: string;
@@ -23,13 +24,16 @@ type Training = {
   session_2_method: string | null;
   notes: string | null;
   test_score_max: number | null;
+  pass_threshold: number | null;
+  is_open_for_registration: boolean;
 };
 type Round = { id: string; round_label: string; round_date: string | null; score_max: number | null; sort_order: number; is_open_for_submission: boolean };
 type Attendee = { id: string; employee_name: string; employee_code: string | null; department: string | null; job_title: string | null; attended: boolean; attended_at: string | null; notes: string | null };
 type ResultRow = { id: string; attendee_id: string; round_id: string; score: number | null };
 type ResponseRow = { result_id: string; question_no: number; answer_text: string | null; is_correct: boolean | null };
 type QuestionRow = { question_no: number; correct_answer: string; question_text: string | null; choices: string[] | null };
-type Department = { id: string; name: string };
+type Department = { id: string; name: string; staff_count?: number | null };
+type Registration = { id: string; employee_name: string; employee_code: string | null; department: string | null; job_title: string | null; registered_at: string };
 
 type ImportActionPreview =
   | {
@@ -67,6 +71,20 @@ function avg(nums: number[]): number | null {
   return nums.reduce((s, n) => s + n, 0) / nums.length;
 }
 
+// Đạt/Không đạt: so điểm của ĐỢT KIỂM TRA GẦN NHẤT mà người đó có điểm
+// (sort_order lớn nhất, tie-break theo round_date) với pass_threshold của
+// cả đợt đào tạo — không lưu thêm cột trạng thái vào DB (tính lại từ điểm
+// mỗi lần hiển thị, tránh 2 nguồn sự thật lệch nhau nếu sửa điểm/đổi ngưỡng
+// sau này — CLAUDE.md nguyên tắc 2).
+function computePassStatus(myResults: ResultRow[], roundById: Map<string, Round>, passThreshold: number | null): "pass" | "fail" | "none" {
+  if (passThreshold == null) return "none";
+  const scored = myResults.filter((r) => r.score != null).map((r) => ({ result: r, round: roundById.get(r.round_id) })).filter((x) => x.round);
+  if (!scored.length) return "none";
+  scored.sort((a, b) => b.round!.sort_order - a.round!.sort_order || (b.round!.round_date || "").localeCompare(a.round!.round_date || ""));
+  const latest = scored[0].result;
+  return (latest.score as number) >= passThreshold ? "pass" : "fail";
+}
+
 export function ProcedureTrainingDetailClient({
   training: initialTraining,
   rounds: initialRounds,
@@ -75,6 +93,7 @@ export function ProcedureTrainingDetailClient({
   responses: initialResponses,
   questions: initialQuestions,
   departments,
+  registrations: initialRegistrations,
   canManage,
 }: {
   training: Training;
@@ -84,15 +103,17 @@ export function ProcedureTrainingDetailClient({
   responses: ResponseRow[];
   questions: QuestionRow[];
   departments: Department[];
+  registrations: Registration[];
   canManage: boolean;
 }) {
-  const [tab, setTab] = useState<"info" | "roster" | "analysis" | "questions" | "import">("roster");
+  const [tab, setTab] = useState<"info" | "roster" | "registration" | "analysis" | "questions" | "import">("roster");
   const [training, setTraining] = useState(initialTraining);
   const [rounds, setRounds] = useState(initialRounds);
   const [attendees, setAttendees] = useState(initialAttendees);
   const [results, setResults] = useState(initialResults);
   const [responses, setResponses] = useState(initialResponses);
   const [questions, setQuestions] = useState(initialQuestions);
+  const [registrations, setRegistrations] = useState(initialRegistrations);
   const [error, setError] = useState("");
 
   const roundById = useMemo(() => new Map(rounds.map((r) => [r.id, r])), [rounds]);
@@ -115,6 +136,7 @@ export function ProcedureTrainingDetailClient({
           [
             ["info", "Thông tin đào tạo"],
             ["roster", "Nhân sự & điểm"],
+            ["registration", "Đăng ký"],
             ["analysis", "Phân tích"],
             ["questions", "Câu hỏi & đáp án"],
             ["import", "Nhập dữ liệu"],
@@ -142,6 +164,20 @@ export function ProcedureTrainingDetailClient({
           roundById={roundById}
           hasQuestions={questions.length > 0}
           questions={questions}
+          departments={departments}
+          passThreshold={training.pass_threshold}
+          canManage={canManage}
+          setError={setError}
+        />
+      ) : null}
+      {tab === "registration" ? (
+        <RegistrationTab
+          trainingId={training.id}
+          isOpen={training.is_open_for_registration}
+          setTraining={setTraining}
+          registrations={registrations}
+          setRegistrations={setRegistrations}
+          attendees={attendees}
           departments={departments}
           canManage={canManage}
           setError={setError}
@@ -210,6 +246,7 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
     feedback_qlcl: training.feedback_qlcl || "",
     notes: training.notes || "",
     test_score_max: training.test_score_max != null ? String(training.test_score_max) : "",
+    pass_threshold: training.pass_threshold != null ? String(training.pass_threshold) : "",
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -221,7 +258,11 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
     const res = await fetch(`/api/procedure-trainings/${training.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...draft, test_score_max: draft.test_score_max.trim() === "" ? null : Number(draft.test_score_max) }),
+      body: JSON.stringify({
+        ...draft,
+        test_score_max: draft.test_score_max.trim() === "" ? null : Number(draft.test_score_max),
+        pass_threshold: draft.pass_threshold.trim() === "" ? null : Number(draft.pass_threshold),
+      }),
     });
     const body = await res.json().catch(() => ({}));
     setSaving(false);
@@ -257,6 +298,18 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
           <label>
             <span>Thang điểm bài test mặc định (Pre/Post)</span>
             <input className="input" type="number" min={1} disabled={!canManage} placeholder="VD: 17" value={draft.test_score_max} onChange={(e) => setDraft((v) => ({ ...v, test_score_max: e.target.value }))} />
+          </label>
+          <label>
+            <span>Điểm đạt (tùy chọn)</span>
+            <input
+              className="input"
+              type="number"
+              min={0}
+              disabled={!canManage}
+              placeholder="VD: 12 — để trống nếu không áp dụng đạt/không đạt"
+              value={draft.pass_threshold}
+              onChange={(e) => setDraft((v) => ({ ...v, pass_threshold: e.target.value }))}
+            />
           </label>
         </div>
         <fieldset>
@@ -331,6 +384,7 @@ function RosterTab({
   hasQuestions,
   questions,
   departments,
+  passThreshold,
   canManage,
   setError,
 }: {
@@ -346,6 +400,7 @@ function RosterTab({
   hasQuestions: boolean;
   questions: QuestionRow[];
   departments: Department[];
+  passThreshold: number | null;
   canManage: boolean;
   setError: (e: string) => void;
 }) {
@@ -604,6 +659,7 @@ function RosterTab({
                 <th>Đơn vị</th>
                 <th>Chức danh</th>
                 <th>Đã đào tạo</th>
+                {passThreshold != null ? <th>Kết quả</th> : null}
                 {rounds.map((r) => (
                   <th key={r.id}>{r.round_label}</th>
                 ))}
@@ -650,6 +706,15 @@ function RosterTab({
                       )}
                     </td>
                     <td data-label="Chức danh">{a.job_title || "—"}</td>
+                    {passThreshold != null ? (
+                      <td data-label="Kết quả">
+                        {(() => {
+                          const status = computePassStatus(myResults, roundById, passThreshold);
+                          if (status === "none") return <span className="muted">—</span>;
+                          return <span className={`status-badge ${status === "pass" ? "success" : "danger"}`}>{status === "pass" ? "Đạt" : "Không đạt — cần học lại"}</span>;
+                        })()}
+                      </td>
+                    ) : null}
                     <td data-label="Đã đào tạo">
                       {canManage ? (
                         <label className="inline-check">
@@ -699,7 +764,7 @@ function RosterTab({
               })}
               {!filteredAttendees.length ? (
                 <tr>
-                  <td colSpan={7 + rounds.length} className="empty-state compact">
+                  <td colSpan={7 + (passThreshold != null ? 1 : 0) + rounds.length} className="empty-state compact">
                     Chưa có nhân sự nào.
                   </td>
                 </tr>
@@ -1110,6 +1175,224 @@ function RoundQrModal({ round, onClose }: { round: Round | null; onClose: () => 
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tab: Đăng ký — đăng ký slot qua QR trước buổi đào tạo (khác hẳn "Nhân sự &
+// điểm", là người ĐÃ tham gia/có điểm). Báo cáo thực tế: "cần bổ sung chức
+// năng quét QR hoặc link đăng ký... vừa có thể kiểm soát ai đăng ký nhưng
+// không đi học, ai không đăng ký theo số lượng nhân viên của khoa phòng."
+// Đối chiếu đăng ký-vs-có mặt làm bằng so khớp mã NV/tên đã chuẩn hoá với
+// danh sách attendees (không ép 1-1 cứng ở DB — xem migration). Số liệu
+// "chưa đăng ký" theo khoa/phòng chỉ tính được khi khoa đó đã khai staff_count
+// ở danh mục khoa/phòng (Quản lý > Khoa/Phòng) — bỏ qua nếu chưa khai.
+function RegistrationTab({
+  trainingId,
+  isOpen,
+  setTraining,
+  registrations,
+  setRegistrations,
+  attendees,
+  departments,
+  canManage,
+  setError,
+}: {
+  trainingId: string;
+  isOpen: boolean;
+  setTraining: (fn: (t: Training) => Training) => void;
+  registrations: Registration[];
+  setRegistrations: (fn: Registration[] | ((v: Registration[]) => Registration[])) => void;
+  attendees: Attendee[];
+  departments: Department[];
+  canManage: boolean;
+  setError: (e: string) => void;
+}) {
+  const [toggleBusy, setToggleBusy] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const link = typeof window !== "undefined" ? `${window.location.origin}/dang-ky-dao-tao/${trainingId}` : "";
+
+  useEffect(() => {
+    if (!link) return;
+    QRCode.toDataURL(link, { width: 220, margin: 1 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [link]);
+
+  async function toggleOpen() {
+    setToggleBusy(true);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${trainingId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_open_for_registration: !isOpen }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setToggleBusy(false);
+    if (!res.ok) {
+      setError(body.error || "Không cập nhật được trạng thái đăng ký.");
+      return;
+    }
+    setTraining((t) => ({ ...t, ...body.training }));
+  }
+
+  async function removeRegistration(r: Registration) {
+    if (!window.confirm(`Xoá đăng ký của "${r.employee_name}"? Không thể hoàn tác.`)) return;
+    setRemovingId(r.id);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${trainingId}/registrations/${r.id}`, { method: "DELETE" });
+    const body = await res.json().catch(() => ({}));
+    setRemovingId(null);
+    if (!res.ok) {
+      setError(body.error || "Không xoá được đăng ký.");
+      return;
+    }
+    setRegistrations((v) => v.filter((x) => x.id !== r.id));
+  }
+
+  // Đối chiếu: 1 người được coi "đã tham gia" nếu có attendee cùng mã NV đã
+  // chuẩn hoá (ưu tiên), hoặc cùng tên (khi không có mã NV), và attendee đó
+  // đã attended=true.
+  function attendedStatus(r: Registration): "attended" | "registered_only" {
+    const matched = attendees.find((a) => {
+      if (r.employee_code && a.employee_code) return normalizeEmployeeCode(a.employee_code) === normalizeEmployeeCode(r.employee_code);
+      return a.employee_name.trim().toLocaleLowerCase("vi") === r.employee_name.trim().toLocaleLowerCase("vi");
+    });
+    return matched?.attended ? "attended" : "registered_only";
+  }
+
+  const byDepartment = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of registrations) {
+      if (!r.department) continue;
+      counts.set(r.department, (counts.get(r.department) || 0) + 1);
+    }
+    return departments
+      .filter((d) => d.staff_count != null)
+      .map((d) => ({ department: d, registered: counts.get(d.name) || 0 }))
+      .filter((x) => x.registered < (x.department.staff_count as number));
+  }, [registrations, departments]);
+
+  return (
+    <section className="panel">
+      <div className="panel-title">
+        <div>
+          <h2>Đăng ký tham gia đào tạo</h2>
+          <p>Nhân viên tự quét QR đăng ký trước buổi đào tạo — đối chiếu được ai đăng ký nhưng không tới, và (khi khoa/phòng đã khai số nhân viên) khoa nào còn thiếu người đăng ký.</p>
+        </div>
+      </div>
+      <div style={{ padding: "0 19px 19px", display: "grid", gap: 14 }}>
+        <div className="ptd-registration-qr">
+          {canManage ? (
+            <button type="button" className={`ptd-registration-open-toggle${isOpen ? " is-open" : ""}`} disabled={toggleBusy} onClick={() => void toggleOpen()}>
+              {isOpen ? "Đang mở đăng ký" : "Mở đăng ký qua QR"}
+            </button>
+          ) : (
+            <span className={`status-badge ${isOpen ? "success" : "warning"}`}>{isOpen ? "Đang mở đăng ký" : "Chưa mở đăng ký"}</span>
+          )}
+          {isOpen ? (
+            <>
+              {qrDataUrl ? <img src={qrDataUrl} alt="Mã QR đăng ký đào tạo" width={140} height={140} /> : null}
+              <code style={{ fontSize: 11, wordBreak: "break-all" }}>{link}</code>
+            </>
+          ) : (
+            <p className="muted tiny">Bật &quot;Mở đăng ký qua QR&quot; để tạo mã QR cho nhân viên quét đăng ký.</p>
+          )}
+        </div>
+
+        {byDepartment.length ? (
+          <div className="alert warning">
+            <strong>Khoa/phòng còn thiếu người đăng ký:</strong>
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+              {byDepartment.map(({ department, registered }) => (
+                <li key={department.id}>
+                  {department.name}: đã đăng ký {registered}/{department.staff_count} người
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Họ tên</th>
+                <th>Mã NV</th>
+                <th>Đơn vị</th>
+                <th>Chức danh</th>
+                <th>Đăng ký lúc</th>
+                <th>Trạng thái</th>
+                {canManage ? <th>Thao tác</th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {registrations.map((r) => {
+                const status = attendedStatus(r);
+                return (
+                  <tr key={r.id}>
+                    <td data-label="Họ tên">{r.employee_name}</td>
+                    <td data-label="Mã NV">{r.employee_code || "—"}</td>
+                    <td data-label="Đơn vị">{r.department || "—"}</td>
+                    <td data-label="Chức danh">{r.job_title || "—"}</td>
+                    <td data-label="Đăng ký lúc">{new Date(r.registered_at).toLocaleString("vi-VN")}</td>
+                    <td data-label="Trạng thái">
+                      <span className={`status-badge ${status === "attended" ? "success" : "warning"}`}>{status === "attended" ? "Đã tham gia" : "Đăng ký nhưng chưa tham gia"}</span>
+                    </td>
+                    {canManage ? (
+                      <td data-label="Thao tác">
+                        <button className="button tertiary small" disabled={removingId === r.id} onClick={() => void removeRegistration(r)}>
+                          {removingId === r.id ? "Đang xoá..." : "Xóa"}
+                        </button>
+                      </td>
+                    ) : null}
+                  </tr>
+                );
+              })}
+              {!registrations.length ? (
+                <tr>
+                  <td colSpan={canManage ? 7 : 6} className="empty-state compact">
+                    Chưa có ai đăng ký.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <style jsx>{`
+        .ptd-registration-qr {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          flex-wrap: wrap;
+        }
+        .ptd-registration-open-toggle {
+          border: 1px solid var(--line);
+          background: #fff;
+          color: #46555c;
+          border-radius: 20px;
+          padding: 6px 12px;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .ptd-registration-open-toggle.is-open {
+          background: var(--success-soft);
+          color: var(--success);
+          border-color: transparent;
+        }
+        .alert.warning {
+          background: var(--warning-soft);
+          color: #8a5a06;
+          border: 1px solid #fbe3b0;
+        }
+      `}</style>
+    </section>
   );
 }
 

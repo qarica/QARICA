@@ -3,7 +3,7 @@ import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const SELECT_COLUMNS =
-  "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,session_2_time,session_2_location,session_2_method,notes,test_score_max";
+  "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,session_2_time,session_2_location,session_2_method,notes,test_score_max,pass_threshold,is_open_for_registration";
 
 const EDITABLE_FIELDS = [
   "trainer",
@@ -17,6 +17,8 @@ const EDITABLE_FIELDS = [
   "session_2_method",
   "notes",
   "test_score_max",
+  "pass_threshold",
+  "is_open_for_registration",
 ];
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -45,6 +47,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         if (!Number.isFinite(parsed) || parsed <= 0) return NextResponse.json({ error: "Thang điểm bài test không hợp lệ." }, { status: 400 });
         update.test_score_max = parsed;
       }
+    } else if (field === "pass_threshold") {
+      if (body.pass_threshold === null || body.pass_threshold === "") {
+        update.pass_threshold = null;
+      } else {
+        const parsed = Number(body.pass_threshold);
+        if (!Number.isFinite(parsed) || parsed < 0) return NextResponse.json({ error: "Điểm đạt không hợp lệ." }, { status: 400 });
+        update.pass_threshold = parsed;
+      }
+    } else if (field === "is_open_for_registration") {
+      update.is_open_for_registration = body.is_open_for_registration === true;
     } else {
       update[field] = String(body[field]).trim() || null;
     }
