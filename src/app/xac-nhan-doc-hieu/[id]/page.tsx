@@ -2,17 +2,20 @@
 
 import { use, useEffect, useState } from "react";
 
+type Department = { id: string; name: string };
 type LoadState =
   | { kind: "loading" }
   | { kind: "not_found" }
   | { kind: "closed"; title: string }
-  | { kind: "open"; title: string; documentCode: string | null; versionLabel: string };
+  | { kind: "open"; title: string; documentCode: string | null; versionLabel: string; departments: Department[] };
 
 export default function PublicDocumentAckPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [employeeName, setEmployeeName] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [done, setDone] = useState(false);
@@ -31,7 +34,7 @@ export default function PublicDocumentAckPage({ params }: { params: Promise<{ id
           setState({ kind: "closed", title: body.title || "" });
           return;
         }
-        setState({ kind: "open", title: body.title || "", documentCode: body.documentCode ?? null, versionLabel: body.versionLabel || "" });
+        setState({ kind: "open", title: body.title || "", documentCode: body.documentCode ?? null, versionLabel: body.versionLabel || "", departments: body.departments || [] });
       })
       .catch(() => {
         if (!cancelled) setState({ kind: "not_found" });
@@ -47,7 +50,7 @@ export default function PublicDocumentAckPage({ params }: { params: Promise<{ id
     const res = await fetch(`/api/public/document-ack/${id}/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employee_name: employeeName, employee_code: employeeCode }),
+      body: JSON.stringify({ employee_name: employeeName, employee_code: employeeCode, department_id: departmentId, email }),
     });
     const body = await res.json().catch(() => ({}));
     setSubmitting(false);
@@ -95,6 +98,21 @@ export default function PublicDocumentAckPage({ params }: { params: Promise<{ id
             <label>
               <span>Mã nhân viên *</span>
               <input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} required placeholder="NV0012" />
+            </label>
+            <label>
+              <span>Khoa/phòng *</span>
+              <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required>
+                <option value="">— Chọn khoa/phòng —</option>
+                {state.departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Email (không bắt buộc)</span>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ten@benhvien.vn" />
             </label>
             <button type="submit" className="button primary wide" disabled={submitting}>
               {submitting ? "Đang gửi..." : "Tôi đã đọc và hiểu nội dung văn bản này"}

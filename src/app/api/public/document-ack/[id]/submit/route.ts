@@ -12,8 +12,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body = await request.json().catch(() => ({}));
   const employeeName = String(body.employee_name || "").trim();
   const employeeCodeRaw = String(body.employee_code || "").trim();
+  const departmentId = String(body.department_id || "").trim();
+  const email = String(body.email || "").trim();
   if (!employeeName) return NextResponse.json({ error: "Chưa nhập họ tên." }, { status: 400 });
   if (!employeeCodeRaw) return NextResponse.json({ error: "Chưa nhập mã nhân viên." }, { status: 400 });
+  if (!departmentId) return NextResponse.json({ error: "Chưa chọn khoa/phòng." }, { status: 400 });
 
   const admin = createAdminClient();
   const { data: doc } = await admin
@@ -25,6 +28,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (doc.stage !== "PUBLISHED" || doc.dissemination_type !== "SELF_READ") {
     return NextResponse.json({ error: "Văn bản này không áp dụng xác nhận tự đọc hiểu." }, { status: 403 });
   }
+
+  // department_id do client gửi lên — xác minh thật sự thuộc đúng tổ chức
+  // của văn bản này trước khi ghi, không tin dữ liệu client (route công khai).
+  const { data: department } = await admin.from("departments").select("id").eq("id", departmentId).eq("organization_id", doc.organization_id).maybeSingle();
+  if (!department) return NextResponse.json({ error: "Khoa/phòng không hợp lệ." }, { status: 400 });
 
   const normalizedCode = normalizeEmployeeCode(employeeCodeRaw);
   const { data: existing } = await admin
@@ -40,6 +48,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     document_publication_id: id,
     employee_name: employeeName,
     employee_code: employeeCodeRaw,
+    department_id: departmentId,
+    email: email || null,
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true });

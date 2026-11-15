@@ -137,6 +137,7 @@ export function ProcedureTrainingDetailClient({
           resultsByAttendee={resultsByAttendee}
           responsesByResult={responsesByResult}
           roundById={roundById}
+          hasQuestions={questions.length > 0}
           canManage={canManage}
           setError={setError}
         />
@@ -322,6 +323,7 @@ function RosterTab({
   resultsByAttendee,
   responsesByResult,
   roundById,
+  hasQuestions,
   canManage,
   setError,
 }: {
@@ -334,6 +336,7 @@ function RosterTab({
   resultsByAttendee: Map<string, ResultRow[]>;
   responsesByResult: Map<string, ResponseRow[]>;
   roundById: Map<string, Round>;
+  hasQuestions: boolean;
   canManage: boolean;
   setError: (e: string) => void;
 }) {
@@ -495,9 +498,9 @@ function RosterTab({
                   <button
                     type="button"
                     className={`ptd-round-open-toggle${r.is_open_for_submission ? " is-open" : ""}`}
-                    disabled={toggleBusyId === r.id}
+                    disabled={toggleBusyId === r.id || (!r.is_open_for_submission && !hasQuestions)}
                     onClick={() => void toggleRoundOpen(r)}
-                    title="Bật/tắt cho nhân viên tự làm bài qua QR"
+                    title={!r.is_open_for_submission && !hasQuestions ? "Soạn câu hỏi & đáp án ở tab Câu hỏi & đáp án trước khi mở" : "Bật/tắt cho nhân viên tự làm bài qua QR"}
                   >
                     {r.is_open_for_submission ? "Đang mở làm bài" : "Mở làm bài qua QR"}
                   </button>

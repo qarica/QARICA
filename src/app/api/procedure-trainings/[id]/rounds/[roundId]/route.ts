@@ -30,7 +30,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       update.score_max = parsed;
     }
   }
-  if (body.is_open_for_submission !== undefined) update.is_open_for_submission = Boolean(body.is_open_for_submission);
+  if (body.is_open_for_submission !== undefined) {
+    const wantsOpen = Boolean(body.is_open_for_submission);
+    if (wantsOpen) {
+      // Phát hiện thực tế: 1 đợt đã bật "Mở làm bài qua QR" khi quy trình
+      // CHƯA có câu hỏi nào — nhân viên quét QR vào thấy form trống, không
+      // có nội dung gì để làm. Chặn ngay tại đây, không để lộ ra trang công
+      // khai rồi mới phát hiện.
+      const { count: questionCount } = await admin.from("procedure_training_questions").select("id", { count: "exact", head: true }).eq("training_id", trainingId);
+      if (!questionCount) return NextResponse.json({ error: "Chưa có câu hỏi nào — soạn câu hỏi & đáp án trước khi mở làm bài qua QR." }, { status: 400 });
+    }
+    update.is_open_for_submission = wantsOpen;
+  }
   if (!Object.keys(update).length) return NextResponse.json({ error: "Không có thay đổi nào." }, { status: 400 });
 
   const { data, error } = await admin

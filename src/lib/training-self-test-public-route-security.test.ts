@@ -85,6 +85,30 @@ describe("procedure_training_questions: PUT (thay toàn bộ đáp án) giữ l�
   });
 });
 
+// Phát hiện thực tế: 1 đợt kiểm tra đã bật "Mở làm bài qua QR" (is_open_
+// for_submission=true) từ trước khi có câu hỏi nào — nhân viên quét QR vào
+// thấy form trống, không có nội dung để làm. Chặn ngay tại API, không để
+// admin lỡ tay bật khi chưa soạn câu hỏi.
+describe("PATCH rounds/[roundId]: không cho bật is_open_for_submission khi quy trình chưa có câu hỏi nào", () => {
+  it("kiểm tra số câu hỏi (procedure_training_questions) trước khi cho phép mở, 400 nếu bằng 0", () => {
+    const route = read("src/app/api/procedure-trainings/[id]/rounds/[roundId]/route.ts");
+    expect(route).toContain('.from("procedure_training_questions").select("id", { count: "exact", head: true }).eq("training_id", trainingId)');
+    expect(route).toContain('if (!questionCount) return NextResponse.json({ error: "Chưa có câu hỏi nào');
+  });
+
+  it("vẫn cho ĐÓNG thoải mái (is_open_for_submission=false) bất kể có câu hỏi hay không — chỉ chặn chiều MỞ", () => {
+    const route = read("src/app/api/procedure-trainings/[id]/rounds/[roundId]/route.ts");
+    expect(route).toContain("if (wantsOpen) {");
+  });
+});
+
+describe("UI: nút 'Mở làm bài qua QR' bị disable khi chưa có câu hỏi, giải thích rõ lý do qua title", () => {
+  it("RosterTab nhận hasQuestions, disable nút mở khi !hasQuestions", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain("disabled={toggleBusyId === r.id || (!r.is_open_for_submission && !hasQuestions)}");
+  });
+});
+
 describe("PATCH /api/procedure-trainings/[id]/questions/[questionNo]: sửa nội dung công khai 1 câu, VẪN cần đăng nhập + quyền manage", () => {
   it("đòi hỏi procedure_training.manage (khác hẳn 2 route công khai ở trên)", () => {
     const route = read("src/app/api/procedure-trainings/[id]/questions/[questionNo]/route.ts");

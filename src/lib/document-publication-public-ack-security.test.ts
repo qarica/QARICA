@@ -38,6 +38,27 @@ describe("Public document-ack routes (/api/public/document-ack/**): cố ý khô
     expect(insertBlock).toContain("employee_code: employeeCodeRaw");
     expect(insertBlock).not.toContain("user_id:");
   });
+
+  // Phát hiện thực tế khi tự quét QR thử: "nhập tên nv và mã số nhưng thiếu
+  // khoa phòng" + "phần mềm phải lưu lại email hoặc thời gian của nhân viên
+  // xác nhận". Thời gian đã có sẵn (confirmed_at default now()); bổ sung
+  // khoa/phòng (bắt buộc, chọn từ danh sách thật — không tự gõ) + email
+  // (tuỳ chọn) làm thêm bằng chứng xác nhận.
+  it("bắt buộc chọn khoa/phòng (department_id) — validate thuộc đúng tổ chức của văn bản, không tin dữ liệu client", () => {
+    expect(submitRoute).toContain('if (!departmentId) return NextResponse.json({ error: "Chưa chọn khoa/phòng." }');
+    expect(submitRoute).toContain('.from("departments").select("id").eq("id", departmentId).eq("organization_id", doc.organization_id)');
+  });
+
+  it("email là tuỳ chọn (không required), lưu cùng hàng xác nhận làm thêm bằng chứng", () => {
+    expect(submitRoute).not.toContain('if (!email)');
+    const insertBlock = submitRoute.slice(submitRoute.indexOf(".insert({"));
+    expect(insertBlock).toContain("department_id: departmentId");
+    expect(insertBlock).toContain("email: email || null");
+  });
+
+  it("GET trả kèm danh sách khoa/phòng thật của tổ chức để chọn (không tự gõ tay, tránh sai chính tả/trùng tên)", () => {
+    expect(getRoute).toContain('.from("departments").select("id,name").eq("organization_id", doc.organization_id).eq("is_active", true)');
+  });
 });
 
 describe("middleware.ts: /xac-nhan-doc-hieu/** là route công khai", () => {
