@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { KpiCard } from "@/components/kpi-card";
 import { PageHeader } from "@/components/page-header";
-import { TQM_CHART_CSS, TqmDonut, TqmGauge, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
 import { requireUserContext } from "@/lib/auth";
 import { humanStatus } from "@/lib/format";
 import { isOperationallyHiddenStatus } from "@/lib/operational-record";
@@ -68,7 +68,7 @@ export default async function AnalyticsPage({searchParams}:{searchParams:Promise
    <KpiCard icon="triangle-alert" tone="red" label="Sự cố nghiêm trọng" value={seriousIncidentCount} caption="serious_event_flag" />
    <KpiCard icon="circle-alert" tone="amber" label="Rủi ro mức cao" value={highRiskCount} caption="Theo đánh giá gần nhất" />
    <KpiCard icon="badge-check" tone="green" label="CAPA đúng hạn" value={`${capaOnTimePct}%`} caption={`${capaRowsExec.length-capaOverdue}/${capaRowsExec.length||0} CAPA`} />
-   <KpiCard icon="badge-check" tone="purple" label="Tỷ lệ đạt mục tiêu" value={`${indicatorAttainmentPct}%`} caption={`${indicatorInTarget}/${indicatorEvaluable.length} kỳ đo`} visual={<TqmGauge value={indicatorAttainmentPct} label="Tỷ lệ đạt mục tiêu" tone="brand" />} />
+   <KpiCard icon="badge-check" tone="purple" label="Tỷ lệ đạt mục tiêu" value={`${indicatorAttainmentPct}%`} caption={`${indicatorInTarget}/${indicatorEvaluable.length} kỳ đo`} />
   </section>
   <section className="panel"><div className="head"><h2>Top lĩnh vực chất lượng/an toàn phát sinh nhiều nhất</h2><p>Xếp hạng theo số lượt Sự cố + Rủi ro + Finding gắn vào cùng một lĩnh vực dùng chung (record_quality_domain_links); không suy diễn tên &quot;vấn đề&quot; cụ thể ngoài taxonomy đã cấu hình.</p></div>{topDomainRows.length?<TqmHorizontalBars rows={topDomainRows}/>:<div className="empty-state">Chưa có hồ sơ nào được gắn lĩnh vực chất lượng/an toàn trong năm.</div>}</section>
   <section className="panel"><form className="filters" method="get"><label>Tháng<select name="month" defaultValue={month?String(month):""}><option value="">Tất cả tháng</option>{Array.from({length:12},(_,i)=><option key={i+1} value={i+1}>Tháng {i+1}</option>)}</select></label><label>Khoa/Phòng<select name="department" defaultValue={departmentId||""}><option value="">Tất cả khoa/phòng</option>{(departments??[]).map((d:any)=><option key={d.id} value={d.id}>{d.short_name||d.name}</option>)}</select></label><label>Trạng thái<select name="status" defaultValue={status}><option value="ALL">Tất cả trạng thái</option><option value="ACTIVE">Đang hoạt động</option><option value="CLOSED">Đã đóng</option></select></label><button className="button primary" type="submit">Áp dụng</button><a className="button secondary" href={exportHref}>Xuất Excel (CSV)</a></form><div className="filter-note">Bộ lọc hiện tại: {month?`Tháng ${month}`:"Cả năm"} · {selectedDepartment} · {status==="ALL"?"Tất cả trạng thái":status}. Nhịp theo tháng được tính bằng <strong>ngày hồ sơ được ghi nhận (created_at)</strong>, không dùng ngày sửa gần nhất.</div></section>

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { KpiCard } from "@/components/kpi-card";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import { TQM_CHART_CSS, TqmDonut, TqmGauge, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
 import { EvidenceDeleteButton } from "@/components/evidence-delete-button";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -49,7 +49,7 @@ export default async function EvidencePage(){
   {firstError?<div className="alert error">Không tải được đầy đủ kho minh chứng: {firstError.message}</div>:null}
   <section className="kpis">
    <KpiCard icon="folder-archive" tone="blue" label="Tổng minh chứng" value={total} caption="Toàn bộ theo phạm vi được phép xem" />
-   <KpiCard icon="badge-check" tone="green" label="Hợp lệ toàn kho" value={`${validPct}%`} caption={`${valid}/${total || 0} minh chứng`} visual={<TqmGauge value={validPct} label="Hợp lệ toàn kho" tone="green" />} />
+   <KpiCard icon="badge-check" tone="green" label="Hợp lệ toàn kho" value={`${validPct}%`} caption={`${valid}/${total || 0} minh chứng`} />
    <KpiCard icon="calendar-days" tone="amber" label="Chưa xác nhận" value={pending} caption="Trạng thái PENDING" />
    <KpiCard icon="triangle-alert" tone="red" label="Cần rà soát khác" value={otherReview} caption="Khác VALID/PENDING" />
    <KpiCard icon="folder-check" tone="purple" label="Dung lượng đã dùng" value={fmtGb(storageUsedBytes)} caption="Toàn bộ file đã tải lên" />

@@ -4,7 +4,7 @@ import { CreateModalButton, CreateModalProvider } from "@/components/create-moda
 import { KpiCard } from "@/components/kpi-card";
 import { PlansClient } from "@/components/plans-client";
 import { PageHeader } from "@/components/page-header";
-import { TQM_CHART_CSS, TqmDonut, TqmGantt, TqmGauge } from "@/components/tqm-charts";
+import { TQM_CHART_CSS, TqmDonut, TqmGantt } from "@/components/tqm-charts";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { loadPlanReferenceOptions } from "@/lib/plan-reference-options";
@@ -72,7 +72,7 @@ export default async function PlansPage() {
     <section className="kpis">
       <KpiCard icon="calendar-range" tone="blue" label="Tổng kế hoạch" value={rows.length} caption={`Trong năm ${year}`} />
       <KpiCard icon="refresh-cw" tone="green" label="Đang triển khai" value={inProgressCount} caption={`${rows.length?Math.round(inProgressCount/rows.length*100):0}%`} />
-      <KpiCard icon="badge-check" tone="green" label="Hoàn thành" value={completedCount} caption={`${donutValue}%`} visual={<TqmGauge value={donutValue} label="Hoàn thành" tone="green" />} />
+      <KpiCard icon="badge-check" tone="green" label="Hoàn thành" value={completedCount} caption={`${donutValue}%`} />
       <KpiCard icon="triangle-alert" tone="red" label="Quá hạn" value={overdueCount} caption={`${rows.length?Math.round(overdueCount/rows.length*100):0}%`} urgent={!!overdueCount} />
     </section>
 

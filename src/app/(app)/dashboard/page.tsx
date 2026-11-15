@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { KpiCard, type KpiTrend } from "@/components/kpi-card";
 import { AlertStrip } from "@/components/alert-strip";
-import { TQM_CHART_CSS, TqmDonut, TqmGantt, TqmGauge, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { TQM_CHART_CSS, TqmDonut, TqmGantt, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
 import { TqmSmartCommandCenter } from "@/components/tqm-smart-command-center";
 import { TqmInterventionLoop } from "@/components/tqm-intervention-loop";
 import { TqmPriorityBoard } from "@/components/tqm-priority-board";
@@ -152,7 +152,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const capaOverdue = capas.filter((x: any) => !["CLOSED", "CANCELLED", "EFFECTIVE"].includes(String(x.workflow_status)) && x.effectiveness_due_date && x.effectiveness_due_date < today);
   const capaOverdueLastMonth = capas.filter((x: any) => x.effectiveness_due_date && x.effectiveness_due_date < prevMonth + "-28").length;
   const capaByStatus = { DONE: capas.filter((x: any) => x.workflow_status === "EFFECTIVE").length, IN_PROGRESS: capas.filter((x: any) => ["IN_PROGRESS", "EFFECTIVENESS_REVIEW"].includes(String(x.workflow_status))).length, OVERDUE: capaOverdue.length, NOT_STARTED: capas.filter((x: any) => x.workflow_status === "DRAFT").length };
-  const capaOverduePct = capas.length ? Math.round((capaOverdue.length / capas.length) * 100) : 0;
 
   const risks = (risksRes.data ?? []) as any[];
   const riskIds = risks.map((x: any) => x.id);
@@ -351,7 +350,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <section className="kpis">
       <KpiCard icon="file-text" tone="blue" label="Sự cố mới" value={thisMonthNew} trend={trendBadge(thisMonthNew, lastMonthNew)} />
       <KpiCard icon="search" tone="green" label="Đang phân tích RCA" value={investigating} trend={trendBadge(investigating, investigatingLastMonth)} />
-      <KpiCard icon="calendar-days" tone="amber" label="CAPA quá hạn" value={capaOverdue.length} trend={trendBadge(capaOverdue.length, capaOverdueLastMonth)} visual={<TqmGauge value={capaOverduePct} label="% trên tổng CAPA" tone="amber" />} />
+      <KpiCard icon="calendar-days" tone="amber" label="CAPA quá hạn" value={capaOverdue.length} trend={trendBadge(capaOverdue.length, capaOverdueLastMonth)} />
       <KpiCard icon="triangle-alert" tone="red" label="Rủi ro mức cao" value={highRiskCount} trend={{ tone: "flat", text: "0%" }} />
       <KpiCard icon="check-square" tone="purple" label="Audit đang thực hiện" value={auditInProgress} trend={trendBadge(auditInProgress, auditInProgressLastMonth)} />
     </section>

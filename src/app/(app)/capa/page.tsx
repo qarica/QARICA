@@ -6,7 +6,7 @@ import { Icon } from "@/components/icon";
 import { KpiCard } from "@/components/kpi-card";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import { TQM_CHART_CSS, TqmDonut, TqmGauge, TqmHorizontalBars, TqmMultiTrend } from "@/components/tqm-charts";
+import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmMultiTrend } from "@/components/tqm-charts";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { hcmMonthNumber } from "@/lib/hcm-date";
 import { humanStatus } from "@/lib/format";
@@ -70,7 +70,7 @@ export default async function CapaPage({searchParams}:{searchParams:Promise<{q?:
   <section className="panel"><form className="capa-filter" method="get"><input name="q" defaultValue={qRaw} placeholder="Tìm mã, CAPA, khoa/phòng, ưu tiên..."/><select name="status" defaultValue={status}><option value="">Tất cả trạng thái</option>{statusOptions.map(value=><option value={value} key={value}>{workflowLabel(value)}</option>)}</select><button className="button secondary" type="submit">Áp dụng lọc</button>{qRaw||status?<Link className="button tertiary" href="/capa">Xóa lọc</Link>:<span/>}</form><div className="capa-filter-summary">Đang hiển thị <strong>{rows.length}</strong> / {allRows.length} CAPA trong năm {year}. Danh sách ưu tiên, KPI, phân tích và file xuất cùng dùng bộ lọc này.</div><div style={{padding:"0 16px 14px"}}><CsvDownloadButton filename={tqmCsvFileName("capa-theo-doi",year)} headers={["STT","Mã CAPA","Tên CAPA","Khoa/Phòng","Ưu tiên","Trạng thái","Hạn đánh giá hiệu lực","Kết quả hiệu lực gần nhất","Ngày đánh giá gần nhất"]} rows={exportRows} metadata={[["Module","CAPA"],["Năm",year],["Từ khóa",qRaw||"Tất cả"],["Trạng thái",status?workflowLabel(status):"Tất cả"],["Số hồ sơ xuất",rows.length]]}/></div></section>
   <section className="kpis">
    <KpiCard icon="workflow" tone="blue" label="Tổng CAPA" value={rows.length} />
-   <KpiCard icon="badge-check" tone="green" label="Đã hoàn thành" value={effective} caption={`${effectivePct}%`} visual={<TqmGauge value={effectivePct} label="Đã hoàn thành" tone="green" />} />
+   <KpiCard icon="badge-check" tone="green" label="Đã hoàn thành" value={effective} caption={`${effectivePct}%`} />
    <KpiCard icon="triangle-alert" tone="red" label="Quá hạn đánh giá" value={overdue} urgent={!!overdue} />
    <KpiCard icon="calendar-days" tone="amber" label="Chờ đánh giá hiệu lực" value={reviewing} urgent={!!reviewing} />
    <KpiCard icon="search-check" tone="blue" label="Đang RCA" value={rca} />

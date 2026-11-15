@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { KpiCard } from "@/components/kpi-card";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import { TQM_CHART_CSS, TqmGantt, TqmGauge, TqmHorizontalBars } from "@/components/tqm-charts";
+import { TQM_CHART_CSS, TqmGantt, TqmHorizontalBars } from "@/components/tqm-charts";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { routeForRecord } from "@/lib/record-route";
@@ -80,7 +80,7 @@ export default async function ImprovementProjectsPage({searchParams}:PageProps){
    <KpiCard icon="lightbulb" tone="blue" label="Tổng số đề án" value={rows.length} caption={`Trong năm ${year}`} />
    <KpiCard icon="refresh-cw" tone="blue" label="Đang vận hành" value={activeProjects} caption={`${rows.length} đề án trong năm`} />
    <KpiCard icon="triangle-alert" tone="red" label="Cần can thiệp" value={delayed} caption="Quá hạn Action/mốc/đề án" />
-   <KpiCard icon="badge-check" tone="green" label="Action hoàn thành" value={`${overall}%`} caption={`${doneActions}/${allActions} Action`} visual={<TqmGauge value={overall} label="Action hoàn thành" tone="green" />} />
+   <KpiCard icon="badge-check" tone="green" label="Action hoàn thành" value={`${overall}%`} caption={`${doneActions}/${allActions} Action`} />
    <KpiCard icon="clipboard-check" tone="purple" label="SMART đủ dữ liệu" value={`${objectiveCoverage}%`} caption={`${objectiveReadyTotal}/${objectiveTotal} mục tiêu`} />
    <KpiCard icon="list-checks" tone="amber" label="Đủ 4 pha PDSA" value={pdsaReady} caption="Đề án có Plan–Do–Study–Act" />
    <KpiCard icon="folder-check" tone="green" label="Đã đánh giá/đóng" value={achieved} caption="Đã qua đánh giá kết quả" />
