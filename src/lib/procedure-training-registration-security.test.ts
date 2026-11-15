@@ -75,6 +75,20 @@ describe("Procedure training registration (QR) + pass/fail threshold", () => {
     expect(client).toContain('training.pass_threshold != null ? String(training.pass_threshold) : ""');
   });
 
+  // "nếu chỉ làm pre ko làm post coi như ko đạt học lại" — Đạt/Không đạt
+  // đánh giá theo ĐỢT CUỐI CÙNG đã tạo (sort_order lớn nhất), không phải
+  // đợt gần nhất người đó TÌNH CỜ có điểm — chưa làm đợt cuối (dù đã có
+  // điểm ở đợt trước, vd Pre-test) vẫn tính "fail", không phải "none"
+  // trung lập. Chỉ "none" khi chưa làm bài ở bất kỳ đợt nào.
+  it("Đạt/Không đạt xét theo đợt kiểm tra CUỐI CÙNG đã tạo — chưa làm đợt cuối (dù đã có điểm Pre) tính là KHÔNG ĐẠT, không phải trung lập", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain("function computePassStatus(myResults: ResultRow[], rounds: Round[], passThreshold: number | null)");
+    expect(client).toContain("const hasAnyScore = myResults.some((r) => r.score != null);");
+    expect(client).toContain('if (!hasAnyScore) return "none";');
+    expect(client).toContain("const finalRound = [...rounds].sort((a, b) => b.sort_order - a.sort_order");
+    expect(client).toContain('if (!finalResult) return "fail";');
+  });
+
   it("UI tab Đăng ký: hiện QR, danh sách đăng ký đối chiếu đã/chưa tham gia, và cảnh báo khoa/phòng còn thiếu người đăng ký (chỉ khi đã khai staff_count)", () => {
     const client = read("src/components/procedure-training-detail-client.tsx");
     expect(client).toContain("Mở đăng ký qua QR");

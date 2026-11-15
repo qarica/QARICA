@@ -71,18 +71,24 @@ function avg(nums: number[]): number | null {
   return nums.reduce((s, n) => s + n, 0) / nums.length;
 }
 
-// Đạt/Không đạt: so điểm của ĐỢT KIỂM TRA GẦN NHẤT mà người đó có điểm
-// (sort_order lớn nhất, tie-break theo round_date) với pass_threshold của
-// cả đợt đào tạo — không lưu thêm cột trạng thái vào DB (tính lại từ điểm
-// mỗi lần hiển thị, tránh 2 nguồn sự thật lệch nhau nếu sửa điểm/đổi ngưỡng
-// sau này — CLAUDE.md nguyên tắc 2).
-function computePassStatus(myResults: ResultRow[], roundById: Map<string, Round>, passThreshold: number | null): "pass" | "fail" | "none" {
-  if (passThreshold == null) return "none";
-  const scored = myResults.filter((r) => r.score != null).map((r) => ({ result: r, round: roundById.get(r.round_id) })).filter((x) => x.round);
-  if (!scored.length) return "none";
-  scored.sort((a, b) => b.round!.sort_order - a.round!.sort_order || (b.round!.round_date || "").localeCompare(a.round!.round_date || ""));
-  const latest = scored[0].result;
-  return (latest.score as number) >= passThreshold ? "pass" : "fail";
+// Đạt/Không đạt: so điểm ở ĐỢT KIỂM TRA CUỐI CÙNG (sort_order lớn nhất
+// trong TOÀN BỘ các đợt đã tạo cho khóa đào tạo này, không chỉ các đợt
+// người đó đã có điểm) với pass_threshold. Quyết định đã chốt với người
+// dùng: "nếu chỉ làm Pre không làm Post thì coi như không đạt, cần học
+// lại" — tức là CHƯA làm đợt cuối cùng (dù đã có điểm ở đợt trước đó, vd
+// Pre-test) vẫn tính là "Không đạt", không phải "chưa có kết quả" trung
+// lập. Chỉ trả "none" khi người đó CHƯA làm bài ở BẤT KỲ đợt nào (chưa có
+// hoạt động gì để đánh giá). Không lưu thêm cột trạng thái vào DB (tính
+// lại từ điểm mỗi lần hiển thị, tránh 2 nguồn sự thật lệch nhau nếu sửa
+// điểm/đổi ngưỡng/thêm đợt sau này — CLAUDE.md nguyên tắc 2).
+function computePassStatus(myResults: ResultRow[], rounds: Round[], passThreshold: number | null): "pass" | "fail" | "none" {
+  if (passThreshold == null || !rounds.length) return "none";
+  const hasAnyScore = myResults.some((r) => r.score != null);
+  if (!hasAnyScore) return "none";
+  const finalRound = [...rounds].sort((a, b) => b.sort_order - a.sort_order || (b.round_date || "").localeCompare(a.round_date || ""))[0];
+  const finalResult = myResults.find((r) => r.round_id === finalRound.id && r.score != null);
+  if (!finalResult) return "fail";
+  return (finalResult.score as number) >= passThreshold ? "pass" : "fail";
 }
 
 export function ProcedureTrainingDetailClient({
@@ -709,7 +715,7 @@ function RosterTab({
                     {passThreshold != null ? (
                       <td data-label="Kết quả">
                         {(() => {
-                          const status = computePassStatus(myResults, roundById, passThreshold);
+                          const status = computePassStatus(myResults, rounds, passThreshold);
                           if (status === "none") return <span className="muted">—</span>;
                           return <span className={`status-badge ${status === "pass" ? "success" : "danger"}`}>{status === "pass" ? "Đạt" : "Không đạt — cần học lại"}</span>;
                         })()}
