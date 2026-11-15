@@ -29,6 +29,20 @@ type Training = {
 type SelfReadDocument = { id: string; title: string; document_code: string | null; version_label: string; effective_date: string | null };
 type Acknowledgment = { document_publication_id: string; user_id: string | null };
 type Staff = { id: string; name: string };
+type TopicRollupRow = {
+  normalizedCode: string;
+  employeeName: string;
+  department: string | null;
+  jobTitle: string | null;
+  status: "pass" | "fail" | "none";
+  passedTraining: { trainingId: string; procedureName: string; effectiveDate: string | null } | null;
+  attemptCount: number;
+};
+type TopicGroup = {
+  key: string;
+  trainings: { id: string; procedure_name: string; effective_date: string | null }[];
+  rollup: TopicRollupRow[];
+};
 
 const STATUS_LABEL: Record<string, string> = {
   TRAINED: "Đã đào tạo",
@@ -50,6 +64,7 @@ export function ProcedureTrainingsClient({
   staffRoster,
   currentUserId,
   canManageDocuments,
+  topicGroups,
 }: {
   initialTrainings: Training[];
   canManage: boolean;
@@ -58,8 +73,9 @@ export function ProcedureTrainingsClient({
   staffRoster: Staff[];
   currentUserId: string;
   canManageDocuments: boolean;
+  topicGroups: TopicGroup[];
 }) {
-  const [view, setView] = useState<"training" | "self_read">("training");
+  const [view, setView] = useState<"training" | "self_read" | "topic">("training");
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [trainings, setTrainings] = useState(initialTrainings);
   const [listQuery, setListQuery] = useState("");
@@ -146,6 +162,11 @@ export function ProcedureTrainingsClient({
         <button type="button" className={view === "self_read" ? "active" : ""} aria-pressed={view === "self_read"} onClick={() => setView("self_read")}>
           Tự đọc hiểu
         </button>
+        {topicGroups.length ? (
+          <button type="button" className={view === "topic" ? "active" : ""} aria-pressed={view === "topic"} onClick={() => setView("topic")}>
+            Theo chủ đề
+          </button>
+        ) : null}
       </div>
       {view === "training" ? (
       <>
@@ -228,7 +249,7 @@ export function ProcedureTrainingsClient({
         </div>
       </section>
       </>
-      ) : (
+      ) : view === "self_read" ? (
         <section className="panel">
           <div className="panel-title">
             <div>
@@ -309,6 +330,60 @@ export function ProcedureTrainingsClient({
             </table>
           </div>
         </section>
+      ) : (
+        <>
+          {topicGroups.map((group) => (
+            <section className="panel" key={group.key}>
+              <div className="panel-title">
+                <div>
+                  <h2>{group.trainings[0]?.procedure_name || "Chủ đề đào tạo"}</h2>
+                  <p>
+                    Gộp {group.trainings.length} đợt: {group.trainings.map((t) => `${t.procedure_name}${t.effective_date ? ` (${formatDate(t.effective_date)})` : ""}`).join(" · ")}
+                  </p>
+                </div>
+              </div>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Họ tên</th>
+                      <th>Mã NV</th>
+                      <th>Đơn vị</th>
+                      <th>Chức danh</th>
+                      <th>Trạng thái</th>
+                      <th>Đạt ở đợt</th>
+                      <th>Số lần tham gia</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.rollup.map((row) => (
+                      <tr key={row.normalizedCode}>
+                        <td>{row.employeeName}</td>
+                        <td>{row.normalizedCode}</td>
+                        <td>{row.department || "—"}</td>
+                        <td>{row.jobTitle || "—"}</td>
+                        <td>
+                          <span className={`status-badge ${row.status === "pass" ? "success" : row.status === "fail" ? "danger" : "muted"}`}>
+                            {row.status === "pass" ? "Đạt" : row.status === "fail" ? "Không đạt — cần học lại" : "Chưa có kết quả"}
+                          </span>
+                        </td>
+                        <td>{row.passedTraining ? `${row.passedTraining.procedureName}${row.passedTraining.effectiveDate ? ` (${formatDate(row.passedTraining.effectiveDate)})` : ""}` : "—"}</td>
+                        <td>{row.attemptCount}</td>
+                      </tr>
+                    ))}
+                    {!group.rollup.length ? (
+                      <tr>
+                        <td colSpan={7} className="empty-state compact">
+                          Chưa có nhân sự nào có mã NV để gộp theo chủ đề này.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ))}
+        </>
       )}
       {qrDocId ? <DocumentAckQrModal doc={selfReadDocuments.find((d) => d.id === qrDocId) || null} onClose={() => setQrDocId(null)} /> : null}
       <style jsx>{`

@@ -119,9 +119,34 @@ describe("Procedure trainings track per-employee attendance for a real completio
 describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần đào tạo vào 1 menu, 2 tab", () => {
   it("client có 2 tab Cần đào tạo / Tự đọc hiểu, mặc định mở tab Cần đào tạo", () => {
     const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).toContain('const [view, setView] = useState<"training" | "self_read">("training");');
+    expect(client).toContain('const [view, setView] = useState<"training" | "self_read" | "topic">("training");');
     expect(client).toContain('<button type="button" className={view === "training" ? "active" : ""} aria-pressed={view === "training"} onClick={() => setView("training")}>');
     expect(client).toContain('<button type="button" className={view === "self_read" ? "active" : ""} aria-pressed={view === "self_read"} onClick={() => setView("self_read")}>');
+  });
+
+  // "1 chủ đề đào tạo có thể mở nhiều lớp nhiều đợt vào nhiều ngày khác
+  // nhau... nếu tham gia đợt này nhưng cần học lại thì có thể đăng ký lại để
+  // học lại đợt khác để đạt... chỉ tổng hợp kết quả nhân viên hoàn thành bài
+  // đào tạo nhưng chỉ khác ngày hoàn thành" — tab thứ 3 "Theo chủ đề" chỉ
+  // hiện khi có ít nhất 1 nhóm (2+ đợt cùng chủ đề), gộp Đạt/Không đạt theo
+  // mã NV qua các đợt bằng src/lib/procedure-training-topic-rollup.ts (dùng
+  // chung computePassStatus, không tính lại logic lần 2).
+  it("tab 'Theo chủ đề': gộp nhiều đợt đào tạo cùng chủ đề (document_publication_id hoặc tên chuẩn hoá), chỉ hiện khi có nhóm", () => {
+    const lib = read("src/lib/procedure-training-topic-rollup.ts");
+    expect(lib).toContain("export function topicKeyFor(");
+    expect(lib).toContain('return `doc:${training.document_publication_id}`;');
+    expect(lib).toContain('return `name:${training.procedure_name.trim().toLocaleLowerCase("vi")}`;');
+    expect(lib).toContain("if (list.length < 2) groups.delete(key);");
+    expect(lib).toContain("export function buildTopicCompletion(");
+    expect(lib).toContain("if (!a.employee_code) continue;");
+
+    const page = read("src/app/(app)/procedure-trainings/page.tsx");
+    expect(page).toContain('import { buildTopicCompletion, groupTrainingsByTopic } from "@/lib/procedure-training-topic-rollup"');
+    expect(page).toContain("topicGroups={topicGroups as any}");
+
+    const client = read("src/components/procedure-trainings-client.tsx");
+    expect(client).toContain("{topicGroups.length ? (");
+    expect(client).toContain('<button type="button" className={view === "topic" ? "active" : ""}');
   });
 
   it("trang server fetch văn bản Tự đọc hiểu đúng điều kiện API acknowledge chấp nhận (PUBLISHED, request_type NEW, dissemination_type SELF_READ)", () => {

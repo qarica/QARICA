@@ -1,6 +1,8 @@
 import { PageHeader } from "@/components/page-header";
 import { ProcedureTrainingsClient } from "@/components/procedure-trainings-client";
 import { hasPermission, requireUserContext } from "@/lib/auth";
+import { buildTopicCompletion, groupTrainingsByTopic } from "@/lib/procedure-training-topic-rollup";
+import { normalizeEmployeeCode } from "@/lib/training-self-test";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ProcedureTrainingsPage() {
@@ -12,7 +14,7 @@ export default async function ProcedureTrainingsPage() {
   const { data } = await supabase
     .from("procedure_trainings")
     .select(
-      "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,session_2_time,session_2_location,session_2_method,notes,document_publication_id,test_score_max",
+      "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,session_2_time,session_2_location,session_2_method,notes,document_publication_id,test_score_max,pass_threshold",
     )
     .eq("organization_id", user.organizationId)
     .order("created_at", { ascending: false })
@@ -48,6 +50,44 @@ export default async function ProcedureTrainingsPage() {
     attendee_total: counts.get(t.id)?.total || 0,
     attendee_attended: counts.get(t.id)?.attended || 0,
     source_document: t.document_publication_id ? sourceDocMap.get(t.document_publication_id) || null : null,
+  }));
+
+  // "1 chủ đề đào tạo có thể mở nhiều lớp nhiều đợt vào nhiều ngày khác
+  // nhau... chỉ tổng hợp kết quả nhân viên hoàn thành bài đào tạo nhưng chỉ
+  // khác ngày hoàn thành" — tab "Theo chủ đề" gộp các đợt đào tạo cùng chủ
+  // đề (groupTrainingsByTopic — ưu tiên document_publication_id, fallback
+  // procedure_name chuẩn hoá) và tính Đạt/Không đạt gộp theo mã NV qua các
+  // đợt (buildTopicCompletion, dùng chung computePassStatus — không tính
+  // lại logic lần 2).
+  const { data: fullAttendeeRows } = trainingIds.length
+    ? await supabase.from("procedure_training_attendees").select("id,training_id,employee_code,employee_name,department,job_title,attended").in("training_id", trainingIds)
+    : { data: [] as { id: string; training_id: string; employee_code: string | null; employee_name: string; department: string | null; job_title: string | null; attended: boolean }[] };
+  const attendeeIds = (fullAttendeeRows ?? []).map((a) => a.id);
+  const attendeeIdByTrainingAndCode = new Map<string, string>();
+  for (const a of fullAttendeeRows ?? []) {
+    if (a.employee_code) attendeeIdByTrainingAndCode.set(`${a.training_id}:${normalizeEmployeeCode(a.employee_code)}`, a.id);
+  }
+  const { data: roundRows } = trainingIds.length
+    ? await supabase.from("procedure_training_rounds").select("id,training_id,sort_order,round_date").in("training_id", trainingIds)
+    : { data: [] as { id: string; training_id: string; sort_order: number; round_date: string | null }[] };
+  const roundsByTraining = new Map<string, { id: string; sort_order: number; round_date: string | null }[]>();
+  for (const r of roundRows ?? []) roundsByTraining.set(r.training_id, [...(roundsByTraining.get(r.training_id) || []), { id: r.id, sort_order: r.sort_order, round_date: r.round_date }]);
+  const { data: resultRows } = attendeeIds.length
+    ? await supabase.from("procedure_training_results").select("attendee_id,round_id,score").in("attendee_id", attendeeIds)
+    : { data: [] as { attendee_id: string; round_id: string; score: number | null }[] };
+  const resultsByAttendeeId = new Map<string, { round_id: string; score: number | null }[]>();
+  for (const r of resultRows ?? []) resultsByAttendeeId.set(r.attendee_id, [...(resultsByAttendeeId.get(r.attendee_id) || []), { round_id: r.round_id, score: r.score }]);
+
+  const topicGroups = Array.from(groupTrainingsByTopic(trainings).entries()).map(([key, groupTrainings]) => ({
+    key,
+    trainings: groupTrainings.map((t) => ({ id: t.id, procedure_name: t.procedure_name, effective_date: t.effective_date })),
+    rollup: buildTopicCompletion(
+      groupTrainings,
+      (fullAttendeeRows ?? []).filter((a) => groupTrainings.some((t) => t.id === a.training_id)),
+      roundsByTraining,
+      resultsByAttendeeId,
+      attendeeIdByTrainingAndCode,
+    ),
   }));
 
   // Báo cáo thực tế: "Phần theo dõi quy trình đào tạo chưa thấy kết nối với
@@ -90,6 +130,7 @@ export default async function ProcedureTrainingsPage() {
         staffRoster={((staffData ?? []) as any[]).map((p) => ({ id: p.user_id, name: p.full_name || p.email || p.user_id }))}
         currentUserId={user.id}
         canManageDocuments={canManageDocuments}
+        topicGroups={topicGroups as any}
       />
     </div>
   );
