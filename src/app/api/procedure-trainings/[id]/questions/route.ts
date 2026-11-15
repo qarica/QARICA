@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT_COLUMNS = "id,question_no,correct_answer";
+const SELECT_COLUMNS = "id,question_no,correct_answer,question_text,choices";
 
 // Đáp án đúng để tự chấm điểm khi import file khảo sát thô — số câu khác
 // nhau giữa các đợt đào tạo nên lưu 1 hàng/câu (không cố định số dòng), xem
@@ -45,15 +45,27 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const cleaned = answers.map((a: unknown) => String(a ?? "").trim()).filter((a: string) => a.length > 0);
   if (!cleaned.length) return NextResponse.json({ error: "Danh sách đáp án đang trống." }, { status: 400 });
 
+  // Giữ lại question_text/choices (nội dung câu hỏi dùng khi cho làm bài qua
+  // QR) theo đúng question_no cũ — PUT này chỉ thay đáp án đúng, không được
+  // xoá mất nội dung câu hỏi đã soạn riêng (PATCH .../questions/[questionNo]).
+  const { data: existing } = await admin.from("procedure_training_questions").select("question_no,question_text,choices").eq("training_id", trainingId).eq("organization_id", organizationId);
+  const existingByNo = new Map((existing ?? []).map((q) => [q.question_no, q]));
+
   const { error: deleteError } = await admin.from("procedure_training_questions").delete().eq("training_id", trainingId).eq("organization_id", organizationId);
   if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 400 });
 
-  const rows = cleaned.map((correct_answer: string, idx: number) => ({
-    training_id: trainingId,
-    organization_id: organizationId,
-    question_no: idx + 1,
-    correct_answer,
-  }));
+  const rows = cleaned.map((correct_answer: string, idx: number) => {
+    const questionNo = idx + 1;
+    const prior = existingByNo.get(questionNo);
+    return {
+      training_id: trainingId,
+      organization_id: organizationId,
+      question_no: questionNo,
+      correct_answer,
+      question_text: prior?.question_text ?? null,
+      choices: prior?.choices ?? null,
+    };
+  });
   const { data, error } = await admin.from("procedure_training_questions").insert(rows).select(SELECT_COLUMNS).order("question_no");
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true, questions: data ?? [] });

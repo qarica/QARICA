@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
   const signedIn = Boolean(claimsData?.claims?.sub);
   const path = request.nextUrl.pathname;
   const publicPath =
-    path === "/login" || path.startsWith("/auth/") || path.startsWith("/api/");
+    path === "/login" || path.startsWith("/auth/") || path.startsWith("/api/") || path.startsWith("/lam-bai/");
 
   if (!signedIn && !publicPath) {
     const url = request.nextUrl.clone();

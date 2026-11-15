@@ -22,9 +22,9 @@ export default async function ProcedureTrainingDetailPage({ params }: { params: 
   if (!training) notFound();
 
   const [roundsRes, attendeesRes, questionsRes] = await Promise.all([
-    supabase.from("procedure_training_rounds").select("id,round_label,round_date,score_max,sort_order").eq("training_id", id).order("sort_order").order("round_date"),
+    supabase.from("procedure_training_rounds").select("id,round_label,round_date,score_max,sort_order,is_open_for_submission").eq("training_id", id).order("sort_order").order("round_date"),
     supabase.from("procedure_training_attendees").select("id,employee_name,employee_code,department,job_title,attended,attended_at,notes").eq("training_id", id).order("employee_name"),
-    supabase.from("procedure_training_questions").select("question_no,correct_answer").eq("training_id", id).order("question_no"),
+    supabase.from("procedure_training_questions").select("question_no,correct_answer,question_text,choices").eq("training_id", id).order("question_no"),
   ]);
   const attendeeIds = (attendeesRes.data ?? []).map((a) => a.id);
 

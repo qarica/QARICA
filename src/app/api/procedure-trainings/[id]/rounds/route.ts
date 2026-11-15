@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT_COLUMNS = "id,training_id,round_label,round_date,score_max,sort_order";
+const SELECT_COLUMNS = "id,training_id,round_label,round_date,score_max,sort_order,is_open_for_submission";
 
 // "Kỳ thi nào" — 1 đợt đào tạo có thể có N đợt kiểm tra (Pre-test, Post-
 // test, kiểm tra định kỳ...), không giới hạn 2 như trước. Xem migration

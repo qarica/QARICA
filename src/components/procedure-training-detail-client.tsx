@@ -1,6 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+/* eslint-disable @next/next/no-img-element -- Mã QR là data URL tạo client-side (qrcode), không phải ảnh tĩnh/remote để Next tối ưu (theo đúng quy ước đã dùng ở medical-equipment-detail-client.tsx). */
+import { useEffect, useMemo, useState } from "react";
+import QRCode from "qrcode";
+import { Icon } from "@/components/icon";
 import { TQM_CHART_CSS, TqmHorizontalBars } from "@/components/tqm-charts";
 
 type Training = {
@@ -21,11 +24,11 @@ type Training = {
   notes: string | null;
   test_score_max: number | null;
 };
-type Round = { id: string; round_label: string; round_date: string | null; score_max: number | null; sort_order: number };
+type Round = { id: string; round_label: string; round_date: string | null; score_max: number | null; sort_order: number; is_open_for_submission: boolean };
 type Attendee = { id: string; employee_name: string; employee_code: string | null; department: string | null; job_title: string | null; attended: boolean; attended_at: string | null; notes: string | null };
 type ResultRow = { id: string; attendee_id: string; round_id: string; score: number | null };
 type ResponseRow = { result_id: string; question_no: number; answer_text: string | null; is_correct: boolean | null };
-type QuestionRow = { question_no: number; correct_answer: string };
+type QuestionRow = { question_no: number; correct_answer: string; question_text: string | null; choices: string[] | null };
 
 type ImportActionPreview =
   | {
@@ -344,6 +347,25 @@ function RosterTab({
   const [scoreEdit, setScoreEdit] = useState<{ attendeeId: string; roundId: string; value: string } | null>(null);
   const [detailAttendeeId, setDetailAttendeeId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [qrRoundId, setQrRoundId] = useState<string | null>(null);
+  const [toggleBusyId, setToggleBusyId] = useState<string | null>(null);
+
+  async function toggleRoundOpen(round: Round) {
+    setError("");
+    setToggleBusyId(round.id);
+    const res = await fetch(`/api/procedure-trainings/${trainingId}/rounds/${round.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_open_for_submission: !round.is_open_for_submission }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setToggleBusyId(null);
+    if (!res.ok) {
+      setError(body.error || "Không cập nhật được trạng thái làm bài.");
+      return;
+    }
+    setRounds((v) => v.map((r) => (r.id === round.id ? { ...r, ...body.round } : r)));
+  }
 
   async function addRound() {
     if (!newRoundLabel.trim()) return;
@@ -469,9 +491,23 @@ function RosterTab({
               {r.round_label}
               {r.round_date ? ` · ${formatDate(r.round_date)}` : ""}
               {canManage ? (
-                <button type="button" aria-label={`Xoá đợt ${r.round_label}`} onClick={() => void removeRound(r)}>
-                  ×
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className={`ptd-round-open-toggle${r.is_open_for_submission ? " is-open" : ""}`}
+                    disabled={toggleBusyId === r.id}
+                    onClick={() => void toggleRoundOpen(r)}
+                    title="Bật/tắt cho nhân viên tự làm bài qua QR"
+                  >
+                    {r.is_open_for_submission ? "Đang mở làm bài" : "Mở làm bài qua QR"}
+                  </button>
+                  <button type="button" className="ptd-round-qr-btn" onClick={() => setQrRoundId(r.id)} aria-label={`Mã QR đợt ${r.round_label}`}>
+                    <Icon name="qr-code" size={13} /> QR
+                  </button>
+                  <button type="button" aria-label={`Xoá đợt ${r.round_label}`} onClick={() => void removeRound(r)}>
+                    ×
+                  </button>
+                </>
               ) : null}
             </span>
           ))}
@@ -594,6 +630,8 @@ function RosterTab({
         <AttendeeDetailPanel attendee={detailAttendee} results={resultsByAttendee.get(detailAttendee.id) || []} responsesByResult={responsesByResult} roundById={roundById} onClose={() => setDetailAttendeeId(null)} />
       ) : null}
 
+      {qrRoundId ? <RoundQrModal round={roundById.get(qrRoundId) || null} onClose={() => setQrRoundId(null)} /> : null}
+
       <style jsx>{`
         .ptd-round-chips {
           display: flex;
@@ -607,6 +645,26 @@ function RosterTab({
           margin-left: 6px;
           cursor: pointer;
           font-weight: 800;
+        }
+        .ptd-round-open-toggle,
+        .ptd-round-qr-btn {
+          margin-left: 8px;
+          border: 1px solid var(--line);
+          background: #fff;
+          color: #46555c;
+          border-radius: 20px;
+          padding: 3px 9px;
+          font-size: 10px;
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .ptd-round-open-toggle.is-open {
+          background: var(--success-soft);
+          color: var(--success);
+          border-color: transparent;
         }
         .ptd-round-add {
           display: grid;
@@ -815,6 +873,49 @@ function AttendeeDetailPanel({
           background: var(--danger-soft, #fee2e2);
         }
       `}</style>
+    </div>
+  );
+}
+
+// Mã QR dẫn tới trang công khai /lam-bai/[roundId] — nhân viên quét vào làm
+// bài trực tiếp, không cần đăng nhập QARICA. Chỉ có tác dụng thật khi đợt
+// đang "Mở làm bài" (is_open_for_submission), nên hiện rõ cảnh báo khi đang
+// đóng để người in QR không hiểu nhầm là quét được ngay.
+function RoundQrModal({ round, onClose }: { round: Round | null; onClose: () => void }) {
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const link = round && typeof window !== "undefined" ? `${window.location.origin}/lam-bai/${round.id}` : "";
+
+  useEffect(() => {
+    if (!link) return;
+    QRCode.toDataURL(link, { width: 240, margin: 1 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [link]);
+
+  if (!round) return null;
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-card">
+        <div className="modal-head">
+          <div>
+            <h2>Mã QR làm bài: {round.round_label}</h2>
+            <p>Nhân viên quét mã này để làm bài trực tiếp, không cần đăng nhập.</p>
+          </div>
+          <button type="button" className="icon-button" aria-label="Đóng" onClick={onClose}>
+            ×
+          </button>
+        </div>
+        <div className="modal-body" style={{ display: "grid", gap: 14, justifyItems: "center", textAlign: "center" }}>
+          {!round.is_open_for_submission ? <div className="alert error">Đợt này đang ĐÓNG — quét mã sẽ không làm bài được cho tới khi bật &quot;Mở làm bài qua QR&quot;.</div> : null}
+          {qrDataUrl ? <img src={qrDataUrl} alt={`Mã QR làm bài ${round.round_label}`} width={220} height={220} /> : <div className="loading-state compact">Đang tạo mã QR...</div>}
+          <code style={{ fontSize: 11, wordBreak: "break-all" }}>{link}</code>
+          {qrDataUrl ? (
+            <a className="button secondary small" download={`qr-lam-bai-${round.round_label}.png`} href={qrDataUrl}>
+              <Icon name="download" size={15} /> Tải mã QR
+            </a>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1158,7 +1259,7 @@ function QuestionsTab({
 }: {
   trainingId: string;
   questions: QuestionRow[];
-  setQuestions: (v: QuestionRow[]) => void;
+  setQuestions: (v: QuestionRow[] | ((prev: QuestionRow[]) => QuestionRow[])) => void;
   canManage: boolean;
   setError: (e: string) => void;
 }) {
@@ -1203,7 +1304,83 @@ function QuestionsTab({
           </button>
         ) : null}
       </div>
+      {questions.length > 0 ? (
+        <div style={{ padding: "0 19px 19px", display: "grid", gap: 10, borderTop: "1px solid var(--line)", marginTop: 6, paddingTop: 16 }}>
+          <div>
+            <strong style={{ fontSize: 13 }}>Nội dung câu hỏi (để nhân viên tự làm bài trực tiếp qua QR)</strong>
+            <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>
+              Tuỳ chọn. Để trống lựa chọn nếu muốn nhân viên tự gõ câu trả lời thay vì chọn trắc nghiệm.
+            </p>
+          </div>
+          {questions.map((q) => (
+            <QuestionContentRow key={q.question_no} trainingId={trainingId} question={q} canManage={canManage} setQuestions={setQuestions} setError={setError} />
+          ))}
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+// 1 dòng soạn nội dung công khai (question_text + choices) cho 1 câu — tách
+// state sửa-tại-chỗ riêng từng câu, không dùng chung 1 state với ô dán đáp
+// án hàng loạt phía trên (2 việc khác nhau: đáp án đúng để chấm vs nội dung
+// hiển thị cho người làm bài).
+function QuestionContentRow({
+  trainingId,
+  question,
+  canManage,
+  setQuestions,
+  setError,
+}: {
+  trainingId: string;
+  question: QuestionRow;
+  canManage: boolean;
+  setQuestions: (v: QuestionRow[] | ((prev: QuestionRow[]) => QuestionRow[])) => void;
+  setError: (e: string) => void;
+}) {
+  const [questionText, setQuestionText] = useState(question.question_text || "");
+  const [choicesText, setChoicesText] = useState((question.choices || []).join("\n"));
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${trainingId}/questions/${question.question_no}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question_text: questionText,
+        choices: choicesText
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (!res.ok) {
+      setError(body.error || "Không lưu được nội dung câu hỏi.");
+      return;
+    }
+    const updated = body.question as QuestionRow;
+    setQuestions((prev) => prev.map((q) => (q.question_no === updated.question_no ? updated : q)));
+  }
+
+  return (
+    <fieldset>
+      <legend>
+        Câu {question.question_no} — Đáp án đúng: {question.correct_answer}
+      </legend>
+      <div style={{ display: "grid", gap: 8 }}>
+        <input disabled={!canManage} placeholder="Nội dung câu hỏi..." value={questionText} onChange={(e) => setQuestionText(e.target.value)} />
+        <textarea disabled={!canManage} rows={3} placeholder={"Mỗi dòng 1 lựa chọn (để trống nếu để nhân viên tự gõ)..."} value={choicesText} onChange={(e) => setChoicesText(e.target.value)} />
+        {canManage ? (
+          <button className="button secondary small" disabled={saving} onClick={() => void save()} style={{ justifySelf: "start" }}>
+            {saving ? "Đang lưu..." : "Lưu câu này"}
+          </button>
+        ) : null}
+      </div>
+    </fieldset>
   );
 }
 
