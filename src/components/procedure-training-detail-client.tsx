@@ -1577,6 +1577,11 @@ function ImportTab({
           border-radius: 8px;
           font-size: 12px;
         }
+        .ptd-import-row input[type="checkbox"] {
+          width: auto;
+          min-height: 0;
+          flex: 0 0 auto;
+        }
         .ptd-import-row.is-excluded {
           opacity: 0.5;
         }
