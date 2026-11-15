@@ -221,13 +221,44 @@ describe("Procedure trainings: nhiều đợt kiểm tra (round) + điểm theo 
     }
   });
 
-  // "kỳ thi nào" — thêm/xoá đợt kiểm tra tự do, không giới hạn Pre/Post.
-  it("tab Nhân sự & điểm cho thêm đợt kiểm tra tự do (không giới hạn Pre/Post) và sửa điểm theo từng ô (đợt × người)", () => {
+  it("tab Nhân sự & điểm cho thêm/xoá đợt kiểm tra và sửa điểm theo từng ô (đợt × người)", () => {
     const client = read("src/components/procedure-training-detail-client.tsx");
     expect(client).toContain("void addRound()");
     expect(client).toContain("void removeRound(r)");
     expect(client).toContain("startScoreEdit(a.id, r.id");
     expect(client).toContain("void saveScoreEdit()");
+  });
+
+  // "1 đợt đào tạo chỉ có 1 hoặc 2 tối đa test. nếu 1 chỉ có 1 post test
+  // nếu cần đánh giá pre thì tối đa 2 cho 1 đợt. chứ ko thể mở nhiều đợt" —
+  // chốt tối đa 2 đợt kiểm tra khi tạo THỦ CÔNG (không áp dụng cho route
+  // nhập liệu hàng loạt import/commit, vốn find-or-create round theo đúng
+  // tên cột trong file khảo sát thật để ghép dữ liệu lịch sử).
+  it("tối đa 2 đợt kiểm tra/đợt đào tạo khi tạo thủ công — chặn ở cả client lẫn API, không áp dụng cho route import", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain("if (rounds.length >= 2)");
+    expect(client).toContain("rounds.length < 2 ?");
+
+    const route = read("src/app/api/procedure-trainings/[id]/rounds/route.ts");
+    expect(route).toContain("if ((existingCount ?? 0) >= 2)");
+    expect(route).toContain("Mỗi đợt đào tạo tối đa 2 đợt kiểm tra (Pre-test + Post-test).");
+
+    const importRoute = read("src/app/api/procedure-trainings/[id]/import/commit/route.ts");
+    expect(importRoute).not.toContain("existingCount ?? 0) >= 2");
+  });
+
+  // "Chưa có bộ lọc hay gì đó để biết sau tập huấn bao nhiêu người pass,
+  // bao nhiêu người học lại, danh sách" — thêm bộ đếm + bộ lọc theo Đạt/
+  // Không đạt/Chưa có kết quả trên bảng Nhân sự & điểm, dùng CHÍNH
+  // computePassStatus (1 nguồn sự thật với cột "Kết quả" và route xuất
+  // Excel) để đếm/lọc, không tính lại logic lần 2.
+  it("tab Nhân sự & điểm: bộ đếm + bộ lọc Đạt/Không đạt/Chưa có kết quả, dùng chung computePassStatus", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain('const [resultFilter, setResultFilter] = useState<"all" | "pass" | "fail" | "none">("all")');
+    expect(client).toContain("map.set(a.id, computePassStatus(resultsByAttendee.get(a.id) || [], rounds, passThreshold, a.attended))");
+    expect(client).toContain("if (resultFilter !== \"all\" && statusByAttendeeId.get(a.id) !== resultFilter) return false;");
+    expect(client).toContain("Không đạt — cần học lại ({statusCounts.fail})");
+    expect(client).toContain("Chưa có kết quả ({statusCounts.none})");
   });
 
   // "Muốn xem 1 người thì làm sao tra cứu bao nhiêu điểm, sai câu nào đúng
@@ -391,31 +422,56 @@ describe("Procedure trainings: import điểm từ file khảo sát (Google/Micr
   });
 
   // "phần phân tích cũng ko xem được dạng biểu đồ để so sánh" — AnalysisTab
-  // trước đây chỉ có bảng số, không có biểu đồ trực quan. Thêm biểu đồ cột
-  // ngang dùng lại component dùng chung TqmHorizontalBars (src/components/
-  // tqm-charts.tsx, đã qua dataviz skill's validator) cho cả 5 biểu đồ —
-  // không build riêng 1 bộ biểu đồ mới. "So sánh trước/sau theo đơn
-  // vị" ban đầu thử TqmMultiTrend (đường nối nhiều kỳ) nhưng với vài chục
-  // đơn vị không theo thứ tự thời gian thật, trục ngang bị chữ chồng lên
-  // nhau và đường nối ngụ ý 1 xu hướng liên tục giữa các đơn vị không liên
-  // quan — gây hiểu lầm, không chỉ là xấu. Sau đó đổi sang cột ngang chênh
-  // lệch (trị tuyệt đối, tông xanh lá/đỏ) — nhưng theo yêu cầu thực tế "nên
-  // thiết kế biểu đồ cột, 1 khoa gồm 2 cột trước và sau tương ứng 2 màu,
-  // thêm 1 dòng mức điểm đạt cắt ngang", đổi tiếp sang TqmGroupedBars
-  // (cột dọc nhóm 2 cột/đơn vị, tông xanh dương/xanh lá phân biệt được với
-  // mù màu — không dùng cặp xanh lá/đỏ cho 2 cột cạnh nhau, chỉ dùng màu
-  // cam cho đường mức điểm đạt) — 4 biểu đồ còn lại (theo đợt, theo đơn vị,
-  // theo chức danh, độ khó câu) vẫn dùng TqmHorizontalBars như cũ.
-  it("AnalysisTab dùng TqmHorizontalBars cho 4 biểu đồ (theo đợt, theo đơn vị, theo chức danh, độ khó câu) và TqmGroupedBars riêng cho so sánh trước/sau theo đơn vị — không phải chỉ có bảng số — và nạp đúng TQM_CHART_CSS (plain <style>, không phải <style jsx>, vì Tqm* là component con khác, style jsx không scope qua được)", () => {
+  // trước đây chỉ có bảng số, không có biểu đồ trực quan. "Chuyển hết các
+  // biểu đồ hàng ngang thành biểu đồ cột để dễ so sánh" (phạm vi: chỉ tab
+  // Phân tích đào tạo, xác nhận với người dùng — KHÔNG đụng ~20 trang khác
+  // dùng chung TqmHorizontalBars) — 4 biểu đồ (theo đợt, theo đơn vị, theo
+  // chức danh, độ khó câu) đổi từ TqmHorizontalBars (ngang) sang
+  // TqmColumnBars (cột dọc, mới, dùng chung wrapLabel với TqmGroupedBars để
+  // nhãn trục dưới không đè nhau khi nhiều hạng mục). "So sánh trước/sau
+  // theo đơn vị" ban đầu thử TqmMultiTrend rồi cột ngang chênh lệch, cuối
+  // cùng chốt TqmGroupedBars (cột dọc nhóm 2 cột/đơn vị, xem lịch sử ở
+  // test khác) — vẫn giữ nguyên, không đổi thêm lần này.
+  it("AnalysisTab dùng TqmColumnBars (cột dọc) cho 4 biểu đồ theo đợt/đơn vị/chức danh/độ khó câu, TqmGroupedBars riêng cho so sánh trước/sau — không còn TqmHorizontalBars nào, và nạp đúng TQM_CHART_CSS (plain <style>, không phải <style jsx>)", () => {
     const client = read("src/components/procedure-training-detail-client.tsx");
-    expect(client).toContain('import { TQM_CHART_CSS, TqmGroupedBars, TqmHorizontalBars } from "@/components/tqm-charts"');
+    expect(client).toContain('import { TQM_CHART_CSS, TqmColumnBars, TqmGroupedBars } from "@/components/tqm-charts"');
+    expect(client).not.toContain("TqmHorizontalBars");
     const analysisStart = client.indexOf("function AnalysisTab");
     const analysisEnd = client.indexOf("function groupByBeforeAfter");
     const analysisSrc = client.slice(analysisStart, analysisEnd);
-    expect(analysisSrc.match(/<TqmHorizontalBars/g)?.length).toBe(4);
+    expect(analysisSrc.match(/<TqmColumnBars/g)?.length).toBe(4);
     expect(analysisSrc).toContain("<TqmGroupedBars");
     expect(analysisSrc).toContain("<style>{TQM_CHART_CSS}</style>");
     expect(analysisSrc).not.toContain("TqmMultiTrend");
+  });
+
+  // "Chuyển thành biểu đồ cột % trước sau để biết tăng bao nhiêu %" — Điểm
+  // TB theo đợt (Pre/Post) quy ra % trên thang điểm (round.score_max) thay
+  // vì so trực tiếp 2 số điểm thô, kèm 1 dòng chú thích tăng/giảm bao
+  // nhiêu điểm % giữa đợt đầu và đợt cuối.
+  it("biểu đồ Điểm trung bình theo đợt kiểm tra hiện theo % thang điểm + chú thích tăng/giảm bao nhiêu điểm %", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain("round.score_max && average != null ? Math.round((average / round.score_max) * 1000) / 10 : null");
+    expect(client).toContain("<TqmColumnBars rows={roundChartRows} max={100} unit=\"%\" />");
+    expect(client).toContain("điểm % ({firstRoundPct}% → {lastRoundPct}%)");
+  });
+
+  // "Ko thấy tên đơn vị khoa phòng" — nhãn trục dưới của TqmGroupedBars bị
+  // xoay chữ (-35°) chồng lấn/biến dạng khi nhiều đơn vị sát nhau. Sửa bằng
+  // wrapLabel (bẻ dòng ngang, không xoay) dùng chung cho cả TqmGroupedBars
+  // và TqmColumnBars, và gắn width/height làm thuộc tính SVG thật (không
+  // chỉ CSS min-width) để khớp đúng viewBox, tránh trình duyệt co giãn lệch
+  // tỷ lệ làm chữ biến dạng.
+  it("TqmGroupedBars/TqmColumnBars dùng wrapLabel (bẻ dòng, không xoay chữ) + width/height gắn thẳng vào SVG khớp viewBox", () => {
+    const charts = read("src/components/tqm-charts.tsx");
+    expect(charts).toContain("function wrapLabel(label: string, maxCharsPerLine: number, maxLines: number): string[]");
+    expect(charts).not.toContain("rotate(-35");
+    expect(charts).toContain("export function TqmColumnBars(");
+    expect(charts.match(/wrapLabel\(/g)?.length).toBeGreaterThanOrEqual(3);
+    const groupedBarsSrc = charts.slice(charts.indexOf("export function TqmGroupedBars("), charts.indexOf("export function TqmColumnBars("));
+    expect(groupedBarsSrc).toContain("<svg viewBox={`0 0 ${width} ${height}`} width={width} height={height}");
+    const columnBarsSrc = charts.slice(charts.indexOf("export function TqmColumnBars("));
+    expect(columnBarsSrc).toContain("<svg viewBox={`0 0 ${width} ${height}`} width={width} height={height}");
   });
 
   it("biểu đồ cột so sánh trước/sau theo đơn vị: 2 cột/đơn vị (trước, sau) + đường ngang mức điểm đạt (pass_threshold) cắt ngang", () => {

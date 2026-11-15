@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { Icon } from "@/components/icon";
-import { TQM_CHART_CSS, TqmGroupedBars, TqmHorizontalBars } from "@/components/tqm-charts";
+import { TQM_CHART_CSS, TqmColumnBars, TqmGroupedBars } from "@/components/tqm-charts";
 import { computePassStatus } from "@/lib/procedure-training-pass-status";
 import { normalizeEmployeeCode } from "@/lib/training-self-test";
 
@@ -122,11 +122,11 @@ export function ProcedureTrainingDetailClient({
         {(
           [
             ["info", "Thông tin đào tạo"],
-            ["roster", "Nhân sự & điểm"],
-            ["registration", "Đăng ký"],
-            ["analysis", "Phân tích"],
             ["questions", "Câu hỏi & đáp án"],
+            ["registration", "Đăng ký"],
+            ["roster", "Nhân sự & điểm"],
             ["import", "Nhập dữ liệu"],
+            ["analysis", "Phân tích"],
           ] as const
         ).map(([key, label]) => (
           <button key={key} type="button" className={tab === key ? "active" : ""} aria-pressed={tab === key} onClick={() => setTab(key)}>
@@ -488,6 +488,7 @@ function RosterTab({
   const [deptEdit, setDeptEdit] = useState<{ attendeeId: string; value: string } | null>(null);
   const [detailAttendeeId, setDetailAttendeeId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [resultFilter, setResultFilter] = useState<"all" | "pass" | "fail" | "none">("all");
   const [qrRoundId, setQrRoundId] = useState<string | null>(null);
   const [toggleBusyId, setToggleBusyId] = useState<string | null>(null);
 
@@ -542,6 +543,10 @@ function RosterTab({
 
   async function addRound() {
     if (!newRoundLabel.trim()) return;
+    if (rounds.length >= 2) {
+      setError("Mỗi đợt đào tạo tối đa 2 đợt kiểm tra (Pre-test + Post-test).");
+      return;
+    }
     setRoundBusy(true);
     setError("");
     const res = await fetch(`/api/procedure-trainings/${trainingId}/rounds`, {
@@ -644,9 +649,23 @@ function RosterTab({
     setScoreEdit(null);
   }
 
-  const filteredAttendees = attendees.filter(
-    (a) => !query.trim() || [a.employee_name, a.employee_code, a.department, a.job_title].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(query.trim().toLocaleLowerCase("vi"))),
-  );
+  // "Chưa có bộ lọc hay gì đó để biết sau tập huấn bao nhiêu người pass, bao
+  // nhiêu người học lại, danh sách" — đếm theo computePassStatus (1 nguồn
+  // sự thật duy nhất với cột "Kết quả" và route xuất Excel) + bộ lọc để lọc
+  // thẳng ra danh sách cần học lại.
+  const statusByAttendeeId = useMemo(() => {
+    const map = new Map<string, "pass" | "fail" | "none">();
+    for (const a of attendees) map.set(a.id, computePassStatus(resultsByAttendee.get(a.id) || [], rounds, passThreshold, a.attended));
+    return map;
+  }, [attendees, resultsByAttendee, rounds, passThreshold]);
+  const statusCounts = { pass: 0, fail: 0, none: 0 };
+  for (const status of statusByAttendeeId.values()) statusCounts[status]++;
+
+  const filteredAttendees = attendees.filter((a) => {
+    if (query.trim() && ![a.employee_name, a.employee_code, a.department, a.job_title].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(query.trim().toLocaleLowerCase("vi")))) return false;
+    if (resultFilter !== "all" && statusByAttendeeId.get(a.id) !== resultFilter) return false;
+    return true;
+  });
   const detailAttendee = attendees.find((a) => a.id === detailAttendeeId) || null;
 
   return (
@@ -654,41 +673,47 @@ function RosterTab({
       <section className="panel">
         <div className="panel-title">
           <div>
-            <h2>Đợt kiểm tra (Pre-test, Post-test, định kỳ...)</h2>
-            <p>1 đợt đào tạo có thể có nhiều đợt kiểm tra — không giới hạn Pre/Post.</p>
+            <h2>Đợt kiểm tra (Pre-test, Post-test)</h2>
+            <p>Tối đa 2 đợt kiểm tra cho 1 đợt đào tạo: Post-test (bắt buộc nếu xét đạt) và Pre-test (tùy chọn, chỉ để đánh giá nền tảng trước học) — không mở thêm đợt khác.</p>
           </div>
         </div>
-        <div className="ptd-round-chips" style={{ padding: "0 19px 19px" }}>
+        <div className="ptd-round-list" style={{ padding: "0 19px 19px" }}>
           {rounds.map((r) => (
-            <span className="chip ptd-round-chip" key={r.id}>
-              {r.round_label}
-              {r.round_date ? ` · ${formatDate(r.round_date)}` : ""}
+            <div className="ptd-round-row" key={r.id}>
+              <div className="ptd-round-info">
+                <strong>{r.round_label}</strong>
+                {r.round_date ? <span className="muted tiny">{formatDate(r.round_date)}</span> : null}
+              </div>
               {canManage ? (
-                <>
+                <div className="ptd-round-actions">
                   <button
                     type="button"
-                    className={`ptd-round-open-toggle${r.is_open_for_submission ? " is-open" : ""}`}
+                    className={`button small ${r.is_open_for_submission ? "secondary is-open" : "primary"}`}
                     disabled={toggleBusyId === r.id || (!r.is_open_for_submission && !hasQuestions)}
                     onClick={() => void toggleRoundOpen(r)}
                     title={!r.is_open_for_submission && !hasQuestions ? "Soạn câu hỏi & đáp án ở tab Câu hỏi & đáp án trước khi mở" : "Bật/tắt cho nhân viên tự làm bài qua QR"}
                   >
                     {r.is_open_for_submission ? "Đang mở làm bài" : "Mở làm bài qua QR"}
                   </button>
-                  <button type="button" className="ptd-round-qr-btn" onClick={() => setQrRoundId(r.id)} aria-label={`Mã QR đợt ${r.round_label}`}>
+                  <button type="button" className="button tertiary small" onClick={() => setQrRoundId(r.id)} aria-label={`Mã QR đợt ${r.round_label}`}>
                     <Icon name="qr-code" size={13} /> QR
                   </button>
-                  <button type="button" aria-label={`Xoá đợt ${r.round_label}`} onClick={() => void removeRound(r)}>
-                    ×
+                  <button type="button" className="button tertiary small" onClick={() => void removeRound(r)} aria-label={`Xoá đợt ${r.round_label}`}>
+                    <Icon name="x" size={13} />
                   </button>
-                </>
-              ) : null}
-            </span>
+                </div>
+              ) : r.is_open_for_submission ? (
+                <span className="status-badge success">Đang mở làm bài</span>
+              ) : (
+                <span className="status-badge muted">Chưa mở</span>
+              )}
+            </div>
           ))}
-          {!rounds.length ? <span className="muted">Chưa có đợt kiểm tra nào.</span> : null}
+          {!rounds.length ? <p className="muted tiny">Chưa có đợt kiểm tra nào.</p> : null}
         </div>
-        {canManage ? (
+        {canManage && rounds.length < 2 ? (
           <div className="ptd-round-add" style={{ padding: "0 19px 19px" }}>
-            <input className="input" placeholder="Tên đợt kiểm tra (VD: Pre-test, Post-test, Định kỳ T3/2027)..." value={newRoundLabel} onChange={(e) => setNewRoundLabel(e.target.value)} />
+            <input className="input" placeholder="Tên đợt kiểm tra (Pre-test hoặc Post-test)..." value={newRoundLabel} onChange={(e) => setNewRoundLabel(e.target.value)} />
             <input className="input" type="date" value={newRoundDate} onChange={(e) => setNewRoundDate(e.target.value)} />
             <button className="button primary small" disabled={!newRoundLabel.trim() || roundBusy} onClick={() => void addRound()}>
               + Thêm đợt
@@ -704,6 +729,22 @@ function RosterTab({
             <Icon name="download" size={14} /> Xuất Excel
           </a>
         </div>
+        {passThreshold != null ? (
+          <div className="ptd-result-filter" style={{ padding: "0 19px 12px" }}>
+            <button type="button" className={`button small ${resultFilter === "all" ? "primary" : "secondary"}`} onClick={() => setResultFilter("all")}>
+              Tất cả ({attendees.length})
+            </button>
+            <button type="button" className={`button small ${resultFilter === "pass" ? "primary" : "secondary"}`} onClick={() => setResultFilter("pass")}>
+              Đạt ({statusCounts.pass})
+            </button>
+            <button type="button" className={`button small ${resultFilter === "fail" ? "primary" : "secondary"}`} onClick={() => setResultFilter("fail")}>
+              Không đạt — cần học lại ({statusCounts.fail})
+            </button>
+            <button type="button" className={`button small ${resultFilter === "none" ? "primary" : "secondary"}`} onClick={() => setResultFilter("none")}>
+              Chưa có kết quả ({statusCounts.none})
+            </button>
+          </div>
+        ) : null}
         <div style={{ padding: "0 19px 12px" }}>
           <input className="input" placeholder="Tìm tên, mã NV, đơn vị, chức danh..." value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
@@ -864,35 +905,34 @@ function RosterTab({
       {qrRoundId ? <RoundQrModal round={roundById.get(qrRoundId) || null} onClose={() => setQrRoundId(null)} /> : null}
 
       <style jsx>{`
-        .ptd-round-chips {
+        .ptd-round-list {
           display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
+          flex-direction: column;
+          gap: 10px;
         }
-        .ptd-round-chip button {
-          border: 0;
-          background: transparent;
-          color: inherit;
-          margin-left: 6px;
-          cursor: pointer;
-          font-weight: 800;
-        }
-        .ptd-round-open-toggle,
-        .ptd-round-qr-btn {
-          margin-left: 8px;
-          border: 1px solid var(--line);
-          background: #fff;
-          color: #46555c;
-          border-radius: 20px;
-          padding: 3px 9px;
-          font-size: 10px;
-          font-weight: 700;
-          cursor: pointer;
-          display: inline-flex;
+        .ptd-round-row {
+          display: flex;
           align-items: center;
-          gap: 4px;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          padding: 11px 13px;
         }
-        .ptd-round-open-toggle.is-open {
+        .ptd-round-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }
+        .ptd-round-actions {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          flex-wrap: wrap;
+        }
+        .ptd-round-actions .button.is-open {
           background: var(--success-soft);
           color: var(--success);
           border-color: transparent;
@@ -904,6 +944,11 @@ function RosterTab({
         }
         .ptd-round-add > * {
           min-width: 0;
+        }
+        .ptd-result-filter {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
         }
         .ptd-attendee-add {
           display: grid;
@@ -1535,17 +1580,33 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
     })
     .sort((a, b) => a.questionNo - b.questionNo);
 
-  const roundChartRows = byRound
-    .filter((b) => b.average != null)
-    .map((b) => ({ label: b.round.round_label, value: Math.round((b.average as number) * 100) / 100, caption: `${b.count} người có điểm`, tone: "blue" as const }));
-  const deptChartRows = byDept.filter((d) => d.average != null).map((d) => ({ label: d.key, value: Math.round((d.average as number) * 100) / 100, caption: `${d.count} người`, tone: "brand" as const }));
-  const titleChartRows = byTitle.filter((d) => d.average != null).map((d) => ({ label: d.key, value: Math.round((d.average as number) * 100) / 100, caption: `${d.count} người`, tone: "blue" as const }));
+  // "Chuyển thành biểu đồ cột % trước sau để biết tăng bao nhiêu %" — Điểm
+  // TB theo đợt quy ra % trên thang điểm (round.score_max) thay vì so trực
+  // tiếp 2 số điểm thô, kèm 1 dòng chú thích tăng/giảm bao nhiêu % giữa đợt
+  // đầu và đợt cuối (Pre→Post).
+  const roundPctRows = byRound.map(({ round, count, average }) => ({
+    round,
+    count,
+    average,
+    pct: round.score_max && average != null ? Math.round((average / round.score_max) * 1000) / 10 : null,
+  }));
+  const roundChartRows = roundPctRows
+    .filter((r) => r.pct != null)
+    .map((r) => ({ label: r.round.round_label, value: r.pct as number, tone: "blue" as const }));
+  const firstRoundPct = firstRound ? (roundPctRows.find((r) => r.round.id === firstRound.id)?.pct ?? null) : null;
+  const lastRoundPct = lastRound ? (roundPctRows.find((r) => r.round.id === lastRound.id)?.pct ?? null) : null;
+  const pctDelta =
+    firstRound && lastRound && firstRound.id !== lastRound.id && firstRoundPct != null && lastRoundPct != null
+      ? Math.round((lastRoundPct - firstRoundPct) * 10) / 10
+      : null;
+
+  const deptChartRows = byDept.filter((d) => d.average != null).map((d) => ({ label: d.key, value: Math.round((d.average as number) * 100) / 100, tone: "brand" as const }));
+  const titleChartRows = byTitle.filter((d) => d.average != null).map((d) => ({ label: d.key, value: Math.round((d.average as number) * 100) / 100, tone: "blue" as const }));
   const questionChartRows = questionDifficulty
     .filter((q) => q.pctCorrect != null)
     .map((q) => ({
       label: `Câu ${q.questionNo}`,
       value: q.pctCorrect as number,
-      caption: `${q.correctCount}/${q.total} đúng`,
       tone: (q.pctCorrect as number) < 60 ? ("red" as const) : (q.pctCorrect as number) < 80 ? ("amber" as const) : ("green" as const),
     }));
 
@@ -1569,9 +1630,19 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
     <>
       <section className="panel">
         <div className="panel-title">
-          <h2>Điểm trung bình theo đợt kiểm tra</h2>
+          <div>
+            <h2>Điểm trung bình theo đợt kiểm tra (% thang điểm)</h2>
+            {pctDelta != null ? (
+              <p>
+                <span className={pctDelta >= 0 ? "text-success" : "text-danger"}>
+                  {pctDelta >= 0 ? "Tăng" : "Giảm"} {Math.abs(pctDelta)} điểm % ({firstRoundPct}% → {lastRoundPct}%)
+                </span>{" "}
+                từ {firstRound!.round_label} sang {lastRound!.round_label}.
+              </p>
+            ) : null}
+          </div>
         </div>
-        {roundChartRows.length ? <TqmHorizontalBars rows={roundChartRows} /> : null}
+        {roundChartRows.length ? <TqmColumnBars rows={roundChartRows} max={100} unit="%" /> : null}
         <div className="table-wrap">
           <table>
             <thead>
@@ -1579,19 +1650,21 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
                 <th>Đợt</th>
                 <th>Số người có điểm</th>
                 <th>Điểm TB</th>
+                <th>% thang điểm</th>
               </tr>
             </thead>
             <tbody>
-              {byRound.map(({ round, count, average }) => (
+              {roundPctRows.map(({ round, count, average, pct }) => (
                 <tr key={round.id}>
                   <td data-label="Đợt">{round.round_label}</td>
                   <td data-label="Số người có điểm">{count}</td>
                   <td data-label="Điểm TB">{average != null ? `${average.toFixed(2)}${round.score_max ? `/${round.score_max}` : ""}` : "—"}</td>
+                  <td data-label="% thang điểm">{pct != null ? `${pct}%` : "—"}</td>
                 </tr>
               ))}
               {!byRound.length ? (
                 <tr>
-                  <td colSpan={3} className="empty-state compact">
+                  <td colSpan={4} className="empty-state compact">
                     Chưa có đợt kiểm tra nào.
                   </td>
                 </tr>
@@ -1690,7 +1763,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
             <p>Chỉ tính điểm {lastRound ? lastRound.round_label : "đợt kiểm tra cuối cùng"} (Post-test) — không gộp Pre-test.</p>
           </div>
         </div>
-        {deptChartRows.length ? <TqmHorizontalBars rows={deptChartRows} /> : null}
+        {deptChartRows.length ? <TqmColumnBars rows={deptChartRows} /> : null}
         <div className="table-wrap">
           <table>
             <thead>
@@ -1727,7 +1800,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
             <p>Chỉ tính điểm {lastRound ? lastRound.round_label : "đợt kiểm tra cuối cùng"} (Post-test) — không gộp Pre-test.</p>
           </div>
         </div>
-        {titleChartRows.length ? <TqmHorizontalBars rows={titleChartRows} /> : null}
+        {titleChartRows.length ? <TqmColumnBars rows={titleChartRows} /> : null}
         <div className="table-wrap">
           <table>
             <thead>
@@ -1765,7 +1838,7 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
               <p>% trả lời đúng — câu nào thấp nghĩa là nhiều người hay sai, cần nhấn mạnh lại khi đào tạo.</p>
             </div>
           </div>
-          {questionChartRows.length ? <TqmHorizontalBars rows={questionChartRows} max={100} /> : null}
+          {questionChartRows.length ? <TqmColumnBars rows={questionChartRows} max={100} unit="%" /> : null}
           <div className="table-wrap">
             <table>
               <thead>

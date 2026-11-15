@@ -170,12 +170,43 @@ export function TqmGauge({ value, max = 100, label, tone = "brand", target }: {
 }
 
 /**
+ * Bẻ nhãn dài thành tối đa `maxLines` dòng ngang (không xoay chữ) — xoay
+ * chữ ở trục dưới cho nhiều cột sát nhau (vd nhiều khoa/phòng) dễ bị chữ
+ * đè lên nhau/biến dạng khi footprint ngang của chữ xoay vượt quá khoảng
+ * cách giữa các cột (báo cáo thực tế: "Ko thấy tên đơn vị khoa phòng" —
+ * đúng lỗi này). Bẻ dòng ngang giữ chữ luôn thẳng, dễ đọc, không phụ thuộc
+ * số lượng cột.
+ */
+function wrapLabel(label: string, maxCharsPerLine: number, maxLines: number): string[] {
+  const words = label.split(/\s+/).filter(Boolean);
+  if (!words.length) return [label];
+  const lines: string[] = [];
+  let current = "";
+  let idx = 0;
+  while (idx < words.length && lines.length < maxLines - 1) {
+    const next = current ? `${current} ${words[idx]}` : words[idx];
+    if (next.length > maxCharsPerLine && current) {
+      lines.push(current);
+      current = "";
+      continue;
+    }
+    current = next;
+    idx++;
+  }
+  const rest = [current, ...words.slice(idx)].filter(Boolean).join(" ");
+  if (rest) lines.push(rest.length > maxCharsPerLine ? `${rest.slice(0, maxCharsPerLine - 1).trimEnd()}…` : rest);
+  return lines.length ? lines : [label];
+}
+
+/**
  * Biểu đồ cột nhóm: so sánh 2 giá trị (vd trước/sau) theo từng đơn vị, mỗi
  * đơn vị 2 cột cạnh nhau 2 màu khác nhau, kèm 1 đường ngang cắt ngang đánh
  * dấu 1 mốc (vd mức điểm đạt) — theo yêu cầu thực tế "1 khoa gồm 2 cột
  * trước và sau tương ứng 2 màu, thêm 1 dòng mức điểm đạt cắt ngang". Giá
  * trị luôn in trực tiếp trên đầu mỗi cột (không bắt buộc phải hover mới
- * xem được), cuộn ngang khi nhiều đơn vị (như TqmGantt).
+ * xem được), cuộn ngang khi nhiều đơn vị (như TqmGantt). `width`/`height`
+ * gắn thẳng làm thuộc tính SVG (không chỉ CSS min-width) để khớp đúng 1:1
+ * với viewBox — tránh trình duyệt co giãn lệch tỷ lệ làm chữ biến dạng.
  */
 export function TqmGroupedBars({ groups, beforeLabel, afterLabel, threshold, thresholdLabel = "Mức đạt" }: {
   groups: { label: string; before: number | null; after: number | null }[];
@@ -185,10 +216,10 @@ export function TqmGroupedBars({ groups, beforeLabel, afterLabel, threshold, thr
   const hasThreshold = threshold !== null && threshold !== undefined && Number.isFinite(threshold);
   const allVals = groups.flatMap((g) => [g.before, g.after]).filter((v): v is number => v != null).concat(hasThreshold ? [threshold as number] : []);
   const ceiling = Math.max(1, ...allVals) * 1.2;
-  const barW = 20, gapInGroup = 4, groupGap = 30, pad = 30, topPad = 18, height = 220;
+  const barW = 20, gapInGroup = 4, groupGap = 26, sidePad = 20, topPad = 18, bottomPad = 34, height = 210;
   const groupW = barW * 2 + gapInGroup;
-  const width = pad * 2 + groups.length * groupW + Math.max(0, groups.length - 1) * groupGap;
-  const baseY = height - pad;
+  const width = sidePad * 2 + groups.length * groupW + Math.max(0, groups.length - 1) * groupGap;
+  const baseY = height - bottomPad;
   const yFor = (v: number) => topPad + (1 - Math.max(0, v) / ceiling) * (baseY - topPad);
   const thresholdY = hasThreshold ? yFor(threshold as number) : null;
   return (
@@ -199,16 +230,17 @@ export function TqmGroupedBars({ groups, beforeLabel, afterLabel, threshold, thr
         {hasThreshold ? <span><i className="tqm-swatch" style={{ background: TARGET_LINE_COLOR }} />{thresholdLabel}: {threshold}</span> : null}
       </div>
       <div className="tqm-grouped-bars-scroll">
-        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Biểu đồ cột so sánh ${beforeLabel} và ${afterLabel} theo đơn vị`} style={{ minWidth: Math.max(480, width) }}>
-          <line x1={pad} y1={baseY} x2={width - pad} y2={baseY} stroke="#dce7ea" />
+        <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} role="img" aria-label={`Biểu đồ cột so sánh ${beforeLabel} và ${afterLabel} theo đơn vị`}>
+          <line x1={sidePad} y1={baseY} x2={width - sidePad} y2={baseY} stroke="#dce7ea" />
           {thresholdY !== null ? (
             <g>
-              <line x1={pad} y1={thresholdY} x2={width - pad} y2={thresholdY} stroke={TARGET_LINE_COLOR} strokeWidth="2" strokeDasharray="6 5" />
-              <text x={width - pad} y={thresholdY - 6} textAnchor="end" fontSize="10" fontWeight="800" fill={TARGET_LINE_COLOR}>{thresholdLabel}: {threshold}</text>
+              <line x1={sidePad} y1={thresholdY} x2={width - sidePad} y2={thresholdY} stroke={TARGET_LINE_COLOR} strokeWidth="2" strokeDasharray="6 5" />
+              <text x={width - sidePad} y={thresholdY - 6} textAnchor="end" fontSize="10" fontWeight="800" fill={TARGET_LINE_COLOR}>{thresholdLabel}: {threshold}</text>
             </g>
           ) : null}
           {groups.map((g, i) => {
-            const gx = pad + i * (groupW + groupGap);
+            const gx = sidePad + i * (groupW + groupGap);
+            const labelLines = wrapLabel(g.label, 12, 2);
             return (
               <g key={`${g.label}-${i}`}>
                 {g.before != null ? (
@@ -223,7 +255,60 @@ export function TqmGroupedBars({ groups, beforeLabel, afterLabel, threshold, thr
                     <text x={gx + barW + gapInGroup + barW / 2} y={yFor(g.after) - 4} textAnchor="middle" fontSize="9" fontWeight="800" fill="#31515a">{g.after.toFixed(1)}</text>
                   </g>
                 ) : null}
-                <text x={gx + groupW / 2} y={height - 8} textAnchor="end" fontSize="9" fill="#71848b" transform={`rotate(-35 ${gx + groupW / 2} ${height - 8})`}>{g.label.length > 22 ? `${g.label.slice(0, 21)}…` : g.label}</text>
+                <text x={gx + groupW / 2} y={baseY + 13} textAnchor="middle" fontSize="9" fill="#71848b">
+                  {labelLines.map((line, li) => (
+                    <tspan key={li} x={gx + groupW / 2} dy={li === 0 ? 0 : 11}>
+                      {line}
+                    </tspan>
+                  ))}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Biểu đồ cột đơn giản (1 cột/hạng mục, dựng đứng) — bản thay thế
+ * TqmHorizontalBars khi cần so sánh trực quan kiểu "cột cao thấp" thay vì
+ * thanh ngang (báo cáo thực tế: "chuyển hết các biểu đồ hàng ngang thành
+ * biểu đồ cột để dễ so sánh", phạm vi tab Phân tích đào tạo). Dùng cùng
+ * wrapLabel với TqmGroupedBars để nhãn trục dưới không bị đè khi nhiều
+ * hạng mục.
+ */
+export function TqmColumnBars({ rows, max, unit = "" }: { rows: { label: string; value: number; tone?: Tone }[]; max?: number; unit?: string }) {
+  if (!rows.length) return <div className="empty-state compact">Chưa có dữ liệu.</div>;
+  const ceiling = Math.max(1, max ?? Math.max(1, ...rows.map((r) => r.value)));
+  const barW = 34, gap = 22, sidePad = 20, topPad = 20, bottomPad = 34, height = 190;
+  const width = sidePad * 2 + rows.length * barW + Math.max(0, rows.length - 1) * gap;
+  const baseY = height - bottomPad;
+  const yFor = (v: number) => topPad + (1 - Math.max(0, Math.min(ceiling, v)) / ceiling) * (baseY - topPad);
+  return (
+    <div className="tqm-col-bars">
+      <div className="tqm-col-bars-scroll">
+        <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} role="img" aria-label={`Biểu đồ cột: ${rows.map((r) => `${r.label} ${r.value}${unit}`).join(", ")}`}>
+          <line x1={sidePad} y1={baseY} x2={width - sidePad} y2={baseY} stroke="#dce7ea" />
+          {rows.map((r, i) => {
+            const x = sidePad + i * (barW + gap);
+            const y = yFor(r.value);
+            const labelLines = wrapLabel(r.label, 11, 2);
+            return (
+              <g key={`${r.label}-${i}`}>
+                <rect x={x} y={y} width={barW} height={Math.max(0, baseY - y)} rx="4" fill={COLORS[r.tone || "brand"]} />
+                <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="10" fontWeight="800" fill="#172126">
+                  {r.value}
+                  {unit}
+                </text>
+                <text x={x + barW / 2} y={baseY + 13} textAnchor="middle" fontSize="9" fill="#46545a">
+                  {labelLines.map((line, li) => (
+                    <tspan key={li} x={x + barW / 2} dy={li === 0 ? 0 : 11}>
+                      {line}
+                    </tspan>
+                  ))}
+                </text>
               </g>
             );
           })}

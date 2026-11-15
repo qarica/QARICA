@@ -4,9 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const SELECT_COLUMNS = "id,training_id,round_label,round_date,score_max,sort_order,is_open_for_submission";
 
-// "Kỳ thi nào" — 1 đợt đào tạo có thể có N đợt kiểm tra (Pre-test, Post-
-// test, kiểm tra định kỳ...), không giới hạn 2 như trước. Xem migration
-// 20261130000000_procedure_training_rounds_results_v1.sql.
+// Schema hỗ trợ N đợt kiểm tra/người (xem migration
+// 20261130000000_procedure_training_rounds_results_v1.sql), nhưng tạo thủ
+// công qua route này (POST bên dưới) chốt tối đa 2 đợt (Pre-test + Post-
+// test) theo đúng SOP thật — xem comment ở POST.
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("procedure_training.view");
   if (!auth.ok) return auth.response;
@@ -47,6 +48,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { count: existingCount } = await admin.from("procedure_training_rounds").select("id", { count: "exact", head: true }).eq("training_id", trainingId);
+
+  // Báo cáo thực tế: "1 đợt đào tạo chỉ có 1 hoặc 2 tối đa test — nếu 1 chỉ
+  // có 1 post test, nếu cần đánh giá pre thì tối đa 2 cho 1 đợt, chứ không
+  // thể mở nhiều đợt" — chốt tối đa 2 đợt kiểm tra (Pre-test + Post-test)
+  // khi TẠO THỦ CÔNG qua route này. Không áp dụng giới hạn này cho route
+  // nhập liệu hàng loạt (import/commit) — route đó find-or-create round
+  // theo đúng tên cột trong file khảo sát thật để ghép dữ liệu lịch sử
+  // (có thể có nhiều hơn 2 đợt trong dữ liệu cũ), mục đích khác với việc mở
+  // thêm đợt kiểm tra mới cho người dùng tự làm bài qua QR.
+  if ((existingCount ?? 0) >= 2) {
+    return NextResponse.json({ error: "Mỗi đợt đào tạo tối đa 2 đợt kiểm tra (Pre-test + Post-test)." }, { status: 400 });
+  }
 
   const { data, error } = await admin
     .from("procedure_training_rounds")
