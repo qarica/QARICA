@@ -1556,6 +1556,22 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
       tone: (q.pctCorrect as number) < 60 ? ("red" as const) : (q.pctCorrect as number) < 80 ? ("amber" as const) : ("green" as const),
     }));
 
+  // "Thống kê danh sách kiểm tra điểm cao nhất xuống thấp nhất để dùng
+  // tuyên dương" — xếp hạng theo điểm ĐỢT KIỂM TRA CUỐI CÙNG (cùng khái
+  // niệm "đợt cuối" với computePassStatus, 1 nguồn sự thật duy nhất), chỉ
+  // xếp người đã có điểm ở đợt đó; hạng kiểu thi đấu (điểm bằng nhau cùng
+  // hạng, hạng tiếp theo nhảy đúng số người).
+  const leaderboard = lastRound
+    ? attendees
+        .map((a) => {
+          const r = results.find((res) => res.round_id === lastRound.id && res.attendee_id === a.id && res.score != null);
+          return r ? { attendeeId: a.id, name: a.employee_name, department: a.department, jobTitle: a.job_title, score: r.score as number } : null;
+        })
+        .filter((x): x is { attendeeId: string; name: string; department: string | null; jobTitle: string | null; score: number } => x !== null)
+        .sort((a, b) => b.score - a.score)
+        .map((row, _i, arr) => ({ ...row, rank: 1 + arr.filter((x) => x.score > row.score).length }))
+    : [];
+
   return (
     <>
       <section className="panel">
@@ -1591,6 +1607,44 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
           </table>
         </div>
       </section>
+
+      {lastRound && leaderboard.length ? (
+        <section className="panel">
+          <div className="panel-title">
+            <div>
+              <h2>Bảng xếp hạng điểm ({lastRound.round_label})</h2>
+              <p>Xếp từ cao xuống thấp theo điểm đợt kiểm tra cuối cùng — dùng để tuyên dương.</p>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Hạng</th>
+                  <th>Họ tên</th>
+                  <th>Đơn vị</th>
+                  <th>Chức danh</th>
+                  <th>Điểm</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaderboard.map((row) => (
+                  <tr key={row.attendeeId}>
+                    <td data-label="Hạng">{row.rank <= 3 ? <span className={`status-badge ${row.rank === 1 ? "success" : "info"}`}>#{row.rank}</span> : row.rank}</td>
+                    <td data-label="Họ tên">{row.name}</td>
+                    <td data-label="Đơn vị">{row.department || "—"}</td>
+                    <td data-label="Chức danh">{row.jobTitle || "—"}</td>
+                    <td data-label="Điểm">
+                      {row.score}
+                      {lastRound.score_max ? `/${lastRound.score_max}` : ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {beforeAfter ? (
         <section className="panel">

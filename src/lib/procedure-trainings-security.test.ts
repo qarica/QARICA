@@ -432,4 +432,17 @@ describe("Procedure trainings: import điểm từ file khảo sát (Google/Micr
     expect(charts).toContain("fill={COLORS.blue}");
     expect(charts).toContain("fill={COLORS.green}");
   });
+
+  // "Thống kê danh sách kiểm tra điểm cao nhất xuống thấp nhất để dùng tuyên
+  // dương" — bảng xếp hạng dựa trên điểm đợt kiểm tra CUỐI CÙNG (cùng khái
+  // niệm "đợt cuối" với computePassStatus), chỉ xếp người đã có điểm ở đợt
+  // đó, hạng kiểu thi đấu (điểm bằng nhau cùng hạng).
+  it("tab Phân tích: bảng xếp hạng điểm cao → thấp theo đợt kiểm tra cuối cùng, dùng để tuyên dương", () => {
+    const client = read("src/components/procedure-training-detail-client.tsx");
+    expect(client).toContain("Bảng xếp hạng điểm");
+    expect(client).toContain("dùng để tuyên dương");
+    expect(client).toContain(".sort((a, b) => b.score - a.score)");
+    expect(client).toContain("rank: 1 + arr.filter((x) => x.score > row.score).length");
+    expect(client).toContain('data-label="Hạng"');
+  });
 });
