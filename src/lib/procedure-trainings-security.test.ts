@@ -184,7 +184,7 @@ describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần
     expect(client).toContain('<button type="button" className={view === "topic" ? "active" : ""}');
   });
 
-  it("trang server fetch văn bản Tự đọc hiểu đúng điều kiện API acknowledge chấp nhận (PUBLISHED, request_type NEW, dissemination_type SELF_READ)", () => {
+  it("trang server fetch văn bản Tự đọc hiểu đúng điều kiện đã dùng cho xác nhận công khai (PUBLISHED, request_type NEW, dissemination_type SELF_READ)", () => {
     const page = read("src/app/(app)/procedure-trainings/page.tsx");
     expect(page).toContain('.eq("stage", "PUBLISHED")');
     expect(page).toContain('.eq("request_type", "NEW")');
@@ -192,19 +192,32 @@ describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần
     expect(page).toContain("selfReadDocuments={selfReadDocs as any}");
   });
 
-  it("tab Tự đọc hiểu tái dùng nguyên API /acknowledge đã có sẵn, cùng 1 nguồn sự thật (không tạo route xác nhận thứ 2)", () => {
+  // Báo cáo thực tế: "Tài liệu tự đọc hiểu mình không nên xác nhận bên trong
+  // QARICA mà chỉ xác nhận bằng QR hoặc link" — route /acknowledge trong app
+  // đã bị xoá hẳn (không còn file), chỉ còn xác nhận qua /xac-nhan-doc-hieu/[id]
+  // (công khai). "bên loại tự đọc hiểu cũng chưa có dashboard thống kê giám
+  // sát" — thêm KPI strip + bảng tuân thủ theo khoa/phòng (departments.
+  // staff_count làm mẫu số, vì acks giờ ẩn danh không so khớp được theo từng
+  // tài khoản QARICA).
+  it("KHÔNG còn route xác nhận trong app, KHÔNG còn nút 'Tôi đã đọc và hiểu' — chỉ còn link/QR công khai", () => {
+    expect(fs.existsSync(path.join(process.cwd(), "src/app/api/document-publications/[id]/acknowledge/route.ts"))).toBe(false);
     const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).toContain("fetch(`/api/document-publications/${doc.id}/acknowledge`, { method: \"POST\" })");
-    expect(client).toContain('"Tôi đã đọc và hiểu"');
-    expect(client).toContain("✓ Bạn đã xác nhận");
+    expect(client).not.toContain("/acknowledge");
+    expect(client).not.toContain("Tôi đã đọc và hiểu");
+    expect(client).toContain("Link/QR gửi email");
+    expect(client).toContain("/xac-nhan-doc-hieu/${doc.id}");
   });
 
-  it("nút mở danh sách chưa xác nhận chỉ hiện với canManageDocuments (document_publication.manage), tách biệt canManage (procedure_training.manage) của tab đào tạo", () => {
+  it("dashboard giám sát Tự đọc hiểu: KPI strip + bảng tuân thủ theo khoa/phòng dựa trên departments.staff_count", () => {
     const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).toContain("canManageDocuments: boolean");
-    expect(client).toContain("canManageDocuments ? (\n                          <button type=\"button\" className=\"button tertiary small\" onClick={() => setUnconfirmedOpenId(unconfirmedOpenId === d.id ? null : d.id)}>");
+    expect(client).toContain("departments: DepartmentStaffCount[]");
+    expect(client).toContain("const totalStaffFromDepartments = departments.reduce(");
+    expect(client).toContain("Tuân thủ tự đọc hiểu theo khoa/phòng");
+    expect(client).toContain("<KpiCard icon=\"folder-check\"");
+
     const page = read("src/app/(app)/procedure-trainings/page.tsx");
-    expect(page).toContain('const canManageDocuments = hasPermission(user, "document_publication.manage");');
+    expect(page).toContain('.from("departments").select("id,name,staff_count")');
+    expect(page).toContain("departments={(departmentsData ?? []) as any}");
   });
 });
 

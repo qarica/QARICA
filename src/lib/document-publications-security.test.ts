@@ -128,23 +128,13 @@ describe("Document publications: phổ biến (dissemination) sau khi phát hàn
     expect(server).toContain("document_publication_id: params.documentPublicationId,");
   });
 
-  it("SELF_READ acknowledgment only requires document_publication.view (any staff can self-confirm, not just managers) and only applies to a PUBLISHED, SELF_READ document", () => {
-    const ackRoute = read("src/app/api/document-publications/[id]/acknowledge/route.ts");
-    expect(ackRoute).toContain('requireApiPermission("document_publication.view")');
-    expect(ackRoute).not.toContain('requireApiPermission("document_publication.manage")');
-    expect(ackRoute).toContain('if (doc.stage !== "PUBLISHED" || doc.dissemination_type !== "SELF_READ")');
-  });
-
-  it("identity for an acknowledgment comes from auth.uid(), never hand-typed name/employee code/email like the old paper form", () => {
-    const ackRoute = read("src/app/api/document-publications/[id]/acknowledge/route.ts");
-    expect(ackRoute).toContain("user_id: auth.user.id,");
-    expect(ackRoute).not.toContain("body.employee_code");
-    expect(ackRoute).not.toContain("body.full_name");
-  });
-
-  it("acknowledging twice is idempotent (unique document_publication_id+user_id, upsert ignores duplicates) rather than erroring or double-counting", () => {
-    const ackRoute = read("src/app/api/document-publications/[id]/acknowledge/route.ts");
-    expect(ackRoute).toContain('{ onConflict: "document_publication_id,user_id", ignoreDuplicates: true }');
+  // Báo cáo thực tế: "Tài liệu tự đọc hiểu không nên xác nhận bên trong
+  // QARICA mà chỉ xác nhận bằng QR hoặc link" — route /acknowledge (xác nhận
+  // qua auth.uid() trong app) đã bị xoá hẳn; chỉ còn xác nhận công khai qua
+  // /api/public/document-ack/** (xem document-publication-public-ack-security.test.ts)
+  // và tab Tự đọc hiểu không còn gọi route này (xem procedure-trainings-security.test.ts).
+  it("route xác nhận trong app (/acknowledge) đã bị xoá — không còn đường xác nhận nào ngoài QR/link công khai", () => {
+    expect(fs.existsSync(path.join(process.cwd(), "src/app/api/document-publications/[id]/acknowledge/route.ts"))).toBe(false);
   });
 
   it("the acknowledgments table is tenant-scoped and tracks per-employee department for coverage reporting", () => {

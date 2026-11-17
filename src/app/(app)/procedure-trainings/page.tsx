@@ -95,9 +95,12 @@ export default async function ProcedureTrainingsPage() {
   // hiểu + Cần đào tạo] để control chứ ko đưa phần xác nhận vào thư viện văn
   // bản" — trang này giờ còn theo dõi "Tự đọc hiểu" (tab riêng), dữ liệu lấy
   // từ document_publications (dissemination_type=SELF_READ, PUBLISHED, request_
-  // type NEW — khớp đúng điều kiện API acknowledge/route.ts chấp nhận xác
-  // nhận). Việc xác nhận ("Tôi đã đọc và hiểu") không còn render trong Thư
-  // viện văn bản nữa, chỉ còn ở đây.
+  // type NEW). Báo cáo thực tế tiếp theo: "Tài liệu tự đọc hiểu không nên
+  // xác nhận bên trong QARICA mà chỉ xác nhận bằng QR hoặc link" — đã bỏ hẳn
+  // route xác nhận trong app (/api/document-publications/[id]/acknowledge),
+  // CHỈ còn xác nhận qua /xac-nhan-doc-hieu/[id] (công khai, không đăng
+  // nhập). Dữ liệu acks cũ có user_id (từ cơ chế cũ) vẫn giữ nguyên, không
+  // xoá, chỉ không còn đường ghi mới qua app nữa.
   const { data: selfReadData } = await supabase
     .from("document_publications")
     .select("id,title,document_code,version_label,effective_date")
@@ -109,11 +112,14 @@ export default async function ProcedureTrainingsPage() {
   const selfReadDocs = selfReadData ?? [];
   const selfReadIds = selfReadDocs.map((d) => d.id);
   const { data: acknowledgmentsData } = selfReadIds.length
-    ? await supabase.from("document_publication_acknowledgments").select("document_publication_id,user_id").in("document_publication_id", selfReadIds)
-    : { data: [] as { document_publication_id: string; user_id: string | null }[] };
-  // "Tự đọc hiểu" chưa xác nhận = toàn bộ nhân sự đang hoạt động - những ai
-  // đã có trong acks — cần roster đầy đủ để tính phần bù, không chỉ đếm số.
-  const { data: staffData } = await supabase.from("profiles").select("user_id,full_name,email").eq("organization_id", user.organizationId).eq("is_active", true).order("full_name");
+    ? await supabase.from("document_publication_acknowledgments").select("document_publication_id,user_id,department_id").in("document_publication_id", selfReadIds)
+    : { data: [] as { document_publication_id: string; user_id: string | null; department_id: string | null }[] };
+  // Báo cáo thực tế: "bên loại tự đọc hiểu cũng chưa có dashboard thống kê
+  // giám sát" — vì xác nhận giờ ẩn danh qua QR (không có tài khoản QARICA để
+  // so khớp từng người), tính tuân thủ theo CÙNG quy ước đã dùng ở module
+  // đào tạo: số nhân viên khai báo theo khoa/phòng (departments.staff_count)
+  // làm mẫu số, không suy ra danh sách "chưa xác nhận" theo từng người.
+  const { data: departmentsData } = await supabase.from("departments").select("id,name,staff_count").eq("organization_id", user.organizationId).eq("is_active", true).order("name");
 
   return (
     <div className="page-stack procedure-trainings-page">
@@ -127,8 +133,7 @@ export default async function ProcedureTrainingsPage() {
         canManage={canManage}
         selfReadDocuments={selfReadDocs as any}
         acknowledgments={(acknowledgmentsData ?? []) as any}
-        staffRoster={((staffData ?? []) as any[]).map((p) => ({ id: p.user_id, name: p.full_name || p.email || p.user_id }))}
-        currentUserId={user.id}
+        departments={(departmentsData ?? []) as any}
         canManageDocuments={canManageDocuments}
         topicGroups={topicGroups as any}
       />

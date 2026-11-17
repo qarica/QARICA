@@ -5,10 +5,13 @@ import path from "node:path";
 const read = (p: string) => fs.readFileSync(path.join(process.cwd(), p), "utf8");
 
 // "Khi ban hành 1 quy trình mình sẽ gửi email ban hành toàn viện... xác
-// nhận đọc hiểu ko xác nhận trực tiếp trong qarica ko cần đăng nhập" — 1
-// ngoại lệ CÓ CHỦ Ý song song với nút "Tôi đã đọc và hiểu" trong app hiện có
-// (API /api/document-publications/[id]/acknowledge, vẫn yêu cầu đăng nhập,
-// không đổi). Route công khai nằm riêng ở /api/public/document-ack/**.
+// nhận đọc hiểu ko xác nhận trực tiếp trong qarica ko cần đăng nhập" — ban
+// đầu route này tồn tại SONG SONG với nút "Tôi đã đọc và hiểu" trong app
+// (yêu cầu đăng nhập). Báo cáo thực tế sau đó: "Tài liệu tự đọc hiểu không
+// nên xác nhận bên trong QARICA mà chỉ xác nhận bằng QR hoặc link" — route
+// trong app (/api/document-publications/[id]/acknowledge) đã bị xoá hẳn
+// (xem document-publications-security.test.ts); route công khai dưới đây
+// giờ là đường DUY NHẤT để xác nhận tự đọc hiểu.
 describe("Public document-ack routes (/api/public/document-ack/**): cố ý không đăng nhập, nhưng phải chặn đúng chỗ", () => {
   const getRoute = read("src/app/api/public/document-ack/[id]/route.ts");
   const submitRoute = read("src/app/api/public/document-ack/[id]/submit/route.ts");
@@ -77,11 +80,14 @@ describe("migration 20261130000005: nới user_id nullable có kiểm soát (con
   });
 });
 
-describe("Tab Tự đọc hiểu: tách riêng số đếm xác nhận qua tài khoản QARICA vs qua link công khai", () => {
-  it("ackCount chỉ đếm acks có user_id (so được với staffRoster), publicAckCount đếm phần ẩn danh — không gộp chung gây lệch mẫu số với 'chưa xác nhận'", () => {
+// Báo cáo thực tế: "Tài liệu tự đọc hiểu không nên xác nhận bên trong QARICA
+// mà chỉ xác nhận bằng QR hoặc link" — acks giờ chỉ đến từ route công khai
+// (ẩn danh, không user_id), nên ackCount đếm thẳng mọi dòng của 1 văn bản,
+// không còn tách QARICA/công khai như trước.
+describe("Tab Tự đọc hiểu: chỉ còn xác nhận qua QR/link công khai, có dashboard giám sát theo khoa/phòng", () => {
+  it("ackCount đếm mọi acks của 1 văn bản (không còn phân biệt user_id, vì chỉ còn 1 nguồn xác nhận duy nhất)", () => {
     const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).toContain("acks.filter((a) => a.document_publication_id === documentId && a.user_id).length");
-    expect(client).toContain("acks.filter((a) => a.document_publication_id === documentId && !a.user_id).length");
+    expect(client).toContain("const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId).length;");
   });
 
   it("có nút mở QR/link công khai cho quản lý văn bản, dẫn tới /xac-nhan-doc-hieu/[id]", () => {

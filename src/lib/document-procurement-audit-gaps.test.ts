@@ -60,19 +60,23 @@ describe("Công văn/Phát hành văn bản/Mua sắm: audit_logs + validate dep
 // "Tự đọc hiểu" dời sang /procedure-trainings (menu theo dõi gộp chung với
 // "Cần đào tạo" — xem procedure-trainings-security.test.ts và
 // document-publications-security.test.ts describe "phổ biến... dời sang
-// /procedure-trainings" cho các assertion đầy đủ hơn). 2 test dưới đây chỉ
-// còn xác nhận ĐÚNG NƠI logic này hiện sống, không còn ở document-publications.
-describe("Phát hành văn bản: xác nhận 'Tự đọc hiểu' hiện danh sách chưa xác nhận, không chỉ đếm số", () => {
-  it("trang procedure-trainings/page.tsx (menu theo dõi gộp) fetch toàn bộ nhân sự đang hoạt động để tính phần bù chưa xác nhận", () => {
+// /procedure-trainings" cho các assertion đầy đủ hơn). Báo cáo thực tế sau
+// đó: "Tài liệu tự đọc hiểu không nên xác nhận bên trong QARICA mà chỉ xác
+// nhận bằng QR hoặc link... bên loại tự đọc hiểu cũng chưa có dashboard
+// thống kê giám sát" — bỏ hẳn cơ chế "chưa xác nhận theo từng người" (so với
+// staffRoster QARICA, không còn đúng khi acks giờ ẩn danh qua QR), thay bằng
+// dashboard tuân thủ theo khoa/phòng (departments.staff_count làm mẫu số).
+describe("Phát hành văn bản: 'Tự đọc hiểu' có dashboard giám sát theo khoa/phòng, không còn ở document-publications", () => {
+  it("trang procedure-trainings/page.tsx (menu theo dõi gộp) fetch departments.staff_count để tính tuân thủ theo khoa/phòng", () => {
     const page = read("src/app/(app)/procedure-trainings/page.tsx");
-    expect(page).toContain('.from("profiles").select("user_id,full_name,email").eq("organization_id", user.organizationId).eq("is_active", true)');
-    expect(page).toContain("staffRoster=");
+    expect(page).toContain('.from("departments").select("id,name,staff_count")');
+    expect(page).toContain("departments=");
   });
 
-  it("client procedure-trainings-client.tsx tính unconfirmedStaff = staffRoster trừ những ai đã có trong acks, và có nút mở danh sách", () => {
+  it("client procedure-trainings-client.tsx tính deptCompliance = acks theo department_id / (staff_count × số văn bản), và hiện bảng giám sát", () => {
     const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).toContain("const unconfirmedStaff = (documentId: string) =>");
-    expect(client).toContain("chưa xác nhận");
+    expect(client).toContain("const deptCompliance = departments");
+    expect(client).toContain("Tuân thủ tự đọc hiểu theo khoa/phòng");
   });
 
   it("không còn sống trong document-publications-client.tsx — Thư viện văn bản chỉ còn 1 liên kết trỏ sang /procedure-trainings", () => {

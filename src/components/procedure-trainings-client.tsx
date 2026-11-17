@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { Icon } from "@/components/icon";
+import { KpiCard } from "@/components/kpi-card";
 
 type Training = {
   id: string;
@@ -27,8 +28,8 @@ type Training = {
 // đào tạo, quản lý nhiều đợt kiểm tra ("kỳ thi nào"), tra điểm + đúng/sai
 // từng câu của từng người, và phân tích theo đối tượng/trước-sau.
 type SelfReadDocument = { id: string; title: string; document_code: string | null; version_label: string; effective_date: string | null };
-type Acknowledgment = { document_publication_id: string; user_id: string | null };
-type Staff = { id: string; name: string };
+type Acknowledgment = { document_publication_id: string; user_id: string | null; department_id: string | null };
+type DepartmentStaffCount = { id: string; name: string; staff_count: number | null };
 type TopicRollupRow = {
   normalizedCode: string;
   employeeName: string;
@@ -65,8 +66,7 @@ export function ProcedureTrainingsClient({
   canManage,
   selfReadDocuments,
   acknowledgments,
-  staffRoster,
-  currentUserId,
+  departments,
   canManageDocuments,
   topicGroups,
 }: {
@@ -74,8 +74,7 @@ export function ProcedureTrainingsClient({
   canManage: boolean;
   selfReadDocuments: SelfReadDocument[];
   acknowledgments: Acknowledgment[];
-  staffRoster: Staff[];
-  currentUserId: string;
+  departments: DepartmentStaffCount[];
   canManageDocuments: boolean;
   topicGroups: TopicGroup[];
 }) {
@@ -85,6 +84,7 @@ export function ProcedureTrainingsClient({
   const [listQuery, setListQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [deptBreakdownOpen, setDeptBreakdownOpen] = useState(false);
 
   // Báo cáo thực tế: "Lớp tạo nhầm cũng không xóa được" — chưa có cách xoá cả
   // 1 lớp trước đây (chỉ xoá được đợt kiểm tra/nhân sự/đăng ký riêng lẻ).
@@ -105,9 +105,7 @@ export function ProcedureTrainingsClient({
     }
     setTrainings((v) => v.filter((x) => x.id !== t.id));
   }
-  const [acks, setAcks] = useState(acknowledgments);
-  const [acknowledging, setAcknowledging] = useState<string | null>(null);
-  const [unconfirmedOpenId, setUnconfirmedOpenId] = useState<string | null>(null);
+  const acks = acknowledgments;
   const [qrDocId, setQrDocId] = useState<string | null>(null);
   const [procedureCode, setProcedureCode] = useState("");
   const [procedureName, setProcedureName] = useState("");
@@ -147,32 +145,33 @@ export function ProcedureTrainingsClient({
     setEffectiveDate("");
   }
 
-  // Tách riêng xác nhận qua tài khoản QARICA (so được với staffRoster) và
-  // xác nhận ẩn danh qua link/QR công khai (user_id null — người gửi email
-  // ban hành toàn viện có thể không có tài khoản QARICA) — gộp chung vào 1
-  // số "đã xác nhận" sẽ lệch mẫu số với "chưa xác nhận" (vốn chỉ so với
-  // staffRoster), gây hiểu lầm.
-  const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId && a.user_id).length;
-  const publicAckCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId && !a.user_id).length;
-  const hasAcked = (documentId: string) => acks.some((a) => a.document_publication_id === documentId && a.user_id === currentUserId);
-  // Chưa xác nhận = toàn bộ nhân sự đang hoạt động - những ai đã có trong acks.
-  const unconfirmedStaff = (documentId: string) => {
-    const ackedIds = new Set(acks.filter((a) => a.document_publication_id === documentId).map((a) => a.user_id));
-    return staffRoster.filter((s) => !ackedIds.has(s.id));
-  };
-
-  async function acknowledge(doc: SelfReadDocument) {
-    setAcknowledging(doc.id);
-    setError("");
-    const res = await fetch(`/api/document-publications/${doc.id}/acknowledge`, { method: "POST" });
-    const body = await res.json().catch(() => ({}));
-    setAcknowledging(null);
-    if (!res.ok) {
-      setError(body.error || "Không xác nhận được.");
-      return;
-    }
-    setAcks((v) => [...v, { document_publication_id: doc.id, user_id: currentUserId }]);
-  }
+  // Báo cáo thực tế: "Tài liệu tự đọc hiểu không nên xác nhận bên trong
+  // QARICA mà chỉ xác nhận bằng QR hoặc link" — đã bỏ hẳn nút "Tôi đã đọc và
+  // hiểu" + route xác nhận trong app, CHỈ còn xác nhận qua /xac-nhan-doc-hieu/
+  // [id] (ẩn danh, không đăng nhập). acks giờ không có tài khoản QARICA để so
+  // khớp từng người -> "chưa xác nhận theo từng người" không còn tính được
+  // chính xác; thay bằng tính tuân thủ theo khoa/phòng (departments.staff_count
+  // làm mẫu số, cùng quy ước module đào tạo đã dùng cho "còn thiếu người đăng
+  // ký" — xem RegistrationTab trong procedure-training-detail-client.tsx).
+  const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId).length;
+  const totalStaffFromDepartments = departments.reduce((sum, d) => sum + (d.staff_count ?? 0), 0);
+  const totalDocs = selfReadDocuments.length;
+  const docCompliancePct = (documentId: string) => (totalStaffFromDepartments > 0 ? Math.min(100, Math.round((ackCount(documentId) / totalStaffFromDepartments) * 100)) : null);
+  const avgCompliancePct = (() => {
+    if (!totalDocs || totalStaffFromDepartments <= 0) return null;
+    const pcts = selfReadDocuments.map((d) => docCompliancePct(d.id) ?? 0);
+    return Math.round(pcts.reduce((s, p) => s + p, 0) / pcts.length);
+  })();
+  const lowComplianceDocCount = totalStaffFromDepartments > 0 ? selfReadDocuments.filter((d) => (docCompliancePct(d.id) ?? 0) < 50).length : 0;
+  const deptCompliance = departments
+    .filter((d): d is DepartmentStaffCount & { staff_count: number } => d.staff_count != null && d.staff_count > 0)
+    .map((d) => {
+      const expected = d.staff_count * totalDocs;
+      const actual = acks.filter((a) => a.department_id === d.id).length;
+      return { department: d, actual, expected, pct: expected > 0 ? Math.min(100, Math.round((actual / expected) * 100)) : null };
+    })
+    .sort((a, b) => (a.pct ?? 0) - (b.pct ?? 0));
+  const visibleDeptCompliance = deptBreakdownOpen ? deptCompliance : deptCompliance.slice(0, LIST_COLLAPSE_LIMIT);
 
   return (
     <div className="pt-overview mobile-module-redesign">
@@ -282,14 +281,33 @@ export function ProcedureTrainingsClient({
       </section>
       </>
       ) : view === "self_read" ? (
+        <>
         <section className="panel">
           <div className="panel-title">
             <div>
               <h2>Tự đọc hiểu</h2>
-              <p>Từng nhân viên tự bấm xác nhận đã đọc & hiểu — theo dõi ai còn chưa xác nhận để nhắc.</p>
+              <p>Xác nhận đã đọc &amp; hiểu CHỈ qua quét QR hoặc bấm link công khai (không xác nhận trong QARICA) — xem thống kê giám sát bên dưới.</p>
             </div>
           </div>
           {error ? <div className="alert error">{error}</div> : null}
+          {totalDocs ? (
+            <div className="kpi-grid" style={{ padding: "0 19px 19px" }}>
+              <KpiCard icon="folder-check" tone="blue" label="Văn bản tự đọc hiểu" value={totalDocs} />
+              <KpiCard icon="users" tone="purple" label="Tổng lượt xác nhận" value={acks.length} />
+              <KpiCard
+                icon="percent"
+                tone={avgCompliancePct == null ? "blue" : avgCompliancePct < 50 ? "red" : avgCompliancePct < 80 ? "amber" : "green"}
+                label="Tỷ lệ tuân thủ TB (ước tính theo khoa/phòng)"
+                value={avgCompliancePct == null ? "—" : `${avgCompliancePct}%`}
+              />
+              <KpiCard icon="triangle-alert" tone={lowComplianceDocCount > 0 ? "red" : "green"} label="Văn bản có tỷ lệ xác nhận <50%" value={lowComplianceDocCount} />
+            </div>
+          ) : null}
+          {!totalStaffFromDepartments ? (
+            <p className="muted tiny" style={{ padding: "0 19px 12px" }}>
+              Chưa khai báo số nhân viên (staff_count) ở danh mục khoa/phòng nên chưa ước tính được tỷ lệ tuân thủ — chỉ đếm được số lượt xác nhận thô.
+            </p>
+          ) : null}
           <div className="table-wrap">
             <table>
               <thead>
@@ -302,55 +320,30 @@ export function ProcedureTrainingsClient({
                 </tr>
               </thead>
               <tbody>
-                {selfReadDocuments.map((d) => (
-                  <tr key={d.id}>
-                    <td>{d.document_code || "—"}</td>
-                    <td>
-                      {d.title} <Link className="table-link" href="/document-publications">Xem →</Link>
-                    </td>
-                    <td>{d.version_label}</td>
-                    <td>{formatDate(d.effective_date)}</td>
-                    <td>
-                      <div className="pt-ack">
-                        <span className="status-badge success">{ackCount(d.id)} đã xác nhận (QARICA)</span>
-                        {publicAckCount(d.id) > 0 ? <span className="status-badge info">{publicAckCount(d.id)} đã xác nhận (qua link công khai)</span> : null}
-                        {canManageDocuments ? (
-                          <button type="button" className="button tertiary small" onClick={() => setUnconfirmedOpenId(unconfirmedOpenId === d.id ? null : d.id)}>
-                            {unconfirmedStaff(d.id).length} chưa xác nhận {unconfirmedOpenId === d.id ? "▾" : "▸"}
-                          </button>
-                        ) : null}
-                        {canManageDocuments ? (
-                          <button type="button" className="button tertiary small" onClick={() => setQrDocId(d.id)}>
-                            <Icon name="qr-code" size={13} /> Link/QR gửi email
-                          </button>
-                        ) : null}
-                        {hasAcked(d.id) ? (
-                          <span className="pt-ack-done">✓ Bạn đã xác nhận</span>
-                        ) : (
-                          <button type="button" className="button secondary small" disabled={acknowledging === d.id} onClick={() => void acknowledge(d)}>
-                            {acknowledging === d.id ? "..." : "Tôi đã đọc và hiểu"}
-                          </button>
-                        )}
-                        {unconfirmedOpenId === d.id ? (
-                          <div className="pt-unconfirmed-list">
-                            {unconfirmedStaff(d.id).length ? (
-                              unconfirmedStaff(d.id)
-                                .slice(0, 30)
-                                .map((s) => (
-                                  <span key={s.id} className="chip">
-                                    {s.name}
-                                  </span>
-                                ))
-                            ) : (
-                              <small>Mọi người đã xác nhận.</small>
-                            )}
-                            {unconfirmedStaff(d.id).length > 30 ? <small>+{unconfirmedStaff(d.id).length - 30} người khác</small> : null}
-                          </div>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {selfReadDocuments.map((d) => {
+                  const pct = docCompliancePct(d.id);
+                  return (
+                    <tr key={d.id}>
+                      <td>{d.document_code || "—"}</td>
+                      <td>
+                        {d.title} <Link className="table-link" href="/document-publications">Xem →</Link>
+                      </td>
+                      <td>{d.version_label}</td>
+                      <td>{formatDate(d.effective_date)}</td>
+                      <td>
+                        <div className="pt-ack">
+                          <span className="status-badge success">{ackCount(d.id)} đã xác nhận</span>
+                          {pct != null ? <span className={`status-badge ${pct < 50 ? "danger" : pct < 80 ? "warning" : "success"}`}>{pct}% tuân thủ</span> : null}
+                          {canManageDocuments ? (
+                            <button type="button" className="button tertiary small" onClick={() => setQrDocId(d.id)}>
+                              <Icon name="qr-code" size={13} /> Link/QR gửi email
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {!selfReadDocuments.length ? (
                   <tr>
                     <td colSpan={5} className="empty-state compact">
@@ -362,6 +355,50 @@ export function ProcedureTrainingsClient({
             </table>
           </div>
         </section>
+        {deptCompliance.length ? (
+          <section className="panel">
+            <div className="panel-title">
+              <div>
+                <h2>Tuân thủ tự đọc hiểu theo khoa/phòng</h2>
+                <p>% = tổng lượt xác nhận của khoa / (số nhân viên khoa × số văn bản tự đọc hiểu) — khoa có tỷ lệ thấp nhất hiện trước để ưu tiên nhắc.</p>
+              </div>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Khoa/phòng</th>
+                    <th>Số nhân viên</th>
+                    <th>Lượt xác nhận</th>
+                    <th>Kỳ vọng</th>
+                    <th>% tuân thủ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleDeptCompliance.map((row) => (
+                    <tr key={row.department.id}>
+                      <td>{row.department.name}</td>
+                      <td>{row.department.staff_count}</td>
+                      <td>{row.actual}</td>
+                      <td>{row.expected}</td>
+                      <td>
+                        <span className={`status-badge ${(row.pct ?? 0) < 50 ? "danger" : (row.pct ?? 0) < 80 ? "warning" : "success"}`}>{row.pct ?? 0}%</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {deptCompliance.length > LIST_COLLAPSE_LIMIT ? (
+              <div style={{ padding: "0 19px 19px" }}>
+                <button type="button" className="button secondary small" onClick={() => setDeptBreakdownOpen((v) => !v)}>
+                  {deptBreakdownOpen ? "Thu gọn" : `Xem tất cả (${deptCompliance.length})`}
+                </button>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+        </>
       ) : (
         <>
           {!topicGroups.length ? (
@@ -486,17 +523,6 @@ export function ProcedureTrainingsClient({
           align-items: center;
           gap: 8px;
           flex-wrap: wrap;
-        }
-        .pt-ack-done {
-          font-size: 12px;
-          color: var(--muted);
-        }
-        .pt-unconfirmed-list {
-          flex-basis: 100%;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
-          margin-top: 4px;
         }
         @media (max-width: 900px) {
           .pt-form-row {
