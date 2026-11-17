@@ -22,10 +22,11 @@ export async function GET() {
   return NextResponse.json({ ok: true, milestones: data ?? [] });
 }
 
-// parent_id null = "đầu việc lớn" (top-level); set = "đầu việc con" nested
-// under that parent. A child's parent must already exist, belong to the same
-// org, and itself be top-level (only 2 levels — matches what the project
-// timeline example actually needs, not open-ended nesting).
+// parent_id null = depth 0 ("đầu việc lớn"); set = nested under that parent.
+// Báo cáo thực tế: "kế hoạch chung, giai đoạn, khoa" — cần đúng 3 cấp (đầu
+// việc lớn / giai đoạn / khoa), không phải 2 như trước. Một đầu việc con chỉ
+// được khai dưới 1 cha đã tồn tại, cùng tổ chức, VÀ cha đó không được có "ông"
+// (parent của parent) — nghĩa là cha tối đa ở độ sâu 1, chặn tạo cấp thứ 4.
 export async function POST(request: Request) {
   const auth = await requireApiPermission("emr.manage");
   if (!auth.ok) return auth.response;
@@ -47,8 +48,11 @@ export async function POST(request: Request) {
 
   if (parentId) {
     const { data: parent } = await admin.from("emr_timeline_milestones").select("id,parent_id").eq("id", parentId).eq("organization_id", organizationId).maybeSingle();
-    if (!parent) return NextResponse.json({ error: "Đầu việc lớn không hợp lệ." }, { status: 400 });
-    if (parent.parent_id) return NextResponse.json({ error: "Chỉ hỗ trợ 2 cấp: đầu việc lớn và đầu việc con." }, { status: 400 });
+    if (!parent) return NextResponse.json({ error: "Đầu việc cha không hợp lệ." }, { status: 400 });
+    if (parent.parent_id) {
+      const { data: grandparent } = await admin.from("emr_timeline_milestones").select("id,parent_id").eq("id", parent.parent_id).eq("organization_id", organizationId).maybeSingle();
+      if (grandparent?.parent_id) return NextResponse.json({ error: "Chỉ hỗ trợ 3 cấp: đầu việc lớn, giai đoạn và khoa/phòng." }, { status: 400 });
+    }
   }
 
   let countQuery = admin.from("emr_timeline_milestones").select("id", { count: "exact", head: true }).eq("organization_id", organizationId);
