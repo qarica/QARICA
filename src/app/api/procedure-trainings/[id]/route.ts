@@ -82,6 +82,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 // results → responses, questions) đều "on delete cascade" theo training_id
 // (xem các migration liên quan) nên chỉ cần xoá đúng 1 dòng procedure_trainings
 // — không có bảng/nguồn sự thật phụ nào sót lại (CLAUDE.md nguyên tắc 2).
+//
+// Báo cáo thực tế tiếp theo: "Khi bấm nút hoàn thành lớp thì không cho phép
+// xoá lớp" — 1 lớp đã đánh dấu status="TRAINED" (Đã đào tạo) là dữ liệu đã
+// hoàn thành, chặn xoá để không mất kết quả đào tạo thật đã ghi nhận; muốn
+// xoá phải đổi tình trạng về PLANNED/NOT_PLANNED trước (qua PATCH ở trên).
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("procedure_training.manage");
   if (!auth.ok) return auth.response;
@@ -90,6 +95,12 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
+
+  const { data: existing } = await admin.from("procedure_trainings").select("status").eq("id", id).eq("organization_id", organizationId).maybeSingle();
+  if (!existing) return NextResponse.json({ error: "Không tìm thấy quy trình." }, { status: 404 });
+  if (existing.status === "TRAINED") {
+    return NextResponse.json({ error: "Lớp này đã hoàn thành đào tạo, không thể xoá. Đổi tình trạng về \"Đã có kế hoạch\"/\"Chưa có kế hoạch\" trước nếu vẫn muốn xoá." }, { status: 409 });
+  }
 
   const { data, error } = await admin.from("procedure_trainings").delete().eq("id", id).eq("organization_id", organizationId).select("id").maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

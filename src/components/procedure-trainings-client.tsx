@@ -260,7 +260,13 @@ export function ProcedureTrainingsClient({
                         Xem chi tiết →
                       </Link>
                       {canManage ? (
-                        <button type="button" className="button tertiary small" disabled={removingId === t.id} onClick={() => void removeTraining(t)}>
+                        <button
+                          type="button"
+                          className="button tertiary small"
+                          disabled={removingId === t.id || t.status === "TRAINED"}
+                          title={t.status === "TRAINED" ? "Lớp đã hoàn thành đào tạo, không thể xoá." : undefined}
+                          onClick={() => void removeTraining(t)}
+                        >
                           {removingId === t.id ? "Đang xoá..." : "Xóa"}
                         </button>
                       ) : null}

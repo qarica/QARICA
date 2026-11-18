@@ -33,6 +33,20 @@ describe("Procedure trainings module security and control gates", () => {
     expect(client).toContain("t.attendee_total > 0");
   });
 
+  // Báo cáo thực tế: "Khi bấm nút hoàn thành lớp thì không cho phép xoá
+  // lớp" — lớp đã đánh dấu status="TRAINED" (Đã đào tạo) là dữ liệu đã
+  // hoàn thành, chặn xoá ở cả API (409, không chỉ cảnh báo rồi vẫn cho xoá
+  // như attendee_total) và disable nút Xoá ở UI cho đồng bộ (CLAUDE.md
+  // nguyên tắc 5: đối chiếu UI ↔ API).
+  it("chặn xoá lớp đã status='TRAINED' (đã hoàn thành đào tạo) ở cả API và UI", () => {
+    const route = read("src/app/api/procedure-trainings/[id]/route.ts");
+    expect(route).toContain('if (existing.status === "TRAINED")');
+    expect(route).toContain("status: 409");
+
+    const client = read("src/components/procedure-trainings-client.tsx");
+    expect(client).toContain('disabled={removingId === t.id || t.status === "TRAINED"}');
+  });
+
   it("is reachable from the sidebar behind procedure_training.view OR document_publication.view (child row inside the merged QUẢN LÝ VĂN BẢN group — combined Phổ biến & đào tạo tracking menu, alongside Kiểm soát tài liệu)", () => {
     const nav = read("src/lib/navigation.ts");
     expect(nav).toContain('{ label: "Phổ biến & đào tạo", href: "/procedure-trainings", icon: "book-open", anyPermissions: ["procedure_training.view", "document_publication.view"] }');
