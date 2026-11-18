@@ -102,21 +102,48 @@ describe("Procedure trainings module security and control gates", () => {
 
   // Báo cáo thực tế: "giao diện xấu và ko đẹp, cứng đờ ko kéo được" — sửa
   // tại-chỗ trong các ô bé xíu của bảng danh sách (12 cột) đã bị bỏ hẳn.
-  // Thông tin đào tạo (trainer/session 2/feedback_qlcl/notes) giờ sửa ở 1
-  // form riêng, full-width, trong trang chi tiết — không còn trong bảng
-  // danh sách tổng quan nữa.
-  it("thông tin đào tạo (trainer/session 2/feedback_qlcl/notes) sửa ở form riêng trong trang chi tiết, KHÔNG sửa-tại-chỗ trong bảng danh sách", () => {
+  // Thông tin đào tạo (trainer/feedback_qlcl/notes) giờ sửa ở 1 form riêng,
+  // full-width, trong trang chi tiết — không còn trong bảng danh sách tổng
+  // quan nữa.
+  it("thông tin đào tạo (trainer/feedback_qlcl/notes) sửa ở form riêng trong trang chi tiết, KHÔNG sửa-tại-chỗ trong bảng danh sách", () => {
     const listClient = read("src/components/procedure-trainings-client.tsx");
     expect(listClient).not.toContain("editDraft.trainer");
     expect(listClient).not.toContain("editDraft.feedback_qlcl");
 
     const detailClient = read("src/components/procedure-training-detail-client.tsx");
     expect(detailClient).toContain("draft.trainer");
-    expect(detailClient).toContain("draft.session_2_time");
-    expect(detailClient).toContain("draft.session_2_location");
-    expect(detailClient).toContain("draft.session_2_method");
     expect(detailClient).toContain("draft.feedback_qlcl");
     expect(detailClient).toContain("draft.notes");
+  });
+
+  // Báo cáo thực tế: "Xoá đào tạo lần 2" — model "1 lớp có lần 1/lần 2" đã
+  // bị thay bằng model "1 chủ đề có nhiều lớp" (xem "+ Tạo lớp mới cùng chủ
+  // đề" / nextClassCodes ở procedure-training-class-code.ts): cần đào tạo
+  // lại thì tạo 1 LỚP MỚI cùng chủ đề, không còn điền "đợt 2" vào cùng 1
+  // lớp. Cột session_2_* trên Supabase sống không có dữ liệu thật nào
+  // (kiểm tra trực tiếp trước khi xoá — CLAUDE.md nguyên tắc 6), nên xoá
+  // hẳn cột (migration) thay vì chỉ ẩn ở UI, tránh còn trường chết không ai
+  // dùng (CLAUDE.md nguyên tắc 2).
+  it("đã bỏ hẳn 'Đào tạo lần 2' (session_2_*) — model giờ là tạo lớp mới cùng chủ đề, không phải lần 2 trong cùng lớp", () => {
+    const detailClient = read("src/components/procedure-training-detail-client.tsx");
+    expect(detailClient).not.toContain("session_2_time");
+    expect(detailClient).not.toContain("session_2_location");
+    expect(detailClient).not.toContain("session_2_method");
+    expect(detailClient).not.toContain("Đào tạo lần 2");
+
+    const patchRoute = read("src/app/api/procedure-trainings/[id]/route.ts");
+    expect(patchRoute).not.toContain("session_2_time");
+    const createRoute = read("src/app/api/procedure-trainings/route.ts");
+    expect(createRoute).not.toContain("session_2_time");
+    const duplicateRoute = read("src/app/api/procedure-trainings/[id]/duplicate/route.ts");
+    expect(duplicateRoute).not.toContain("session_2_time");
+
+    const migrations = fs.readdirSync(path.join(process.cwd(), "supabase/migrations")).filter((f) => f.includes("session_2"));
+    expect(migrations.length).toBeGreaterThan(0);
+    const dropMigration = read(`supabase/migrations/${migrations[0]}`);
+    expect(dropMigration).toContain("drop column if exists session_2_time");
+    expect(dropMigration).toContain("drop column if exists session_2_location");
+    expect(dropMigration).toContain("drop column if exists session_2_method");
   });
 
   // Báo cáo thực tế: "Phải có nút bấm hoàn thành lớp và ko cho xoá" — trước

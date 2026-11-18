@@ -3,7 +3,7 @@ import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const SELECT_COLUMNS =
-  "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,session_2_time,session_2_location,session_2_method,notes,test_score_max,pass_threshold,is_open_for_registration";
+  "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,notes,test_score_max,pass_threshold,is_open_for_registration";
 
 const EDITABLE_FIELDS = [
   "trainer",
@@ -12,9 +12,6 @@ const EDITABLE_FIELDS = [
   "session_1_method",
   "status",
   "feedback_qlcl",
-  "session_2_time",
-  "session_2_location",
-  "session_2_method",
   "notes",
   "test_score_max",
   "pass_threshold",

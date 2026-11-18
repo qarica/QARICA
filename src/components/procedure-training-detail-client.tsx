@@ -22,9 +22,6 @@ type Training = {
   session_1_method: string | null;
   status: "TRAINED" | "PLANNED" | "NOT_PLANNED";
   feedback_qlcl: string | null;
-  session_2_time: string | null;
-  session_2_location: string | null;
-  session_2_method: string | null;
   notes: string | null;
   test_score_max: number | null;
   pass_threshold: number | null;
@@ -243,9 +240,6 @@ function buildInfoDraft(training: Training) {
     session_1_location: training.session_1_location || "",
     session_1_method: training.session_1_method || "",
     status: training.status,
-    session_2_time: training.session_2_time || "",
-    session_2_location: training.session_2_location || "",
-    session_2_method: training.session_2_method || "",
     feedback_qlcl: training.feedback_qlcl || "",
     notes: training.notes || "",
     test_score_max: training.test_score_max != null ? String(training.test_score_max) : "",
@@ -378,18 +372,6 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
             <span>Đào tạo lần 1 — Cách thức</span>
             {training.session_1_method || "—"}
           </div>
-          <div>
-            <span>Đào tạo lần 2 — Thời gian</span>
-            {training.session_2_time || "—"}
-          </div>
-          <div>
-            <span>Đào tạo lần 2 — Địa điểm</span>
-            {training.session_2_location || "—"}
-          </div>
-          <div className="span-2">
-            <span>Đào tạo lần 2 — Cách thức</span>
-            {training.session_2_method || "—"}
-          </div>
           <div className="span-2">
             <span>Phản hồi QLCL</span>
             {training.feedback_qlcl || "—"}
@@ -470,23 +452,6 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
             <label className="span-2">
               <span>Cách thức</span>
               <input className="input" disabled={!canManage} value={draft.session_1_method} onChange={(e) => setDraft((v) => ({ ...v, session_1_method: e.target.value }))} />
-            </label>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>Đào tạo lần 2 (nếu cần đào tạo lại)</legend>
-          <div className="form-grid two">
-            <label>
-              <span>Thời gian</span>
-              <input className="input" disabled={!canManage} value={draft.session_2_time} onChange={(e) => setDraft((v) => ({ ...v, session_2_time: e.target.value }))} />
-            </label>
-            <label>
-              <span>Địa điểm</span>
-              <input className="input" disabled={!canManage} value={draft.session_2_location} onChange={(e) => setDraft((v) => ({ ...v, session_2_location: e.target.value }))} />
-            </label>
-            <label className="span-2">
-              <span>Cách thức</span>
-              <input className="input" disabled={!canManage} value={draft.session_2_method} onChange={(e) => setDraft((v) => ({ ...v, session_2_method: e.target.value }))} />
             </label>
           </div>
         </fieldset>
