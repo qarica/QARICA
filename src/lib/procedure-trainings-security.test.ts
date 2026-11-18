@@ -57,6 +57,21 @@ describe("Procedure trainings module security and control gates", () => {
     expect(route).toContain('status: "PLANNED"');
   });
 
+  // Báo cáo thực tế: "Chưa có mã hoá lớp đào tạo. Nếu cùng chủ đề thì cùng
+  // mã lớp nhưng .1 hoặc .2, .n" — trước đây lớp mới copy y nguyên
+  // procedure_code của lớp nguồn. Dùng lại nextClassCodes() +
+  // topicKeyFor() (đã dùng ở "Theo chủ đề") thay vì viết logic mới, và việc
+  // sửa mã lớp nguồn (khi gắn số thứ tự lần đầu) cũng phải scope theo
+  // organization_id như mọi UPDATE khác trong route này.
+  it("'+ Tạo lớp mới cùng chủ đề' gắn số thứ tự lớp (.1/.2/.n) theo cùng chủ đề, scope organization_id khi sửa mã lớp nguồn", () => {
+    const route = read("src/app/api/procedure-trainings/[id]/duplicate/route.ts");
+    expect(route).toContain('import { nextClassCodes } from "@/lib/procedure-training-class-code";');
+    expect(route).toContain('import { topicKeyFor } from "@/lib/procedure-training-topic-rollup";');
+    expect(route).toContain("const sourceTopicKey = topicKeyFor(source);");
+    expect(route).toContain("nextClassCodes(source.procedure_code, peerCodes)");
+    expect(route).toContain('.update({ procedure_code: retroSourceCode }).eq("id", sourceId).eq("organization_id", organizationId)');
+  });
+
   it("is its own table — not folded into incoming_documents or any other module", () => {
     const migration = read("supabase/migrations/20261017_procedure_trainings_v1.sql");
     expect(migration).toContain("create table if not exists public.procedure_trainings");

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { nextClassCodes } from "@/lib/procedure-training-class-code";
+import { topicKeyFor } from "@/lib/procedure-training-topic-rollup";
 
 const SELECT_COLUMNS =
   "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,session_2_time,session_2_location,session_2_method,notes,test_score_max,pass_threshold,is_open_for_registration";
@@ -29,12 +31,34 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     .maybeSingle();
   if (!source) return NextResponse.json({ error: "Không tìm thấy quy trình nguồn." }, { status: 404 });
 
+  // Báo cáo thực tế: "Chưa có mã hoá lớp đào tạo. Nếu cùng chủ đề thì cùng
+  // mã lớp nhưng .1 hoặc .2, .n" — trước đây lớp mới copy y nguyên
+  // procedure_code của lớp nguồn, không phân biệt được lớp nào là lớp nào.
+  // Chỉ tính số thứ tự khi lớp nguồn có mã; dùng lại topicKeyFor (đã dùng ở
+  // màn "Theo chủ đề") để xác định đúng các lớp cùng chủ đề trong tổ chức.
+  let newCode = source.procedure_code;
+  if (source.procedure_code) {
+    const { data: peers } = await admin
+      .from("procedure_trainings")
+      .select("procedure_code,procedure_name,document_publication_id")
+      .eq("organization_id", organizationId);
+    const sourceTopicKey = topicKeyFor(source);
+    const peerCodes = (peers ?? [])
+      .filter((p) => p.procedure_code && topicKeyFor(p) === sourceTopicKey)
+      .map((p) => p.procedure_code as string);
+    const { sourceCode: retroSourceCode, newCode: computedNewCode } = nextClassCodes(source.procedure_code, peerCodes);
+    newCode = computedNewCode;
+    if (retroSourceCode) {
+      await admin.from("procedure_trainings").update({ procedure_code: retroSourceCode }).eq("id", sourceId).eq("organization_id", organizationId);
+    }
+  }
+
   const { data: created, error: insertError } = await admin
     .from("procedure_trainings")
     .insert({
       organization_id: organizationId,
       created_by: auth.user.id,
-      procedure_code: source.procedure_code,
+      procedure_code: newCode,
       procedure_name: source.procedure_name,
       drafting_unit: source.drafting_unit,
       effective_date: source.effective_date,
