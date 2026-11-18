@@ -118,6 +118,20 @@ describe("Procedure trainings module security and control gates", () => {
     expect(detailClient).toContain("draft.feedback_qlcl");
     expect(detailClient).toContain("draft.notes");
   });
+
+  // Báo cáo thực tế: "Phải có nút bấm hoàn thành lớp và ko cho xoá" — trước
+  // đây đánh dấu status="TRAINED" phải bấm "Sửa" mở form rồi đổi dropdown
+  // rồi lưu. Thêm nút "✓ Hoàn thành lớp" 1 chạm ở màn xem (PATCH status
+  // thẳng, không cần mở form sửa), chỉ hiện khi CHƯA hoàn thành; "không cho
+  // xoá" đã có sẵn ở DELETE route (status="TRAINED" → 409, xem test ở
+  // trên) nên nút này không cần tự chặn xoá thêm.
+  it("có nút '✓ Hoàn thành lớp' 1 chạm ở trang chi tiết (PATCH status=TRAINED, chỉ hiện khi chưa hoàn thành)", () => {
+    const detailClient = read("src/components/procedure-training-detail-client.tsx");
+    expect(detailClient).toContain("async function completeTraining()");
+    expect(detailClient).toContain('body: JSON.stringify({ status: "TRAINED" })');
+    expect(detailClient).toContain('training.status !== "TRAINED"');
+    expect(detailClient).toContain("✓ Hoàn thành lớp");
+  });
 });
 
 // Real finding from a full-app review: status was ONE value for the whole

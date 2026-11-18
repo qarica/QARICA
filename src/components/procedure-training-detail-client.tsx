@@ -259,6 +259,32 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const [completing, setCompleting] = useState(false);
+
+  // Báo cáo thực tế: "Phải có nút bấm hoàn thành lớp" — trước đây muốn đánh
+  // dấu status="TRAINED" phải bấm "Sửa" mở form rồi đổi dropdown "Trạng
+  // thái" rồi lưu, không rõ ràng là 1 hành động "hoàn thành lớp". Thêm nút
+  // bấm 1 chạm riêng ở màn xem (không cần mở form sửa); đánh dấu xong thì
+  // DELETE /api/procedure-trainings/[id] đã tự chặn xoá (status="TRAINED"
+  // → 409, xem route.ts) nên không cần thêm gì ở đây để "không cho xoá".
+  async function completeTraining() {
+    if (!window.confirm('Đánh dấu lớp này là "Đã đào tạo"? Sau khi hoàn thành sẽ không thể xoá cả lớp (vẫn sửa lại tình trạng được nếu cần).')) return;
+    setCompleting(true);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${training.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "TRAINED" }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setCompleting(false);
+    if (!res.ok) {
+      setError(body.error || "Không đánh dấu hoàn thành được.");
+      return;
+    }
+    setTraining({ ...training, ...body.training });
+    setDraft((v) => ({ ...v, status: "TRAINED" }));
+  }
 
   // "1 chủ đề đào tạo có thể có nhiều lớp khác nhau, chủ động khai báo thông
   // tin lớp và kế thừa thông tin đợt cũ" — tạo 1 lớp (procedure_trainings)
@@ -378,6 +404,11 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
             <button type="button" className="button secondary" onClick={() => setEditing(true)}>
               Sửa
             </button>
+            {training.status !== "TRAINED" ? (
+              <button type="button" className="button primary" disabled={completing} onClick={() => void completeTraining()} title="Đánh dấu lớp này đã hoàn thành đào tạo — sau đó không thể xoá cả lớp">
+                {completing ? "Đang lưu..." : "✓ Hoàn thành lớp"}
+              </button>
+            ) : null}
             <button type="button" className="button tertiary" disabled={duplicating} onClick={() => void duplicateTraining()} title="Tạo 1 lớp mới cùng chủ đề, kế thừa thông tin của lớp này — dùng khi mở thêm 1 lớp/đợt khác ngày">
               {duplicating ? "Đang tạo..." : "+ Tạo lớp mới cùng chủ đề"}
             </button>
