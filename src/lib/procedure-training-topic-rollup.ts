@@ -1,5 +1,6 @@
 import { computePassStatus, type PassStatusResult, type PassStatusRound } from "./procedure-training-pass-status";
 import { normalizeEmployeeCode } from "./training-self-test";
+import { normalizeName, stripHonorific } from "./training-import";
 
 // Báo cáo thực tế: "1 chủ đề đào tạo có thể mở nhiều lớp nhiều đợt vào
 // nhiều ngày khác nhau, người đăng ký có thể tham gia đợt này hoặc đợt
@@ -44,6 +45,7 @@ export function groupTrainingsByTopic<T extends TopicTraining>(trainings: T[]): 
 }
 
 export type TopicAttendee = {
+  id: string;
   training_id: string;
   employee_code: string | null;
   employee_name: string;
@@ -53,7 +55,10 @@ export type TopicAttendee = {
 };
 
 export type TopicEmployeeRollup = {
-  normalizedCode: string;
+  // Khoá gộp nội bộ (mã NV đã chuẩn hoá, hoặc tên đã chuẩn hoá khi không có
+  // mã) — dùng làm React key, KHÔNG phải để hiển thị cột "Mã NV".
+  key: string;
+  employeeCode: string | null;
   employeeName: string;
   department: string | null;
   jobTitle: string | null;
@@ -64,35 +69,43 @@ export type TopicEmployeeRollup = {
   attemptCount: number;
 };
 
-// Chỉ gộp được người có mã NV (employee_code) — so khớp theo tên không đáng
-// tin cậy giữa các đợt khác nhau (trùng tên khác người, hoặc cùng người gõ
-// tên không giống nhau). Người không có mã NV vẫn hiện riêng trong từng
-// đợt như cũ, không gộp ở màn "Theo chủ đề" này.
+// Báo cáo thực tế: "Nút theo chủ đề ko lấy đủ số lượng" — trước đây người
+// KHÔNG có mã NV bị loại thẳng khỏi bảng gộp này (so khớp theo tên giữa
+// các đợt khác nhau trước đây coi là không đáng tin), nên thiếu hẳn người,
+// không chỉ là không gộp được. Sau khi mã NV đã thành tùy chọn ở form tự
+// test (xem training-test/[roundId]/submit/route.ts), số người không có mã
+// NV tăng lên, càng làm bảng này thiếu nhiều. Sửa: ưu tiên gộp theo mã NV
+// đã chuẩn hoá khi có; khi KHÔNG có mã thì vẫn đưa vào bảng, gộp theo tên
+// đã chuẩn hoá (dùng lại normalizeName + stripHonorific của training-
+// import.ts — cùng mức độ tin cậy đã chấp nhận ở route submit tự test) thay
+// vì bỏ hẳn.
+function topicRollupKey(a: Pick<TopicAttendee, "employee_code" | "employee_name">): string {
+  if (a.employee_code) return `code:${normalizeEmployeeCode(a.employee_code)}`;
+  return `name:${stripHonorific(normalizeName(a.employee_name))}`;
+}
+
 export function buildTopicCompletion(
   trainings: TopicTraining[],
   attendees: TopicAttendee[],
   roundsByTraining: Map<string, PassStatusRound[]>,
   resultsByAttendeeId: Map<string, PassStatusResult[]>,
-  attendeeIdByTrainingAndCode: Map<string, string>,
 ): TopicEmployeeRollup[] {
   const trainingById = new Map(trainings.map((t) => [t.id, t]));
-  const byCode = new Map<string, TopicAttendee[]>();
+  const byKey = new Map<string, TopicAttendee[]>();
   for (const a of attendees) {
-    if (!a.employee_code) continue;
-    const code = normalizeEmployeeCode(a.employee_code);
-    byCode.set(code, [...(byCode.get(code) || []), a]);
+    const key = topicRollupKey(a);
+    byKey.set(key, [...(byKey.get(key) || []), a]);
   }
 
   const rollups: TopicEmployeeRollup[] = [];
-  for (const [code, rows] of byCode) {
+  for (const [key, rows] of byKey) {
     let best: "pass" | "fail" | "none" = "none";
     let passedTraining: TopicEmployeeRollup["passedTraining"] = null;
     for (const row of rows) {
       const training = trainingById.get(row.training_id);
       if (!training) continue;
       const rounds = roundsByTraining.get(row.training_id) || [];
-      const attendeeId = attendeeIdByTrainingAndCode.get(`${row.training_id}:${code}`);
-      const myResults = attendeeId ? resultsByAttendeeId.get(attendeeId) || [] : [];
+      const myResults = resultsByAttendeeId.get(row.id) || [];
       const status = computePassStatus(myResults, rounds, training.pass_threshold, row.attended);
       if (status === "pass" && (best !== "pass" || !passedTraining || (training.effective_date || "") < (passedTraining.effectiveDate || "9999-99-99"))) {
         best = "pass";
@@ -103,7 +116,8 @@ export function buildTopicCompletion(
     }
     const latest = rows[rows.length - 1];
     rollups.push({
-      normalizedCode: code,
+      key,
+      employeeCode: latest.employee_code ? normalizeEmployeeCode(latest.employee_code) : null,
       employeeName: latest.employee_name,
       department: latest.department,
       jobTitle: latest.job_title,

@@ -2,7 +2,6 @@ import { PageHeader } from "@/components/page-header";
 import { ProcedureTrainingsClient } from "@/components/procedure-trainings-client";
 import { hasPermission, requireUserContext } from "@/lib/auth";
 import { buildTopicCompletion, groupTrainingsByTopic } from "@/lib/procedure-training-topic-rollup";
-import { normalizeEmployeeCode } from "@/lib/training-self-test";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ProcedureTrainingsPage() {
@@ -63,10 +62,6 @@ export default async function ProcedureTrainingsPage() {
     ? await supabase.from("procedure_training_attendees").select("id,training_id,employee_code,employee_name,department,job_title,attended").in("training_id", trainingIds)
     : { data: [] as { id: string; training_id: string; employee_code: string | null; employee_name: string; department: string | null; job_title: string | null; attended: boolean }[] };
   const attendeeIds = (fullAttendeeRows ?? []).map((a) => a.id);
-  const attendeeIdByTrainingAndCode = new Map<string, string>();
-  for (const a of fullAttendeeRows ?? []) {
-    if (a.employee_code) attendeeIdByTrainingAndCode.set(`${a.training_id}:${normalizeEmployeeCode(a.employee_code)}`, a.id);
-  }
   const { data: roundRows } = trainingIds.length
     ? await supabase.from("procedure_training_rounds").select("id,training_id,sort_order,round_date").in("training_id", trainingIds)
     : { data: [] as { id: string; training_id: string; sort_order: number; round_date: string | null }[] };
@@ -86,7 +81,6 @@ export default async function ProcedureTrainingsPage() {
       (fullAttendeeRows ?? []).filter((a) => groupTrainings.some((t) => t.id === a.training_id)),
       roundsByTraining,
       resultsByAttendeeId,
-      attendeeIdByTrainingAndCode,
     ),
   }));
 

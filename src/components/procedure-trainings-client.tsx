@@ -31,7 +31,8 @@ type SelfReadDocument = { id: string; title: string; document_code: string | nul
 type Acknowledgment = { document_publication_id: string; user_id: string | null; department_id: string | null };
 type DepartmentStaffCount = { id: string; name: string; staff_count: number | null };
 type TopicRollupRow = {
-  normalizedCode: string;
+  key: string;
+  employeeCode: string | null;
   employeeName: string;
   department: string | null;
   jobTitle: string | null;
@@ -429,6 +430,7 @@ export function ProcedureTrainingsClient({
                   <table>
                     <thead>
                       <tr>
+                        <th>STT</th>
                         <th>Họ tên</th>
                         <th>Mã NV</th>
                         <th>Đơn vị</th>
@@ -439,10 +441,11 @@ export function ProcedureTrainingsClient({
                       </tr>
                     </thead>
                     <tbody>
-                      {visibleRollup.map((row) => (
-                        <tr key={row.normalizedCode}>
+                      {visibleRollup.map((row, idx) => (
+                        <tr key={row.key}>
+                          <td>{idx + 1}</td>
                           <td>{row.employeeName}</td>
-                          <td>{row.normalizedCode}</td>
+                          <td>{row.employeeCode || "—"}</td>
                           <td>{row.department || "—"}</td>
                           <td>{row.jobTitle || "—"}</td>
                           <td>
@@ -456,8 +459,8 @@ export function ProcedureTrainingsClient({
                       ))}
                       {!group.rollup.length ? (
                         <tr>
-                          <td colSpan={7} className="empty-state compact">
-                            Chưa có nhân sự nào có mã NV để gộp theo chủ đề này.
+                          <td colSpan={8} className="empty-state compact">
+                            Chưa có nhân sự nào tham gia các đợt của chủ đề này.
                           </td>
                         </tr>
                       ) : null}

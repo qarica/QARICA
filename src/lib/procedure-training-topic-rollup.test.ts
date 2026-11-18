@@ -63,8 +63,8 @@ describe("procedure-training-topic-rollup", () => {
 
     it("người KHÔNG đạt ở đợt 1 nhưng đăng ký học lại và ĐẠT ở đợt 2 → trạng thái gộp là Đạt, ghi nhận đúng đợt đã đạt", () => {
       const attendees: TopicAttendee[] = [
-        { training_id: "t1", employee_code: "NV01", employee_name: "Nguyễn Văn A", department: "Khoa A", job_title: "Bác sĩ", attended: true },
-        { training_id: "t2", employee_code: "NV01", employee_name: "Nguyễn Văn A", department: "Khoa A", job_title: "Bác sĩ", attended: true },
+        { id: "a1", training_id: "t1", employee_code: "NV01", employee_name: "Nguyễn Văn A", department: "Khoa A", job_title: "Bác sĩ", attended: true },
+        { id: "a2", training_id: "t2", employee_code: "NV01", employee_name: "Nguyễn Văn A", department: "Khoa A", job_title: "Bác sĩ", attended: true },
       ];
       const results: PassStatusResult[] = [{ round_id: "r1", score: 10 }];
       const results2: PassStatusResult[] = [{ round_id: "r2", score: 16 }];
@@ -72,11 +72,7 @@ describe("procedure-training-topic-rollup", () => {
         ["a1", results],
         ["a2", results2],
       ]);
-      const attendeeIdByTrainingAndCode = new Map([
-        ["t1:NV01", "a1"],
-        ["t2:NV01", "a2"],
-      ]);
-      const rollup = buildTopicCompletion(trainings, attendees, roundsByTraining, resultsByAttendeeId, attendeeIdByTrainingAndCode);
+      const rollup = buildTopicCompletion(trainings, attendees, roundsByTraining, resultsByAttendeeId);
       expect(rollup).toHaveLength(1);
       expect(rollup[0].status).toBe("pass");
       expect(rollup[0].passedTraining?.trainingId).toBe("t2");
@@ -85,31 +81,43 @@ describe("procedure-training-topic-rollup", () => {
 
     it("người không đạt ở BẤT KỲ đợt nào trong chủ đề → trạng thái gộp là Không đạt", () => {
       const attendees: TopicAttendee[] = [
-        { training_id: "t1", employee_code: "NV02", employee_name: "Trần Thị B", department: null, job_title: null, attended: true },
-        { training_id: "t2", employee_code: "NV02", employee_name: "Trần Thị B", department: null, job_title: null, attended: true },
+        { id: "b1", training_id: "t1", employee_code: "NV02", employee_name: "Trần Thị B", department: null, job_title: null, attended: true },
+        { id: "b2", training_id: "t2", employee_code: "NV02", employee_name: "Trần Thị B", department: null, job_title: null, attended: true },
       ];
       const resultsByAttendeeId = new Map<string, PassStatusResult[]>([
         ["b1", [{ round_id: "r1", score: 8 }]],
         ["b2", [{ round_id: "r2", score: 9 }]],
       ]);
-      const attendeeIdByTrainingAndCode = new Map([
-        ["t1:NV02", "b1"],
-        ["t2:NV02", "b2"],
-      ]);
-      const rollup = buildTopicCompletion(trainings, attendees, roundsByTraining, resultsByAttendeeId, attendeeIdByTrainingAndCode);
+      const rollup = buildTopicCompletion(trainings, attendees, roundsByTraining, resultsByAttendeeId);
       expect(rollup[0].status).toBe("fail");
       expect(rollup[0].passedTraining).toBeNull();
     });
 
-    it("người không có mã NV bị loại khỏi bảng gộp (không so khớp được chéo đợt theo tên)", () => {
-      const attendees: TopicAttendee[] = [{ training_id: "t1", employee_code: null, employee_name: "Không mã", department: null, job_title: null, attended: true }];
-      const rollup = buildTopicCompletion(trainings, attendees, roundsByTraining, new Map(), new Map());
-      expect(rollup).toHaveLength(0);
+    // Báo cáo thực tế: "Nút theo chủ đề ko lấy đủ số lượng" — người không có
+    // mã NV trước đây bị loại HẲN khỏi bảng gộp; giờ vẫn phải xuất hiện,
+    // gộp theo tên đã chuẩn hoá (không có mã để hiển thị thì cột Mã NV là
+    // null, UI hiện "—").
+    it("người không có mã NV vẫn xuất hiện trong bảng gộp (gộp theo tên đã chuẩn hoá), employeeCode là null", () => {
+      const attendees: TopicAttendee[] = [{ id: "c1", training_id: "t1", employee_code: null, employee_name: "Không Mã", department: null, job_title: null, attended: true }];
+      const rollup = buildTopicCompletion(trainings, attendees, roundsByTraining, new Map());
+      expect(rollup).toHaveLength(1);
+      expect(rollup[0].employeeCode).toBeNull();
+      expect(rollup[0].employeeName).toBe("Không Mã");
+    });
+
+    it("cùng 1 người không mã NV ở 2 đợt khác nhau, tên lệch dấu/hoa-thường → vẫn gộp thành 1 dòng duy nhất", () => {
+      const attendees: TopicAttendee[] = [
+        { id: "d1", training_id: "t1", employee_code: null, employee_name: "Nguyễn Thị Ngọc Quyên", department: null, job_title: null, attended: true },
+        { id: "d2", training_id: "t2", employee_code: null, employee_name: "NGUYEN THI NGOC QUYEN", department: null, job_title: null, attended: true },
+      ];
+      const rollup = buildTopicCompletion(trainings, attendees, roundsByTraining, new Map());
+      expect(rollup).toHaveLength(1);
+      expect(rollup[0].attemptCount).toBe(2);
     });
 
     it("người chưa làm bài ở đợt nào cả → trạng thái gộp là 'none', không phải 'fail'", () => {
-      const attendees: TopicAttendee[] = [{ training_id: "t1", employee_code: "NV03", employee_name: "Lê Văn C", department: null, job_title: null, attended: false }];
-      const rollup = buildTopicCompletion(trainings, attendees, roundsByTraining, new Map(), new Map());
+      const attendees: TopicAttendee[] = [{ id: "e1", training_id: "t1", employee_code: "NV03", employee_name: "Lê Văn C", department: null, job_title: null, attended: false }];
+      const rollup = buildTopicCompletion(trainings, attendees, roundsByTraining, new Map());
       expect(rollup[0].status).toBe("none");
     });
   });

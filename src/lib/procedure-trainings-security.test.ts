@@ -242,7 +242,6 @@ describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần
     expect(lib).toContain('return `name:${training.procedure_name.trim().toLocaleLowerCase("vi")}`;');
     expect(lib).toContain("if (list.length < 2) groups.delete(key);");
     expect(lib).toContain("export function buildTopicCompletion(");
-    expect(lib).toContain("if (!a.employee_code) continue;");
 
     const page = read("src/app/(app)/procedure-trainings/page.tsx");
     expect(page).toContain('import { buildTopicCompletion, groupTrainingsByTopic } from "@/lib/procedure-training-topic-rollup"');
@@ -252,6 +251,28 @@ describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần
     expect(client).not.toContain("{topicGroups.length ? (");
     expect(client).toContain("!topicGroups.length ? (");
     expect(client).toContain('<button type="button" className={view === "topic" ? "active" : ""}');
+  });
+
+  // Báo cáo thực tế: "Nút theo chủ đề ko lấy đủ số lượng và thiếu cột stt"
+  // — (1) người KHÔNG có mã NV trước đây bị `continue` bỏ qua hẳn khỏi
+  // bảng gộp (không chỉ không gộp được, mà MẤT LUÔN khỏi danh sách) — sau
+  // khi mã NV thành tùy chọn ở form tự test, số người không mã tăng lên,
+  // càng làm bảng này thiếu người. Giờ vẫn gộp theo mã khi có, nhưng không
+  // có mã thì gộp theo tên chuẩn hoá thay vì loại bỏ. (2) Bảng chưa có cột
+  // STT như mọi bảng danh sách khác trong app (xem roster table đã thêm
+  // STT trước đó).
+  it("tab 'Theo chủ đề': KHÔNG loại người thiếu mã NV khỏi bảng gộp (gộp theo tên khi không có mã), có cột STT", () => {
+    const lib = read("src/lib/procedure-training-topic-rollup.ts");
+    expect(lib).not.toContain("if (!a.employee_code) continue;");
+    expect(lib).toContain('import { normalizeName, stripHonorific } from "./training-import";');
+    expect(lib).toContain("function topicRollupKey(");
+    expect(lib).toContain('return `name:${stripHonorific(normalizeName(a.employee_name))}`;');
+
+    const client = read("src/components/procedure-trainings-client.tsx");
+    expect(client).toContain("<th>STT</th>");
+    expect(client).toContain("{visibleRollup.map((row, idx) => (");
+    expect(client).toContain("<td>{idx + 1}</td>");
+    expect(client).toContain("{row.employeeCode || \"—\"}");
   });
 
   it("trang server fetch văn bản Tự đọc hiểu đúng điều kiện đã dùng cho xác nhận công khai (PUBLISHED, request_type NEW, dissemination_type SELF_READ)", () => {
