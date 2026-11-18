@@ -5,8 +5,11 @@ import { computeScore, gradeAnswers, normalizeEmployeeCode, type SubmittedAnswer
 // Route CÔNG KHAI — nộp bài không đăng nhập. Chống nộp trùng: so khớp mã NV
 // đã chuẩn hoá với attendee đã có của CÙNG training_id — nếu người đó đã có
 // kết quả cho round_id này rồi thì chặn (chính sách đã chốt: làm 1 lần duy
-// nhất). Không dùng RLS cho anon — toàn bộ kiểm tra nằm ở đây, qua service
-// role (createAdminClient), giống mọi route admin khác trong app.
+// nhất). Mã nhân viên không bắt buộc — bỏ trống thì không chặn được nộp
+// trùng (không có gì để so khớp), chấp nhận đánh đổi để không ép người
+// không nhớ/không có mã NV phải dừng lại giữa chừng. Không dùng RLS cho
+// anon — toàn bộ kiểm tra nằm ở đây, qua service role (createAdminClient),
+// giống mọi route admin khác trong app.
 export async function POST(request: Request, { params }: { params: Promise<{ roundId: string }> }) {
   const { roundId } = await params;
   const body = await request.json().catch(() => ({}));
@@ -26,7 +29,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
     : [];
 
   if (!employeeName) return NextResponse.json({ error: "Chưa nhập họ tên." }, { status: 400 });
-  if (!employeeCodeRaw) return NextResponse.json({ error: "Chưa nhập mã nhân viên." }, { status: 400 });
   if (!departmentId) return NextResponse.json({ error: "Chưa chọn đơn vị công tác." }, { status: 400 });
   if (!jobTitle) return NextResponse.json({ error: "Chưa chọn chức danh chuyên môn." }, { status: 400 });
   if (!answers.length) return NextResponse.json({ error: "Chưa trả lời câu nào." }, { status: 400 });
@@ -58,12 +60,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
   if (!questions || !questions.length) return NextResponse.json({ error: "Đợt đào tạo này chưa có câu hỏi." }, { status: 400 });
   const questionByNo = new Map(questions.map((q) => [q.question_no, q]));
 
-  const normalizedCode = normalizeEmployeeCode(employeeCodeRaw);
-  const { data: existingAttendees } = await admin
-    .from("procedure_training_attendees")
-    .select("id,employee_code")
-    .eq("training_id", round.training_id);
-  const matchedAttendee = (existingAttendees ?? []).find((a) => a.employee_code && normalizeEmployeeCode(a.employee_code) === normalizedCode);
+  // Mã nhân viên không bắt buộc — khi để trống thì không so khớp/chặn nộp
+  // trùng được (không có gì để so), mỗi lần nộp tạo 1 attendee mới, cùng quy
+  // ước đã dùng ở route đăng ký đào tạo khi bỏ trống mã NV.
+  const normalizedCode = employeeCodeRaw ? normalizeEmployeeCode(employeeCodeRaw) : null;
+  const { data: existingAttendees } = normalizedCode
+    ? await admin.from("procedure_training_attendees").select("id,employee_code").eq("training_id", round.training_id)
+    : { data: [] as { id: string; employee_code: string | null }[] };
+  const matchedAttendee = normalizedCode ? (existingAttendees ?? []).find((a) => a.employee_code && normalizeEmployeeCode(a.employee_code) === normalizedCode) : undefined;
 
   let attendeeId: string;
   if (matchedAttendee) {
@@ -83,7 +87,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
         training_id: round.training_id,
         organization_id: round.organization_id,
         employee_name: employeeName,
-        employee_code: employeeCodeRaw,
+        employee_code: employeeCodeRaw || null,
         department: department.name,
         job_title: jobTitle,
         attended: true,

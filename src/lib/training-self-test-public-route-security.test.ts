@@ -48,6 +48,23 @@ describe("Public training self-test routes (/api/public/training-test/**): cố 
     expect(insertBlock).toContain("job_title: jobTitle");
   });
 
+  // Báo cáo thực tế: "Mã nhân viên không bắt buộc điền" — bỏ validate bắt
+  // buộc ở cả UI (bỏ `required`/đổi nhãn "(tùy chọn)") lẫn route nộp bài;
+  // khi bỏ trống thì KHÔNG so khớp/chặn nộp trùng được (không có gì để so),
+  // mỗi lần nộp tạo attendee mới — cùng quy ước route đăng ký đào tạo đã
+  // dùng khi bỏ trống mã NV.
+  it("Mã nhân viên không còn bắt buộc — UI bỏ required, route không chặn khi bỏ trống, và không chạy so khớp trùng khi đó", () => {
+    expect(submitRoute).not.toContain('if (!employeeCodeRaw) return NextResponse.json({ error: "Chưa nhập mã nhân viên." }');
+    expect(submitRoute).toContain("const normalizedCode = employeeCodeRaw ? normalizeEmployeeCode(employeeCodeRaw) : null;");
+    expect(submitRoute).toContain("employee_code: employeeCodeRaw || null,");
+
+    // Chỉ bỏ required ở FORM NỘP BÀI — form "Xem lại bài đã làm" (tra cứu lại
+    // bằng mã NV) vẫn bắt buộc, vì không có gì để tra cứu nếu bỏ trống.
+    const page = read("src/app/lam-bai/[roundId]/page.tsx");
+    expect(page).toContain("Mã nhân viên (tùy chọn)");
+    expect(page).toContain('<input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="NV0012" />');
+  });
+
   it("GET chỉ trả câu hỏi khi is_open_for_submission = true, đóng thì chỉ trả tên đợt (không lộ đề)", () => {
     expect(getRoute).toContain("if (!round.is_open_for_submission)");
     expect(getRoute).toContain("open: false");

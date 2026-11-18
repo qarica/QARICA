@@ -148,8 +148,8 @@ export default function PublicTrainingTestPage({ params }: { params: Promise<{ r
               <input value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} required placeholder="Nguyễn Văn A" />
             </label>
             <label>
-              <span>Mã nhân viên *</span>
-              <input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} required placeholder="NV0012" />
+              <span>Mã nhân viên (tùy chọn)</span>
+              <input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="NV0012" />
             </label>
             <label>
               <span>Đơn vị công tác *</span>
