@@ -207,11 +207,11 @@ function wrapLabel(label: string, maxCharsPerLine: number, maxLines: number): st
  * canvas thật vì chỉ cần đủ che, không cần khít tuyệt đối.
  */
 function ValueLabel({ x, y, text, fill = "#31515a" }: { x: number; y: number; text: string; fill?: string }) {
-  const w = text.length * 6 + 6;
+  const w = text.length * 7.5 + 8;
   return (
     <g>
-      <rect x={x - w / 2} y={y - 9} width={w} height={11} fill="#fff" />
-      <text x={x} y={y} textAnchor="middle" fontSize="9" fontWeight="800" fill={fill}>
+      <rect x={x - w / 2} y={y - 12} width={w} height={14} fill="#fff" />
+      <text x={x} y={y} textAnchor="middle" fontSize="12" fontWeight="800" fill={fill}>
         {text}
       </text>
     </g>
@@ -236,7 +236,7 @@ export function TqmGroupedBars({ groups, beforeLabel, afterLabel, threshold, thr
   const hasThreshold = threshold !== null && threshold !== undefined && Number.isFinite(threshold);
   const allVals = groups.flatMap((g) => [g.before, g.after]).filter((v): v is number => v != null).concat(hasThreshold ? [threshold as number] : []);
   const ceiling = Math.max(1, ...allVals) * 1.2;
-  const barW = 20, gapInGroup = 4, groupGap = 26, sidePad = 20, topPad = 18, bottomPad = 58, height = 234;
+  const barW = 30, gapInGroup = 6, groupGap = 38, sidePad = 26, topPad = 26, bottomPad = 66, height = 280;
   const groupW = barW * 2 + gapInGroup;
   const width = sidePad * 2 + groups.length * groupW + Math.max(0, groups.length - 1) * groupGap;
   const baseY = height - bottomPad;
@@ -260,7 +260,7 @@ export function TqmGroupedBars({ groups, beforeLabel, afterLabel, threshold, thr
           {thresholdY !== null ? <line x1={sidePad} y1={thresholdY} x2={width - sidePad} y2={thresholdY} stroke={TARGET_LINE_COLOR} strokeWidth="2" strokeDasharray="6 5" /> : null}
           {groups.map((g, i) => {
             const gx = sidePad + i * (groupW + groupGap);
-            const labelLines = wrapLabel(g.label, 13, 4);
+            const labelLines = wrapLabel(g.label, 15, 4);
             return (
               <g key={`${g.label}-${i}`}>
                 {g.before != null ? (
@@ -275,9 +275,9 @@ export function TqmGroupedBars({ groups, beforeLabel, afterLabel, threshold, thr
                     <ValueLabel x={gx + barW + gapInGroup + barW / 2} y={yFor(g.after) - 4} text={g.after.toFixed(1)} />
                   </g>
                 ) : null}
-                <text x={gx + groupW / 2} y={baseY + 13} textAnchor="middle" fontSize="9" fill="#71848b">
+                <text x={gx + groupW / 2} y={baseY + 16} textAnchor="middle" fontSize="11" fill="#5a6c73">
                   {labelLines.map((line, li) => (
-                    <tspan key={li} x={gx + groupW / 2} dy={li === 0 ? 0 : 11}>
+                    <tspan key={li} x={gx + groupW / 2} dy={li === 0 ? 0 : 13}>
                       {line}
                     </tspan>
                   ))}
@@ -302,7 +302,7 @@ export function TqmGroupedBars({ groups, beforeLabel, afterLabel, threshold, thr
 export function TqmColumnBars({ rows, max, unit = "" }: { rows: { label: string; value: number; tone?: Tone }[]; max?: number; unit?: string }) {
   if (!rows.length) return <div className="empty-state compact">Chưa có dữ liệu.</div>;
   const ceiling = Math.max(1, max ?? Math.max(1, ...rows.map((r) => r.value)));
-  const barW = 34, gap = 22, sidePad = 20, topPad = 20, bottomPad = 58, height = 214;
+  const barW = 50, gap = 32, sidePad = 26, topPad = 26, bottomPad = 66, height = 260;
   const width = sidePad * 2 + rows.length * barW + Math.max(0, rows.length - 1) * gap;
   const baseY = height - bottomPad;
   const yFor = (v: number) => topPad + (1 - Math.max(0, Math.min(ceiling, v)) / ceiling) * (baseY - topPad);
@@ -314,14 +314,14 @@ export function TqmColumnBars({ rows, max, unit = "" }: { rows: { label: string;
           {rows.map((r, i) => {
             const x = sidePad + i * (barW + gap);
             const y = yFor(r.value);
-            const labelLines = wrapLabel(r.label, 12, 4);
+            const labelLines = wrapLabel(r.label, 14, 4);
             return (
               <g key={`${r.label}-${i}`}>
-                <rect x={x} y={y} width={barW} height={Math.max(0, baseY - y)} rx="4" fill={COLORS[r.tone || "brand"]} />
-                <ValueLabel x={x + barW / 2} y={y - 5} text={`${r.value}${unit}`} fill="#172126" />
-                <text x={x + barW / 2} y={baseY + 13} textAnchor="middle" fontSize="9" fill="#46545a">
+                <rect x={x} y={y} width={barW} height={Math.max(0, baseY - y)} rx="5" fill={COLORS[r.tone || "brand"]} />
+                <ValueLabel x={x + barW / 2} y={y - 6} text={`${r.value}${unit}`} fill="#172126" />
+                <text x={x + barW / 2} y={baseY + 16} textAnchor="middle" fontSize="11" fill="#46545a">
                   {labelLines.map((line, li) => (
-                    <tspan key={li} x={x + barW / 2} dy={li === 0 ? 0 : 11}>
+                    <tspan key={li} x={x + barW / 2} dy={li === 0 ? 0 : 13}>
                       {line}
                     </tspan>
                   ))}
@@ -345,5 +345,5 @@ export const TQM_CHART_CSS = `
 .tqm-gantt{overflow-x:auto;padding:0 16px 18px}.tqm-gantt-head,.tqm-gantt-row{min-width:860px;display:grid;grid-template-columns:240px 1fr}.tqm-gantt-head>div{font-size:10px;font-weight:900;color:#607279;padding:9px}.tqm-gantt-head{grid-template-columns:240px repeat(15,1fr);border-bottom:1px solid #e3eaec}.tqm-gantt-head span{font-size:9px;text-align:center;padding:9px 2px;color:#71838a}.tqm-gantt-row{min-height:54px;border-bottom:1px solid #edf2f3}.tqm-gantt-name{padding:9px;display:grid;align-content:center}.tqm-gantt-name strong{font-size:11px}.tqm-gantt-name small{font-size:9px;color:#7a8b91;margin-top:3px}.tqm-gantt-grid{position:relative;display:grid;grid-template-columns:repeat(15,1fr)}.tqm-gantt-grid>i{border-left:1px solid #edf2f3}.tqm-gantt-bar{position:absolute;top:15px;height:24px;border-radius:7px;overflow:hidden;box-shadow:0 4px 10px rgba(20,50,58,.12)}.tqm-gantt-bar em{display:block;height:100%;background:rgba(255,255,255,.28)}
 @media(max-width:700px){.tqm-gantt-head,.tqm-gantt-row{grid-template-columns:170px 1fr;min-width:980px}.tqm-gantt-head{grid-template-columns:170px repeat(15,1fr)}.tqm-gantt-name{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid #e3eaec}.tqm-gantt-head>div{position:sticky;left:0;z-index:3;background:#fff;border-right:1px solid #e3eaec}.tqm-donut-wrap{grid-template-columns:1fr}.tqm-donut{width:170px;height:170px}.tqm-donut-hole{width:110px;height:110px}.tqm-hbar-row{grid-template-columns:100px 1fr 34px}.tqm-gantt{padding-inline:8px}}
 .tqm-gauge{display:flex;flex-direction:column;align-items:center;gap:2px;width:100px;max-width:100px;flex:0 0 100px}.tqm-gauge svg{width:100px;height:100px}.tqm-gauge-label{font-size:10px;color:#718187;text-align:center;width:100%}
-.tqm-grouped-bars{padding:8px 18px 20px}.tqm-grouped-bars-legend{display:flex;flex-wrap:wrap;gap:14px;padding-bottom:10px;font-size:11px;font-weight:700;color:#5d6f76}.tqm-grouped-bars-legend span{display:inline-flex;align-items:center;gap:6px}.tqm-swatch{width:10px;height:10px;border-radius:3px;display:inline-block}.tqm-grouped-bars-scroll{overflow-x:auto}.tqm-grouped-bars-scroll svg{display:block}
+.tqm-grouped-bars{padding:8px 18px 20px}.tqm-grouped-bars-legend{display:flex;flex-wrap:wrap;gap:14px;padding-bottom:10px;font-size:11px;font-weight:700;color:#5d6f76}.tqm-grouped-bars-legend span{display:inline-flex;align-items:center;gap:6px}.tqm-swatch{width:10px;height:10px;border-radius:3px;display:inline-block}.tqm-grouped-bars-scroll{overflow-x:auto;display:flex;justify-content:center}.tqm-grouped-bars-scroll svg{display:block;flex:0 0 auto}.tqm-col-bars-scroll{overflow-x:auto;display:flex;justify-content:center}.tqm-col-bars-scroll svg{display:block;flex:0 0 auto}
 `;

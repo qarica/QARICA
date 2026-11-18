@@ -577,7 +577,7 @@ describe("Procedure trainings: import điểm từ file khảo sát (Google/Micr
     const groupedBarsSrc = charts.slice(charts.indexOf("export function TqmGroupedBars("), charts.indexOf("export function TqmColumnBars("));
     expect(groupedBarsSrc.match(/<ValueLabel /g)?.length).toBe(2);
     const columnBarsSrc = charts.slice(charts.indexOf("export function TqmColumnBars("));
-    expect(columnBarsSrc).toContain("<ValueLabel x={x + barW / 2} y={y - 5} text={`${r.value}${unit}`} fill=\"#172126\" />");
+    expect(columnBarsSrc).toContain("<ValueLabel x={x + barW / 2} y={y - 6} text={`${r.value}${unit}`} fill=\"#172126\" />");
   });
 
   // Mẫu báo cáo tham khảo người dùng gửi (infographic Pre/Post): 3 ý được

@@ -1818,7 +1818,9 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
           <div className="ptd-honor-grid" style={{ padding: "0 19px 19px" }}>
             {(showAllHonor ? maxScoreAchievers : maxScoreAchievers.slice(0, LIST_COLLAPSE_LIMIT)).map((row) => (
               <div className="ptd-honor-card" key={row.attendeeId}>
-                <Icon name="badge-check" size={20} />
+                <span className="ptd-honor-badge">
+                  <Icon name="badge-check" size={26} />
+                </span>
                 <strong>{row.name}</strong>
                 <span className="muted tiny">{row.jobTitle || row.department || "—"}</span>
                 <span className="status-badge success">
@@ -2037,24 +2039,38 @@ function AnalysisTab({ rounds, attendees, results, responses, questions, passThr
           grid-template-columns: repeat(auto-fit, minmax(170px, 230px));
         }
         .ptd-honor-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-          gap: 10px;
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 16px;
         }
         .ptd-honor-card {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
           text-align: center;
-          border: 1px solid var(--line);
-          border-radius: 12px;
-          padding: 14px 10px;
-          color: var(--warning);
+          width: 200px;
+          border: 1px solid #f0d58a;
+          border-radius: 16px;
+          padding: 22px 14px 18px;
+          background: linear-gradient(180deg, #fffaf0 0%, #fdf1d6 100%);
+          box-shadow: 0 3px 12px rgba(180, 131, 6, 0.1);
+        }
+        .ptd-honor-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          background: linear-gradient(180deg, #ffe49a 0%, #ffcf5c 100%);
+          color: #8a5a00;
+          box-shadow: 0 2px 6px rgba(180, 131, 6, 0.25);
         }
         .ptd-honor-card strong {
           color: var(--text);
-          font-size: 12px;
+          font-size: 15px;
         }
         @media (max-width: 760px) {
           .table-wrap {
