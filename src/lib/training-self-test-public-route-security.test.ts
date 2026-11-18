@@ -137,11 +137,10 @@ describe("POST /api/public/training-test/[roundId]/lookup: xem lại bài đã n
 });
 
 describe("UI /lam-bai: màn hình kết quả (ngay sau khi nộp VÀ tra cứu lại) hiện đủ câu hỏi + đáp án đã chọn, không chỉ Đúng/Sai trống trơn", () => {
-  it("hiện question_text và answer_text cho từng câu, kèm lưu ý không lộ đáp án đúng", () => {
+  it("hiện question_text và answer_text cho từng câu", () => {
     const page = read("src/app/lam-bai/[roundId]/page.tsx");
     expect(page).toContain("Bạn chọn: {r.answer_text");
     expect(page).toContain("Đã chọn: {r.answer_text");
-    expect(page).toContain("Không hiển thị đáp án đúng ở đây");
   });
 
   it("có lối vào 'Xem lại kết quả' từ cả màn hình đã đóng lẫn form đang mở (chưa nộp)", () => {

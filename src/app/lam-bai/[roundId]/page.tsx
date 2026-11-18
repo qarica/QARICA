@@ -257,7 +257,6 @@ export default function PublicTrainingTestPage({ params }: { params: Promise<{ r
                 </li>
               ))}
             </ul>
-            <p className="pbt-note">Không hiển thị đáp án đúng ở đây để tránh lộ đề cho người làm sau — nếu thắc mắc về câu sai, liên hệ cán bộ QLCL để đối chiếu.</p>
           </div>
         ) : null}
 
@@ -320,7 +319,6 @@ export default function PublicTrainingTestPage({ params }: { params: Promise<{ r
                     </li>
                   ))}
                 </ul>
-                <p className="pbt-note">Không hiển thị đáp án đúng ở đây để tránh lộ đề cho người làm sau — nếu thắc mắc về câu sai, liên hệ cán bộ QLCL để đối chiếu.</p>
               </>
             )}
           </div>
@@ -384,8 +382,20 @@ export default function PublicTrainingTestPage({ params }: { params: Promise<{ r
           gap: 8px;
         }
         .pbt-question strong {
-          font-size: 13px;
+          font-size: 15px;
           line-height: 1.4;
+        }
+        /* Báo cáo thực tế: "Tăng size chữ và cho các ô chọn thẳng 1 hàng
+           không nên chia 2 cột" — .radio-row dùng chung toàn app (globals.css,
+           flex-wrap 2 cột khi đủ chỗ), ở đây scope riêng (không đụng tới nơi
+           khác đang dùng .radio-row) vì trang làm bài chủ yếu dùng trên điện
+           thoại, xếp dọc 1 cột dễ đọc/bấm hơn 2 cột bị bóp hẹp. */
+        .radio-row {
+          flex-direction: column;
+          gap: 10px;
+        }
+        .radio-row label {
+          font-size: 15px;
         }
         .pbt-note {
           margin: 0;
