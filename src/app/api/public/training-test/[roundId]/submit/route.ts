@@ -3,13 +3,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { computeScore, gradeAnswers, normalizeEmployeeCode, type SubmittedAnswer } from "@/lib/training-self-test";
 
 // Route CÔNG KHAI — nộp bài không đăng nhập. Chống nộp trùng: so khớp mã NV
-// đã chuẩn hoá với attendee đã có của CÙNG training_id — nếu người đó đã có
-// kết quả cho round_id này rồi thì chặn (chính sách đã chốt: làm 1 lần duy
-// nhất). Mã nhân viên không bắt buộc — bỏ trống thì không chặn được nộp
-// trùng (không có gì để so khớp), chấp nhận đánh đổi để không ép người
-// không nhớ/không có mã NV phải dừng lại giữa chừng. Không dùng RLS cho
-// anon — toàn bộ kiểm tra nằm ở đây, qua service role (createAdminClient),
-// giống mọi route admin khác trong app.
+// đã chuẩn hoá (hoặc họ tên đã chuẩn hoá nếu không có mã — xem matchedAttendee
+// bên dưới) với attendee đã có của CÙNG training_id — nếu người đó đã có kết
+// quả cho round_id này rồi thì chặn (chính sách đã chốt: làm 1 lần duy nhất).
+// Mã nhân viên không bắt buộc. Không dùng RLS cho anon — toàn bộ kiểm tra
+// nằm ở đây, qua service role (createAdminClient), giống mọi route admin
+// khác trong app.
 export async function POST(request: Request, { params }: { params: Promise<{ roundId: string }> }) {
   const { roundId } = await params;
   const body = await request.json().catch(() => ({}));
@@ -60,14 +59,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
   if (!questions || !questions.length) return NextResponse.json({ error: "Đợt đào tạo này chưa có câu hỏi." }, { status: 400 });
   const questionByNo = new Map(questions.map((q) => [q.question_no, q]));
 
-  // Mã nhân viên không bắt buộc — khi để trống thì không so khớp/chặn nộp
-  // trùng được (không có gì để so), mỗi lần nộp tạo 1 attendee mới, cùng quy
-  // ước đã dùng ở route đăng ký đào tạo khi bỏ trống mã NV.
+  // Báo cáo thực tế: "cùng 1 người nhưng tách 2 dòng dẫn đến 1 dòng đạt 1
+  // dòng học lại" — sau khi bỏ bắt buộc mã NV, 2 lần nộp (Pre-test + Post-
+  // test) của CÙNG 1 người không có mã bị tạo thành 2 attendee riêng (không
+  // so khớp được gì), mỗi dòng chỉ có điểm 1 đợt nên tính đạt/không đạt sai
+  // lệch nhau. Khi không có mã NV để so khớp, fallback so khớp theo họ tên
+  // đã chuẩn hoá (cùng quy ước attendedStatus() đã dùng ở RegistrationTab).
   const normalizedCode = employeeCodeRaw ? normalizeEmployeeCode(employeeCodeRaw) : null;
-  const { data: existingAttendees } = normalizedCode
-    ? await admin.from("procedure_training_attendees").select("id,employee_code").eq("training_id", round.training_id)
-    : { data: [] as { id: string; employee_code: string | null }[] };
-  const matchedAttendee = normalizedCode ? (existingAttendees ?? []).find((a) => a.employee_code && normalizeEmployeeCode(a.employee_code) === normalizedCode) : undefined;
+  const normalizedName = employeeName.trim().toLocaleLowerCase("vi");
+  const { data: existingAttendees } = await admin.from("procedure_training_attendees").select("id,employee_code,employee_name").eq("training_id", round.training_id);
+  const matchedAttendee = (existingAttendees ?? []).find((a) => {
+    if (normalizedCode && a.employee_code) return normalizeEmployeeCode(a.employee_code) === normalizedCode;
+    return a.employee_name.trim().toLocaleLowerCase("vi") === normalizedName;
+  });
 
   let attendeeId: string;
   if (matchedAttendee) {

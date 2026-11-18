@@ -49,11 +49,8 @@ describe("Public training self-test routes (/api/public/training-test/**): cố 
   });
 
   // Báo cáo thực tế: "Mã nhân viên không bắt buộc điền" — bỏ validate bắt
-  // buộc ở cả UI (bỏ `required`/đổi nhãn "(tùy chọn)") lẫn route nộp bài;
-  // khi bỏ trống thì KHÔNG so khớp/chặn nộp trùng được (không có gì để so),
-  // mỗi lần nộp tạo attendee mới — cùng quy ước route đăng ký đào tạo đã
-  // dùng khi bỏ trống mã NV.
-  it("Mã nhân viên không còn bắt buộc — UI bỏ required, route không chặn khi bỏ trống, và không chạy so khớp trùng khi đó", () => {
+  // buộc ở cả UI (bỏ `required`/đổi nhãn "(tùy chọn)") lẫn route nộp bài.
+  it("Mã nhân viên không còn bắt buộc — UI bỏ required ở form nộp bài", () => {
     expect(submitRoute).not.toContain('if (!employeeCodeRaw) return NextResponse.json({ error: "Chưa nhập mã nhân viên." }');
     expect(submitRoute).toContain("const normalizedCode = employeeCodeRaw ? normalizeEmployeeCode(employeeCodeRaw) : null;");
     expect(submitRoute).toContain("employee_code: employeeCodeRaw || null,");
@@ -63,6 +60,19 @@ describe("Public training self-test routes (/api/public/training-test/**): cố 
     const page = read("src/app/lam-bai/[roundId]/page.tsx");
     expect(page).toContain("Mã nhân viên (tùy chọn)");
     expect(page).toContain('<input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="NV0012" />');
+  });
+
+  // Báo cáo thực tế (sau khi bỏ bắt buộc mã NV): "cùng 1 người nhưng tách 2
+  // dòng dẫn đến 1 dòng đạt 1 dòng học lại" — 2 lần nộp (Pre-test + Post-
+  // test) của cùng 1 người KHÔNG có mã NV từng tạo 2 attendee riêng (không
+  // có gì để so khớp), mỗi dòng chỉ có điểm 1 đợt nên đạt/không đạt lệch
+  // nhau. Khi không có mã NV, fallback so khớp theo họ tên đã chuẩn hoá —
+  // cùng quy ước attendedStatus() đã dùng ở RegistrationTab khi thiếu mã NV.
+  it("khi không có mã NV để so khớp, fallback so khớp attendee đã có theo họ tên đã chuẩn hoá (không tạo dòng mới cho cùng 1 người)", () => {
+    expect(submitRoute).toContain("const normalizedName = employeeName.trim().toLocaleLowerCase(\"vi\");");
+    expect(submitRoute).toContain('.select("id,employee_code,employee_name").eq("training_id", round.training_id)');
+    expect(submitRoute).toContain("if (normalizedCode && a.employee_code) return normalizeEmployeeCode(a.employee_code) === normalizedCode;");
+    expect(submitRoute).toContain("return a.employee_name.trim().toLocaleLowerCase(\"vi\") === normalizedName;");
   });
 
   it("GET chỉ trả câu hỏi khi is_open_for_submission = true, đóng thì chỉ trả tên đợt (không lộ đề)", () => {
