@@ -64,15 +64,18 @@ describe("Public training self-test routes (/api/public/training-test/**): cố 
 
   // Báo cáo thực tế (sau khi bỏ bắt buộc mã NV): "cùng 1 người nhưng tách 2
   // dòng dẫn đến 1 dòng đạt 1 dòng học lại" — 2 lần nộp (Pre-test + Post-
-  // test) của cùng 1 người KHÔNG có mã NV từng tạo 2 attendee riêng (không
-  // có gì để so khớp), mỗi dòng chỉ có điểm 1 đợt nên đạt/không đạt lệch
-  // nhau. Khi không có mã NV, fallback so khớp theo họ tên đã chuẩn hoá —
-  // cùng quy ước attendedStatus() đã dùng ở RegistrationTab khi thiếu mã NV.
-  it("khi không có mã NV để so khớp, fallback so khớp attendee đã có theo họ tên đã chuẩn hoá (không tạo dòng mới cho cùng 1 người)", () => {
-    expect(submitRoute).toContain("const normalizedName = employeeName.trim().toLocaleLowerCase(\"vi\");");
+  // test) của cùng 1 người không so khớp được tạo thành 2 attendee riêng,
+  // mỗi dòng chỉ có điểm 1 đợt nên đạt/không đạt lệch nhau. Phát hiện thêm
+  // từ dữ liệu thật: mã NV khác định dạng ("NV 22035" vs "22035") và tên có
+  // dấu/không dấu ("Khuong thị Thanh" vs "KHUONG THI THANH") vẫn phải gộp
+  // được cùng 1 người — nên so khớp mã trước, KHÔNG tìm được qua mã (không
+  // có mã, hoặc mã không khớp) thì fallback so khớp theo họ tên bằng
+  // namesMatch (bỏ dấu + bỏ chức danh viết tắt) của training-import.ts.
+  it("so khớp theo mã NV trước, không tìm được qua mã thì fallback so khớp theo họ tên bằng namesMatch (không tạo dòng mới cho cùng 1 người)", () => {
+    expect(submitRoute).toContain('import { namesMatch } from "@/lib/training-import";');
     expect(submitRoute).toContain('.select("id,employee_code,employee_name").eq("training_id", round.training_id)');
-    expect(submitRoute).toContain("if (normalizedCode && a.employee_code) return normalizeEmployeeCode(a.employee_code) === normalizedCode;");
-    expect(submitRoute).toContain("return a.employee_name.trim().toLocaleLowerCase(\"vi\") === normalizedName;");
+    expect(submitRoute).toContain("const matchedByCode = normalizedCode ? (existingAttendees ?? []).find((a) => a.employee_code && normalizeEmployeeCode(a.employee_code) === normalizedCode) : undefined;");
+    expect(submitRoute).toContain("const matchedAttendee = matchedByCode ?? (existingAttendees ?? []).find((a) => namesMatch(a.employee_name, employeeName));");
   });
 
   it("GET chỉ trả câu hỏi khi is_open_for_submission = true, đóng thì chỉ trả tên đợt (không lộ đề)", () => {

@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeScore, gradeAnswers, normalizeEmployeeCode, type SubmittedAnswer } from "@/lib/training-self-test";
+import { namesMatch } from "@/lib/training-import";
 
 // Route CÔNG KHAI — nộp bài không đăng nhập. Chống nộp trùng: so khớp mã NV
-// đã chuẩn hoá (hoặc họ tên đã chuẩn hoá nếu không có mã — xem matchedAttendee
-// bên dưới) với attendee đã có của CÙNG training_id — nếu người đó đã có kết
-// quả cho round_id này rồi thì chặn (chính sách đã chốt: làm 1 lần duy nhất).
-// Mã nhân viên không bắt buộc. Không dùng RLS cho anon — toàn bộ kiểm tra
-// nằm ở đây, qua service role (createAdminClient), giống mọi route admin
-// khác trong app.
+// đã chuẩn hoá trước, không tìm được qua mã thì fallback so khớp họ tên bằng
+// namesMatch (xem matchedAttendee bên dưới) với attendee đã có của CÙNG
+// training_id — nếu người đó đã có kết quả cho round_id này rồi thì chặn
+// (chính sách đã chốt: làm 1 lần duy nhất). Mã nhân viên không bắt buộc.
+// Không dùng RLS cho anon — toàn bộ kiểm tra nằm ở đây, qua service role
+// (createAdminClient), giống mọi route admin khác trong app.
 export async function POST(request: Request, { params }: { params: Promise<{ roundId: string }> }) {
   const { roundId } = await params;
   const body = await request.json().catch(() => ({}));
@@ -61,17 +62,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
 
   // Báo cáo thực tế: "cùng 1 người nhưng tách 2 dòng dẫn đến 1 dòng đạt 1
   // dòng học lại" — sau khi bỏ bắt buộc mã NV, 2 lần nộp (Pre-test + Post-
-  // test) của CÙNG 1 người không có mã bị tạo thành 2 attendee riêng (không
-  // so khớp được gì), mỗi dòng chỉ có điểm 1 đợt nên tính đạt/không đạt sai
-  // lệch nhau. Khi không có mã NV để so khớp, fallback so khớp theo họ tên
-  // đã chuẩn hoá (cùng quy ước attendedStatus() đã dùng ở RegistrationTab).
+  // test) của CÙNG 1 người bị tạo thành 2 attendee riêng khi không so khớp
+  // được gì, mỗi dòng chỉ có điểm 1 đợt nên tính đạt/không đạt sai lệch
+  // nhau. Phát hiện thêm từ dữ liệu thật: người gõ mã NV 1 lần ("NV 22035")
+  // rồi lần sau chỉ gõ số ("22035") — 2 mã khác định dạng không so khớp
+  // bằng normalizeEmployeeCode được; và người gõ tên có dấu 1 lần, không
+  // dấu lần khác ("Khuong thị Thanh" vs "KHUONG THI THANH"). Nên: thử so
+  // khớp theo mã trước (nếu có mã); nếu KHÔNG tìm được qua mã (không có mã,
+  // hoặc mã không khớp định dạng) thì fallback so khớp theo họ tên — dùng
+  // namesMatch (bỏ dấu + viết thường + bỏ chức danh viết tắt) của
+  // training-import.ts, mạnh hơn so sánh chuỗi thường vì xử lý được cả lệch
+  // dấu tiếng Việt, không chỉ lệch hoa/thường.
   const normalizedCode = employeeCodeRaw ? normalizeEmployeeCode(employeeCodeRaw) : null;
-  const normalizedName = employeeName.trim().toLocaleLowerCase("vi");
   const { data: existingAttendees } = await admin.from("procedure_training_attendees").select("id,employee_code,employee_name").eq("training_id", round.training_id);
-  const matchedAttendee = (existingAttendees ?? []).find((a) => {
-    if (normalizedCode && a.employee_code) return normalizeEmployeeCode(a.employee_code) === normalizedCode;
-    return a.employee_name.trim().toLocaleLowerCase("vi") === normalizedName;
-  });
+  const matchedByCode = normalizedCode ? (existingAttendees ?? []).find((a) => a.employee_code && normalizeEmployeeCode(a.employee_code) === normalizedCode) : undefined;
+  const matchedAttendee = matchedByCode ?? (existingAttendees ?? []).find((a) => namesMatch(a.employee_name, employeeName));
 
   let attendeeId: string;
   if (matchedAttendee) {
