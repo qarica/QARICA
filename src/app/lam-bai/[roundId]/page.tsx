@@ -10,10 +10,12 @@ type LoadState =
   | { kind: "closed"; trainingName: string; roundLabel: string }
   | { kind: "open"; trainingName: string; roundLabel: string; scoreMax: number | null; questions: Question[]; departments: Department[] };
 
-// Khớp đúng 4 lựa chọn "Chức danh chuyên môn" trong khảo sát giấy gốc —
+// Khớp đúng lựa chọn "Chức danh chuyên môn" trong khảo sát giấy gốc —
 // "Khác" cho gõ tay (phát hiện từ dữ liệu thật: có người chọn Khác và ghi
-// "BS Trưởng Khoa").
-const JOB_TITLE_OPTIONS = ["Bác sĩ", "Điều dưỡng/Hộ sinh/Kỹ thuật viên", "Nhân viên văn phòng", "Khác"] as const;
+// "BS Trưởng Khoa"). Báo cáo thực tế: "Bổ sung chức danh Dược sĩ" — thiếu
+// hẳn lựa chọn Dược sĩ dù dữ liệu nhập tay/import cũ đã có người mang chức
+// danh này (thấy ở biểu đồ "So sánh trước/sau theo chức danh").
+const JOB_TITLE_OPTIONS = ["Bác sĩ", "Dược sĩ", "Điều dưỡng/Hộ sinh/Kỹ thuật viên", "Nhân viên văn phòng", "Khác"] as const;
 type DetailedAnswer = { question_no: number; question_text: string; choices: string[] | null; answer_text: string | null; is_correct: boolean };
 type SubmitResult = { score: number; scoreMax: number | null; total: number; correctCount: number; perQuestion: DetailedAnswer[] };
 type LookupResult = { employeeName: string; roundLabel: string; submittedAt: string } & SubmitResult;

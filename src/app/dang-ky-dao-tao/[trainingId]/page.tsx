@@ -9,7 +9,9 @@ type LoadState =
   | { kind: "closed"; trainingName: string }
   | { kind: "open"; trainingName: string; departments: Department[] };
 
-const JOB_TITLE_OPTIONS = ["Bác sĩ", "Điều dưỡng/Hộ sinh/Kỹ thuật viên", "Nhân viên văn phòng", "Khác"] as const;
+// Báo cáo thực tế: "Bổ sung chức danh Dược sĩ" — cùng danh sách đã sửa ở
+// lam-bai/[roundId]/page.tsx (form tự test), giữ đồng bộ 2 nơi.
+const JOB_TITLE_OPTIONS = ["Bác sĩ", "Dược sĩ", "Điều dưỡng/Hộ sinh/Kỹ thuật viên", "Nhân viên văn phòng", "Khác"] as const;
 
 export default function PublicTrainingRegistrationPage({ params }: { params: Promise<{ trainingId: string }> }) {
   const { trainingId } = use(params);
