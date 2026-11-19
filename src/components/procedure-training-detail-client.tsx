@@ -148,7 +148,7 @@ export function ProcedureTrainingDetailClient({
       </div>
 
       {tab === "info" ? (
-        <InfoTab training={training} setTraining={setTraining} canManage={canManage} setError={setError} />
+        <InfoTab training={training} setTraining={setTraining} setRounds={setRounds} canManage={canManage} setError={setError} />
       ) : null}
       {tab === "roster" ? (
         <RosterTab
@@ -247,7 +247,19 @@ function buildInfoDraft(training: Training) {
   };
 }
 
-function InfoTab({ training, setTraining, canManage, setError }: { training: Training; setTraining: (t: Training) => void; canManage: boolean; setError: (e: string) => void }) {
+function InfoTab({
+  training,
+  setTraining,
+  setRounds,
+  canManage,
+  setError,
+}: {
+  training: Training;
+  setTraining: (t: Training) => void;
+  setRounds: (fn: Round[] | ((v: Round[]) => Round[])) => void;
+  canManage: boolean;
+  setError: (e: string) => void;
+}) {
   const router = useRouter();
   const [draft, setDraft] = useState(() => buildInfoDraft(training));
   const [saving, setSaving] = useState(false);
@@ -262,7 +274,7 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
   // DELETE /api/procedure-trainings/[id] đã tự chặn xoá (status="TRAINED"
   // → 409, xem route.ts) nên không cần thêm gì ở đây để "không cho xoá".
   async function completeTraining() {
-    if (!window.confirm('Đánh dấu lớp này là "Đã đào tạo"? Sau khi hoàn thành sẽ không thể xoá cả lớp (vẫn sửa lại tình trạng được nếu cần).')) return;
+    if (!window.confirm('Đánh dấu lớp này là "Đã đào tạo"? Sẽ tự đóng link đăng ký và link làm bài qua QR của lớp này, và sau khi hoàn thành sẽ không thể xoá cả lớp (vẫn sửa lại tình trạng được nếu cần).')) return;
     setCompleting(true);
     setError("");
     const res = await fetch(`/api/procedure-trainings/${training.id}`, {
@@ -278,6 +290,11 @@ function InfoTab({ training, setTraining, canManage, setError }: { training: Tra
     }
     setTraining({ ...training, ...body.training });
     setDraft((v) => ({ ...v, status: "TRAINED" }));
+    // API đã tự đóng is_open_for_submission của mọi đợt kiểm tra ở server
+    // (xem PATCH /api/procedure-trainings/[id]/route.ts) — phản ánh lại ở
+    // state cục bộ để tab "Nhân sự & điểm" hiện đúng ngay, không cần tải lại
+    // trang.
+    setRounds((v) => v.map((r) => ({ ...r, is_open_for_submission: false })));
   }
 
   // "1 chủ đề đào tạo có thể có nhiều lớp khác nhau, chủ động khai báo thông

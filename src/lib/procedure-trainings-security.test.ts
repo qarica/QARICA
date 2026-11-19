@@ -159,6 +159,22 @@ describe("Procedure trainings module security and control gates", () => {
     expect(detailClient).toContain('training.status !== "TRAINED"');
     expect(detailClient).toContain("✓ Hoàn thành lớp");
   });
+
+  // Báo cáo thực tế: "Khi bấm hoàn thành thì phải tắt mở các link quét QR"
+  // — lớp đã hoàn thành đào tạo không còn cần ai quét QR để đăng ký hay làm
+  // bài tự test nữa, để hở link công khai dễ phát sinh dữ liệu rác. Ép đóng
+  // ở API (PATCH /api/procedure-trainings/[id]) khi status chuyển sang
+  // TRAINED — is_open_for_registration của lớp VÀ is_open_for_submission
+  // của MỌI đợt kiểm tra (procedure_training_rounds) — không chỉ riêng 1
+  // nút bấm, để đúng dù gọi PATCH từ đâu (CLAUDE.md nguyên tắc 2).
+  it("hoàn thành lớp (status=TRAINED) tự đóng link đăng ký + link làm bài qua QR của mọi đợt kiểm tra", () => {
+    const route = read("src/app/api/procedure-trainings/[id]/route.ts");
+    expect(route).toContain('if (update.status === "TRAINED") {\n    update.is_open_for_registration = false;\n  }');
+    expect(route).toContain('.from("procedure_training_rounds").update({ is_open_for_submission: false }).eq("training_id", id).eq("organization_id", organizationId)');
+
+    const detailClient = read("src/components/procedure-training-detail-client.tsx");
+    expect(detailClient).toContain("setRounds((v) => v.map((r) => ({ ...r, is_open_for_submission: false })));");
+  });
 });
 
 // Real finding from a full-app review: status was ONE value for the whole

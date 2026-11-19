@@ -61,6 +61,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!Object.keys(update).length) return NextResponse.json({ error: "Không có thay đổi nào." }, { status: 400 });
   update.updated_at = new Date().toISOString();
 
+  // Báo cáo thực tế: "Khi bấm hoàn thành thì phải tắt mở các link quét QR"
+  // — lớp đã hoàn thành đào tạo (status="TRAINED") không còn cần ai quét QR
+  // để đăng ký hay làm bài tự test nữa; để hở link công khai sau khi hoàn
+  // thành dễ phát sinh dữ liệu rác (đăng ký/nộp bài trễ cho 1 lớp coi như đã
+  // xong). Đóng cả 2: is_open_for_registration của lớp, và is_open_for_
+  // submission của MỌI đợt kiểm tra (procedure_training_rounds) thuộc lớp
+  // này — ép ở API để đúng dù bấm từ nút "Hoàn thành lớp" hay từ form sửa
+  // thường, không chỉ riêng 1 chỗ gọi (CLAUDE.md nguyên tắc 2).
+  if (update.status === "TRAINED") {
+    update.is_open_for_registration = false;
+  }
+
   const { data, error } = await admin
     .from("procedure_trainings")
     .update(update)
@@ -70,6 +82,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (!data) return NextResponse.json({ error: "Không tìm thấy quy trình." }, { status: 404 });
+
+  if (update.status === "TRAINED") {
+    await admin.from("procedure_training_rounds").update({ is_open_for_submission: false }).eq("training_id", id).eq("organization_id", organizationId);
+  }
+
   return NextResponse.json({ ok: true, training: data });
 }
 
