@@ -558,7 +558,7 @@ export function PlanComposerClient({
         .plan-composer .task-card.child{margin-left:30px;background:#f8fbfd;border:1.5px solid #c7d8e2;border-left:4px solid #7c9fb3}
         .plan-composer .task-card.child:before{content:"";position:absolute;left:-18px;top:-11px;width:14px;height:31px;border-left:2px solid #c8d8dd;border-bottom:2px solid #c8d8dd;border-bottom-left-radius:8px}
         .plan-composer .task-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap}
-        .plan-composer .task-title-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.plan-composer .task-title-line input[type="checkbox"]{width:16px!important;height:16px!important;min-width:16px!important;margin:0 2px 0 4px;accent-color:#315f91}
+        .plan-composer .task-title-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
         .plan-composer .task-index{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:24px;padding:0 7px;border-radius:999px;background:#eaf2f4;color:#24424b;font-size:10px;font-weight:900}
         .plan-composer .task-card.child .task-index{background:#f1f5f9;color:#475569}
         .plan-composer .task-parent-note{font-size:10px;color:#71828a;margin-top:3px}
