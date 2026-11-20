@@ -13,9 +13,22 @@ async function checkManageOrReview(supabase: Awaited<ReturnType<typeof createCli
   return Boolean(manage || review);
 }
 
-async function assertRecordVisible(supabase: Awaited<ReturnType<typeof createClient>>, recordId: string) {
-  const { data } = await supabase.from("records").select("id").eq("id", recordId).eq("record_type", "EXTERNAL_ASSESSMENT").maybeSingle();
-  return Boolean(data);
+// Báo cáo audit bảo mật: IDOR — trước đây chỉ xác nhận recordId (param :id)
+// thuộc quyền xem của người gọi, nhưng câu PATCH/DELETE thật sự lại chỉ lọc
+// theo delegateId (PK toàn cục của external_assessment_delegates), không hề
+// ràng buộc delegateId phải thuộc ĐÚNG recordId đang thao tác. Người có
+// quyền criteria.manage/.review ở TỔ CHỨC A, miễn gửi đúng 1 recordId họ có
+// quyền xem (của tổ chức A) kèm delegateId của tổ chức B, vẫn sửa/xoá được
+// thành viên đoàn đánh giá ngoài của tổ chức B. Sửa: resolveEventId() trả
+// về external_assessment_events.id ĐÚNG của recordId đã xác nhận quyền xem,
+// rồi PATCH/DELETE bắt buộc .eq("external_assessment_event_id", eventId) —
+// cùng khuôn mẫu mọi route 2-tham-số lồng nhau khác trong app đang dùng
+// (vd incoming-documents/[id]/tasks/[taskId]).
+async function resolveEventId(supabase: Awaited<ReturnType<typeof createClient>>, recordId: string) {
+  const { data: record } = await supabase.from("records").select("id").eq("id", recordId).eq("record_type", "EXTERNAL_ASSESSMENT").maybeSingle();
+  if (!record) return null;
+  const { data: event } = await supabase.from("external_assessment_events").select("id").eq("record_id", recordId).maybeSingle();
+  return event?.id ?? null;
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; delegateId: string }> }) {
@@ -25,7 +38,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!(await checkManageOrReview(supabase))) return NextResponse.json({ error: "Bạn chưa có quyền xử lý đánh giá ngoài." }, { status: 403 });
 
   const { id: recordId, delegateId } = await params;
-  if (!(await assertRecordVisible(supabase, recordId))) {
+  const eventId = await resolveEventId(supabase, recordId);
+  if (!eventId) {
     return NextResponse.json({ error: "Không tìm thấy hồ sơ đánh giá ngoài hoặc bạn không có quyền xem." }, { status: 404 });
   }
 
@@ -47,7 +61,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   update.updated_at = new Date().toISOString();
 
   const admin = createAdminClient();
-  const { data, error } = await admin.from("external_assessment_delegates").update(update).eq("id", delegateId).select(SELECT_COLUMNS).maybeSingle();
+  const { data, error } = await admin
+    .from("external_assessment_delegates")
+    .update(update)
+    .eq("id", delegateId)
+    .eq("external_assessment_event_id", eventId)
+    .select(SELECT_COLUMNS)
+    .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (!data) return NextResponse.json({ error: "Không tìm thấy thành viên đoàn." }, { status: 404 });
   return NextResponse.json({ ok: true, delegate: data });
@@ -60,12 +80,14 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (!(await checkManageOrReview(supabase))) return NextResponse.json({ error: "Bạn chưa có quyền xử lý đánh giá ngoài." }, { status: 403 });
 
   const { id: recordId, delegateId } = await params;
-  if (!(await assertRecordVisible(supabase, recordId))) {
+  const eventId = await resolveEventId(supabase, recordId);
+  if (!eventId) {
     return NextResponse.json({ error: "Không tìm thấy hồ sơ đánh giá ngoài hoặc bạn không có quyền xem." }, { status: 404 });
   }
 
   const admin = createAdminClient();
-  const { error } = await admin.from("external_assessment_delegates").delete().eq("id", delegateId);
+  const { error, count } = await admin.from("external_assessment_delegates").delete({ count: "exact" }).eq("id", delegateId).eq("external_assessment_event_id", eventId);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (!count) return NextResponse.json({ error: "Không tìm thấy thành viên đoàn." }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

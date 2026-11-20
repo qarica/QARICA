@@ -37,6 +37,21 @@ describe("External assessment delegates — integrated into Đánh giá ngoài, 
     expect(idRoute).toContain("async function checkManageOrReview");
   });
 
+  // Báo cáo audit bảo mật (IDOR): PATCH/DELETE /[id]/delegates/[delegateId]
+  // trước đây chỉ xác nhận recordId (param :id) thuộc quyền xem của người
+  // gọi, nhưng câu ghi thật sự chỉ lọc theo delegateId (PK toàn cục) —
+  // không ràng buộc delegateId phải thuộc ĐÚNG recordId/tổ chức đang thao
+  // tác. Người có quyền ở tổ chức A, miễn biết delegateId của tổ chức B,
+  // vẫn sửa/xoá được thành viên đoàn của tổ chức B. Sửa bằng cách resolve
+  // external_assessment_event_id ĐÚNG của recordId rồi bắt buộc cả PATCH
+  // lẫn DELETE phải khớp cả 2 điều kiện (id lẫn event), không chỉ 1.
+  it("PATCH/DELETE [delegateId] bắt buộc khớp CẢ delegateId LẪN event đã resolve từ recordId (chặn IDOR xuyên tổ chức/hồ sơ)", () => {
+    const idRoute = read("src/app/api/external-assessments/[id]/delegates/[delegateId]/route.ts");
+    expect(idRoute).toContain('.eq("id", delegateId)\n    .eq("external_assessment_event_id", eventId)');
+    expect(idRoute).toContain('.delete({ count: "exact" }).eq("id", delegateId).eq("external_assessment_event_id", eventId)');
+    expect(idRoute).toContain("if (!count) return NextResponse.json({ error: \"Không tìm thấy thành viên đoàn.\" }, { status: 404 });");
+  });
+
   it("is rendered on the Đánh giá ngoài detail page only, right after the existing DomainRecordDetail block", () => {
     const page = read("src/components/domain-record-page.tsx");
     expect(page).toContain('import { ExternalAssessmentDelegatesClient } from "@/components/external-assessment-delegates-client";');

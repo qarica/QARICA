@@ -123,4 +123,20 @@ describe("EMR security and control gates", () => {
     expect(migration).toContain("emr_departments");
     expect(migration).toContain("emr_digital_signatures");
   });
+
+  // Báo cáo audit chất lượng code: định nghĩa "gate PASS" (status=DONE +
+  // evidence_url + verified_at, nguyên tắc 3) từng bị viết tay lặp lại 4
+  // lần trong dashboard/route.ts (gatesPassed, gateEvidenceMissing,
+  // passedGates theo khoa/phòng, gateEvidence% control coverage) — rủi ro
+  // sửa sót 1 chỗ khi điều kiện gate đổi sau này khiến các số liệu trong
+  // CÙNG 1 dashboard lệch nhau. Gộp về 1 hàm isGatePassed() dùng ở cả 4 chỗ.
+  it("mọi chỗ tính 'gate đã PASS' trong dashboard route đều gọi chung isGatePassed(), không viết tay riêng lẻ", () => {
+    const route = read("src/app/api/emr/dashboard/route.ts");
+    expect(route).toContain("function isGatePassed(item:");
+    expect(route).toContain("return item.status === \"DONE\" && !!item.evidence_url && !!item.verified_at;");
+    expect(route).toContain("const gatesPassed = gates.filter(isGatePassed).length;");
+    expect(route).toContain("const gateEvidenceMissing = gates.filter(x => x.status === \"DONE\" && !isGatePassed(x)).length;");
+    expect(route).toContain("const passedGates = gateRows.filter(isGatePassed).length;");
+    expect(route).toContain("doneGates.filter(isGatePassed).length");
+  });
 });

@@ -4,6 +4,17 @@ import { EMR_CATEGORIES } from "@/lib/emr-categories";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// Báo cáo audit chất lượng code: định nghĩa "gate go-live PASS" (CLAUDE.md
+// nguyên tắc 3: status=DONE + có evidence_url + đã verified_at) từng bị
+// viết tay lặp lại 4 lần trong file này (gatesPassed, gateEvidenceMissing,
+// passedGates theo khoa/phòng, gateEvidence% control coverage) — rủi ro sửa
+// sót 1 chỗ khi điều kiện gate thay đổi sau này khiến các số liệu trong
+// CÙNG 1 dashboard lệch nhau mà không ai nhận ra ngay. Gộp về 1 hàm dùng
+// chung.
+function isGatePassed(item: { status: string; evidence_url: string | null; verified_at: string | null }) {
+  return item.status === "DONE" && !!item.evidence_url && !!item.verified_at;
+}
+
 export async function GET(req: NextRequest) {
   const auth = await requireApiPermission("emr.view");
   if (!auth.ok) return auth.response;
@@ -47,10 +58,10 @@ export async function GET(req: NextRequest) {
   });
   const overdue = items.filter(x => x.status !== "DONE" && x.due_date && x.due_date < today).length;
   const gates = items.filter(x => x.is_go_live_gate);
-  const gatesPassed = gates.filter(x => x.status === "DONE" && !!x.evidence_url && !!x.verified_at).length;
+  const gatesPassed = gates.filter(isGatePassed).length;
   const unassigned = items.filter(x => x.status !== "DONE" && (!x.owner_department_id || !x.department_ids?.length)).length;
   const criticalOpen = items.filter(x => x.status !== "DONE" && x.priority === "CRITICAL").length;
-  const gateEvidenceMissing = gates.filter(x => x.status === "DONE" && (!x.evidence_url || !x.verified_at)).length;
+  const gateEvidenceMissing = gates.filter(x => x.status === "DONE" && !isGatePassed(x)).length;
   const stale = items.filter(x => x.status !== "DONE" && now - new Date(x.updated_at).getTime() > 7 * 86400000).length;
 
   // Đầu việc dự án (Timeline, emr_timeline_milestones) is a SEPARATE,
@@ -81,7 +92,7 @@ export async function GET(req: NextRequest) {
     const overdueRows = openRows.filter(x => x.due_date && x.due_date < today).length;
     const blockers = openRows.filter(x => x.status === "BLOCKED").length;
     const gateRows = rows.filter(x => x.is_go_live_gate);
-    const passedGates = gateRows.filter(x => x.status === "DONE" && !!x.evidence_url && !!x.verified_at).length;
+    const passedGates = gateRows.filter(isGatePassed).length;
     const domains = EMR_CATEGORIES.map(c => {
       const domainRows = rows.filter(x => x.category === c.code);
       const domainDone = domainRows.filter(x => x.status === "DONE").length;
@@ -107,7 +118,7 @@ export async function GET(req: NextRequest) {
     owner: openItems.length ? Math.round(openItems.filter(x => !!x.owner_department_id).length * 100 / openItems.length) : null,
     department: openItems.length ? Math.round(openItems.filter(x => !!x.department_ids?.length).length * 100 / openItems.length) : null,
     deadline: openItems.length ? Math.round(openItems.filter(x => !!x.due_date).length * 100 / openItems.length) : null,
-    gateEvidence: doneGates.length ? Math.round(doneGates.filter(x => !!x.evidence_url && !!x.verified_at).length * 100 / doneGates.length) : null,
+    gateEvidence: doneGates.length ? Math.round(doneGates.filter(isGatePassed).length * 100 / doneGates.length) : null,
   };
 
   return NextResponse.json({ ok: true, generatedAt: new Date().toISOString(), filter: { from, to, active: dateFilterActive }, total: items.length, counts, completion: items.length ? Math.round(counts.DONE * 100 / items.length) : null, categories, stale, overdue, unassigned, criticalOpen, controlCoverage, gates: { total: gates.length, passed: gatesPassed, evidenceMissing: gateEvidenceMissing }, milestones: milestoneStats, departmentMatrix, upcoming, escalation, attention: items.filter(x => x.status === "BLOCKED" || x.priority === "CRITICAL" || (x.due_date && x.status !== "DONE" && x.due_date < today) || x.status === "TODO").slice(0, 8) });
