@@ -256,8 +256,45 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
     expect(client).toContain("async function viewFile(doc: DocumentPublication) {");
     const fileCell = client.slice(client.indexOf("Tệp đính kèm"), client.indexOf("</tbody>", client.indexOf("Tệp đính kèm")));
     expect(fileCell).toContain("onClick={() => void viewFile(d)}");
-    expect(fileCell).toContain('canManage ? (\n                                      <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void removeFile(d)}>');
-    expect(fileCell).toContain(': canManage ? (\n                                  <label className="dp-file-input button secondary small">');
+    expect(fileCell).toContain('canManage ? (\n                                      <button\n                                        type="button"\n                                        className="doc-file-icon-remove"\n                                        disabled={fileBusyIds.has(d.id)}\n                                        onClick={() => void removeFile(d)}');
+    expect(fileCell).toContain(': canManage ? (\n                                  <label className="doc-file-icon dp-file-input"');
+  });
+
+  // Báo cáo thực tế: "Xem làm tương tự như đính kèm công văn" — cột Tệp đính
+  // kèm trước đây hiện cả tên file đầy đủ + nút "Xoá file" riêng (chiếm nhiều
+  // chỗ ngang), nay đổi sang cùng khuôn mẫu icon-only (.doc-file-icon) đã
+  // dùng ở incoming-documents-client.tsx — có file thì icon tô màu brand,
+  // không có thì icon xám mờ; tên file vẫn xem được qua title/aria-label,
+  // không mất thông tin.
+  it("UI: cột Tệp đính kèm dùng chung khuôn mẫu icon .doc-file-icon như công văn (incoming-documents-client.tsx), không hiện tên file tràn ngang", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain('className="doc-file-icon has-file"');
+    expect(client).not.toContain('<Icon name="file-text" size={14} /> {d.file_name}');
+    expect(client).toContain(".doc-file-icon {");
+    expect(client).toContain(".doc-file-icon.has-file {");
+  });
+
+  // Báo cáo thực tế: "Lỗi ko đính nhiều file lên cùng lúc, đính cái này thì
+  // cái kia ngưng" — fileBusyId trước đây là 1 giá trị string|null DÙNG
+  // CHUNG cho mọi dòng trong bảng, không phải theo từng dòng. Đính/xem/xoá
+  // file ở dòng A xong rồi thao tác sang dòng B TRƯỚC KHI dòng A xong,
+  // fileBusyId bị ghi đè sang id của B — dòng A mất trạng thái "đang xử lý"
+  // (nút hết disabled) dù request vẫn chạy ngầm, nhìn như bị dừng giữa
+  // chừng. Đổi sang Set<string> (fileBusyIds) để nhiều dòng cùng "đang xử
+  // lý" độc lập, không dòng nào đè mất trạng thái của dòng khác.
+  it("fileBusyIds là Set theo từng dòng, không phải 1 giá trị dùng chung — đính/xem/xoá nhiều dòng cùng lúc không đè trạng thái của nhau", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("const [fileBusyIds, setFileBusyIds] = useState<Set<string>>(new Set());");
+    expect(client).not.toContain("const [fileBusyId, setFileBusyId] = useState<string | null>(null);");
+    expect(client).toContain("function markFileBusy(docId: string, busy: boolean) {");
+    expect(client).toContain("if (busy) next.add(docId);");
+    expect(client).toContain("else next.delete(docId);");
+    // Cả 3 hàm viewFile/uploadFile/removeFile đều gọi markFileBusy (gắn CỜ
+    // RIÊNG cho đúng doc.id của chính nó), không gọi setFileBusyId trực
+    // tiếp nữa — nếu còn sót 1 chỗ gọi thẳng thì lại tái phạm lỗi ghi đè.
+    expect(client).not.toContain("setFileBusyId(");
+    const fileCell = client.slice(client.indexOf("Tệp đính kèm"), client.indexOf("</tbody>", client.indexOf("Tệp đính kèm")));
+    expect((fileCell.match(/fileBusyIds\.has\(d\.id\)/g) || []).length).toBe(3);
   });
 });
 
@@ -369,7 +406,10 @@ describe("Document publications: nâng cấp hình ảnh (icon chuyên nghiệp 
     const client = read("src/components/document-publications-client.tsx");
     expect(client).toContain('import { Icon } from "@/components/icon";');
     expect(client).toContain('<Icon name="folder-archive" size={16} className="dp-folder-icon" />');
-    expect(client).toContain('<Icon name="file-text" size={14} />');
+    // Cột Tệp đính kèm đổi sang khuôn mẫu icon-only ("Xem làm tương tự như
+    // đính kèm công văn") — paperclip thay vì file-text, xem describe
+    // "thư viện văn bản" bên dưới cho đầy đủ test của khuôn mẫu này.
+    expect(client).toContain('<Icon name="paperclip" size={16} />');
   });
 
   it("3 ô KPI đầu trang có icon badge dùng đúng token màu sẵn có (info/warning/success), không bịa màu/giá trị hex mới", () => {

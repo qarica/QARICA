@@ -125,7 +125,15 @@ export function DocumentPublicationsClient({
   // tìm kiếm riêng (lọc trong từng thư mục, không gộp phẳng) để tra nhanh
   // khi số văn bản tăng lên, không phải bấm mở từng thư mục dò bằng mắt.
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
-  const [fileBusyId, setFileBusyId] = useState<string | null>(null);
+  // Báo cáo thực tế: "Lỗi ko đính nhiều file lên cùng lúc, đính cái này thì
+  // cái kia ngưng" — fileBusyId trước đây là 1 giá trị DÙNG CHUNG cho mọi
+  // dòng (string | null), không phải theo từng dòng. Đính/xem/xoá file ở
+  // dòng A xong rồi bấm sang dòng B TRƯỚC KHI dòng A xong, fileBusyId bị
+  // ghi đè sang id của B — dòng A mất luôn trạng thái "đang xử lý" (nút hết
+  // disabled) dù request vẫn đang chạy ngầm, nhìn như bị dừng/đứng giữa
+  // chừng. Đổi sang Set<string> để nhiều dòng cùng "đang xử lý" độc lập,
+  // không dòng nào đè mất trạng thái của dòng khác.
+  const [fileBusyIds, setFileBusyIds] = useState<Set<string>>(new Set());
   const [libraryQuery, setLibraryQuery] = useState("");
 
   // Sửa thông tin 1 văn bản đã tạo — chữa lỗi gõ nhầm tên/đơn vị soạn thảo/
@@ -413,12 +421,21 @@ export function DocumentPublicationsClient({
     });
   }
 
+  function markFileBusy(docId: string, busy: boolean) {
+    setFileBusyIds((v) => {
+      const next = new Set(v);
+      if (busy) next.add(docId);
+      else next.delete(docId);
+      return next;
+    });
+  }
+
   async function viewFile(doc: DocumentPublication) {
-    setFileBusyId(doc.id);
+    markFileBusy(doc.id, true);
     setError("");
     const res = await fetch(`/api/document-publications/${doc.id}/file`);
     const body = await res.json().catch(() => ({}));
-    setFileBusyId(null);
+    markFileBusy(doc.id, false);
     if (!res.ok) {
       setError(body.error || "Không mở được file.");
       return;
@@ -427,13 +444,13 @@ export function DocumentPublicationsClient({
   }
 
   async function uploadFile(doc: DocumentPublication, file: File) {
-    setFileBusyId(doc.id);
+    markFileBusy(doc.id, true);
     setError("");
     const formData = new FormData();
     formData.append("file", file);
     const res = await fetch(`/api/document-publications/${doc.id}/file`, { method: "POST", body: formData });
     const body = await res.json().catch(() => ({}));
-    setFileBusyId(null);
+    markFileBusy(doc.id, false);
     if (!res.ok) {
       setError(body.error || "Không tải lên được file.");
       return;
@@ -443,11 +460,11 @@ export function DocumentPublicationsClient({
 
   async function removeFile(doc: DocumentPublication) {
     if (!window.confirm(`Xoá file đính kèm của "${doc.title}"?`)) return;
-    setFileBusyId(doc.id);
+    markFileBusy(doc.id, true);
     setError("");
     const res = await fetch(`/api/document-publications/${doc.id}/file`, { method: "DELETE" });
     const body = await res.json().catch(() => ({}));
-    setFileBusyId(null);
+    markFileBusy(doc.id, false);
     if (!res.ok) {
       setError(body.error || "Không xoá được file.");
       return;
@@ -936,23 +953,42 @@ export function DocumentPublicationsClient({
                                 )}
                               </td>
                               <td>
+                                {/* Báo cáo thực tế: "Xem làm tương tự như đính kèm công văn" — trước đây
+                                   hiện cả tên file đầy đủ + nút "Xoá file" riêng, chiếm nhiều chỗ ngang
+                                   trong bảng. Đổi sang cùng khuôn mẫu icon-only đã dùng ở incoming-
+                                   documents-client.tsx (.doc-file-icon): có file thì icon tô màu brand,
+                                   bấm để xem; tên file vẫn xem được qua title/aria-label. */}
                                 {d.file_name ? (
                                   <div className="dp-file-cell">
-                                    <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void viewFile(d)}>
-                                      {fileBusyId === d.id ? "..." : (<><Icon name="file-text" size={14} /> {d.file_name}</>)}
+                                    <button
+                                      type="button"
+                                      className="doc-file-icon has-file"
+                                      disabled={fileBusyIds.has(d.id)}
+                                      onClick={() => void viewFile(d)}
+                                      title={d.file_name}
+                                      aria-label={`Xem file đính kèm: ${d.file_name}`}
+                                    >
+                                      <Icon name="paperclip" size={16} />
                                     </button>
                                     {canManage ? (
-                                      <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void removeFile(d)}>
-                                        Xoá file
+                                      <button
+                                        type="button"
+                                        className="doc-file-icon-remove"
+                                        disabled={fileBusyIds.has(d.id)}
+                                        onClick={() => void removeFile(d)}
+                                        title="Xoá file đính kèm"
+                                        aria-label={`Xoá file đính kèm: ${d.file_name}`}
+                                      >
+                                        <Icon name="x" size={13} />
                                       </button>
                                     ) : null}
                                   </div>
                                 ) : canManage ? (
-                                  <label className="dp-file-input button secondary small">
-                                    {fileBusyId === d.id ? "..." : "+ Đính kèm"}
+                                  <label className="doc-file-icon dp-file-input" title="Đính kèm file" aria-label="Đính kèm file">
+                                    <Icon name="paperclip" size={16} />
                                     <input
                                       type="file"
-                                      disabled={fileBusyId === d.id}
+                                      disabled={fileBusyIds.has(d.id)}
                                       onChange={(e) => {
                                         const file = e.target.files?.[0];
                                         e.target.value = "";
@@ -961,7 +997,9 @@ export function DocumentPublicationsClient({
                                     />
                                   </label>
                                 ) : (
-                                  "—"
+                                  <span className="doc-file-icon" aria-label="Không có tệp đính kèm" title="Không có tệp đính kèm">
+                                    <Icon name="paperclip" size={16} />
+                                  </span>
                                 )}
                               </td>
                               <td>
@@ -1339,6 +1377,41 @@ export function DocumentPublicationsClient({
           min-height: 0;
           opacity: 0;
           cursor: pointer;
+        }
+        /* Cùng khuôn mẫu .doc-file-icon đã dùng ở incoming-documents-client.tsx
+           ("Đính kèm chỉ cần hiện icon — có tệp thì hiện nổi xanh, ko có thì
+           chìm thôi, thu gọn cột") — áp dụng lại ở đây theo yêu cầu "làm tương
+           tự như đính kèm công văn". */
+        .doc-file-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 0;
+          background: transparent;
+          padding: 0;
+          color: var(--muted);
+        }
+        .doc-file-icon.has-file {
+          color: var(--brand);
+          cursor: pointer;
+        }
+        .doc-file-icon-remove {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 18px;
+          height: 18px;
+          border: 0;
+          border-radius: 50%;
+          background: var(--line);
+          color: var(--muted);
+          padding: 0;
+          cursor: pointer;
+          flex: 0 0 auto;
+        }
+        .doc-file-icon-remove:hover {
+          background: var(--danger-soft);
+          color: var(--danger);
         }
         @media (max-width: 760px) {
           .dp-form-row,
