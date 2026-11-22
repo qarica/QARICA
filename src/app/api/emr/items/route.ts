@@ -112,5 +112,10 @@ export async function POST(request: Request) {
   // đào tạo") để không tự tạo nhiệm vụ đào tạo trước khi biểu mẫu được duyệt.
   if (category === "BIEU_MAU" && data.publish_status === "PUBLISHED") await autoCreateTrainingTaskIfNeeded(admin, organizationId, auth.user.id, data);
 
+  // Tạo mới hạng mục (đặc biệt Go-live gate) cũng phải có dấu vết, giống
+  // PATCH/DELETE/upload file đã ghi audit_logs.
+  const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_rollout_items", row_id: data.id, action_type: "EMR_ITEM_CREATE", new_value: { category: data.category, title: data.title, status: data.status, is_go_live_gate: data.is_go_live_gate }, request_meta: { source: "qlcl-ui" } });
+  if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
+
   return NextResponse.json({ ok: true, item: data });
 }

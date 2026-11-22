@@ -38,7 +38,11 @@ export async function POST(request: Request) {
     .select("id,name,code,sort_order,is_active")
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  if (data) return NextResponse.json({ ok: true, group: data });
+  if (data) {
+    const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_binding_groups", row_id: data.id, action_type: "EMR_BINDING_GROUP_CREATE", new_value: { name: data.name, code: data.code }, request_meta: { source: "qlcl-ui" } });
+    if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
+    return NextResponse.json({ ok: true, group: data });
+  }
 
   // ignoreDuplicates swallows the row on a pre-existing name — look it up so
   // the caller still gets back a usable id (declaring an already-declared
