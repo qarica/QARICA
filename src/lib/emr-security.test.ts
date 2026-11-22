@@ -117,6 +117,23 @@ describe("EMR security and control gates", () => {
     expect(fileRoute).toContain('action_type: "EMR_ITEM_FILE_REMOVE"');
   });
 
+  // Rà soát audit: tạo hạng mục, và mọi thao tác ghi ở binding-groups /
+  // timeline-milestones trước đây không ghi audit_logs (chỉ PATCH/DELETE/file
+  // của items mới có) — cùng chuẩn với phần đã có.
+  it("ghi audit_logs cho tạo hạng mục, và tạo/sửa/xoá nhóm gáy và mốc timeline", () => {
+    expect(read("src/app/api/emr/items/route.ts")).toContain('action_type: "EMR_ITEM_CREATE"');
+    const bg = read("src/app/api/emr/binding-groups/route.ts");
+    expect(bg).toContain('action_type: "EMR_BINDING_GROUP_CREATE"');
+    const bgId = read("src/app/api/emr/binding-groups/[id]/route.ts");
+    expect(bgId).toContain('action_type: "EMR_BINDING_GROUP_UPDATE"');
+    expect(bgId).toContain('action_type: "EMR_BINDING_GROUP_DELETE"');
+    const tm = read("src/app/api/emr/timeline-milestones/route.ts");
+    expect(tm).toContain('action_type: "EMR_TIMELINE_MILESTONE_CREATE"');
+    const tmId = read("src/app/api/emr/timeline-milestones/[id]/route.ts");
+    expect(tmId).toContain('action_type: "EMR_TIMELINE_MILESTONE_UPDATE"');
+    expect(tmId).toContain('action_type: "EMR_TIMELINE_MILESTONE_DELETE"');
+  });
+
   it("legacy prototype tables are quarantined", () => {
     const migration = read("supabase/migrations/20260926_emr_legacy_quarantine_v1.sql");
     expect(migration).toContain("revoke all privileges");

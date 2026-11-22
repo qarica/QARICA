@@ -74,5 +74,7 @@ export async function POST(request: Request) {
     .select("id,parent_id,title,start_date,end_date,status,category,sort_order,created_at")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_timeline_milestones", row_id: data.id, action_type: "EMR_TIMELINE_MILESTONE_CREATE", new_value: { title: data.title, parent_id: data.parent_id, status: data.status, start_date: data.start_date, end_date: data.end_date }, request_meta: { source: "qlcl-ui" } });
+  if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
   return NextResponse.json({ ok: true, milestone: data });
 }
