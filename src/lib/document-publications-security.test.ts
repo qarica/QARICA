@@ -206,17 +206,24 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
   });
 
   it("đường dẫn storage chia theo tổ chức + khoa/phòng soạn thảo (thư mục theo phòng ban), dùng chung bucket qlcl-evidence với EMR", () => {
-    const fileRoute = read("src/app/api/document-publications/[id]/file/route.ts");
-    expect(fileRoute).toContain('const BUCKET = "qlcl-evidence";');
-    expect(fileRoute).toContain(
-      "const storagePath = `${organizationId}/document-publications/${departmentFolderSlug(draftingDepartmentName)}/${id}/${randomUUID()}-${storedFileName}`;",
+    // Đường dẫn + bucket nay nằm ở MỘT nơi (lib dùng chung cho cả đính kèm qua
+    // server lẫn tải thẳng) — không còn lặp ở từng route.
+    const limits = read("src/lib/document-publication-file-limits.ts");
+    expect(limits).toContain('export const DOCUMENT_FILE_BUCKET = "qlcl-evidence";');
+    const lib = read("src/lib/document-publication-file.ts");
+    expect(lib).toContain(
+      "return `${organizationId}/document-publications/${departmentFolderSlug(departmentName)}/${documentId}/${randomUUID()}-${safeFileName(originalFileName)}`;",
     );
+    expect(read("src/app/api/document-publications/[id]/file/route.ts")).toContain("buildDocumentFilePath(organizationId, departmentName, id, originalFileName)");
   });
 
   it("đính kèm file mới thì xoá file cũ khỏi storage (không rò rỉ object orphan khi thay file)", () => {
-    const fileRoute = read("src/app/api/document-publications/[id]/file/route.ts");
-    expect(fileRoute).toContain("const previousPath = doc.file_path;");
-    expect(fileRoute).toContain("if (previousPath) await admin.storage.from(BUCKET).remove([previousPath]);");
+    // Xoá file cũ nằm trong finalizeDocumentFileAttach — dùng chung cho cả đính
+    // kèm qua server và xác nhận sau khi tải thẳng.
+    const lib = read("src/lib/document-publication-file.ts");
+    expect(lib).toContain("if (previousPath) await admin.storage.from(DOCUMENT_FILE_BUCKET).remove([previousPath]);");
+    expect(read("src/app/api/document-publications/[id]/file/route.ts")).toContain("previousPath: doc.file_path");
+    expect(read("src/app/api/document-publications/[id]/file/confirm/route.ts")).toContain("previousPath: doc.file_path");
   });
 
   it("chỉ lộ file_name ra client qua SELECT_COLUMNS/select của trang, KHÔNG lộ file_path (đường dẫn storage) ra ngoài route file riêng", () => {
@@ -320,6 +327,73 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
     expect(client).toContain("onClick={() => void viewFile(d)}\n                                    title={`Mở file đính kèm: ${d.file_name}`}");
     expect(client).toContain(".dp-title-link {");
     expect(client).toContain("color: var(--brand);\n          font-weight: 700;");
+  });
+});
+
+// Báo cáo thực tế: "đính 1 vài file nhưng ko được" — file từ ~5 MB trở lên gửi
+// qua route Vercel bị chặn ở giới hạn body của nền tảng, giao diện chỉ báo chung
+// chung. Đổi sang tải thẳng lên storage bằng đường dẫn có chữ ký (3 bước), server
+// kiểm lại thật ở bước xác nhận.
+describe("Document publications: đính kèm file tải thẳng lên storage (không qua body Vercel)", () => {
+  const dir = "src/app/api/document-publications/[id]/file";
+
+  it("upload-url và confirm đều đòi .manage + chặn theo organization_id của văn bản", () => {
+    for (const name of ["upload-url", "confirm"]) {
+      const route = read(`${dir}/${name}/route.ts`);
+      expect(route).toContain('export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {\n  const auth = await requireApiPermission("document_publication.manage");');
+      expect(route).toContain("if (!doc || doc.organization_id !== organizationId)");
+    }
+  });
+
+  it("upload-url kiểm loại file + dung lượng khai báo, chỉ cấp đường dẫn, không ghi DB", () => {
+    const route = read(`${dir}/upload-url/route.ts`);
+    expect(route).toContain("size > DOCUMENT_FILE_MAX_SIZE");
+    expect(route).toContain("evidenceFilePolicy(fileName)");
+    expect(route).toContain("createSignedUploadUrl(storagePath)");
+    expect(route).not.toContain('.from("document_publications")');
+    expect(route).not.toContain('.from("audit_logs")');
+  });
+
+  it("confirm không tin client: kiểm đường dẫn đúng khuôn, kiểm dung lượng + mime THẬT trên storage, xoá object không đạt, và không xoá nhầm file đang gắn khi bị gọi lại", () => {
+    const route = read(`${dir}/confirm/route.ts`);
+    expect(route).toContain("isDocumentFilePathFor(path, organizationId, id)");
+    expect(route).toContain(".info(path)");
+    expect(route).toContain("actualSize > DOCUMENT_FILE_MAX_SIZE");
+    expect(route).toContain("actualMime !== expectedMime");
+    expect(route).toContain(".remove([path])");
+    // Gọi lại với đúng file đang gắn phải trả ok TRƯỚC khi chạm vào storage/finalize,
+    // nếu không previousPath === path và file vừa gắn sẽ bị xoá.
+    expect(route.indexOf("if (doc.file_path === path)")).toBeGreaterThan(-1);
+    expect(route.indexOf("if (doc.file_path === path)")).toBeLessThan(route.indexOf("finalizeDocumentFileAttach("));
+    expect(route.indexOf("if (doc.file_path === path)")).toBeLessThan(route.indexOf(".info(path)"));
+  });
+
+  it("isDocumentFilePathFor chỉ chấp nhận đúng khuôn đường dẫn của CHÍNH tổ chức + văn bản", async () => {
+    const { isDocumentFilePathFor, buildDocumentFilePath } = await import("./document-publication-file");
+    const org = "11111111-1111-1111-1111-111111111111";
+    const doc = "22222222-2222-2222-2222-222222222222";
+    const good = buildDocumentFilePath(org, "Khoa Khám bệnh", doc, "Quy trình số 1.pdf");
+    expect(isDocumentFilePathFor(good, org, doc)).toBe(true);
+    expect(isDocumentFilePathFor(good, "33333333-3333-3333-3333-333333333333", doc)).toBe(false);
+    expect(isDocumentFilePathFor(good, org, "33333333-3333-3333-3333-333333333333")).toBe(false);
+    expect(isDocumentFilePathFor(`${org}/document-publications/chung/${doc}/../x.pdf`, org, doc)).toBe(false);
+    expect(isDocumentFilePathFor(`${org}/other-area/chung/${doc}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa-x.pdf`, org, doc)).toBe(false);
+    expect(isDocumentFilePathFor(`${org}/document-publications/chung/${doc}/not-a-uuid-x.pdf`, org, doc)).toBe(false);
+    expect(isDocumentFilePathFor("", org, doc)).toBe(false);
+  });
+
+  it("client: tiền kiểm dung lượng/loại file, tải 3 bước thẳng lên storage, ép type theo chính sách server, báo lỗi rõ ràng", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("/file/upload-url`");
+    expect(client).toContain("/file/confirm`");
+    expect(client).toContain(".uploadToSignedUrl(");
+    expect(client).toContain("new File([file], file.name, { type: urlBody.content_type as string })");
+    expect(client).toContain("file.size > DOCUMENT_FILE_MAX_SIZE");
+    expect(client).toContain("!evidenceFilePolicy(file.name)");
+    // markFileBusy luôn được nhả trong finally, kể cả khi lỗi giữa chừng.
+    expect(client).toContain("} finally {\n      markFileBusy(doc.id, false);");
+    // Không còn gửi file qua body route Vercel từ giao diện.
+    expect(client).not.toContain('formData.append("file", file)');
   });
 });
 
