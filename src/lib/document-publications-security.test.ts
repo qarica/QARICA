@@ -256,7 +256,16 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
     expect(client).toContain("async function viewFile(doc: DocumentPublication) {");
     const fileCell = client.slice(client.indexOf("Tệp đính kèm"), client.indexOf("</tbody>", client.indexOf("Tệp đính kèm")));
     expect(fileCell).toContain("onClick={() => void viewFile(d)}");
-    expect(fileCell).toContain('canManage ? (\n                                      <button\n                                        type="button"\n                                        className="doc-file-icon-remove"\n                                        disabled={fileBusyIds.has(d.id)}\n                                        onClick={() => void removeFile(d)}');
+    // Yêu cầu thực tế: nút xoá "quá gần dễ bấm nhầm" — không còn nằm sát icon
+    // kẹp giấy ở cột Tệp đính kèm, chuyển hẳn vào form Sửa (tách khỏi Lưu/Hủy).
+    expect(fileCell).not.toContain("doc-file-icon-remove");
+    expect(client).not.toContain(".doc-file-icon-remove");
+    // Form Sửa của Thư viện văn bản là form cuối cùng trong file (form Sửa của
+    // "Đang xử lý" nằm trước đó) — slice riêng vì fileCell dừng ở </tbody> lồng.
+    const editForm = client.slice(client.lastIndexOf('className="dp-edit-form"'));
+    expect(editForm).toContain('className="dp-edit-file"');
+    expect(editForm).toContain("onClick={() => void removeFile(d)}");
+    expect(editForm.indexOf("onClick={() => void removeFile(d)}")).toBeLessThan(editForm.indexOf("onClick={() => void saveEdit(d)}"));
     expect(fileCell).toContain(': canManage ? (\n                                  <label className="doc-file-icon dp-file-input"');
   });
 
@@ -294,7 +303,23 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
     // tiếp nữa — nếu còn sót 1 chỗ gọi thẳng thì lại tái phạm lỗi ghi đè.
     expect(client).not.toContain("setFileBusyId(");
     const fileCell = client.slice(client.indexOf("Tệp đính kèm"), client.indexOf("</tbody>", client.indexOf("Tệp đính kèm")));
+    // 3 chỗ trong vùng dòng bảng: tên văn bản (bấm mở file), icon kẹp giấy
+    // (xem) và ô chọn file (đính kèm). Nút "Xoá file" đã chuyển vào form Sửa
+    // (ngoài vùng này) và cũng khoá theo đúng id dòng — kiểm riêng bên dưới.
     expect((fileCell.match(/fileBusyIds\.has\(d\.id\)/g) || []).length).toBe(3);
+    const editForm = client.slice(client.lastIndexOf('className="dp-edit-form"'));
+    expect(editForm).toContain('disabled={fileBusyIds.has(d.id)} onClick={() => void removeFile(d)}');
+  });
+
+  // Yêu cầu thực tế: "văn bản nào đã có file đính kèm thì tên văn bản đổi màu,
+  // chưa có vẫn như cũ và bấm vào tên để mở file xem luôn".
+  it("UI: tên văn bản có file thì đổi màu và bấm để mở file; chưa có file thì giữ nguyên chữ thường", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain('className="dp-title-link"');
+    expect(client).toContain("{d.file_name ? (\n                                  <button\n                                    type=\"button\"\n                                    className=\"dp-title-link\"");
+    expect(client).toContain("onClick={() => void viewFile(d)}\n                                    title={`Mở file đính kèm: ${d.file_name}`}");
+    expect(client).toContain(".dp-title-link {");
+    expect(client).toContain("color: var(--brand);\n          font-weight: 700;");
   });
 });
 
