@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { Fragment, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
+import { DOCUMENT_FILE_BUCKET, DOCUMENT_FILE_MAX_SIZE, DOCUMENT_FILE_MAX_SIZE_LABEL } from "@/lib/document-publication-file-limits";
+import { EVIDENCE_ALLOWED_EXTENSIONS, evidenceFilePolicy } from "@/lib/evidence-file-policy";
+import { createClient } from "@/lib/supabase/client";
 import {
   DISSEMINATION_TYPE_LABEL,
   DISSEMINATION_TYPES,
@@ -443,19 +446,62 @@ export function DocumentPublicationsClient({
     window.open(body.url, "_blank", "noopener,noreferrer");
   }
 
+  // Đính kèm theo 3 bước, TẢI THẲNG lên storage (không đi qua route Vercel — body
+  // của hàm Vercel bị giới hạn ~4,5 MB nên file lớn hơn trước đây lỗi chung chung):
+  // (1) xin đường dẫn tải có chữ ký, (2) trình duyệt tải thẳng lên Supabase,
+  // (3) server kiểm lại dung lượng/loại file thật rồi mới gắn vào văn bản.
   async function uploadFile(doc: DocumentPublication, file: File) {
-    markFileBusy(doc.id, true);
     setError("");
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await fetch(`/api/document-publications/${doc.id}/file`, { method: "POST", body: formData });
-    const body = await res.json().catch(() => ({}));
-    markFileBusy(doc.id, false);
-    if (!res.ok) {
-      setError(body.error || "Không tải lên được file.");
+    // Tiền kiểm ở trình duyệt để báo lỗi rõ ràng ngay; server vẫn kiểm lại tất cả.
+    if (file.size <= 0) {
+      setError("File đang trống.");
       return;
     }
-    setDocuments((v) => v.map((d) => (d.id === doc.id ? { ...d, file_name: body.file_name as string } : d)));
+    if (file.size > DOCUMENT_FILE_MAX_SIZE) {
+      setError(`Dung lượng file tối đa là ${DOCUMENT_FILE_MAX_SIZE_LABEL} (file này ${(file.size / 1024 / 1024).toFixed(1)} MB).`);
+      return;
+    }
+    if (!evidenceFilePolicy(file.name)) {
+      setError(`Loại file không được phép. Chỉ chấp nhận: ${EVIDENCE_ALLOWED_EXTENSIONS.join(", ")}.`);
+      return;
+    }
+    markFileBusy(doc.id, true);
+    try {
+      const urlRes = await fetch(`/api/document-publications/${doc.id}/file/upload-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_name: file.name, size: file.size }),
+      });
+      const urlBody = await urlRes.json().catch(() => ({}));
+      if (!urlRes.ok) {
+        setError(urlBody.error || "Không tải lên được file.");
+        return;
+      }
+
+      // Ép type theo chính sách loại file do server cấp (không dùng file.type do trình duyệt tự đoán).
+      const typedFile = new File([file], file.name, { type: urlBody.content_type as string });
+      const { error: uploadError } = await createClient().storage.from(DOCUMENT_FILE_BUCKET).uploadToSignedUrl(urlBody.path as string, urlBody.token as string, typedFile);
+      if (uploadError) {
+        setError(`Không tải được file lên kho lưu trữ: ${uploadError.message}`);
+        return;
+      }
+
+      const confirmRes = await fetch(`/api/document-publications/${doc.id}/file/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: urlBody.path, file_name: file.name }),
+      });
+      const confirmBody = await confirmRes.json().catch(() => ({}));
+      if (!confirmRes.ok) {
+        setError(confirmBody.error || "Không đính kèm được file.");
+        return;
+      }
+      setDocuments((v) => v.map((d) => (d.id === doc.id ? { ...d, file_name: confirmBody.file_name as string } : d)));
+    } catch {
+      setError("Không tải lên được file. Kiểm tra kết nối mạng rồi thử lại.");
+    } finally {
+      markFileBusy(doc.id, false);
+    }
   }
 
   async function removeFile(doc: DocumentPublication) {
