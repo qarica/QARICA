@@ -923,7 +923,24 @@ export function DocumentPublicationsClient({
                           <Fragment key={d.id}>
                             <tr>
                               <td>{d.document_code || "—"}</td>
-                              <td>{d.title}</td>
+                              <td>
+                                {/* Yêu cầu thực tế: văn bản đã có file thì tên đổi màu và bấm vào tên
+                                   để mở file xem luôn; chưa có file thì giữ nguyên như cũ. */}
+                                {d.file_name ? (
+                                  <button
+                                    type="button"
+                                    className="dp-title-link"
+                                    disabled={fileBusyIds.has(d.id)}
+                                    onClick={() => void viewFile(d)}
+                                    title={`Mở file đính kèm: ${d.file_name}`}
+                                    aria-label={`Mở file đính kèm của ${d.title}: ${d.file_name}`}
+                                  >
+                                    {d.title}
+                                  </button>
+                                ) : (
+                                  d.title
+                                )}
+                              </td>
                               <td>{d.version_label}</td>
                               <td>{DOCUMENT_TYPE_LABEL[d.document_type]}</td>
                               <td>{formatDate(d.effective_date)}</td>
@@ -970,18 +987,6 @@ export function DocumentPublicationsClient({
                                     >
                                       <Icon name="paperclip" size={16} />
                                     </button>
-                                    {canManage ? (
-                                      <button
-                                        type="button"
-                                        className="doc-file-icon-remove"
-                                        disabled={fileBusyIds.has(d.id)}
-                                        onClick={() => void removeFile(d)}
-                                        title="Xoá file đính kèm"
-                                        aria-label={`Xoá file đính kèm: ${d.file_name}`}
-                                      >
-                                        <Icon name="x" size={13} />
-                                      </button>
-                                    ) : null}
                                   </div>
                                 ) : canManage ? (
                                   <label className="doc-file-icon dp-file-input" title="Đính kèm file" aria-label="Đính kèm file">
@@ -1073,6 +1078,14 @@ export function DocumentPublicationsClient({
                                     </div>
                                     <input className="input" placeholder="Người đề nghị (tùy chọn)" value={editRequestedByName} onChange={(e) => setEditRequestedByName(e.target.value)} />
                                     <textarea className="input" rows={2} placeholder="Lý do (tùy chọn)..." value={editReason} onChange={(e) => setEditReason(e.target.value)} />
+                                    {d.file_name ? (
+                                      <div className="dp-edit-file">
+                                        <span className="dp-edit-file-name">File đính kèm: {d.file_name}</span>
+                                        <button type="button" className="button danger small" disabled={fileBusyIds.has(d.id)} onClick={() => void removeFile(d)}>
+                                          Xoá file
+                                        </button>
+                                      </div>
+                                    ) : null}
                                     {editError ? <div className="alert error">{editError}</div> : null}
                                     <div className="dp-publish-actions">
                                       <button
@@ -1395,23 +1408,34 @@ export function DocumentPublicationsClient({
           color: var(--brand);
           cursor: pointer;
         }
-        .doc-file-icon-remove {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 18px;
-          height: 18px;
+        .dp-title-link {
           border: 0;
-          border-radius: 50%;
-          background: var(--line);
-          color: var(--muted);
+          background: transparent;
           padding: 0;
+          margin: 0;
+          font: inherit;
+          text-align: left;
+          color: var(--brand);
+          font-weight: 700;
           cursor: pointer;
-          flex: 0 0 auto;
         }
-        .doc-file-icon-remove:hover {
-          background: var(--danger-soft);
-          color: var(--danger);
+        .dp-title-link:hover {
+          text-decoration: underline;
+        }
+        .dp-edit-file {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+          padding: 8px 10px;
+          border: 1px dashed var(--line);
+          border-radius: 10px;
+        }
+        .dp-edit-file-name {
+          font-size: 12px;
+          color: var(--muted);
+          overflow-wrap: anywhere;
         }
         @media (max-width: 760px) {
           .dp-form-row,
