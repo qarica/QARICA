@@ -49,6 +49,7 @@ type VersionRow = {
   document_code: string | null;
   effective_date: string | null;
   file_name: string | null;
+  has_file?: boolean;
   created_by: string;
   created_at: string;
 };
@@ -501,6 +502,24 @@ export function DocumentPublicationsClient({
       setError("Không tải lên được file. Kiểm tra kết nối mạng rồi thử lại.");
     } finally {
       markFileBusy(doc.id, false);
+    }
+  }
+
+  // File của PHIÊN BẢN CŨ trong "Lịch sử" (lưu lại khi văn bản phát hành phiên bản
+  // mới) — khóa theo id của chính dòng lịch sử, không đụng trạng thái bận của dòng văn bản.
+  async function viewVersionFile(doc: DocumentPublication, version: VersionRow) {
+    markFileBusy(version.id, true);
+    setHistoryError("");
+    try {
+      const res = await fetch(`/api/document-publications/${doc.id}/versions/${version.id}/file`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setHistoryError(body.error || "Không mở được file của phiên bản này.");
+        return;
+      }
+      window.open(body.url, "_blank", "noopener,noreferrer");
+    } finally {
+      markFileBusy(version.id, false);
     }
   }
 
@@ -1080,6 +1099,7 @@ export function DocumentPublicationsClient({
                                             <th>Ngày hiệu lực</th>
                                             <th>Người phát hành</th>
                                             <th>Thời điểm</th>
+                                            <th>Tệp</th>
                                           </tr>
                                         </thead>
                                         <tbody>
@@ -1090,6 +1110,22 @@ export function DocumentPublicationsClient({
                                               <td>{formatDate(v.effective_date)}</td>
                                               <td>{staffNameById.get(v.created_by) || "—"}</td>
                                               <td>{new Date(v.created_at).toLocaleString("vi-VN")}</td>
+                                              <td>
+                                                {v.has_file ? (
+                                                  <button
+                                                    type="button"
+                                                    className="doc-file-icon has-file"
+                                                    disabled={fileBusyIds.has(v.id)}
+                                                    onClick={() => void viewVersionFile(d, v)}
+                                                    title={`Mở file của phiên bản ${v.version_label}: ${v.file_name || ""}`}
+                                                    aria-label={`Mở file của phiên bản ${v.version_label}`}
+                                                  >
+                                                    <Icon name="paperclip" size={16} />
+                                                  </button>
+                                                ) : (
+                                                  "—"
+                                                )}
+                                              </td>
                                             </tr>
                                           ))}
                                         </tbody>
