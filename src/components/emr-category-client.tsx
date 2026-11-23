@@ -616,9 +616,20 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
       ) : (
         <div className="panel">
           <div className="table-wrap">
-            <table className="data-table">
+            {/* Phản hồi người dùng: cột Tiêu đề bị bóp thành dải hẹp, chữ xuống dòng từng từ,
+               trong khi các cột phụ (nguồn tham chiếu, ngày, tình trạng...) lại giữ nguyên 1 dòng
+               và chiếm hết chỗ. Đảo lại: cột Tiêu đề có bề rộng tối thiểu đủ đọc, các cột còn
+               lại (kể cả tiêu đề cột) được xuống dòng. Dùng thẻ <style> thường với selector có
+               tiền tố riêng (không dùng styled-jsx, xem CLAUDE.md). */}
+            <style>{`
+              .emr-category-table th,.emr-category-table td{white-space:normal;overflow-wrap:break-word}
+              .emr-category-table th{line-height:1.3}
+              .emr-category-table th:first-child,.emr-category-table td:first-child{white-space:nowrap}
+              .emr-category-table th.emr-col-title,.emr-category-table td.emr-col-title{min-width:280px;max-width:440px}
+            `}</style>
+            <table className="data-table emr-category-table">
               <thead>
-                <tr><th style={{ width: 30 }}></th><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th>{showDescription?<th>{descLabel}</th>:null}{visibleInfoColumns.map((f)=><th key={f.key}>{f.label}</th>)}{visibleProgressColumns.map((f)=><th key={f.key}>{f.label}</th>)}{showPriorityDueStatus?<><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th></>:null}{categoryCode==="BIEU_MAU"?<th>Duyệt phát hành</th>:null}<th></th></tr>
+                <tr><th style={{ width: 30 }}></th><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th className="emr-col-title"><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th>{showDescription?<th>{descLabel}</th>:null}{visibleInfoColumns.map((f)=><th key={f.key}>{f.label}</th>)}{visibleProgressColumns.map((f)=><th key={f.key}>{f.label}</th>)}{showPriorityDueStatus?<><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th></>:null}{categoryCode==="BIEU_MAU"?<th>Duyệt phát hành</th>:null}<th></th></tr>
               </thead>
               <tbody>
                 {filtered.map((item, idx) => (
@@ -627,7 +638,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                     <td><button type="button" className="icon-button" onClick={() => toggleExpanded(item.id)} aria-label={expandedIds.has(item.id) ? "Thu gọn chi tiết" : "Xem chi tiết"} aria-expanded={expandedIds.has(item.id)}>{expandedIds.has(item.id) ? "▾" : "▸"}</button></td>
                     <td>{idx + 1}</td>
                     {beforeTitleFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
-                    <td><strong>{item.title}</strong></td>
+                    <td className="emr-col-title"><strong>{item.title}</strong></td>
                     {showDescription?<td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>:null}
                     {visibleInfoColumns.map((f)=><td key={f.key}>{fieldDisplayContent(f, item)}</td>)}
                     {visibleProgressColumns.map((f)=><td key={f.key}>{fieldDisplayContent(f, item)}</td>)}

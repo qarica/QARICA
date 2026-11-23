@@ -59,6 +59,17 @@ export function isDocumentFilePathFor(path: string, organizationId: string, docu
   );
 }
 
+// File của phiên bản cũ nằm trong document_publication_versions.file_path. Mọi
+// nơi xoá object khỏi storage (thay file, xoá file) phải bỏ qua object còn được
+// lịch sử tham chiếu — kể cả khi 1 lần lưu dở dang làm văn bản và lịch sử cùng
+// trỏ vào 1 file — để không bao giờ làm mất file của một phiên bản đã lưu.
+export async function removeStorageObjectUnlessVersioned(admin: Admin, path: string | null) {
+  if (!path) return;
+  const { count } = await admin.from("document_publication_versions").select("id", { count: "exact", head: true }).eq("file_path", path);
+  if (count && count > 0) return;
+  await admin.storage.from(DOCUMENT_FILE_BUCKET).remove([path]);
+}
+
 type FinalizeResult = { ok: true } | { ok: false; status: number; error: string };
 
 // Phần ghi DB sau khi file đã nằm trong storage: gắn vào văn bản, xoá file cũ
@@ -73,7 +84,7 @@ export async function finalizeDocumentFileAttach(
     await admin.storage.from(DOCUMENT_FILE_BUCKET).remove([storagePath]);
     return { ok: false, status: 400, error: updateError.message };
   }
-  if (previousPath) await admin.storage.from(DOCUMENT_FILE_BUCKET).remove([previousPath]);
+  await removeStorageObjectUnlessVersioned(admin, previousPath);
 
   const { error: auditError } = await admin.from("audit_logs").insert({
     actor_user_id: actorUserId,

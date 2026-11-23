@@ -9,6 +9,7 @@ import {
   draftingDepartmentName,
   finalizeDocumentFileAttach,
   loadDocumentForFile as loadDocument,
+  removeStorageObjectUnlessVersioned,
 } from "@/lib/document-publication-file";
 
 export const runtime = "nodejs";
@@ -95,7 +96,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { error: updateError } = await admin.from("document_publications").update({ file_path: null, file_name: null, updated_at: new Date().toISOString() }).eq("id", id);
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
 
-  if (doc.file_path) await admin.storage.from(BUCKET).remove([doc.file_path]);
+  await removeStorageObjectUnlessVersioned(admin, doc.file_path);
 
   const { error: auditError } = await admin.from("audit_logs").insert({
     actor_user_id: auth.user.id,

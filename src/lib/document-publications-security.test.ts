@@ -221,7 +221,10 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
     // Xoá file cũ nằm trong finalizeDocumentFileAttach — dùng chung cho cả đính
     // kèm qua server và xác nhận sau khi tải thẳng.
     const lib = read("src/lib/document-publication-file.ts");
-    expect(lib).toContain("if (previousPath) await admin.storage.from(DOCUMENT_FILE_BUCKET).remove([previousPath]);");
+    // ...trừ khi object đó còn được lịch sử phiên bản tham chiếu (file của bản cũ).
+    expect(lib).toContain("await removeStorageObjectUnlessVersioned(admin, previousPath);");
+    expect(lib).toContain('.from("document_publication_versions").select("id", { count: "exact", head: true }).eq("file_path", path)');
+    expect(read("src/app/api/document-publications/[id]/file/route.ts")).toContain("await removeStorageObjectUnlessVersioned(admin, doc.file_path);");
     expect(read("src/app/api/document-publications/[id]/file/route.ts")).toContain("previousPath: doc.file_path");
     expect(read("src/app/api/document-publications/[id]/file/confirm/route.ts")).toContain("previousPath: doc.file_path");
   });
@@ -394,6 +397,114 @@ describe("Document publications: đính kèm file tải thẳng lên storage (kh
     expect(client).toContain("} finally {\n      markFileBusy(doc.id, false);");
     // Không còn gửi file qua body route Vercel từ giao diện.
     expect(client).not.toContain('formData.append("file", file)');
+  });
+});
+
+// "Làm hướng 1": khi phát hành PHIÊN BẢN MỚI, file của bản cũ không còn bị mất —
+// được lưu vào dòng lịch sử của bản cũ và mở lại được từ "Lịch sử".
+describe("Document publications: giữ file theo từng phiên bản (hướng 1)", () => {
+  // Kho dữ liệu giả tối thiểu đủ cho archiveCurrentVersionFile (select/eq/order/limit/maybeSingle/insert/update).
+  function fakeAdmin(tables: Record<string, Record<string, unknown>[]>) {
+    const inserted: { table: string; row: Record<string, unknown> }[] = [];
+    const updated: { table: string; patch: Record<string, unknown>; id: unknown }[] = [];
+    const admin = {
+      from(table: string) {
+        const filters: [string, unknown][] = [];
+        const builder: Record<string, unknown> = {
+          select: () => builder,
+          eq: (k: string, v: unknown) => (filters.push([k, v]), builder),
+          order: () => builder,
+          limit: () => builder,
+          maybeSingle: async () => ({ data: (tables[table] || []).find((r) => filters.every(([k, v]) => r[k] === v)) ?? null, error: null }),
+          insert: async (row: Record<string, unknown>) => (inserted.push({ table, row }), { error: null }),
+          update: (patch: Record<string, unknown>) => ({ eq: async (_k: string, id: unknown) => (updated.push({ table, patch, id }), { error: null }) }),
+        };
+        return builder;
+      },
+    };
+    return { admin: admin as never, inserted, updated };
+  }
+  const org = "11111111-1111-1111-1111-111111111111";
+  const doc = "22222222-2222-2222-2222-222222222222";
+  const base = { id: doc, organization_id: org, version_label: "01", document_code: "QT-01", effective_date: "2024-01-01", file_path: "p/old.pdf", file_name: "old.pdf" };
+
+  it("bản cũ CHƯA có dòng lịch sử (văn bản nhập từ trước): tạo dòng cho bản cũ kèm đúng file hiện hành", async () => {
+    const { archiveCurrentVersionFile } = await import("./document-publication-server");
+    const { admin, inserted } = fakeAdmin({ document_publications: [base], document_publication_versions: [] });
+    const r = await archiveCurrentVersionFile(admin, { organizationId: org, documentId: doc, createdBy: "u1" });
+    expect(r).toEqual({ ok: true, archivedFile: true });
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0].row).toMatchObject({ version_label: "01", document_code: "QT-01", file_path: "p/old.pdf", file_name: "old.pdf", document_publication_id: doc });
+  });
+
+  it("bản cũ ĐÃ có dòng lịch sử chưa giữ file: gắn file hiện hành vào dòng đó, không tạo dòng trùng", async () => {
+    const { archiveCurrentVersionFile } = await import("./document-publication-server");
+    const { admin, inserted, updated } = fakeAdmin({
+      document_publications: [base],
+      document_publication_versions: [{ id: "v1", organization_id: org, document_publication_id: doc, version_label: "01", file_path: null }],
+    });
+    const r = await archiveCurrentVersionFile(admin, { organizationId: org, documentId: doc, createdBy: "u1" });
+    expect(r).toEqual({ ok: true, archivedFile: true });
+    expect(inserted).toHaveLength(0);
+    expect(updated).toEqual([{ table: "document_publication_versions", patch: { file_path: "p/old.pdf", file_name: "old.pdf" }, id: "v1" }]);
+  });
+
+  it("dòng lịch sử đã giữ 1 file thì KHÔNG bị ghi đè; văn bản không có file thì chỉ bảo đảm có dòng lịch sử", async () => {
+    const { archiveCurrentVersionFile } = await import("./document-publication-server");
+    const kept = fakeAdmin({
+      document_publications: [base],
+      document_publication_versions: [{ id: "v1", organization_id: org, document_publication_id: doc, version_label: "01", file_path: "p/already.pdf" }],
+    });
+    expect(await archiveCurrentVersionFile(kept.admin, { organizationId: org, documentId: doc, createdBy: "u1" })).toEqual({ ok: true, archivedFile: false });
+    expect(kept.updated).toHaveLength(0);
+    const noFile = fakeAdmin({ document_publications: [{ ...base, file_path: null, file_name: null }], document_publication_versions: [] });
+    expect(await archiveCurrentVersionFile(noFile.admin, { organizationId: org, documentId: doc, createdBy: "u1" })).toEqual({ ok: true, archivedFile: false });
+    expect(noFile.inserted).toHaveLength(1);
+    expect(noFile.inserted[0].row).toMatchObject({ file_path: null });
+  });
+
+  it("văn bản đích không tồn tại / sai tổ chức → lỗi, không ghi gì", async () => {
+    const { archiveCurrentVersionFile } = await import("./document-publication-server");
+    const { admin, inserted } = fakeAdmin({ document_publications: [base], document_publication_versions: [] });
+    const r = await archiveCurrentVersionFile(admin, { organizationId: "99999999-9999-9999-9999-999999999999", documentId: doc, createdBy: "u1" });
+    expect(r.ok).toBe(false);
+    expect(inserted).toHaveLength(0);
+  });
+
+  it("PATCH ADVANCE→PUBLISHED (UPDATE) lưu file bản cũ TRƯỚC khi gỡ file khỏi văn bản, và chỉ gỡ khi lưu thành công", () => {
+    const route = read("src/app/api/document-publications/[id]/route.ts");
+    const archiveAt = route.indexOf("archiveCurrentVersionFile(admin, {");
+    const clearAt = route.indexOf("targetUpdate.file_path = null;");
+    const updateAt = route.indexOf('.from("document_publications").update(targetUpdate)');
+    expect(archiveAt).toBeGreaterThan(-1);
+    expect(archiveAt).toBeLessThan(clearAt);
+    expect(clearAt).toBeLessThan(updateAt);
+    expect(route.slice(archiveAt, clearAt)).toContain("if (!archived.ok) return NextResponse.json(");
+    expect(route).toContain("targetUpdate.file_name = null;");
+    // recordDocumentVersion (ghi bản MỚI) vẫn chỉ còn 1 chỗ gọi như test cũ khoá.
+    expect((route.match(/recordDocumentVersion\(admin, \{/g) ?? []).length).toBe(1);
+  });
+
+  it("route lịch sử không lộ file_path, chỉ báo has_file; route file của phiên bản đòi .view + chặn theo tổ chức và theo văn bản", () => {
+    const list = read("src/app/api/document-publications/[id]/versions/route.ts");
+    expect(list).toContain("has_file: !!file_path");
+    expect(list).not.toContain("file_path: ");
+    const route = read("src/app/api/document-publications/[id]/versions/[versionId]/file/route.ts");
+    expect(route).toContain('requireApiPermission("document_publication.view")');
+    expect(route).not.toContain("document_publication.manage");
+    expect(route).toContain('.eq("document_publication_id", id)');
+    expect(route).toContain('.eq("organization_id", organizationId)');
+    expect(route).toContain("createSignedUrl(version.file_path, 60)");
+  });
+
+  it("migration chỉ thêm cột file_path nullable; UI có cột Tệp trong Lịch sử mở file đúng phiên bản", () => {
+    const mig = read("supabase/migrations/20261201000001_document_publication_versions_file_path_v1.sql");
+    expect(mig).toContain("alter table public.document_publication_versions add column if not exists file_path text;");
+    expect(mig).not.toMatch(/drop |delete |truncate /i);
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("<th>Tệp</th>");
+    expect(client).toContain("/versions/${version.id}/file`");
+    expect(client).toContain("onClick={() => void viewVersionFile(d, v)}");
   });
 });
 

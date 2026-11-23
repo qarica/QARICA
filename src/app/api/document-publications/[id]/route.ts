@@ -3,7 +3,7 @@ import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentOwnerLabel, DocumentPublicationType, isDisseminationType, isDocumentPublicationType, nextStage, STAGE_DUE_DAYS } from "@/lib/document-publication-types";
 import type { DocumentPublicationRequestType } from "@/lib/document-publication-types";
-import { addDaysISO, createTrainingForDocument, recordDocumentVersion, REVIEW_CYCLE_DAYS } from "@/lib/document-publication-server";
+import { addDaysISO, createTrainingForDocument, recordDocumentVersion, REVIEW_CYCLE_DAYS, archiveCurrentVersionFile } from "@/lib/document-publication-server";
 
 const SELECT_COLUMNS =
   "id,title,document_type,drafting_department_id,requested_by_name,reason,version_label,stage,stage_due_date,current_owner_label,document_code,effective_date,review_date,dissemination_type,file_name,created_at,request_type,target_document_id,retracted_at";
@@ -156,6 +156,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       targetUpdate.document_type = documentType;
       targetUpdate.drafting_department_id = current.drafting_department_id;
       targetUpdate.updated_at = new Date().toISOString();
+      // Phiên bản MỚI chưa có file: file đang đính thuộc về phiên bản CŨ → lưu vào
+      // lịch sử của bản cũ (tra lại được qua "Lịch sử") rồi gỡ khỏi văn bản hiện
+      // tại, thay vì để nó bị xoá khi đính file mới. Lưu vào lịch sử TRƯỚC khi gỡ,
+      // nên nếu bước nào lỗi thì file vẫn còn nguyên ở văn bản.
+      const archived = await archiveCurrentVersionFile(admin, { organizationId, documentId: targetId!, createdBy: auth.user.id });
+      if (!archived.ok) return NextResponse.json({ error: `Không lưu được file của phiên bản cũ vào lịch sử: ${archived.error}` }, { status: 500 });
+      targetUpdate.file_path = null;
+      targetUpdate.file_name = null;
       const { error: targetError } = await admin.from("document_publications").update(targetUpdate).eq("id", targetId).eq("organization_id", organizationId);
       if (targetError) return NextResponse.json({ error: targetError.message }, { status: 400 });
     } else {

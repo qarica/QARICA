@@ -66,3 +66,63 @@ export async function recordDocumentVersion(
     created_by: params.createdBy,
   });
 }
+
+// Hướng "giữ file theo từng phiên bản": khi phát hành PHIÊN BẢN MỚI của 1 văn
+// bản (yêu cầu UPDATE), file đang đính trên văn bản thuộc về phiên bản CŨ. Trước
+// đây file đó bị xoá khi đính file mới (không tra lại được bản cũ). Hàm này gọi
+// TRƯỚC khi áp version_label mới: bảo đảm bản cũ có 1 dòng trong
+// document_publication_versions (văn bản nhập từ trước có thể chưa có dòng nào)
+// và chuyển file hiện hành vào dòng đó. Việc gỡ file khỏi văn bản hiện tại do
+// nơi gọi làm cùng lúc cập nhật version mới.
+export async function archiveCurrentVersionFile(
+  admin: SupabaseClient,
+  params: { organizationId: string; documentId: string; createdBy: string },
+): Promise<{ ok: true; archivedFile: boolean } | { ok: false; error: string }> {
+  const { organizationId, documentId, createdBy } = params;
+  const { data: target, error: targetError } = await admin
+    .from("document_publications")
+    .select("version_label,document_code,effective_date,file_path,file_name")
+    .eq("id", documentId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (targetError) return { ok: false, error: targetError.message };
+  if (!target) return { ok: false, error: "Không tìm thấy văn bản đích." };
+
+  const { data: existing, error: existingError } = await admin
+    .from("document_publication_versions")
+    .select("id,file_path")
+    .eq("document_publication_id", documentId)
+    .eq("organization_id", organizationId)
+    .eq("version_label", target.version_label)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existingError) return { ok: false, error: existingError.message };
+
+  if (!existing) {
+    const { error: insertError } = await admin.from("document_publication_versions").insert({
+      organization_id: organizationId,
+      document_publication_id: documentId,
+      version_label: target.version_label,
+      document_code: target.document_code,
+      effective_date: target.effective_date,
+      file_name: target.file_name,
+      file_path: target.file_path,
+      created_by: createdBy,
+    });
+    if (insertError) return { ok: false, error: insertError.message };
+    return { ok: true, archivedFile: !!target.file_path };
+  }
+
+  // Dòng của bản cũ đã có: chỉ gắn file nếu nó chưa giữ file nào (không ghi đè
+  // file đã lưu trước đó).
+  if (target.file_path && !existing.file_path) {
+    const { error: updateError } = await admin
+      .from("document_publication_versions")
+      .update({ file_path: target.file_path, file_name: target.file_name })
+      .eq("id", existing.id);
+    if (updateError) return { ok: false, error: updateError.message };
+    return { ok: true, archivedFile: true };
+  }
+  return { ok: true, archivedFile: false };
+}
