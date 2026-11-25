@@ -3,7 +3,7 @@ import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const SELECT_COLUMNS =
-  "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,notes,test_score_max,pass_threshold,is_open_for_registration";
+  "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,notes,test_score_max,pass_threshold,is_open_for_registration,is_attendance_only,is_open_for_attendance";
 
 const EDITABLE_FIELDS = [
   "trainer",
@@ -16,6 +16,8 @@ const EDITABLE_FIELDS = [
   "test_score_max",
   "pass_threshold",
   "is_open_for_registration",
+  "is_attendance_only",
+  "is_open_for_attendance",
 ];
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -54,6 +56,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
     } else if (field === "is_open_for_registration") {
       update.is_open_for_registration = body.is_open_for_registration === true;
+    } else if (field === "is_attendance_only") {
+      update.is_attendance_only = body.is_attendance_only === true;
+    } else if (field === "is_open_for_attendance") {
+      update.is_open_for_attendance = body.is_open_for_attendance === true;
     } else {
       update[field] = String(body[field]).trim() || null;
     }
@@ -71,6 +77,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   // thường, không chỉ riêng 1 chỗ gọi (CLAUDE.md nguyên tắc 2).
   if (update.status === "TRAINED") {
     update.is_open_for_registration = false;
+    // Link/QR điểm danh cũng là link công khai: lớp đã hoàn thành thì đóng luôn, cùng lý do.
+    update.is_open_for_attendance = false;
   }
 
   const { data, error } = await admin
@@ -83,7 +91,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (!data) return NextResponse.json({ error: "Không tìm thấy quy trình." }, { status: 404 });
 
-  if (update.status === "TRAINED") {
+  // Chuyển lớp sang chế độ "chỉ điểm danh" (không có bài test) thì đóng luôn link làm bài của
+  // mọi đợt kiểm tra — tránh còn QR làm bài đang mở cho một lớp đã định nghĩa là không có test.
+  if (update.status === "TRAINED" || update.is_attendance_only === true) {
     await admin.from("procedure_training_rounds").update({ is_open_for_submission: false }).eq("training_id", id).eq("organization_id", organizationId);
   }
 

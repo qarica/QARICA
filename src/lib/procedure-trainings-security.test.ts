@@ -167,9 +167,11 @@ describe("Procedure trainings module security and control gates", () => {
   // TRAINED — is_open_for_registration của lớp VÀ is_open_for_submission
   // của MỌI đợt kiểm tra (procedure_training_rounds) — không chỉ riêng 1
   // nút bấm, để đúng dù gọi PATCH từ đâu (CLAUDE.md nguyên tắc 2).
-  it("hoàn thành lớp (status=TRAINED) tự đóng link đăng ký + link làm bài qua QR của mọi đợt kiểm tra", () => {
+  it("hoàn thành lớp (status=TRAINED) tự đóng link đăng ký + link điểm danh + link làm bài qua QR của mọi đợt kiểm tra", () => {
     const route = read("src/app/api/procedure-trainings/[id]/route.ts");
-    expect(route).toContain('if (update.status === "TRAINED") {\n    update.is_open_for_registration = false;\n  }');
+    // Link điểm danh QR (tập huấn chỉ điểm danh) cũng là link công khai nên đóng cùng lúc.
+    expect(route).toContain('if (update.status === "TRAINED") {\n    update.is_open_for_registration = false;');
+    expect(route).toContain("update.is_open_for_attendance = false;");
     expect(route).toContain('.from("procedure_training_rounds").update({ is_open_for_submission: false }).eq("training_id", id).eq("organization_id", organizationId)');
 
     const detailClient = read("src/components/procedure-training-detail-client.tsx");

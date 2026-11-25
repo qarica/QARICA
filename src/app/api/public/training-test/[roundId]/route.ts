@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { shuffleItems } from "@/lib/training-self-test";
 
 // Route CÔNG KHAI — không đăng nhập, không requireApiPermission (nhân viên
 // quét QR vào thẳng, nhiều người không có tài khoản QARICA). Dùng
@@ -12,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rou
 
   const { data: round } = await admin
     .from("procedure_training_rounds")
-    .select("id,training_id,organization_id,round_label,score_max,is_open_for_submission")
+    .select("id,training_id,organization_id,round_label,score_max,is_open_for_submission,shuffle_questions")
     .eq("id", roundId)
     .maybeSingle();
   if (!round) return NextResponse.json({ error: "Không tìm thấy đợt kiểm tra." }, { status: 404 });
@@ -34,6 +35,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rou
   ]);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+  const publicQuestions = (questions ?? []).map((q) => ({
+    question_no: q.question_no,
+    question_text: q.question_text || `Câu ${q.question_no}`,
+    choices: Array.isArray(q.choices) && q.choices.length > 1 ? q.choices : null,
+  }));
+
+  // "Trộn thứ tự câu hỏi": mỗi lần tải (mỗi người quét QR) nhận 1 thứ tự khác nhau khi
+  // đợt bật shuffle_questions. Trộn Ở SERVER (không tin client tự trộn) và chỉ đổi thứ tự
+  // hiển thị — đáp án vẫn gửi lên theo question_no nên chấm điểm không đổi.
   return NextResponse.json({
     ok: true,
     open: true,
@@ -41,10 +51,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rou
     roundLabel: round.round_label,
     scoreMax: round.score_max,
     departments: departments ?? [],
-    questions: (questions ?? []).map((q) => ({
-      question_no: q.question_no,
-      question_text: q.question_text || `Câu ${q.question_no}`,
-      choices: Array.isArray(q.choices) && q.choices.length > 1 ? q.choices : null,
-    })),
+    shuffled: !!round.shuffle_questions,
+    questions: round.shuffle_questions ? shuffleItems(publicQuestions) : publicQuestions,
   });
 }

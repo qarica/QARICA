@@ -5,7 +5,7 @@ import { nextClassCodes } from "@/lib/procedure-training-class-code";
 import { topicKeyFor } from "@/lib/procedure-training-topic-rollup";
 
 const SELECT_COLUMNS =
-  "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,notes,test_score_max,pass_threshold,is_open_for_registration";
+  "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,notes,test_score_max,pass_threshold,is_open_for_registration,is_attendance_only,is_open_for_attendance";
 
 // "1 chủ đề đào tạo có thể có nhiều lớp khác nhau, chủ động khai báo thông
 // tin lớp và kế thừa thông tin đợt cũ, cho phép sửa lại" — tạo 1 lớp
@@ -25,7 +25,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
   const { data: source } = await admin
     .from("procedure_trainings")
-    .select("procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_method,test_score_max,pass_threshold,document_publication_id")
+    .select("procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_method,test_score_max,pass_threshold,document_publication_id,is_attendance_only")
     .eq("id", sourceId)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -67,6 +67,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       session_1_method: source.session_1_method,
       test_score_max: source.test_score_max,
       pass_threshold: source.pass_threshold,
+      // Lớp mới cùng chủ đề giữ nguyên chế độ (có test / chỉ điểm danh); link điểm danh luôn
+      // bắt đầu ĐÓNG (mặc định cột) như link đăng ký/làm bài.
+      is_attendance_only: !!source.is_attendance_only,
       status: "PLANNED",
     })
     .select(SELECT_COLUMNS)

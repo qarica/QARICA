@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT_COLUMNS = "id,training_id,round_label,round_date,score_max,sort_order,is_open_for_submission";
+const SELECT_COLUMNS = "id,training_id,round_label,round_date,score_max,sort_order,is_open_for_submission,shuffle_questions";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; roundId: string }> }) {
   const auth = await requireApiPermission("procedure_training.manage");
@@ -42,6 +42,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     update.is_open_for_submission = wantsOpen;
   }
+  // Bật/tắt trộn thứ tự câu hỏi của đợt — chỉ ảnh hưởng người mở link SAU khi đổi (không đổi
+  // thứ tự của bài đang làm dở), nên không cần chặn khi đợt đang mở.
+  if (body.shuffle_questions !== undefined) update.shuffle_questions = body.shuffle_questions === true;
   if (!Object.keys(update).length) return NextResponse.json({ error: "Không có thay đổi nào." }, { status: 400 });
 
   const { data, error } = await admin

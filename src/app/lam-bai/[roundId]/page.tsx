@@ -110,7 +110,15 @@ export default function PublicTrainingTestPage({ params }: { params: Promise<{ r
       setSubmitError(body.error || "Không nộp được bài, vui lòng thử lại.");
       return;
     }
-    setResult(body as SubmitResult);
+    // Kết quả chi tiết phải theo ĐÚNG thứ tự người làm bài vừa thấy (khi đợt bật trộn câu
+    // hỏi, thứ tự trên màn hình khác thứ tự gốc theo question_no — để nguyên sẽ thấy số
+    // "Câu n" ở kết quả lệch với lúc làm bài).
+    const seenOrder = new Map(state.questions.map((q, i) => [q.question_no, i]));
+    const submitted = body as SubmitResult;
+    setResult({
+      ...submitted,
+      perQuestion: [...submitted.perQuestion].sort((a, b) => (seenOrder.get(a.question_no) ?? 0) - (seenOrder.get(b.question_no) ?? 0)),
+    });
   }
 
   return (

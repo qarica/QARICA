@@ -17,6 +17,7 @@ type Training = {
   attendee_total: number;
   attendee_attended: number;
   document_publication_id: string | null;
+  is_attendance_only?: boolean;
   source_document: { id: string; title: string; document_code: string | null } | null;
 };
 
@@ -243,6 +244,7 @@ export function ProcedureTrainingsClient({
                   <td>{t.procedure_code || "—"}</td>
                   <td>
                     {t.procedure_name}
+                    {t.is_attendance_only ? <> <span className="status-badge info" title="Lớp tập huấn chỉ điểm danh (quét QR), không có bài test">Chỉ điểm danh</span></> : null}
                     {t.source_document ? (
                       <div><small>Từ văn bản {t.source_document.document_code || ""}{t.source_document.document_code ? " — " : ""}{t.source_document.title} · <Link className="table-link" href="/document-publications">Xem →</Link></small></div>
                     ) : null}

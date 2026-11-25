@@ -31,3 +31,23 @@ export function computeScore(responses: GradedResponse[], scoreMax: number | nul
   if (scoreMax == null) return correctCount;
   return Math.round(((correctCount / total) * scoreMax) * 100) / 100;
 }
+
+// Trộn thứ tự câu hỏi (Fisher–Yates) — "chưa có chức năng trộn thứ tự câu hỏi".
+// Hàm THUẦN: không sửa mảng đầu vào, nhận hàm random để test được (mặc định dùng
+// crypto.getRandomValues, không dùng Math.random — thứ tự khó đoán hơn giữa các người
+// làm bài). Chỉ đổi THỨ TỰ HIỂN THỊ: đáp án vẫn gắn theo question_no nên chấm điểm
+// không đổi, và điểm của câu không phụ thuộc vị trí câu.
+export function randomUnit(): number {
+  const buf = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(buf);
+  return buf[0] / 4294967296;
+}
+
+export function shuffleItems<T>(items: readonly T[], random: () => number = randomUnit): T[] {
+  const out = items.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}

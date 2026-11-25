@@ -13,7 +13,7 @@ export default async function ProcedureTrainingsPage() {
   const { data } = await supabase
     .from("procedure_trainings")
     .select(
-      "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,notes,document_publication_id,test_score_max,pass_threshold",
+      "id,procedure_code,procedure_name,drafting_unit,effective_date,trainer,session_1_time,session_1_location,session_1_method,status,feedback_qlcl,notes,document_publication_id,test_score_max,pass_threshold,is_attendance_only",
     )
     .eq("organization_id", user.organizationId)
     .order("created_at", { ascending: false })

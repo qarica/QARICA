@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT_COLUMNS = "id,training_id,round_label,round_date,score_max,sort_order,is_open_for_submission";
+const SELECT_COLUMNS = "id,training_id,round_label,round_date,score_max,sort_order,is_open_for_submission,shuffle_questions";
 
 // Schema hỗ trợ N đợt kiểm tra/người (xem migration
 // 20261130000000_procedure_training_rounds_results_v1.sql), nhưng tạo thủ

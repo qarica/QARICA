@@ -26,9 +26,11 @@ type Training = {
   test_score_max: number | null;
   pass_threshold: number | null;
   is_open_for_registration: boolean;
+  is_attendance_only?: boolean;
+  is_open_for_attendance?: boolean;
 };
-type Round = { id: string; round_label: string; round_date: string | null; score_max: number | null; sort_order: number; is_open_for_submission: boolean };
-type Attendee = { id: string; employee_name: string; employee_code: string | null; department: string | null; job_title: string | null; attended: boolean; attended_at: string | null; notes: string | null };
+type Round = { id: string; round_label: string; round_date: string | null; score_max: number | null; sort_order: number; is_open_for_submission: boolean; shuffle_questions?: boolean };
+type Attendee = { id: string; employee_name: string; employee_code: string | null; department: string | null; job_title: string | null; attended: boolean; attended_at: string | null; notes: string | null; checked_in_at?: string | null };
 type ResultRow = { id: string; attendee_id: string; round_id: string; score: number | null };
 type ResponseRow = { result_id: string; question_no: number; answer_text: string | null; is_correct: boolean | null };
 type QuestionRow = { question_no: number; correct_answer: string; question_text: string | null; choices: string[] | null };
@@ -97,7 +99,7 @@ export function ProcedureTrainingDetailClient({
   registrations: Registration[];
   canManage: boolean;
 }) {
-  const [tab, setTab] = useState<"info" | "roster" | "registration" | "analysis" | "questions" | "import">("roster");
+  const [tab, setTab] = useState<"info" | "roster" | "registration" | "attendance" | "analysis" | "questions" | "import">("roster");
   const [training, setTraining] = useState(initialTraining);
   const [rounds, setRounds] = useState(initialRounds);
   const [attendees, setAttendees] = useState(initialAttendees);
@@ -127,30 +129,35 @@ export function ProcedureTrainingDetailClient({
     return map;
   }, [responses]);
 
+  // "Tập huấn chỉ quét QR điểm danh, chưa cần làm test": lớp ở chế độ chỉ điểm danh không có
+  // bài kiểm tra nên ẩn các tab chỉ phục vụ bài test (Câu hỏi & đáp án, Phân tích điểm).
+  const attendanceOnly = !!training.is_attendance_only;
+  const tabItems: [typeof tab, string][] = [
+    ["info", "Thông tin đào tạo"],
+    ...(attendanceOnly ? [] : ([["questions", "Câu hỏi & đáp án"]] as [typeof tab, string][])),
+    ["registration", "Đăng ký"],
+    ["attendance", "Điểm danh"],
+    ["roster", attendanceOnly ? "Nhân sự" : "Nhân sự & điểm"],
+    ["import", "Nhập dữ liệu"],
+    ...(attendanceOnly ? [] : ([["analysis", "Phân tích"]] as [typeof tab, string][])),
+  ];
+  const activeTab = attendanceOnly && (tab === "questions" || tab === "analysis") ? "roster" : tab;
+
   return (
     <div className="ptd-page">
       {error ? <div className="alert error">{error}</div> : null}
       <div className="ptd-tabs" role="group" aria-label="Chi tiết đợt đào tạo">
-        {(
-          [
-            ["info", "Thông tin đào tạo"],
-            ["questions", "Câu hỏi & đáp án"],
-            ["registration", "Đăng ký"],
-            ["roster", "Nhân sự & điểm"],
-            ["import", "Nhập dữ liệu"],
-            ["analysis", "Phân tích"],
-          ] as const
-        ).map(([key, label]) => (
-          <button key={key} type="button" className={tab === key ? "active" : ""} aria-pressed={tab === key} onClick={() => setTab(key)}>
+        {tabItems.map(([key, label]) => (
+          <button key={key} type="button" className={activeTab === key ? "active" : ""} aria-pressed={activeTab === key} onClick={() => setTab(key)}>
             {label}
           </button>
         ))}
       </div>
 
-      {tab === "info" ? (
+      {activeTab === "info" ? (
         <InfoTab training={training} setTraining={setTraining} setRounds={setRounds} canManage={canManage} setError={setError} />
       ) : null}
-      {tab === "roster" ? (
+      {activeTab === "roster" ? (
         <RosterTab
           trainingId={training.id}
           rounds={effectiveRounds}
@@ -165,11 +172,12 @@ export function ProcedureTrainingDetailClient({
           questions={questions}
           departments={departments}
           passThreshold={training.pass_threshold}
+          attendanceOnly={attendanceOnly}
           canManage={canManage}
           setError={setError}
         />
       ) : null}
-      {tab === "registration" ? (
+      {activeTab === "registration" ? (
         <RegistrationTab
           trainingId={training.id}
           isOpen={training.is_open_for_registration}
@@ -183,9 +191,20 @@ export function ProcedureTrainingDetailClient({
           setError={setError}
         />
       ) : null}
-      {tab === "analysis" ? <AnalysisTab rounds={effectiveRounds} attendees={attendees} results={results} responses={responses} questions={questions} passThreshold={training.pass_threshold} /> : null}
-      {tab === "questions" ? <QuestionsTab trainingId={training.id} questions={questions} setQuestions={setQuestions} canManage={canManage} setError={setError} /> : null}
-      {tab === "import" ? (
+      {activeTab === "attendance" ? (
+        <AttendanceTab
+          trainingId={training.id}
+          isOpen={!!training.is_open_for_attendance}
+          attendees={attendees}
+          setAttendees={setAttendees}
+          setTraining={setTraining}
+          canManage={canManage}
+          setError={setError}
+        />
+      ) : null}
+      {activeTab === "analysis" ? <AnalysisTab rounds={effectiveRounds} attendees={attendees} results={results} responses={responses} questions={questions} passThreshold={training.pass_threshold} /> : null}
+      {activeTab === "questions" ? <QuestionsTab trainingId={training.id} questions={questions} setQuestions={setQuestions} canManage={canManage} setError={setError} /> : null}
+      {activeTab === "import" ? (
         <ImportTab
           trainingId={training.id}
           rounds={rounds}
@@ -266,6 +285,33 @@ function InfoTab({
   const [saved, setSaved] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [modeBusy, setModeBusy] = useState(false);
+
+  // "Tập huấn chỉ quét QR điểm danh, chưa cần làm test": chuyển lớp giữa chế độ có bài test và
+  // chế độ chỉ điểm danh. Sang chế độ chỉ điểm danh thì server đóng luôn link làm bài của mọi đợt
+  // kiểm tra (dữ liệu đợt/câu hỏi/điểm đã có KHÔNG bị xoá — chỉ ẩn khỏi giao diện).
+  async function toggleAttendanceOnly() {
+    const next = !training.is_attendance_only;
+    const message = next
+      ? "Chuyển lớp sang chế độ CHỈ ĐIỂM DANH (tập huấn không có bài test)? Sẽ ẩn phần bài kiểm tra/câu hỏi/phân tích điểm và đóng link làm bài qua QR. Dữ liệu bài test đã có KHÔNG bị xoá."
+      : "Chuyển lớp về chế độ CÓ BÀI TEST? Phần đợt kiểm tra/câu hỏi/phân tích điểm sẽ hiện lại.";
+    if (!window.confirm(message)) return;
+    setModeBusy(true);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${training.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_attendance_only: next }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setModeBusy(false);
+    if (!res.ok) {
+      setError(body.error || "Không đổi được chế độ lớp.");
+      return;
+    }
+    setTraining({ ...training, ...body.training });
+    if (next) setRounds((v) => v.map((r) => ({ ...r, is_open_for_submission: false })));
+  }
 
   // Báo cáo thực tế: "Phải có nút bấm hoàn thành lớp" — trước đây muốn đánh
   // dấu status="TRAINED" phải bấm "Sửa" mở form rồi đổi dropdown "Trạng
@@ -366,6 +412,10 @@ function InfoTab({
             {STATUS_LABEL[training.status] || training.status}
           </div>
           <div>
+            <span>Hình thức</span>
+            {training.is_attendance_only ? "Tập huấn chỉ điểm danh (quét QR, không có bài test)" : "Đào tạo có bài test"}
+          </div>
+          <div>
             <span>Người đào tạo</span>
             {training.trainer || "—"}
           </div>
@@ -408,6 +458,9 @@ function InfoTab({
                 {completing ? "Đang lưu..." : "✓ Hoàn thành lớp"}
               </button>
             ) : null}
+            <button type="button" className="button tertiary" disabled={modeBusy} onClick={() => void toggleAttendanceOnly()} title="Lớp tập huấn không có bài kiểm tra: người tham dự chỉ quét QR để điểm danh">
+              {modeBusy ? "Đang lưu..." : training.is_attendance_only ? "Chuyển về có bài test" : "Chuyển sang chỉ điểm danh"}
+            </button>
             <button type="button" className="button tertiary" disabled={duplicating} onClick={() => void duplicateTraining()} title="Tạo 1 lớp mới cùng chủ đề, kế thừa thông tin của lớp này — dùng khi mở thêm 1 lớp/đợt khác ngày">
               {duplicating ? "Đang tạo..." : "+ Tạo lớp mới cùng chủ đề"}
             </button>
@@ -514,6 +567,7 @@ function RosterTab({
   questions,
   departments,
   passThreshold,
+  attendanceOnly,
   canManage,
   setError,
 }: {
@@ -530,6 +584,7 @@ function RosterTab({
   questions: QuestionRow[];
   departments: Department[];
   passThreshold: number | null;
+  attendanceOnly: boolean;
   canManage: boolean;
   setError: (e: string) => void;
 }) {
@@ -593,6 +648,24 @@ function RosterTab({
     setToggleBusyId(null);
     if (!res.ok) {
       setError(body.error || "Không cập nhật được trạng thái làm bài.");
+      return;
+    }
+    setRounds((v) => v.map((r) => (r.id === round.id ? { ...r, ...body.round } : r)));
+  }
+
+  // "Trộn thứ tự câu hỏi" theo từng đợt — mỗi người quét QR nhận thứ tự khác nhau.
+  async function toggleRoundShuffle(round: Round) {
+    setError("");
+    setToggleBusyId(round.id);
+    const res = await fetch(`/api/procedure-trainings/${trainingId}/rounds/${round.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shuffle_questions: !round.shuffle_questions }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setToggleBusyId(null);
+    if (!res.ok) {
+      setError(body.error || "Không cập nhật được chế độ trộn câu hỏi.");
       return;
     }
     setRounds((v) => v.map((r) => (r.id === round.id ? { ...r, ...body.round } : r)));
@@ -728,6 +801,8 @@ function RosterTab({
 
   return (
     <>
+      {/* Lớp chỉ điểm danh (tập huấn không có bài test) không có đợt kiểm tra — ẩn cả panel. */}
+      {attendanceOnly ? null : (
       <section className="panel">
         <div className="panel-title">
           <div>
@@ -753,6 +828,10 @@ function RosterTab({
                   >
                     {r.is_open_for_submission ? "Đang mở làm bài" : "Mở làm bài qua QR"}
                   </button>
+                  <label className="inline-check" title="Mỗi người làm bài thấy thứ tự câu hỏi khác nhau (chỉ đổi thứ tự hiển thị, không đổi cách chấm điểm)">
+                    <input type="checkbox" checked={!!r.shuffle_questions} disabled={toggleBusyId === r.id} onChange={() => void toggleRoundShuffle(r)} />
+                    Trộn câu hỏi
+                  </label>
                   <button type="button" className="button tertiary small" onClick={() => setQrRoundId(r.id)} aria-label={`Mã QR đợt ${r.round_label}`}>
                     <Icon name="qr-code" size={13} /> QR
                   </button>
@@ -761,7 +840,7 @@ function RosterTab({
                   </button>
                 </div>
               ) : r.is_open_for_submission ? (
-                <span className="status-badge success">Đang mở làm bài</span>
+                <span className="status-badge success">Đang mở làm bài{r.shuffle_questions ? " · trộn câu hỏi" : ""}</span>
               ) : (
                 <span className="status-badge muted">Chưa mở</span>
               )}
@@ -779,10 +858,11 @@ function RosterTab({
           </div>
         ) : null}
       </section>
+      )}
 
       <section className="panel">
         <div className="panel-title">
-          <h2>Nhân sự & điểm</h2>
+          <h2>{attendanceOnly ? "Nhân sự tham dự" : "Nhân sự & điểm"}</h2>
           <a className="button secondary small" href={`/api/procedure-trainings/${trainingId}/export/excel`}>
             <Icon name="download" size={14} /> Xuất Excel
           </a>
@@ -1583,6 +1663,159 @@ function RegistrationTab({
           border: 1px solid #fbe3b0;
         }
       `}</style>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tab: Điểm danh — "tập huấn chỉ quét QR điểm danh, chưa cần làm test". Link/QR công khai
+// /diem-danh/[trainingId] (mặc định ĐÓNG, bật thủ công như link đăng ký/làm bài). Điểm danh vẫn
+// là attended/attended_at của procedure_training_attendees (không có bảng điểm danh thứ hai);
+// checked_in_at chỉ ghi thời điểm quét QR thật để phân biệt với điểm danh nhập tay.
+function formatDateTimeVi(value: string | null | undefined) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
+}
+
+function AttendanceTab({
+  trainingId,
+  isOpen,
+  attendees,
+  setAttendees,
+  setTraining,
+  canManage,
+  setError,
+}: {
+  trainingId: string;
+  isOpen: boolean;
+  attendees: Attendee[];
+  setAttendees: (fn: Attendee[] | ((v: Attendee[]) => Attendee[])) => void;
+  setTraining: (fn: (t: Training) => Training) => void;
+  canManage: boolean;
+  setError: (e: string) => void;
+}) {
+  const [toggleBusy, setToggleBusy] = useState(false);
+  const [refreshBusy, setRefreshBusy] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const link = typeof window !== "undefined" ? `${window.location.origin}/diem-danh/${trainingId}` : "";
+
+  useEffect(() => {
+    if (!link) return;
+    QRCode.toDataURL(link, { width: 240, margin: 1 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [link]);
+
+  async function toggleOpen() {
+    setToggleBusy(true);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${trainingId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_open_for_attendance: !isOpen }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setToggleBusy(false);
+    if (!res.ok) {
+      setError(body.error || "Không cập nhật được trạng thái điểm danh.");
+      return;
+    }
+    setTraining((t) => ({ ...t, ...body.training }));
+  }
+
+  // Người quét QR được ghi ở server — tải lại danh sách để thấy người mới điểm danh, không cần F5 cả trang.
+  async function refreshAttendees() {
+    setRefreshBusy(true);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${trainingId}/attendees`);
+    const body = await res.json().catch(() => ({}));
+    setRefreshBusy(false);
+    if (!res.ok) {
+      setError(body.error || "Không tải lại được danh sách.");
+      return;
+    }
+    if (Array.isArray(body.attendees)) setAttendees(body.attendees);
+  }
+
+  const attendedCount = attendees.filter((a) => a.attended).length;
+  const scannedList = useMemo(() => attendees.filter((a) => a.checked_in_at).sort((a, b) => String(b.checked_in_at).localeCompare(String(a.checked_in_at))), [attendees]);
+  const visibleScanned = showAll ? scannedList : scannedList.slice(0, LIST_COLLAPSE_LIMIT);
+
+  return (
+    <section className="panel">
+      <div className="panel-title">
+        <div>
+          <h2>Điểm danh qua QR</h2>
+          <p>Người tham dự quét QR, nhập họ tên là được ghi nhận có mặt — không cần làm bài kiểm tra. Điểm danh thủ công vẫn dùng ở tab &quot;Nhân sự&quot;.</p>
+        </div>
+      </div>
+      <div style={{ padding: "0 19px 19px", display: "grid", gap: 14 }}>
+        <div className="ptd-registration-qr">
+          {canManage ? (
+            <button type="button" className={`ptd-registration-open-toggle${isOpen ? " is-open" : ""}`} disabled={toggleBusy} onClick={() => void toggleOpen()}>
+              {isOpen ? "Đang mở điểm danh" : "Mở điểm danh qua QR"}
+            </button>
+          ) : (
+            <span className={`status-badge ${isOpen ? "success" : "warning"}`}>{isOpen ? "Đang mở điểm danh" : "Chưa mở điểm danh"}</span>
+          )}
+          {isOpen ? (
+            <>
+              {qrDataUrl ? <img src={qrDataUrl} alt="Mã QR điểm danh tập huấn" width={180} height={180} /> : null}
+              <code style={{ fontSize: 11, wordBreak: "break-all" }}>{link}</code>
+              {qrDataUrl ? (
+                <a className="button secondary small" download="qr-diem-danh.png" href={qrDataUrl}>
+                  <Icon name="download" size={15} /> Tải mã QR
+                </a>
+              ) : null}
+            </>
+          ) : (
+            <p className="muted tiny">Bật &quot;Mở điểm danh qua QR&quot; để tạo mã QR cho người tham dự quét. Mã chỉ dùng được khi đang MỞ.</p>
+          )}
+        </div>
+
+        <div className="alert info" style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+          <strong>Đã điểm danh: {attendedCount}</strong>
+          <span>trong đó quét QR: {scannedList.length}</span>
+          <button type="button" className="button tertiary small" disabled={refreshBusy} onClick={() => void refreshAttendees()}>
+            {refreshBusy ? "Đang tải..." : "Tải lại danh sách"}
+          </button>
+        </div>
+
+        {scannedList.length ? (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Họ và tên</th>
+                  <th>Mã NV</th>
+                  <th>Đơn vị</th>
+                  <th>Chức danh</th>
+                  <th>Quét lúc</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleScanned.map((a) => (
+                  <tr key={a.id}>
+                    <td>{a.employee_name}</td>
+                    <td>{a.employee_code || "—"}</td>
+                    <td>{a.department || "—"}</td>
+                    <td>{a.job_title || "—"}</td>
+                    <td>{formatDateTimeVi(a.checked_in_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {scannedList.length > LIST_COLLAPSE_LIMIT ? (
+              <button type="button" className="button tertiary small" onClick={() => setShowAll((v) => !v)} style={{ marginTop: 8 }}>
+                {showAll ? "Thu gọn" : `Xem tất cả (${scannedList.length})`}
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <div className="empty-state compact">Chưa có ai quét QR điểm danh.</div>
+        )}
+      </div>
     </section>
   );
 }

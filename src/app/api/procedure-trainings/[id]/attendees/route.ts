@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SELECT_COLUMNS = "id,training_id,employee_name,employee_code,department,job_title,attended,attended_at,notes";
+const SELECT_COLUMNS = "id,training_id,employee_name,employee_code,department,job_title,attended,attended_at,notes,checked_in_at";
 
 // Điểm số không còn nằm trên chính attendee (xem migration
 // 20261130000000_procedure_training_rounds_results_v1.sql — "kỳ thi nào",

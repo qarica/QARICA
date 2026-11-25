@@ -101,6 +101,9 @@ describe("Loại công văn (document_type) là list chọn cố định, không
     expect(client).toContain('if (view === "tracking" && trackingStatus === "active" && !!d.completed_at) return false;');
     expect(client).toContain('if (view === "tracking" && trackingStatus === "done" && !d.completed_at) return false;');
     expect(client).toContain("`Đã xử lý xong (${completedCount})`");
+    // Hàng chip này xuống dòng thay vì cuộn ngang (trên điện thoại chip thứ 3 từng bị cắt mép phải).
+    expect(client).toContain('<div className="doc-view-tabs doc-status-tabs" role="group" aria-label="Lọc theo tình trạng xử lý">');
+    expect(read("src/app/final-visual-lock.css")).toContain(".incoming-doc-overview .doc-view-tabs.doc-status-tabs{flex-wrap:wrap;overflow-x:visible;padding-top:0}");
     // Tab Phân công vẫn chỉ liệt kê công văn chưa phân công và chưa hoàn thành (đúng ý nghĩa của tab).
     expect(client).toContain('if (view === "assign" && (!!d.department_id || !!d.completed_at)) return false;');
   });
