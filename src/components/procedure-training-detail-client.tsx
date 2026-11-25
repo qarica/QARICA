@@ -198,7 +198,15 @@ export function ProcedureTrainingDetailClient({
       ) : null}
 
       {activeTab === "info" ? (
-        <InfoTab training={training} setTraining={setTraining} setRounds={setRounds} canManage={canManage} setError={setError} />
+        <InfoTab
+          training={training}
+          setTraining={setTraining}
+          setRounds={setRounds}
+          canManage={canManage}
+          setError={setError}
+          attendeeCount={attendees.length}
+          nextClassId={(classOptions ?? []).find((o) => o.id !== training.id)?.id ?? null}
+        />
       ) : null}
       {activeTab === "roster" ? (
         <RosterTab
@@ -388,12 +396,17 @@ function InfoTab({
   setRounds,
   canManage,
   setError,
+  attendeeCount,
+  nextClassId,
 }: {
   training: Training;
   setTraining: (t: Training) => void;
   setRounds: (fn: Round[] | ((v: Round[]) => Round[])) => void;
   canManage: boolean;
   setError: (e: string) => void;
+  attendeeCount: number;
+  /** Lớp cùng chủ đề để chuyển sang sau khi xoá lớp này (null = chủ đề chỉ có 1 lớp → về danh sách). */
+  nextClassId: string | null;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState(() => buildInfoDraft(training));
@@ -402,6 +415,7 @@ function InfoTab({
   const [duplicating, setDuplicating] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [modeBusy, setModeBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // "Tập huấn chỉ quét QR điểm danh, chưa cần làm test": chuyển lớp giữa chế độ có bài test và
   // chế độ chỉ điểm danh. Sang chế độ chỉ điểm danh thì server đóng luôn link làm bài của mọi đợt
@@ -463,6 +477,25 @@ function InfoTab({
   // tin lớp và kế thừa thông tin đợt cũ" — tạo 1 lớp (procedure_trainings)
   // MỚI kế thừa tên/mã quy trình/giảng viên/thang điểm, rồi chuyển sang
   // trang lớp mới để sửa lại thời gian/địa điểm cho đúng.
+  // Xoá lớp ngay trong trang chi tiết (trước chỉ xoá được từ danh sách). Dùng chung DELETE
+  // /api/procedure-trainings/[id] (procedure_training.manage; lớp đã hoàn thành bị server từ chối 409).
+  // Xoá xong chuyển sang lớp khác cùng chủ đề nếu còn, không thì về danh sách.
+  async function deleteTraining() {
+    const warning = attendeeCount > 0 ? `Lớp này đã có ${attendeeCount} nhân sự! Xoá sẽ mất hết điểm/kết quả, KHÔNG thể hoàn tác.` : "Xoá lớp này, không thể hoàn tác.";
+    if (!window.confirm(`${warning}\n\nXoá "${training.procedure_code || training.procedure_name}"?`)) return;
+    setDeleting(true);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${training.id}`, { method: "DELETE" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setDeleting(false);
+      setError(body.error || "Không xoá được lớp này.");
+      return;
+    }
+    router.push(nextClassId ? `/procedure-trainings/${nextClassId}` : "/procedure-trainings");
+    router.refresh();
+  }
+
   async function duplicateTraining() {
     // Báo cáo thực tế: "Bấm tạo lớp mới mất hết dữ liệu cũ" — kiểm tra trực
     // tiếp trên Supabase sống xác nhận KHÔNG mất dữ liệu (lớp cũ vẫn còn
@@ -602,6 +635,15 @@ function InfoTab({
             <button type="button" className="button tertiary" disabled={duplicating} onClick={() => void duplicateTraining()} title="Tạo 1 lớp mới cùng chủ đề, kế thừa thông tin của lớp này — dùng khi mở thêm 1 lớp/đợt khác ngày">
               {duplicating ? "Đang tạo..." : "+ Tạo lớp mới cùng chủ đề"}
             </button>
+            <button
+              type="button"
+              className="button danger ptd-delete-class"
+              disabled={deleting || training.status === "TRAINED"}
+              title={training.status === "TRAINED" ? "Lớp đã hoàn thành đào tạo, không thể xoá." : "Xoá lớp này (không thể hoàn tác)"}
+              onClick={() => void deleteTraining()}
+            >
+              {deleting ? "Đang xoá..." : "Xóa lớp"}
+            </button>
           </div>
         ) : null}
         <style jsx>{`
@@ -610,6 +652,9 @@ function InfoTab({
             flex-direction: column;
             gap: 0;
             padding: 4px 19px 8px;
+          }
+          .ptd-delete-class {
+            margin-left: auto;
           }
           .ptd-info-block {
             padding: 14px 0;

@@ -106,3 +106,22 @@ describe("khung Thông tin đào tạo: nhóm thành các khối, bỏ nhãn 'l�
     expect(block).toContain("<style jsx>");
   });
 });
+
+describe("trang chi tiết lớp: nút Xóa lớp", () => {
+  const src = read("src/components/procedure-training-detail-client.tsx");
+  it("gọi DELETE /api/procedure-trainings/[id], xác nhận trước, khóa khi lớp đã hoàn thành", () => {
+    expect(src).toContain('fetch(`/api/procedure-trainings/${training.id}`, { method: "DELETE" })');
+    expect(src).toContain("window.confirm(`${warning}");
+    expect(src).toContain('disabled={deleting || training.status === "TRAINED"}');
+  });
+  it("sau khi xoá chuyển sang lớp khác cùng chủ đề hoặc về danh sách", () => {
+    expect(src).toContain('router.push(nextClassId ? `/procedure-trainings/${nextClassId}` : "/procedure-trainings");');
+    expect(src).toContain("nextClassId={(classOptions ?? []).find((o) => o.id !== training.id)?.id ?? null}");
+  });
+  it("API DELETE vẫn chặn lớp đã hoàn thành và cần procedure_training.manage", () => {
+    const api = read("src/app/api/procedure-trainings/[id]/route.ts");
+    const del = api.slice(api.indexOf("export async function DELETE"));
+    expect(del).toContain('requireApiPermission("procedure_training.manage")');
+    expect(del).toContain('existing.status === "TRAINED"');
+  });
+});
