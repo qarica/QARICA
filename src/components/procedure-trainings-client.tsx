@@ -2,10 +2,12 @@
 
 /* eslint-disable @next/next/no-img-element -- Mã QR là data URL tạo client-side (qrcode), không phải ảnh tĩnh/remote để Next tối ưu (cùng quy ước đã dùng ở medical-equipment-detail-client.tsx và procedure-training-detail-client.tsx). */
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { Icon } from "@/components/icon";
 import { KpiCard } from "@/components/kpi-card";
+import { baseClassCode } from "@/lib/procedure-training-class-code";
+import { groupRowsByTopic } from "@/lib/procedure-training-topic-rollup";
 
 type Training = {
   id: string;
@@ -119,6 +121,7 @@ export function ProcedureTrainingsClient({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   async function submit() {
     if (!procedureName.trim()) {
@@ -241,30 +244,44 @@ export function ProcedureTrainingsClient({
               </tr>
             </thead>
             <tbody>
-              {trainings.filter((t) => (statusFilter === "ALL" || t.status === statusFilter) && (!listQuery.trim() || [t.procedure_name, t.procedure_code, t.drafting_unit].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(listQuery.trim().toLocaleLowerCase("vi"))))).map((t) => (
-                <tr key={t.id}>
-                  <td>{t.procedure_code || "—"}</td>
+              {groupRowsByTopic(trainings.filter((t) => (statusFilter === "ALL" || t.status === statusFilter) && (!listQuery.trim() || [t.procedure_name, t.procedure_code, t.drafting_unit].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(listQuery.trim().toLocaleLowerCase("vi")))))).map(({ key, items }) => {
+                const t = items[0];
+                const multi = items.length > 1;
+                const open = expandedRows.has(key);
+                const attended = items.reduce((n, x) => n + x.attendee_attended, 0);
+                const total = items.reduce((n, x) => n + x.attendee_total, 0);
+                return (
+                <Fragment key={key}>
+                <tr>
+                  <td>{multi ? (t.procedure_code ? baseClassCode(t.procedure_code) : "—") : t.procedure_code || "—"}</td>
                   <td>
                     {t.procedure_name}
-                    {t.is_attendance_only ? <> <span className="status-badge info" title="Lớp tập huấn chỉ điểm danh (quét QR), không có bài test">Chỉ điểm danh</span></> : null}
+                    {t.is_attendance_only && !multi ? <> <span className="status-badge info" title="Lớp tập huấn chỉ điểm danh (quét QR), không có bài test">Chỉ điểm danh</span></> : null}
+                    {multi ? (
+                      <div>
+                        <button type="button" className="button tertiary small" aria-expanded={open} onClick={() => setExpandedRows((prev) => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; })}>
+                          {items.length} lớp {open ? "▴" : "▾"}
+                        </button>
+                      </div>
+                    ) : null}
                     {t.source_document ? (
-                      <div><small>Từ văn bản {t.source_document.document_code || ""}{t.source_document.document_code ? " — " : ""}{t.source_document.title} · <Link className="table-link" href="/document-publications">Xem →</Link></small></div>
+                      <div><small>Từ văn bản {t.source_document.document_code || ""}{t.source_document.document_code ? " — " : ""}{t.source_document.title} · <Link className="table-link" href="/document-publications">Xem văn bản →</Link></small></div>
                     ) : null}
                   </td>
                   <td>{t.drafting_unit || "—"}</td>
                   <td>{formatDate(t.effective_date)}</td>
                   <td>
-                    <span className={`status-badge ${STATUS_TONE[t.status]}`}>{STATUS_LABEL[t.status]}</span>
+                    {multi ? <span className="muted tiny">{items.filter((x) => x.status === "TRAINED").length}/{items.length} lớp đã đào tạo</span> : <span className={`status-badge ${STATUS_TONE[t.status]}`}>{STATUS_LABEL[t.status]}</span>}
                   </td>
                   <td>
-                    {t.attendee_attended}/{t.attendee_total} ({t.attendee_total ? Math.round((t.attendee_attended / t.attendee_total) * 100) : 0}%)
+                    {attended}/{total} ({total ? Math.round((attended / total) * 100) : 0}%)
                   </td>
                   <td>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       <Link className="button secondary small" href={`/procedure-trainings/${t.id}`}>
                         Xem chi tiết →
                       </Link>
-                      {canManage ? (
+                      {canManage && !multi ? (
                         <button
                           type="button"
                           className="button tertiary small"
@@ -278,7 +295,30 @@ export function ProcedureTrainingsClient({
                     </div>
                   </td>
                 </tr>
-              ))}
+                {multi && open ? items.map((c) => (
+                  <tr key={c.id} className="pt-class-subrow">
+                    <td>{c.procedure_code || "—"}</td>
+                    <td colSpan={3}>
+                      Lớp {c.procedure_code || ""}
+                      {c.is_attendance_only ? <> <span className="status-badge info">Chỉ điểm danh</span></> : null}
+                    </td>
+                    <td><span className={`status-badge ${STATUS_TONE[c.status]}`}>{STATUS_LABEL[c.status]}</span></td>
+                    <td>{c.attendee_attended}/{c.attendee_total}</td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <Link className="button secondary small" href={`/procedure-trainings/${c.id}`}>Xem →</Link>
+                        {canManage ? (
+                          <button type="button" className="button tertiary small" disabled={removingId === c.id || c.status === "TRAINED"} title={c.status === "TRAINED" ? "Lớp đã hoàn thành đào tạo, không thể xoá." : undefined} onClick={() => void removeTraining(c)}>
+                            {removingId === c.id ? "Đang xoá..." : "Xóa"}
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                )) : null}
+                </Fragment>
+                );
+              })}
               {!trainings.length ? (
                 <tr>
                   <td colSpan={7} className="empty-state compact">

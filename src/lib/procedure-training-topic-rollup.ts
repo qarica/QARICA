@@ -30,6 +30,20 @@ export function topicKeyFor(training: Pick<TopicTraining, "document_publication_
   return `name:${training.procedure_name.trim().toLocaleLowerCase("vi")}`;
 }
 
+// Danh sách lớp: MỖI CHỦ ĐỀ MỘT DÒNG (báo cáo thực tế: "cùng tên QT nên để 1 dòng vì bên trong chi
+// tiết đã có đợt/lớp" — chi tiết có ô chọn lớp). Khác groupTrainingsByTopic: giữ cả chủ đề chỉ có 1
+// lớp, giữ thứ tự xuất hiện đầu tiên; items[0] là lớp xuất hiện đầu (danh sách đã sắp mới nhất trước).
+export function groupRowsByTopic<T extends Pick<TopicTraining, "document_publication_id" | "procedure_name">>(trainings: T[]): { key: string; items: T[] }[] {
+  const order: string[] = [];
+  const map = new Map<string, T[]>();
+  for (const t of trainings) {
+    const key = topicKeyFor(t);
+    if (!map.has(key)) { map.set(key, []); order.push(key); }
+    map.get(key)!.push(t);
+  }
+  return order.map((key) => ({ key, items: map.get(key)! }));
+}
+
 // Chỉ trả về các nhóm có TỪ 2 đợt đào tạo trở lên — nhóm 1 đợt duy nhất
 // không có gì để gộp, không cần hiện ở màn "Theo chủ đề".
 export function groupTrainingsByTopic<T extends TopicTraining>(trainings: T[]): Map<string, T[]> {

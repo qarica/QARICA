@@ -49,3 +49,17 @@ describe("tab Điểm danh: CSS nút bật/tắt QR phải nằm cùng component
     expect(block).toContain(".ptd-registration-open-toggle {");
   });
 });
+
+import { groupRowsByTopic } from "./procedure-training-topic-rollup";
+
+describe("danh sách lớp: mỗi chủ đề 1 dòng", () => {
+  const t = (id: string, name: string, doc: string | null = null) => ({ id, procedure_name: name, document_publication_id: doc });
+  it("gộp lớp cùng tên (không phân biệt hoa/thường), giữ cả chủ đề 1 lớp và thứ tự xuất hiện", () => {
+    const rows = groupRowsByTopic([t("a", "QT Cấp cứu"), t("b", "Khác"), t("c", "qt cấp cứu")]);
+    expect(rows.map((r) => r.items.map((x) => x.id))).toEqual([["a", "c"], ["b"]]);
+  });
+  it("cùng văn bản nguồn thì gộp dù khác tên", () => {
+    const rows = groupRowsByTopic([t("a", "X", "doc1"), t("b", "Y", "doc1")]);
+    expect(rows).toHaveLength(1);
+  });
+});
