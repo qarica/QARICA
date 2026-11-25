@@ -144,3 +144,9 @@ describe("khung Thông tin: Trạng thái / Hình thức là ô chọn, không c
     expect(src).toContain("if (!window.confirm(message)) return;");
   });
 });
+
+describe("ô chọn trong khung Thông tin: cỡ chữ ghi đè được rule global", () => {
+  it("font-size 16px !important (rule .workspace-app select ép 13px)", () => {
+    expect(read("src/components/procedure-training-detail-client.tsx")).toContain("font-size: 16px !important;");
+  });
+});

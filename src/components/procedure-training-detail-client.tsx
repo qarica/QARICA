@@ -706,10 +706,11 @@ function InfoTab({
           .ptd-delete-class {
             margin-left: auto;
           }
+          /* qarica-readability.css ép .workspace-app select 13px kèm !important — phải ghi đè cùng mức để ô chọn khớp cỡ chữ 16px của các giá trị khác. */
           .ptd-info-select {
             width: 100%;
             min-height: 40px;
-            font-size: 15px;
+            font-size: 16px !important;
             font-weight: 600;
           }
           .ptd-info-block {
