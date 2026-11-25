@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computePassStatus } from "@/lib/procedure-training-pass-status";
+import { formatCheckInTime } from "@/lib/procedure-training-check-in-time";
 
 function esc(value: unknown) {
   return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] || ch));
@@ -36,7 +37,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const [roundsRes, attendeesRes] = await Promise.all([
     admin.from("procedure_training_rounds").select("id,round_label,round_date,score_max,sort_order").eq("training_id", trainingId).order("sort_order").order("round_date"),
-    admin.from("procedure_training_attendees").select("id,employee_name,employee_code,department,job_title,attended").eq("training_id", trainingId).order("employee_name"),
+    admin.from("procedure_training_attendees").select("id,employee_name,employee_code,department,job_title,attended,checked_in_at").eq("training_id", trainingId).order("employee_name"),
   ]);
   // "+ Thêm đợt" không có ô nhập thang điểm riêng — round.score_max gần như
   // luôn null trên dữ liệu thật, chỉ training.test_score_max mới thật sự
@@ -54,7 +55,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const showPassColumn = training.pass_threshold != null && rounds.length > 0;
   const roundHeaders = rounds.map((r) => `<th>${esc(r.round_label)}${r.score_max ? ` (/${r.score_max})` : ""}</th>`).join("");
-  const colCount = 6 + rounds.length + (showPassColumn ? 1 : 0);
+  const colCount = 7 + rounds.length + (showPassColumn ? 1 : 0);
 
   const rows = attendees
     .map((a, i) => {
@@ -66,7 +67,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         })
         .join("");
       const passCell = showPassColumn ? `<td>${esc(PASS_STATUS_LABEL[computePassStatus(myResults, rounds, training.pass_threshold, a.attended)])}</td>` : "";
-      return `<tr><td>${i + 1}</td><td>${esc(a.employee_name)}</td><td>${esc(a.employee_code || "")}</td><td>${esc(a.department || "")}</td><td>${esc(a.job_title || "")}</td><td>${a.attended ? "Có" : "Không"}</td>${roundCells}${passCell}</tr>`;
+      return `<tr><td>${i + 1}</td><td>${esc(a.employee_name)}</td><td>${esc(a.employee_code || "")}</td><td>${esc(a.department || "")}</td><td>${esc(a.job_title || "")}</td><td>${a.attended ? "Có" : "Không"}</td><td>${esc(formatCheckInTime(a.checked_in_at))}</td>${roundCells}${passCell}</tr>`;
     })
     .join("");
 
@@ -74,7 +75,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       table{border-collapse:collapse;font-family:Arial;font-size:10pt}th,td{border:1px solid #777;padding:5px;vertical-align:top;white-space:pre-wrap}th{background:#e5e7eb;font-weight:bold}
     </style></head><body>
       <table>
-        <thead><tr><th>STT</th><th>Họ tên</th><th>Mã NV</th><th>Đơn vị</th><th>Chức danh</th><th>Đã điểm danh</th>${roundHeaders}${showPassColumn ? "<th>Kết quả</th>" : ""}</tr></thead>
+        <thead><tr><th>STT</th><th>Họ tên</th><th>Mã NV</th><th>Đơn vị</th><th>Chức danh</th><th>Đã điểm danh</th><th>Giờ quét QR</th>${roundHeaders}${showPassColumn ? "<th>Kết quả</th>" : ""}</tr></thead>
         <tbody>${rows || `<tr><td colspan="${colCount}">Chưa có dữ liệu.</td></tr>`}</tbody>
       </table>
     </body></html>`;

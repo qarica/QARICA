@@ -183,6 +183,6 @@ describe("Tập huấn chỉ điểm danh qua QR — trang công khai, quản tr
 
   it("danh sách lớp hiện huy hiệu Chỉ điểm danh", () => {
     expect(read("src/components/procedure-trainings-client.tsx")).toContain("Chỉ điểm danh");
-    expect(read("src/app/(app)/procedure-trainings/page.tsx")).toContain("is_attendance_only");
+    expect(read("src/components/procedure-trainings-page.tsx")).toContain("is_attendance_only");
   });
 });

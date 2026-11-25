@@ -1027,7 +1027,7 @@ export function DocumentPublicationsClient({
                                     Cần đào tạo - xem tiến độ →
                                   </Link>
                                 ) : d.dissemination_type === "SELF_READ" ? (
-                                  <Link href="/procedure-trainings" className="dp-dissemination-link">
+                                  <Link href="/tu-doc-hieu" className="dp-dissemination-link">
                                     Tự đọc hiểu - xem tiến độ →
                                   </Link>
                                 ) : (

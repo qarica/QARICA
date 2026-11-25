@@ -49,7 +49,8 @@ describe("Procedure trainings module security and control gates", () => {
 
   it("is reachable from the sidebar behind procedure_training.view OR document_publication.view (child row inside the merged QUẢN LÝ VĂN BẢN group — combined Phổ biến & đào tạo tracking menu, alongside Kiểm soát tài liệu)", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "Phổ biến & đào tạo", href: "/procedure-trainings", icon: "book-open", anyPermissions: ["procedure_training.view", "document_publication.view"] }');
+    expect(nav).toContain('{ label: "Đào tạo", href: "/procedure-trainings", icon: "book-open", anyPermissions: ["procedure_training.view", "document_publication.view"] }');
+    expect(nav).toContain('{ label: "Tự đọc hiểu", href: "/tu-doc-hieu", icon: "clipboard-check", anyPermissions: ["procedure_training.view", "document_publication.view"] }');
   });
 
   it("keeps every write tenant-scoped by organization_id", () => {
@@ -209,7 +210,7 @@ describe("Procedure trainings track per-employee attendance for a real completio
     expect(listApi).toContain('.from("procedure_training_attendees").select("training_id,attended").in("training_id", trainingIds)');
     expect(listApi).toContain("attendee_total: counts.get(t.id)?.total || 0");
 
-    const page = read("src/app/(app)/procedure-trainings/page.tsx");
+    const page = read("src/components/procedure-trainings-page.tsx");
     expect(page).toContain('.from("procedure_training_attendees").select("training_id,attended").in("training_id", trainingIds)');
   });
 
@@ -238,11 +239,13 @@ describe("Procedure trainings track per-employee attendance for a real completio
 // (DISSEMINATION_TYPES) vào đúng 1 menu theo dõi, thay vì "Tự đọc hiểu" nằm
 // lạc trong Thư viện văn bản còn "Cần đào tạo" nằm riêng ở đây.
 describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần đào tạo vào 1 menu, 2 tab", () => {
-  it("client có 2 tab Cần đào tạo / Tự đọc hiểu, mặc định mở tab Cần đào tạo", () => {
+  it("client nhận prop mode: menu Đào tạo (Danh sách lớp / Theo chủ đề) và menu Tự đọc hiểu tách riêng", () => {
     const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).toContain('const [view, setView] = useState<"training" | "self_read" | "topic">("training");');
+    expect(client).toContain('const [view, setView] = useState<"training" | "self_read" | "topic">(mode);');
+    expect(client).toContain('{mode === "training" ? (');
     expect(client).toContain('<button type="button" className={view === "training" ? "active" : ""} aria-pressed={view === "training"} onClick={() => setView("training")}>');
-    expect(client).toContain('<button type="button" className={view === "self_read" ? "active" : ""} aria-pressed={view === "self_read"} onClick={() => setView("self_read")}>');
+    expect(client).toContain('onClick={() => setView("topic")}');
+    expect(client).not.toContain('onClick={() => setView("self_read")}');
   });
 
   // "1 chủ đề đào tạo có thể mở nhiều lớp nhiều đợt vào nhiều ngày khác
@@ -261,7 +264,7 @@ describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần
     expect(lib).toContain("if (list.length < 2) groups.delete(key);");
     expect(lib).toContain("export function buildTopicCompletion(");
 
-    const page = read("src/app/(app)/procedure-trainings/page.tsx");
+    const page = read("src/components/procedure-trainings-page.tsx");
     expect(page).toContain('import { buildTopicCompletion, groupTrainingsByTopic } from "@/lib/procedure-training-topic-rollup"');
     expect(page).toContain("topicGroups={topicGroups as any}");
 
@@ -294,7 +297,7 @@ describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần
   });
 
   it("trang server fetch văn bản Tự đọc hiểu đúng điều kiện đã dùng cho xác nhận công khai (PUBLISHED, request_type NEW, dissemination_type SELF_READ)", () => {
-    const page = read("src/app/(app)/procedure-trainings/page.tsx");
+    const page = read("src/components/procedure-trainings-page.tsx");
     expect(page).toContain('.eq("stage", "PUBLISHED")');
     expect(page).toContain('.eq("request_type", "NEW")');
     expect(page).toContain('.eq("dissemination_type", "SELF_READ")');
@@ -324,7 +327,7 @@ describe("Theo dõi phổ biến & đào tạo: gộp Tự đọc hiểu + Cần
     expect(client).toContain("Tuân thủ tự đọc hiểu theo khoa/phòng");
     expect(client).toContain("<KpiCard icon=\"folder-check\"");
 
-    const page = read("src/app/(app)/procedure-trainings/page.tsx");
+    const page = read("src/components/procedure-trainings-page.tsx");
     expect(page).toContain('.from("departments").select("id,name,staff_count")');
     expect(page).toContain("departments={(departmentsData ?? []) as any}");
   });
