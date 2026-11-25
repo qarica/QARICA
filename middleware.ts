@@ -48,6 +48,7 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/auth/") ||
     path.startsWith("/api/") ||
     path.startsWith("/lam-bai/") ||
+    path.startsWith("/diem-danh/") ||
     path.startsWith("/xac-nhan-doc-hieu/");
 
   if (!signedIn && !publicPath) {
