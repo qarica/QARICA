@@ -620,7 +620,7 @@ function InfoTab({
           }
           .ptd-info-block h3 {
             margin: 0 0 10px;
-            font-size: 11px;
+            font-size: 13px;
             font-weight: 800;
             letter-spacing: 0.06em;
             text-transform: uppercase;
@@ -640,14 +640,14 @@ function InfoTab({
           }
           .ptd-info-grid dt {
             color: var(--muted);
-            font-size: 11px;
-            margin-bottom: 4px;
+            font-size: 13px;
+            margin-bottom: 5px;
           }
           .ptd-info-grid dd {
             margin: 0;
-            font-size: 13px;
+            font-size: 16px;
             font-weight: 600;
-            line-height: 1.45;
+            line-height: 1.5;
             overflow-wrap: anywhere;
           }
           @media (max-width: 760px) {
