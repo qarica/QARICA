@@ -125,3 +125,22 @@ describe("trang chi tiết lớp: nút Xóa lớp", () => {
     expect(del).toContain('existing.status === "TRAINED"');
   });
 });
+
+describe("khung Thông tin: Trạng thái / Hình thức là ô chọn, không còn nút chuyển chế độ", () => {
+  const src = read("src/components/procedure-training-detail-client.tsx");
+  it("2 ô chọn (chỉ người có quyền quản lý), đủ lựa chọn", () => {
+    expect(src).toContain('aria-label="Trạng thái lớp"');
+    expect(src).toContain('aria-label="Hình thức lớp"');
+    for (const o of ['value="NOT_PLANNED"', 'value="PLANNED"', 'value="TRAINED"', 'value="WITH_TEST"', 'value="ATTENDANCE_ONLY"']) expect(src).toContain(o);
+    expect(src).toContain("{canManage ? (\n                    <select");
+  });
+  it("bỏ nút 'Chuyển sang chỉ điểm danh' / 'Chuyển về có bài test' / '✓ Hoàn thành lớp'", () => {
+    expect(src).not.toContain("Chuyển sang chỉ điểm danh");
+    expect(src).not.toContain("Chuyển về có bài test");
+    expect(src).not.toContain("✓ Hoàn thành lớp");
+  });
+  it("đổi hình thức vẫn xác nhận và gọi PATCH is_attendance_only", () => {
+    expect(src).toContain("body: JSON.stringify({ is_attendance_only: next })");
+    expect(src).toContain("if (!window.confirm(message)) return;");
+  });
+});
