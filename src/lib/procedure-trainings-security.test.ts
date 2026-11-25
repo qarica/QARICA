@@ -220,7 +220,9 @@ describe("Procedure trainings track per-employee attendance for a real completio
   // chi tiết riêng (/procedure-trainings/[id]).
   it("the overview list shows the completion rate and links to a dedicated detail page (not a cramped modal)", () => {
     const client = read("src/components/procedure-trainings-client.tsx");
-    expect(client).toContain("t.attendee_attended}/{t.attendee_total}");
+    // Danh sách gom MỖI CHỦ ĐỀ 1 dòng: tỷ lệ = tổng đã điểm danh / tổng nhân sự của mọi lớp trong chủ đề.
+    expect(client).toContain("n + x.attendee_attended");
+    expect(client).toContain("{attended}/{total} (");
     expect(client).toContain("Xem chi tiết →");
     expect(client).toContain('href={`/procedure-trainings/${t.id}`}');
     expect(client).not.toContain("Quản lý nhân sự");
