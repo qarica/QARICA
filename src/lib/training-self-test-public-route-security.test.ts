@@ -73,7 +73,7 @@ describe("Public training self-test routes (/api/public/training-test/**): cố 
   // namesMatch (bỏ dấu + bỏ chức danh viết tắt) của training-import.ts.
   it("so khớp theo mã NV trước, không tìm được qua mã thì fallback so khớp theo họ tên bằng namesMatch (không tạo dòng mới cho cùng 1 người)", () => {
     expect(submitRoute).toContain('import { namesMatch } from "@/lib/training-import";');
-    expect(submitRoute).toContain('.select("id,employee_code,employee_name").eq("training_id", round.training_id)');
+    expect(submitRoute).toContain('.select("id,employee_code,employee_name,checked_in_at").eq("training_id", round.training_id)');
     expect(submitRoute).toContain("const matchedByCode = normalizedCode ? (existingAttendees ?? []).find((a) => a.employee_code && normalizeEmployeeCode(a.employee_code) === normalizedCode) : undefined;");
     expect(submitRoute).toContain("const matchedAttendee = matchedByCode ?? (existingAttendees ?? []).find((a) => namesMatch(a.employee_name, employeeName));");
   });
