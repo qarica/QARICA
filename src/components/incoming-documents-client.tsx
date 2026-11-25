@@ -394,7 +394,11 @@ export function IncomingDocumentsClient({
         </div>
         <div className="doc-view-tabs" role="group" aria-label="Bộ lọc công văn">{([["intake","Tiếp nhận"],["assign","Phân công"],["tracking","Theo dõi xử lý"]] as const).map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} aria-pressed={view === key} onClick={() => setView(key)}>{label}</button>)}</div>
         {view === "tracking" ? (
+<<<<<<< HEAD
           <div className="doc-view-tabs doc-status-tabs" role="group" aria-label="Lọc theo tình trạng xử lý">
+=======
+          <div className="doc-view-tabs" role="group" aria-label="Lọc theo tình trạng xử lý">
+>>>>>>> 6430089d0468f3366ddbf64cc224a75243c6de84
             {([["all", `Tất cả (${documents.length})`], ["active", `Đang xử lý (${activeCount})`], ["done", `Đã xử lý xong (${completedCount})`]] as const).map(([key, label]) => (
               <button key={key} type="button" className={trackingStatus === key ? "active" : ""} aria-pressed={trackingStatus === key} onClick={() => setTrackingStatus(key)}>{label}</button>
             ))}
