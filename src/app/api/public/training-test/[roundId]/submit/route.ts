@@ -74,7 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
   // training-import.ts, mạnh hơn so sánh chuỗi thường vì xử lý được cả lệch
   // dấu tiếng Việt, không chỉ lệch hoa/thường.
   const normalizedCode = employeeCodeRaw ? normalizeEmployeeCode(employeeCodeRaw) : null;
-  const { data: existingAttendees } = await admin.from("procedure_training_attendees").select("id,employee_code,employee_name").eq("training_id", round.training_id);
+  const { data: existingAttendees } = await admin.from("procedure_training_attendees").select("id,employee_code,employee_name,checked_in_at").eq("training_id", round.training_id);
   const matchedByCode = normalizedCode ? (existingAttendees ?? []).find((a) => a.employee_code && normalizeEmployeeCode(a.employee_code) === normalizedCode) : undefined;
   const matchedAttendee = matchedByCode ?? (existingAttendees ?? []).find((a) => namesMatch(a.employee_name, employeeName));
 
@@ -88,7 +88,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
       .eq("attendee_id", attendeeId)
       .maybeSingle();
     if (existingResult) return NextResponse.json({ error: "Mã nhân viên này đã nộp bài cho đợt kiểm tra này rồi." }, { status: 409 });
-    await admin.from("procedure_training_attendees").update({ attended: true, attended_at: new Date().toISOString().slice(0, 10) }).eq("id", attendeeId);
+    // Nộp bài qua QR = điểm danh: ghi cả giờ quét thật (giữ giờ sớm nhất nếu đã có từ đợt trước).
+    await admin.from("procedure_training_attendees").update({ attended: true, attended_at: new Date().toISOString().slice(0, 10), checked_in_at: matchedAttendee.checked_in_at ?? new Date().toISOString() }).eq("id", attendeeId);
   } else {
     const { data: newAttendee, error: attendeeError } = await admin
       .from("procedure_training_attendees")
@@ -101,6 +102,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ rou
         job_title: jobTitle,
         attended: true,
         attended_at: new Date().toISOString().slice(0, 10),
+        checked_in_at: new Date().toISOString(),
       })
       .select("id")
       .single();

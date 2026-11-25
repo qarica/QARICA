@@ -65,6 +65,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
   if (!Object.keys(update).length) return NextResponse.json({ error: "Không có thay đổi nào." }, { status: 400 });
+  // QR điểm danh CHỈ dành cho lớp chỉ-điểm-danh. Lớp có bài test chỉ dùng QR làm bài (nộp bài = có
+  // mặt) — không cho bật link điểm danh để người tham dự khỏi phải quét 2 lần; chuyển lớp về chế độ
+  // có test thì đóng luôn link điểm danh. Ép ở API (không chỉ ẩn nút) — CLAUDE.md nguyên tắc 2/5.
+  if (body.is_attendance_only === false) update.is_open_for_attendance = false;
+  if (body.is_open_for_attendance === true && body.is_attendance_only !== true) {
+    const { data: cur } = await admin.from("procedure_trainings").select("is_attendance_only").eq("id", id).eq("organization_id", organizationId).maybeSingle();
+    if (!cur?.is_attendance_only) {
+      return NextResponse.json({ error: "Lớp có bài test dùng QR làm bài để điểm danh — chỉ lớp chỉ điểm danh mới bật QR điểm danh." }, { status: 400 });
+    }
+  }
   update.updated_at = new Date().toISOString();
 
   // Báo cáo thực tế: "Khi bấm hoàn thành thì phải tắt mở các link quét QR"

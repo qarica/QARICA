@@ -29,7 +29,8 @@ const STEP_DEFS: DetailStep[] = [
 // Lớp ở chế độ "chỉ điểm danh" (tập huấn không có bài test) không có tab Câu hỏi & đáp án và Phân
 // tích điểm → bước "Kết quả" trống thì bỏ hẳn, không hiện bước rỗng.
 export function stepsFor(attendanceOnly: boolean): DetailStep[] {
-  const hidden: DetailTab[] = attendanceOnly ? ["questions", "analysis"] : [];
+  // Lớp có bài test chỉ dùng QR làm bài (nộp bài = có mặt) nên không có tab QR Điểm danh — tránh quét 2 lần.
+  const hidden: DetailTab[] = attendanceOnly ? ["questions", "analysis"] : ["attendance"];
   return STEP_DEFS.map((s) => ({ ...s, tabs: s.tabs.filter((t) => !hidden.includes(t)) })).filter((s) => s.tabs.length > 0);
 }
 

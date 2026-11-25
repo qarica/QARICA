@@ -91,14 +91,14 @@ describe("Tập huấn chỉ điểm danh qua QR — route công khai", () => {
     expect(route).not.toContain("requireApiPermission");
     // GET: lớp đóng → chỉ trả open:false (không trả khoa/phòng hay nội dung gì khác).
     const getPart = route.slice(route.indexOf("export async function GET"), route.indexOf("export async function POST"));
-    expect(getPart).toContain('.select("id,organization_id,procedure_name,is_open_for_attendance")');
-    expect(getPart.indexOf("if (!training.is_open_for_attendance)")).toBeLessThan(getPart.indexOf('from("departments")'));
+    expect(getPart).toContain('.select("id,organization_id,procedure_name,is_open_for_attendance,is_attendance_only")');
+    expect(getPart.indexOf("if (!training.is_open_for_attendance || !training.is_attendance_only)")).toBeLessThan(getPart.indexOf('from("departments")'));
     // POST: kiểm tra đang mở TRƯỚC khi đụng tới bảng người tham dự.
     const postPart = route.slice(route.indexOf("export async function POST"));
-    expect(postPart.indexOf("if (!training.is_open_for_attendance)")).toBeGreaterThan(-1);
-    expect(postPart.indexOf("if (!training.is_open_for_attendance)")).toBeLessThan(postPart.indexOf('from("procedure_training_attendees")'));
+    expect(postPart.indexOf("if (!training.is_open_for_attendance || !training.is_attendance_only)")).toBeGreaterThan(-1);
+    expect(postPart.indexOf("if (!training.is_open_for_attendance || !training.is_attendance_only)")).toBeLessThan(postPart.indexOf('from("procedure_training_attendees")'));
     expect(route).toContain('{ error: "Lớp tập huấn hiện chưa mở điểm danh." }, { status: 403 }');
-    expect(route).toContain("if (!training.is_open_for_attendance) {\n    return NextResponse.json({ ok: true, open: false");
+    expect(route).toContain("if (!training.is_open_for_attendance || !training.is_attendance_only) {\n    return NextResponse.json({ ok: true, open: false");
   });
 
   it("không lộ danh sách người tham dự: GET chỉ trả tên lớp + khoa/phòng; POST chỉ trả đúng người vừa quét", () => {
@@ -170,7 +170,7 @@ describe("Tập huấn chỉ điểm danh qua QR — trang công khai, quản tr
 
   it("giao diện: tab Điểm danh + QR; chế độ chỉ điểm danh ẩn tab bài test và panel đợt kiểm tra", () => {
     const ui = read("src/components/procedure-training-detail-client.tsx");
-    expect(ui).toContain('["attendance", "Điểm danh"],');
+    expect(ui).toContain('...(attendanceOnly ? ([["attendance", "Điểm danh"]] as [typeof tab, string][]) : []),');
     expect(ui).toContain("`${window.location.origin}/diem-danh/${trainingId}`");
     expect(ui).toContain("...(attendanceOnly ? [] : ([[\"questions\", \"Câu hỏi & đáp án\"]]");
     expect(ui).toContain("...(attendanceOnly ? [] : ([[\"analysis\", \"Phân tích\"]]");

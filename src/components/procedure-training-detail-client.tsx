@@ -142,12 +142,12 @@ export function ProcedureTrainingDetailClient({
     ["info", "Thông tin đào tạo"],
     ...(attendanceOnly ? [] : ([["questions", "Câu hỏi & đáp án"]] as [typeof tab, string][])),
     ["registration", "Đăng ký"],
-    ["attendance", "Điểm danh"],
+    ...(attendanceOnly ? ([["attendance", "Điểm danh"]] as [typeof tab, string][]) : []),
     ["roster", attendanceOnly ? "Nhân sự" : "Nhân sự & điểm"],
     ["import", "Nhập dữ liệu"],
     ...(attendanceOnly ? [] : ([["analysis", "Phân tích"]] as [typeof tab, string][])),
   ];
-  const activeTab = attendanceOnly && (tab === "questions" || tab === "analysis") ? "roster" : tab;
+  const activeTab = (attendanceOnly && (tab === "questions" || tab === "analysis")) || (!attendanceOnly && tab === "attendance") ? "roster" : tab;
   // Gom tab thành 3 BƯỚC (Chuẩn bị · Tổ chức lớp · Kết quả) — mỗi lúc chỉ hiện vài tab của bước đang xem.
   const steps = stepsFor(attendanceOnly);
   const activeStep = stepOfTab(steps, activeTab);

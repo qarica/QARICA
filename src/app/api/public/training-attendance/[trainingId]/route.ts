@@ -15,12 +15,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tra
 
   const { data: training } = await admin
     .from("procedure_trainings")
-    .select("id,organization_id,procedure_name,is_open_for_attendance")
+    .select("id,organization_id,procedure_name,is_open_for_attendance,is_attendance_only")
     .eq("id", trainingId)
     .maybeSingle();
   if (!training) return NextResponse.json({ error: "Không tìm thấy lớp tập huấn." }, { status: 404 });
 
-  if (!training.is_open_for_attendance) {
+  if (!training.is_open_for_attendance || !training.is_attendance_only) {
     return NextResponse.json({ ok: true, open: false, trainingName: training.procedure_name });
   }
 
@@ -41,9 +41,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tra
   if (employeeName.length > 200) return NextResponse.json({ error: "Họ tên quá dài." }, { status: 400 });
 
   const admin = createAdminClient();
-  const { data: training } = await admin.from("procedure_trainings").select("id,organization_id,is_open_for_attendance").eq("id", trainingId).maybeSingle();
+  const { data: training } = await admin.from("procedure_trainings").select("id,organization_id,is_open_for_attendance,is_attendance_only").eq("id", trainingId).maybeSingle();
   if (!training) return NextResponse.json({ error: "Không tìm thấy lớp tập huấn." }, { status: 404 });
-  if (!training.is_open_for_attendance) return NextResponse.json({ error: "Lớp tập huấn hiện chưa mở điểm danh." }, { status: 403 });
+  if (!training.is_open_for_attendance || !training.is_attendance_only) return NextResponse.json({ error: "Lớp tập huấn hiện chưa mở điểm danh." }, { status: 403 });
 
   // department_id do client gửi — xác minh thuộc đúng tổ chức của lớp trước khi dùng (route công khai).
   let departmentName: string | null = null;

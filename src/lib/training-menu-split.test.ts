@@ -22,7 +22,8 @@ describe("tách menu Đào tạo / Tự đọc hiểu", () => {
 
 describe("điều hướng chi tiết lớp: tab gom thành bước", () => {
   it("mọi tab thuộc đúng 1 bước và tab lạ rơi về mặc định", () => {
-    for (const t of DETAIL_TABS) expect(stepOfTab(stepsFor(false), t).tabs).toContain(t);
+    for (const t of DETAIL_TABS.filter((x) => x !== "attendance")) expect(stepOfTab(stepsFor(false), t).tabs).toContain(t);
+    for (const t of DETAIL_TABS.filter((x) => x !== "questions" && x !== "analysis")) expect(stepOfTab(stepsFor(true), t).tabs).toContain(t);
     expect(parseDetailTab("không-có")).toBeNull();
     expect(parseDetailTab("roster")).toBe("roster");
   });
@@ -69,5 +70,27 @@ describe("chi tiết lớp: mở mặc định ở Thông tin đào tạo (bư�
     const src = read("src/components/procedure-training-detail-client.tsx");
     expect(src).toContain('useState<DetailTab>(initialTab ?? "info")');
     expect(src).not.toContain('initialTab ?? "roster"');
+  });
+});
+
+describe("không quét 2 lần: chỉ-điểm-danh dùng QR điểm danh, có-test chỉ dùng QR làm bài", () => {
+  it("lớp có test không có tab/QR Điểm danh; lớp chỉ điểm danh thì có", () => {
+    expect(stepsFor(false).flatMap((s) => s.tabs)).not.toContain("attendance");
+    expect(stepsFor(true).flatMap((s) => s.tabs)).toContain("attendance");
+  });
+  it("API công khai điểm danh từ chối lớp không phải chỉ-điểm-danh (GET lẫn POST)", () => {
+    const r = read("src/app/api/public/training-attendance/[trainingId]/route.ts");
+    expect(r).toContain("!training.is_open_for_attendance || !training.is_attendance_only");
+    expect(r.split("!training.is_attendance_only").length - 1).toBe(2);
+  });
+  it("PATCH lớp: không bật được QR điểm danh cho lớp có test; về chế độ có test thì đóng link", () => {
+    const r = read("src/app/api/procedure-trainings/[id]/route.ts");
+    expect(r).toContain("if (body.is_attendance_only === false) update.is_open_for_attendance = false;");
+    expect(r).toContain("chỉ lớp chỉ điểm danh mới bật QR điểm danh");
+  });
+  it("nộp bài qua QR = điểm danh và ghi giờ quét (cả người mới lẫn người đã có)", () => {
+    const r = read("src/app/api/public/training-test/[roundId]/submit/route.ts");
+    expect(r).toContain("checked_in_at: matchedAttendee.checked_in_at ?? new Date().toISOString()");
+    expect(r).toContain("checked_in_at: new Date().toISOString(),");
   });
 });
