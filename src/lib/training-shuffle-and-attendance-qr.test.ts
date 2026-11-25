@@ -175,7 +175,8 @@ describe("Tập huấn chỉ điểm danh qua QR — trang công khai, quản tr
     expect(ui).toContain("...(attendanceOnly ? [] : ([[\"questions\", \"Câu hỏi & đáp án\"]]");
     expect(ui).toContain("...(attendanceOnly ? [] : ([[\"analysis\", \"Phân tích\"]]");
     expect(ui).toContain("{attendanceOnly ? null : (\n      <section className=\"panel\">");
-    expect(ui).toContain("async function toggleAttendanceOnly()");
+    expect(ui).toContain("async function setAttendanceOnly(next: boolean)");
+    expect(ui).toContain('aria-label="Hình thức lớp"');
     expect(ui).toContain("Dữ liệu bài test đã có KHÔNG bị xoá.");
     // không có <style jsx> mới chứa selector nhắm helper (CLAUDE.md gotcha) — tab mới dùng class sẵn có
     expect(ui).toContain("ptd-registration-open-toggle");

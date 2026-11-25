@@ -153,12 +153,13 @@ describe("Procedure trainings module security and control gates", () => {
   // thẳng, không cần mở form sửa), chỉ hiện khi CHƯA hoàn thành; "không cho
   // xoá" đã có sẵn ở DELETE route (status="TRAINED" → 409, xem test ở
   // trên) nên nút này không cần tự chặn xoá thêm.
-  it("có nút '✓ Hoàn thành lớp' 1 chạm ở trang chi tiết (PATCH status=TRAINED, chỉ hiện khi chưa hoàn thành)", () => {
+  it("hoàn thành lớp bằng ô chọn Trạng thái ở khung Thông tin (chọn 'Đã đào tạo' → completeTraining, PATCH status=TRAINED, có xác nhận)", () => {
     const detailClient = read("src/components/procedure-training-detail-client.tsx");
     expect(detailClient).toContain("async function completeTraining()");
     expect(detailClient).toContain('body: JSON.stringify({ status: "TRAINED" })');
-    expect(detailClient).toContain('training.status !== "TRAINED"');
-    expect(detailClient).toContain("✓ Hoàn thành lớp");
+    expect(detailClient).toContain('aria-label="Trạng thái lớp"');
+    expect(detailClient).toContain('await completeTraining();');
+    expect(detailClient).toContain('Đánh dấu lớp này là "Đã đào tạo"?');
   });
 
   // Báo cáo thực tế: "Khi bấm hoàn thành thì phải tắt mở các link quét QR"

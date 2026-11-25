@@ -198,7 +198,15 @@ export function ProcedureTrainingDetailClient({
       ) : null}
 
       {activeTab === "info" ? (
-        <InfoTab training={training} setTraining={setTraining} setRounds={setRounds} canManage={canManage} setError={setError} />
+        <InfoTab
+          training={training}
+          setTraining={setTraining}
+          setRounds={setRounds}
+          canManage={canManage}
+          setError={setError}
+          attendeeCount={attendees.length}
+          nextClassId={(classOptions ?? []).find((o) => o.id !== training.id)?.id ?? null}
+        />
       ) : null}
       {activeTab === "roster" ? (
         <RosterTab
@@ -388,12 +396,17 @@ function InfoTab({
   setRounds,
   canManage,
   setError,
+  attendeeCount,
+  nextClassId,
 }: {
   training: Training;
   setTraining: (t: Training) => void;
   setRounds: (fn: Round[] | ((v: Round[]) => Round[])) => void;
   canManage: boolean;
   setError: (e: string) => void;
+  attendeeCount: number;
+  /** Lớp cùng chủ đề để chuyển sang sau khi xoá lớp này (null = chủ đề chỉ có 1 lớp → về danh sách). */
+  nextClassId: string | null;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState(() => buildInfoDraft(training));
@@ -402,12 +415,13 @@ function InfoTab({
   const [duplicating, setDuplicating] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [modeBusy, setModeBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // "Tập huấn chỉ quét QR điểm danh, chưa cần làm test": chuyển lớp giữa chế độ có bài test và
   // chế độ chỉ điểm danh. Sang chế độ chỉ điểm danh thì server đóng luôn link làm bài của mọi đợt
   // kiểm tra (dữ liệu đợt/câu hỏi/điểm đã có KHÔNG bị xoá — chỉ ẩn khỏi giao diện).
-  async function toggleAttendanceOnly() {
-    const next = !training.is_attendance_only;
+  async function setAttendanceOnly(next: boolean) {
+    if (next === !!training.is_attendance_only) return;
     const message = next
       ? "Chuyển lớp sang chế độ CHỈ ĐIỂM DANH (tập huấn không có bài test)? Sẽ ẩn phần bài kiểm tra/câu hỏi/phân tích điểm và đóng link làm bài qua QR. Dữ liệu bài test đã có KHÔNG bị xoá."
       : "Chuyển lớp về chế độ CÓ BÀI TEST? Phần đợt kiểm tra/câu hỏi/phân tích điểm sẽ hiện lại.";
@@ -435,6 +449,31 @@ function InfoTab({
   // bấm 1 chạm riêng ở màn xem (không cần mở form sửa); đánh dấu xong thì
   // DELETE /api/procedure-trainings/[id] đã tự chặn xoá (status="TRAINED"
   // → 409, xem route.ts) nên không cần thêm gì ở đây để "không cho xoá".
+  // Đổi trạng thái bằng ô chọn ngay ở khung Thông tin: "Đã đào tạo" đi qua completeTraining (xác nhận +
+  // server tự đóng link); 2 trạng thái còn lại lưu thẳng.
+  async function changeStatus(next: Training["status"]) {
+    if (next === training.status) return;
+    if (next === "TRAINED") {
+      await completeTraining();
+      return;
+    }
+    setCompleting(true);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${training.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: next }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setCompleting(false);
+    if (!res.ok) {
+      setError(body.error || "Không đổi được trạng thái lớp.");
+      return;
+    }
+    setTraining({ ...training, ...body.training });
+    setDraft((v) => ({ ...v, status: next }));
+  }
+
   async function completeTraining() {
     if (!window.confirm('Đánh dấu lớp này là "Đã đào tạo"? Sẽ tự đóng link đăng ký và link làm bài qua QR của lớp này, và sau khi hoàn thành sẽ không thể xoá cả lớp (vẫn sửa lại tình trạng được nếu cần).')) return;
     setCompleting(true);
@@ -463,6 +502,25 @@ function InfoTab({
   // tin lớp và kế thừa thông tin đợt cũ" — tạo 1 lớp (procedure_trainings)
   // MỚI kế thừa tên/mã quy trình/giảng viên/thang điểm, rồi chuyển sang
   // trang lớp mới để sửa lại thời gian/địa điểm cho đúng.
+  // Xoá lớp ngay trong trang chi tiết (trước chỉ xoá được từ danh sách). Dùng chung DELETE
+  // /api/procedure-trainings/[id] (procedure_training.manage; lớp đã hoàn thành bị server từ chối 409).
+  // Xoá xong chuyển sang lớp khác cùng chủ đề nếu còn, không thì về danh sách.
+  async function deleteTraining() {
+    const warning = attendeeCount > 0 ? `Lớp này đã có ${attendeeCount} nhân sự! Xoá sẽ mất hết điểm/kết quả, KHÔNG thể hoàn tác.` : "Xoá lớp này, không thể hoàn tác.";
+    if (!window.confirm(`${warning}\n\nXoá "${training.procedure_code || training.procedure_name}"?`)) return;
+    setDeleting(true);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${training.id}`, { method: "DELETE" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setDeleting(false);
+      setError(body.error || "Không xoá được lớp này.");
+      return;
+    }
+    router.push(nextClassId ? `/procedure-trainings/${nextClassId}` : "/procedure-trainings");
+    router.refresh();
+  }
+
   async function duplicateTraining() {
     // Báo cáo thực tế: "Bấm tạo lớp mới mất hết dữ liệu cũ" — kiểm tra trực
     // tiếp trên Supabase sống xác nhận KHÔNG mất dữ liệu (lớp cũ vẫn còn
@@ -528,11 +586,44 @@ function InfoTab({
             <dl className="ptd-info-grid">
               <div>
                 <dt>Trạng thái</dt>
-                <dd>{STATUS_LABEL[training.status] || training.status}</dd>
+                <dd>
+                  {canManage ? (
+                    <select
+                      className="ptd-info-select"
+                      aria-label="Trạng thái lớp"
+                      value={training.status}
+                      disabled={completing}
+                      onChange={(e) => void changeStatus(e.target.value as Training["status"])}
+                    >
+                      <option value="NOT_PLANNED">{STATUS_LABEL.NOT_PLANNED}</option>
+                      <option value="PLANNED">{STATUS_LABEL.PLANNED}</option>
+                      <option value="TRAINED">{STATUS_LABEL.TRAINED}</option>
+                    </select>
+                  ) : (
+                    STATUS_LABEL[training.status] || training.status
+                  )}
+                </dd>
               </div>
               <div>
                 <dt>Hình thức</dt>
-                <dd>{training.is_attendance_only ? "Tập huấn chỉ điểm danh (quét QR, không có bài test)" : "Đào tạo có bài test"}</dd>
+                <dd>
+                  {canManage ? (
+                    <select
+                      className="ptd-info-select"
+                      aria-label="Hình thức lớp"
+                      value={training.is_attendance_only ? "ATTENDANCE_ONLY" : "WITH_TEST"}
+                      disabled={modeBusy}
+                      onChange={(e) => void setAttendanceOnly(e.target.value === "ATTENDANCE_ONLY")}
+                    >
+                      <option value="WITH_TEST">Đào tạo có bài test</option>
+                      <option value="ATTENDANCE_ONLY">Tập huấn chỉ điểm danh (quét QR, không có bài test)</option>
+                    </select>
+                  ) : training.is_attendance_only ? (
+                    "Tập huấn chỉ điểm danh (quét QR, không có bài test)"
+                  ) : (
+                    "Đào tạo có bài test"
+                  )}
+                </dd>
               </div>
               <div>
                 <dt>Người đào tạo</dt>
@@ -591,16 +682,17 @@ function InfoTab({
             <button type="button" className="button secondary" onClick={() => setEditing(true)}>
               Sửa
             </button>
-            {training.status !== "TRAINED" ? (
-              <button type="button" className="button primary" disabled={completing} onClick={() => void completeTraining()} title="Đánh dấu lớp này đã hoàn thành đào tạo — sau đó không thể xoá cả lớp">
-                {completing ? "Đang lưu..." : "✓ Hoàn thành lớp"}
-              </button>
-            ) : null}
-            <button type="button" className="button tertiary" disabled={modeBusy} onClick={() => void toggleAttendanceOnly()} title="Lớp tập huấn không có bài kiểm tra: người tham dự chỉ quét QR để điểm danh">
-              {modeBusy ? "Đang lưu..." : training.is_attendance_only ? "Chuyển về có bài test" : "Chuyển sang chỉ điểm danh"}
-            </button>
             <button type="button" className="button tertiary" disabled={duplicating} onClick={() => void duplicateTraining()} title="Tạo 1 lớp mới cùng chủ đề, kế thừa thông tin của lớp này — dùng khi mở thêm 1 lớp/đợt khác ngày">
               {duplicating ? "Đang tạo..." : "+ Tạo lớp mới cùng chủ đề"}
+            </button>
+            <button
+              type="button"
+              className="button danger ptd-delete-class"
+              disabled={deleting || training.status === "TRAINED"}
+              title={training.status === "TRAINED" ? "Lớp đã hoàn thành đào tạo, không thể xoá." : "Xoá lớp này (không thể hoàn tác)"}
+              onClick={() => void deleteTraining()}
+            >
+              {deleting ? "Đang xoá..." : "Xóa lớp"}
             </button>
           </div>
         ) : null}
@@ -610,6 +702,15 @@ function InfoTab({
             flex-direction: column;
             gap: 0;
             padding: 4px 19px 8px;
+          }
+          .ptd-delete-class {
+            margin-left: auto;
+          }
+          .ptd-info-select {
+            width: 100%;
+            min-height: 40px;
+            font-size: 15px;
+            font-weight: 600;
           }
           .ptd-info-block {
             padding: 14px 0;

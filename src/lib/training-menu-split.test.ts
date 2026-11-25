@@ -106,3 +106,41 @@ describe("khung Thông tin đào tạo: nhóm thành các khối, bỏ nhãn 'l�
     expect(block).toContain("<style jsx>");
   });
 });
+
+describe("trang chi tiết lớp: nút Xóa lớp", () => {
+  const src = read("src/components/procedure-training-detail-client.tsx");
+  it("gọi DELETE /api/procedure-trainings/[id], xác nhận trước, khóa khi lớp đã hoàn thành", () => {
+    expect(src).toContain('fetch(`/api/procedure-trainings/${training.id}`, { method: "DELETE" })');
+    expect(src).toContain("window.confirm(`${warning}");
+    expect(src).toContain('disabled={deleting || training.status === "TRAINED"}');
+  });
+  it("sau khi xoá chuyển sang lớp khác cùng chủ đề hoặc về danh sách", () => {
+    expect(src).toContain('router.push(nextClassId ? `/procedure-trainings/${nextClassId}` : "/procedure-trainings");');
+    expect(src).toContain("nextClassId={(classOptions ?? []).find((o) => o.id !== training.id)?.id ?? null}");
+  });
+  it("API DELETE vẫn chặn lớp đã hoàn thành và cần procedure_training.manage", () => {
+    const api = read("src/app/api/procedure-trainings/[id]/route.ts");
+    const del = api.slice(api.indexOf("export async function DELETE"));
+    expect(del).toContain('requireApiPermission("procedure_training.manage")');
+    expect(del).toContain('existing.status === "TRAINED"');
+  });
+});
+
+describe("khung Thông tin: Trạng thái / Hình thức là ô chọn, không còn nút chuyển chế độ", () => {
+  const src = read("src/components/procedure-training-detail-client.tsx");
+  it("2 ô chọn (chỉ người có quyền quản lý), đủ lựa chọn", () => {
+    expect(src).toContain('aria-label="Trạng thái lớp"');
+    expect(src).toContain('aria-label="Hình thức lớp"');
+    for (const o of ['value="NOT_PLANNED"', 'value="PLANNED"', 'value="TRAINED"', 'value="WITH_TEST"', 'value="ATTENDANCE_ONLY"']) expect(src).toContain(o);
+    expect(src).toContain("{canManage ? (\n                    <select");
+  });
+  it("bỏ nút 'Chuyển sang chỉ điểm danh' / 'Chuyển về có bài test' / '✓ Hoàn thành lớp'", () => {
+    expect(src).not.toContain("Chuyển sang chỉ điểm danh");
+    expect(src).not.toContain("Chuyển về có bài test");
+    expect(src).not.toContain("✓ Hoàn thành lớp");
+  });
+  it("đổi hình thức vẫn xác nhận và gọi PATCH is_attendance_only", () => {
+    expect(src).toContain("body: JSON.stringify({ is_attendance_only: next })");
+    expect(src).toContain("if (!window.confirm(message)) return;");
+  });
+});
