@@ -85,8 +85,24 @@ describe("Loại công văn (document_type) là list chọn cố định, không
   it("form Tiếp nhận công văn mới dùng select (không còn input gõ tay) cho Loại công văn, có option rỗng để vẫn là tùy chọn", () => {
     expect(client).not.toContain('placeholder="Loại công văn (tùy chọn)"');
     expect(client).toContain('<select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value)}>');
-    expect(client).toContain('<option value="">— Chọn loại công văn (tùy chọn) —</option>');
+    // Option rỗng rút gọn (chữ cũ dài bị cắt trong ô hẹp) + ô có nhãn riêng như các ô cùng hàng.
+    expect(client).toContain('<option value="">— Chọn loại —</option>');
+    expect(client).not.toContain("— Chọn loại công văn (tùy chọn) —");
+    expect(client).toContain("<span>Loại công văn (tùy chọn)</span>");
     expect(client).toContain('{INCOMING_DOCUMENT_TYPES.map((t) => (');
+  });
+
+  // Báo cáo thực tế: "công văn đã xử lý xong biến mất" — tab mặc định "Theo dõi xử lý"
+  // từng ẩn mọi công văn đã có completed_at (dữ liệu vẫn còn, chỉ bị lọc). Nay hiện cả
+  // đang xử lý lẫn đã xong, có bộ lọc tình trạng, mặc định "Tất cả".
+  it("tab Theo dõi xử lý KHÔNG còn ẩn công văn đã hoàn thành; có bộ lọc Tất cả / Đang xử lý / Đã xử lý xong, mặc định Tất cả", () => {
+    expect(client).not.toContain('if (view === "tracking" && !!d.completed_at) return false;');
+    expect(client).toContain('const [trackingStatus, setTrackingStatus] = useState<"all" | "active" | "done">("all");');
+    expect(client).toContain('if (view === "tracking" && trackingStatus === "active" && !!d.completed_at) return false;');
+    expect(client).toContain('if (view === "tracking" && trackingStatus === "done" && !d.completed_at) return false;');
+    expect(client).toContain("`Đã xử lý xong (${completedCount})`");
+    // Tab Phân công vẫn chỉ liệt kê công văn chưa phân công và chưa hoàn thành (đúng ý nghĩa của tab).
+    expect(client).toContain('if (view === "assign" && (!!d.department_id || !!d.completed_at)) return false;');
   });
 });
 
