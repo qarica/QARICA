@@ -64,6 +64,7 @@ function formatDate(value: string | null) {
 }
 
 export function ProcedureTrainingsClient({
+  mode = "training",
   initialTrainings,
   canManage,
   selfReadDocuments,
@@ -72,6 +73,8 @@ export function ProcedureTrainingsClient({
   canManageDocuments,
   topicGroups,
 }: {
+  /** "training" = menu Đào tạo (Cần đào tạo + Theo chủ đề); "self_read" = menu Tự đọc hiểu. */
+  mode?: "training" | "self_read";
   initialTrainings: Training[];
   canManage: boolean;
   selfReadDocuments: SelfReadDocument[];
@@ -80,7 +83,7 @@ export function ProcedureTrainingsClient({
   canManageDocuments: boolean;
   topicGroups: TopicGroup[];
 }) {
-  const [view, setView] = useState<"training" | "self_read" | "topic">("training");
+  const [view, setView] = useState<"training" | "self_read" | "topic">(mode);
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [trainings, setTrainings] = useState(initialTrainings);
   const [listQuery, setListQuery] = useState("");
@@ -177,22 +180,21 @@ export function ProcedureTrainingsClient({
 
   return (
     <div className="pt-overview mobile-module-redesign">
-      <div className="mobile-workflow-kpis"><div><small>Tổng quy trình</small><strong>{trainings.length}</strong></div><div><small>Đã đào tạo</small><strong>{trainings.filter((t) => t.status === "TRAINED").length}</strong></div><div><small>Chưa có kế hoạch</small><strong>{trainings.filter((t) => t.status === "NOT_PLANNED").length}</strong></div></div>
+      {mode === "training" ? <div className="mobile-workflow-kpis"><div><small>Tổng quy trình</small><strong>{trainings.length}</strong></div><div><small>Đã đào tạo</small><strong>{trainings.filter((t) => t.status === "TRAINED").length}</strong></div><div><small>Chưa có kế hoạch</small><strong>{trainings.filter((t) => t.status === "NOT_PLANNED").length}</strong></div></div> : null}
       {/* Báo cáo thực tế: "Phần theo dõi quy trình đào tạo chưa thấy kết nối
           với kiểm soát tài liệu... nên làm menu theo dõi gồm cả 2 nội dung
           [Tự đọc hiểu + Cần đào tạo] để control" — 1 menu theo dõi, 2 tab,
           thay vì 2 trang/menu tách rời như trước. */}
-      <div className="pt-view-tabs" role="group" aria-label="Hình thức phổ biến">
-        <button type="button" className={view === "training" ? "active" : ""} aria-pressed={view === "training"} onClick={() => setView("training")}>
-          Cần đào tạo
-        </button>
-        <button type="button" className={view === "self_read" ? "active" : ""} aria-pressed={view === "self_read"} onClick={() => setView("self_read")}>
-          Tự đọc hiểu
-        </button>
-        <button type="button" className={view === "topic" ? "active" : ""} aria-pressed={view === "topic"} onClick={() => setView("topic")}>
-          Theo chủ đề
-        </button>
-      </div>
+      {mode === "training" ? (
+        <div className="pt-view-tabs" role="group" aria-label="Chế độ xem đào tạo">
+          <button type="button" className={view === "training" ? "active" : ""} aria-pressed={view === "training"} onClick={() => setView("training")}>
+            Danh sách lớp
+          </button>
+          <button type="button" className={view === "topic" ? "active" : ""} aria-pressed={view === "topic"} onClick={() => setView("topic")}>
+            Theo chủ đề
+          </button>
+        </div>
+      ) : null}
       {view === "training" ? (
       <>
       {canManage ? (

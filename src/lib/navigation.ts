@@ -127,7 +127,8 @@ const NAV_GROUPS: NavGroupDef[] = [
       // thay vì permission đơn: ai xem được 1 trong 2 module liên quan
       // (document_publication.view hoặc procedure_training.view) đều thấy menu
       // theo dõi chung này.
-      { label: "Phổ biến & đào tạo", href: "/procedure-trainings", icon: "book-open", anyPermissions: ["procedure_training.view", "document_publication.view"] },
+      { label: "Đào tạo", href: "/procedure-trainings", icon: "book-open", anyPermissions: ["procedure_training.view", "document_publication.view"] },
+      { label: "Tự đọc hiểu", href: "/tu-doc-hieu", icon: "clipboard-check", anyPermissions: ["procedure_training.view", "document_publication.view"] },
     ],
   },
   {

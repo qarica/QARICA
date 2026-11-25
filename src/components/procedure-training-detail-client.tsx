@@ -8,6 +8,7 @@ import { Icon } from "@/components/icon";
 import { KpiCard } from "@/components/kpi-card";
 import { TQM_CHART_CSS, TqmColumnBars, TqmGroupedBars } from "@/components/tqm-charts";
 import { computePassStatus } from "@/lib/procedure-training-pass-status";
+import { stepOfTab, stepsFor, type DetailTab } from "@/lib/procedure-training-detail-nav";
 import { normalizeEmployeeCode } from "@/lib/training-self-test";
 
 type Training = {
@@ -88,7 +89,11 @@ export function ProcedureTrainingDetailClient({
   departments,
   registrations: initialRegistrations,
   canManage,
+  initialTab,
+  classOptions,
 }: {
+  initialTab?: DetailTab | null;
+  classOptions?: { id: string; label: string }[];
   training: Training;
   rounds: Round[];
   attendees: Attendee[];
@@ -99,7 +104,8 @@ export function ProcedureTrainingDetailClient({
   registrations: Registration[];
   canManage: boolean;
 }) {
-  const [tab, setTab] = useState<"info" | "roster" | "registration" | "attendance" | "analysis" | "questions" | "import">("roster");
+  const router = useRouter();
+  const [tab, setTab] = useState<DetailTab>(initialTab ?? "roster");
   const [training, setTraining] = useState(initialTraining);
   const [rounds, setRounds] = useState(initialRounds);
   const [attendees, setAttendees] = useState(initialAttendees);
@@ -142,17 +148,54 @@ export function ProcedureTrainingDetailClient({
     ...(attendanceOnly ? [] : ([["analysis", "Phân tích"]] as [typeof tab, string][])),
   ];
   const activeTab = attendanceOnly && (tab === "questions" || tab === "analysis") ? "roster" : tab;
+  // Gom tab thành 3 BƯỚC (Chuẩn bị · Tổ chức lớp · Kết quả) — mỗi lúc chỉ hiện vài tab của bước đang xem.
+  const steps = stepsFor(attendanceOnly);
+  const activeStep = stepOfTab(steps, activeTab);
+  const tabLabel = new Map<DetailTab, string>(tabItems);
 
   return (
     <div className="ptd-page">
       {error ? <div className="alert error">{error}</div> : null}
-      <div className="ptd-tabs" role="group" aria-label="Chi tiết đợt đào tạo">
-        {tabItems.map(([key, label]) => (
-          <button key={key} type="button" className={activeTab === key ? "active" : ""} aria-pressed={activeTab === key} onClick={() => setTab(key)}>
-            {label}
+      {/* "1 chủ đề có nhiều lớp thì nên chọn 1 nút như nút Năm": chọn lớp cùng chủ đề ngay tại trang,
+          giữ nguyên tab đang xem (?tab=). Chỉ hiện khi chủ đề có từ 2 lớp trở lên. */}
+      {classOptions && classOptions.length > 1 ? (
+        <div className="ptd-class-switch">
+          <label className="ptd-class-switch-pill">
+            <span>Lớp</span>
+            <select
+              aria-label="Chọn lớp cùng chủ đề"
+              value={training.id}
+              onChange={(e) => {
+                if (e.target.value !== training.id) router.push(`/procedure-trainings/${e.target.value}?tab=${activeTab}`);
+              }}
+            >
+              {classOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="muted tiny">{classOptions.length} lớp cùng chủ đề</span>
+        </div>
+      ) : null}
+      <div className="ptd-steps" role="group" aria-label="Các bước của lớp đào tạo">
+        {steps.map((st, i) => (
+          <button key={st.key} type="button" className={activeStep.key === st.key ? "active" : ""} aria-pressed={activeStep.key === st.key} onClick={() => setTab(st.tabs[0])}>
+            <span className="ptd-step-no">{i + 1}</span>
+            {st.label}
           </button>
         ))}
       </div>
+      {activeStep.tabs.length > 1 ? (
+        <div className="ptd-tabs" role="group" aria-label={`Mục trong bước ${activeStep.label}`}>
+          {activeStep.tabs.map((key) => (
+            <button key={key} type="button" className={activeTab === key ? "active" : ""} aria-pressed={activeTab === key} onClick={() => setTab(key)}>
+              {tabLabel.get(key)}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {activeTab === "info" ? (
         <InfoTab training={training} setTraining={setTraining} setRounds={setRounds} canManage={canManage} setError={setError} />
@@ -242,6 +285,79 @@ export function ProcedureTrainingDetailClient({
           background: var(--brand);
           color: #fff;
           border-color: var(--brand);
+        }
+        .ptd-steps {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+          gap: 8px;
+        }
+        .ptd-steps button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          background: #fff;
+          padding: 10px 12px;
+          color: var(--muted);
+          font-weight: 800;
+          font-size: 13px;
+          cursor: pointer;
+        }
+        .ptd-steps button.active {
+          border-color: var(--brand);
+          background: var(--brand-soft);
+          color: var(--brand-dark);
+        }
+        .ptd-step-no {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: var(--line);
+          color: var(--muted);
+          font-size: 11px;
+          font-weight: 800;
+        }
+        .ptd-steps button.active .ptd-step-no {
+          background: var(--brand);
+          color: #fff;
+        }
+        .ptd-class-switch {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .ptd-class-switch-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+          max-width: 100%;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          padding: 0 8px 0 12px;
+          height: 38px;
+          background: #fff;
+          color: var(--muted);
+          font-size: 12px;
+        }
+        .ptd-class-switch-pill select {
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: var(--text);
+          font-weight: 700;
+          width: auto;
+          min-height: 0;
+          min-width: 0;
+          max-width: 100%;
+          padding: 0;
+          box-shadow: none;
         }
       `}</style>
     </div>

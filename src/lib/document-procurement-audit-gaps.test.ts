@@ -68,7 +68,7 @@ describe("Công văn/Phát hành văn bản/Mua sắm: audit_logs + validate dep
 // dashboard tuân thủ theo khoa/phòng (departments.staff_count làm mẫu số).
 describe("Phát hành văn bản: 'Tự đọc hiểu' có dashboard giám sát theo khoa/phòng, không còn ở document-publications", () => {
   it("trang procedure-trainings/page.tsx (menu theo dõi gộp) fetch departments.staff_count để tính tuân thủ theo khoa/phòng", () => {
-    const page = read("src/app/(app)/procedure-trainings/page.tsx");
+    const page = read("src/components/procedure-trainings-page.tsx");
     expect(page).toContain('.from("departments").select("id,name,staff_count")');
     expect(page).toContain("departments=");
   });

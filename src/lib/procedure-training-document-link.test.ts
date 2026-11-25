@@ -11,7 +11,7 @@ const read = (p: string) => readFileSync(p, "utf8");
 // liên kết về trang danh sách.
 describe("Đào tạo quy trình hiện liên kết ngược tới văn bản đã phát hành nó", () => {
   it("trang procedure-trainings đọc document_publication_id và join sang document_publications để lấy tiêu đề/mã văn bản", () => {
-    const page = read("src/app/(app)/procedure-trainings/page.tsx");
+    const page = read("src/components/procedure-trainings-page.tsx");
     expect(page).toContain("document_publication_id");
     expect(page).toContain('.from("document_publications").select("id,title,document_code")');
     expect(page).toContain("source_document: t.document_publication_id ? sourceDocMap.get(t.document_publication_id) || null : null");
