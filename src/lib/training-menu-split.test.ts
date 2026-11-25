@@ -38,3 +38,14 @@ describe("chế độ chỉ điểm danh", () => {
     expect(steps.flatMap((s) => s.tabs)).not.toContain("questions");
   });
 });
+
+describe("tab Điểm danh: CSS nút bật/tắt QR phải nằm cùng component (styled-jsx scoping)", () => {
+  it("AttendanceTab tự khai báo .ptd-registration-open-toggle", () => {
+    const src = read("src/components/procedure-training-detail-client.tsx");
+    const start = src.indexOf("function AttendanceTab(");
+    const end = src.indexOf("function AnalysisTab(");
+    const block = src.slice(start, end);
+    expect(block).toContain("<style jsx>");
+    expect(block).toContain(".ptd-registration-open-toggle {");
+  });
+});

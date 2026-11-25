@@ -1932,6 +1932,37 @@ function AttendanceTab({
           <div className="empty-state compact">Chưa có ai quét QR điểm danh.</div>
         )}
       </div>
+      {/* styled-jsx chỉ scope cho phần tử viết trực tiếp trong component chứa thẻ <style jsx>: CSS của
+          .ptd-registration-* khai báo ở RegistrationTab KHÔNG áp cho tab này (nút "Mở điểm danh qua QR"
+          từng hiện như nút xám mặc định của trình duyệt) → khai báo lại ngay tại đây. */}
+      <style jsx>{`
+        .ptd-registration-qr {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          flex-wrap: wrap;
+        }
+        .ptd-registration-open-toggle {
+          border: 1px solid var(--line);
+          background: #fff;
+          color: #46555c;
+          border-radius: 20px;
+          padding: 6px 12px;
+          min-height: 0;
+          width: auto;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .ptd-registration-open-toggle.is-open {
+          background: var(--success-soft);
+          color: var(--success);
+          border-color: transparent;
+        }
+      `}</style>
     </section>
   );
 }
