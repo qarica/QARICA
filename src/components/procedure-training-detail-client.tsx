@@ -522,47 +522,69 @@ function InfoTab({
         <div className="panel-title">
           <h2>Thông tin đào tạo</h2>
         </div>
-        <div className="detail-grid">
-          <div>
-            <span>Trạng thái</span>
-            {STATUS_LABEL[training.status] || training.status}
-          </div>
-          <div>
-            <span>Hình thức</span>
-            {training.is_attendance_only ? "Tập huấn chỉ điểm danh (quét QR, không có bài test)" : "Đào tạo có bài test"}
-          </div>
-          <div>
-            <span>Người đào tạo</span>
-            {training.trainer || "—"}
-          </div>
-          <div>
-            <span>Thang điểm bài test mặc định (Pre/Post)</span>
-            {training.test_score_max ?? "—"}
-          </div>
-          <div>
-            <span>Điểm đạt</span>
-            {training.pass_threshold ?? "—"}
-          </div>
-          <div>
-            <span>Đào tạo lần 1 — Thời gian</span>
-            {training.session_1_time || "—"}
-          </div>
-          <div>
-            <span>Đào tạo lần 1 — Địa điểm</span>
-            {training.session_1_location || "—"}
-          </div>
-          <div className="span-2">
-            <span>Đào tạo lần 1 — Cách thức</span>
-            {training.session_1_method || "—"}
-          </div>
-          <div className="span-2">
-            <span>Phản hồi QLCL</span>
-            {training.feedback_qlcl || "—"}
-          </div>
-          <div className="span-2">
-            <span>Ghi chú</span>
-            {training.notes || "—"}
-          </div>
+        <div className="ptd-info">
+          <section className="ptd-info-block">
+            <h3>Lớp học</h3>
+            <dl className="ptd-info-grid">
+              <div>
+                <dt>Trạng thái</dt>
+                <dd>{STATUS_LABEL[training.status] || training.status}</dd>
+              </div>
+              <div>
+                <dt>Hình thức</dt>
+                <dd>{training.is_attendance_only ? "Tập huấn chỉ điểm danh (quét QR, không có bài test)" : "Đào tạo có bài test"}</dd>
+              </div>
+              <div>
+                <dt>Người đào tạo</dt>
+                <dd>{training.trainer || "—"}</dd>
+              </div>
+            </dl>
+          </section>
+          <section className="ptd-info-block">
+            <h3>Thời gian &amp; địa điểm</h3>
+            <dl className="ptd-info-grid">
+              <div>
+                <dt>Thời gian</dt>
+                <dd>{training.session_1_time || "—"}</dd>
+              </div>
+              <div>
+                <dt>Địa điểm</dt>
+                <dd>{training.session_1_location || "—"}</dd>
+              </div>
+              <div>
+                <dt>Cách thức</dt>
+                <dd>{training.session_1_method || "—"}</dd>
+              </div>
+            </dl>
+          </section>
+          {training.is_attendance_only ? null : (
+            <section className="ptd-info-block">
+              <h3>Bài kiểm tra</h3>
+              <dl className="ptd-info-grid">
+                <div>
+                  <dt>Thang điểm mặc định (Pre/Post)</dt>
+                  <dd>{training.test_score_max ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt>Điểm đạt</dt>
+                  <dd>{training.pass_threshold ?? "—"}</dd>
+                </div>
+              </dl>
+            </section>
+          )}
+          <section className="ptd-info-block">
+            <h3>Ghi nhận</h3>
+            <dl className="ptd-info-grid ptd-info-grid-wide">
+              <div>
+                <dt>Phản hồi QLCL</dt>
+                <dd>{training.feedback_qlcl || "—"}</dd>
+              </div>
+              <div>
+                <dt>Ghi chú</dt>
+                <dd>{training.notes || "—"}</dd>
+              </div>
+            </dl>
+          </section>
         </div>
         {canManage ? (
           <div className="pt-edit-actions" style={{ padding: "0 19px 19px" }}>
@@ -582,6 +604,59 @@ function InfoTab({
             </button>
           </div>
         ) : null}
+        <style jsx>{`
+          .ptd-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            padding: 4px 19px 8px;
+          }
+          .ptd-info-block {
+            padding: 14px 0;
+            border-top: 1px solid var(--line);
+          }
+          .ptd-info-block:first-child {
+            border-top: 0;
+          }
+          .ptd-info-block h3 {
+            margin: 0 0 10px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--muted);
+          }
+          .ptd-info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px 28px;
+            margin: 0;
+          }
+          .ptd-info-grid-wide {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+          .ptd-info-grid > div {
+            min-width: 0;
+          }
+          .ptd-info-grid dt {
+            color: var(--muted);
+            font-size: 11px;
+            margin-bottom: 4px;
+          }
+          .ptd-info-grid dd {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.45;
+            overflow-wrap: anywhere;
+          }
+          @media (max-width: 760px) {
+            .ptd-info-grid,
+            .ptd-info-grid-wide {
+              grid-template-columns: 1fr;
+            }
+          }
+        `}</style>
       </section>
     );
   }
@@ -625,7 +700,7 @@ function InfoTab({
           </label>
         </div>
         <fieldset>
-          <legend>Đào tạo lần 1</legend>
+          <legend>Thời gian &amp; địa điểm</legend>
           <div className="form-grid two">
             <label>
               <span>Thời gian</span>

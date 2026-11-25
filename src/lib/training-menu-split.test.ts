@@ -94,3 +94,15 @@ describe("không quét 2 lần: chỉ-điểm-danh dùng QR điểm danh, có-te
     expect(r).toContain("checked_in_at: new Date().toISOString(),");
   });
 });
+
+describe("khung Thông tin đào tạo: nhóm thành các khối, bỏ nhãn 'lần 1'", () => {
+  it("chế độ xem chia 4 khối; khối Bài kiểm tra chỉ hiện với lớp có test", () => {
+    const src = read("src/components/procedure-training-detail-client.tsx");
+    const start = src.indexOf('<div className="ptd-info">');
+    const block = src.slice(start, src.indexOf("</style>", start));
+    for (const h of ["Lớp học", "Thời gian &amp; địa điểm", "Bài kiểm tra", "Ghi nhận"]) expect(block).toContain(`<h3>${h}</h3>`);
+    expect(block).toContain("training.is_attendance_only ? null : (");
+    expect(src).not.toContain("Đào tạo lần 1");
+    expect(block).toContain("<style jsx>");
+  });
+});
