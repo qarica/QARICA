@@ -105,7 +105,7 @@ export function ProcedureTrainingDetailClient({
   canManage: boolean;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<DetailTab>(initialTab ?? "roster");
+  const [tab, setTab] = useState<DetailTab>(initialTab ?? "info");
   const [training, setTraining] = useState(initialTraining);
   const [rounds, setRounds] = useState(initialRounds);
   const [attendees, setAttendees] = useState(initialAttendees);

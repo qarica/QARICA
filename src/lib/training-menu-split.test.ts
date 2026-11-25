@@ -63,3 +63,11 @@ describe("danh sách lớp: mỗi chủ đề 1 dòng", () => {
     expect(rows).toHaveLength(1);
   });
 });
+
+describe("chi tiết lớp: mở mặc định ở Thông tin đào tạo (bước Chuẩn bị)", () => {
+  it("tab mặc định là info, không nhảy thẳng vào Nhân sự & điểm", () => {
+    const src = read("src/components/procedure-training-detail-client.tsx");
+    expect(src).toContain('useState<DetailTab>(initialTab ?? "info")');
+    expect(src).not.toContain('initialTab ?? "roster"');
+  });
+});
