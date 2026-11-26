@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { CATEGORIES } from "@/lib/lab-supplies";
-import { ITEM_SELECT, clean, labSuppliesContext, writeAudit } from "@/lib/lab-supplies-api";
+import { ITEM_SELECT, clean, labSuppliesContext, parseBarcode, writeAudit } from "@/lib/lab-supplies-api";
 
 const CATEGORY_SET = new Set<string>(CATEGORIES);
 const has = (body: Record<string, unknown>, key: string) => Object.prototype.hasOwnProperty.call(body, key);
@@ -34,6 +34,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!CATEGORY_SET.has(category)) return NextResponse.json({ error: "Nhóm vật tư không hợp lệ." }, { status: 400 });
     patch.category = category;
   }
+  if (has(body, "barcode")) {
+    const barcode = parseBarcode(body.barcode);
+    if ("error" in barcode) return NextResponse.json({ error: barcode.error }, { status: 400 });
+    patch.barcode = barcode.value;
+  }
   if (has(body, "manufacturer")) patch.manufacturer = clean(body.manufacturer) || null;
   if (has(body, "storage_condition")) patch.storage_condition = clean(body.storage_condition) || null;
   if (has(body, "notes")) patch.notes = clean(body.notes) || null;
@@ -52,7 +57,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (has(body, "is_active")) patch.is_active = body.is_active === true || body.is_active === "true";
 
   const { data, error } = await ctx.admin.from("lab_supply_items").update(patch).eq("id", id).eq("organization_id", ctx.organizationId).select(ITEM_SELECT).single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    const duplicate = error.code === "23505";
+    return NextResponse.json({ error: duplicate ? "Mã vạch này đã gắn cho vật tư khác." : error.message }, { status: duplicate ? 409 : 400 });
+  }
 
   await writeAudit(ctx.admin, ctx.userId, "lab_supply_items", id, "LAB_SUPPLY_ITEM_UPDATE", patch, "Cập nhật vật tư trong kho hóa chất/VTYT xét nghiệm.");
   return NextResponse.json({ ok: true, item: data });

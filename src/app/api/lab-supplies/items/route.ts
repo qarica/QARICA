@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { CATEGORIES, type SupplyCategory } from "@/lib/lab-supplies";
-import { ITEM_SELECT, clean, cleanOrNull, labSuppliesContext, writeAudit } from "@/lib/lab-supplies-api";
+import { ITEM_SELECT, clean, cleanOrNull, labSuppliesContext, parseBarcode, writeAudit } from "@/lib/lab-supplies-api";
 
 const CATEGORY_SET = new Set<string>(CATEGORIES);
 
@@ -38,6 +38,8 @@ export async function POST(request: Request) {
   if (!name) return NextResponse.json({ error: "Tên vật tư là bắt buộc." }, { status: 400 });
   if (!unit) return NextResponse.json({ error: "Đơn vị tính là bắt buộc." }, { status: 400 });
   if (!CATEGORY_SET.has(category)) return NextResponse.json({ error: "Nhóm vật tư không hợp lệ." }, { status: 400 });
+  const barcode = parseBarcode(body.barcode);
+  if ("error" in barcode) return NextResponse.json({ error: barcode.error }, { status: 400 });
   const thresholds = parseThresholds(body);
   if ("error" in thresholds) return NextResponse.json({ error: thresholds.error }, { status: 400 });
 
@@ -46,6 +48,7 @@ export async function POST(request: Request) {
     .insert({
       organization_id: ctx.organizationId,
       code,
+      barcode: barcode.value,
       name,
       category: category as SupplyCategory,
       unit,
@@ -60,7 +63,9 @@ export async function POST(request: Request) {
     .single();
   if (error) {
     const duplicate = error.code === "23505";
-    return NextResponse.json({ error: duplicate ? `Mã vật tư ${code} đã tồn tại.` : error.message }, { status: duplicate ? 409 : 400 });
+    const barcodeDup = duplicate && /barcode/i.test(`${error.message} ${error.details ?? ""}`);
+    const message = barcodeDup ? `Mã vạch ${barcode.value} đã gắn cho vật tư khác.` : duplicate ? `Mã vật tư ${code} đã tồn tại.` : error.message;
+    return NextResponse.json({ error: message }, { status: duplicate ? 409 : 400 });
   }
 
   await writeAudit(ctx.admin, ctx.userId, "lab_supply_items", data.id, "LAB_SUPPLY_ITEM_CREATE", data, "Thêm vật tư vào kho hóa chất/VTYT xét nghiệm.");

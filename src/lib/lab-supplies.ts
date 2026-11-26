@@ -130,3 +130,45 @@ export function formatQuantity(value: number | string | null | undefined): strin
 export function isIsoDate(value: unknown): value is string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
 }
+
+// ---------------------------------------------------------------------------
+// Quét mã vạch / QR để tra cứu vật tư + bảng Kanban bổ sung (chỉ để xem, không kéo-thả làm đổi số liệu:
+// sổ xuất nhập là bất biến, tồn luôn là tổng sổ).
+// ---------------------------------------------------------------------------
+
+/** Chuẩn hóa chuỗi quét được: bỏ ký tự điều khiển/xuống dòng (máy quét USB gõ kèm Enter) và khoảng trắng 2 đầu. */
+export function normalizeScanCode(raw: unknown): string {
+  return String(raw ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim();
+}
+
+type ScanItemLike = { id: string; code: string; barcode?: string | null };
+
+/**
+ * Tìm vật tư theo mã quét: ưu tiên mã vạch (barcode), sau đó mã quản lý (code); không phân biệt hoa/thường.
+ * Mã vạch là duy nhất trong tổ chức (chỉ mục duy nhất) nên kết quả không mơ hồ.
+ */
+export function findItemByScan<T extends ScanItemLike>(items: T[], raw: unknown): T | null {
+  const code = normalizeScanCode(raw).toLowerCase();
+  if (!code) return null;
+  return items.find((i) => (i.barcode || "").trim().toLowerCase() === code) ?? items.find((i) => i.code.trim().toLowerCase() === code) ?? null;
+}
+
+export type KanbanColumnKey = "OUT" | "EXPIRED" | "LOW" | "EXPIRING" | "OK";
+
+export const KANBAN_COLUMNS: { key: KanbanColumnKey; label: string; hint: string; tone: "danger" | "warning" | "info" | "success" }[] = [
+  { key: "OUT", label: "Hết hàng", hint: "Tồn = 0 — cần đặt hàng", tone: "danger" },
+  { key: "EXPIRED", label: "Có lô hết hạn", hint: "Còn tồn lô đã quá hạn — lập phiếu hủy", tone: "danger" },
+  { key: "LOW", label: "Dưới định mức", hint: "Tồn ≤ định mức tối thiểu — nên bổ sung", tone: "warning" },
+  { key: "EXPIRING", label: "Lô sắp hết hạn", hint: "Ưu tiên xuất trước (FEFO)", tone: "info" },
+  { key: "OK", label: "Đủ hàng", hint: "Tồn trên định mức, hạn dùng ổn", tone: "success" },
+];
+
+/** Mỗi vật tư nằm đúng 1 cột theo mức khẩn: hết hàng > có lô hết hạn > dưới định mức > lô sắp hết hạn > đủ. */
+export function kanbanColumnFor(stock: ItemStockStatus, expiredLots: number, expiringLots: number): KanbanColumnKey {
+  if (stock === "OUT") return "OUT";
+  if (expiredLots > 0) return "EXPIRED";
+  if (stock === "LOW") return "LOW";
+  if (expiringLots > 0) return "EXPIRING";
+  return "OK";
+}
+
