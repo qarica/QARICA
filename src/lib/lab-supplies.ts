@@ -172,3 +172,41 @@ export function kanbanColumnFor(stock: ItemStockStatus, expiredLots: number, exp
   return "OK";
 }
 
+// ---------------------------------------------------------------------------
+// Xuất kho thông minh: người dùng chỉ chọn vật tư + số lượng, hệ thống tự phân bổ qua các lô theo FEFO
+// (hạn dùng gần nhất trước). Hàm thuần — dùng cả cho xem trước trên giao diện lẫn kiểm thử.
+// ---------------------------------------------------------------------------
+export type AllocLot = { lot_id: string; lot_number: string; expiry_date: string | null; balance: number };
+export type Allocation = { lot_id: string; lot_number: string; expiry_date: string | null; quantity: number };
+
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/**
+ * Phân bổ `quantity` qua các lô của MỘT vật tư.
+ * - ISSUE (xuất dùng): bỏ lô đã hết hạn (không được xuất dùng), lô hết hạn sớm nhất trước.
+ * - DISPOSAL (hủy hàng): lô đã hết hạn trước (đúng nhu cầu hủy hàng hết hạn), rồi tới FEFO.
+ * `used` = số đã phân bổ ở các dòng trước cùng phiếu (để 2 dòng cùng vật tư không dùng trùng một lượng tồn).
+ */
+export function allocateFefo(lots: AllocLot[], quantity: number, mode: "ISSUE" | "DISPOSAL", today: string, used: Record<string, number> = {}): { allocations: Allocation[]; shortage: number } {
+  const ordered = sortLotsFefo(lots.filter((l) => l.balance > 0));
+  const isExpired = (l: AllocLot) => daysUntilExpiry(l.expiry_date, today) !== null && (daysUntilExpiry(l.expiry_date, today) as number) < 0;
+  const candidates = mode === "ISSUE" ? ordered.filter((l) => !isExpired(l)) : [...ordered.filter(isExpired), ...ordered.filter((l) => !isExpired(l))];
+  let remaining = round3(quantity);
+  const allocations: Allocation[] = [];
+  for (const lot of candidates) {
+    if (remaining <= 0) break;
+    const available = round3(lot.balance - (used[lot.lot_id] ?? 0));
+    if (available <= 0) continue;
+    const take = Math.min(available, remaining);
+    allocations.push({ lot_id: lot.lot_id, lot_number: lot.lot_number, expiry_date: lot.expiry_date, quantity: round3(take) });
+    remaining = round3(remaining - take);
+  }
+  return { allocations, shortage: Math.max(0, remaining) };
+}
+
+/** Đề nghị đặt hàng: đưa tồn lên 2× định mức tối thiểu (chỉ khi có định mức); 0 nghĩa là không đề xuất được. */
+export function suggestedOrderQuantity(total: number, minStock: number): number {
+  if (!(minStock > 0) || total > minStock) return 0;
+  return Math.max(0, round3(minStock * 2 - total));
+}
+

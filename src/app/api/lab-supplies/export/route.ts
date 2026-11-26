@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { isIsoDate, todayInVietnam } from "@/lib/lab-supplies";
-import { buildLedgerExcel, buildStockExcel, type ExportItem, type ExportLot, type ExportMovement } from "@/lib/lab-supplies-export";
+import { buildLedgerExcel, buildReplenishmentExcel, buildStockExcel, type ExportItem, type ExportLot, type ExportMovement } from "@/lib/lab-supplies-export";
 import { ITEM_SELECT, LOT_BALANCE_SELECT, MOVEMENT_SELECT, labSuppliesContext } from "@/lib/lab-supplies-api";
 
 const MAX_LEDGER_ROWS = 20000;
 
-// Xuất Excel kho: ?type=stock (tồn hiện tại, theo vật tư + theo lô) | ?type=ledger&from=&to= (sổ xuất nhập).
+// Xuất Excel kho: ?type=stock (tồn hiện tại, theo vật tư + theo lô) | ?type=replenish (cần bổ sung/đặt hàng) | ?type=ledger&from=&to= (sổ xuất nhập).
 // Chỉ đọc => lab_supplies.view; dữ liệu luôn lọc theo tổ chức của người gọi.
 export async function GET(request: Request) {
   const ctx = await labSuppliesContext("lab_supplies.view");
@@ -15,14 +15,15 @@ export async function GET(request: Request) {
   const today = todayInVietnam();
   const headers = (name: string) => ({ "Content-Type": "application/vnd.ms-excel; charset=utf-8", "Content-Disposition": `attachment; filename="${name}"`, "Cache-Control": "no-store" });
 
-  if (type === "stock") {
+  if (type === "stock" || type === "replenish") {
     const [itemsRes, lotsRes] = await Promise.all([
       ctx.admin.from("lab_supply_items").select(ITEM_SELECT).eq("organization_id", ctx.organizationId).order("code", { ascending: true }),
       ctx.admin.from("lab_supply_lot_balances").select(LOT_BALANCE_SELECT).eq("organization_id", ctx.organizationId).gt("balance", 0).limit(5000),
     ]);
     const err = itemsRes.error || lotsRes.error;
     if (err) return NextResponse.json({ error: err.message }, { status: 400 });
-    return new NextResponse(buildStockExcel((itemsRes.data ?? []) as unknown as ExportItem[], (lotsRes.data ?? []) as unknown as ExportLot[], today), { headers: headers(`ton-kho-hoa-chat_${today}.xls`) });
+    const build = type === "stock" ? buildStockExcel : buildReplenishmentExcel;
+    return new NextResponse(build((itemsRes.data ?? []) as unknown as ExportItem[], (lotsRes.data ?? []) as unknown as ExportLot[], today), { headers: headers(`${type === "stock" ? "ton-kho-hoa-chat" : "can-bo-sung-hoa-chat"}_${today}.xls`) });
   }
 
   if (type === "ledger") {
@@ -43,5 +44,5 @@ export async function GET(request: Request) {
     return new NextResponse(buildLedgerExcel((data ?? []) as unknown as ExportMovement[], from, to), { headers: headers(`so-xuat-nhap_${from}_${to}.xls`) });
   }
 
-  return NextResponse.json({ error: "Loại xuất không hợp lệ (stock hoặc ledger)." }, { status: 400 });
+  return NextResponse.json({ error: "Loại xuất không hợp lệ (stock, replenish hoặc ledger)." }, { status: 400 });
 }

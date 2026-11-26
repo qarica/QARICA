@@ -1,6 +1,6 @@
 // Xuất Excel cho Kho hóa chất & VTYT XN — cùng mẫu HTML-table-as-.xls đã dùng ở các export khác của hệ thống.
 // Hàm thuần (không import "@/...") để kiểm thử. Dữ liệu do route dựng từ DB theo đúng tổ chức của người gọi.
-import { CATEGORY_LABEL, MOVEMENT_LABEL, REASON_LABEL, daysUntilExpiry, formatQuantity, itemStockStatus, lotExpiryStatus, type MovementType, type SupplyCategory } from "./lab-supplies";
+import { CATEGORY_LABEL, MOVEMENT_LABEL, REASON_LABEL, daysUntilExpiry, formatQuantity, itemStockStatus, lotExpiryStatus, suggestedOrderQuantity, type MovementType, type SupplyCategory } from "./lab-supplies";
 
 export const escHtml = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
 
@@ -98,3 +98,38 @@ export function buildImportTemplateExcel(headers: string[]): string {
   const example = ["HC001", "Thuốc thử Glucose", "Hóa chất", "Hộp", "Roche", "8930000000011", 5, 30, "2–8°C", ""];
   return wrapXls(tableHtml("Mẫu nhập danh mục vật tư (mở bằng Excel, điền, rồi lưu thành .xlsx hoặc .csv). Cột có dấu * là bắt buộc. Nhóm: Hóa chất / Vật tư tiêu hao / Chất chuẩn / Khác.", headers, [example], ""));
 }
+
+/**
+ * Danh sách CẦN BỔ SUNG / ĐẶT HÀNG: vật tư đang dùng mà hết hàng hoặc tồn ≤ định mức tối thiểu, kèm số lượng đề nghị đặt
+ * (đưa tồn lên 2× định mức) và các lô hết hạn/sắp hết hạn cần xử lý — để thủ kho gửi đi mua mà không phải tự lọc.
+ */
+export function buildReplenishmentExcel(items: ExportItem[], lots: ExportLot[], today: string): string {
+  const lotsByItem = new Map<string, ExportLot[]>();
+  for (const l of lots) lotsByItem.set(l.item_id, [...(lotsByItem.get(l.item_id) || []), l]);
+  const need: (string | number)[][] = [];
+  const attention: (string | number)[][] = [];
+  let n = 0;
+  for (const item of items) {
+    if (!item.is_active) continue;
+    const itemLots = (lotsByItem.get(item.id) || []).filter((l) => num(l.balance) > 0);
+    const total = itemLots.reduce((s, l) => s + num(l.balance), 0);
+    const stock = itemStockStatus(total, num(item.min_stock));
+    if (stock !== "OK") {
+      n++;
+      const suggest = suggestedOrderQuantity(total, num(item.min_stock));
+      need.push([n, item.code, item.barcode || "", item.name, item.unit, item.manufacturer || "", formatQuantity(total), formatQuantity(item.min_stock), suggest > 0 ? formatQuantity(suggest) : "Chưa đặt định mức", stock === "OUT" ? "Hết hàng" : "Dưới định mức"]);
+    }
+    for (const l of itemLots) {
+      const st = lotExpiryStatus(l.expiry_date, item.expiry_warning_days, today);
+      if (st === "EXPIRED" || st === "EXPIRING") {
+        const d = daysUntilExpiry(l.expiry_date, today);
+        attention.push([item.code, item.name, l.lot_number, l.expiry_date || "", d === null ? "" : d, formatQuantity(l.balance), item.unit, st === "EXPIRED" ? "Đã hết hạn — lập phiếu hủy" : "Sắp hết hạn — ưu tiên xuất trước"]);
+      }
+    }
+  }
+  return wrapXls(
+    tableHtml(`Danh sách cần bổ sung / đặt hàng — tại ngày ${today} (đề nghị đặt = 2 × định mức − tồn hiện tại)`, ["STT", "Mã VT", "Mã vạch", "Tên vật tư", "ĐVT", "Hãng SX", "Tồn", "Định mức tối thiểu", "Đề nghị đặt", "Lý do"], need, "Không có vật tư nào cần bổ sung.") +
+      tableHtml("Lô cần xử lý hạn dùng", ["Mã VT", "Tên vật tư", "Số lô", "Hạn dùng", "Số ngày còn lại", "Tồn", "ĐVT", "Việc cần làm"], attention, "Không có lô nào hết hạn hoặc sắp hết hạn."),
+  );
+}
+
