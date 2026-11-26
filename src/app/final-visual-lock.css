@@ -1068,3 +1068,17 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 @media(max-width:620px){
  .workspace-app .content{padding-bottom:calc(76px + env(safe-area-inset-bottom))!important}
 }
+
+/* Khung tìm kiếm bị viền đôi: .search-box đã có viền riêng, nhưng rule chung .workspace-app input (!important)
+   vẫn vẽ thêm viền/nền/bóng/chiều cao cho ô nhập bên trong. Chỉ ô nhập nằm TRONG .search-box được bỏ các thuộc
+   tính đó — viền và vòng focus do chính .search-box (:focus-within) đảm nhận. */
+.workspace-app .search-box input,
+.workspace-app .search-box input:focus,
+.workspace-app .search-box input:hover{
+  border:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  min-height:0!important;
+  border-radius:0!important;
+  outline:0!important;
+}

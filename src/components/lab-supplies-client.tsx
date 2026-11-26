@@ -3,17 +3,22 @@ import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
+import { LabScanDialog } from "@/components/lab-supplies-scanner";
+import { printItemLabel } from "@/lib/lab-supplies-label";
 import {
   ADJUST_REASON_LABEL,
   CATEGORIES,
   CATEGORY_LABEL,
   DISPOSAL_REASON_LABEL,
   EXPIRY_REQUIRED_CATEGORIES,
+  KANBAN_COLUMNS,
   MOVEMENT_LABEL,
   REASON_LABEL,
   daysUntilExpiry,
+  findItemByScan,
   formatQuantity,
   itemStockStatus,
+  kanbanColumnFor,
   lotExpiryStatus,
   sortLotsFefo,
   type MovementType,
@@ -23,6 +28,7 @@ import {
 type Item = {
   id: string;
   code: string;
+  barcode: string | null;
   name: string;
   category: SupplyCategory;
   unit: string;
@@ -56,15 +62,15 @@ type ReportRow = {
   opening: number; receipts: number; issues: number; disposals: number; adjustments: number; closing: number;
 };
 
-type Tab = "stock" | "catalog" | "ledger" | "report" | "stocktake";
+type Tab = "stock" | "kanban" | "catalog" | "ledger" | "report" | "stocktake";
 type AlertFilter = "ALL" | "STOCK" | "EXPIRING" | "EXPIRED";
 type Toast = { tone: "success" | "error"; text: string } | null;
 
 type ItemForm = {
-  id?: string; code: string; name: string; category: SupplyCategory; unit: string; manufacturer: string;
+  id?: string; code: string; barcode: string; name: string; category: SupplyCategory; unit: string; manufacturer: string;
   storage_condition: string; min_stock: string; expiry_warning_days: string; is_active: boolean; notes: string;
 };
-const EMPTY_ITEM: ItemForm = { code: "", name: "", category: "REAGENT", unit: "", manufacturer: "", storage_condition: "", min_stock: "0", expiry_warning_days: "30", is_active: true, notes: "" };
+const EMPTY_ITEM: ItemForm = { code: "", barcode: "", name: "", category: "REAGENT", unit: "", manufacturer: "", storage_condition: "", min_stock: "0", expiry_warning_days: "30", is_active: true, notes: "" };
 
 type MoveForm = {
   mode: MovementType;
@@ -102,6 +108,9 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const [ledgerType, setLedgerType] = useState<"" | MovementType>("");
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanNotFound, setScanNotFound] = useState<string | null>(null);
+  const [detailItemId, setDetailItemId] = useState<string | null>(null);
 
   const itemById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const lotsByItem = useMemo(() => {
@@ -182,6 +191,40 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
     });
   }
 
+  // Quét/gõ mã → tìm vật tư theo mã vạch rồi mã quản lý (dữ liệu đã tải sẵn trên trang, không gọi thêm API).
+  function handleScan(code: string) {
+    const found = findItemByScan(items, code);
+    if (found) {
+      setScanNotFound(null);
+      setScanOpen(false);
+      setDetailItemId(found.id);
+    } else {
+      setScanNotFound(code);
+    }
+  }
+
+  function openReceiptFor(item: Item) {
+    setDetailItemId(null);
+    openMove("RECEIPT");
+    setMoveForm((f) => (f ? { ...f, item_id: item.id } : f));
+  }
+
+  function startNewItemFromScan(code: string) {
+    setScanOpen(false);
+    setScanNotFound(null);
+    setTab("catalog");
+    setItemForm({ ...EMPTY_ITEM, barcode: code });
+    setToast(null);
+  }
+
+  async function printLabel(item: Item) {
+    try {
+      await printItemLabel(item);
+    } catch (err) {
+      setToast({ tone: "error", text: err instanceof Error ? err.message : "Không in được tem." });
+    }
+  }
+
   async function submitItem(e: FormEvent) {
     e.preventDefault();
     if (!itemForm) return;
@@ -190,7 +233,7 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
     setToast(null);
     try {
       const payload: Record<string, unknown> = {
-        name: itemForm.name.trim(), category: itemForm.category, unit: itemForm.unit.trim(),
+        name: itemForm.name.trim(), barcode: itemForm.barcode.trim() || null, category: itemForm.category, unit: itemForm.unit.trim(),
         manufacturer: itemForm.manufacturer.trim() || null, storage_condition: itemForm.storage_condition.trim() || null,
         min_stock: itemForm.min_stock, expiry_warning_days: itemForm.expiry_warning_days, notes: itemForm.notes.trim() || null,
       };
@@ -245,16 +288,33 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
     return [m.item?.code, m.item?.name, m.lot?.lot_number, m.reference_no, m.counterparty, m.note].some((v) => (v || "").toLowerCase().includes(q));
   });
 
+  // Kanban bổ sung: mỗi vật tư đúng 1 cột theo mức khẩn (tính từ tồn + hạn dùng đã có, không lưu thêm gì).
+  const kanbanCards = itemRows
+    .filter((r) => r.item.is_active || r.total > 0)
+    .filter((r) => !q || [r.item.code, r.item.barcode, r.item.name, r.item.manufacturer].some((v) => (v || "").toLowerCase().includes(q)))
+    .map((r) => {
+      const itemLots = lotsByItem.get(r.item.id) || [];
+      return { ...r, column: kanbanColumnFor(r.stock, r.expired, r.expiring), nextExpiry: itemLots.find((l) => l.expiry_date)?.expiry_date ?? null };
+    });
+
+  const detailItem = detailItemId ? itemById.get(detailItemId) : undefined;
+  const detailLots = detailItem ? (lotsByItem.get(detailItem.id) || []).map((lot) => ({ lot, state: lotExpiryStatus(lot.expiry_date, detailItem.expiry_warning_days, today), days: daysUntilExpiry(lot.expiry_date, today) })) : [];
+  const detailTotal = detailLots.reduce((sum, l) => sum + num(l.lot.balance), 0);
+  const detailStock = detailItem ? itemStockStatus(detailTotal, num(detailItem.min_stock)) : "OK";
+
   return (
     <div className="lab-supplies">
       {toast ? <div className={`alert ${toast.tone}`}>{toast.text}</div> : null}
 
+      <div className="ls-top">
       <div className="ls-tabs" role="tablist">
         {([
-          ["stock", "Tồn kho"], ["catalog", "Danh mục"], ["ledger", "Sổ xuất nhập"], ["report", "Báo cáo Nhập–Xuất–Tồn"], ["stocktake", "Kiểm kê"],
+          ["stock", "Tồn kho"], ["kanban", "Kanban bổ sung"], ["catalog", "Danh mục"], ["ledger", "Sổ xuất nhập"], ["report", "Báo cáo Nhập–Xuất–Tồn"], ["stocktake", "Kiểm kê"],
         ] as [Tab, string][]).map(([key, label]) => (
           <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
         ))}
+      </div>
+      <button type="button" className="button primary ls-scan-btn" onClick={() => { setScanNotFound(null); setScanOpen(true); }}><Icon name="qr-code" size={18} /> Quét mã</button>
       </div>
 
       {tab === "stock" ? (
@@ -283,7 +343,7 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
                   {visibleItemRows.map((r) => (
                     <tr key={r.item.id}>
                       <td><code className="code-pill">{r.item.code}</code></td>
-                      <td><strong>{r.item.name}</strong>{!r.item.is_active ? <span className="status-badge muted">Ngưng dùng</span> : null}<span className="subline">{CATEGORY_LABEL[r.item.category]}</span></td>
+                      <td><button type="button" className="table-link ls-name-btn" onClick={() => setDetailItemId(r.item.id)}><strong>{r.item.name}</strong></button>{!r.item.is_active ? <span className="status-badge muted">Ngưng dùng</span> : null}<span className="subline">{CATEGORY_LABEL[r.item.category]}</span></td>
                       <td>{r.item.unit}</td>
                       <td><strong>{formatQuantity(r.total)}</strong></td>
                       <td>{formatQuantity(r.item.min_stock)}</td>
@@ -335,6 +395,39 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
         </>
       ) : null}
 
+      {tab === "kanban" ? (
+        <section className="panel">
+          <div className="toolbar">
+            <div className="toolbar-left">
+              <div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo mã, mã vạch, tên, hãng..." /></div>
+            </div>
+          </div>
+          <p className="muted tiny ls-kanban-note">Mỗi vật tư nằm đúng 1 cột theo mức khẩn, tự tính từ tồn kho và hạn dùng. Bảng chỉ để theo dõi — không kéo-thả vì tồn luôn là tổng sổ xuất nhập (sổ bất biến). Bấm vào thẻ để xem chi tiết lô và lập phiếu.</p>
+          <div className="ls-kanban">
+            {KANBAN_COLUMNS.map((col) => {
+              const cards = kanbanCards.filter((c) => c.column === col.key);
+              return (
+                <div className={`ls-kcol ${col.tone}`} key={col.key} aria-label={`Cột ${col.label}`}>
+                  <div className="ls-kcol-head"><strong>{col.label}</strong><span className={`status-badge ${col.tone}`}>{cards.length}</span></div>
+                  <small>{col.hint}</small>
+                  {cards.map((c) => (
+                    <button type="button" className="ls-kcard" key={c.item.id} onClick={() => setDetailItemId(c.item.id)}>
+                      <span className="ls-kcard-code">{c.item.code}</span>
+                      <strong>{c.item.name}</strong>
+                      <span>Tồn <b>{formatQuantity(c.total)}</b> {c.item.unit}{num(c.item.min_stock) > 0 ? ` · định mức ${formatQuantity(c.item.min_stock)}` : ""}</span>
+                      {c.nextExpiry ? <span className="muted">Hạn gần nhất: {c.nextExpiry}</span> : null}
+                      {c.expired ? <span className="status-badge danger">{c.expired} lô hết hạn</span> : null}
+                      {c.expiring ? <span className="status-badge warning">{c.expiring} lô sắp hết hạn</span> : null}
+                    </button>
+                  ))}
+                  {!cards.length ? <div className="ls-kempty">Không có vật tư</div> : null}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       {tab === "catalog" ? (
         <section className="panel">
           <div className="toolbar">
@@ -350,8 +443,8 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
               <tbody>
                 {items.filter((i) => (showInactive || i.is_active) && (!q || [i.code, i.name, i.manufacturer].some((v) => (v || "").toLowerCase().includes(q)))).map((i) => (
                   <tr key={i.id}>
-                    <td><code className="code-pill">{i.code}</code></td>
-                    <td><strong>{i.name}</strong>{!i.is_active ? <span className="status-badge muted">Ngưng dùng</span> : null}</td>
+                    <td><code className="code-pill">{i.code}</code>{i.barcode ? <span className="subline">▮ {i.barcode}</span> : null}</td>
+                    <td><button type="button" className="table-link ls-name-btn" onClick={() => setDetailItemId(i.id)}><strong>{i.name}</strong></button>{!i.is_active ? <span className="status-badge muted">Ngưng dùng</span> : null}</td>
                     <td>{CATEGORY_LABEL[i.category]}</td>
                     <td>{i.unit}</td>
                     <td>{i.manufacturer || "—"}</td>
@@ -359,7 +452,7 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
                     <td>{formatQuantity(i.min_stock)}</td>
                     <td>{i.expiry_warning_days} ngày</td>
                     {canManage ? (
-                      <td><button className="button tertiary small" onClick={() => { setItemForm({ id: i.id, code: i.code, name: i.name, category: i.category, unit: i.unit, manufacturer: i.manufacturer || "", storage_condition: i.storage_condition || "", min_stock: String(num(i.min_stock)), expiry_warning_days: String(i.expiry_warning_days), is_active: i.is_active, notes: i.notes || "" }); setToast(null); }}><Icon name="pencil" size={15} /> Sửa</button></td>
+                      <td><button className="button tertiary small" onClick={() => { setItemForm({ id: i.id, code: i.code, barcode: i.barcode || "", name: i.name, category: i.category, unit: i.unit, manufacturer: i.manufacturer || "", storage_condition: i.storage_condition || "", min_stock: String(num(i.min_stock)), expiry_warning_days: String(i.expiry_warning_days), is_active: i.is_active, notes: i.notes || "" }); setToast(null); }}><Icon name="pencil" size={15} /> Sửa</button></td>
                     ) : null}
                   </tr>
                 ))}
@@ -424,6 +517,7 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
               <div className="form-grid two">
                 <label>Mã vật tư *<input value={itemForm.code} disabled={!!itemForm.id} onChange={(e) => setItemForm({ ...itemForm, code: e.target.value.toUpperCase() })} placeholder="VD: HC001" /></label>
                 <label>Nhóm *<select value={itemForm.category} onChange={(e) => setItemForm({ ...itemForm, category: e.target.value as SupplyCategory })}>{CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}</select></label>
+                <label className="span-2">Mã vạch / mã QR trên hộp<input value={itemForm.barcode} onChange={(e) => setItemForm({ ...itemForm, barcode: e.target.value })} placeholder="Quét hoặc gõ mã in trên hộp (tuỳ chọn)" autoComplete="off" /><small>Quét mã này ở nút “Quét mã” để xem ngay tồn kho. Mỗi mã chỉ gắn cho 1 vật tư; để trống thì quét bằng mã vật tư.</small></label>
                 <label className="span-2">Tên vật tư *<input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} placeholder="VD: Thuốc thử Glucose" /></label>
                 <label>Đơn vị tính *<input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} placeholder="Hộp, Chai, Test..." /></label>
                 <label>Hãng sản xuất<input value={itemForm.manufacturer} onChange={(e) => setItemForm({ ...itemForm, manufacturer: e.target.value })} /></label>
@@ -439,6 +533,63 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
               <button className="button primary" disabled={busy}><Icon name="save" size={17} />{busy ? "Đang lưu..." : "Lưu vật tư"}</button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {scanOpen ? <LabScanDialog onCode={handleScan} onClose={() => { setScanOpen(false); setScanNotFound(null); }} notFound={scanNotFound} onCreateItem={canManage ? startNewItemFromScan : undefined} /> : null}
+
+      {detailItem ? (
+        <div className="modal-backdrop">
+          <div className="modal-card xl" role="dialog" aria-label={`Chi tiết vật tư ${detailItem.code}`}>
+            <div className="modal-head">
+              <div><div className="eyebrow">{detailItem.code}{detailItem.barcode ? ` · mã vạch ${detailItem.barcode}` : ""}</div><h2>{detailItem.name}</h2></div>
+              <button type="button" className="icon-button" onClick={() => setDetailItemId(null)} aria-label="Đóng"><Icon name="x" /></button>
+            </div>
+            <div className="modal-body form-stack">
+              <div className="ls-detail-kpis">
+                <div className="ls-kpi"><span>Tồn kho</span><strong>{formatQuantity(detailTotal)} {detailItem.unit}</strong></div>
+                <div className="ls-kpi"><span>Định mức tối thiểu</span><strong>{formatQuantity(detailItem.min_stock)}</strong></div>
+                <div className={`ls-kpi ${detailStock === "OK" ? "" : detailStock === "OUT" ? "bad" : "warn"}`}><span>Tình trạng</span><strong>{detailStock === "OUT" ? "Hết hàng" : detailStock === "LOW" ? "Sắp hết" : "Đủ"}</strong></div>
+              </div>
+              <div className="ls-detail-meta">
+                <span>{CATEGORY_LABEL[detailItem.category]}</span>
+                {detailItem.manufacturer ? <span>Hãng: {detailItem.manufacturer}</span> : null}
+                {detailItem.storage_condition ? <span>Bảo quản: {detailItem.storage_condition}</span> : null}
+                {!detailItem.is_active ? <span className="status-badge muted">Ngưng dùng</span> : null}
+              </div>
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Số lô</th><th>Hạn dùng</th><th>Tồn</th>{canManage ? <th></th> : null}</tr></thead>
+                  <tbody>
+                    {detailLots.map((r) => (
+                      <tr key={r.lot.lot_id}>
+                        <td>{r.lot.lot_number}</td>
+                        <td>
+                          {r.lot.expiry_date || "—"}
+                          {r.state === "EXPIRED" ? <span className="status-badge danger">Hết hạn</span> : null}
+                          {r.state === "EXPIRING" ? <span className="status-badge warning">Còn {r.days} ngày</span> : null}
+                        </td>
+                        <td><strong>{formatQuantity(r.lot.balance)}</strong> {detailItem.unit}</td>
+                        {canManage ? (
+                          <td>
+                            <div className="ls-row-actions">
+                              {r.state !== "EXPIRED" ? <button type="button" className="button tertiary small" onClick={() => { setDetailItemId(null); openMove("ISSUE", { lot: r.lot, item: detailItem, state: r.state }); }}>Xuất dùng</button> : null}
+                              <button type="button" className="button tertiary small" onClick={() => { setDetailItemId(null); openMove("DISPOSAL", { lot: r.lot, item: detailItem, state: r.state }); }}>Hủy</button>
+                            </div>
+                          </td>
+                        ) : null}
+                      </tr>
+                    ))}
+                    {!detailLots.length ? <tr><td colSpan={canManage ? 4 : 3}><div className="empty-state">Chưa có lô nào còn tồn.</div></td></tr> : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="button secondary" onClick={() => void printLabel(detailItem)}><Icon name="qr-code" size={17} /> In tem QR</button>
+              {canManage ? <button type="button" className="button primary" onClick={() => openReceiptFor(detailItem)}><Icon name="plus" size={17} /> Nhập kho vật tư này</button> : null}
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -490,7 +641,32 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
       ) : null}
 
       <style>{`
+        .lab-supplies .ls-top{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}
+        .lab-supplies .ls-top .ls-tabs{margin-bottom:0;flex:1 1 320px}
+        .lab-supplies .ls-scan-btn{flex:0 0 auto}
+        .lab-supplies .ls-name-btn{background:none;border:0;padding:0;text-align:left;cursor:pointer;color:inherit}
+        .lab-supplies .ls-camera video{width:100%;max-height:300px;border-radius:12px;background:#0f172a;object-fit:cover}
+        .lab-supplies .ls-scan-manual{display:grid;gap:10px}
+        .lab-supplies .ls-detail-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+        .lab-supplies .ls-detail-meta{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+        .lab-supplies .ls-kanban-note{padding:0 19px 8px;margin:0}
+        .lab-supplies .ls-kanban{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(250px,1fr);gap:12px;padding:6px 19px 19px;overflow-x:auto;align-items:start}
+        .lab-supplies .ls-kcol{background:#f8fafc;border:1px solid var(--line);border-top:3px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+        .lab-supplies .ls-kcol.danger{border-top-color:var(--danger)}
+        .lab-supplies .ls-kcol.warning{border-top-color:var(--warning)}
+        .lab-supplies .ls-kcol.info{border-top-color:var(--info)}
+        .lab-supplies .ls-kcol.success{border-top-color:var(--success)}
+        .lab-supplies .ls-kcol-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+        .lab-supplies .ls-kcol small{color:var(--muted);font-size:11px}
+        .lab-supplies .ls-kcard{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;cursor:pointer;width:100%}
+        .lab-supplies .ls-kcard:hover{border-color:#93b4ee;box-shadow:0 2px 8px rgba(29,78,216,.1)}
+        .lab-supplies .ls-kcard strong{font-size:13px}
+        .lab-supplies .ls-kcard-code{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.04em}
+        .lab-supplies .ls-kempty{color:var(--muted);font-size:12px;text-align:center;padding:12px 0}
+        @media(max-width:620px){.lab-supplies .ls-detail-kpis{grid-template-columns:1fr}.lab-supplies .ls-scan-btn{width:100%}}
         .lab-supplies .ls-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+        /* Dòng trống nằm trong bảng rộng hơn màn hình (cuộn ngang) bị cắt chữ ở điện thoại: ghim về mép trái, rộng tối đa bằng khung nhìn. */
+        .lab-supplies td>.empty-state{position:sticky;left:0;box-sizing:border-box;width:min(100%,calc(100vw - 72px))}
         .lab-supplies .ls-tabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer}
         .lab-supplies .ls-tabs button.active{background:var(--brand,#0f766e);color:#fff;border-color:var(--brand,#0f766e)}
         .lab-supplies .ls-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:16px 19px 4px}
