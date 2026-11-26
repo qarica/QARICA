@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isIsoDate, todayInVietnam } from "@/lib/lab-supplies";
+import { fmtDateFile, isIsoDate, todayInVietnam } from "@/lib/lab-supplies";
 import { buildLedgerSheets, buildReplenishmentSheets, buildStockSheets, type ExportItem, type ExportLot, type ExportMovement } from "@/lib/lab-supplies-export";
 import { XLSX_CONTENT_TYPE, sheetsToXlsx, xlsxFileName } from "@/lib/lab-supplies-xlsx";
 import { ITEM_SELECT, LOT_BALANCE_SELECT, MOVEMENT_SELECT, labSuppliesContext } from "@/lib/lab-supplies-api";
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     const err = itemsRes.error || lotsRes.error;
     if (err) return NextResponse.json({ error: err.message }, { status: 400 });
     const build = type === "stock" ? buildStockSheets : buildReplenishmentSheets;
-    return send(build((itemsRes.data ?? []) as unknown as ExportItem[], (lotsRes.data ?? []) as unknown as ExportLot[], today), `${type === "stock" ? "ton-kho-hoa-chat" : "can-bo-sung-hoa-chat"}_${today}`);
+    return send(build((itemsRes.data ?? []) as unknown as ExportItem[], (lotsRes.data ?? []) as unknown as ExportLot[], today), `${type === "stock" ? "ton-kho-hoa-chat" : "can-bo-sung-hoa-chat"}_${fmtDateFile(today)}`);
   }
 
   if (type === "ledger") {
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false })
       .limit(MAX_LEDGER_ROWS);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    return send(buildLedgerSheets((data ?? []) as unknown as ExportMovement[], from, to), `so-xuat-nhap_${from}_${to}`);
+    return send(buildLedgerSheets((data ?? []) as unknown as ExportMovement[], from, to), `so-xuat-nhap_${fmtDateFile(from)}_${fmtDateFile(to)}`);
   }
 
   return NextResponse.json({ error: "Loại xuất không hợp lệ (stock, replenish hoặc ledger)." }, { status: 400 });

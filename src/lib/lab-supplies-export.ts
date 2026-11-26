@@ -1,8 +1,11 @@
 // Xuất Excel (.xlsx thật) cho Kho hóa chất & VTYT XN. File này CHỈ dựng dữ liệu bảng (hàm thuần, không import "@/...",
 // kiểm thử được); việc ghi ra .xlsx nằm ở lab-supplies-xlsx.ts. Số lượng là SỐ (Excel cộng/lọc được), không phải chữ.
-import { CATEGORY_LABEL, MOVEMENT_LABEL, REASON_LABEL, daysUntilExpiry, itemStockStatus, lotExpiryStatus, suggestedOrderQuantity, type MovementType, type SupplyCategory } from "./lab-supplies";
+import { CATEGORY_LABEL, MOVEMENT_LABEL, REASON_LABEL, daysUntilExpiry, fmtDate, itemStockStatus, lotExpiryStatus, suggestedOrderQuantity, type MovementType, type SupplyCategory } from "./lab-supplies";
 
 export type Cell = string | number;
+
+/** Ngày trong file Excel luôn là dd/mm/yyyy; trống thì để ô trống. */
+const vn = (iso?: string | null): string => (iso ? fmtDate(iso) : "");
 export type SheetSpec = { name: string; title: string; headers: string[]; rows: Cell[][]; emptyText: string; widths?: number[] };
 
 /** Thêm cột STT (số thứ tự) ở đầu mọi bảng chưa có — quy ước chung cho mọi bảng xuất của kho. */
@@ -45,23 +48,23 @@ export function buildStockSheets(items: ExportItem[], lots: ExportLot[], today: 
     n++;
     const stock = itemStockStatus(total, num(item.min_stock));
     const expiries = itemLots.map((l) => l.expiry_date).filter(Boolean).sort() as string[];
-    itemRows.push([n, item.code, item.barcode || "", item.name, CATEGORY_LABEL[item.category], item.unit, total, num(item.min_stock), STOCK_LABEL[stock], itemLots.length, expiries[0] || "", item.is_active ? "Đang dùng" : "Ngưng dùng"]);
+    itemRows.push([n, item.code, item.barcode || "", item.name, CATEGORY_LABEL[item.category], item.unit, total, num(item.min_stock), STOCK_LABEL[stock], itemLots.length, vn(expiries[0]), item.is_active ? "Đang dùng" : "Ngưng dùng"]);
     for (const l of [...itemLots].sort((a, b) => (a.expiry_date || "9999").localeCompare(b.expiry_date || "9999"))) {
       const st = lotExpiryStatus(l.expiry_date, item.expiry_warning_days, today);
       const d = daysUntilExpiry(l.expiry_date, today);
-      lotRows.push([item.code, item.name, l.lot_number, l.expiry_date || "", d === null ? "" : d, EXPIRY_LABEL[st], num(l.balance), item.unit]);
+      lotRows.push([item.code, item.name, l.lot_number, vn(l.expiry_date), d === null ? "" : d, EXPIRY_LABEL[st], num(l.balance), item.unit]);
     }
   }
   return [
-    { name: "Tồn theo vật tư", title: `Tồn kho hóa chất & VTYT xét nghiệm — tại ngày ${today}`, headers: ["STT", "Mã VT", "Mã vạch", "Tên vật tư", "Nhóm", "ĐVT", "Tồn", "Định mức tối thiểu", "Tình trạng tồn", "Số lô còn tồn", "Hạn dùng gần nhất", "Trạng thái"], rows: itemRows, emptyText: "Chưa có vật tư.", widths: [6, 12, 16, 34, 22, 8, 10, 12, 14, 10, 14, 12] },
+    { name: "Tồn theo vật tư", title: `Tồn kho hóa chất & VTYT xét nghiệm — tại ngày ${vn(today)}`, headers: ["STT", "Mã VT", "Mã vạch", "Tên vật tư", "Nhóm", "ĐVT", "Tồn", "Định mức tối thiểu", "Tình trạng tồn", "Số lô còn tồn", "Hạn dùng gần nhất", "Trạng thái"], rows: itemRows, emptyText: "Chưa có vật tư.", widths: [6, 12, 16, 34, 22, 8, 10, 12, 14, 10, 14, 12] },
     { name: "Tồn theo lô", title: "Chi tiết tồn theo lô (hạn dùng gần nhất trước)", headers: ["Mã VT", "Tên vật tư", "Số lô", "Hạn dùng", "Số ngày còn lại", "Tình trạng hạn", "Tồn", "ĐVT"], rows: lotRows, emptyText: "Chưa có lô nào còn tồn.", widths: [12, 34, 16, 13, 12, 16, 10, 8] },
   ].map(withStt);
 }
 
 /** Sổ xuất nhập trong khoảng ngày (mới nhất trước). Số lượng: + nhập / − xuất. */
 export function buildLedgerSheets(rows: ExportMovement[], from: string, to: string): SheetSpec[] {
-  const data: Cell[][] = rows.map((m, i) => [i + 1, m.movement_date, MOVEMENT_LABEL[m.movement_type], m.item?.code || "", m.item?.name || "", m.lot?.lot_number || "", m.lot?.expiry_date || "", num(m.quantity_delta), m.item?.unit || "", m.reference_no || "", m.counterparty || "", reasonText(m), m.note || ""]);
-  return [{ name: "Sổ xuất nhập", title: `Sổ xuất nhập kho hóa chất & VTYT xét nghiệm — từ ${from} đến ${to}`, headers: ["STT", "Ngày", "Loại phiếu", "Mã VT", "Tên vật tư", "Số lô", "Hạn dùng", "Số lượng (+nhập / −xuất)", "ĐVT", "Số phiếu", "Người nhận / NCC", "Lý do", "Ghi chú"], rows: data, emptyText: "Không có phiếu nào trong khoảng ngày này.", widths: [6, 12, 12, 12, 32, 14, 13, 14, 8, 14, 22, 18, 28] }];
+  const data: Cell[][] = rows.map((m, i) => [i + 1, vn(m.movement_date), MOVEMENT_LABEL[m.movement_type], m.item?.code || "", m.item?.name || "", m.lot?.lot_number || "", vn(m.lot?.expiry_date), num(m.quantity_delta), m.item?.unit || "", m.reference_no || "", m.counterparty || "", reasonText(m), m.note || ""]);
+  return [{ name: "Sổ xuất nhập", title: `Sổ xuất nhập kho hóa chất & VTYT xét nghiệm — từ ${vn(from)} đến ${vn(to)}`, headers: ["STT", "Ngày", "Loại phiếu", "Mã VT", "Tên vật tư", "Số lô", "Hạn dùng", "Số lượng (+nhập / −xuất)", "ĐVT", "Số phiếu", "Người nhận / NCC", "Lý do", "Ghi chú"], rows: data, emptyText: "Không có phiếu nào trong khoảng ngày này.", widths: [6, 12, 12, 12, 32, 14, 13, 14, 8, 14, 22, 18, 28] }];
 }
 
 /** Tồn lũy kế sau từng dòng (sổ sắp theo thời gian tăng dần), làm tròn 3 chữ số. */
@@ -76,7 +79,7 @@ export function runningBalances(deltas: (number | string)[]): number[] {
 /** Thẻ kho 1 vật tư: toàn bộ nhập–xuất theo thời gian, có tồn lũy kế. `rows` đã sắp tăng dần. */
 export function buildCardSheets(item: { code: string; name: string; unit: string; barcode?: string | null }, rows: ExportMovement[]): SheetSpec[] {
   const bal = runningBalances(rows.map((r) => r.quantity_delta));
-  const data: Cell[][] = rows.map((m, i) => [m.movement_date, MOVEMENT_LABEL[m.movement_type], m.lot?.lot_number || "", m.lot?.expiry_date || "", num(m.quantity_delta) > 0 ? num(m.quantity_delta) : "", num(m.quantity_delta) < 0 ? Math.abs(num(m.quantity_delta)) : "", bal[i], m.reference_no || "", m.counterparty || "", reasonText(m), m.note || ""]);
+  const data: Cell[][] = rows.map((m, i) => [vn(m.movement_date), MOVEMENT_LABEL[m.movement_type], m.lot?.lot_number || "", vn(m.lot?.expiry_date), num(m.quantity_delta) > 0 ? num(m.quantity_delta) : "", num(m.quantity_delta) < 0 ? Math.abs(num(m.quantity_delta)) : "", bal[i], m.reference_no || "", m.counterparty || "", reasonText(m), m.note || ""]);
   return [{ name: "Thẻ kho", title: `Thẻ kho — ${item.code} · ${item.name} (${item.unit})${item.barcode ? ` · mã vạch ${item.barcode}` : ""}`, headers: ["Ngày", "Loại phiếu", "Số lô", "Hạn dùng", "Nhập", "Xuất", "Tồn lũy kế", "Số phiếu", "Người nhận / NCC", "Lý do", "Ghi chú"], rows: data, emptyText: "Vật tư chưa có phiếu nào.", widths: [12, 12, 14, 13, 10, 10, 12, 14, 22, 18, 28] }].map(withStt);
 }
 
@@ -104,12 +107,12 @@ export function buildReplenishmentSheets(items: ExportItem[], lots: ExportLot[],
       const st = lotExpiryStatus(l.expiry_date, item.expiry_warning_days, today);
       if (st === "EXPIRED" || st === "EXPIRING") {
         const d = daysUntilExpiry(l.expiry_date, today);
-        attention.push([item.code, item.name, l.lot_number, l.expiry_date || "", d === null ? "" : d, num(l.balance), item.unit, st === "EXPIRED" ? "Đã hết hạn — lập phiếu hủy" : "Sắp hết hạn — ưu tiên xuất trước"]);
+        attention.push([item.code, item.name, l.lot_number, vn(l.expiry_date), d === null ? "" : d, num(l.balance), item.unit, st === "EXPIRED" ? "Đã hết hạn — lập phiếu hủy" : "Sắp hết hạn — ưu tiên xuất trước"]);
       }
     }
   }
   return [
-    { name: "Cần bổ sung", title: `Danh sách cần bổ sung / đặt hàng — tại ngày ${today} (đề nghị đặt = 2 × định mức − tồn hiện tại)`, headers: ["STT", "Mã VT", "Mã vạch", "Tên vật tư", "ĐVT", "Hãng SX", "Tồn", "Định mức tối thiểu", "Đề nghị đặt", "Lý do"], rows: need, emptyText: "Không có vật tư nào cần bổ sung.", widths: [6, 12, 16, 34, 8, 18, 10, 12, 16, 16] },
+    { name: "Cần bổ sung", title: `Danh sách cần bổ sung / đặt hàng — tại ngày ${vn(today)} (đề nghị đặt = 2 × định mức − tồn hiện tại)`, headers: ["STT", "Mã VT", "Mã vạch", "Tên vật tư", "ĐVT", "Hãng SX", "Tồn", "Định mức tối thiểu", "Đề nghị đặt", "Lý do"], rows: need, emptyText: "Không có vật tư nào cần bổ sung.", widths: [6, 12, 16, 34, 8, 18, 10, 12, 16, 16] },
     { name: "Lô cần xử lý", title: "Lô cần xử lý hạn dùng", headers: ["Mã VT", "Tên vật tư", "Số lô", "Hạn dùng", "Số ngày còn lại", "Tồn", "ĐVT", "Việc cần làm"], rows: attention, emptyText: "Không có lô nào hết hạn hoặc sắp hết hạn.", widths: [12, 34, 16, 13, 12, 10, 8, 34] },
   ].map(withStt);
 }
@@ -119,7 +122,7 @@ export type ReportRow = { code: string; name: string; unit: string; category: Su
 /** Báo cáo Nhập–Xuất–Tồn theo kỳ. */
 export function buildReportSheets(rows: ReportRow[], from: string, to: string): SheetSpec[] {
   const data: Cell[][] = rows.map((r) => [r.code, r.name, CATEGORY_LABEL[r.category], r.unit, num(r.opening), num(r.receipts), num(r.issues), num(r.disposals), num(r.adjustments), num(r.closing)]);
-  return [{ name: "Nhập-Xuất-Tồn", title: `Báo cáo Nhập – Xuất – Tồn kho hóa chất & VTYT xét nghiệm — từ ${from} đến ${to}`, headers: ["Mã VT", "Tên vật tư", "Nhóm", "ĐVT", "Tồn đầu kỳ", "Nhập trong kỳ", "Xuất dùng", "Hủy hàng", "Điều chỉnh (kiểm kê/hao hụt)", "Tồn cuối kỳ"], rows: data, emptyText: "Không có số liệu trong kỳ.", widths: [12, 34, 22, 8, 12, 12, 12, 12, 16, 12] }].map(withStt);
+  return [{ name: "Nhập-Xuất-Tồn", title: `Báo cáo Nhập – Xuất – Tồn kho hóa chất & VTYT xét nghiệm — từ ${vn(from)} đến ${vn(to)}`, headers: ["Mã VT", "Tên vật tư", "Nhóm", "ĐVT", "Tồn đầu kỳ", "Nhập trong kỳ", "Xuất dùng", "Hủy hàng", "Điều chỉnh (kiểm kê/hao hụt)", "Tồn cuối kỳ"], rows: data, emptyText: "Không có số liệu trong kỳ.", widths: [12, 34, 22, 8, 12, 12, 12, 12, 16, 12] }].map(withStt);
 }
 
 export function buildImportTemplateSheets(headers: string[]): SheetSpec[] {

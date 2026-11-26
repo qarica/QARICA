@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { LabItemCard } from "@/components/lab-supplies-item-card";
-import { MOVEMENT_LABEL, REASON_LABEL, formatQuantity, type MovementType, type SupplyCategory } from "../lib/lab-supplies";
+import { MOVEMENT_LABEL, REASON_LABEL, formatQuantity, type MovementType, type SupplyCategory, fmtDate } from "../lib/lab-supplies";
+import { LabDateInput } from "./lab-supplies-date-input";
 import { LEDGER_GUIDE, LabGuide } from "./lab-supplies-guide";
 import { callApi, itemLabel, num, resolveItem, type Item, type Movement } from "./lab-supplies-types";
 
@@ -54,8 +55,8 @@ export function LabLedger({ movements, items, today, search, cardItemId, cardKey
               {(Object.keys(MOVEMENT_LABEL) as MovementType[]).map((t) => <option key={t} value={t}>{MOVEMENT_LABEL[t]}</option>)}
             </select>
             <span className="ls-grow" />
-            <label className="inline-check">Từ <input type="date" max={today} value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Xuất từ ngày" /></label>
-            <label className="inline-check">đến <input type="date" max={today} value={to} onChange={(e) => setTo(e.target.value)} aria-label="Xuất đến ngày" /></label>
+            <label className="inline-check">Từ <LabDateInput label="Xuất từ ngày" max={today} value={from} onChange={setFrom} /></label>
+            <label className="inline-check">đến <LabDateInput label="Xuất đến ngày" max={today} value={to} onChange={setTo} /></label>
             <a className="button secondary" href={`/api/lab-supplies/export?type=ledger&from=${from}&to=${to}`} download><Icon name="download" size={16} /> Xuất Excel</a>
           </div>
           <p className="muted tiny ls-note">Hiển thị 300 phiếu gần nhất (Xuất Excel lấy đủ theo khoảng ngày). Sổ không sửa/xóa được — sai sót sửa bằng phiếu điều chỉnh ở chi tiết vật tư.</p>
@@ -68,10 +69,10 @@ export function LabLedger({ movements, items, today, search, cardItemId, cardKey
                   return (
                     <tr key={m.id}>
                       <td className="ls-stt">{idx + 1}</td>
-                      <td>{m.movement_date}</td>
+                      <td>{fmtDate(m.movement_date)}</td>
                       <td>{MOVEMENT_LABEL[m.movement_type]}</td>
                       <td><strong>{m.item?.name}</strong><span className="subline">{m.item?.code}</span></td>
-                      <td>{m.lot?.lot_number || "—"}{m.lot?.expiry_date ? <span className="subline">HSD {m.lot.expiry_date}</span> : null}</td>
+                      <td>{m.lot?.lot_number || "—"}{m.lot?.expiry_date ? <span className="subline">HSD {fmtDate(m.lot.expiry_date)}</span> : null}</td>
                       <td className="ls-num"><strong style={{ color: d < 0 ? "#b45309" : "#15803d" }}>{d > 0 ? "+" : "−"}{formatQuantity(Math.abs(d))}</strong> {m.item?.unit}</td>
                       <td>{[m.reference_no, m.counterparty].filter(Boolean).join(" · ") || "—"}</td>
                       <td>{[m.reason_code ? REASON_LABEL[m.reason_code] || m.reason_code : "", m.note].filter(Boolean).join(" — ") || "—"}</td>
@@ -125,8 +126,8 @@ function ReportView({ today }: { today: string }) {
   return (
     <>
       <div className="ls-bar">
-        <label className="inline-check">Từ ngày <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} /></label>
-        <label className="inline-check">Đến ngày <input type="date" value={to} min={from} max={today} onChange={(e) => setTo(e.target.value)} /></label>
+        <label className="inline-check">Từ ngày <LabDateInput label="Báo cáo từ ngày" value={from} max={to} onChange={setFrom} /></label>
+        <label className="inline-check">Đến ngày <LabDateInput label="Báo cáo đến ngày" value={to} min={from} max={today} onChange={setTo} /></label>
         <button className="button primary" onClick={load} disabled={busy}><Icon name="refresh-cw" size={16} /> Xem báo cáo</button>
         <span className="ls-grow" />
         <Link className="button secondary" href={`/api/lab-supplies/report?from=${from}&to=${to}&format=xlsx`}><Icon name="download" size={16} /> Xuất Excel</Link>

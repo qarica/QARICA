@@ -18,6 +18,7 @@ export const STOCKTAKE_GUIDE = {
   steps: [
     <><b>Kiểm kê:</b> đếm thực tế từng lô trên kệ, nhập vào cột “Số đếm thực tế”. Lô chưa đếm thì để trống, hệ thống bỏ qua.</>,
     <>Bấm <b>“Ghi kiểm kê”</b>. Lô nào số đếm lệch tồn sổ sẽ tự sinh 1 dòng điều chỉnh (lý do “Kiểm kê”). Lô khớp thì không sinh gì.</>,
+    <>Còn sai lệch lẻ ngoài đợt kiểm kê (hao hụt, đổ vỡ, nhập/xuất sai số)? Dùng mục <b>“2. Điều chỉnh tồn”</b> ngay bên dưới: chọn lô, nhập số + hoặc −, chọn lý do và ghi chú.</>,
     <>Xem lại các dòng điều chỉnh ở tab <b>“Sổ kho &amp; báo cáo”</b> để chắc số liệu đúng.</>,
     <><b>Chốt kỳ:</b> chọn ngày cuối kỳ rồi bấm “Chốt kỳ”. Từ đó không ghi thêm phiếu nào có ngày trong kỳ đã chốt, nên số báo cáo kỳ không đổi nữa.</>,
   ],
@@ -31,7 +32,7 @@ export const LEDGER_GUIDE = {
     <><b>Thẻ kho vật tư:</b> chọn 1 vật tư để xem toàn bộ nhập, xuất và tồn lũy kế của riêng vật tư đó.</>,
     <><b>Nhập–Xuất–Tồn theo kỳ:</b> chọn khoảng ngày, bấm “Xem báo cáo” để có tồn đầu kỳ, tổng nhập, xuất, hủy, điều chỉnh và tồn cuối kỳ của từng vật tư. Dùng khi nộp số liệu hoặc thanh tra.</>,
   ],
-  note: "Sổ không sửa hoặc xóa được. Nếu có sai sót, tạo phiếu điều chỉnh mới để sửa số tồn.",
+  note: "Sổ không sửa hoặc xóa được. Nếu có sai sót, vào tab “Kiểm kê & chốt kỳ” → mục “Điều chỉnh tồn” để ghi một dòng điều chỉnh mới.",
 };
 
 export const RECEIPT_GUIDE = {

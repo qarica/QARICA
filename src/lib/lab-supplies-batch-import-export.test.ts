@@ -71,7 +71,7 @@ describe("xuất Excel kho: file .xlsx thật, số là ô số", () => {
     expect(sheets[0].rows[0].slice(0, 9)).toEqual([1, "HC001", "893", "Thuốc <A>", "Hóa chất / thuốc thử", "Hộp", 3, 5, "Sắp hết"]);
     expect(sheets[1].rows).toHaveLength(1);
     expect(sheets[1].headers[0]).toBe("STT");
-    expect(sheets[1].rows[0]).toEqual([1, "HC001", "Thuốc <A>", "L1", "2026-12-30", 34, "Còn hạn", 3, "Hộp"]);
+    expect(sheets[1].rows[0]).toEqual([1, "HC001", "Thuốc <A>", "L1", "30/12/2026", 34, "Còn hạn", 3, "Hộp"]);
     for (const sh of sheets) for (const r of sh.rows) expect(r.length).toBe(sh.headers.length);
   });
   it("thẻ kho: cột Nhập/Xuất tách theo dấu, tồn lũy kế khớp", () => {
@@ -80,8 +80,8 @@ describe("xuất Excel kho: file .xlsx thật, số là ô số", () => {
       { movement_date: "2026-11-05", created_at: "", movement_type: "ISSUE" as const, quantity_delta: -4, reference_no: null, counterparty: "Khoa Nội", reason_code: null, note: null, lot: { lot_number: "L1", expiry_date: "2027-01-01" } },
     ];
     const [card] = buildCardSheets(item, rows);
-    expect(card.rows[0]).toEqual([1, "2026-11-01", "Nhập kho", "L1", "2027-01-01", 10, "", 10, "PN1", "NCC", "", ""]);
-    expect(card.rows[1]).toEqual([2, "2026-11-05", "Xuất dùng", "L1", "2027-01-01", "", 4, 6, "", "Khoa Nội", "", ""]);
+    expect(card.rows[0]).toEqual([1, "01/11/2026", "Nhập kho", "L1", "01/01/2027", 10, "", 10, "PN1", "NCC", "", ""]);
+    expect(card.rows[1]).toEqual([2, "05/11/2026", "Xuất dùng", "L1", "01/01/2027", "", 4, 6, "", "Khoa Nội", "", ""]);
     const print = buildCardPrintHtml(item, rows.map((r, i) => ({ ...r, balance: [10, 6][i] })), (t) => t);
     expect(print).toContain("THẺ KHO");
     expect(print).toContain("Thuốc &lt;A&gt;");
@@ -97,7 +97,7 @@ describe("xuất Excel kho: file .xlsx thật, số là ô số", () => {
     expect(buf.subarray(0, 2).toString()).toBe("PK"); // xlsx là file zip, không phải HTML/CSV
     expect(buf.toString("utf8", 0, 200)).not.toContain("<html");
     const first = await readSheet(buf, "Tồn theo vật tư");
-    expect(first[0][0]).toBe("Tồn kho hóa chất & VTYT xét nghiệm — tại ngày 2026-11-26");
+    expect(first[0][0]).toBe("Tồn kho hóa chất & VTYT xét nghiệm — tại ngày 26/11/2026");
     expect(first[1].slice(0, 4)).toEqual(["STT", "Mã VT", "Mã vạch", "Tên vật tư"]);
     expect(first[2].slice(0, 9)).toEqual([1, "HC001", "893", "Thuốc <A>", "Hóa chất / thuốc thử", "Hộp", 3.5, 5, "Sắp hết"]);
     expect(typeof first[2][6]).toBe("number");

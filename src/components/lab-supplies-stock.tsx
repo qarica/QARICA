@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
-import { KANBAN_COLUMNS, daysUntilExpiry, formatQuantity, itemStockStatus, compareStockUrgency, kanbanColumnFor, lotExpiryStatus, sortLotsFefo, type KanbanColumnKey } from "../lib/lab-supplies";
+import { KANBAN_COLUMNS, daysUntilExpiry, formatQuantity, itemStockStatus, compareStockUrgency, kanbanColumnFor, lotExpiryStatus, sortLotsFefo, type KanbanColumnKey, fmtDate } from "../lib/lab-supplies";
 import { num, type Item, type Lot } from "./lab-supplies-types";
 
 // TỒN KHO = màn hình mở đầu, trả lời "còn gì, cần làm gì". Một khái niệm duy nhất: mỗi vật tư thuộc đúng MỘT trạng thái
@@ -79,7 +79,7 @@ export function LabStock({ items, lots, today, canManage, search, onOpen, onRece
                       {r.column !== "EXPIRED" && r.expired ? <span className="status-badge danger">{r.expired} lô hết hạn</span> : null}
                       {r.column !== "EXPIRING" && r.expiring ? <span className="status-badge warning">{r.expiring} lô sắp hết hạn</span> : null}
                     </td>
-                    <td>{r.nextExpiry ? <>{r.nextExpiry}{days !== null && days >= 0 && days <= r.item.expiry_warning_days ? <span className="subline">còn {days} ngày</span> : null}</> : "—"}</td>
+                    <td>{r.nextExpiry ? <>{fmtDate(r.nextExpiry)}{days !== null && days >= 0 && days <= r.item.expiry_warning_days ? <span className="subline">còn {days} ngày</span> : null}</> : "—"}</td>
                     {canManage ? (
                       <td className="ls-num"><span className="ls-row-actions"><button type="button" className="button tertiary small" onClick={() => onReceive(r.item)}>Nhập</button><button type="button" className="button tertiary small" disabled={r.total <= 0} onClick={() => onIssue(r.item)}>Xuất</button></span></td>
                     ) : null}
@@ -103,7 +103,7 @@ export function LabStock({ items, lots, today, canManage, search, onOpen, onRece
                     <span className="ls-kcard-code">{c.item.code}</span>
                     <strong>{c.item.name}</strong>
                     <span>Tồn <b>{formatQuantity(c.total)}</b> {c.item.unit}{num(c.item.min_stock) > 0 ? ` · định mức ${formatQuantity(c.item.min_stock)}` : ""}</span>
-                    {c.nextExpiry ? <span className="muted">Hạn gần nhất: {c.nextExpiry}</span> : null}
+                    {c.nextExpiry ? <span className="muted">Hạn gần nhất: {fmtDate(c.nextExpiry)}</span> : null}
                     {c.expired ? <span className="status-badge danger">{c.expired} lô hết hạn</span> : null}
                     {c.expiring ? <span className="status-badge warning">{c.expiring} lô sắp hết hạn</span> : null}
                   </button>
