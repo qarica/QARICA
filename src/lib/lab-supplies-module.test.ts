@@ -165,4 +165,10 @@ describe("Trang /lab-supplies, điều hướng độc lập và UI", () => {
     expect(voucher).toContain('lotExpiryStatus(x.expiry_date, item.expiry_warning_days, today) !== "EXPIRED"');
     expect(read("src/lib/lab-supplies.ts")).toContain('mode === "ISSUE" ? ordered.filter((l) => !isExpired(l))');
   });
+
+  it("DB chặn phiếu hủy/điều chỉnh không lý do (CHECK cũ cho NULL lọt)", () => {
+    const sql = readFileSync("supabase/migrations/20261202000003_lab_supplies_reason_required_v1.sql", "utf8");
+    expect(sql).toContain("lab_supply_movements_reason_required_check");
+    expect(sql).toContain("movement_type in ('RECEIPT', 'ISSUE') or reason_code is not null");
+  });
 });
