@@ -10,8 +10,10 @@ import {
   formatQuantity,
   lotExpiryStatus,
   parsePositiveQuantity,
+  sortLotsFefo,
   type Allocation,
 } from "../lib/lab-supplies";
+import { ISSUE_GUIDE, LabGuide, RECEIPT_GUIDE } from "./lab-supplies-guide";
 import { callApi, itemLabel, num, resolveItem, type Item, type Lot, type Movement } from "./lab-supplies-types";
 
 // MỘT phiếu = MỘT màn hình cho cả nhập và xuất (xuất dùng / hủy hàng):
@@ -96,9 +98,16 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
     return lines.map((l) => {
       const item = resolveItem(items, l.text);
       const qty = parsePositiveQuantity(l.quantity);
-      if (kind !== "ISSUE" || !item || qty === null) return { item, qty, allocations: [] as Allocation[], shortage: 0, manual: false };
+      if (kind !== "ISSUE" || !item || qty === null) return { item, qty, allocations: [] as Allocation[], shortage: 0, manual: false, older: null as { lot_number: string; expiry_date: string | null } | null };
       const itemLots = (lotsByItem.get(item.id) || []).map((x) => ({ lot_id: x.lot_id, lot_number: x.lot_number, expiry_date: x.expiry_date, balance: num(x.balance) }));
       let result;
+      // Cảnh báo (không chặn): thủ kho chọn tay một lô trong khi còn lô khác hết hạn sớm hơn.
+      let older: { lot_number: string; expiry_date: string | null } | null = null;
+      if (l.manualLot && mode === "ISSUE") {
+        const eligible = sortLotsFefo(itemLots.filter((x) => x.balance - (used[x.lot_id] || 0) > 0 && lotExpiryStatus(x.expiry_date, item.expiry_warning_days, today) !== "EXPIRED"));
+        const first = eligible[0];
+        if (first && first.lot_id !== l.manualLot) older = { lot_number: first.lot_number, expiry_date: first.expiry_date };
+      }
       if (l.manualLot) {
         const lot = itemLots.find((x) => x.lot_id === l.manualLot);
         const avail = lot ? Math.max(0, num(lot.balance) - (used[lot.lot_id] || 0)) : 0;
@@ -106,7 +115,7 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
         result = { allocations: lot && take > 0 ? [{ lot_id: lot.lot_id, lot_number: lot.lot_number, expiry_date: lot.expiry_date, quantity: take }] : [], shortage: Math.max(0, Math.round((qty - take) * 1000) / 1000) };
       } else result = allocateFefo(itemLots, qty, mode, today, used);
       for (const a of result.allocations) used[a.lot_id] = (used[a.lot_id] || 0) + a.quantity;
-      return { item, qty, ...result, manual: !!l.manualLot };
+      return { item, qty, ...result, manual: !!l.manualLot, older };
     });
   }, [lines, items, kind, mode, today, lotsByItem]);
 
@@ -156,6 +165,7 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
 
   return (
     <form className="ls-voucher" onSubmit={submit} aria-label={kind === "RECEIPT" ? "Phiếu nhập kho" : "Phiếu xuất kho"}>
+      <LabGuide {...(kind === "RECEIPT" ? RECEIPT_GUIDE : ISSUE_GUIDE)} />
       <section className="panel">
         <div className="panel-title">
           <div>
@@ -184,7 +194,7 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
           <datalist id={listId}>{selectable.map((i) => <option key={i.id} value={itemLabel(i)} />)}</datalist>
           <div className={`ls-lines ${kind === "RECEIPT" ? "receipt" : "issue"}`}>
             <div className="ls-lines-head" aria-hidden>
-              <span>#</span><span>Vật tư</span>
+              <span>STT</span><span>Vật tư</span>
               {kind === "RECEIPT" ? <><span>Số lô</span><span>Hạn dùng</span></> : null}
               <span>Số lượng</span>{kind === "ISSUE" ? <span>Lấy từ lô</span> : null}<span />
             </div>
@@ -213,6 +223,7 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
                             const st = lotExpiryStatus(a.expiry_date, item.expiry_warning_days, today);
                             return <span key={a.lot_id} className={`ls-chip ${st === "EXPIRED" ? "danger" : st === "EXPIRING" ? "warning" : ""}`}>Lô {a.lot_number}{a.expiry_date ? ` · HSD ${a.expiry_date}` : ""} × {formatQuantity(a.quantity)}</span>;
                           })}
+                          {v.older ? <span className="ls-fefo-warn" role="status">⚠ Không theo FEFO: còn lô {v.older.lot_number}{v.older.expiry_date ? ` (HSD ${v.older.expiry_date})` : ""} hết hạn sớm hơn. Vẫn ghi được — chỉ nên chọn tay khi thực tế đã lấy lô này.</span> : null}
                           {v.shortage > 0 ? <span className="ls-chip danger">Thiếu {formatQuantity(v.shortage)} {item.unit}</span> : null}
                           <select aria-label={`Dòng ${idx + 1}: đổi lô`} value={l.manualLot} onChange={(e) => update(l.key, { manualLot: e.target.value })}>
                             <option value="">Tự động (hạn gần nhất trước)</option>
@@ -243,10 +254,11 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
         <div className="panel-title"><div><h2>Phiếu {kind === "RECEIPT" ? "nhập" : "xuất / hủy"} gần đây</h2><p>Để đối chiếu nhanh; xem đầy đủ ở tab “Sổ kho & báo cáo”.</p></div></div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Ngày</th><th>Loại</th><th>Vật tư</th><th>Lô</th><th className="ls-num">Số lượng</th><th>Số phiếu / {kind === "RECEIPT" ? "NCC" : "người nhận"}</th></tr></thead>
+            <thead><tr><th className="ls-stt">STT</th><th>Ngày</th><th>Loại</th><th>Vật tư</th><th>Lô</th><th className="ls-num">Số lượng</th><th>Số phiếu / {kind === "RECEIPT" ? "NCC" : "người nhận"}</th></tr></thead>
             <tbody>
-              {recent.map((m) => (
+              {recent.map((m, idx) => (
                 <tr key={m.id}>
+                  <td className="ls-stt">{idx + 1}</td>
                   <td>{m.movement_date}</td><td>{MOVEMENT_LABEL[m.movement_type]}</td>
                   <td><strong>{m.item?.name}</strong><span className="subline">{m.item?.code}</span></td>
                   <td>{m.lot?.lot_number || "—"}</td>
@@ -254,7 +266,7 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
                   <td>{[m.reference_no, m.counterparty].filter(Boolean).join(" · ") || "—"}</td>
                 </tr>
               ))}
-              {!recent.length ? <tr><td colSpan={6}><div className="empty-state">Chưa có phiếu nào.</div></td></tr> : null}
+              {!recent.length ? <tr><td colSpan={7}><div className="empty-state">Chưa có phiếu nào.</div></td></tr> : null}
             </tbody>
           </table>
         </div>

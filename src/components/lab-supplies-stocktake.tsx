@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
 import { formatQuantity } from "../lib/lab-supplies";
+import { LabGuide, STOCKTAKE_GUIDE } from "./lab-supplies-guide";
 import { callApi, num, type Closing, type Item, type Lot } from "./lab-supplies-types";
 
 // KIỂM KÊ & CHỐT KỲ — việc làm định kỳ, nên gom 2 bước liền nhau trên một màn hình: (1) đếm thực tế → chênh lệch tự sinh
@@ -52,18 +53,20 @@ export function LabStocktake({ lots, itemById, today, lastClosing, canManage, on
 
   return (
     <div className="ls-stack">
+      <LabGuide {...STOCKTAKE_GUIDE} defaultOpen />
       <section className="panel">
         <div className="panel-title"><div><h2>1. Kiểm kê</h2><p>Chỉ nhập số đếm cho các lô đã kiểm; lô để trống sẽ không tính. Số đếm bằng tồn sổ thì không phát sinh điều chỉnh.</p></div></div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Vật tư</th><th>Số lô</th><th>Hạn dùng</th><th className="ls-num">Tồn sổ</th><th className="ls-num">Số đếm thực tế</th><th className="ls-num">Chênh lệch</th></tr></thead>
+            <thead><tr><th className="ls-stt">STT</th><th>Vật tư</th><th>Số lô</th><th>Hạn dùng</th><th className="ls-num">Tồn sổ</th><th className="ls-num">Số đếm thực tế</th><th className="ls-num">Chênh lệch</th></tr></thead>
             <tbody>
-              {rows.map(({ lot, item }) => {
+              {rows.map(({ lot, item }, idx) => {
                 const raw = counts[lot.lot_id] ?? "";
                 const counted = raw.trim() === "" ? null : Number(raw.replace(",", "."));
                 const diff = counted !== null && Number.isFinite(counted) ? counted - num(lot.balance) : null;
                 return (
                   <tr key={lot.lot_id}>
+                    <td className="ls-stt">{idx + 1}</td>
                     <td><strong>{item.name}</strong><span className="subline">{item.code}</span></td>
                     <td>{lot.lot_number}</td>
                     <td>{lot.expiry_date || "—"}</td>
@@ -73,7 +76,7 @@ export function LabStocktake({ lots, itemById, today, lastClosing, canManage, on
                   </tr>
                 );
               })}
-              {!rows.length ? <tr><td colSpan={6}><div className="empty-state">Chưa có lô nào còn tồn để kiểm kê.</div></td></tr> : null}
+              {!rows.length ? <tr><td colSpan={7}><div className="empty-state">Chưa có lô nào còn tồn để kiểm kê.</div></td></tr> : null}
             </tbody>
           </table>
         </div>

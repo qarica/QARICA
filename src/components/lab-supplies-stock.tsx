@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
-import { KANBAN_COLUMNS, daysUntilExpiry, formatQuantity, itemStockStatus, kanbanColumnFor, lotExpiryStatus, sortLotsFefo, type KanbanColumnKey } from "../lib/lab-supplies";
+import { KANBAN_COLUMNS, daysUntilExpiry, formatQuantity, itemStockStatus, compareStockUrgency, kanbanColumnFor, lotExpiryStatus, sortLotsFefo, type KanbanColumnKey } from "../lib/lab-supplies";
 import { num, type Item, type Lot } from "./lab-supplies-types";
 
 // TỒN KHO = màn hình mở đầu, trả lời "còn gì, cần làm gì". Một khái niệm duy nhất: mỗi vật tư thuộc đúng MỘT trạng thái
@@ -24,7 +24,7 @@ export function LabStock({ items, lots, today, canManage, search, onOpen, onRece
       const expiring = states.filter((s) => s === "EXPIRING").length;
       const stock = itemStockStatus(total, num(item.min_stock));
       return { item, total, expired, expiring, stock, column: kanbanColumnFor(stock, expired, expiring), nextExpiry: itemLots.find((l) => l.expiry_date)?.expiry_date ?? null };
-    });
+    }).sort(compareStockUrgency);
   }, [items, lots, today]);
 
   const q = search.trim().toLowerCase();
@@ -62,13 +62,14 @@ export function LabStock({ items, lots, today, canManage, search, onOpen, onRece
       {view === "list" ? (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Mã</th><th>Vật tư</th><th className="ls-num">Tồn</th><th className="ls-num">Định mức</th><th>Tình trạng</th><th>Hạn gần nhất</th>{canManage ? <th /> : null}</tr></thead>
+            <thead><tr><th className="ls-stt">STT</th><th>Mã</th><th>Vật tư</th><th className="ls-num">Tồn</th><th className="ls-num">Định mức</th><th>Tình trạng</th><th>Hạn gần nhất</th>{canManage ? <th /> : null}</tr></thead>
             <tbody>
-              {visible.map((r) => {
+              {visible.map((r, idx) => {
                 const col = toneOf(r.column);
                 const days = daysUntilExpiry(r.nextExpiry, today);
                 return (
                   <tr key={r.item.id}>
+                    <td className="ls-stt">{idx + 1}</td>
                     <td><code className="code-pill">{r.item.code}</code></td>
                     <td><button type="button" className="table-link ls-name-btn" onClick={() => onOpen(r.item.id)}><strong>{r.item.name}</strong></button>{!r.item.is_active ? <span className="status-badge muted">Ngưng dùng</span> : null}</td>
                     <td className="ls-num"><strong>{formatQuantity(r.total)}</strong> {r.item.unit}</td>
@@ -85,7 +86,7 @@ export function LabStock({ items, lots, today, canManage, search, onOpen, onRece
                   </tr>
                 );
               })}
-              {!visible.length ? <tr><td colSpan={canManage ? 7 : 6}><div className="empty-state">{items.length ? "Không có vật tư phù hợp." : "Kho chưa có vật tư. Thêm ở tab Danh mục (hoặc nhập từ Excel), rồi nhập kho."}</div></td></tr> : null}
+              {!visible.length ? <tr><td colSpan={canManage ? 8 : 7}><div className="empty-state">{items.length ? "Không có vật tư phù hợp." : "Kho chưa có vật tư. Thêm ở tab Danh mục (hoặc nhập từ Excel), rồi nhập kho."}</div></td></tr> : null}
             </tbody>
           </table>
         </div>

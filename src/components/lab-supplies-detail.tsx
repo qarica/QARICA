@@ -74,17 +74,18 @@ export function LabItemDetail({ item, lots, today, canManage, onClose, onReceive
 
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Số lô</th><th>Hạn dùng</th><th className="ls-num">Tồn</th>{canManage ? <th /> : null}</tr></thead>
+              <thead><tr><th className="ls-stt">STT</th><th>Số lô</th><th>Hạn dùng</th><th className="ls-num">Tồn</th>{canManage ? <th /> : null}</tr></thead>
               <tbody>
-                {itemLots.map((r) => (
+                {itemLots.map((r, idx) => (
                   <tr key={r.lot.lot_id}>
+                    <td className="ls-stt">{idx + 1}</td>
                     <td>{r.lot.lot_number}</td>
                     <td>{r.lot.expiry_date || "—"}{r.state === "EXPIRED" ? <span className="status-badge danger">Hết hạn</span> : null}{r.state === "EXPIRING" ? <span className="status-badge warning">Còn {r.days} ngày</span> : null}</td>
                     <td className="ls-num"><strong>{formatQuantity(r.lot.balance)}</strong> {item.unit}</td>
                     {canManage ? <td className="ls-num"><button type="button" className="button tertiary small" onClick={() => { setAdjustLot(r.lot); setAdjust({ quantity: "", reason: "SHRINKAGE", note: "" }); }}>Điều chỉnh</button></td> : null}
                   </tr>
                 ))}
-                {!itemLots.length ? <tr><td colSpan={canManage ? 4 : 3}><div className="empty-state">Chưa có lô nào còn tồn.</div></td></tr> : null}
+                {!itemLots.length ? <tr><td colSpan={canManage ? 5 : 4}><div className="empty-state">Chưa có lô nào còn tồn.</div></td></tr> : null}
               </tbody>
             </table>
           </div>
@@ -105,12 +106,13 @@ export function LabItemDetail({ item, lots, today, canManage, onClose, onReceive
             <div className="ls-card-head"><strong>Phiếu gần đây</strong><button type="button" className="button tertiary small" onClick={() => onOpenCard(item)}>Xem toàn bộ thẻ kho →</button></div>
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Ngày</th><th>Loại</th><th>Lô</th><th className="ls-num">Số lượng</th><th className="ls-num">Tồn</th><th>Số phiếu / người nhận</th></tr></thead>
+                <thead><tr><th className="ls-stt">STT</th><th>Ngày</th><th>Loại</th><th>Lô</th><th className="ls-num">Số lượng</th><th className="ls-num">Tồn</th><th>Số phiếu / người nhận</th></tr></thead>
                 <tbody>
-                  {(recent || []).map((r) => {
+                  {(recent || []).map((r, idx) => {
                     const d = num(r.quantity_delta);
                     return (
                       <tr key={r.id}>
+                        <td className="ls-stt">{idx + 1}</td>
                         <td>{r.movement_date}</td>
                         <td>{MOVEMENT_LABEL[r.movement_type]}{r.reason_code ? <span className="subline">{REASON_LABEL[r.reason_code] || r.reason_code}</span> : null}</td>
                         <td>{r.lot?.lot_number || "—"}</td>
@@ -120,8 +122,8 @@ export function LabItemDetail({ item, lots, today, canManage, onClose, onReceive
                       </tr>
                     );
                   })}
-                  {recent === null ? <tr><td colSpan={6}><div className="empty-state">Đang tải...</div></td></tr> : null}
-                  {recent && !recent.length ? <tr><td colSpan={6}><div className="empty-state">Vật tư chưa có phiếu nào.</div></td></tr> : null}
+                  {recent === null ? <tr><td colSpan={7}><div className="empty-state">Đang tải...</div></td></tr> : null}
+                  {recent && !recent.length ? <tr><td colSpan={7}><div className="empty-state">Vật tư chưa có phiếu nào.</div></td></tr> : null}
                 </tbody>
               </table>
             </div>
