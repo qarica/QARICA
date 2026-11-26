@@ -1,20 +1,21 @@
 import { readSheet } from "read-excel-file/node";
 import { NextResponse } from "next/server";
 import { IMPORT_TEMPLATE_HEADERS, MAX_IMPORT_ROWS, parseItemRows } from "@/lib/lab-supplies-import";
-import { buildImportTemplateExcel } from "@/lib/lab-supplies-export";
+import { buildImportTemplateSheets } from "@/lib/lab-supplies-export";
+import { XLSX_CONTENT_TYPE, sheetsToXlsx } from "@/lib/lab-supplies-xlsx";
 import { ITEM_SELECT, labSuppliesContext, writeAudit } from "@/lib/lab-supplies-api";
 
 export const runtime = "nodejs";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-// Tải file mẫu (đọc => lab_supplies.view; không có dữ liệu thật).
+// Tải file mẫu .xlsx (đọc => lab_supplies.view; không có dữ liệu thật). File mẫu mở bằng Excel, điền, lưu .xlsx rồi tải lên lại.
 export async function GET() {
   const ctx = await labSuppliesContext("lab_supplies.view");
   if (!ctx.ok) return ctx.response;
   const headers = IMPORT_TEMPLATE_HEADERS.map((h) => (h.required ? `${h.label} *` : h.label));
-  return new NextResponse(buildImportTemplateExcel(headers), {
-    headers: { "Content-Type": "application/vnd.ms-excel; charset=utf-8", "Content-Disposition": 'attachment; filename="mau-nhap-danh-muc-vat-tu.xls"', "Cache-Control": "no-store" },
+  return new NextResponse(new Uint8Array(await sheetsToXlsx(buildImportTemplateSheets(headers))), {
+    headers: { "Content-Type": XLSX_CONTENT_TYPE, "Content-Disposition": 'attachment; filename="mau-nhap-danh-muc-vat-tu.xlsx"', "Cache-Control": "no-store" },
   });
 }
 

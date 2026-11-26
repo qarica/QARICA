@@ -32,7 +32,7 @@ export function LabItemCard({ item }: { item: { id: string; code: string; name: 
       <div className="ls-card-head">
         <strong>Thẻ kho — lịch sử nhập · xuất</strong>
         <span className="ls-row-actions">
-          <a className="button tertiary small" href={`/api/lab-supplies/items/${item.id}/card?format=xls`} download><Icon name="download" size={15} /> Xuất Excel</a>
+          <a className="button tertiary small" href={`/api/lab-supplies/items/${item.id}/card?format=xlsx`} download><Icon name="download" size={15} /> Xuất Excel</a>
           <button type="button" className="button tertiary small" disabled={!rows} onClick={() => rows && printItemCard(item, rows)}>In thẻ kho</button>
         </span>
       </div>

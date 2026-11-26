@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { allocateFefo, suggestedOrderQuantity } from "./lab-supplies";
-import { buildReplenishmentExcel } from "./lab-supplies-export";
+import { buildReplenishmentSheets } from "./lab-supplies-export";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 const lot = (id: string, number: string, expiry: string | null, balance: number) => ({ lot_id: id, lot_number: number, expiry_date: expiry, balance });
@@ -60,13 +60,12 @@ describe("đề nghị đặt hàng", () => {
       { lot_id: "l4", item_id: "4", lot_number: "L4", expiry_date: "2026-11-01", balance: 3 },
       { lot_id: "l4b", item_id: "4", lot_number: "L4B", expiry_date: "2026-12-05", balance: 2 },
     ];
-    const html = buildReplenishmentExcel(items, lots, "2026-11-26");
-    expect(html).toContain("<td>HC1</td>");
-    expect(html).toContain("<td>8</td>"); // đề nghị đặt 2×4−0
-    expect(html).not.toContain("<td>HC2</td>");
-    expect(html).not.toContain("<td>HC3</td>");
-    expect(html).toContain("Đã hết hạn — lập phiếu hủy");
-    expect(html).toContain("Sắp hết hạn — ưu tiên xuất trước");
+    const [need, attention] = buildReplenishmentSheets(items, lots, "2026-11-26");
+    const codes = need.rows.map((r) => r[1]);
+    expect(codes).toEqual(["HC1"]);
+    expect(need.rows[0][6]).toBe(0); // tồn
+    expect(need.rows[0][8]).toBe(8); // đề nghị đặt 2×4−0
+    expect(attention.rows.map((r) => [r[0], r[2], r[7]])).toEqual([["HC4", "L4", "Đã hết hạn — lập phiếu hủy"], ["HC4", "L4B", "Sắp hết hạn — ưu tiên xuất trước"]]);
   });
 });
 

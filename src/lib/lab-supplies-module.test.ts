@@ -112,7 +112,7 @@ describe("API /api/lab-supplies — ranh giới view/manage nhất quán, lọc 
   it("báo cáo Nhập–Xuất–Tồn tính từ sổ qua RPC và có xuất CSV", () => {
     const report = readRoute("report/route.ts");
     expect(report).toContain("qlcl_lab_supply_period_report_v1");
-    expect(report).toContain('params.get("format") !== "csv"');
+    expect(report).toContain('params.get("format") !== "xlsx"');
   });
 });
 

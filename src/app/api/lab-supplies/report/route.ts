@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { CATEGORY_LABEL, isIsoDate, todayInVietnam, type SupplyCategory } from "@/lib/lab-supplies";
+import { isIsoDate, todayInVietnam, type SupplyCategory } from "@/lib/lab-supplies";
+import { buildReportSheets } from "@/lib/lab-supplies-export";
+import { XLSX_CONTENT_TYPE, sheetsToXlsx, xlsxFileName } from "@/lib/lab-supplies-xlsx";
 import { labSuppliesContext } from "@/lib/lab-supplies-api";
-
-const csvCell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
 
 type ReportRow = {
   item_id: string;
@@ -22,7 +22,7 @@ type ReportRow = {
 
 // Báo cáo Nhập – Xuất – Tồn theo kỳ [from, to]. Tồn đầu kỳ = tổng sổ trước
 // `from`; tồn cuối = tổng sổ đến hết `to`. Không có số tồn nhập tay nào.
-// ?format=csv xuất file (UTF-8 BOM) mở được bằng Excel.
+// ?format=xlsx tải file Excel (.xlsx).
 export async function GET(request: Request) {
   const ctx = await labSuppliesContext("lab_supplies.view");
   if (!ctx.ok) return ctx.response;
@@ -52,18 +52,13 @@ export async function GET(request: Request) {
     closing: Number(r.closing),
   }));
 
-  if (params.get("format") !== "csv") return NextResponse.json({ ok: true, from, to, rows });
+  if (params.get("format") !== "xlsx") return NextResponse.json({ ok: true, from, to, rows });
 
-  const headers = ["Mã VT", "Tên vật tư", "Nhóm", "ĐVT", "Tồn đầu kỳ", "Nhập trong kỳ", "Xuất dùng", "Hủy hàng", "Điều chỉnh (kiểm kê/hao hụt)", "Tồn cuối kỳ", "Định mức tối thiểu"];
-  const lines = [headers.map(csvCell).join(",")];
-  for (const r of rows) {
-    if (!r.is_active && [r.opening, r.receipts, r.issues, r.disposals, r.adjustments, r.closing].every((v) => v === 0)) continue;
-    lines.push([r.code, r.name, CATEGORY_LABEL[r.category] ?? r.category, r.unit, r.opening, r.receipts, r.issues, r.disposals, r.adjustments, r.closing, r.min_stock].map(csvCell).join(","));
-  }
-  return new NextResponse("﻿" + lines.join("\r\n"), {
+  const live = rows.filter((r) => r.is_active || [r.opening, r.receipts, r.issues, r.disposals, r.adjustments, r.closing].some((v) => v !== 0));
+  return new NextResponse(new Uint8Array(await sheetsToXlsx(buildReportSheets(live, from, to))), {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="nhap-xuat-ton-xet-nghiem-${from}_${to}.csv"`,
+      "Content-Type": XLSX_CONTENT_TYPE,
+      "Content-Disposition": `attachment; filename="${xlsxFileName(`nhap-xuat-ton-xet-nghiem_${from}_${to}`)}"`,
       "Cache-Control": "private, no-store",
     },
   });

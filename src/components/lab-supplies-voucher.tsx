@@ -19,7 +19,7 @@ import { callApi, itemLabel, num, resolveItem, type Item, type Lot, type Movemen
 //  • Xuất: chỉ chọn vật tư + số lượng; hệ thống TỰ phân bổ qua các lô theo FEFO (hạn dùng gần nhất trước) và hiện rõ
 //    "lấy từ lô nào bao nhiêu"; vẫn có thể "Đổi lô" bằng tay. Hủy hàng ưu tiên lô đã hết hạn.
 // Ghi qua /api/lab-supplies/movements/batch: cả phiếu trong MỘT giao dịch, 1 dòng lỗi => không ghi gì.
-export type VoucherIncoming = { itemId: string; quantity?: number; mode?: "ISSUE" | "DISPOSAL"; key: number } | null;
+export type VoucherIncoming = { itemId: string; quantity?: number; mode?: "ISSUE" | "DISPOSAL"; key: number; target: "RECEIPT" | "ISSUE" } | null;
 type Line = { key: number; text: string; quantity: string; lot_number: string; expiry_date: string; manualLot: string };
 let nextKey = 1;
 const emptyLine = (): Line => ({ key: nextKey++, text: "", quantity: "", lot_number: "", expiry_date: "", manualLot: "" });
@@ -32,7 +32,7 @@ function writeParty(kind: string, value: string) {
   try { if (value.trim()) window.localStorage.setItem(PARTY_KEY(kind), value.trim()); } catch { /* không có localStorage — bỏ qua */ }
 }
 
-export function LabVoucher({ kind, items, lots, movements, today, incoming, onDone }: { kind: "RECEIPT" | "ISSUE"; items: Item[]; lots: Lot[]; movements: Movement[]; today: string; incoming: VoucherIncoming; onDone: (text: string) => void }) {
+export function LabVoucher({ kind, items, lots, movements, today, incoming, onConsumed, onDone }: { kind: "RECEIPT" | "ISSUE"; items: Item[]; lots: Lot[]; movements: Movement[]; today: string; incoming: VoucherIncoming; onConsumed: () => void; onDone: (text: string) => void }) {
   const [mode, setMode] = useState<"ISSUE" | "DISPOSAL">("ISSUE");
   const type = kind === "RECEIPT" ? "RECEIPT" : mode;
   const [movementDate, setMovementDate] = useState(today);
@@ -65,8 +65,11 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onDo
   // Quét mã / bấm "Nhập"/"Xuất" từ nơi khác → thêm dòng cho vật tư đó.
   const seen = useRef(0);
   useEffect(() => {
-    if (!incoming || incoming.key === seen.current) return;
+    // Chỉ nhận yêu cầu dành cho đúng loại phiếu này, và chỉ dùng MỘT lần (báo lại cho vỏ trang xóa đi) — tránh việc quét ở
+    // tab Nhập kho rồi chuyển sang Xuất kho lại tự thêm dòng.
+    if (!incoming || incoming.target !== kind || incoming.key === seen.current) return;
     seen.current = incoming.key;
+    onConsumed();
     const item = items.find((i) => i.id === incoming.itemId);
     if (!item) return;
     if (kind === "ISSUE" && incoming.mode) setMode(incoming.mode);
@@ -77,7 +80,7 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onDo
       if (emptyIdx >= 0) return prev.map((l, i) => (i === emptyIdx ? { ...l, ...patch } : l));
       return [...prev, { ...emptyLine(), ...patch }];
     });
-  }, [incoming, items, kind]);
+  }, [incoming, items, kind, onConsumed]);
 
   const update = (key: number, patch: Partial<Line>) => setLines((v) => v.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   const focusLine = (key: number) => setTimeout(() => (document.querySelector(`[data-line="${key}"] input`) as HTMLInputElement | null)?.focus(), 30);
