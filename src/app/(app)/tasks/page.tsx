@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { KpiCard } from "@/components/kpi-card";
 import { MyWorkSyncClient } from "@/components/my-work-sync-client";
+import { MyWorkExportButton } from "@/components/my-work-export-button";
 import { WorkFollowupControl } from "@/components/work-followup-control";
 import { PageHeader } from "@/components/page-header";
 import { PersonalReminders } from "@/components/personal-reminders";
@@ -13,7 +14,7 @@ import { ReminderRowDelete } from "@/components/reminder-row-delete";
 import { StatusBadge } from "@/components/status-badge";
 import { hasPermission, requirePermission, requireUserContext } from "@/lib/auth";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
-import { formatDate } from "@/lib/format";
+import { formatDate, humanStatus } from "@/lib/format";
 import { hcmDateKey } from "@/lib/hcm-date";
 import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { createClient } from "@/lib/supabase/server";
@@ -259,6 +260,10 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const totalPages=Math.max(1,Math.ceil(weekScoped.length/PAGE_SIZE));
  const currentPage=Math.min(page,totalPages);
  const tableRowsPage=weekScoped.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
+ // Xuất Excel: TOÀN BỘ danh sách đang lọc (weekScoped — cùng nguồn với bảng, không cắt theo trang).
+ const TAB_LABEL:Record<string,string>={ALL:"Tất cả",OPEN:"Chưa hoàn thành",DONE:"Đã hoàn thành",REMINDER:"Việc cá nhân",ASSIGNED:"Việc được giao",WAITING:"Chờ phản hồi",WATCH:"Cần theo dõi"};
+ const exportRows=weekScoped.map(r=>{const f=r.followup;const note=typeof f==="string"?f:f&&typeof f==="object"?[f.state==="WAITING"?`Đang chờ${f.waiting_for_label?`: ${f.waiting_for_label}`:""}`:"",f.note||""].filter(Boolean).join(" — "):"";return{title:r.title,type:r.typeLabel,relatedTo:r.relatedTo,createdAt:r.createdAt?formatDate(r.createdAt):"—",priority:priorityLabel(r.priority),dueDate:r.dueDate?formatDate(r.dueDate):"—",completedAt:r.completedAt?formatDate(r.completedAt):"—",status:humanStatus(r.statusLabel),note}});
+ const exportCaption=`Việc của tôi — ${TAB_LABEL[tab]}${weekStart&&weekEnd?` — tuần ${formatDate(weekStart)} – ${formatDate(weekEnd)}`:""}${searchQuery?` — tìm "${searchQuery}"`:""} (xuất ngày ${formatDate(today)})`;
  const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}#all-work`;
  const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}&page=${p}#all-work`;
  // Báo cáo "việc nào đã xong, việc nào chưa xong" trong tuần: tính từ TOÀN BỘ
@@ -360,6 +365,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
       {weekStart?<input type="hidden" name="week" value={weekStart}/>:null}
       <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm theo tên công việc / hồ sơ..."/></div>
       <button type="submit" className="button secondary small">Tìm kiếm</button>
+      <MyWorkExportButton rows={exportRows} caption={exportCaption} todayKey={today} weekStart={weekStart}/>
      </form>
      <div className="week-filter-row">
       <div className="week-nav-controls">
