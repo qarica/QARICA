@@ -11,8 +11,10 @@ import {
   lotExpiryStatus,
   parsePositiveQuantity,
   sortLotsFefo,
+  fmtDate,
   type Allocation,
 } from "../lib/lab-supplies";
+import { LabDateInput } from "./lab-supplies-date-input";
 import { ISSUE_GUIDE, LabGuide, RECEIPT_GUIDE } from "./lab-supplies-guide";
 import { callApi, itemLabel, num, resolveItem, type Item, type Lot, type Movement } from "./lab-supplies-types";
 
@@ -182,7 +184,7 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
         <div className="ls-form-pad">
           {error ? <div className="alert error">{error}</div> : null}
           <div className="ls-head-grid">
-            <label>Ngày phiếu<input type="date" max={today} value={movementDate} onChange={(e) => setMovementDate(e.target.value)} /></label>
+            <label>Ngày phiếu<LabDateInput label="Ngày phiếu" max={today} value={movementDate} onChange={setMovementDate} /></label>
             <label>Số phiếu / chứng từ<input value={referenceNo} onChange={(e) => setReferenceNo(e.target.value)} placeholder={kind === "RECEIPT" ? "VD: PN-2026-015" : "VD: PX-2026-021"} /></label>
             <label>{partyLabel}<input value={party} onChange={(e) => setParty(e.target.value)} placeholder={kind === "RECEIPT" ? "Tên nhà cung cấp" : type === "ISSUE" ? "VD: Phòng XN Huyết học" : ""} /></label>
             {type === "DISPOSAL" ? (
@@ -208,7 +210,7 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
                   {kind === "RECEIPT" ? (
                     <>
                       <label className="ls-f"><span>Số lô</span><input value={l.lot_number} onChange={(e) => update(l.key, { lot_number: e.target.value })} placeholder="Số lô" aria-label={`Dòng ${idx + 1}: số lô`} /></label>
-                      <label className="ls-f"><span>Hạn dùng{item && EXPIRY_REQUIRED_CATEGORIES.includes(item.category) ? " *" : ""}</span><input type="date" value={l.expiry_date} onChange={(e) => update(l.key, { expiry_date: e.target.value })} aria-label={`Dòng ${idx + 1}: hạn dùng`} /></label>
+                      <label className="ls-f"><span>Hạn dùng{item && EXPIRY_REQUIRED_CATEGORIES.includes(item.category) ? " *" : ""}</span><LabDateInput label={`Dòng ${idx + 1}: hạn dùng`} value={l.expiry_date} onChange={(iso) => update(l.key, { expiry_date: iso })} /></label>
                     </>
                   ) : null}
                   <label className="ls-f ls-qty"><span>Số lượng{item ? ` (${item.unit})` : ""}</span>
@@ -221,13 +223,13 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
                         <>
                           {v.allocations.map((a) => {
                             const st = lotExpiryStatus(a.expiry_date, item.expiry_warning_days, today);
-                            return <span key={a.lot_id} className={`ls-chip ${st === "EXPIRED" ? "danger" : st === "EXPIRING" ? "warning" : ""}`}>Lô {a.lot_number}{a.expiry_date ? ` · HSD ${a.expiry_date}` : ""} × {formatQuantity(a.quantity)}</span>;
+                            return <span key={a.lot_id} className={`ls-chip ${st === "EXPIRED" ? "danger" : st === "EXPIRING" ? "warning" : ""}`}>Lô {a.lot_number}{a.expiry_date ? ` · HSD ${fmtDate(a.expiry_date)}` : ""} × {formatQuantity(a.quantity)}</span>;
                           })}
-                          {v.older ? <span className="ls-fefo-warn" role="status">⚠ Không theo FEFO: còn lô {v.older.lot_number}{v.older.expiry_date ? ` (HSD ${v.older.expiry_date})` : ""} hết hạn sớm hơn. Vẫn ghi được — chỉ nên chọn tay khi thực tế đã lấy lô này.</span> : null}
+                          {v.older ? <span className="ls-fefo-warn" role="status">⚠ Không theo FEFO: còn lô {v.older.lot_number}{v.older.expiry_date ? ` (HSD ${fmtDate(v.older.expiry_date)})` : ""} hết hạn sớm hơn. Vẫn ghi được — chỉ nên chọn tay khi thực tế đã lấy lô này.</span> : null}
                           {v.shortage > 0 ? <span className="ls-chip danger">Thiếu {formatQuantity(v.shortage)} {item.unit}</span> : null}
                           <select aria-label={`Dòng ${idx + 1}: đổi lô`} value={l.manualLot} onChange={(e) => update(l.key, { manualLot: e.target.value })}>
                             <option value="">Tự động (hạn gần nhất trước)</option>
-                            {(lotsByItem.get(item.id) || []).filter((x) => num(x.balance) > 0 && (mode === "DISPOSAL" || lotExpiryStatus(x.expiry_date, item.expiry_warning_days, today) !== "EXPIRED")).map((x) => <option key={x.lot_id} value={x.lot_id}>Lô {x.lot_number} · tồn {formatQuantity(x.balance)}{x.expiry_date ? ` · HSD ${x.expiry_date}` : ""}</option>)}
+                            {(lotsByItem.get(item.id) || []).filter((x) => num(x.balance) > 0 && (mode === "DISPOSAL" || lotExpiryStatus(x.expiry_date, item.expiry_warning_days, today) !== "EXPIRED")).map((x) => <option key={x.lot_id} value={x.lot_id}>Lô {x.lot_number} · tồn {formatQuantity(x.balance)}{x.expiry_date ? ` · HSD ${fmtDate(x.expiry_date)}` : ""}</option>)}
                           </select>
                         </>
                       )}
@@ -259,7 +261,7 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
               {recent.map((m, idx) => (
                 <tr key={m.id}>
                   <td className="ls-stt">{idx + 1}</td>
-                  <td>{m.movement_date}</td><td>{MOVEMENT_LABEL[m.movement_type]}</td>
+                  <td>{fmtDate(m.movement_date)}</td><td>{MOVEMENT_LABEL[m.movement_type]}</td>
                   <td><strong>{m.item?.name}</strong><span className="subline">{m.item?.code}</span></td>
                   <td>{m.lot?.lot_number || "—"}</td>
                   <td className="ls-num">{formatQuantity(Math.abs(num(m.quantity_delta)))} {m.item?.unit}</td>

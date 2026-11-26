@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
-import { MOVEMENT_LABEL, REASON_LABEL, formatQuantity, type MovementType } from "../lib/lab-supplies";
+import { MOVEMENT_LABEL, REASON_LABEL, formatQuantity, type MovementType, fmtDate } from "../lib/lab-supplies";
 import { printItemCard } from "../lib/lab-supplies-label";
 
 type CardRow = { id: string; movement_date: string; movement_type: MovementType; quantity_delta: number | string; reference_no: string | null; counterparty: string | null; reason_code: string | null; note: string | null; lot: { lot_number: string; expiry_date: string | null } | null; balance: number };
@@ -48,7 +48,7 @@ export function LabItemCard({ item }: { item: { id: string; code: string; name: 
                 return (
                   <tr key={r.id}>
                     <td className="ls-stt">{idx + 1}</td>
-                    <td>{r.movement_date}</td>
+                    <td>{fmtDate(r.movement_date)}</td>
                     <td>{MOVEMENT_LABEL[r.movement_type]}{r.reason_code ? <span className="subline">{REASON_LABEL[r.reason_code] || r.reason_code}</span> : null}</td>
                     <td>{r.lot?.lot_number || "—"}</td>
                     <td>{d > 0 ? formatQuantity(d) : ""}</td>

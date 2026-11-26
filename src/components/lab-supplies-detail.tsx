@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { printItemLabel } from "../lib/lab-supplies-label";
-import { ADJUST_REASON_LABEL, CATEGORY_LABEL, MOVEMENT_LABEL, REASON_LABEL, daysUntilExpiry, formatQuantity, itemStockStatus, lotExpiryStatus, sortLotsFefo, type MovementType } from "../lib/lab-supplies";
+import { ADJUST_REASON_LABEL, CATEGORY_LABEL, MOVEMENT_LABEL, REASON_LABEL, daysUntilExpiry, formatQuantity, itemStockStatus, lotExpiryStatus, sortLotsFefo, type MovementType, fmtDate } from "../lib/lab-supplies";
 import { callApi, num, type Item, type Lot } from "./lab-supplies-types";
 
 type CardRow = { id: string; movement_date: string; movement_type: MovementType; quantity_delta: number | string; reference_no: string | null; counterparty: string | null; reason_code: string | null; lot: { lot_number: string } | null; balance: number };
@@ -80,7 +80,7 @@ export function LabItemDetail({ item, lots, today, canManage, onClose, onReceive
                   <tr key={r.lot.lot_id}>
                     <td className="ls-stt">{idx + 1}</td>
                     <td>{r.lot.lot_number}</td>
-                    <td>{r.lot.expiry_date || "—"}{r.state === "EXPIRED" ? <span className="status-badge danger">Hết hạn</span> : null}{r.state === "EXPIRING" ? <span className="status-badge warning">Còn {r.days} ngày</span> : null}</td>
+                    <td>{fmtDate(r.lot.expiry_date)}{r.state === "EXPIRED" ? <span className="status-badge danger">Hết hạn</span> : null}{r.state === "EXPIRING" ? <span className="status-badge warning">Còn {r.days} ngày</span> : null}</td>
                     <td className="ls-num"><strong>{formatQuantity(r.lot.balance)}</strong> {item.unit}</td>
                     {canManage ? <td className="ls-num"><button type="button" className="button tertiary small" onClick={() => { setAdjustLot(r.lot); setAdjust({ quantity: "", reason: "SHRINKAGE", note: "" }); }}>Điều chỉnh</button></td> : null}
                   </tr>
@@ -113,7 +113,7 @@ export function LabItemDetail({ item, lots, today, canManage, onClose, onReceive
                     return (
                       <tr key={r.id}>
                         <td className="ls-stt">{idx + 1}</td>
-                        <td>{r.movement_date}</td>
+                        <td>{fmtDate(r.movement_date)}</td>
                         <td>{MOVEMENT_LABEL[r.movement_type]}{r.reason_code ? <span className="subline">{REASON_LABEL[r.reason_code] || r.reason_code}</span> : null}</td>
                         <td>{r.lot?.lot_number || "—"}</td>
                         <td className="ls-num">{d > 0 ? "+" : "−"}{formatQuantity(Math.abs(d))}</td>

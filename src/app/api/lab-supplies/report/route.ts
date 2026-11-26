@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isIsoDate, todayInVietnam, type SupplyCategory } from "@/lib/lab-supplies";
+import { fmtDateFile, isIsoDate, todayInVietnam, type SupplyCategory } from "@/lib/lab-supplies";
 import { buildReportSheets } from "@/lib/lab-supplies-export";
 import { XLSX_CONTENT_TYPE, sheetsToXlsx, xlsxFileName } from "@/lib/lab-supplies-xlsx";
 import { labSuppliesContext } from "@/lib/lab-supplies-api";
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
   return new NextResponse(new Uint8Array(await sheetsToXlsx(buildReportSheets(live, from, to))), {
     headers: {
       "Content-Type": XLSX_CONTENT_TYPE,
-      "Content-Disposition": `attachment; filename="${xlsxFileName(`nhap-xuat-ton-xet-nghiem_${from}_${to}`)}"`,
+      "Content-Disposition": `attachment; filename="${xlsxFileName(`nhap-xuat-ton-xet-nghiem_${fmtDateFile(from)}_${fmtDateFile(to)}`)}"`,
       "Cache-Control": "private, no-store",
     },
   });

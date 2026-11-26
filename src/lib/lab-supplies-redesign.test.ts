@@ -100,7 +100,7 @@ describe("thiết kế lại giao diện kho theo luồng nghiệp vụ", () => 
   });
   it("kiểm kê và chốt kỳ liền nhau trên một màn hình; quét mã ăn theo màn hình đang mở", () => {
     const st = read("src/components/lab-supplies-stocktake.tsx");
-    expect(st.indexOf("1. Kiểm kê")).toBeLessThan(st.indexOf("2. Chốt kỳ"));
+    expect(st.indexOf("1. Kiểm kê")).toBeLessThan(st.indexOf("3. Chốt kỳ"));
     expect(client).toContain("canManage && voucherTab");
     expect(client).toContain("continuous={canManage && voucherTab}");
   });

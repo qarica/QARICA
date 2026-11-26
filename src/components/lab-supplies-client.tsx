@@ -169,6 +169,13 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
         .lab-supplies .ls-note{padding:0 19px 8px;margin:0}
         .lab-supplies .ls-form-pad{padding:0 19px 19px;display:flex;flex-direction:column;gap:14px}
         .lab-supplies .ls-num{text-align:right;font-variant-numeric:tabular-nums}
+        .lab-supplies .ls-adjust-form .ls-head-grid{padding:4px 20px 12px}
+        .lab-supplies .ls-date{position:relative;display:flex;align-items:center;min-width:0}
+        .lab-supplies .ls-date>input[type=text]{width:100%;padding-right:36px}
+        .lab-supplies .ls-date.invalid>input[type=text]{border-color:#dc2626;background:#fef2f2}
+        .lab-supplies .ls-date-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:0;background:transparent;color:#64748b;border-radius:6px;cursor:pointer;padding:0}
+        .lab-supplies .ls-date-btn:hover{background:#eef2f7;color:#1e3a5f}
+        .lab-supplies .ls-date-native{position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;min-height:0}
         .lab-supplies .ls-diff-large{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:11px;font-weight:700}
         .lab-supplies .ls-need-note{border-color:#dc2626!important;background:#fef2f2}
         .lab-supplies .ls-guide{border:1px solid #dbe4f0;background:#f8fafc;border-radius:10px;padding:10px 14px;margin:0 0 4px}
