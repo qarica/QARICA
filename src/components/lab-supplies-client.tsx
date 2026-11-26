@@ -3,6 +3,9 @@ import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
+import { LabBatchDialog, type BatchType } from "@/components/lab-supplies-batch";
+import { LabImportDialog } from "@/components/lab-supplies-import-dialog";
+import { LabItemCard } from "@/components/lab-supplies-item-card";
 import { LabScanDialog } from "@/components/lab-supplies-scanner";
 import { printItemLabel } from "@/lib/lab-supplies-label";
 import {
@@ -111,6 +114,10 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
   const [scanOpen, setScanOpen] = useState(false);
   const [scanNotFound, setScanNotFound] = useState<string | null>(null);
   const [detailItemId, setDetailItemId] = useState<string | null>(null);
+  const [batchType, setBatchType] = useState<BatchType | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [ledgerFrom, setLedgerFrom] = useState(`${today.slice(0, 4)}-01-01`);
+  const [ledgerTo, setLedgerTo] = useState(today);
 
   const itemById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const lotsByItem = useMemo(() => {
@@ -334,7 +341,12 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
                 </select>
                 <label className="inline-check"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Hiện vật tư ngưng dùng</label>
               </div>
-              {canManage ? <button className="button primary" onClick={() => openMove("RECEIPT")}><Icon name="plus" size={18} /> Nhập kho</button> : null}
+              <div className="ls-toolbar-actions">
+                <a className="button secondary" href="/api/lab-supplies/export?type=stock" download><Icon name="download" size={17} /> Xuất Excel tồn kho</a>
+                {canManage ? <button type="button" className="button secondary" onClick={() => setBatchType("ISSUE")}>Phiếu xuất nhiều dòng</button> : null}
+                {canManage ? <button type="button" className="button secondary" onClick={() => setBatchType("RECEIPT")}>Phiếu nhập nhiều dòng</button> : null}
+                {canManage ? <button className="button primary" onClick={() => openMove("RECEIPT")}><Icon name="plus" size={18} /> Nhập kho</button> : null}
+              </div>
             </div>
             <div className="table-wrap">
               <table>
@@ -435,7 +447,12 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
               <div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo mã, tên, hãng..." /></div>
               <label className="inline-check"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Hiện vật tư ngưng dùng</label>
             </div>
-            {canManage ? <button className="button primary" onClick={() => { setItemForm({ ...EMPTY_ITEM }); setToast(null); }}><Icon name="plus" size={18} /> Thêm vật tư</button> : null}
+            {canManage ? (
+              <div className="ls-toolbar-actions">
+                <button type="button" className="button secondary" onClick={() => setImportOpen(true)}><Icon name="upload" size={17} /> Nhập từ Excel</button>
+                <button className="button primary" onClick={() => { setItemForm({ ...EMPTY_ITEM }); setToast(null); }}><Icon name="plus" size={18} /> Thêm vật tư</button>
+              </div>
+            ) : null}
           </div>
           <div className="table-wrap">
             <table>
@@ -473,8 +490,13 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
                 {(Object.keys(MOVEMENT_LABEL) as MovementType[]).map((t) => <option key={t} value={t}>{MOVEMENT_LABEL[t]}</option>)}
               </select>
             </div>
-            <span className="muted">Hiển thị tối đa 300 dòng gần nhất. Sổ không sửa/xóa được — sai sót sửa bằng phiếu điều chỉnh.</span>
+            <div className="ls-toolbar-actions">
+              <label className="inline-check">Từ <input type="date" max={today} value={ledgerFrom} onChange={(e) => setLedgerFrom(e.target.value)} aria-label="Xuất từ ngày" /></label>
+              <label className="inline-check">đến <input type="date" max={today} value={ledgerTo} onChange={(e) => setLedgerTo(e.target.value)} aria-label="Xuất đến ngày" /></label>
+              <a className="button secondary" href={`/api/lab-supplies/export?type=ledger&from=${ledgerFrom}&to=${ledgerTo}`} download><Icon name="download" size={17} /> Xuất Excel sổ</a>
+            </div>
           </div>
+          <p className="muted tiny ls-kanban-note">Hiển thị tối đa 300 dòng gần nhất; Xuất Excel lấy đủ theo khoảng ngày. Sổ không sửa/xóa được — sai sót sửa bằng phiếu điều chỉnh.</p>
           <div className="table-wrap">
             <table>
               <thead><tr><th>Ngày</th><th>Loại</th><th>Vật tư</th><th>Lô</th><th>Số lượng</th><th>Số phiếu</th><th>Người nhận / NCC</th><th>Lý do / ghi chú</th><th>Người ghi</th></tr></thead>
@@ -536,6 +558,9 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
         </div>
       ) : null}
 
+      {batchType ? <LabBatchDialog items={items} lots={lots} today={today} initialType={batchType} onClose={() => setBatchType(null)} onSaved={(text) => { setBatchType(null); setToast({ tone: "success", text }); router.refresh(); }} /> : null}
+      {importOpen ? <LabImportDialog onClose={() => setImportOpen(false)} onImported={(text) => { setImportOpen(false); setToast({ tone: "success", text }); router.refresh(); }} /> : null}
+
       {scanOpen ? <LabScanDialog onCode={handleScan} onClose={() => { setScanOpen(false); setScanNotFound(null); }} notFound={scanNotFound} onCreateItem={canManage ? startNewItemFromScan : undefined} /> : null}
 
       {detailItem ? (
@@ -584,6 +609,7 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
                   </tbody>
                 </table>
               </div>
+              <LabItemCard item={detailItem} />
             </div>
             <div className="modal-footer">
               <button type="button" className="button secondary" onClick={() => void printLabel(detailItem)}><Icon name="qr-code" size={17} /> In tem QR</button>
@@ -644,6 +670,16 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
         .lab-supplies .ls-top{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}
         .lab-supplies .ls-top .ls-tabs{margin-bottom:0;flex:1 1 320px}
         .lab-supplies .ls-scan-btn{flex:0 0 auto}
+        .lab-supplies .ls-toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+        .lab-supplies .ls-batch-lines{display:flex;flex-direction:column;gap:8px}
+        .lab-supplies .ls-batch-line{display:grid;grid-template-columns:28px minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 36px;gap:8px;align-items:center}
+        .lab-supplies .ls-batch-line .ls-batch-lot{grid-column:span 3}
+        .lab-supplies .ls-batch-no{font-size:12px;font-weight:800;color:var(--muted);text-align:center}
+        .lab-supplies .ls-import-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+        .lab-supplies .ls-import-actions input[type=file]{width:auto;min-height:0;border:0;padding:0}
+        .lab-supplies .ls-card{border-top:1px solid var(--line);padding-top:12px}
+        .lab-supplies .ls-card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+        @media(max-width:700px){.lab-supplies .ls-batch-line{grid-template-columns:24px minmax(0,1fr) 36px}.lab-supplies .ls-batch-line>*:not(.ls-batch-no):not(.icon-button){grid-column:2}.lab-supplies .ls-batch-line .icon-button{grid-column:3;grid-row:1}}
         .lab-supplies .ls-name-btn{background:none;border:0;padding:0;text-align:left;cursor:pointer;color:inherit}
         .lab-supplies .ls-camera video{width:100%;max-height:300px;border-radius:12px;background:#0f172a;object-fit:cover}
         .lab-supplies .ls-scan-manual{display:grid;gap:10px}
