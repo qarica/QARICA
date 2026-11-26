@@ -94,7 +94,7 @@ describe("phiếu nhiều dòng và quyền: cấu trúc nhất quán UI → API
   const api = read("src/app/api/lab-supplies/movements/batch/route.ts");
   const mig = read("supabase/migrations/20261202000001_lab_supplies_batch_v1.sql");
   const access = read("supabase/migrations/20261202000002_lab_supplies_restrict_access_v1.sql");
-  const dlg = read("src/components/lab-supplies-batch.tsx");
+  const dlg = read("src/components/lab-supplies-voucher.tsx");
   it("API ghi cần lab_supplies.manage, chạy MỘT lệnh RPC cho cả phiếu, báo dòng lỗi", () => {
     expect(api).toContain('labSuppliesContext("lab_supplies.manage")');
     expect(api).toContain("qlcl_lab_supply_batch_receive_v1");
@@ -111,9 +111,9 @@ describe("phiếu nhiều dòng và quyền: cấu trúc nhất quán UI → API
     expect(mig).not.toMatch(/\bdrop table\b|\bdelete from\b|\balter table\b/i);
   });
   it("form gửi đúng trường mà API xử lý (nhập: item_id/lot_number/expiry_date/quantity; xuất/hủy: lot_id/quantity)", () => {
-    expect(dlg).toContain("{ item_id: l.item_id, lot_number: l.lot_number, expiry_date: l.expiry_date, quantity: l.quantity }");
-    expect(dlg).toContain("{ lot_id: l.lot_id, quantity: l.quantity }");
-    expect(dlg).toContain('disabled={type === "ISSUE" && o.expired}');
+    expect(dlg).toContain("item_id: v.item!.id, lot_number: l.lot_number.trim(), expiry_date: l.expiry_date, quantity: l.quantity");
+    expect(dlg).toContain("v.allocations.map((a) => ({ lot_id: a.lot_id, quantity: String(a.quantity) }))");
+    expect(dlg).toContain('"/api/lab-supplies/movements/batch"');
   });
   it("giới hạn quyền xem: gỡ lab_supplies.* khỏi mọi vai trò trừ ADMIN/SYSTEM_ADMIN, không gắn cứng tài khoản", () => {
     expect(access).toContain("r.code not in ('ADMIN', 'SYSTEM_ADMIN')");

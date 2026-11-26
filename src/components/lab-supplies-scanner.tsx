@@ -108,9 +108,15 @@ function CameraScanner({ onCode }: { onCode: (code: string) => void }) {
   );
 }
 
-export function LabScanDialog({ onCode, onClose, notFound, onCreateItem }: { onCode: (code: string) => void; onClose: () => void; notFound: string | null; onCreateItem?: (code: string) => void }) {
+// continuous: ở màn Nhập/Xuất, quét xong KHÔNG đóng — camera tự quét tiếp để thêm dòng liên tục; `feedback` hiện kết quả lần quét trước.
+export function LabScanDialog({ onCode, onClose, notFound, onCreateItem, continuous = false, feedback = null }: { onCode: (code: string) => void; onClose: () => void; notFound: string | null; onCreateItem?: (code: string) => void; continuous?: boolean; feedback?: string | null }) {
   const [manual, setManual] = useState("");
   const [camera, setCamera] = useState(true);
+  const [camKey, setCamKey] = useState(0);
+  const handleCode = (code: string) => {
+    onCode(code);
+    if (continuous) setTimeout(() => setCamKey((k) => k + 1), 900);
+  };
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -121,7 +127,7 @@ export function LabScanDialog({ onCode, onClose, notFound, onCreateItem }: { onC
     e.preventDefault();
     const code = normalizeScanCode(manual);
     if (!code) return;
-    onCode(code);
+    handleCode(code);
     setManual("");
   }
 
@@ -136,6 +142,7 @@ export function LabScanDialog({ onCode, onClose, notFound, onCreateItem }: { onC
           <button type="button" className="icon-button" onClick={onClose} aria-label="Đóng"><Icon name="x" /></button>
         </div>
         <div className="modal-body form-stack">
+          {feedback ? <div className="alert success">{feedback}</div> : null}
           {notFound ? (
             <div className="alert error">
               Không tìm thấy vật tư có mã “{notFound}”. Kiểm tra lại mã{onCreateItem ? " hoặc thêm vật tư mới gắn mã này" : ""}.
@@ -151,7 +158,7 @@ export function LabScanDialog({ onCode, onClose, notFound, onCreateItem }: { onC
           </form>
           {camera ? (
             <>
-              <CameraScanner onCode={onCode} />
+              <CameraScanner key={camKey} onCode={handleCode} />
               <button type="button" className="button tertiary small" onClick={() => setCamera(false)}>Tắt camera</button>
             </>
           ) : (

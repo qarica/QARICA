@@ -133,27 +133,36 @@ describe("Trang /lab-supplies, điều hướng độc lập và UI", () => {
   });
 
   const client = read("src/components/lab-supplies-client.tsx");
+  // Giao diện được tách theo màn hình (tab); các kiểm tra cấu trúc quét chung trên tất cả file giao diện của kho.
+  const UI_FILES = ["client", "voucher", "detail", "stock", "ledger", "stocktake", "catalog", "scanner", "import-dialog", "item-card"].map((n) => `src/components/lab-supplies-${n}.tsx`);
+  const ui = UI_FILES.map((f) => read(f)).join("\n");
 
   it("đúng quy ước UI của repo: .table-wrap, .modal-head, .inline-check, không styled-jsx", () => {
-    expect(client).toContain('<div className="table-wrap">');
-    expect(client).toMatch(/className="modal-card[^"]*"[\s\S]{0,40}<div className="modal-head">/);
-    expect(client).toContain('<label className="inline-check">');
-    expect(client).not.toMatch(/<label>\s*<input type="checkbox"/);
-    expect(client).not.toContain("<style jsx");
+    expect(ui).toContain('<div className="table-wrap">');
+    expect(ui).toMatch(/className="modal-card[^"]*"[\s\S]{0,60}<div className="modal-head">/);
+    expect(ui).toContain('className="inline-check"');
+    expect(ui).not.toMatch(/<label>\s*<input type="checkbox"/);
+    expect(ui).not.toContain("<style jsx");
     expect(client).toContain(".lab-supplies .ls-tabs");
   });
 
-  it("nhất quán form → body → API: các trường form xuất kho/nhập kho đều được gửi lên", () => {
-    for (const field of ["movement_type", "quantity", "movement_date", "reference_no", "counterparty", "note", "item_id", "lot_number", "expiry_date", "lot_id", "reason_code"]) {
-      expect(client, field).toContain(field);
+  it("nhất quán form → body → API: các trường phiếu nhập/xuất đều được gửi lên", () => {
+    const voucher = read("src/components/lab-supplies-voucher.tsx");
+    for (const field of ["movement_type", "movement_date", "reference_no", "counterparty", "note", "item_id", "lot_number", "expiry_date", "lot_id", "reason_code", "quantity"]) {
+      expect(voucher, field).toContain(field);
     }
-    const route = read("src/app/api/lab-supplies/movements/route.ts");
-    for (const field of ["lot_number", "expiry_date", "reference_no", "counterparty", "reason_code", "lot_id", "item_id"]) {
-      expect(route, field).toContain(`body.${field}`);
+    const route = read("src/app/api/lab-supplies/movements/batch/route.ts");
+    for (const field of ["reference_no", "counterparty", "reason_code", "movement_type", "movement_date", "note"]) {
+      expect(route, field).toContain(`body.${field}`); // trường chung của phiếu
+    }
+    for (const field of ["lot_number", "expiry_date", "lot_id", "item_id", "quantity"]) {
+      expect(route, field).toContain(`l.${field}`); // trường từng dòng
     }
   });
 
-  it("lô đã hết hạn không có nút Xuất dùng trên UI (khớp chặn ở RPC)", () => {
-    expect(client).toContain('r.state !== "EXPIRED" ? <button className="button tertiary small" onClick={() => openMove("ISSUE", r)}>');
+  it("lô đã hết hạn không được xuất dùng trên UI (khớp chặn ở RPC): tự phân bổ bỏ lô hết hạn, ô đổi lô cũng loại", () => {
+    const voucher = read("src/components/lab-supplies-voucher.tsx");
+    expect(voucher).toContain('lotExpiryStatus(x.expiry_date, item.expiry_warning_days, today) !== "EXPIRED"');
+    expect(read("src/lib/lab-supplies.ts")).toContain('mode === "ISSUE" ? ordered.filter((l) => !isExpired(l))');
   });
 });

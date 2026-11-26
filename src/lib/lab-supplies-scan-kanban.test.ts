@@ -71,8 +71,9 @@ describe("mã vạch: form → body → API → SELECT → DB nhất quán", () 
   const patch = read("src/app/api/lab-supplies/items/[id]/route.ts");
   const migration = read("supabase/migrations/20261202000000_lab_supplies_barcode_v1.sql");
   it("form có ô mã vạch, gửi trong body, API xử lý cả tạo mới lẫn sửa, SELECT trả về", () => {
-    expect(client).toContain("barcode: itemForm.barcode.trim() || null");
-    expect(client).toContain("barcode: i.barcode || \"\"");
+    const catalog = read("src/components/lab-supplies-catalog.tsx");
+    expect(catalog).toContain("barcode: form.barcode.trim() || null");
+    expect(catalog).toContain("barcode: i.barcode || \"\"");
     expect(post).toContain("barcode: barcode.value");
     expect(patch).toContain("patch.barcode = barcode.value");
     expect(api).toMatch(/ITEM_SELECT = "id,code,barcode,/);
@@ -95,10 +96,12 @@ describe("mã vạch: form → body → API → SELECT → DB nhất quán", () 
 describe("khung quét và bảng Kanban trên giao diện", () => {
   const client = read("src/components/lab-supplies-client.tsx");
   const scanner = read("src/components/lab-supplies-scanner.tsx");
-  it("có nút Quét mã và tab Kanban bổ sung", () => {
+  it("có nút Quét mã; Kanban là cách xem của Tồn kho (cùng dữ liệu), không còn tab riêng", () => {
     expect(client).toContain("Quét mã</button>");
-    expect(client).toContain('["kanban", "Kanban bổ sung"]');
-    expect(client).toContain("KANBAN_COLUMNS.map((col)");
+    expect(client).not.toContain("Kanban bổ sung");
+    const stock = read("src/components/lab-supplies-stock.tsx");
+    expect(stock).toContain("KANBAN_COLUMNS.map((col)");
+    expect(stock).toContain('onClick={() => setView("kanban")}');
   });
   it("máy quét USB: ô nhập có sẵn, Enter để tra cứu; camera dùng BarcodeDetector rồi @zxing/browser", () => {
     expect(scanner).toContain("Quét hoặc gõ mã vạch / mã vật tư rồi Enter");
@@ -112,7 +115,8 @@ describe("khung quét và bảng Kanban trên giao diện", () => {
   });
   it("mã không tìm thấy: báo rõ, người có quyền quản lý được thêm vật tư mới với mã này", () => {
     expect(scanner).toContain("Không tìm thấy vật tư có mã");
-    expect(client).toContain("onCreateItem={canManage ? startNewItemFromScan : undefined}");
+    expect(client).toContain("onCreateItem={canManage ?");
+    expect(client).toContain("setCatalogSeed({ barcode: code, key: Date.now() })");
   });
   it("kho vẫn độc lập: không import module khác ngoài hạ tầng chung", () => {
     for (const f of [client, scanner]) expect(f).not.toMatch(/procurement|medical-equipment|emr-|procedure-training|incident/);
