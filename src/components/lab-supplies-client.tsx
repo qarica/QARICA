@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { LabAlertBanner } from "@/components/lab-supplies-alerts";
 import { LabCatalog } from "@/components/lab-supplies-catalog";
 import { LabItemDetail } from "@/components/lab-supplies-detail";
 import { LabLedger } from "@/components/lab-supplies-ledger";
@@ -11,7 +12,7 @@ import { LabStock } from "@/components/lab-supplies-stock";
 import { LabStocktake } from "@/components/lab-supplies-stocktake";
 import { num, type Closing, type Item, type Lot, type Movement, type Toast } from "@/components/lab-supplies-types";
 import { LabVoucher, type VoucherIncoming } from "@/components/lab-supplies-voucher";
-import { findItemByScan } from "@/lib/lab-supplies";
+import { findItemByScan, type KanbanColumnKey } from "@/lib/lab-supplies";
 
 // KHO HÓA CHẤT & VTYT XN — bố cục theo ĐÚNG LUỒNG VIỆC của thủ kho:
 //   Tồn kho (xem còn gì, cần làm gì) → Nhập kho (hàng về) → Xuất kho (cấp phát/hủy) → Kiểm kê & chốt kỳ → Sổ kho & báo cáo → Danh mục (thiết lập).
@@ -42,6 +43,7 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
 
   const tabs: Tab[] = canManage ? ["stock", "receipt", "issue", "stocktake", "ledger", "catalog"] : ["stock", "ledger", "catalog"];
   const detailItem = detailId ? itemById.get(detailId) : undefined;
+  const [stockFilter, setStockFilter] = useState<{ key: number; value: KanbanColumnKey } | null>(null);
   const voucherTab = tab === "receipt" || tab === "issue";
   // Giữ nháp: các tab nhập liệu (phiếu nhập, phiếu xuất, kiểm kê) đã mở một lần thì giữ nguyên trạng thái khi chuyển tab, chỉ ẩn đi.
   const [visited, setVisited] = useState<Set<Tab>>(() => new Set<Tab>());
@@ -116,8 +118,9 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
       </nav>
 
       {toast ? <div className={`alert ${toast.tone}`} role="status">{toast.text}</div> : null}
+      <LabAlertBanner items={items} lots={lots} today={today} onPick={(value) => { setStockFilter({ key: Date.now(), value }); changeTab("stock"); }} />
 
-      {tab === "stock" ? <LabStock items={items} lots={lots} today={today} canManage={canManage} search={search} onOpen={setDetailId} onReceive={(i) => toVoucher("RECEIPT", i)} onIssue={(i) => toVoucher("ISSUE", i)} /> : null}
+      {tab === "stock" ? <LabStock items={items} lots={lots} today={today} canManage={canManage} search={search} filterReq={stockFilter} onOpen={setDetailId} onReceive={(i) => toVoucher("RECEIPT", i)} onIssue={(i) => toVoucher("ISSUE", i)} /> : null}
       {keep("receipt") && canManage ? <div style={hiddenStyle("receipt")}><LabVoucher kind="RECEIPT" items={items} lots={lots} movements={movements} today={today} incoming={incoming} onConsumed={clearIncoming} onDone={done} /></div> : null}
       {keep("issue") && canManage ? <div style={hiddenStyle("issue")}><LabVoucher kind="ISSUE" items={items} lots={lots} movements={movements} today={today} incoming={incoming} onConsumed={clearIncoming} onDone={done} /></div> : null}
       {keep("stocktake") && canManage ? <div style={hiddenStyle("stocktake")}><LabStocktake lots={lots} itemById={itemById} today={today} lastClosing={lastClosing} canManage={canManage} onDone={done} onError={fail} /></div> : null}
@@ -169,6 +172,15 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
         .lab-supplies .ls-note{padding:0 19px 8px;margin:0}
         .lab-supplies .ls-form-pad{padding:0 19px 19px;display:flex;flex-direction:column;gap:14px}
         .lab-supplies .ls-num{text-align:right;font-variant-numeric:tabular-nums}
+        .lab-supplies .ls-alert-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;border:1px solid #fcd34d;background:#fffbeb;border-radius:10px;padding:8px 12px}
+        .lab-supplies .ls-alert-title{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#92400e}
+        .lab-supplies .ls-alert-items{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 auto;min-width:0}
+        .lab-supplies .ls-alert-item{border:1px solid transparent;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer;text-align:left;line-height:1.4}
+        .lab-supplies .ls-alert-item.danger{background:#fee2e2;color:#b91c1c;border-color:#fecaca}
+        .lab-supplies .ls-alert-item.warning{background:#fef3c7;color:#92400e;border-color:#fde68a}
+        .lab-supplies .ls-alert-item.info{background:#dbeafe;color:#1e40af;border-color:#bfdbfe}
+        .lab-supplies .ls-alert-item:hover{filter:brightness(.96)}
+        .lab-supplies .ls-alert-link{font-size:12px;font-weight:600;color:#1e3a5f;text-decoration:underline;white-space:nowrap}
         .lab-supplies .ls-adjust-form .ls-head-grid{padding:4px 20px 12px}
         .lab-supplies .ls-date{position:relative;display:flex;align-items:center;min-width:0}
         .lab-supplies .ls-date>input[type=text]{width:100%;padding-right:36px}
