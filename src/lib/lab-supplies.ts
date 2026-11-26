@@ -269,3 +269,37 @@ export function maskVnDate(raw: string): string {
 export function fmtDateFile(iso: string): string {
   return fmtDate(iso).replace(/\//g, "-");
 }
+
+export type StockAlertSummary = {
+  /** Số vật tư theo từng mức khẩn (cùng cách phân loại với các ô đếm của Tồn kho). */
+  items: Record<"EXPIRED" | "OUT" | "LOW" | "EXPIRING", number>;
+  /** Số lô còn tồn đã hết hạn / sắp hết hạn. */
+  expiredLots: number;
+  expiringLots: number;
+  total: number;
+};
+
+/** Tóm tắt việc cần nhắc (hết hạn, hết hàng, dưới định mức, sắp hết hạn) — dùng cho banner nhắc trong Kho, không cần lịch chạy nền. */
+export function summarizeStockAlerts(
+  items: { id: string; is_active: boolean; min_stock: number | string; expiry_warning_days: number }[],
+  lots: { item_id: string; expiry_date: string | null; balance: number | string }[],
+  today: string,
+): StockAlertSummary {
+  const byItem = new Map<string, typeof lots>();
+  for (const l of lots) if (Number(l.balance) > 0) byItem.set(l.item_id, [...(byItem.get(l.item_id) || []), l]);
+  const out: StockAlertSummary = { items: { EXPIRED: 0, OUT: 0, LOW: 0, EXPIRING: 0 }, expiredLots: 0, expiringLots: 0, total: 0 };
+  for (const item of items) {
+    const itemLots = byItem.get(item.id) || [];
+    const totalQty = itemLots.reduce((s, l) => s + Number(l.balance), 0);
+    if (!item.is_active && totalQty <= 0) continue; // vật tư ngưng dùng và hết tồn: không nhắc
+    const states = itemLots.map((l) => lotExpiryStatus(l.expiry_date, item.expiry_warning_days, today));
+    const expired = states.filter((s) => s === "EXPIRED").length;
+    const expiring = states.filter((s) => s === "EXPIRING").length;
+    out.expiredLots += expired;
+    out.expiringLots += expiring;
+    const column = kanbanColumnFor(itemStockStatus(totalQty, Number(item.min_stock)), expired, expiring);
+    if (column !== "OK") out.items[column] += 1;
+  }
+  out.total = out.items.EXPIRED + out.items.OUT + out.items.LOW + out.items.EXPIRING;
+  return out;
+}
