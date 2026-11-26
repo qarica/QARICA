@@ -80,10 +80,10 @@ describe("Trang /infection-control và /infection-control/hand-hygiene, điều 
     expect(hhPage).toContain('requirePermission(user, "infection_control.view")');
   });
 
-  it("navigation.ts có nhóm KIỂM SOÁT NHIỄM KHUẨN với 2 mục con, gắn đúng quyền xem", () => {
+  it("navigation.ts có nhóm Kiểm soát nhiễm khuẩn với 2 mục con, gắn đúng quyền xem", () => {
     const nav = read("src/lib/navigation.ts");
     expect(nav).toContain('id: "infection-control"');
-    expect(nav).toContain('label: "KIỂM SOÁT NHIỄM KHUẨN"');
+    expect(nav).toContain('label: "Kiểm soát nhiễm khuẩn"');
     expect(nav).toContain('href: "/infection-control"');
     expect(nav).toContain('href: "/infection-control/hand-hygiene"');
     expect(nav).toContain('permission: "infection_control.view"');

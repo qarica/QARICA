@@ -20,10 +20,13 @@ describe("Dashboard — thêm cảnh báo 'văn bản cần xem xét lại' (doc
     );
   });
 
-  it("thêm vào mảng alerts (Cảnh báo & công việc cần chú ý) khi có văn bản quá hạn, trỏ đúng /document-publications", () => {
-    expect(dashboard).toContain(
-      'docReviewOverdue > 0 ? { icon: "file-text", tone: "red", title: `${docReviewOverdue} văn bản cần xem xét lại`, sub: "Đã quá hạn rà soát định kỳ", when: today, href: "/document-publications" } : null,',
-    );
+  // 2026-11-13: mảng "alerts" cũ được promote thành buildQualityAlertItems
+  // (src/lib/quality-alert-strip.ts, test riêng ở quality-alert-strip.test.ts
+  // đã khẳng định đúng tone đỏ/title/href cho văn bản quá hạn) — ở đây chỉ
+  // cần xác nhận Dashboard truyền đúng docReviewOverdue vào hàm đó.
+  it("truyền docReviewOverdue vào buildQualityAlertItems (Cảnh báo & công việc cần chú ý) — tone/title/href đúng cho văn bản quá hạn đã test ở quality-alert-strip.test.ts", () => {
+    expect(dashboard).toContain('import { buildQualityAlertItems } from "@/lib/quality-alert-strip";');
+    expect(dashboard).toContain("docReviewOverdueCount: docReviewOverdue,");
   });
 
   it("docPublicationsRes được gộp vào firstError để không nuốt lỗi truy vấn", () => {

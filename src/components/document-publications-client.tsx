@@ -1,7 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { Fragment, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
+import { DOCUMENT_FILE_BUCKET, DOCUMENT_FILE_MAX_SIZE, DOCUMENT_FILE_MAX_SIZE_LABEL } from "@/lib/document-publication-file-limits";
+import { EVIDENCE_ALLOWED_EXTENSIONS, evidenceFilePolicy } from "@/lib/evidence-file-policy";
+import { createClient } from "@/lib/supabase/client";
 import {
   DISSEMINATION_TYPE_LABEL,
   DISSEMINATION_TYPES,
@@ -45,6 +49,7 @@ type VersionRow = {
   document_code: string | null;
   effective_date: string | null;
   file_name: string | null;
+  has_file?: boolean;
   created_by: string;
   created_at: string;
 };
@@ -124,7 +129,15 @@ export function DocumentPublicationsClient({
   // tìm kiếm riêng (lọc trong từng thư mục, không gộp phẳng) để tra nhanh
   // khi số văn bản tăng lên, không phải bấm mở từng thư mục dò bằng mắt.
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
-  const [fileBusyId, setFileBusyId] = useState<string | null>(null);
+  // Báo cáo thực tế: "Lỗi ko đính nhiều file lên cùng lúc, đính cái này thì
+  // cái kia ngưng" — fileBusyId trước đây là 1 giá trị DÙNG CHUNG cho mọi
+  // dòng (string | null), không phải theo từng dòng. Đính/xem/xoá file ở
+  // dòng A xong rồi bấm sang dòng B TRƯỚC KHI dòng A xong, fileBusyId bị
+  // ghi đè sang id của B — dòng A mất luôn trạng thái "đang xử lý" (nút hết
+  // disabled) dù request vẫn đang chạy ngầm, nhìn như bị dừng/đứng giữa
+  // chừng. Đổi sang Set<string> để nhiều dòng cùng "đang xử lý" độc lập,
+  // không dòng nào đè mất trạng thái của dòng khác.
+  const [fileBusyIds, setFileBusyIds] = useState<Set<string>>(new Set());
   const [libraryQuery, setLibraryQuery] = useState("");
 
   // Sửa thông tin 1 văn bản đã tạo — chữa lỗi gõ nhầm tên/đơn vị soạn thảo/
@@ -412,12 +425,21 @@ export function DocumentPublicationsClient({
     });
   }
 
+  function markFileBusy(docId: string, busy: boolean) {
+    setFileBusyIds((v) => {
+      const next = new Set(v);
+      if (busy) next.add(docId);
+      else next.delete(docId);
+      return next;
+    });
+  }
+
   async function viewFile(doc: DocumentPublication) {
-    setFileBusyId(doc.id);
+    markFileBusy(doc.id, true);
     setError("");
     const res = await fetch(`/api/document-publications/${doc.id}/file`);
     const body = await res.json().catch(() => ({}));
-    setFileBusyId(null);
+    markFileBusy(doc.id, false);
     if (!res.ok) {
       setError(body.error || "Không mở được file.");
       return;
@@ -425,28 +447,89 @@ export function DocumentPublicationsClient({
     window.open(body.url, "_blank", "noopener,noreferrer");
   }
 
+  // Đính kèm theo 3 bước, TẢI THẲNG lên storage (không đi qua route Vercel — body
+  // của hàm Vercel bị giới hạn ~4,5 MB nên file lớn hơn trước đây lỗi chung chung):
+  // (1) xin đường dẫn tải có chữ ký, (2) trình duyệt tải thẳng lên Supabase,
+  // (3) server kiểm lại dung lượng/loại file thật rồi mới gắn vào văn bản.
   async function uploadFile(doc: DocumentPublication, file: File) {
-    setFileBusyId(doc.id);
     setError("");
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await fetch(`/api/document-publications/${doc.id}/file`, { method: "POST", body: formData });
-    const body = await res.json().catch(() => ({}));
-    setFileBusyId(null);
-    if (!res.ok) {
-      setError(body.error || "Không tải lên được file.");
+    // Tiền kiểm ở trình duyệt để báo lỗi rõ ràng ngay; server vẫn kiểm lại tất cả.
+    if (file.size <= 0) {
+      setError("File đang trống.");
       return;
     }
-    setDocuments((v) => v.map((d) => (d.id === doc.id ? { ...d, file_name: body.file_name as string } : d)));
+    if (file.size > DOCUMENT_FILE_MAX_SIZE) {
+      setError(`Dung lượng file tối đa là ${DOCUMENT_FILE_MAX_SIZE_LABEL} (file này ${(file.size / 1024 / 1024).toFixed(1)} MB).`);
+      return;
+    }
+    if (!evidenceFilePolicy(file.name)) {
+      setError(`Loại file không được phép. Chỉ chấp nhận: ${EVIDENCE_ALLOWED_EXTENSIONS.join(", ")}.`);
+      return;
+    }
+    markFileBusy(doc.id, true);
+    try {
+      const urlRes = await fetch(`/api/document-publications/${doc.id}/file/upload-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_name: file.name, size: file.size }),
+      });
+      const urlBody = await urlRes.json().catch(() => ({}));
+      if (!urlRes.ok) {
+        setError(urlBody.error || "Không tải lên được file.");
+        return;
+      }
+
+      // Ép type theo chính sách loại file do server cấp (không dùng file.type do trình duyệt tự đoán).
+      const typedFile = new File([file], file.name, { type: urlBody.content_type as string });
+      const { error: uploadError } = await createClient().storage.from(DOCUMENT_FILE_BUCKET).uploadToSignedUrl(urlBody.path as string, urlBody.token as string, typedFile);
+      if (uploadError) {
+        setError(`Không tải được file lên kho lưu trữ: ${uploadError.message}`);
+        return;
+      }
+
+      const confirmRes = await fetch(`/api/document-publications/${doc.id}/file/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: urlBody.path, file_name: file.name }),
+      });
+      const confirmBody = await confirmRes.json().catch(() => ({}));
+      if (!confirmRes.ok) {
+        setError(confirmBody.error || "Không đính kèm được file.");
+        return;
+      }
+      setDocuments((v) => v.map((d) => (d.id === doc.id ? { ...d, file_name: confirmBody.file_name as string } : d)));
+    } catch {
+      setError("Không tải lên được file. Kiểm tra kết nối mạng rồi thử lại.");
+    } finally {
+      markFileBusy(doc.id, false);
+    }
+  }
+
+  // File của PHIÊN BẢN CŨ trong "Lịch sử" (lưu lại khi văn bản phát hành phiên bản
+  // mới) — khóa theo id của chính dòng lịch sử, không đụng trạng thái bận của dòng văn bản.
+  async function viewVersionFile(doc: DocumentPublication, version: VersionRow) {
+    markFileBusy(version.id, true);
+    setHistoryError("");
+    try {
+      const res = await fetch(`/api/document-publications/${doc.id}/versions/${version.id}/file`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setHistoryError(body.error || "Không mở được file của phiên bản này.");
+        return;
+      }
+      window.open(body.url, "_blank", "noopener,noreferrer");
+    } finally {
+      markFileBusy(version.id, false);
+    }
   }
 
   async function removeFile(doc: DocumentPublication) {
     if (!window.confirm(`Xoá file đính kèm của "${doc.title}"?`)) return;
-    setFileBusyId(doc.id);
+    markFileBusy(doc.id, true);
     setError("");
     const res = await fetch(`/api/document-publications/${doc.id}/file`, { method: "DELETE" });
     const body = await res.json().catch(() => ({}));
-    setFileBusyId(null);
+    markFileBusy(doc.id, false);
     if (!res.ok) {
       setError(body.error || "Không xoá được file.");
       return;
@@ -636,7 +719,7 @@ export function DocumentPublicationsClient({
               ) : null}
             </div>
           ) : null}
-          <input className="input" placeholder="Tên văn bản..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
+          <input className="input" aria-label="Tên văn bản" placeholder="Tên văn bản..." value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
           <div className="dp-form-row">
             <select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value as DocumentPublicationType)}>
               {DOCUMENT_TYPES.map((t) => (
@@ -673,8 +756,8 @@ export function DocumentPublicationsClient({
           </div>
           <button type="button" className="button secondary mobile-form-toggle" aria-expanded={directPublishOpen} onClick={() => setDirectPublishOpen((v) => !v)}>{directPublishOpen ? "Thu gọn" : "+ Nhập văn bản đã có"}</button>
           <div className={directPublishOpen ? "dp-form mobile-collapsible-form is-open" : "dp-form mobile-collapsible-form"}>
-            <input className="input" placeholder="Mã văn bản..." value={directDocumentCode} onChange={(e) => setDirectDocumentCode(e.target.value)} />
-            <input className="input" placeholder="Tên văn bản..." value={directTitle} maxLength={300} onChange={(e) => setDirectTitle(e.target.value)} />
+            <input className="input" aria-label="Mã văn bản" placeholder="Mã văn bản..." value={directDocumentCode} onChange={(e) => setDirectDocumentCode(e.target.value)} />
+            <input className="input" aria-label="Tên văn bản" placeholder="Tên văn bản..." value={directTitle} maxLength={300} onChange={(e) => setDirectTitle(e.target.value)} />
             <div className="dp-form-row">
               <input className="input" type="date" value={directEffectiveDate} onChange={(e) => setDirectEffectiveDate(e.target.value)} />
               <input className="input" placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={directVersionLabel} onChange={(e) => setDirectVersionLabel(e.target.value)} />
@@ -734,7 +817,7 @@ export function DocumentPublicationsClient({
                   </small>
                   {publishingId === d.id ? (
                     <div className="dp-publish-form">
-                      <input className="input" placeholder="Mã văn bản..." value={documentCode} onChange={(e) => setDocumentCode(e.target.value)} />
+                      <input className="input" aria-label="Mã văn bản" placeholder="Mã văn bản..." value={documentCode} onChange={(e) => setDocumentCode(e.target.value)} />
                       <input className="input" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
                       <input className="input" placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={versionLabel} onChange={(e) => setVersionLabel(e.target.value)} />
                       <select className="input dp-publish-dissemination" value={disseminationType} onChange={(e) => setDisseminationType(e.target.value as DisseminationType)}>
@@ -760,7 +843,7 @@ export function DocumentPublicationsClient({
                   ) : null}
                   {editingId === d.id ? (
                     <div className="dp-edit-form">
-                      <input className="input" placeholder="Tên văn bản..." value={editTitle} maxLength={300} onChange={(e) => setEditTitle(e.target.value)} />
+                      <input className="input" aria-label="Tên văn bản" placeholder="Tên văn bản..." value={editTitle} maxLength={300} onChange={(e) => setEditTitle(e.target.value)} />
                       <div className="dp-form-row">
                         <select className="input" value={editDocumentType} onChange={(e) => setEditDocumentType(e.target.value as DocumentPublicationType)}>
                           {DOCUMENT_TYPES.map((t) => (
@@ -905,7 +988,24 @@ export function DocumentPublicationsClient({
                           <Fragment key={d.id}>
                             <tr>
                               <td>{d.document_code || "—"}</td>
-                              <td>{d.title}</td>
+                              <td>
+                                {/* Yêu cầu thực tế: văn bản đã có file thì tên đổi màu và bấm vào tên
+                                   để mở file xem luôn; chưa có file thì giữ nguyên như cũ. */}
+                                {d.file_name ? (
+                                  <button
+                                    type="button"
+                                    className="dp-title-link"
+                                    disabled={fileBusyIds.has(d.id)}
+                                    onClick={() => void viewFile(d)}
+                                    title={`Mở file đính kèm: ${d.file_name}`}
+                                    aria-label={`Mở file đính kèm của ${d.title}: ${d.file_name}`}
+                                  >
+                                    {d.title}
+                                  </button>
+                                ) : (
+                                  d.title
+                                )}
+                              </td>
                               <td>{d.version_label}</td>
                               <td>{DOCUMENT_TYPE_LABEL[d.document_type]}</td>
                               <td>{formatDate(d.effective_date)}</td>
@@ -923,35 +1023,42 @@ export function DocumentPublicationsClient({
                                     với "Cần đào tạo" thay vì tách rời 2 nơi. Thư viện văn bản chỉ còn 1
                                     liên kết trỏ sang, giống hệt cách TRAINING_REQUIRED đã làm từ trước. */}
                                 {d.dissemination_type === "TRAINING_REQUIRED" ? (
-                                  <a href="/procedure-trainings" className="dp-dissemination-link">
+                                  <Link href="/procedure-trainings" className="dp-dissemination-link">
                                     Cần đào tạo - xem tiến độ →
-                                  </a>
+                                  </Link>
                                 ) : d.dissemination_type === "SELF_READ" ? (
-                                  <a href="/procedure-trainings" className="dp-dissemination-link">
+                                  <Link href="/tu-doc-hieu" className="dp-dissemination-link">
                                     Tự đọc hiểu - xem tiến độ →
-                                  </a>
+                                  </Link>
                                 ) : (
                                   "—"
                                 )}
                               </td>
                               <td>
+                                {/* Báo cáo thực tế: "Xem làm tương tự như đính kèm công văn" — trước đây
+                                   hiện cả tên file đầy đủ + nút "Xoá file" riêng, chiếm nhiều chỗ ngang
+                                   trong bảng. Đổi sang cùng khuôn mẫu icon-only đã dùng ở incoming-
+                                   documents-client.tsx (.doc-file-icon): có file thì icon tô màu brand,
+                                   bấm để xem; tên file vẫn xem được qua title/aria-label. */}
                                 {d.file_name ? (
                                   <div className="dp-file-cell">
-                                    <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void viewFile(d)}>
-                                      {fileBusyId === d.id ? "..." : (<><Icon name="file-text" size={14} /> {d.file_name}</>)}
+                                    <button
+                                      type="button"
+                                      className="doc-file-icon has-file"
+                                      disabled={fileBusyIds.has(d.id)}
+                                      onClick={() => void viewFile(d)}
+                                      title={d.file_name}
+                                      aria-label={`Xem file đính kèm: ${d.file_name}`}
+                                    >
+                                      <Icon name="paperclip" size={16} />
                                     </button>
-                                    {canManage ? (
-                                      <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void removeFile(d)}>
-                                        Xoá file
-                                      </button>
-                                    ) : null}
                                   </div>
                                 ) : canManage ? (
-                                  <label className="dp-file-input button secondary small">
-                                    {fileBusyId === d.id ? "..." : "+ Đính kèm"}
+                                  <label className="doc-file-icon dp-file-input" title="Đính kèm file" aria-label="Đính kèm file">
+                                    <Icon name="paperclip" size={16} />
                                     <input
                                       type="file"
-                                      disabled={fileBusyId === d.id}
+                                      disabled={fileBusyIds.has(d.id)}
                                       onChange={(e) => {
                                         const file = e.target.files?.[0];
                                         e.target.value = "";
@@ -960,7 +1067,9 @@ export function DocumentPublicationsClient({
                                     />
                                   </label>
                                 ) : (
-                                  "—"
+                                  <span className="doc-file-icon" aria-label="Không có tệp đính kèm" title="Không có tệp đính kèm">
+                                    <Icon name="paperclip" size={16} />
+                                  </span>
                                 )}
                               </td>
                               <td>
@@ -990,6 +1099,7 @@ export function DocumentPublicationsClient({
                                             <th>Ngày hiệu lực</th>
                                             <th>Người phát hành</th>
                                             <th>Thời điểm</th>
+                                            <th>Tệp</th>
                                           </tr>
                                         </thead>
                                         <tbody>
@@ -1000,6 +1110,22 @@ export function DocumentPublicationsClient({
                                               <td>{formatDate(v.effective_date)}</td>
                                               <td>{staffNameById.get(v.created_by) || "—"}</td>
                                               <td>{new Date(v.created_at).toLocaleString("vi-VN")}</td>
+                                              <td>
+                                                {v.has_file ? (
+                                                  <button
+                                                    type="button"
+                                                    className="doc-file-icon has-file"
+                                                    disabled={fileBusyIds.has(v.id)}
+                                                    onClick={() => void viewVersionFile(d, v)}
+                                                    title={`Mở file của phiên bản ${v.version_label}: ${v.file_name || ""}`}
+                                                    aria-label={`Mở file của phiên bản ${v.version_label}`}
+                                                  >
+                                                    <Icon name="paperclip" size={16} />
+                                                  </button>
+                                                ) : (
+                                                  "—"
+                                                )}
+                                              </td>
                                             </tr>
                                           ))}
                                         </tbody>
@@ -1015,7 +1141,7 @@ export function DocumentPublicationsClient({
                               <tr key={`${d.id}-edit`}>
                                 <td colSpan={9}>
                                   <div className="dp-edit-form">
-                                    <input className="input" placeholder="Tên văn bản..." value={editTitle} maxLength={300} onChange={(e) => setEditTitle(e.target.value)} />
+                                    <input className="input" aria-label="Tên văn bản" placeholder="Tên văn bản..." value={editTitle} maxLength={300} onChange={(e) => setEditTitle(e.target.value)} />
                                     <div className="dp-form-row">
                                       <select className="input" value={editDocumentType} onChange={(e) => setEditDocumentType(e.target.value as DocumentPublicationType)}>
                                         {DOCUMENT_TYPES.map((t) => (
@@ -1034,6 +1160,14 @@ export function DocumentPublicationsClient({
                                     </div>
                                     <input className="input" placeholder="Người đề nghị (tùy chọn)" value={editRequestedByName} onChange={(e) => setEditRequestedByName(e.target.value)} />
                                     <textarea className="input" rows={2} placeholder="Lý do (tùy chọn)..." value={editReason} onChange={(e) => setEditReason(e.target.value)} />
+                                    {d.file_name ? (
+                                      <div className="dp-edit-file">
+                                        <span className="dp-edit-file-name">File đính kèm: {d.file_name}</span>
+                                        <button type="button" className="button danger small" disabled={fileBusyIds.has(d.id)} onClick={() => void removeFile(d)}>
+                                          Xoá file
+                                        </button>
+                                      </div>
+                                    ) : null}
                                     {editError ? <div className="alert error">{editError}</div> : null}
                                     <div className="dp-publish-actions">
                                       <button
@@ -1338,6 +1472,52 @@ export function DocumentPublicationsClient({
           min-height: 0;
           opacity: 0;
           cursor: pointer;
+        }
+        /* Cùng khuôn mẫu .doc-file-icon đã dùng ở incoming-documents-client.tsx
+           ("Đính kèm chỉ cần hiện icon — có tệp thì hiện nổi xanh, ko có thì
+           chìm thôi, thu gọn cột") — áp dụng lại ở đây theo yêu cầu "làm tương
+           tự như đính kèm công văn". */
+        .doc-file-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 0;
+          background: transparent;
+          padding: 0;
+          color: var(--muted);
+        }
+        .doc-file-icon.has-file {
+          color: var(--brand);
+          cursor: pointer;
+        }
+        .dp-title-link {
+          border: 0;
+          background: transparent;
+          padding: 0;
+          margin: 0;
+          font: inherit;
+          text-align: left;
+          color: var(--brand);
+          font-weight: 700;
+          cursor: pointer;
+        }
+        .dp-title-link:hover {
+          text-decoration: underline;
+        }
+        .dp-edit-file {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+          padding: 8px 10px;
+          border: 1px dashed var(--line);
+          border-radius: 10px;
+        }
+        .dp-edit-file-name {
+          font-size: 12px;
+          color: var(--muted);
+          overflow-wrap: anywhere;
         }
         @media (max-width: 760px) {
           .dp-form-row,

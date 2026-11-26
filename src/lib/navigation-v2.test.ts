@@ -25,7 +25,6 @@ const GROUP_IDS = [
   "medical-equipment",
   "lab-supplies",
   "infection-control",
-  "work-plans",
   "system-config",
 ];
 
@@ -43,16 +42,22 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 11 primary groups (Việc của tôi/Sổ tay cá nhân are intentionally not sidebar groups — see the topbar and floating-capture tests below)", () => {
+  it("defines exactly 12 primary groups (Việc của tôi is intentionally not a sidebar group — see the topbar test below; Kế hoạch công việc removed from the sidebar by explicit request, 2026-11-13)", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no additional group ids besides these eleven
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(13);
-    expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
-    expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
-    expect(navigation).toContain('label: "QUẢN LÝ HSBA"');
-    expect(navigation).toContain('label: "BỆNH ÁN ĐIỆN TỬ"');
-    expect(navigation).toContain('label: "QUẢN LÝ VĂN BẢN"');
-    expect(navigation).toContain('label: "CẤU HÌNH HỆ THỐNG"');
+    // no additional group ids besides these twelve
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(12);
+    expect(navigation).not.toContain('id: "work-plans"');
+    expect(navigation).toContain('label: "Điều hành chất lượng"');
+    expect(navigation).toContain('label: "Quản lý chất lượng"');
+    expect(navigation).toContain('label: "Quản lý HSBA"');
+    expect(navigation).toContain('label: "Bệnh án điện tử"');
+    expect(navigation).toContain('label: "Quản lý văn bản"');
+    expect(navigation).toContain('label: "Cấu hình hệ thống"');
+    // top-level labels read as normal Title Case, not ALL CAPS (explicit
+    // request, 2026-11-13) — none of the old all-caps group labels survive.
+    for (const old of ["ĐIỀU HÀNH CHẤT LƯỢNG", "QUẢN LÝ CHẤT LƯỢNG", "QUẢN LÝ HSBA", "BỆNH ÁN ĐIỆN TỬ", "QUẢN LÝ HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "QUẢN LÝ VĂN BẢN", "MUA SẮM & SỬA CHỮA", "QUẢN LÝ TTBYT", "KIỂM SOÁT NHIỄM KHUẨN", "KHO HÓA CHẤT XÉT NGHIỆM", "CẤU HÌNH HỆ THỐNG"]) {
+      expect(navigation).not.toContain(`label: "${old}"`);
+    }
   });
 
   it("orders the main (non-footer) groups exactly as requested: điều hành chất lượng, quản lý chất lượng, bệnh án điện tử, audit nội bộ KHTH, theo dõi hành nghề, quản lý công văn, quản lý văn bản, mua sắm & sửa chữa", () => {
@@ -102,11 +107,11 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(navigation).not.toContain('label: "CÁ NHÂN & VIỆC CỦA TÔI"');
   });
 
-  it("promotes MUA SẮM & SỬA CHỮA, QUẢN LÝ CÔNG VĂN and QUẢN LÝ HSBA to their own top-level single-item groups, written in caps to match the other level-1 menus", () => {
+  it("promotes Mua sắm & sửa chữa, Quản lý công văn and Quản lý HSBA to their own top-level single-item groups, in normal Title Case to match the other level-1 menus", () => {
     const expectations: [string, string, string][] = [
-      ["procurement", "MUA SẮM & SỬA CHỮA", "/procurement"],
-      ["incoming-documents", "QUẢN LÝ CÔNG VĂN", "/incoming-documents"],
-      ["hsba-audit", "QUẢN LÝ HSBA", "/hsba-audit"],
+      ["procurement", "Mua sắm & sửa chữa", "/procurement"],
+      ["incoming-documents", "Quản lý công văn", "/incoming-documents"],
+      ["hsba-audit", "Quản lý HSBA", "/hsba-audit"],
     ];
     for (const [id, label, href] of expectations) {
       const block = groupBlock(navigation, id);
@@ -124,7 +129,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   it("gộp THEO DÕI HÀNH NGHỀ và HỒ SƠ NĂNG LỰC HÀNH NGHỀ thành 2 mục con của 1 nhóm QUẢN LÝ HÀNH NGHỀ duy nhất (không còn là 2 nhóm cấp 1 tách rời)", () => {
     expect(navigation).not.toContain('id: "practitioner-credentials"');
     const block = groupBlock(navigation, "physician-license");
-    expect(block).toContain('label: "QUẢN LÝ HÀNH NGHỀ"');
+    expect(block).toContain('label: "Quản lý hành nghề"');
     expect(block).toContain('{ label: "Theo dõi hạn đăng ký hành nghề", href: "/physician-license", icon: "badge-check", permission: "physician_license.view" }');
     expect(block).toContain('{ label: "Hồ sơ năng lực hành nghề", href: "/practitioner-credentials", icon: "folder-check", permission: "practitioner_credentials.view" }');
   });
@@ -137,9 +142,10 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   it("gộp KIỂM SOÁT TÀI LIỆU và ĐÀO TẠO QUY TRÌNH thành 2 mục con của 1 nhóm QUẢN LÝ VĂN BẢN duy nhất (không còn là 2 nhóm cấp 1 tách rời)", () => {
     expect(navigation).not.toContain('id: "procedure-training"');
     const block = groupBlock(navigation, "document-publications");
-    expect(block).toContain('label: "QUẢN LÝ VĂN BẢN"');
+    expect(block).toContain('label: "Quản lý văn bản"');
     expect(block).toContain('{ label: "Kiểm soát tài liệu", href: "/document-publications", icon: "file-text", permission: "document_publication.view" }');
-    expect(block).toContain('{ label: "Phổ biến & đào tạo", href: "/procedure-trainings", icon: "book-open", anyPermissions: ["procedure_training.view", "document_publication.view"] }');
+    expect(block).toContain('{ label: "Đào tạo", href: "/procedure-trainings", icon: "book-open", anyPermissions: ["procedure_training.view", "document_publication.view"] }');
+    expect(block).toContain('{ label: "Tự đọc hiểu", href: "/tu-doc-hieu", icon: "clipboard-check", anyPermissions: ["procedure_training.view", "document_publication.view"] }');
   });
 
   // Module mới theo yêu cầu tường minh "Kiểm soát nhiễm khuẩn" — phạm vi đã
@@ -148,7 +154,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   // không làm riêng để tránh trùng lặp.
   it("nhóm KIỂM SOÁT NHIỄM KHUẨN có 2 mục con: Giám sát nhiễm khuẩn bệnh viện và Giám sát vệ sinh tay", () => {
     const block = groupBlock(navigation, "infection-control");
-    expect(block).toContain('label: "KIỂM SOÁT NHIỄM KHUẨN"');
+    expect(block).toContain('label: "Kiểm soát nhiễm khuẩn"');
     expect(block).toContain('{ label: "Giám sát nhiễm khuẩn bệnh viện", href: "/infection-control", icon: "shield-alert", permission: "infection_control.view" }');
     expect(block).toContain('{ label: "Giám sát vệ sinh tay", href: "/infection-control/hand-hygiene", icon: "droplets", permission: "infection_control.view" }');
   });
@@ -160,18 +166,21 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(shell).toContain('aria-label="Việc của tôi"');
   });
 
-  // Báo cáo thực tế: "Mất chổ xem sổ ghi chú" — chỉ có GlobalQuickCapture
-  // (FAB góc dưới phải, icon bút — gợi ý viết mới) với 1 icon nhỏ book-open
-  // bên trong panel dẫn tới /me; không có cách nào trực tiếp/luôn hiện để
-  // XEM LẠI sổ tay. Thêm nút topbar riêng, không gate theo permission nào
-  // (khớp /me/page.tsx không yêu cầu permission riêng).
-  it("puts Sổ tay cá nhân (/me) in the topbar too, next to Việc của tôi, unconditional for any signed-in user", () => {
-    expect(shell).toContain('<Link href="/me" prefetch={true} className="icon-button header-icon notebook-launcher" onClick={() => startNavigation("/me")} title="Sổ tay cá nhân" aria-label="Sổ tay cá nhân"><Icon name="book-open" size={18} /></Link>');
+  // Explicit request (2026-11-13): "Xoá luôn menu cá nhân ko giữ riêng" —
+  // the dedicated "Sổ tay cá nhân" (/me) topbar icon button is removed; /me
+  // itself still exists and works, it just has no dedicated entry point
+  // anymore.
+  it("no longer puts a dedicated Sổ tay cá nhân (/me) icon button in the topbar", () => {
+    expect(shell).not.toContain("notebook-launcher");
+    expect(shell).not.toContain('title="Sổ tay cá nhân"');
   });
 
-  it("renders the floating quick-capture button (GlobalQuickCapture) in the protected layout, so a note or to-do can be captured from any screen without navigating away first", () => {
-    expect(layout).toContain('import { GlobalQuickCapture } from "@/components/global-quick-capture";');
-    expect(layout).toContain("<GlobalQuickCapture userId={user.id} organizationId={user.organizationId} />");
+  // Explicit request (2026-11-13): "Ẩn luôn nút nổi viết ghi chú vì ko cần
+  // thiết" — the floating quick-capture button (GlobalQuickCapture) is no
+  // longer rendered in the protected layout. The component file itself is
+  // left untouched (see the test below) in case it is re-enabled later.
+  it("no longer renders the floating quick-capture button (GlobalQuickCapture) in the protected layout", () => {
+    expect(layout).not.toContain("GlobalQuickCapture");
   });
 
   it("GlobalQuickCapture creates either a private knowledge note (reusing the existing POST /api/knowledge contract) or a personal_reminders row (reusing the existing RLS-scoped insert shape), with no new backend route", () => {
@@ -205,9 +214,9 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(block).not.toContain("workspaceRoot: \"/admin\"");
   });
 
-  it("Group — CẤU HÌNH HỆ THỐNG is a footer group, mapping to the existing Admin workspace, with a caps label matching the other level-1 menus", () => {
+  it("Group — Cấu hình hệ thống is a footer group, mapping to the existing Admin workspace, in normal Title Case matching the other level-1 menus", () => {
     const block = groupBlock(navigation, "system-config");
-    expect(block).toContain('label: "CẤU HÌNH HỆ THỐNG", icon: "settings", workspaceRoot: "/admin"');
+    expect(block).toContain('label: "Cấu hình hệ thống", icon: "settings", workspaceRoot: "/admin"');
     expect(block).toContain("footer: true");
   });
 
@@ -370,30 +379,34 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain(".workspace-app .nav-child-link{min-height:44px;padding:11px 10px}");
   });
 
-  it("gives the parent group header stronger visual weight than child links (Level 1 vs Level 2), with high-specificity colors that survive legacy theme !important overrides on the shared .nav-link class", () => {
+  it("gives the parent group header stronger visual weight than child links (Level 1 vs Level 2) via weight/size, with high-specificity rules that survive legacy theme !important overrides on the shared .nav-link class", () => {
     expect(shell).toContain(".nav-group-header{");
     expect(shell).toContain(".nav-group.active-context>.nav-group-header{");
     // .workspace-app.workspace-app doubles specificity so these always win,
     // regardless of stylesheet load order against other files' `.nav-link{color:...!important}` rules
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-header,\.workspace-app\.workspace-app \.nav-group-label\{color:#1d4ed8!important;font-weight:800!important;font-size:14px!important/);
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link,\.workspace-app\.workspace-app \.nav-child-link \.nav-link-label\{color:#1d4ed8!important;font-weight:600!important;font-size:12px!important\}/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-header,\.workspace-app\.workspace-app \.nav-group-label\{color:#475569!important;font-weight:800!important;font-size:14px!important/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link,\.workspace-app\.workspace-app \.nav-child-link \.nav-link-label\{color:#475569!important;font-weight:600!important;font-size:12px!important\}/);
     // parent (14px/800) must be strictly bolder AND larger than child (12px/600)
     expect(14).toBeGreaterThan(12);
     expect(800).toBeGreaterThan(600);
   });
 
-  // Explicit request: the earlier design used a separate lighter-blue hue
-  // (#60a5fa) for Level 2 to set it apart from Level 1's dark navy — dropped
-  // in favor of one navy color everywhere, since the group header's own
-  // uppercase+bold styling already reads as a distinct level from a child
-  // link's sentence-case+lighter weight, without needing a second hue too.
-  it("colors Level 1 (group headers, promoted single-child links) and Level 2 (child links) the same navy — case and weight/size carry the level distinction, not a separate hue", () => {
-    expect(shell).toContain(".nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#1d4ed8!important");
-    expect(shell).toContain(".nav-group-link{color:#1d4ed8!important");
+  // Lịch sử: thiết kế trước (theo yêu cầu "cùng 1 hue, phân biệt cấp bằng
+  // weight/size") tô MỌI cấp nav (không active) màu navy #1d4ed8 — khác hue
+  // riêng #60a5fa cho Level 2 đã bị bỏ trước đó vì thừa, không cần 2 hue.
+  // 2026-11-14: đối chiếu trực tiếp ảnh tham khảo Oryvia do người dùng gửi,
+  // người dùng xác nhận đổi hướng lần nữa — nav không active giờ màu XÁM
+  // trung tính (#475569, trùng màu mặc định .nav-link), màu chỉ còn dành
+  // riêng cho mục đang active (xem .active-context/.active bên dưới, không
+  // đổi) — cùng quyết định với việc bỏ icon màu theo tone. Vẫn giữ nguyên lý
+  // "weight/size phân biệt cấp, không cần hue riêng" của quyết định cũ.
+  it("colors Level 1 (group headers, promoted single-child links) and Level 2 (child links) the same neutral gray when KHÔNG active — weight/size vẫn phân biệt cấp, màu chỉ dành cho active state, đúng ảnh tham khảo Oryvia (không còn navy #1d4ed8 ở trạng thái thường)", () => {
+    expect(shell).toContain(".nav-group-header,.workspace-app.workspace-app .nav-group-label{color:#475569!important");
+    expect(shell).toContain(".nav-group-link{color:#475569!important");
     expect(shell).toContain(".nav-group.active-context>.nav-group-header{background:#eef2ff}");
     expect(shell).toContain(".nav-group.active-context>.nav-group-header .nav-group-icon{color:#1d4ed8!important}");
-    expect(shell).toContain(".nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#1d4ed8!important");
-    expect(shell).toContain(".nav-child-link .nav-icon{color:#1d4ed8!important");
+    expect(shell).toContain(".nav-child-link,.workspace-app.workspace-app .nav-child-link .nav-link-label{color:#475569!important");
+    expect(shell).toContain(".nav-child-link .nav-icon{color:#475569!important");
     expect(shell).not.toContain("#60a5fa");
   });
 
@@ -405,8 +418,8 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain("asGroupLink ? `nav-link nav-group-link");
   });
 
-  it("a promoted single-child link reads as Level 1 (bold navy, 14px/800), not Level 2 (lighter-weight navy, 12px/600)", () => {
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#1d4ed8!important;font-weight:800!important;font-size:14px!important;margin:6px 10px!important\}/);
+  it("a promoted single-child link reads as Level 1 (bold gray, 14px/800), not Level 2 (lighter-weight gray, 12px/600)", () => {
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-group-link\{color:#475569!important;font-weight:800!important;font-size:14px!important;margin:6px 10px!important\}/);
   });
 
   it("survives qms-enterprise-redesign.css's competing !important .nav-link{margin:2px 6px} and generic .nav-icon{width:27px;height:27px} rules — a second real collision found via real-device screenshots after the first fix (colors only) still left EMR/Cấu hình hệ thống visually indistinguishable from a child row, because their margin and icon size were still being silently overridden", () => {
@@ -422,19 +435,21 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     // child icons must actually shrink to 20px under !important — the generic
     // .nav-icon{width:27px;height:27px!important} rule otherwise forces every
     // icon (group and child alike) to the same size, erasing the size cue.
-    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link \.nav-icon\{color:#1d4ed8!important;width:20px!important;height:20px!important;flex:0 0 20px!important\}/);
+    expect(shell).toMatch(/\.workspace-app\.workspace-app \.nav-child-link \.nav-icon\{color:#475569!important;width:20px!important;height:20px!important;flex:0 0 20px!important\}/);
   });
 
   it("keeps the collapsed-rail flyout's compact child margin from being overridden by the new !important 26px indent (the flyout is a small popover, not the full list — there is no parent row to indent under inside it)", () => {
     expect(shell).toContain(".workspace-app.workspace-app .sidebar.collapsed .nav-group-flyout .nav-child-link{margin:1px 4px!important}");
   });
 
-  // Yêu cầu tường minh: "nên thiết kế sidebar sao cho phù hợp và đẹp hơn ...
-  // vẫn đảm bảo thuận tiện thao tác trên máy tính và điện thoại" — chỉ thêm
-  // badge màu tròn cho icon NHÓM (tái dùng GROUP_TONES của /modules), làm
-  // active state rõ hơn và giãn khoảng cách dòng một chút — không đổi cơ chế
-  // accordion/thu gọn/breakpoint di động đã có.
-  it("mỗi nhóm có badge màu tròn luân phiên (tái dùng GROUP_TONES của trang Danh mục module), index tới từ Array.prototype.map tự động (không đổi chữ ký lời gọi mainNavGroups.map(renderGroup)/footerNavGroups.map(renderGroup) đã khoá ở trên)", () => {
+  // Yêu cầu tường minh ban đầu: "nên thiết kế sidebar sao cho phù hợp và đẹp
+  // hơn" → badge màu tròn luân phiên theo GROUP_TONES. 2026-11-14: đối chiếu
+  // trực tiếp ảnh tham khảo Oryvia do người dùng gửi (giao diện người dùng
+  // muốn hướng tới), icon sidebar mọi cấp đều phẳng/đơn sắc, không khoanh
+  // nền màu — người dùng xác nhận đổi hướng, ưu tiên khớp ảnh tham khảo.
+  // Giữ nguyên hạ tầng GROUP_TONES/index/className tone-${tone} (dùng chung
+  // với /modules, vô hại khi không còn style nền) — chỉ đổi phần CSS tô màu.
+  it("mỗi nhóm vẫn tính tone luân phiên (tái dùng GROUP_TONES của trang Danh mục module, index tới từ Array.prototype.map tự động, không đổi chữ ký lời gọi mainNavGroups.map(renderGroup)/footerNavGroups.map(renderGroup) đã khoá ở trên) nhưng icon KHÔNG còn tô nền màu theo tone — phẳng/đơn sắc đúng ảnh tham khảo", () => {
     expect(shell).toContain('import { GROUP_TONES } from "@/lib/module-catalog";');
     expect(shell).toContain("function renderGroup(group: NavGroup, index: number) {");
     expect(shell).toContain("const tone = GROUP_TONES[index % GROUP_TONES.length];");
@@ -442,8 +457,9 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain('<span className={`nav-icon nav-group-icon tone-${tone}`} aria-hidden="true">');
     expect(shell).toContain("mainNavGroups.map(renderGroup)");
     expect(shell).toContain("footerNavGroups.map(renderGroup)");
+    expect(shell).toContain(".workspace-app .nav-group-icon.tone-brand,.workspace-app .nav-group-icon.tone-info,.workspace-app .nav-group-icon.tone-success,.workspace-app .nav-group-icon.tone-warning{background:transparent;color:#64748b}");
     for (const tone of ["brand", "info", "success", "warning"]) {
-      expect(shell).toContain(`.workspace-app .nav-group-icon.tone-${tone}{background:var(--${tone}-soft);color:var(--${tone})}`);
+      expect(shell).not.toContain(`.workspace-app .nav-group-icon.tone-${tone}{background:var(--${tone}-soft)`);
     }
   });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { KpiCard } from "@/components/kpi-card";
 
 type Item = { id: string; content: string; metadata?: any };
 type Section = { id: string; title: string; items: Item[] };
@@ -188,10 +189,10 @@ export function FiveSChecklistPreviewClient({
 
     <div style={{ padding: 18, display: "grid", gap: 18 }}>
       <section className="kpi-grid">
-        <article className="kpi-card"><span>Đã đánh giá</span><strong>{assessed.length}/{items.length}</strong><small>Tiến độ {progress}% · phải đủ {items.length}/{items.length} trước khi hoàn tất</small></article>
-        <article className="kpi-card success"><span>Đạt</span><strong>{passCount}</strong><small>Được tính vào tỷ lệ</small></article>
-        <article className="kpi-card warning"><span>Không đạt</span><strong>{failCount}</strong><small>Phải khắc phục và kiểm tra lại</small></article>
-        <article className="kpi-card"><span>Tỷ lệ đạt</span><strong>{compliance}%</strong><small>{compliance}% trên {assessed.length} nội dung đã đánh giá · loại trừ “/” ({naCount})</small></article>
+        <KpiCard icon="clipboard-check" tone="blue" label="Đã đánh giá" value={`${assessed.length}/${items.length}`} caption={`Tiến độ ${progress}% · phải đủ ${items.length}/${items.length} trước khi hoàn tất`} />
+        <KpiCard icon="badge-check" tone="green" label="Đạt" value={passCount} caption="Được tính vào tỷ lệ" />
+        <KpiCard icon="triangle-alert" tone="amber" label="Không đạt" value={failCount} caption="Phải khắc phục và kiểm tra lại" />
+        <KpiCard icon="chart-no-axes-column-increasing" tone="blue" label="Tỷ lệ đạt" value={`${compliance}%`} caption={`${compliance}% trên ${assessed.length} nội dung đã đánh giá · loại trừ "/" (${naCount})`} />
       </section>
 
       <div className="form-grid two">

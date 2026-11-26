@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 export type PlanReferenceOption = {
   id: string;
@@ -11,8 +11,8 @@ export type PlanReferenceOption = {
 };
 
 export async function loadPlanReferenceOptions(organizationId: string): Promise<PlanReferenceOption[]> {
-  const admin = createAdminClient();
-  const { data: records, error: recordError } = await admin
+  const supabase = await createClient();
+  const { data: records, error: recordError } = await supabase
     .from("records")
     .select("id,title,organization_id,lifecycle_status")
     .eq("organization_id", organizationId)
@@ -23,7 +23,7 @@ export async function loadPlanReferenceOptions(organizationId: string): Promise<
   if (recordError || !records?.length) return [];
 
   const recordIds = records.map((x: any) => x.id).filter(Boolean);
-  const { data: directives, error } = await admin
+  const { data: directives, error } = await supabase
     .from("external_directives")
     .select("id,record_id,source_authority,directive_type,document_number,issued_date,effective_date,document_url,summary,workflow_status")
     .in("record_id", recordIds)

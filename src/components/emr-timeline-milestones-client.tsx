@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { TqmGantt } from "@/components/tqm-charts";
 import { EMR_CATEGORIES, EMR_STATUS_LABELS } from "@/lib/emr-categories";
 
@@ -14,6 +14,11 @@ function statusTone(status: string): "red" | "green" | "blue" | "slate" {
 function statusProgress(status: string): number {
   return status === "DONE" ? 100 : status === "IN_PROGRESS" ? 50 : 0;
 }
+function statusBadgeClass(status: string): string {
+  return status === "DONE" ? "success" : status === "BLOCKED" ? "danger" : status === "IN_PROGRESS" ? "warning" : "muted";
+}
+// 3 cấp tối đa (đầu việc lớn / giai đoạn / khoa) — xem comment ở API POST.
+const MAX_DEPTH = 2;
 
 export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: boolean; year: number }) {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
@@ -36,8 +41,8 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
     setError(null);
     try {
       const res = await fetch("/api/emr/timeline-milestones");
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không tải được dữ liệu.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không tải được dữ liệu.");
       setMilestones(json.milestones);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -67,8 +72,8 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
 
   async function postMilestone(body: Record<string, unknown>) {
     const res = await fetch("/api/emr/timeline-milestones", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const json = await res.json();
-    if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
     return json.milestone as Milestone;
   }
 
@@ -79,8 +84,8 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
     try {
       if (modal.mode === "edit") {
         const res = await fetch(`/api/emr/timeline-milestones/${modal.target!.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-        const json = await res.json();
-        if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
       } else if (modal.mode === "create-child") {
         await postMilestone({ ...form, parent_id: modal.parentId });
       } else {
@@ -102,32 +107,74 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
   }
 
   async function remove(target: Milestone) {
-    const hasChildren = !target.parent_id && (childrenOf[target.id] || []).length > 0;
+    const hasChildren = (childrenOf[target.id] || []).length > 0;
     const confirmMsg = hasChildren ? `Xoá "${target.title}" và toàn bộ đầu việc con bên trong? Không thể hoàn tác.` : `Xoá "${target.title}"? Không thể hoàn tác.`;
     if (!window.confirm(confirmMsg)) return;
     try {
       const res = await fetch(`/api/emr/timeline-milestones/${target.id}`, { method: "DELETE" });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không xoá được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không xoá được.");
       await load({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
     }
   }
 
+  // 3 cấp (đầu việc lớn / giai đoạn / khoa) — cuộn tiến độ của 1 đầu việc lớn
+  // phải tính trên LÁ (leaf) ở đáy cây (khoa, hoặc giai đoạn nếu giai đoạn đó
+  // chưa có khoa con nào), không phải con trực tiếp — nếu không, 1 "giai
+  // đoạn" trung gian (chưa làm) sẽ bị tính ngang hàng với từng khoa, lệch %.
+  const leafDescendantsOf = useCallback((node: Milestone): Milestone[] => {
+    const kids = childrenOf[node.id] || [];
+    if (!kids.length) return [node];
+    return kids.flatMap(leafDescendantsOf);
+  }, [childrenOf]);
+
   const ganttRows = useMemo(() => parents.map((p) => {
-    const kids = childrenOf[p.id] || [];
-    if (!kids.length) {
+    const leaves = leafDescendantsOf(p);
+    if (leaves.length === 1 && leaves[0].id === p.id) {
       return { label: p.title, start: p.start_date, end: p.end_date, progress: statusProgress(p.status), tone: statusTone(p.status) };
     }
-    const starts = kids.map((k) => k.start_date).filter(Boolean).sort() as string[];
-    const ends = kids.map((k) => k.end_date).filter(Boolean).sort() as string[];
-    const done = kids.filter((k) => k.status === "DONE").length;
-    const blocked = kids.some((k) => k.status === "BLOCKED");
-    const progress = Math.round((done / kids.length) * 100);
+    const starts = leaves.map((k) => k.start_date).filter(Boolean).sort() as string[];
+    const ends = leaves.map((k) => k.end_date).filter(Boolean).sort() as string[];
+    const done = leaves.filter((k) => k.status === "DONE").length;
+    const blocked = leaves.some((k) => k.status === "BLOCKED");
+    const progress = Math.round((done / leaves.length) * 100);
     const tone = blocked ? "red" as const : progress === 100 ? "green" as const : progress > 0 ? "blue" as const : "slate" as const;
-    return { label: `${p.title} (${kids.length})`, start: p.start_date || starts[0] || null, end: p.end_date || ends[ends.length - 1] || null, progress, tone };
-  }), [parents, childrenOf]);
+    return { label: `${p.title} (${leaves.length})`, start: p.start_date || starts[0] || null, end: p.end_date || ends[ends.length - 1] || null, progress, tone };
+  }), [parents, leafDescendantsOf]);
+
+  // Đệ quy render 3 cấp (đầu việc lớn / giai đoạn / khoa) — nút "+ Đầu việc
+  // con" chỉ hiện ở depth < MAX_DEPTH để không tạo được cấp thứ 4 từ UI
+  // (khớp đúng giới hạn server đã chặn ở POST).
+  function renderMilestoneRow(node: Milestone, depth: number): React.ReactNode {
+    const kids = childrenOf[node.id] || [];
+    const isOpen = expanded.has(node.id);
+    return (
+      <Fragment key={node.id}>
+        <tr className={depth > 0 ? "emr-timeline-child-row" : undefined}>
+          <td>{kids.length ? <button type="button" className="icon-button" onClick={() => toggleExpanded(node.id)} aria-expanded={isOpen} aria-label={isOpen ? "Thu gọn" : "Mở rộng"}>{isOpen ? "▾" : "▸"}</button> : null}</td>
+          <td style={depth ? { paddingLeft: depth * 28 } : undefined}>
+            {depth ? "↳ " : null}
+            <strong>{node.title}</strong>
+            {kids.length ? <small> ({kids.length} đầu việc con)</small> : null}
+            {categoryLabel(node.category) ? <div><small className="status-badge muted">{categoryLabel(node.category)}</small></div> : null}
+          </td>
+          <td>{node.start_date || "—"}</td>
+          <td>{node.end_date || "—"}</td>
+          <td><span className={`status-badge ${statusBadgeClass(node.status)}`}>{EMR_STATUS_LABELS[node.status] || node.status}</span></td>
+          <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            {canManage ? <>
+              {depth < MAX_DEPTH ? <button type="button" className="button tertiary small" onClick={() => openCreateChild(node.id)}>+ Đầu việc con</button> : null}
+              <button type="button" className="button tertiary small" onClick={() => openEdit(node)}>Sửa</button>
+              <button type="button" className="button tertiary small" onClick={() => remove(node)}>Xoá</button>
+            </> : null}
+          </td>
+        </tr>
+        {isOpen ? kids.map((k) => renderMilestoneRow(k, depth + 1)) : null}
+      </Fragment>
+    );
+  }
 
   return (
     <section className="panel">
@@ -146,45 +193,7 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
           <div className="table-wrap">
             <table className="data-table">
               <thead><tr><th style={{ width: 30 }}></th><th>Đầu việc</th><th>Bắt đầu</th><th>Kết thúc</th><th>Trạng thái</th><th></th></tr></thead>
-              <tbody>
-                {parents.map((p) => {
-                  const kids = childrenOf[p.id] || [];
-                  const isOpen = expanded.has(p.id);
-                  return (
-                    <Fragment key={p.id}>
-                      <tr>
-                        <td>{kids.length ? <button type="button" className="icon-button" onClick={() => toggleExpanded(p.id)} aria-expanded={isOpen} aria-label={isOpen ? "Thu gọn" : "Mở rộng"}>{isOpen ? "▾" : "▸"}</button> : null}</td>
-                        <td><strong>{p.title}</strong>{kids.length ? <small> ({kids.length} đầu việc con)</small> : null}{categoryLabel(p.category) ? <div><small className="status-badge muted">{categoryLabel(p.category)}</small></div> : null}</td>
-                        <td>{p.start_date || "—"}</td>
-                        <td>{p.end_date || "—"}</td>
-                        <td><span className={`status-badge ${p.status === "DONE" ? "success" : p.status === "BLOCKED" ? "danger" : p.status === "IN_PROGRESS" ? "warning" : "muted"}`}>{EMR_STATUS_LABELS[p.status] || p.status}</span></td>
-                        <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                          {canManage ? <>
-                            <button type="button" className="button tertiary small" onClick={() => openCreateChild(p.id)}>+ Đầu việc con</button>
-                            <button type="button" className="button tertiary small" onClick={() => openEdit(p)}>Sửa</button>
-                            <button type="button" className="button tertiary small" onClick={() => remove(p)}>Xoá</button>
-                          </> : null}
-                        </td>
-                      </tr>
-                      {isOpen ? kids.map((k) => (
-                        <tr key={k.id} className="emr-timeline-child-row">
-                          <td></td>
-                          <td style={{ paddingLeft: 28 }}>↳ {k.title}{categoryLabel(k.category) ? <div><small className="status-badge muted">{categoryLabel(k.category)}</small></div> : null}</td>
-                          <td>{k.start_date || "—"}</td>
-                          <td>{k.end_date || "—"}</td>
-                          <td><span className={`status-badge ${k.status === "DONE" ? "success" : k.status === "BLOCKED" ? "danger" : k.status === "IN_PROGRESS" ? "warning" : "muted"}`}>{EMR_STATUS_LABELS[k.status] || k.status}</span></td>
-                          <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                            {canManage ? <>
-                              <button type="button" className="button tertiary small" onClick={() => openEdit(k)}>Sửa</button>
-                              <button type="button" className="button tertiary small" onClick={() => remove(k)}>Xoá</button>
-                            </> : null}
-                          </td>
-                        </tr>
-                      )) : null}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
+              <tbody>{parents.map((p) => renderMilestoneRow(p, 0))}</tbody>
             </table>
           </div>
         </>

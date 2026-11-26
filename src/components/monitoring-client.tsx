@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { KpiCard } from "@/components/kpi-card";
 import { formatDate } from "@/lib/format";
 
 type Department = { id: string; name: string; short_name: string | null };
@@ -150,7 +151,17 @@ export function MonitoringClient({ year, canManageTemplates, canCreateRounds, te
         .monitoring-round-card:active{background:#f8fafc}.monitoring-round-card-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.monitoring-round-card-code{font-size:13px;font-weight:800;color:#1d3f73}.monitoring-round-card-title{font-size:16px;font-weight:800;line-height:1.35;color:#17333a}.monitoring-round-card-meta{display:flex;gap:7px;flex-wrap:wrap;color:#69777d;font-size:11px;line-height:1.35}.monitoring-round-card-area{font-size:12px;color:#58686e;line-height:1.4}.monitoring-round-card-result{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:8px;border-top:1px solid #edf2f2;font-size:11px;color:#5d6d72}.monitoring-round-card-result strong{color:#1d3f73;font-size:13px}.monitoring-round-card-result.muted{color:#889599}
       }
     `}</style>
-    {tab === "rounds" ? <section className="kpi-grid"><article className="kpi-card warning"><span>Cần kiểm</span><strong>{phaseCount("NEEDS_CHECK")}</strong><small>Đã tạo đợt, chưa bắt đầu</small></article><article className="kpi-card"><span>Đang kiểm</span><strong>{phaseCount("IN_PROGRESS")}</strong><small>Đã bắt đầu, chưa lưu kết quả ban đầu</small></article><article className="kpi-card warning"><span>Chờ kiểm lại</span><strong>{phaseCount("WAITING_RECHECK")}</strong><small>Có tiêu chí Không đạt cần xử lý</small></article><article className="kpi-card success"><span>Chờ QLCL</span><strong>{phaseCount("AWAITING_CONFIRMATION")}</strong><small>Đã hoàn tất chấm/kiểm lại</small></article></section> : <section className="kpi-grid"><article className="kpi-card"><span>Mẫu bảng kiểm</span><strong>{templateRows.length}</strong><small>Tổng mẫu hiện có</small></article><article className="kpi-card success"><span>Đã phát hành</span><strong>{publishedCount}</strong><small>Có thể tạo đợt giám sát</small></article><article className="kpi-card warning"><span>Phiên bản nháp</span><strong>{draftCount}</strong><small>Cần hoàn thiện trước khi sử dụng</small></article><article className="kpi-card"><span>Đợt năm {year}</span><strong>{monitoringRows.length}</strong><small>Được tạo từ các mẫu đã phát hành</small></article></section>}
+    {tab === "rounds" ? <section className="kpi-grid">
+      <KpiCard icon="calendar-days" tone="amber" label="Cần kiểm" value={phaseCount("NEEDS_CHECK")} caption="Đã tạo đợt, chưa bắt đầu" />
+      <KpiCard icon="search-check" tone="blue" label="Đang kiểm" value={phaseCount("IN_PROGRESS")} caption="Đã bắt đầu, chưa lưu kết quả ban đầu" />
+      <KpiCard icon="refresh-cw" tone="amber" label="Chờ kiểm lại" value={phaseCount("WAITING_RECHECK")} caption="Có tiêu chí Không đạt cần xử lý" />
+      <KpiCard icon="badge-check" tone="green" label="Chờ QLCL" value={phaseCount("AWAITING_CONFIRMATION")} caption="Đã hoàn tất chấm/kiểm lại" />
+    </section> : <section className="kpi-grid">
+      <KpiCard icon="clipboard-check" tone="blue" label="Mẫu bảng kiểm" value={templateRows.length} caption="Tổng mẫu hiện có" />
+      <KpiCard icon="badge-check" tone="green" label="Đã phát hành" value={publishedCount} caption="Có thể tạo đợt giám sát" />
+      <KpiCard icon="pencil" tone="amber" label="Phiên bản nháp" value={draftCount} caption="Cần hoàn thiện trước khi sử dụng" />
+      <KpiCard icon="calendar-days" tone="blue" label={`Đợt năm ${year}`} value={monitoringRows.length} caption="Được tạo từ các mẫu đã phát hành" />
+    </section>}
 
     <section className="panel">
       <div className="tabs" style={{ paddingTop: 4 }}><button className={tab === "rounds" ? "active" : ""} onClick={() => { setTab("rounds"); setSearch(""); }}>Đợt giám sát</button><button className={tab === "templates" ? "active" : ""} onClick={() => { setTab("templates"); setSearch(""); }}>Mẫu bảng kiểm</button></div>

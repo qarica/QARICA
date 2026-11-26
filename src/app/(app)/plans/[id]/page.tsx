@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
+import { KpiCard } from "@/components/kpi-card";
 import { PlanActionCreateClient } from "@/components/plan-action-create-client";
 import { PlanComposerClient } from "@/components/plan-composer-client";
 import { PlanPrintActions } from "@/components/plan-print-actions";
@@ -218,8 +219,8 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
         .plan-detail-page .page-header p{font-size:13px!important;line-height:1.45!important}
         .plan-detail-page .page-header .button{min-height:40px!important}
         .plan-detail-page .kpi-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
-        .plan-detail-page .kpi-card{min-height:90px!important;padding:11px!important}
-        .plan-detail-page .kpi-card>span{font-size:10px!important}.plan-detail-page .kpi-card>strong{font-size:24px!important}.plan-detail-page .kpi-card>small{font-size:10px!important;line-height:1.25!important}
+        .plan-detail-page .kpi-tile{min-height:90px!important;padding:11px!important}
+        .plan-detail-page .kpi-tile-label{font-size:10px!important}.plan-detail-page .kpi-tile-value{font-size:24px!important}.plan-detail-page .kpi-tile-caption{font-size:10px!important;line-height:1.25!important}
         .plan-detail-page .chart-grid{grid-template-columns:1fr!important;gap:10px!important}
         .plan-detail-page .panel{border-radius:16px!important;overflow:visible!important}
         .plan-detail-page .panel-title{padding:14px!important;gap:10px!important;align-items:flex-start!important;flex-wrap:wrap!important}.plan-detail-page .panel-title h2{font-size:18px!important}.plan-detail-page .panel-title p{font-size:12px!important;line-height:1.4!important}
@@ -291,10 +292,10 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
     </> : null}
 
     <section className="kpi-grid">
-      <article className="kpi-card"><span>Trạng thái</span><div style={{ marginTop: 13 }}><StatusBadge status={program.workflow_status} /></div><small>Vòng đời kế hoạch</small></article>
-      <article className="kpi-card"><span>Tiến độ</span><strong>{pct}%</strong><small>{completedActions}/{requiredActions} việc bắt buộc hoàn thành</small></article>
-      <article className="kpi-card danger"><span>Việc quá hạn</span><strong>{Number(progress?.overdue_actions ?? 0)}</strong><small>Action đang trễ hạn</small></article>
-      <article className="kpi-card"><span>Khoa/Phòng chủ trì</span><strong style={{ fontSize: 17, lineHeight: 1.25 }}>{(departmentRes.data as any)?.short_name || (departmentRes.data as any)?.name || "—"}</strong><small>{(ownerRes.data as any)?.full_name || (ownerRes.data as any)?.email || "Chưa chỉ định người phụ trách"}</small></article>
+      <KpiCard icon="workflow" tone="blue" label="Trạng thái" value={<StatusBadge status={program.workflow_status} />} caption="Vòng đời kế hoạch" />
+      <KpiCard icon="trending-up" tone="green" label="Tiến độ" value={`${pct}%`} caption={`${completedActions}/${requiredActions} việc bắt buộc hoàn thành`} />
+      <KpiCard icon="triangle-alert" tone="red" urgent={Number(progress?.overdue_actions ?? 0) > 0} label="Việc quá hạn" value={Number(progress?.overdue_actions ?? 0)} caption="Action đang trễ hạn" />
+      <KpiCard icon="building-2" tone="purple" label="Khoa/Phòng chủ trì" value={(departmentRes.data as any)?.short_name || (departmentRes.data as any)?.name || "—"} caption={(ownerRes.data as any)?.full_name || (ownerRes.data as any)?.email || "Chưa chỉ định người phụ trách"} />
     </section>
 
     <section className="chart-grid">

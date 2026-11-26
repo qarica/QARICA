@@ -57,3 +57,39 @@ describe("brand color token (--brand/--brand-dark/--brand-soft) has one source o
     expect(source).toContain('organization?.primary_color || "#1D4ED8"');
   });
 });
+
+// Same bug class found again (2026-11-13) for --bg/--surface/--text/--muted/
+// --line, this time including --success/--warning/--danger: workspace-
+// shell.css had a plain, non-!important :root redeclaration (the exact
+// undetected class the qlvb-theme.css fix above describes), while qarica-
+// design-system.css and qms-enterprise-redesign.css each redeclared these on
+// .workspace-app with !important (qms-enterprise-redesign.css also hard-set
+// html,body{background/color} directly, and alone among the three also
+// redeclared --success/--warning/--danger). Concrete live impact before this
+// fix: the app's actual rendered background was qms-enterprise-redesign.css's
+// #F8F9FA, not globals.css's declared --bg:#f5f8fc "source of truth". Fixed
+// the same way as --brand*: removed from all 3 files (their own prefixed
+// --qarica-*/--qms-* tokens and non-overlapping rules stay untouched).
+describe("shell/surface/text/muted/line/status color tokens have one source of truth (same bug class as --brand* above)", () => {
+  const TOKENS = ["--bg", "--surface", "--text", "--muted", "--line", "--success", "--warning", "--danger"];
+
+  it("globals.css defines the live values non-conditionally", () => {
+    const globals = read("src/app/globals.css");
+    for (const name of TOKENS) expect(globals).toMatch(new RegExp(`(?<![a-zA-Z0-9-])${name}:[^;]+;`));
+  });
+
+  it("workspace-shell.css, qarica-design-system.css and qms-enterprise-redesign.css no longer redeclare any of them (prefixed --qarica-*/--qms-* tokens are a different namespace and stay)", () => {
+    for (const path of ["src/app/workspace-shell.css", "src/app/qarica-design-system.css", "src/app/qms-enterprise-redesign.css"]) {
+      const source = read(path);
+      for (const name of TOKENS) {
+        // Negative lookbehind excludes prefixed names like --qarica-bg/--qms-success.
+        expect(source, `${path} should not redeclare ${name}`).not.toMatch(new RegExp(`(?<![a-zA-Z0-9-])${name}:`));
+      }
+    }
+  });
+
+  it("qms-enterprise-redesign.css no longer hard-sets html,body background/color directly", () => {
+    const source = read("src/app/qms-enterprise-redesign.css");
+    expect(source).not.toContain("html,body{background:var(--qms-bg)");
+  });
+});

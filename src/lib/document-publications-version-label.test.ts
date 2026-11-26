@@ -84,7 +84,11 @@ describe("Document publications — Thư viện văn bản có cột Phiên bả
 
   it("bảng Thư viện văn bản có cột 'Phiên bản' ngay sau 'Tên văn bản', hiển thị version_label", () => {
     expect(client).toContain("<th>Mã văn bản</th>\n                        <th>Tên văn bản</th>\n                        <th>Phiên bản</th>\n                        <th>Loại</th>");
-    expect(client).toContain('<td>{d.document_code || "—"}</td>\n                              <td>{d.title}</td>\n                              <td>{d.version_label}</td>\n                              <td>{DOCUMENT_TYPE_LABEL[d.document_type]}</td>');
+    // Ô "Tên văn bản" nay có thể là nút bấm mở file (đã có file đính kèm) —
+    // vẫn là ô ngay trước cột Phiên bản, chỉ không còn là `<td>{d.title}</td>` trần.
+    const row = client.slice(client.indexOf('<td>{d.document_code || "—"}</td>'));
+    expect(row.slice(0, row.indexOf('<td>{d.version_label}</td>'))).toContain("{d.title}");
+    expect(row).toContain('<td>{d.version_label}</td>\n                              <td>{DOCUMENT_TYPE_LABEL[d.document_type]}</td>');
   });
 
   it("colSpan của dòng form Sửa luôn là 9 (cột Thao tác giờ luôn hiện vì có nút Lịch sử cho mọi người xem được, không chỉ canManage)", () => {

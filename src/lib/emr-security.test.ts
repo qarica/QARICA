@@ -46,7 +46,7 @@ describe("EMR security and control gates", () => {
   });
   it("hides EMR navigation from users without emr.view (nav group label renamed from the raw EMR acronym to Bệnh án điện tử — explicit request; every one of the 11 expanded EMR sidebar rows still requires emr.view)", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('label: "BỆNH ÁN ĐIỆN TỬ"');
+    expect(nav).toContain('label: "Bệnh án điện tử"');
     expect(nav).toContain('{ label: "Tổng quan EMR", href: "/emr", icon: "layout-dashboard", permission: "emr.view" }');
     expect(nav.match(/permission: "emr\.view"/g)?.length).toBe(3);
   });
@@ -117,10 +117,43 @@ describe("EMR security and control gates", () => {
     expect(fileRoute).toContain('action_type: "EMR_ITEM_FILE_REMOVE"');
   });
 
+  // Rà soát audit: tạo hạng mục, và mọi thao tác ghi ở binding-groups /
+  // timeline-milestones trước đây không ghi audit_logs (chỉ PATCH/DELETE/file
+  // của items mới có) — cùng chuẩn với phần đã có.
+  it("ghi audit_logs cho tạo hạng mục, và tạo/sửa/xoá nhóm gáy và mốc timeline", () => {
+    expect(read("src/app/api/emr/items/route.ts")).toContain('action_type: "EMR_ITEM_CREATE"');
+    const bg = read("src/app/api/emr/binding-groups/route.ts");
+    expect(bg).toContain('action_type: "EMR_BINDING_GROUP_CREATE"');
+    const bgId = read("src/app/api/emr/binding-groups/[id]/route.ts");
+    expect(bgId).toContain('action_type: "EMR_BINDING_GROUP_UPDATE"');
+    expect(bgId).toContain('action_type: "EMR_BINDING_GROUP_DELETE"');
+    const tm = read("src/app/api/emr/timeline-milestones/route.ts");
+    expect(tm).toContain('action_type: "EMR_TIMELINE_MILESTONE_CREATE"');
+    const tmId = read("src/app/api/emr/timeline-milestones/[id]/route.ts");
+    expect(tmId).toContain('action_type: "EMR_TIMELINE_MILESTONE_UPDATE"');
+    expect(tmId).toContain('action_type: "EMR_TIMELINE_MILESTONE_DELETE"');
+  });
+
   it("legacy prototype tables are quarantined", () => {
     const migration = read("supabase/migrations/20260926_emr_legacy_quarantine_v1.sql");
     expect(migration).toContain("revoke all privileges");
     expect(migration).toContain("emr_departments");
     expect(migration).toContain("emr_digital_signatures");
+  });
+
+  // Báo cáo audit chất lượng code: định nghĩa "gate PASS" (status=DONE +
+  // evidence_url + verified_at, nguyên tắc 3) từng bị viết tay lặp lại 4
+  // lần trong dashboard/route.ts (gatesPassed, gateEvidenceMissing,
+  // passedGates theo khoa/phòng, gateEvidence% control coverage) — rủi ro
+  // sửa sót 1 chỗ khi điều kiện gate đổi sau này khiến các số liệu trong
+  // CÙNG 1 dashboard lệch nhau. Gộp về 1 hàm isGatePassed() dùng ở cả 4 chỗ.
+  it("mọi chỗ tính 'gate đã PASS' trong dashboard route đều gọi chung isGatePassed(), không viết tay riêng lẻ", () => {
+    const route = read("src/app/api/emr/dashboard/route.ts");
+    expect(route).toContain("function isGatePassed(item:");
+    expect(route).toContain("return item.status === \"DONE\" && !!item.evidence_url && !!item.verified_at;");
+    expect(route).toContain("const gatesPassed = gates.filter(isGatePassed).length;");
+    expect(route).toContain("const gateEvidenceMissing = gates.filter(x => x.status === \"DONE\" && !isGatePassed(x)).length;");
+    expect(route).toContain("const passedGates = gateRows.filter(isGatePassed).length;");
+    expect(route).toContain("doneGates.filter(isGatePassed).length");
   });
 });

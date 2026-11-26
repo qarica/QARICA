@@ -27,11 +27,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { data, error } = await admin
     .from("document_publication_versions")
-    .select("id,version_label,document_code,effective_date,file_name,created_by,created_at")
+    .select("id,version_label,document_code,effective_date,file_name,file_path,created_by,created_at")
     .eq("document_publication_id", id)
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  return NextResponse.json({ ok: true, versions: data ?? [] });
+  // Không lộ file_path (đường dẫn storage) ra client — chỉ báo có file hay không,
+  // muốn xem file đi qua route riêng versions/[versionId]/file (link ký, hạn ngắn).
+  const versions = (data ?? []).map(({ file_path, ...rest }) => ({ ...rest, has_file: !!file_path }));
+  return NextResponse.json({ ok: true, versions });
 }

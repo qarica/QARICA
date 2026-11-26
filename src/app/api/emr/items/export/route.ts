@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_STATUS_LABELS, emrCategoryBySlug, formatBooleanValue, formatSequenceValue } from "@/lib/emr-categories";
 import { sortBieuMauGroupItems, sortBieuMauGroupNames } from "@/lib/emr-bieu-mau-tree-order";
 
@@ -34,20 +33,19 @@ export async function GET(request: Request) {
   // thứ tự với màn hình.
   const isTreeExport = isBieuMau && groupByParam === "binding_group";
 
-  const admin = createAdminClient();
-  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(auth.supabase, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
   const [itemsRes, departmentsRes, bindingGroupsRes] = await Promise.all([
-    admin
+    auth.supabase
       .from("emr_rollout_items")
       .select("title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,details,publish_status,created_at")
       .eq("organization_id", organizationId)
       .eq("category", category.code)
       .order("created_at", { ascending: false }),
-    admin.from("departments").select("id,name").eq("organization_id", organizationId),
-    isTreeExport ? admin.from("emr_binding_groups").select("name,sort_order").eq("organization_id", organizationId) : Promise.resolve({ data: [] as any[], error: null }),
+    auth.supabase.from("departments").select("id,name").eq("organization_id", organizationId),
+    isTreeExport ? auth.supabase.from("emr_binding_groups").select("name,sort_order").eq("organization_id", organizationId) : Promise.resolve({ data: [] as any[], error: null }),
   ]);
   if (itemsRes.error) return NextResponse.json({ error: itemsRes.error.message }, { status: 400 });
   if (bindingGroupsRes.error) return NextResponse.json({ error: bindingGroupsRes.error.message }, { status: 400 });

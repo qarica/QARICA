@@ -119,6 +119,11 @@ export function IncomingDocumentsClient({
   const [documents, setDocuments] = useState(initialDocuments);
   const [showIntake, setShowIntake] = useState(false);
   const [view, setView] = useState<"intake" | "assign" | "tracking">("tracking");
+  // Báo cáo thực tế: "công văn đã xử lý xong biến mất" — tab mặc định "Theo dõi xử lý"
+  // từng ẩn mọi công văn đã có completed_at nên xử lý xong là mất khỏi màn hình (dữ liệu
+  // vẫn còn nguyên, chỉ bị lọc). Nay tab này hiện CẢ đang xử lý lẫn đã xong, có thêm
+  // bộ lọc tình trạng; mặc định "Tất cả".
+  const [trackingStatus, setTrackingStatus] = useState<"all" | "active" | "done">("all");
   const [query, setQuery] = useState("");
   const [receivedAt, setReceivedAt] = useState(today());
   const [issuingAuthority, setIssuingAuthority] = useState("");
@@ -151,9 +156,11 @@ export function IncomingDocumentsClient({
   const now = today();
   const overdueCount = documents.filter((d) => !d.completed_at && !!d.due_date && d.due_date < now).length;
   const activeCount = documents.filter((d) => !d.completed_at).length;
+  const completedCount = documents.length - activeCount;
   const filteredDocuments = documents.filter((d) => {
     if (view === "assign" && (!!d.department_id || !!d.completed_at)) return false;
-    if (view === "tracking" && !!d.completed_at) return false;
+    if (view === "tracking" && trackingStatus === "active" && !!d.completed_at) return false;
+    if (view === "tracking" && trackingStatus === "done" && !d.completed_at) return false;
     const needle = query.trim().toLocaleLowerCase("vi");
     return !needle || [d.summary, d.issuing_authority, d.document_no, d.received_no, departmentName(d.department_id)].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(needle));
   });
@@ -338,22 +345,36 @@ export function IncomingDocumentsClient({
                 onChange={(e) => setAttachFile(e.target.files?.[0] || null)}
               />
             </label>
-            <input className="input" placeholder="Trích yếu nội dung..." value={summary} onChange={(e) => setSummary(e.target.value)} />
+            <label className="doc-task-field">
+              <span>Trích yếu nội dung</span>
+              <input className="input" placeholder="Trích yếu nội dung..." value={summary} onChange={(e) => setSummary(e.target.value)} />
+            </label>
             <div className="doc-form-row">
               <label className="doc-task-field">
                 <span>Ngày đến</span>
                 <input className="input" type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />
               </label>
-              <input className="input" placeholder="Cơ quan ban hành..." value={issuingAuthority} onChange={(e) => setIssuingAuthority(e.target.value)} />
-              <input className="input" placeholder="Số văn bản (tùy chọn)" value={documentNo} onChange={(e) => setDocumentNo(e.target.value)} />
-              <select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value)}>
-                <option value="">— Chọn loại công văn (tùy chọn) —</option>
-                {INCOMING_DOCUMENT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              <label className="doc-task-field">
+                <span>Cơ quan ban hành</span>
+                <input className="input" placeholder="Cơ quan ban hành..." value={issuingAuthority} onChange={(e) => setIssuingAuthority(e.target.value)} />
+              </label>
+              <label className="doc-task-field">
+                <span>Số văn bản (tùy chọn)</span>
+                <input className="input" placeholder="Số văn bản (tùy chọn)" value={documentNo} onChange={(e) => setDocumentNo(e.target.value)} />
+              </label>
+              {/* Ô này trước đây không có nhãn như các ô cùng hàng và chữ gợi ý dài bị cắt
+                  ("— Chọn loại công văn (tùy ch"): thêm nhãn cùng khuôn mẫu, gợi ý ngắn gọn. */}
+              <label className="doc-task-field">
+                <span>Loại công văn (tùy chọn)</span>
+                <select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value)}>
+                  <option value="">— Chọn loại —</option>
+                  {INCOMING_DOCUMENT_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="doc-task-field">
                 <span>Hạn xử lý (tùy chọn)</span>
                 <input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
@@ -372,6 +393,13 @@ export function IncomingDocumentsClient({
           <h2>Danh sách công văn</h2>
         </div>
         <div className="doc-view-tabs" role="group" aria-label="Bộ lọc công văn">{([["intake","Tiếp nhận"],["assign","Phân công"],["tracking","Theo dõi xử lý"]] as const).map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} aria-pressed={view === key} onClick={() => setView(key)}>{label}</button>)}</div>
+        {view === "tracking" ? (
+          <div className="doc-view-tabs doc-status-tabs" role="group" aria-label="Lọc theo tình trạng xử lý">
+            {([["all", `Tất cả (${documents.length})`], ["active", `Đang xử lý (${activeCount})`], ["done", `Đã xử lý xong (${completedCount})`]] as const).map(([key, label]) => (
+              <button key={key} type="button" className={trackingStatus === key ? "active" : ""} aria-pressed={trackingStatus === key} onClick={() => setTrackingStatus(key)}>{label}</button>
+            ))}
+          </div>
+        ) : null}
         <input className="input doc-search" aria-label="Tìm công văn" placeholder="Tìm trích yếu, số văn bản, cơ quan..." value={query} onChange={(e) => setQuery(e.target.value)} />
         <div className="table-wrap">
           <table>

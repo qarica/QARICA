@@ -15,7 +15,7 @@ describe("EMR Timeline — declare đầu việc lớn / đầu việc con", () 
   const client = readFileSync("src/components/emr-timeline-milestones-client.tsx", "utf8");
   const page = readFileSync("src/app/(app)/emr/timeline/page.tsx", "utf8");
 
-  it("the table supports exactly 2 levels via a self-referencing parent_id (null = đầu việc lớn, set = đầu việc con)", () => {
+  it("the table supports 3 levels via a self-referencing parent_id (null = đầu việc lớn, set = giai đoạn/khoa)", () => {
     expect(migration).toContain("create table if not exists public.emr_timeline_milestones");
     expect(migration).toContain("parent_id uuid references public.emr_timeline_milestones(id) on delete cascade");
   });
@@ -30,8 +30,12 @@ describe("EMR Timeline — declare đầu việc lớn / đầu việc con", () 
     expect(listRoute).toContain('requireApiPermission("emr.manage")');
   });
 
-  it("rejects a child declared under a grandparent — only 2 levels are supported", () => {
-    expect(listRoute).toContain("if (parent.parent_id) return NextResponse.json({ error: \"Chỉ hỗ trợ 2 cấp: đầu việc lớn và đầu việc con.\" }, { status: 400 });");
+  // Báo cáo thực tế: "kế hoạch chung, giai đoạn, khoa" — cần đúng 3 cấp, đã
+  // nới từ 2 lên 3 cấp (đầu việc lớn / giai đoạn / khoa), vẫn chặn cấp thứ 4.
+  it("cho phép khai 3 cấp (đầu việc lớn / giai đoạn / khoa), chặn khai dưới 1 node đã ở cấp thứ 3 (sẽ thành cấp thứ 4)", () => {
+    expect(listRoute).toContain("if (parent.parent_id) {");
+    expect(listRoute).toContain('.select("id,parent_id").eq("id", parent.parent_id)');
+    expect(listRoute).toContain("if (grandparent?.parent_id) return NextResponse.json({ error: \"Chỉ hỗ trợ 3 cấp: đầu việc lớn, giai đoạn và khoa/phòng.\" }, { status: 400 });");
   });
 
   it("PATCH/DELETE on a single milestone both require emr.manage and stay scoped to the caller's organization", () => {
@@ -48,9 +52,21 @@ describe("EMR Timeline — declare đầu việc lớn / đầu việc con", () 
     expect(client).toContain("{canManage ? <button type=\"button\" className=\"button primary small\" onClick={openCreateParent}>+ Thêm đầu việc lớn</button> : null}");
   });
 
-  it("rolls up a parent's progress/tone from its children's status when it has any, otherwise uses its own status", () => {
-    expect(client).toContain("const kids = childrenOf[p.id] || [];");
-    expect(client).toContain("if (!kids.length) {");
+  // 3 cấp: cuộn tiến độ Gantt phải tính trên LÁ (leaf) ở đáy cây (khoa, hoặc
+  // chính giai đoạn nếu chưa có khoa con), không phải con trực tiếp — tránh
+  // 1 "giai đoạn" trung gian (chưa làm) bị tính ngang hàng với từng khoa.
+  it("rolls up a parent's Gantt progress/tone from LEAF descendants (any depth), not just direct children", () => {
+    expect(client).toContain("const leafDescendantsOf = useCallback((node: Milestone): Milestone[] => {");
+    expect(client).toContain("const kids = childrenOf[node.id] || [];");
+    expect(client).toContain("if (!kids.length) return [node];");
+    expect(client).toContain("return kids.flatMap(leafDescendantsOf);");
+  });
+
+  it("renders the 3rd cấp (khoa) via recursion, and only allows '+ Đầu việc con' up to depth < MAX_DEPTH (chặn tạo cấp thứ 4 từ UI)", () => {
+    expect(client).toContain("const MAX_DEPTH = 2;");
+    expect(client).toContain("function renderMilestoneRow(node: Milestone, depth: number): React.ReactNode {");
+    expect(client).toContain("{isOpen ? kids.map((k) => renderMilestoneRow(k, depth + 1)) : null}");
+    expect(client).toContain("{depth < MAX_DEPTH ? <button type=\"button\" className=\"button tertiary small\" onClick={() => openCreateChild(node.id)}>+ Đầu việc con</button> : null}");
   });
 
   it("deleting a top-level đầu việc lớn cascades to its đầu việc con (confirmed via FK, not application code)", () => {

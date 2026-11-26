@@ -1,8 +1,13 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Mã QR là data URL tạo client-side (qrcode), không phải ảnh tĩnh/remote để Next tối ưu (cùng quy ước đã dùng ở medical-equipment-detail-client.tsx và procedure-training-detail-client.tsx). */
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { Fragment, useEffect, useState } from "react";
+import QRCode from "qrcode";
+import { Icon } from "@/components/icon";
+import { KpiCard } from "@/components/kpi-card";
+import { baseClassCode } from "@/lib/procedure-training-class-code";
+import { groupRowsByTopic } from "@/lib/procedure-training-topic-rollup";
 
 type Training = {
   id: string;
@@ -10,46 +15,39 @@ type Training = {
   procedure_name: string;
   drafting_unit: string | null;
   effective_date: string | null;
-  trainer: string | null;
-  session_1_time: string | null;
-  session_1_location: string | null;
-  session_1_method: string | null;
   status: "TRAINED" | "PLANNED" | "NOT_PLANNED";
-  feedback_qlcl: string | null;
-  session_2_time: string | null;
-  session_2_location: string | null;
-  session_2_method: string | null;
-  notes: string | null;
   attendee_total: number;
   attendee_attended: number;
   document_publication_id: string | null;
+  is_attendance_only?: boolean;
   source_document: { id: string; title: string; document_code: string | null } | null;
-  test_score_max: number | null;
 };
 
-type Attendee = {
-  id: string;
-  training_id: string;
-  employee_name: string;
-  employee_code: string | null;
-  attended: boolean;
-  attended_at: string | null;
-  notes: string | null;
-  pre_test_score: number | null;
-  post_test_score: number | null;
-};
-
-// Báo cáo thực tế: "Phần theo dõi quy trình đào tạo chưa thấy kết nối với
-// kiểm soát tài liệu... nên làm menu theo dõi gồm cả 2 nội dung [Tự đọc
-// hiểu + Cần đào tạo] để control chứ ko đưa phần xác nhận vào thư viện văn
-// bản" — "Tự đọc hiểu" dời từ document-publications-client.tsx sang đây
-// nguyên vẹn logic (ackCount/hasAcked/unconfirmedStaff/acknowledge), chỉ đổi
-// nơi hiển thị. SelfReadDocument chỉ cần 4 cột hiển thị, không cần toàn bộ
-// shape DocumentPublication (loại/bước/đơn vị soạn thảo... không liên quan
-// tới việc xác nhận đã đọc).
+// Báo cáo thực tế: "giao diện xấu và ko đẹp, cứng đờ ko kéo được" — bảng
+// trước đây nhồi cả thông tin quản lý đào tạo (người đào tạo/thời gian/địa
+// điểm/phản hồi QLCL/ghi chú) LẪN sửa-tại-chỗ trong các ô bé xíu, 12 cột.
+// Bảng danh sách giờ chỉ còn thông tin tổng quan để lướt nhanh + liên kết
+// sang trang chi tiết riêng (/procedure-trainings/[id]) — nơi sửa thông tin
+// đào tạo, quản lý nhiều đợt kiểm tra ("kỳ thi nào"), tra điểm + đúng/sai
+// từng câu của từng người, và phân tích theo đối tượng/trước-sau.
 type SelfReadDocument = { id: string; title: string; document_code: string | null; version_label: string; effective_date: string | null };
-type Acknowledgment = { document_publication_id: string; user_id: string };
-type Staff = { id: string; name: string };
+type Acknowledgment = { document_publication_id: string; user_id: string | null; department_id: string | null };
+type DepartmentStaffCount = { id: string; name: string; staff_count: number | null };
+type TopicRollupRow = {
+  key: string;
+  employeeCode: string | null;
+  employeeName: string;
+  department: string | null;
+  jobTitle: string | null;
+  status: "pass" | "fail" | "none";
+  passedTraining: { trainingId: string; procedureName: string; effectiveDate: string | null } | null;
+  attemptCount: number;
+};
+type TopicGroup = {
+  key: string;
+  trainings: { id: string; procedure_name: string; effective_date: string | null }[];
+  rollup: TopicRollupRow[];
+};
 
 const STATUS_LABEL: Record<string, string> = {
   TRAINED: "Đã đào tạo",
@@ -57,6 +55,10 @@ const STATUS_LABEL: Record<string, string> = {
   NOT_PLANNED: "Chưa đào tạo — chưa có kế hoạch",
 };
 const STATUS_TONE: Record<string, string> = { TRAINED: "success", PLANNED: "warning", NOT_PLANNED: "danger" };
+// "Các danh sách dài thì thu gọn mặc định, cần thì bấm nút mở rộng" — ngưỡng
+// chung cho mọi danh sách dài trong module đào tạo (bảng theo chủ đề, bảng
+// xếp hạng, danh sách tuyên dương, danh sách nhân sự).
+const LIST_COLLAPSE_LIMIT = 8;
 
 function formatDate(value: string | null) {
   if (!value) return "—";
@@ -64,50 +66,62 @@ function formatDate(value: string | null) {
 }
 
 export function ProcedureTrainingsClient({
+  mode = "training",
   initialTrainings,
   canManage,
   selfReadDocuments,
   acknowledgments,
-  staffRoster,
-  currentUserId,
+  departments,
   canManageDocuments,
+  topicGroups,
 }: {
+  /** "training" = menu Đào tạo (Cần đào tạo + Theo chủ đề); "self_read" = menu Tự đọc hiểu. */
+  mode?: "training" | "self_read";
   initialTrainings: Training[];
   canManage: boolean;
   selfReadDocuments: SelfReadDocument[];
   acknowledgments: Acknowledgment[];
-  staffRoster: Staff[];
-  currentUserId: string;
+  departments: DepartmentStaffCount[];
   canManageDocuments: boolean;
+  topicGroups: TopicGroup[];
 }) {
-  const [view, setView] = useState<"training" | "self_read">("training");
+  const [view, setView] = useState<"training" | "self_read" | "topic">(mode);
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [trainings, setTrainings] = useState(initialTrainings);
   const [listQuery, setListQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [acks, setAcks] = useState(acknowledgments);
-  const [acknowledging, setAcknowledging] = useState<string | null>(null);
-  const [unconfirmedOpenId, setUnconfirmedOpenId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [deptBreakdownOpen, setDeptBreakdownOpen] = useState(false);
+
+  // Báo cáo thực tế: "Lớp tạo nhầm cũng không xóa được" — chưa có cách xoá cả
+  // 1 lớp trước đây (chỉ xoá được đợt kiểm tra/nhân sự/đăng ký riêng lẻ).
+  // Xoá cascade hết bảng con ở server (xem DELETE /api/procedure-trainings/[id]);
+  // cảnh báo rõ số nhân sự đã có nếu lớp không còn trống, tránh xoá nhầm lớp
+  // đã có dữ liệu thật.
+  async function removeTraining(t: Training) {
+    const warning = t.attendee_total > 0 ? `Lớp này đã có ${t.attendee_total} nhân sự! Xoá sẽ mất hết điểm/kết quả, KHÔNG thể hoàn tác.` : "Xoá lớp này, không thể hoàn tác.";
+    if (!window.confirm(`${warning}\n\nXoá "${t.procedure_name}"?`)) return;
+    setRemovingId(t.id);
+    setError("");
+    const res = await fetch(`/api/procedure-trainings/${t.id}`, { method: "DELETE" });
+    const body = await res.json().catch(() => ({}));
+    setRemovingId(null);
+    if (!res.ok) {
+      setError(body.error || "Không xoá được lớp này.");
+      return;
+    }
+    setTrainings((v) => v.filter((x) => x.id !== t.id));
+  }
+  const acks = acknowledgments;
+  const [qrDocId, setQrDocId] = useState<string | null>(null);
   const [procedureCode, setProcedureCode] = useState("");
   const [procedureName, setProcedureName] = useState("");
   const [draftingUnit, setDraftingUnit] = useState("");
   const [effectiveDate, setEffectiveDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<Partial<Training>>({});
-  const [rosterTraining, setRosterTraining] = useState<Training | null>(null);
-  const [rosterAttendees, setRosterAttendees] = useState<Attendee[]>([]);
-  const [rosterLoading, setRosterLoading] = useState(false);
-  const [rosterError, setRosterError] = useState("");
-  const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [newEmployeeCode, setNewEmployeeCode] = useState("");
-  const [newPreScore, setNewPreScore] = useState("");
-  const [newPostScore, setNewPostScore] = useState("");
-  const [scoreEditId, setScoreEditId] = useState<string | null>(null);
-  const [scoreDraft, setScoreDraft] = useState<{ pre: string; post: string }>({ pre: "", post: "" });
-  const [maxScoreEditing, setMaxScoreEditing] = useState(false);
-  const [maxScoreDraft, setMaxScoreDraft] = useState("");
+  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   async function submit() {
     if (!procedureName.trim()) {
@@ -139,330 +153,51 @@ export function ProcedureTrainingsClient({
     setEffectiveDate("");
   }
 
+  // Báo cáo thực tế: "Tài liệu tự đọc hiểu không nên xác nhận bên trong
+  // QARICA mà chỉ xác nhận bằng QR hoặc link" — đã bỏ hẳn nút "Tôi đã đọc và
+  // hiểu" + route xác nhận trong app, CHỈ còn xác nhận qua /xac-nhan-doc-hieu/
+  // [id] (ẩn danh, không đăng nhập). acks giờ không có tài khoản QARICA để so
+  // khớp từng người -> "chưa xác nhận theo từng người" không còn tính được
+  // chính xác; thay bằng tính tuân thủ theo khoa/phòng (departments.staff_count
+  // làm mẫu số, cùng quy ước module đào tạo đã dùng cho "còn thiếu người đăng
+  // ký" — xem RegistrationTab trong procedure-training-detail-client.tsx).
   const ackCount = (documentId: string) => acks.filter((a) => a.document_publication_id === documentId).length;
-  const hasAcked = (documentId: string) => acks.some((a) => a.document_publication_id === documentId && a.user_id === currentUserId);
-  // Chưa xác nhận = toàn bộ nhân sự đang hoạt động - những ai đã có trong acks.
-  const unconfirmedStaff = (documentId: string) => {
-    const ackedIds = new Set(acks.filter((a) => a.document_publication_id === documentId).map((a) => a.user_id));
-    return staffRoster.filter((s) => !ackedIds.has(s.id));
-  };
-
-  async function acknowledge(doc: SelfReadDocument) {
-    setAcknowledging(doc.id);
-    setError("");
-    const res = await fetch(`/api/document-publications/${doc.id}/acknowledge`, { method: "POST" });
-    const body = await res.json().catch(() => ({}));
-    setAcknowledging(null);
-    if (!res.ok) {
-      setError(body.error || "Không xác nhận được.");
-      return;
-    }
-    setAcks((v) => [...v, { document_publication_id: doc.id, user_id: currentUserId }]);
-  }
-
-  function startEdit(t: Training) {
-    setEditingId(t.id);
-    setEditDraft({
-      trainer: t.trainer || "",
-      session_1_time: t.session_1_time || "",
-      session_1_location: t.session_1_location || "",
-      session_1_method: t.session_1_method || "",
-      status: t.status,
-      feedback_qlcl: t.feedback_qlcl || "",
-      session_2_time: t.session_2_time || "",
-      session_2_location: t.session_2_location || "",
-      session_2_method: t.session_2_method || "",
-      notes: t.notes || "",
-    });
-  }
-
-  async function saveEdit(t: Training) {
-    setError("");
-    const res = await fetch(`/api/procedure-trainings/${t.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editDraft),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(body.error || "Không cập nhật được.");
-      return;
-    }
-    setTrainings((v) => v.map((x) => (x.id === t.id ? { ...x, ...body.training } : x)));
-    setEditingId(null);
-  }
-
-  function openRoster(t: Training) {
-    setRosterTraining(t);
-    setRosterError("");
-    setNewEmployeeName("");
-    setNewEmployeeCode("");
-    setNewPreScore("");
-    setNewPostScore("");
-    setScoreEditId(null);
-    setMaxScoreEditing(false);
-    setMaxScoreDraft(t.test_score_max != null ? String(t.test_score_max) : "");
-  }
-
-  function closeRoster() {
-    setRosterTraining(null);
-    setRosterAttendees([]);
-  }
-
-  async function saveMaxScore() {
-    if (!rosterTraining) return;
-    setRosterError("");
-    const res = await fetch(`/api/procedure-trainings/${rosterTraining.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ test_score_max: maxScoreDraft.trim() === "" ? null : Number(maxScoreDraft) }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setRosterError(body.error || "Không lưu được thang điểm.");
-      return;
-    }
-    setTrainings((v) => v.map((x) => (x.id === rosterTraining.id ? { ...x, ...body.training } : x)));
-    setRosterTraining((t) => (t ? { ...t, ...body.training } : t));
-    setMaxScoreEditing(false);
-  }
-
-  function startScoreEdit(a: Attendee) {
-    setScoreEditId(a.id);
-    setScoreDraft({ pre: a.pre_test_score != null ? String(a.pre_test_score) : "", post: a.post_test_score != null ? String(a.post_test_score) : "" });
-  }
-
-  async function saveScoreEdit(a: Attendee) {
-    if (!rosterTraining) return;
-    setRosterError("");
-    const res = await fetch(`/api/procedure-trainings/${rosterTraining.id}/attendees/${a.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        pre_test_score: scoreDraft.pre.trim() === "" ? null : Number(scoreDraft.pre),
-        post_test_score: scoreDraft.post.trim() === "" ? null : Number(scoreDraft.post),
-      }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setRosterError(body.error || "Không lưu được điểm.");
-      return;
-    }
-    setRosterAttendees((v) => v.map((x) => (x.id === a.id ? (body.attendee as Attendee) : x)));
-    setScoreEditId(null);
-  }
-
-  function syncRosterCounts(trainingId: string, list: Attendee[]) {
-    const total = list.length;
-    const attended = list.filter((a) => a.attended).length;
-    setTrainings((v) => v.map((x) => (x.id === trainingId ? { ...x, attendee_total: total, attendee_attended: attended } : x)));
-  }
-
-  useEffect(() => {
-    if (!rosterTraining) return;
-    let cancelled = false;
-    setRosterLoading(true);
-    fetch(`/api/procedure-trainings/${rosterTraining.id}/attendees`)
-      .then((res) => res.json())
-      .then((body) => {
-        if (cancelled) return;
-        setRosterAttendees((body.attendees as Attendee[]) || []);
-      })
-      .catch(() => {
-        if (!cancelled) setRosterError("Không tải được danh sách nhân sự.");
-      })
-      .finally(() => {
-        if (!cancelled) setRosterLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [rosterTraining]);
-
-  async function addAttendee() {
-    if (!rosterTraining || !newEmployeeName.trim()) return;
-    setRosterError("");
-    const res = await fetch(`/api/procedure-trainings/${rosterTraining.id}/attendees`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        employee_name: newEmployeeName.trim(),
-        employee_code: newEmployeeCode.trim() || null,
-        pre_test_score: newPreScore.trim() === "" ? null : Number(newPreScore),
-        post_test_score: newPostScore.trim() === "" ? null : Number(newPostScore),
-      }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setRosterError(body.error || "Không thêm được nhân sự.");
-      return;
-    }
-    const next = [...rosterAttendees, body.attendee as Attendee];
-    setRosterAttendees(next);
-    syncRosterCounts(rosterTraining.id, next);
-    setNewEmployeeName("");
-    setNewEmployeeCode("");
-    setNewPreScore("");
-    setNewPostScore("");
-  }
-
-  async function toggleAttended(attendee: Attendee) {
-    if (!rosterTraining) return;
-    setRosterError("");
-    const res = await fetch(`/api/procedure-trainings/${rosterTraining.id}/attendees/${attendee.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ attended: !attendee.attended }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setRosterError(body.error || "Không cập nhật được.");
-      return;
-    }
-    const next = rosterAttendees.map((a) => (a.id === attendee.id ? (body.attendee as Attendee) : a));
-    setRosterAttendees(next);
-    syncRosterCounts(rosterTraining.id, next);
-  }
-
-  async function removeAttendee(attendee: Attendee) {
-    if (!rosterTraining) return;
-    setRosterError("");
-    const res = await fetch(`/api/procedure-trainings/${rosterTraining.id}/attendees/${attendee.id}`, { method: "DELETE" });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setRosterError(body.error || "Không xóa được.");
-      return;
-    }
-    const next = rosterAttendees.filter((a) => a.id !== attendee.id);
-    setRosterAttendees(next);
-    syncRosterCounts(rosterTraining.id, next);
-  }
-
-  const rosterModal = rosterTraining && typeof document !== "undefined" ? createPortal(
-    <div className="modal-backdrop" style={{ padding: 18, display: "grid", placeItems: "center" }} onMouseDown={(e) => { if (e.target === e.currentTarget) closeRoster(); }}>
-      <div role="dialog" aria-modal="true" aria-labelledby="roster-title" className="modal-card" style={{ width: "min(560px, calc(100vw - 36px))", maxHeight: "calc(100vh - 48px)", overflow: "auto" }}>
-        <div className="modal-head">
-          <div>
-            <div className="eyebrow">NHÂN SỰ ĐÀO TẠO</div>
-            <h2 id="roster-title">{rosterTraining.procedure_name}</h2>
-          </div>
-          <button className="icon-button" onClick={closeRoster} aria-label="Đóng">×</button>
-        </div>
-        <div style={{ padding: "0 20px 20px", display: "grid", gap: 12 }}>
-          {rosterError ? <div className="alert error">{rosterError}</div> : null}
-          {/* Báo cáo thực tế: "A muốn cập nhật vào quản lý đào tạo" — báo cáo
-              Pre/Post-test đánh giá hiệu quả đào tạo có điểm theo từng người,
-              trước đây module này chỉ điểm danh có/vắng. Thang điểm bài test
-              là thuộc tính của CẢ đợt đào tạo (mọi người cùng làm 1 bài test),
-              nên sửa ở đây 1 lần, không lặp lại cho từng người. */}
-          <div className="pt-score-max-row">
-            <span className="muted">Thang điểm bài test (Pre/Post):</span>
-            {maxScoreEditing ? (
-              <>
-                <input
-                  className="input"
-                  type="number"
-                  min={1}
-                  style={{ width: 90 }}
-                  placeholder="VD: 17"
-                  value={maxScoreDraft}
-                  onChange={(e) => setMaxScoreDraft(e.target.value)}
-                />
-                <button className="button primary small" onClick={() => void saveMaxScore()}>Lưu</button>
-                <button className="button tertiary small" onClick={() => setMaxScoreEditing(false)}>Hủy</button>
-              </>
-            ) : (
-              <>
-                <strong>{rosterTraining.test_score_max != null ? `/${rosterTraining.test_score_max}` : "Chưa đặt"}</strong>
-                {canManage ? (
-                  <button className="button tertiary small" onClick={() => setMaxScoreEditing(true)}>Sửa</button>
-                ) : null}
-              </>
-            )}
-          </div>
-          {canManage ? (
-            <div className="pt-roster-add-form">
-              <input className="input" placeholder="Tên nhân viên..." value={newEmployeeName} onChange={(e) => setNewEmployeeName(e.target.value)} />
-              <input className="input" placeholder="Mã NV (tùy chọn)" value={newEmployeeCode} onChange={(e) => setNewEmployeeCode(e.target.value)} />
-              <input className="input" type="number" placeholder="Điểm Pre-test" value={newPreScore} onChange={(e) => setNewPreScore(e.target.value)} />
-              <input className="input" type="number" placeholder="Điểm Post-test" value={newPostScore} onChange={(e) => setNewPostScore(e.target.value)} />
-              <button className="button primary small" disabled={!newEmployeeName.trim()} onClick={() => void addAttendee()}>
-                + Thêm
-              </button>
-            </div>
-          ) : null}
-          {rosterLoading ? (
-            <div className="muted">Đang tải...</div>
-          ) : (
-            <div className="work-list">
-              {rosterAttendees.map((a) => {
-                const editingScore = scoreEditId === a.id;
-                const scoreMax = rosterTraining.test_score_max;
-                return (
-                <div className="work-row" key={a.id}>
-                  <div className="work-main">
-                    <strong>
-                      {a.employee_name}
-                      {a.employee_code ? ` (${a.employee_code})` : ""}
-                    </strong>
-                    <small>{a.attended ? `Đã đào tạo${a.attended_at ? ` · ${formatDate(a.attended_at)}` : ""}` : "Chưa đào tạo"}</small>
-                    {editingScore ? (
-                      <div className="pt-score-edit">
-                        <input className="input" type="number" placeholder="Pre" value={scoreDraft.pre} onChange={(e) => setScoreDraft((v) => ({ ...v, pre: e.target.value }))} />
-                        <input className="input" type="number" placeholder="Post" value={scoreDraft.post} onChange={(e) => setScoreDraft((v) => ({ ...v, post: e.target.value }))} />
-                        <button className="button primary small" onClick={() => void saveScoreEdit(a)}>Lưu</button>
-                        <button className="button tertiary small" onClick={() => setScoreEditId(null)}>Hủy</button>
-                      </div>
-                    ) : (a.pre_test_score != null || a.post_test_score != null) ? (
-                      <small>
-                        Pre: {a.pre_test_score != null ? `${a.pre_test_score}${scoreMax ? `/${scoreMax}` : ""}` : "—"} · Post: {a.post_test_score != null ? `${a.post_test_score}${scoreMax ? `/${scoreMax}` : ""}` : "—"}
-                      </small>
-                    ) : null}
-                  </div>
-                  {canManage ? (
-                    <>
-                      <label className="inline-check">
-                        <input type="checkbox" checked={a.attended} onChange={() => void toggleAttended(a)} /> Đã đào tạo
-                      </label>
-                      {!editingScore ? (
-                        <button className="button tertiary small" onClick={() => startScoreEdit(a)}>
-                          Sửa điểm
-                        </button>
-                      ) : null}
-                      <button className="button tertiary small" onClick={() => void removeAttendee(a)}>
-                        Xóa
-                      </button>
-                    </>
-                  ) : (
-                    <span className={`status-badge ${a.attended ? "success" : "warning"}`}>{a.attended ? "Đã đào tạo" : "Chưa đào tạo"}</span>
-                  )}
-                </div>
-                );
-              })}
-              {!rosterAttendees.length ? <div className="empty-state compact">Chưa có nhân sự nào trong danh sách.</div> : null}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>, document.body,
-  ) : null;
+  const totalStaffFromDepartments = departments.reduce((sum, d) => sum + (d.staff_count ?? 0), 0);
+  const totalDocs = selfReadDocuments.length;
+  const docCompliancePct = (documentId: string) => (totalStaffFromDepartments > 0 ? Math.min(100, Math.round((ackCount(documentId) / totalStaffFromDepartments) * 100)) : null);
+  const avgCompliancePct = (() => {
+    if (!totalDocs || totalStaffFromDepartments <= 0) return null;
+    const pcts = selfReadDocuments.map((d) => docCompliancePct(d.id) ?? 0);
+    return Math.round(pcts.reduce((s, p) => s + p, 0) / pcts.length);
+  })();
+  const lowComplianceDocCount = totalStaffFromDepartments > 0 ? selfReadDocuments.filter((d) => (docCompliancePct(d.id) ?? 0) < 50).length : 0;
+  const deptCompliance = departments
+    .filter((d): d is DepartmentStaffCount & { staff_count: number } => d.staff_count != null && d.staff_count > 0)
+    .map((d) => {
+      const expected = d.staff_count * totalDocs;
+      const actual = acks.filter((a) => a.department_id === d.id).length;
+      return { department: d, actual, expected, pct: expected > 0 ? Math.min(100, Math.round((actual / expected) * 100)) : null };
+    })
+    .sort((a, b) => (a.pct ?? 0) - (b.pct ?? 0));
+  const visibleDeptCompliance = deptBreakdownOpen ? deptCompliance : deptCompliance.slice(0, LIST_COLLAPSE_LIMIT);
 
   return (
     <div className="pt-overview mobile-module-redesign">
-      <div className="mobile-workflow-kpis"><div><small>Tổng quy trình</small><strong>{trainings.length}</strong></div><div><small>Đã đào tạo</small><strong>{trainings.filter((t) => t.status === "TRAINED").length}</strong></div><div><small>Chưa có kế hoạch</small><strong>{trainings.filter((t) => t.status === "NOT_PLANNED").length}</strong></div></div>
-      {rosterModal}
+      {mode === "training" ? <div className="mobile-workflow-kpis"><div><small>Tổng quy trình</small><strong>{trainings.length}</strong></div><div><small>Đã đào tạo</small><strong>{trainings.filter((t) => t.status === "TRAINED").length}</strong></div><div><small>Chưa có kế hoạch</small><strong>{trainings.filter((t) => t.status === "NOT_PLANNED").length}</strong></div></div> : null}
       {/* Báo cáo thực tế: "Phần theo dõi quy trình đào tạo chưa thấy kết nối
           với kiểm soát tài liệu... nên làm menu theo dõi gồm cả 2 nội dung
           [Tự đọc hiểu + Cần đào tạo] để control" — 1 menu theo dõi, 2 tab,
           thay vì 2 trang/menu tách rời như trước. */}
-      <div className="pt-view-tabs" role="group" aria-label="Hình thức phổ biến">
-        <button type="button" className={view === "training" ? "active" : ""} aria-pressed={view === "training"} onClick={() => setView("training")}>
-          Cần đào tạo
-        </button>
-        <button type="button" className={view === "self_read" ? "active" : ""} aria-pressed={view === "self_read"} onClick={() => setView("self_read")}>
-          Tự đọc hiểu
-        </button>
-      </div>
+      {mode === "training" ? (
+        <div className="pt-view-tabs" role="group" aria-label="Chế độ xem đào tạo">
+          <button type="button" className={view === "training" ? "active" : ""} aria-pressed={view === "training"} onClick={() => setView("training")}>
+            Danh sách lớp
+          </button>
+          <button type="button" className={view === "topic" ? "active" : ""} aria-pressed={view === "topic"} onClick={() => setView("topic")}>
+            Theo chủ đề
+          </button>
+        </div>
+      ) : null}
       {view === "training" ? (
       <>
       {canManage ? (
@@ -493,6 +228,7 @@ export function ProcedureTrainingsClient({
         <div className="panel-title">
           <h2>Danh sách quy trình</h2>
         </div>
+        {error ? <div className="alert error">{error}</div> : null}
         <div className="mobile-workflow-filters"><input className="input" aria-label="Tìm quy trình" placeholder="Tìm tên, mã số, đơn vị soạn thảo..." value={listQuery} onChange={(e) => setListQuery(e.target.value)} /><select className="input" aria-label="Lọc trạng thái đào tạo" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="ALL">Tất cả trạng thái</option><option value="NOT_PLANNED">Chưa có kế hoạch</option><option value="PLANNED">Đã có kế hoạch</option><option value="TRAINED">Đã đào tạo</option></select></div>
         <div className="table-wrap">
           <table>
@@ -502,169 +238,90 @@ export function ProcedureTrainingsClient({
                 <th>Tên quy trình</th>
                 <th>Đơn vị soạn thảo</th>
                 <th>Hiệu lực</th>
-                <th>Người đào tạo</th>
-                <th>Đào tạo lần 1</th>
                 <th>Trạng thái</th>
-                <th>Đào tạo lần 2</th>
-                <th>Phản hồi QLCL</th>
-                <th>Ghi chú</th>
                 <th>Tỷ lệ hoàn thành</th>
-                {canManage ? <th>Thao tác</th> : null}
+                <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              {trainings.filter((t) => (statusFilter === "ALL" || t.status === statusFilter) && (!listQuery.trim() || [t.procedure_name, t.procedure_code, t.drafting_unit].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(listQuery.trim().toLocaleLowerCase("vi"))))).map((t) => {
-                const editing = editingId === t.id;
+              {groupRowsByTopic(trainings.filter((t) => (statusFilter === "ALL" || t.status === statusFilter) && (!listQuery.trim() || [t.procedure_name, t.procedure_code, t.drafting_unit].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(listQuery.trim().toLocaleLowerCase("vi")))))).map(({ key, items }) => {
+                const t = items[0];
+                const multi = items.length > 1;
+                const open = expandedRows.has(key);
+                const attended = items.reduce((n, x) => n + x.attendee_attended, 0);
+                const total = items.reduce((n, x) => n + x.attendee_total, 0);
                 return (
-                  <tr key={t.id}>
-                    <td>{t.procedure_code || "—"}</td>
-                    <td>
-                      {t.procedure_name}
-                      {t.source_document ? (
-                        <div><small>Từ văn bản {t.source_document.document_code || ""}{t.source_document.document_code ? " — " : ""}{t.source_document.title} · <Link className="table-link" href="/document-publications">Xem →</Link></small></div>
-                      ) : null}
-                    </td>
-                    <td>{t.drafting_unit || "—"}</td>
-                    <td>{formatDate(t.effective_date)}</td>
-                    <td>
-                      {editing ? (
-                        <input
-                          className="input"
-                          placeholder="Người đào tạo..."
-                          value={String(editDraft.trainer ?? "")}
-                          onChange={(e) => setEditDraft((v) => ({ ...v, trainer: e.target.value }))}
-                        />
-                      ) : (
-                        t.trainer || "—"
-                      )}
-                    </td>
-                    <td>
-                      {editing ? (
-                        <div className="pt-session-edit">
-                          <input
-                            className="input"
-                            placeholder="Thời gian..."
-                            value={String(editDraft.session_1_time ?? "")}
-                            onChange={(e) => setEditDraft((v) => ({ ...v, session_1_time: e.target.value }))}
-                          />
-                          <input
-                            className="input"
-                            placeholder="Địa điểm..."
-                            value={String(editDraft.session_1_location ?? "")}
-                            onChange={(e) => setEditDraft((v) => ({ ...v, session_1_location: e.target.value }))}
-                          />
-                          <input
-                            className="input"
-                            placeholder="Cách thức..."
-                            value={String(editDraft.session_1_method ?? "")}
-                            onChange={(e) => setEditDraft((v) => ({ ...v, session_1_method: e.target.value }))}
-                          />
-                        </div>
-                      ) : (
-                        <small>
-                          {t.session_1_time || "—"} · {t.session_1_location || "—"} · {t.session_1_method || "—"}
-                        </small>
-                      )}
-                    </td>
-                    <td>
-                      {editing ? (
-                        <select className="input" value={String(editDraft.status ?? t.status)} onChange={(e) => setEditDraft((v) => ({ ...v, status: e.target.value as any }))}>
-                          {Object.entries(STATUS_LABEL).map(([v, l]) => (
-                            <option key={v} value={v}>
-                              {l}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className={`status-badge ${STATUS_TONE[t.status]}`}>{STATUS_LABEL[t.status]}</span>
-                      )}
-                    </td>
-                    <td>
-                      {editing ? (
-                        <div className="pt-session-edit">
-                          <input
-                            className="input"
-                            placeholder="Thời gian..."
-                            value={String(editDraft.session_2_time ?? "")}
-                            onChange={(e) => setEditDraft((v) => ({ ...v, session_2_time: e.target.value }))}
-                          />
-                          <input
-                            className="input"
-                            placeholder="Địa điểm..."
-                            value={String(editDraft.session_2_location ?? "")}
-                            onChange={(e) => setEditDraft((v) => ({ ...v, session_2_location: e.target.value }))}
-                          />
-                          <input
-                            className="input"
-                            placeholder="Cách thức..."
-                            value={String(editDraft.session_2_method ?? "")}
-                            onChange={(e) => setEditDraft((v) => ({ ...v, session_2_method: e.target.value }))}
-                          />
-                        </div>
-                      ) : (
-                        <small>
-                          {t.session_2_time || "—"} · {t.session_2_location || "—"} · {t.session_2_method || "—"}
-                        </small>
-                      )}
-                    </td>
-                    <td>
-                      {editing ? (
-                        <input
-                          className="input"
-                          placeholder="Phản hồi QLCL..."
-                          value={String(editDraft.feedback_qlcl ?? "")}
-                          onChange={(e) => setEditDraft((v) => ({ ...v, feedback_qlcl: e.target.value }))}
-                        />
-                      ) : (
-                        t.feedback_qlcl || "—"
-                      )}
-                    </td>
-                    <td>
-                      {editing ? (
-                        <input
-                          className="input"
-                          placeholder="Ghi chú..."
-                          value={String(editDraft.notes ?? "")}
-                          onChange={(e) => setEditDraft((v) => ({ ...v, notes: e.target.value }))}
-                        />
-                      ) : (
-                        t.notes || "—"
-                      )}
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
-                        <span>
-                          {t.attendee_attended}/{t.attendee_total} ({t.attendee_total ? Math.round((t.attendee_attended / t.attendee_total) * 100) : 0}%)
-                        </span>
-                        <button className="button tertiary small" onClick={() => openRoster(t)}>
-                          Quản lý nhân sự
+                <Fragment key={key}>
+                <tr>
+                  <td>{multi ? (t.procedure_code ? baseClassCode(t.procedure_code) : "—") : t.procedure_code || "—"}</td>
+                  <td>
+                    {t.procedure_name}
+                    {t.is_attendance_only && !multi ? <> <span className="status-badge info" title="Lớp tập huấn chỉ điểm danh (quét QR), không có bài test">Chỉ điểm danh</span></> : null}
+                    {multi ? (
+                      <div>
+                        <button type="button" className="button tertiary small" aria-expanded={open} onClick={() => setExpandedRows((prev) => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; })}>
+                          {items.length} lớp {open ? "▴" : "▾"}
                         </button>
                       </div>
-                    </td>
-                    {canManage ? (
-                      <td>
-                        {editing ? (
-                          <div className="pt-edit-actions">
-                            <button className="button primary small" onClick={() => void saveEdit(t)}>
-                              Lưu
-                            </button>
-                            <button className="button tertiary small" onClick={() => setEditingId(null)}>
-                              Hủy
-                            </button>
-                          </div>
-                        ) : (
-                          <button className="button secondary small" onClick={() => startEdit(t)}>
-                            Cập nhật
-                          </button>
-                        )}
-                      </td>
                     ) : null}
+                    {t.source_document ? (
+                      <div><small>Từ văn bản {t.source_document.document_code || ""}{t.source_document.document_code ? " — " : ""}{t.source_document.title} · <Link className="table-link" href="/document-publications">Xem văn bản →</Link></small></div>
+                    ) : null}
+                  </td>
+                  <td>{t.drafting_unit || "—"}</td>
+                  <td>{formatDate(t.effective_date)}</td>
+                  <td>
+                    {multi ? <span className="muted tiny">{items.filter((x) => x.status === "TRAINED").length}/{items.length} lớp đã đào tạo</span> : <span className={`status-badge ${STATUS_TONE[t.status]}`}>{STATUS_LABEL[t.status]}</span>}
+                  </td>
+                  <td>
+                    {attended}/{total} ({total ? Math.round((attended / total) * 100) : 0}%)
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <Link className="button secondary small" href={`/procedure-trainings/${t.id}`}>
+                        Xem chi tiết →
+                      </Link>
+                      {canManage && !multi ? (
+                        <button
+                          type="button"
+                          className="button tertiary small"
+                          disabled={removingId === t.id || t.status === "TRAINED"}
+                          title={t.status === "TRAINED" ? "Lớp đã hoàn thành đào tạo, không thể xoá." : undefined}
+                          onClick={() => void removeTraining(t)}
+                        >
+                          {removingId === t.id ? "Đang xoá..." : "Xóa"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+                {multi && open ? items.map((c) => (
+                  <tr key={c.id} className="pt-class-subrow">
+                    <td>{c.procedure_code || "—"}</td>
+                    <td colSpan={3}>
+                      Lớp {c.procedure_code || ""}
+                      {c.is_attendance_only ? <> <span className="status-badge info">Chỉ điểm danh</span></> : null}
+                    </td>
+                    <td><span className={`status-badge ${STATUS_TONE[c.status]}`}>{STATUS_LABEL[c.status]}</span></td>
+                    <td>{c.attendee_attended}/{c.attendee_total}</td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <Link className="button secondary small" href={`/procedure-trainings/${c.id}`}>Xem →</Link>
+                        {canManage ? (
+                          <button type="button" className="button tertiary small" disabled={removingId === c.id || c.status === "TRAINED"} title={c.status === "TRAINED" ? "Lớp đã hoàn thành đào tạo, không thể xoá." : undefined} onClick={() => void removeTraining(c)}>
+                            {removingId === c.id ? "Đang xoá..." : "Xóa"}
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
                   </tr>
+                )) : null}
+                </Fragment>
                 );
               })}
               {!trainings.length ? (
                 <tr>
-                  <td colSpan={canManage ? 12 : 11} className="empty-state compact">
+                  <td colSpan={7} className="empty-state compact">
                     Chưa có quy trình nào.
                   </td>
                 </tr>
@@ -674,15 +331,34 @@ export function ProcedureTrainingsClient({
         </div>
       </section>
       </>
-      ) : (
+      ) : view === "self_read" ? (
+        <>
         <section className="panel">
           <div className="panel-title">
             <div>
               <h2>Tự đọc hiểu</h2>
-              <p>Từng nhân viên tự bấm xác nhận đã đọc & hiểu — theo dõi ai còn chưa xác nhận để nhắc.</p>
+              <p>Xác nhận đã đọc &amp; hiểu CHỈ qua quét QR hoặc bấm link công khai (không xác nhận trong QARICA) — xem thống kê giám sát bên dưới.</p>
             </div>
           </div>
           {error ? <div className="alert error">{error}</div> : null}
+          {totalDocs ? (
+            <div className="kpi-grid" style={{ padding: "0 19px 19px" }}>
+              <KpiCard icon="folder-check" tone="blue" label="Văn bản tự đọc hiểu" value={totalDocs} />
+              <KpiCard icon="users" tone="purple" label="Tổng lượt xác nhận" value={acks.length} />
+              <KpiCard
+                icon="percent"
+                tone={avgCompliancePct == null ? "blue" : avgCompliancePct < 50 ? "red" : avgCompliancePct < 80 ? "amber" : "green"}
+                label="Tỷ lệ tuân thủ TB (ước tính theo khoa/phòng)"
+                value={avgCompliancePct == null ? "—" : `${avgCompliancePct}%`}
+              />
+              <KpiCard icon="triangle-alert" tone={lowComplianceDocCount > 0 ? "red" : "green"} label="Văn bản có tỷ lệ xác nhận <50%" value={lowComplianceDocCount} />
+            </div>
+          ) : null}
+          {!totalStaffFromDepartments ? (
+            <p className="muted tiny" style={{ padding: "0 19px 12px" }}>
+              Chưa khai báo số nhân viên (staff_count) ở danh mục khoa/phòng nên chưa ước tính được tỷ lệ tuân thủ — chỉ đếm được số lượt xác nhận thô.
+            </p>
+          ) : null}
           <div className="table-wrap">
             <table>
               <thead>
@@ -695,49 +371,30 @@ export function ProcedureTrainingsClient({
                 </tr>
               </thead>
               <tbody>
-                {selfReadDocuments.map((d) => (
-                  <tr key={d.id}>
-                    <td>{d.document_code || "—"}</td>
-                    <td>
-                      {d.title} <Link className="table-link" href="/document-publications">Xem →</Link>
-                    </td>
-                    <td>{d.version_label}</td>
-                    <td>{formatDate(d.effective_date)}</td>
-                    <td>
-                      <div className="pt-ack">
-                        <span className="status-badge success">{ackCount(d.id)} đã xác nhận</span>
-                        {canManageDocuments ? (
-                          <button type="button" className="button tertiary small" onClick={() => setUnconfirmedOpenId(unconfirmedOpenId === d.id ? null : d.id)}>
-                            {unconfirmedStaff(d.id).length} chưa xác nhận {unconfirmedOpenId === d.id ? "▾" : "▸"}
-                          </button>
-                        ) : null}
-                        {hasAcked(d.id) ? (
-                          <span className="pt-ack-done">✓ Bạn đã xác nhận</span>
-                        ) : (
-                          <button type="button" className="button secondary small" disabled={acknowledging === d.id} onClick={() => void acknowledge(d)}>
-                            {acknowledging === d.id ? "..." : "Tôi đã đọc và hiểu"}
-                          </button>
-                        )}
-                        {unconfirmedOpenId === d.id ? (
-                          <div className="pt-unconfirmed-list">
-                            {unconfirmedStaff(d.id).length ? (
-                              unconfirmedStaff(d.id)
-                                .slice(0, 30)
-                                .map((s) => (
-                                  <span key={s.id} className="chip">
-                                    {s.name}
-                                  </span>
-                                ))
-                            ) : (
-                              <small>Mọi người đã xác nhận.</small>
-                            )}
-                            {unconfirmedStaff(d.id).length > 30 ? <small>+{unconfirmedStaff(d.id).length - 30} người khác</small> : null}
-                          </div>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {selfReadDocuments.map((d) => {
+                  const pct = docCompliancePct(d.id);
+                  return (
+                    <tr key={d.id}>
+                      <td>{d.document_code || "—"}</td>
+                      <td>
+                        {d.title} <Link className="table-link" href="/document-publications">Xem →</Link>
+                      </td>
+                      <td>{d.version_label}</td>
+                      <td>{formatDate(d.effective_date)}</td>
+                      <td>
+                        <div className="pt-ack">
+                          <span className="status-badge success">{ackCount(d.id)} đã xác nhận</span>
+                          {pct != null ? <span className={`status-badge ${pct < 50 ? "danger" : pct < 80 ? "warning" : "success"}`}>{pct}% tuân thủ</span> : null}
+                          {canManageDocuments ? (
+                            <button type="button" className="button tertiary small" onClick={() => setQrDocId(d.id)}>
+                              <Icon name="qr-code" size={13} /> Link/QR gửi email
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {!selfReadDocuments.length ? (
                   <tr>
                     <td colSpan={5} className="empty-state compact">
@@ -749,7 +406,135 @@ export function ProcedureTrainingsClient({
             </table>
           </div>
         </section>
+        {deptCompliance.length ? (
+          <section className="panel">
+            <div className="panel-title">
+              <div>
+                <h2>Tuân thủ tự đọc hiểu theo khoa/phòng</h2>
+                <p>% = tổng lượt xác nhận của khoa / (số nhân viên khoa × số văn bản tự đọc hiểu) — khoa có tỷ lệ thấp nhất hiện trước để ưu tiên nhắc.</p>
+              </div>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Khoa/phòng</th>
+                    <th>Số nhân viên</th>
+                    <th>Lượt xác nhận</th>
+                    <th>Kỳ vọng</th>
+                    <th>% tuân thủ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleDeptCompliance.map((row) => (
+                    <tr key={row.department.id}>
+                      <td>{row.department.name}</td>
+                      <td>{row.department.staff_count}</td>
+                      <td>{row.actual}</td>
+                      <td>{row.expected}</td>
+                      <td>
+                        <span className={`status-badge ${(row.pct ?? 0) < 50 ? "danger" : (row.pct ?? 0) < 80 ? "warning" : "success"}`}>{row.pct ?? 0}%</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {deptCompliance.length > LIST_COLLAPSE_LIMIT ? (
+              <div style={{ padding: "0 19px 19px" }}>
+                <button type="button" className="button secondary small" onClick={() => setDeptBreakdownOpen((v) => !v)}>
+                  {deptBreakdownOpen ? "Thu gọn" : `Xem tất cả (${deptCompliance.length})`}
+                </button>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+        </>
+      ) : (
+        <>
+          {!topicGroups.length ? (
+            <section className="panel">
+              <p className="empty-state compact">Chưa có chủ đề nào gộp được từ 2 đợt đào tạo trở lên. Khi cùng 1 văn bản/quy trình được mở nhiều lớp/đợt khác ngày, kết quả sẽ tự gộp lại ở đây.</p>
+            </section>
+          ) : null}
+          {topicGroups.map((group) => {
+            const expanded = expandedTopics.has(group.key);
+            const visibleRollup = expanded ? group.rollup : group.rollup.slice(0, LIST_COLLAPSE_LIMIT);
+            return (
+              <section className="panel" key={group.key}>
+                <div className="panel-title">
+                  <div>
+                    <h2>{group.trainings[0]?.procedure_name || "Chủ đề đào tạo"}</h2>
+                    <p>
+                      Gộp {group.trainings.length} đợt: {group.trainings.map((t) => `${t.procedure_name}${t.effective_date ? ` (${formatDate(t.effective_date)})` : ""}`).join(" · ")}
+                    </p>
+                  </div>
+                </div>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>STT</th>
+                        <th>Họ tên</th>
+                        <th>Mã NV</th>
+                        <th>Đơn vị</th>
+                        <th>Chức danh</th>
+                        <th>Trạng thái</th>
+                        <th>Đạt ở đợt</th>
+                        <th>Số lần tham gia</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleRollup.map((row, idx) => (
+                        <tr key={row.key}>
+                          <td>{idx + 1}</td>
+                          <td>{row.employeeName}</td>
+                          <td>{row.employeeCode || "—"}</td>
+                          <td>{row.department || "—"}</td>
+                          <td>{row.jobTitle || "—"}</td>
+                          <td>
+                            <span className={`status-badge ${row.status === "pass" ? "success" : row.status === "fail" ? "danger" : "muted"}`}>
+                              {row.status === "pass" ? "Đạt" : row.status === "fail" ? "Không đạt — cần học lại" : "Chưa có kết quả"}
+                            </span>
+                          </td>
+                          <td>{row.passedTraining ? `${row.passedTraining.procedureName}${row.passedTraining.effectiveDate ? ` (${formatDate(row.passedTraining.effectiveDate)})` : ""}` : "—"}</td>
+                          <td>{row.attemptCount}</td>
+                        </tr>
+                      ))}
+                      {!group.rollup.length ? (
+                        <tr>
+                          <td colSpan={8} className="empty-state compact">
+                            Chưa có nhân sự nào tham gia các đợt của chủ đề này.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+                {group.rollup.length > LIST_COLLAPSE_LIMIT ? (
+                  <div style={{ padding: "0 19px 19px" }}>
+                    <button
+                      type="button"
+                      className="button secondary small"
+                      onClick={() =>
+                        setExpandedTopics((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(group.key)) next.delete(group.key);
+                          else next.add(group.key);
+                          return next;
+                        })
+                      }
+                    >
+                      {expanded ? "Thu gọn" : `Xem tất cả (${group.rollup.length})`}
+                    </button>
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
+        </>
       )}
+      {qrDocId ? <DocumentAckQrModal doc={selfReadDocuments.find((d) => d.id === qrDocId) || null} onClose={() => setQrDocId(null)} /> : null}
       <style jsx>{`
         .pt-overview {
           display: grid;
@@ -764,38 +549,6 @@ export function ProcedureTrainingsClient({
           display: grid;
           grid-template-columns: 1fr 1fr 1fr;
           gap: 8px;
-        }
-        .pt-session-edit {
-          display: grid;
-          gap: 4px;
-          min-width: 180px;
-        }
-        .pt-edit-actions {
-          display: flex;
-          gap: 6px;
-        }
-        .pt-score-max-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        .pt-roster-add-form {
-          display: grid;
-          grid-template-columns: 2fr 1fr 1fr 1fr auto;
-          gap: 8px;
-        }
-        .pt-roster-add-form > * {
-          min-width: 0;
-        }
-        .pt-score-edit {
-          display: flex;
-          gap: 6px;
-          align-items: center;
-          margin-top: 4px;
-        }
-        .pt-score-edit input {
-          width: 72px;
         }
         .pt-view-tabs {
           display: flex;
@@ -824,26 +577,53 @@ export function ProcedureTrainingsClient({
           gap: 8px;
           flex-wrap: wrap;
         }
-        .pt-ack-done {
-          font-size: 12px;
-          color: var(--muted);
-        }
-        .pt-unconfirmed-list {
-          flex-basis: 100%;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
-          margin-top: 4px;
-        }
         @media (max-width: 900px) {
           .pt-form-row {
             grid-template-columns: 1fr;
           }
-          .pt-roster-add-form {
-            grid-template-columns: 1fr 1fr;
-          }
         }
       `}</style>
+    </div>
+  );
+}
+
+// Mã QR + link dẫn tới /xac-nhan-doc-hieu/[id] — dán vào email ban hành
+// toàn viện, nhân viên không có tài khoản QARICA vẫn xác nhận được, không
+// cần đăng nhập (xem /api/public/document-ack/**).
+function DocumentAckQrModal({ doc, onClose }: { doc: SelfReadDocument | null; onClose: () => void }) {
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const link = doc && typeof window !== "undefined" ? `${window.location.origin}/xac-nhan-doc-hieu/${doc.id}` : "";
+
+  useEffect(() => {
+    if (!link) return;
+    QRCode.toDataURL(link, { width: 240, margin: 1 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [link]);
+
+  if (!doc) return null;
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-card">
+        <div className="modal-head">
+          <div>
+            <h2>Link/QR xác nhận: {doc.title}</h2>
+            <p>Dán link này vào email ban hành toàn viện, hoặc in mã QR — nhân viên bấm/quét vào xác nhận, không cần đăng nhập QARICA.</p>
+          </div>
+          <button type="button" className="icon-button" aria-label="Đóng" onClick={onClose}>
+            ×
+          </button>
+        </div>
+        <div className="modal-body" style={{ display: "grid", gap: 14, justifyItems: "center", textAlign: "center" }}>
+          {qrDataUrl ? <img src={qrDataUrl} alt={`Mã QR xác nhận ${doc.title}`} width={220} height={220} /> : <div className="loading-state compact">Đang tạo mã QR...</div>}
+          <code style={{ fontSize: 11, wordBreak: "break-all" }}>{link}</code>
+          {qrDataUrl ? (
+            <a className="button secondary small" download={`qr-xac-nhan-${doc.document_code || doc.id}.png`} href={qrDataUrl}>
+              <Icon name="download" size={15} /> Tải mã QR
+            </a>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 import { FormEvent,useMemo,useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { KpiCard } from "@/components/kpi-card";
 
 type SetRow={id:string;code:string|null;name:string;description:string|null;is_active:boolean};
 type Version={id:string;version_no:number;status:string;effective_from:string|null;effective_to:string|null;published_at:string|null};
@@ -38,7 +39,12 @@ export function CriteriaSetEditorClient({criteriaSet,versions,version,items,depa
   if(expectedTotalScore!==null&&!Number.isFinite(expectedTotalScore))return alert("Tổng điểm kỳ vọng không hợp lệ.");
   setBusy(true);try{const res=await fetch(`/api/criteria-sets/${criteriaSet.id}/publish`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({version_id:version.id,expected_total_score:expectedTotalScore})});const data=await res.json();if(!res.ok)throw new Error(data.error||"Không phát hành được.");router.refresh()}catch(e){alert(e instanceof Error?e.message:"Có lỗi xảy ra.")}finally{setBusy(false)}}
  return <>
-  <section className="kpi-grid"><article className="kpi-card"><span>Phiên bản đang xem</span><strong>{version?`v${version.version_no}`:"—"}</strong><small>{version?.status==="DRAFT"?"Nháp · được chỉnh sửa":version?.status==="PUBLISHED"?"Đã phát hành · khóa nội dung":"—"}</small></article><article className="kpi-card"><span>Tiêu chí cấp 1</span><strong>{roots.length}</strong><small>{roots.filter(x=>x.is_active).length} đang áp dụng</small></article><article className="kpi-card"><span>Tiểu mục</span><strong>{items.length-roots.length}</strong><small>Tối đa 1 cấp dưới tiêu chí</small></article><article className="kpi-card success"><span>Trạng thái bộ</span><strong style={{fontSize:18}}>{criteriaSet.is_active?"Đang áp dụng":"Đã ngưng"}</strong><small>{versions.length} phiên bản được lưu</small></article></section>
+  <section className="kpi-grid">
+   <KpiCard icon="file-text" tone="blue" label="Phiên bản đang xem" value={version?`v${version.version_no}`:"—"} caption={version?.status==="DRAFT"?"Nháp · được chỉnh sửa":version?.status==="PUBLISHED"?"Đã phát hành · khóa nội dung":"—"} />
+   <KpiCard icon="list-tree" tone="blue" label="Tiêu chí cấp 1" value={roots.length} caption={`${roots.filter(x=>x.is_active).length} đang áp dụng`} />
+   <KpiCard icon="list-checks" tone="blue" label="Tiểu mục" value={items.length-roots.length} caption="Tối đa 1 cấp dưới tiêu chí" />
+   <KpiCard icon="badge-check" tone="green" label="Trạng thái bộ" value={criteriaSet.is_active?"Đang áp dụng":"Đã ngưng"} caption={`${versions.length} phiên bản được lưu`} />
+  </section>
   <section className="panel"><div className="panel-title"><div><h2>Cấu trúc tiêu chí</h2><p>Tiêu chí cấp 1 có thể có nhiều tiểu mục. Không tạo cây sâu hơn để giao diện chấm điểm vẫn đơn giản.</p></div><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{canManage&&version?.status!=="DRAFT"&&criteriaSet.is_active?<button className="button secondary" disabled={busy} onClick={createRevision}>Tạo bản cập nhật</button>:null}{editable?<><button className="button primary" onClick={()=>add()}><Icon name="plus" size={16}/> Thêm tiêu chí</button><button className="button secondary" disabled={busy||!items.some(x=>x.is_active)} onClick={publish}>Phát hành v{version?.version_no}</button></>:null}</div></div>
    {!criteriaSet.is_active?<div className="scope-note" style={{margin:"0 18px 16px"}}>Bộ tiêu chí đã ngưng áp dụng. Dữ liệu lịch sử vẫn được giữ nhưng không cho cấu hình mới.</div>:null}
    {version?.status==="PUBLISHED"?<div className="scope-note" style={{margin:"0 18px 16px"}}>Phiên bản đã phát hành được khóa. Chọn <strong>Tạo bản cập nhật</strong> để QARICA sao chép sang phiên bản Nháp mới.</div>:null}

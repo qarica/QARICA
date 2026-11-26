@@ -753,6 +753,16 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .workspace-app .toolbar .search-box{flex:1 1 190px;min-width:0;max-width:100%;}
 }
 
+/* Audit giao diện QARICA: .search-box kế thừa flex-basis:190px tính cho layout
+   ROW ở breakpoint trên, nhưng .toolbar/.toolbar-left chuyển flex-direction:column
+   ở breakpoint hẹp hơn (620px, xem globals.css) — flex-basis 190px khi đó áp lên
+   chiều CAO thay vì rộng, ô tìm kiếm bị bóp cao gần 190px, đẩy nội dung phía dưới
+   (nút lọc/tab, FAB che nội dung...) trên mọi trang dùng .toolbar+.search-box. */
+@media(max-width:620px){
+ .workspace-app .toolbar .search-box,
+ .workspace-app .toolbar-left .search-box{flex:1 1 auto;}
+}
+
 /* Visibly redesigned mobile operations: distinguish input and record sections. */
 @media(max-width:760px){
  .workspace-app .mobile-module-redesign{display:flex!important;flex-direction:column;gap:13px!important;}
@@ -771,7 +781,7 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  }
  .workspace-app .mobile-module-redesign .panel-title h2{
    font-size:15px!important;font-weight:800!important;line-height:1.35!important;
-   margin:0!important;color:#15355f!important;
+   margin:0!important;color:#172554!important;
  }
  .workspace-app .mobile-module-redesign .panel-title p{
    font-size:12px!important;line-height:1.5!important;color:#71829a!important;
@@ -962,6 +972,9 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
 .incoming-doc-overview .doc-view-tabs{display:flex;gap:7px;padding:0 12px 12px;overflow-x:auto}
 .incoming-doc-overview .doc-view-tabs button{border:1px solid var(--qf-line);border-radius:999px;background:#fff;padding:9px 13px;white-space:nowrap;color:var(--qf-muted);font-weight:700;font-size:12px;cursor:pointer}
 .incoming-doc-overview .doc-view-tabs button.active{background:var(--qf-blue);color:white;border-color:var(--qf-blue)}
+/* Hàng chip tình trạng (Tất cả / Đang xử lý / Đã xử lý xong): xuống dòng thay vì cuộn ngang — trên điện thoại chip thứ 3 từng bị cắt mép phải kèm thanh cuộn xám. */
+.incoming-doc-overview .doc-view-tabs.doc-status-tabs{flex-wrap:wrap;overflow-x:visible;padding-top:0}
+@media(max-width:760px){.incoming-doc-overview .doc-view-tabs.doc-status-tabs button{padding:7px 11px}}
 .incoming-doc-overview .doc-search{display:block;margin:0 12px 12px;width:calc(100% - 24px);box-sizing:border-box}
 @media(max-width:760px){.incoming-doc-overview .doc-overview-kpis{gap:7px}.incoming-doc-overview .doc-overview-kpis>div{padding:10px}.incoming-doc-overview .doc-overview-kpis small{font-size:11px}.incoming-doc-overview .doc-overview-kpis strong{font-size:22px}.incoming-doc-overview .doc-view-tabs{padding:0 10px 12px}.incoming-doc-overview .doc-search{font-size:16px}}
 
@@ -1042,4 +1055,16 @@ html,body{background:var(--qf-bg)!important;color:var(--qf-text)!important}
  .mobile-module-redesign .mobile-workflow-kpis>div{min-width:0;overflow-wrap:anywhere}
  .mobile-module-redesign .mobile-workflow-filters .input{min-width:0;box-sizing:border-box}
  .emr-group-overview .table-wrap{overscroll-behavior-x:contain}
+}
+
+/* Audit giao diện QARICA: FAB "Quick Capture" toàn cục (position:fixed,
+   right/bottom:14px, 52px cao ở mobile — xem global-quick-capture.tsx) che
+   mất link/nút cuối trang trên màn hình ngắn (vd "Việc của tôi →",
+   "Findings →"). .content ở đây bị rất nhiều rule !important khác giành
+   quyền set padding-bottom qua nhiều breakpoint — đặt rule này cuối file
+   (final-visual-lock.css nạp sau cùng trong layout.tsx) để thắng cascade
+   cho đúng 1 property padding-bottom, không đụng padding-top/left/right
+   các rule khác đã set. */
+@media(max-width:620px){
+ .workspace-app .content{padding-bottom:calc(76px + env(safe-area-inset-bottom))!important}
 }

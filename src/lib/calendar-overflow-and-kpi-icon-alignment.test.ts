@@ -50,13 +50,22 @@ describe("Calendar (/calendar) — ô \"+N mốc khác\" phải bấm xem đư�
 // (`.scope .kpi .kpi-icon`, xem capa/incidents/evidence/improvement/risks
 // page.tsx) — khiến display:block đè mất display:flex, icon không còn được
 // căn giữa trong nền màu.
-describe("Báo cáo & Phân tích QLCL (/analytics) — icon KPI hàng exec-kpis lệch khỏi nền", () => {
+// 2026-11-13: exec-kpis/kpis trên trang này chuyển sang <KpiCard> dùng
+// chung (Stage C redesign) — root cause ở trên (selector .kpi span thắng
+// specificity trước .kpi-icon do thiếu 1 lớp .kpi cha) không còn áp dụng
+// được nữa vì trang không còn tự định nghĩa .kpi/.kpi-icon/.kpi span riêng
+// nào: toàn bộ icon giờ dùng đúng 1 rule .kpi-icon.<tone> chung trong
+// globals.css (không có type-selector `span` cạnh tranh specificity).
+describe("Báo cáo & Phân tích QLCL (/analytics) — icon KPI hàng exec-kpis lệch khỏi nền (đã chuyển sang KpiCard dùng chung)", () => {
   const source = read("src/app/(app)/analytics/page.tsx");
 
-  it("selector .kpi-icon của exec-kpis có đủ lớp cha .kpi, khớp đúng quy ước mọi trang kpi khác trong repo (không thua specificity trước '.kpi span{display:block}')", () => {
-    expect(source).toContain(".tqm-analytics .exec-kpis .kpi .kpi-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}");
-    expect(source).toContain(".tqm-analytics .exec-kpis .kpi .kpi-icon.blue{background:#dbeafe;color:#2563eb}");
-    expect(source).toContain(".tqm-analytics .exec-kpis .kpi .kpi-icon.purple{background:#ede9fe;color:#7c3aed}");
-    expect(source).not.toMatch(/\.tqm-analytics \.exec-kpis \.kpi-icon\{/);
+  it("không còn tự định nghĩa .kpi/.kpi-icon/.exec-kpis .kpi riêng — dùng KpiCard + .kpi-icon.<tone> chung của globals.css", () => {
+    expect(source).toContain('import { KpiCard } from "@/components/kpi-card";');
+    expect(source).not.toMatch(/\.tqm-analytics \.exec-kpis \.kpi\{/);
+    expect(source).not.toMatch(/\.tqm-analytics \.kpi\{/);
+    expect(source).not.toMatch(/\.tqm-analytics \.kpi-icon\{/);
+    const globals = read("src/app/globals.css");
+    expect(globals).toContain(".kpi-icon.blue{background:var(--tone-blue-soft);color:var(--tone-blue)}");
+    expect(globals).toContain(".kpi-icon.purple{background:var(--tone-purple-soft);color:var(--tone-purple)}");
   });
 });

@@ -4,7 +4,6 @@ import { DomainCreateClient } from "@/components/domain-create-client";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 
@@ -38,7 +37,6 @@ export default async function SafetyAlertsPage() {
 
   const year = await getWorkYear();
   const supabase = await createClient();
-  const admin = createAdminClient();
   const canManage =
     user.permissions.includes("safety_alert.edit") ||
     user.permissions.includes("safety_alert.publish");
@@ -75,7 +73,7 @@ export default async function SafetyAlertsPage() {
   const incidentIds = incidents.map((row) => row.id);
 
   const lessonsRes = incidentIds.length
-    ? await admin
+    ? await supabase
         .from("incident_lessons_learned")
         .select(
           "id,incident_id,status,title,summary,learning_points,recommended_practice,audience,deidentified_confirmed,published_at",

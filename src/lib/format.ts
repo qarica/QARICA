@@ -30,6 +30,8 @@ export function humanStatus(status?: string | null) {
     COMPLETED: "Hoàn thành",
     CANCELLED: "Đã hủy",
     NOT_APPLICABLE: "Không áp dụng",
+    OPEN: "Đang mở",
+    TODO: "Chưa thực hiện",
     ACTIVE: "Đang hoạt động",
     CLOSED: "Đã đóng",
     DRAFT: "Nháp",

@@ -17,7 +17,7 @@ describe("Incoming documents module security and control gates", () => {
 
   it("is reachable from the sidebar only behind incoming_documents.view", () => {
     const nav = read("src/lib/navigation.ts");
-    expect(nav).toContain('{ label: "QUẢN LÝ CÔNG VĂN", href: "/incoming-documents", icon: "file-input", permission: "incoming_documents.view" }');
+    expect(nav).toContain('{ label: "Quản lý công văn", href: "/incoming-documents", icon: "file-input", permission: "incoming_documents.view" }');
   });
 
   it("keeps every write tenant-scoped by organization_id", () => {
@@ -85,8 +85,27 @@ describe("Loại công văn (document_type) là list chọn cố định, không
   it("form Tiếp nhận công văn mới dùng select (không còn input gõ tay) cho Loại công văn, có option rỗng để vẫn là tùy chọn", () => {
     expect(client).not.toContain('placeholder="Loại công văn (tùy chọn)"');
     expect(client).toContain('<select className="input" value={documentType} onChange={(e) => setDocumentType(e.target.value)}>');
-    expect(client).toContain('<option value="">— Chọn loại công văn (tùy chọn) —</option>');
+    // Option rỗng rút gọn (chữ cũ dài bị cắt trong ô hẹp) + ô có nhãn riêng như các ô cùng hàng.
+    expect(client).toContain('<option value="">— Chọn loại —</option>');
+    expect(client).not.toContain("— Chọn loại công văn (tùy chọn) —");
+    expect(client).toContain("<span>Loại công văn (tùy chọn)</span>");
     expect(client).toContain('{INCOMING_DOCUMENT_TYPES.map((t) => (');
+  });
+
+  // Báo cáo thực tế: "công văn đã xử lý xong biến mất" — tab mặc định "Theo dõi xử lý"
+  // từng ẩn mọi công văn đã có completed_at (dữ liệu vẫn còn, chỉ bị lọc). Nay hiện cả
+  // đang xử lý lẫn đã xong, có bộ lọc tình trạng, mặc định "Tất cả".
+  it("tab Theo dõi xử lý KHÔNG còn ẩn công văn đã hoàn thành; có bộ lọc Tất cả / Đang xử lý / Đã xử lý xong, mặc định Tất cả", () => {
+    expect(client).not.toContain('if (view === "tracking" && !!d.completed_at) return false;');
+    expect(client).toContain('const [trackingStatus, setTrackingStatus] = useState<"all" | "active" | "done">("all");');
+    expect(client).toContain('if (view === "tracking" && trackingStatus === "active" && !!d.completed_at) return false;');
+    expect(client).toContain('if (view === "tracking" && trackingStatus === "done" && !d.completed_at) return false;');
+    expect(client).toContain("`Đã xử lý xong (${completedCount})`");
+    // Hàng chip này xuống dòng thay vì cuộn ngang (trên điện thoại chip thứ 3 từng bị cắt mép phải).
+    expect(client).toContain('<div className="doc-view-tabs doc-status-tabs" role="group" aria-label="Lọc theo tình trạng xử lý">');
+    expect(read("src/app/final-visual-lock.css")).toContain(".incoming-doc-overview .doc-view-tabs.doc-status-tabs{flex-wrap:wrap;overflow-x:visible;padding-top:0}");
+    // Tab Phân công vẫn chỉ liệt kê công văn chưa phân công và chưa hoàn thành (đúng ý nghĩa của tab).
+    expect(client).toContain('if (view === "assign" && (!!d.department_id || !!d.completed_at)) return false;');
   });
 });
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useEmrCreateSignal } from "@/components/emr-create-context";
 import { Icon } from "@/components/icon";
+import { KpiCard, type KpiTone } from "@/components/kpi-card";
 import { categoriesReferencing, EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, formatBooleanValue, formatSequenceStep, formatSequenceValue, parseSequenceStep, sequenceSteps, SEQUENCE_SEPARATOR, SEQUENCE_STEP_METHOD_SEPARATOR, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
 
 type Item = { id: string; category: string; title: string; description: string | null; status: string; department_ids:string[]; owner_department_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; publish_status: string; published_at: string | null; published_by: string | null; created_at: string; updated_at: string };
@@ -17,7 +18,7 @@ function sanitizeCustomRole(value: string): string {
   return value.split(SEQUENCE_STEP_METHOD_SEPARATOR).join(" ").split(SEQUENCE_SEPARATOR).join(" ").replace(/\s+/g, " ").trim();
 }
 
-const KPI_TONE: Record<EmrKpiBucket, string> = { TOTAL: "blue", DONE: "green", IN_PROGRESS: "amber", TODO: "slate", BLOCKED: "red", OVERDUE: "red", CERT_VALID: "green", CERT_EXPIRING: "amber", CERT_EXPIRED: "red" };
+const KPI_TONE: Record<EmrKpiBucket, KpiTone> = { TOTAL: "blue", DONE: "green", IN_PROGRESS: "amber", TODO: "purple", BLOCKED: "red", OVERDUE: "red", CERT_VALID: "green", CERT_EXPIRING: "amber", CERT_EXPIRED: "red" };
 const KPI_ICON: Record<EmrKpiBucket, string> = { TOTAL: "list-checks", DONE: "badge-check", IN_PROGRESS: "refresh-cw", TODO: "calendar-days", BLOCKED: "circle-alert", OVERDUE: "triangle-alert", CERT_VALID: "shield-check", CERT_EXPIRING: "triangle-alert", CERT_EXPIRED: "circle-alert" };
 
 function todayHcm() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()); }
@@ -162,8 +163,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     setError(null);
     try {
       const res = await fetch(`/api/emr/items?category=${encodeURIComponent(categoryCode)}`);
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không tải được dữ liệu.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không tải được dữ liệu.");
       setItems(json.items);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -257,8 +258,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(isEdit ? form : { ...form, category: categoryCode }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
       if (!isEdit && pendingFile && json.item?.id) {
         await uploadFile(json.item.id, pendingFile);
       }
@@ -283,8 +284,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: next } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: next }) });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
       await load({ silent: true });
@@ -300,8 +301,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: next } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: next }) });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
       await load({ silent: true });
@@ -318,8 +319,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, department_ids: [] } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ department_ids: [] }) });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
       await load({ silent: true });
@@ -335,8 +336,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, publish_status: "PUBLISHED", published_at: now } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ publish: true }) });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không duyệt được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không duyệt được.");
       await load({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -357,8 +358,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, details: nextDetails } : i)));
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ details: nextDetails }) });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không lưu được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không lưu được.");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
       await load({ silent: true });
@@ -369,8 +370,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     if (!window.confirm(`Xoá "${item.title}"? Không thể hoàn tác.`)) return;
     try {
       const res = await fetch(`/api/emr/items/${item.id}`, { method: "DELETE" });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không xoá được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không xoá được.");
       await load({ silent: true });
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -380,8 +381,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   async function viewFile(item: Item) {
     try {
       const res = await fetch(`/api/emr/items/${item.id}/file`);
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không mở được file.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không mở được file.");
       window.open(json.url, "_blank", "noopener,noreferrer");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Có lỗi xảy ra.");
@@ -395,8 +396,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
       const body = new FormData();
       body.append("file", file);
       const res = await fetch(`/api/emr/items/${itemId}/file`, { method: "POST", body });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không tải lên được.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không tải lên được.");
       await load({ silent: true });
       setEditing((prev) => (prev && prev.id === itemId ? { ...prev, details: { ...prev.details, file_name: json.file_name } } : prev));
     } catch (e) {
@@ -410,8 +411,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
     if (!window.confirm("Xoá file đính kèm này?")) return;
     try {
       const res = await fetch(`/api/emr/items/${itemId}/file`, { method: "DELETE" });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || "Không xoá được file.");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Không xoá được file.");
       await load({ silent: true });
       setEditing((prev) => { if (!prev || prev.id !== itemId) return prev; const d = { ...prev.details }; delete d.file_name; delete d.file_path; return { ...prev, details: d }; });
     } catch (e) {
@@ -466,13 +467,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
 
   return (
     <div className="page-stack">
-      {kpis.length ? <section className="kpis" style={{ display: "grid", gridTemplateColumns: `repeat(${kpis.length},minmax(0,1fr))`, gap: 12 }}>
-        {kpis.map((k) => <article className="kpi-card" key={k.bucket} style={{ background: "#fff", border: "1px solid #e5eaf2", borderRadius: 14, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.03)", display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <span className={`emr-cat-kpi-icon ${KPI_TONE[k.bucket]}`}><Icon name={KPI_ICON[k.bucket]} size={19} /></span>
-          <div><div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{bucketCount(k.bucket, kpiItems, hasBlockedBucket, categoryCode)}</div>
-          <div style={{ fontSize:13, color: "#475569", fontWeight: 600, marginTop: 2 }}>{k.label}</div></div>
-        </article>)}
-        <style>{`.emr-cat-kpi-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}.emr-cat-kpi-icon.blue{background:#dbeafe;color:#2563eb}.emr-cat-kpi-icon.green{background:#dcfce7;color:#16a34a}.emr-cat-kpi-icon.amber{background:#fef3c7;color:#b45309}.emr-cat-kpi-icon.red{background:#fee2e2;color:#dc2626}.emr-cat-kpi-icon.slate{background:#e2e8f0;color:#475569}`}</style>
+      {kpis.length ? <section className="kpi-grid" style={{ gridTemplateColumns: `repeat(${kpis.length},minmax(0,1fr))` }}>
+        {kpis.map((k) => <KpiCard key={k.bucket} icon={KPI_ICON[k.bucket]} tone={KPI_TONE[k.bucket]} label={k.label} value={bucketCount(k.bucket, kpiItems, hasBlockedBucket, categoryCode)} />)}
       </section> : null}
       <div className="toolbar" style={{ padding: "0 0 4px" }}>
         <div className="toolbar-left"><div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Tìm trong ${categoryLabel.toLowerCase()}...`} /></div>
@@ -620,9 +616,20 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
       ) : (
         <div className="panel">
           <div className="table-wrap">
-            <table className="data-table">
+            {/* Phản hồi người dùng: cột Tiêu đề bị bóp thành dải hẹp, chữ xuống dòng từng từ,
+               trong khi các cột phụ (nguồn tham chiếu, ngày, tình trạng...) lại giữ nguyên 1 dòng
+               và chiếm hết chỗ. Đảo lại: cột Tiêu đề có bề rộng tối thiểu đủ đọc, các cột còn
+               lại (kể cả tiêu đề cột) được xuống dòng. Dùng thẻ <style> thường với selector có
+               tiền tố riêng (không dùng styled-jsx, xem CLAUDE.md). */}
+            <style>{`
+              .emr-category-table th,.emr-category-table td{white-space:normal;overflow-wrap:break-word}
+              .emr-category-table th{line-height:1.3}
+              .emr-category-table th:first-child,.emr-category-table td:first-child{white-space:nowrap}
+              .emr-category-table th.emr-col-title,.emr-category-table td.emr-col-title{min-width:280px;max-width:440px}
+            `}</style>
+            <table className="data-table emr-category-table">
               <thead>
-                <tr><th style={{ width: 30 }}></th><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th>{showDescription?<th>{descLabel}</th>:null}{visibleInfoColumns.map((f)=><th key={f.key}>{f.label}</th>)}{visibleProgressColumns.map((f)=><th key={f.key}>{f.label}</th>)}{showPriorityDueStatus?<><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th></>:null}{categoryCode==="BIEU_MAU"?<th>Duyệt phát hành</th>:null}<th></th></tr>
+                <tr><th style={{ width: 30 }}></th><th>#</th>{beforeTitleFields.map((f)=><th key={f.key}>{f.label}</th>)}<th className="emr-col-title"><button type="button" onClick={cycleTitleSort} title="Sắp xếp theo STT hoặc A-Z" style={{display:"flex",alignItems:"center",gap:4,background:"none",border:0,padding:0,margin:0,font:"inherit",color:"inherit",cursor:"pointer"}}>Tiêu đề <span aria-hidden="true">{titleSort==="asc"?"▲":titleSort==="desc"?"▼":"⇅"}</span></button></th>{showDescription?<th>{descLabel}</th>:null}{visibleInfoColumns.map((f)=><th key={f.key}>{f.label}</th>)}{visibleProgressColumns.map((f)=><th key={f.key}>{f.label}</th>)}{showPriorityDueStatus?<><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái triển khai</th></>:null}{categoryCode==="BIEU_MAU"?<th>Duyệt phát hành</th>:null}<th></th></tr>
               </thead>
               <tbody>
                 {filtered.map((item, idx) => (
@@ -631,7 +638,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                     <td><button type="button" className="icon-button" onClick={() => toggleExpanded(item.id)} aria-label={expandedIds.has(item.id) ? "Thu gọn chi tiết" : "Xem chi tiết"} aria-expanded={expandedIds.has(item.id)}>{expandedIds.has(item.id) ? "▾" : "▸"}</button></td>
                     <td>{idx + 1}</td>
                     {beforeTitleFields.map((f)=><td key={f.key}>{item.details?.[f.key]!=null&&item.details[f.key]!==""?String(item.details[f.key]):"—"}</td>)}
-                    <td><strong>{item.title}</strong></td>
+                    <td className="emr-col-title"><strong>{item.title}</strong></td>
                     {showDescription?<td>{item.description || "—"}{item.is_go_live_gate ? <div><small>Go-live gate</small></div> : null}</td>:null}
                     {visibleInfoColumns.map((f)=><td key={f.key}>{fieldDisplayContent(f, item)}</td>)}
                     {visibleProgressColumns.map((f)=><td key={f.key}>{fieldDisplayContent(f, item)}</td>)}

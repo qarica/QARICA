@@ -128,23 +128,13 @@ describe("Document publications: phổ biến (dissemination) sau khi phát hàn
     expect(server).toContain("document_publication_id: params.documentPublicationId,");
   });
 
-  it("SELF_READ acknowledgment only requires document_publication.view (any staff can self-confirm, not just managers) and only applies to a PUBLISHED, SELF_READ document", () => {
-    const ackRoute = read("src/app/api/document-publications/[id]/acknowledge/route.ts");
-    expect(ackRoute).toContain('requireApiPermission("document_publication.view")');
-    expect(ackRoute).not.toContain('requireApiPermission("document_publication.manage")');
-    expect(ackRoute).toContain('if (doc.stage !== "PUBLISHED" || doc.dissemination_type !== "SELF_READ")');
-  });
-
-  it("identity for an acknowledgment comes from auth.uid(), never hand-typed name/employee code/email like the old paper form", () => {
-    const ackRoute = read("src/app/api/document-publications/[id]/acknowledge/route.ts");
-    expect(ackRoute).toContain("user_id: auth.user.id,");
-    expect(ackRoute).not.toContain("body.employee_code");
-    expect(ackRoute).not.toContain("body.full_name");
-  });
-
-  it("acknowledging twice is idempotent (unique document_publication_id+user_id, upsert ignores duplicates) rather than erroring or double-counting", () => {
-    const ackRoute = read("src/app/api/document-publications/[id]/acknowledge/route.ts");
-    expect(ackRoute).toContain('{ onConflict: "document_publication_id,user_id", ignoreDuplicates: true }');
+  // Báo cáo thực tế: "Tài liệu tự đọc hiểu không nên xác nhận bên trong
+  // QARICA mà chỉ xác nhận bằng QR hoặc link" — route /acknowledge (xác nhận
+  // qua auth.uid() trong app) đã bị xoá hẳn; chỉ còn xác nhận công khai qua
+  // /api/public/document-ack/** (xem document-publication-public-ack-security.test.ts)
+  // và tab Tự đọc hiểu không còn gọi route này (xem procedure-trainings-security.test.ts).
+  it("route xác nhận trong app (/acknowledge) đã bị xoá — không còn đường xác nhận nào ngoài QR/link công khai", () => {
+    expect(fs.existsSync(path.join(process.cwd(), "src/app/api/document-publications/[id]/acknowledge/route.ts"))).toBe(false);
   });
 
   it("the acknowledgments table is tenant-scoped and tracks per-employee department for coverage reporting", () => {
@@ -216,17 +206,27 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
   });
 
   it("đường dẫn storage chia theo tổ chức + khoa/phòng soạn thảo (thư mục theo phòng ban), dùng chung bucket qlcl-evidence với EMR", () => {
-    const fileRoute = read("src/app/api/document-publications/[id]/file/route.ts");
-    expect(fileRoute).toContain('const BUCKET = "qlcl-evidence";');
-    expect(fileRoute).toContain(
-      "const storagePath = `${organizationId}/document-publications/${departmentFolderSlug(draftingDepartmentName)}/${id}/${randomUUID()}-${storedFileName}`;",
+    // Đường dẫn + bucket nay nằm ở MỘT nơi (lib dùng chung cho cả đính kèm qua
+    // server lẫn tải thẳng) — không còn lặp ở từng route.
+    const limits = read("src/lib/document-publication-file-limits.ts");
+    expect(limits).toContain('export const DOCUMENT_FILE_BUCKET = "qlcl-evidence";');
+    const lib = read("src/lib/document-publication-file.ts");
+    expect(lib).toContain(
+      "return `${organizationId}/document-publications/${departmentFolderSlug(departmentName)}/${documentId}/${randomUUID()}-${safeFileName(originalFileName)}`;",
     );
+    expect(read("src/app/api/document-publications/[id]/file/route.ts")).toContain("buildDocumentFilePath(organizationId, departmentName, id, originalFileName)");
   });
 
   it("đính kèm file mới thì xoá file cũ khỏi storage (không rò rỉ object orphan khi thay file)", () => {
-    const fileRoute = read("src/app/api/document-publications/[id]/file/route.ts");
-    expect(fileRoute).toContain("const previousPath = doc.file_path;");
-    expect(fileRoute).toContain("if (previousPath) await admin.storage.from(BUCKET).remove([previousPath]);");
+    // Xoá file cũ nằm trong finalizeDocumentFileAttach — dùng chung cho cả đính
+    // kèm qua server và xác nhận sau khi tải thẳng.
+    const lib = read("src/lib/document-publication-file.ts");
+    // ...trừ khi object đó còn được lịch sử phiên bản tham chiếu (file của bản cũ).
+    expect(lib).toContain("await removeStorageObjectUnlessVersioned(admin, previousPath);");
+    expect(lib).toContain('.from("document_publication_versions").select("id", { count: "exact", head: true }).eq("file_path", path)');
+    expect(read("src/app/api/document-publications/[id]/file/route.ts")).toContain("await removeStorageObjectUnlessVersioned(admin, doc.file_path);");
+    expect(read("src/app/api/document-publications/[id]/file/route.ts")).toContain("previousPath: doc.file_path");
+    expect(read("src/app/api/document-publications/[id]/file/confirm/route.ts")).toContain("previousPath: doc.file_path");
   });
 
   it("chỉ lộ file_name ra client qua SELECT_COLUMNS/select của trang, KHÔNG lộ file_path (đường dẫn storage) ra ngoài route file riêng", () => {
@@ -266,8 +266,245 @@ describe("Document publications: thư viện văn bản (đính kèm file + thư
     expect(client).toContain("async function viewFile(doc: DocumentPublication) {");
     const fileCell = client.slice(client.indexOf("Tệp đính kèm"), client.indexOf("</tbody>", client.indexOf("Tệp đính kèm")));
     expect(fileCell).toContain("onClick={() => void viewFile(d)}");
-    expect(fileCell).toContain('canManage ? (\n                                      <button type="button" className="button tertiary small" disabled={fileBusyId === d.id} onClick={() => void removeFile(d)}>');
-    expect(fileCell).toContain(': canManage ? (\n                                  <label className="dp-file-input button secondary small">');
+    // Yêu cầu thực tế: nút xoá "quá gần dễ bấm nhầm" — không còn nằm sát icon
+    // kẹp giấy ở cột Tệp đính kèm, chuyển hẳn vào form Sửa (tách khỏi Lưu/Hủy).
+    expect(fileCell).not.toContain("doc-file-icon-remove");
+    expect(client).not.toContain(".doc-file-icon-remove");
+    // Form Sửa của Thư viện văn bản là form cuối cùng trong file (form Sửa của
+    // "Đang xử lý" nằm trước đó) — slice riêng vì fileCell dừng ở </tbody> lồng.
+    const editForm = client.slice(client.lastIndexOf('className="dp-edit-form"'));
+    expect(editForm).toContain('className="dp-edit-file"');
+    expect(editForm).toContain("onClick={() => void removeFile(d)}");
+    expect(editForm.indexOf("onClick={() => void removeFile(d)}")).toBeLessThan(editForm.indexOf("onClick={() => void saveEdit(d)}"));
+    expect(fileCell).toContain(': canManage ? (\n                                  <label className="doc-file-icon dp-file-input"');
+  });
+
+  // Báo cáo thực tế: "Xem làm tương tự như đính kèm công văn" — cột Tệp đính
+  // kèm trước đây hiện cả tên file đầy đủ + nút "Xoá file" riêng (chiếm nhiều
+  // chỗ ngang), nay đổi sang cùng khuôn mẫu icon-only (.doc-file-icon) đã
+  // dùng ở incoming-documents-client.tsx — có file thì icon tô màu brand,
+  // không có thì icon xám mờ; tên file vẫn xem được qua title/aria-label,
+  // không mất thông tin.
+  it("UI: cột Tệp đính kèm dùng chung khuôn mẫu icon .doc-file-icon như công văn (incoming-documents-client.tsx), không hiện tên file tràn ngang", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain('className="doc-file-icon has-file"');
+    expect(client).not.toContain('<Icon name="file-text" size={14} /> {d.file_name}');
+    expect(client).toContain(".doc-file-icon {");
+    expect(client).toContain(".doc-file-icon.has-file {");
+  });
+
+  // Báo cáo thực tế: "Lỗi ko đính nhiều file lên cùng lúc, đính cái này thì
+  // cái kia ngưng" — fileBusyId trước đây là 1 giá trị string|null DÙNG
+  // CHUNG cho mọi dòng trong bảng, không phải theo từng dòng. Đính/xem/xoá
+  // file ở dòng A xong rồi thao tác sang dòng B TRƯỚC KHI dòng A xong,
+  // fileBusyId bị ghi đè sang id của B — dòng A mất trạng thái "đang xử lý"
+  // (nút hết disabled) dù request vẫn chạy ngầm, nhìn như bị dừng giữa
+  // chừng. Đổi sang Set<string> (fileBusyIds) để nhiều dòng cùng "đang xử
+  // lý" độc lập, không dòng nào đè mất trạng thái của dòng khác.
+  it("fileBusyIds là Set theo từng dòng, không phải 1 giá trị dùng chung — đính/xem/xoá nhiều dòng cùng lúc không đè trạng thái của nhau", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("const [fileBusyIds, setFileBusyIds] = useState<Set<string>>(new Set());");
+    expect(client).not.toContain("const [fileBusyId, setFileBusyId] = useState<string | null>(null);");
+    expect(client).toContain("function markFileBusy(docId: string, busy: boolean) {");
+    expect(client).toContain("if (busy) next.add(docId);");
+    expect(client).toContain("else next.delete(docId);");
+    // Cả 3 hàm viewFile/uploadFile/removeFile đều gọi markFileBusy (gắn CỜ
+    // RIÊNG cho đúng doc.id của chính nó), không gọi setFileBusyId trực
+    // tiếp nữa — nếu còn sót 1 chỗ gọi thẳng thì lại tái phạm lỗi ghi đè.
+    expect(client).not.toContain("setFileBusyId(");
+    const fileCell = client.slice(client.indexOf("Tệp đính kèm"), client.indexOf("</tbody>", client.indexOf("Tệp đính kèm")));
+    // 3 chỗ trong vùng dòng bảng: tên văn bản (bấm mở file), icon kẹp giấy
+    // (xem) và ô chọn file (đính kèm). Nút "Xoá file" đã chuyển vào form Sửa
+    // (ngoài vùng này) và cũng khoá theo đúng id dòng — kiểm riêng bên dưới.
+    expect((fileCell.match(/fileBusyIds\.has\(d\.id\)/g) || []).length).toBe(3);
+    const editForm = client.slice(client.lastIndexOf('className="dp-edit-form"'));
+    expect(editForm).toContain('disabled={fileBusyIds.has(d.id)} onClick={() => void removeFile(d)}');
+  });
+
+  // Yêu cầu thực tế: "văn bản nào đã có file đính kèm thì tên văn bản đổi màu,
+  // chưa có vẫn như cũ và bấm vào tên để mở file xem luôn".
+  it("UI: tên văn bản có file thì đổi màu và bấm để mở file; chưa có file thì giữ nguyên chữ thường", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain('className="dp-title-link"');
+    expect(client).toContain("{d.file_name ? (\n                                  <button\n                                    type=\"button\"\n                                    className=\"dp-title-link\"");
+    expect(client).toContain("onClick={() => void viewFile(d)}\n                                    title={`Mở file đính kèm: ${d.file_name}`}");
+    expect(client).toContain(".dp-title-link {");
+    expect(client).toContain("color: var(--brand);\n          font-weight: 700;");
+  });
+});
+
+// Báo cáo thực tế: "đính 1 vài file nhưng ko được" — file từ ~5 MB trở lên gửi
+// qua route Vercel bị chặn ở giới hạn body của nền tảng, giao diện chỉ báo chung
+// chung. Đổi sang tải thẳng lên storage bằng đường dẫn có chữ ký (3 bước), server
+// kiểm lại thật ở bước xác nhận.
+describe("Document publications: đính kèm file tải thẳng lên storage (không qua body Vercel)", () => {
+  const dir = "src/app/api/document-publications/[id]/file";
+
+  it("upload-url và confirm đều đòi .manage + chặn theo organization_id của văn bản", () => {
+    for (const name of ["upload-url", "confirm"]) {
+      const route = read(`${dir}/${name}/route.ts`);
+      expect(route).toContain('export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {\n  const auth = await requireApiPermission("document_publication.manage");');
+      expect(route).toContain("if (!doc || doc.organization_id !== organizationId)");
+    }
+  });
+
+  it("upload-url kiểm loại file + dung lượng khai báo, chỉ cấp đường dẫn, không ghi DB", () => {
+    const route = read(`${dir}/upload-url/route.ts`);
+    expect(route).toContain("size > DOCUMENT_FILE_MAX_SIZE");
+    expect(route).toContain("evidenceFilePolicy(fileName)");
+    expect(route).toContain("createSignedUploadUrl(storagePath)");
+    expect(route).not.toContain('.from("document_publications")');
+    expect(route).not.toContain('.from("audit_logs")');
+  });
+
+  it("confirm không tin client: kiểm đường dẫn đúng khuôn, kiểm dung lượng + mime THẬT trên storage, xoá object không đạt, và không xoá nhầm file đang gắn khi bị gọi lại", () => {
+    const route = read(`${dir}/confirm/route.ts`);
+    expect(route).toContain("isDocumentFilePathFor(path, organizationId, id)");
+    expect(route).toContain(".info(path)");
+    expect(route).toContain("actualSize > DOCUMENT_FILE_MAX_SIZE");
+    expect(route).toContain("actualMime !== expectedMime");
+    expect(route).toContain(".remove([path])");
+    // Gọi lại với đúng file đang gắn phải trả ok TRƯỚC khi chạm vào storage/finalize,
+    // nếu không previousPath === path và file vừa gắn sẽ bị xoá.
+    expect(route.indexOf("if (doc.file_path === path)")).toBeGreaterThan(-1);
+    expect(route.indexOf("if (doc.file_path === path)")).toBeLessThan(route.indexOf("finalizeDocumentFileAttach("));
+    expect(route.indexOf("if (doc.file_path === path)")).toBeLessThan(route.indexOf(".info(path)"));
+  });
+
+  it("isDocumentFilePathFor chỉ chấp nhận đúng khuôn đường dẫn của CHÍNH tổ chức + văn bản", async () => {
+    const { isDocumentFilePathFor, buildDocumentFilePath } = await import("./document-publication-file");
+    const org = "11111111-1111-1111-1111-111111111111";
+    const doc = "22222222-2222-2222-2222-222222222222";
+    const good = buildDocumentFilePath(org, "Khoa Khám bệnh", doc, "Quy trình số 1.pdf");
+    expect(isDocumentFilePathFor(good, org, doc)).toBe(true);
+    expect(isDocumentFilePathFor(good, "33333333-3333-3333-3333-333333333333", doc)).toBe(false);
+    expect(isDocumentFilePathFor(good, org, "33333333-3333-3333-3333-333333333333")).toBe(false);
+    expect(isDocumentFilePathFor(`${org}/document-publications/chung/${doc}/../x.pdf`, org, doc)).toBe(false);
+    expect(isDocumentFilePathFor(`${org}/other-area/chung/${doc}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa-x.pdf`, org, doc)).toBe(false);
+    expect(isDocumentFilePathFor(`${org}/document-publications/chung/${doc}/not-a-uuid-x.pdf`, org, doc)).toBe(false);
+    expect(isDocumentFilePathFor("", org, doc)).toBe(false);
+  });
+
+  it("client: tiền kiểm dung lượng/loại file, tải 3 bước thẳng lên storage, ép type theo chính sách server, báo lỗi rõ ràng", () => {
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("/file/upload-url`");
+    expect(client).toContain("/file/confirm`");
+    expect(client).toContain(".uploadToSignedUrl(");
+    expect(client).toContain("new File([file], file.name, { type: urlBody.content_type as string })");
+    expect(client).toContain("file.size > DOCUMENT_FILE_MAX_SIZE");
+    expect(client).toContain("!evidenceFilePolicy(file.name)");
+    // markFileBusy luôn được nhả trong finally, kể cả khi lỗi giữa chừng.
+    expect(client).toContain("} finally {\n      markFileBusy(doc.id, false);");
+    // Không còn gửi file qua body route Vercel từ giao diện.
+    expect(client).not.toContain('formData.append("file", file)');
+  });
+});
+
+// "Làm hướng 1": khi phát hành PHIÊN BẢN MỚI, file của bản cũ không còn bị mất —
+// được lưu vào dòng lịch sử của bản cũ và mở lại được từ "Lịch sử".
+describe("Document publications: giữ file theo từng phiên bản (hướng 1)", () => {
+  // Kho dữ liệu giả tối thiểu đủ cho archiveCurrentVersionFile (select/eq/order/limit/maybeSingle/insert/update).
+  function fakeAdmin(tables: Record<string, Record<string, unknown>[]>) {
+    const inserted: { table: string; row: Record<string, unknown> }[] = [];
+    const updated: { table: string; patch: Record<string, unknown>; id: unknown }[] = [];
+    const admin = {
+      from(table: string) {
+        const filters: [string, unknown][] = [];
+        const builder: Record<string, unknown> = {
+          select: () => builder,
+          eq: (k: string, v: unknown) => (filters.push([k, v]), builder),
+          order: () => builder,
+          limit: () => builder,
+          maybeSingle: async () => ({ data: (tables[table] || []).find((r) => filters.every(([k, v]) => r[k] === v)) ?? null, error: null }),
+          insert: async (row: Record<string, unknown>) => (inserted.push({ table, row }), { error: null }),
+          update: (patch: Record<string, unknown>) => ({ eq: async (_k: string, id: unknown) => (updated.push({ table, patch, id }), { error: null }) }),
+        };
+        return builder;
+      },
+    };
+    return { admin: admin as never, inserted, updated };
+  }
+  const org = "11111111-1111-1111-1111-111111111111";
+  const doc = "22222222-2222-2222-2222-222222222222";
+  const base = { id: doc, organization_id: org, version_label: "01", document_code: "QT-01", effective_date: "2024-01-01", file_path: "p/old.pdf", file_name: "old.pdf" };
+
+  it("bản cũ CHƯA có dòng lịch sử (văn bản nhập từ trước): tạo dòng cho bản cũ kèm đúng file hiện hành", async () => {
+    const { archiveCurrentVersionFile } = await import("./document-publication-server");
+    const { admin, inserted } = fakeAdmin({ document_publications: [base], document_publication_versions: [] });
+    const r = await archiveCurrentVersionFile(admin, { organizationId: org, documentId: doc, createdBy: "u1" });
+    expect(r).toEqual({ ok: true, archivedFile: true });
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0].row).toMatchObject({ version_label: "01", document_code: "QT-01", file_path: "p/old.pdf", file_name: "old.pdf", document_publication_id: doc });
+  });
+
+  it("bản cũ ĐÃ có dòng lịch sử chưa giữ file: gắn file hiện hành vào dòng đó, không tạo dòng trùng", async () => {
+    const { archiveCurrentVersionFile } = await import("./document-publication-server");
+    const { admin, inserted, updated } = fakeAdmin({
+      document_publications: [base],
+      document_publication_versions: [{ id: "v1", organization_id: org, document_publication_id: doc, version_label: "01", file_path: null }],
+    });
+    const r = await archiveCurrentVersionFile(admin, { organizationId: org, documentId: doc, createdBy: "u1" });
+    expect(r).toEqual({ ok: true, archivedFile: true });
+    expect(inserted).toHaveLength(0);
+    expect(updated).toEqual([{ table: "document_publication_versions", patch: { file_path: "p/old.pdf", file_name: "old.pdf" }, id: "v1" }]);
+  });
+
+  it("dòng lịch sử đã giữ 1 file thì KHÔNG bị ghi đè; văn bản không có file thì chỉ bảo đảm có dòng lịch sử", async () => {
+    const { archiveCurrentVersionFile } = await import("./document-publication-server");
+    const kept = fakeAdmin({
+      document_publications: [base],
+      document_publication_versions: [{ id: "v1", organization_id: org, document_publication_id: doc, version_label: "01", file_path: "p/already.pdf" }],
+    });
+    expect(await archiveCurrentVersionFile(kept.admin, { organizationId: org, documentId: doc, createdBy: "u1" })).toEqual({ ok: true, archivedFile: false });
+    expect(kept.updated).toHaveLength(0);
+    const noFile = fakeAdmin({ document_publications: [{ ...base, file_path: null, file_name: null }], document_publication_versions: [] });
+    expect(await archiveCurrentVersionFile(noFile.admin, { organizationId: org, documentId: doc, createdBy: "u1" })).toEqual({ ok: true, archivedFile: false });
+    expect(noFile.inserted).toHaveLength(1);
+    expect(noFile.inserted[0].row).toMatchObject({ file_path: null });
+  });
+
+  it("văn bản đích không tồn tại / sai tổ chức → lỗi, không ghi gì", async () => {
+    const { archiveCurrentVersionFile } = await import("./document-publication-server");
+    const { admin, inserted } = fakeAdmin({ document_publications: [base], document_publication_versions: [] });
+    const r = await archiveCurrentVersionFile(admin, { organizationId: "99999999-9999-9999-9999-999999999999", documentId: doc, createdBy: "u1" });
+    expect(r.ok).toBe(false);
+    expect(inserted).toHaveLength(0);
+  });
+
+  it("PATCH ADVANCE→PUBLISHED (UPDATE) lưu file bản cũ TRƯỚC khi gỡ file khỏi văn bản, và chỉ gỡ khi lưu thành công", () => {
+    const route = read("src/app/api/document-publications/[id]/route.ts");
+    const archiveAt = route.indexOf("archiveCurrentVersionFile(admin, {");
+    const clearAt = route.indexOf("targetUpdate.file_path = null;");
+    const updateAt = route.indexOf('.from("document_publications").update(targetUpdate)');
+    expect(archiveAt).toBeGreaterThan(-1);
+    expect(archiveAt).toBeLessThan(clearAt);
+    expect(clearAt).toBeLessThan(updateAt);
+    expect(route.slice(archiveAt, clearAt)).toContain("if (!archived.ok) return NextResponse.json(");
+    expect(route).toContain("targetUpdate.file_name = null;");
+    // recordDocumentVersion (ghi bản MỚI) vẫn chỉ còn 1 chỗ gọi như test cũ khoá.
+    expect((route.match(/recordDocumentVersion\(admin, \{/g) ?? []).length).toBe(1);
+  });
+
+  it("route lịch sử không lộ file_path, chỉ báo has_file; route file của phiên bản đòi .view + chặn theo tổ chức và theo văn bản", () => {
+    const list = read("src/app/api/document-publications/[id]/versions/route.ts");
+    expect(list).toContain("has_file: !!file_path");
+    expect(list).not.toContain("file_path: ");
+    const route = read("src/app/api/document-publications/[id]/versions/[versionId]/file/route.ts");
+    expect(route).toContain('requireApiPermission("document_publication.view")');
+    expect(route).not.toContain("document_publication.manage");
+    expect(route).toContain('.eq("document_publication_id", id)');
+    expect(route).toContain('.eq("organization_id", organizationId)');
+    expect(route).toContain("createSignedUrl(version.file_path, 60)");
+  });
+
+  it("migration chỉ thêm cột file_path nullable; UI có cột Tệp trong Lịch sử mở file đúng phiên bản", () => {
+    const mig = read("supabase/migrations/20261201000001_document_publication_versions_file_path_v1.sql");
+    expect(mig).toContain("alter table public.document_publication_versions add column if not exists file_path text;");
+    expect(mig).not.toMatch(/drop |delete |truncate /i);
+    const client = read("src/components/document-publications-client.tsx");
+    expect(client).toContain("<th>Tệp</th>");
+    expect(client).toContain("/versions/${version.id}/file`");
+    expect(client).toContain("onClick={() => void viewVersionFile(d, v)}");
   });
 });
 
@@ -379,7 +616,10 @@ describe("Document publications: nâng cấp hình ảnh (icon chuyên nghiệp 
     const client = read("src/components/document-publications-client.tsx");
     expect(client).toContain('import { Icon } from "@/components/icon";');
     expect(client).toContain('<Icon name="folder-archive" size={16} className="dp-folder-icon" />');
-    expect(client).toContain('<Icon name="file-text" size={14} />');
+    // Cột Tệp đính kèm đổi sang khuôn mẫu icon-only ("Xem làm tương tự như
+    // đính kèm công văn") — paperclip thay vì file-text, xem describe
+    // "thư viện văn bản" bên dưới cho đầy đủ test của khuôn mẫu này.
+    expect(client).toContain('<Icon name="paperclip" size={16} />');
   });
 
   it("3 ô KPI đầu trang có icon badge dùng đúng token màu sẵn có (info/warning/success), không bịa màu/giá trị hex mới", () => {

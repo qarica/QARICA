@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { KpiCard } from "@/components/kpi-card";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend, type Tone } from "@/components/tqm-charts";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -128,21 +129,9 @@ export default async function FiveSSummaryPage() {
       </div>
 
       <section className="kpi-grid">
-        <article className="kpi-card">
-          <span>Tỷ lệ đạt toàn 5S</span>
-          <strong>{overallPct}%</strong>
-          <small>{totalPass}/{totalScored || 0} mục được chấm đạt</small>
-        </article>
-        <article className="kpi-card">
-          <span>Lượt giám sát năm {year}</span>
-          <strong>{totalRounds}</strong>
-          <small>Trên cả 6 khu vực</small>
-        </article>
-        <article className="kpi-card">
-          <span>Khu vực đã có dữ liệu</span>
-          <strong>{areaBars.filter((a) => a.caption !== "Chưa có đợt giám sát").length}/6</strong>
-          <small>Khu vực đã từng được giám sát</small>
-        </article>
+        <KpiCard icon="chart-no-axes-column-increasing" tone="blue" label="Tỷ lệ đạt toàn 5S" value={`${overallPct}%`} caption={`${totalPass}/${totalScored || 0} mục được chấm đạt`} />
+        <KpiCard icon="calendar-days" tone="green" label={`Lượt giám sát năm ${year}`} value={totalRounds} caption="Trên cả 6 khu vực" />
+        <KpiCard icon="layers" tone="purple" label="Khu vực đã có dữ liệu" value={`${areaBars.filter((a) => a.caption !== "Chưa có đợt giám sát").length}/6`} caption="Khu vực đã từng được giám sát" />
       </section>
 
       <section className="tqm-grid" style={{ display: "grid", gridTemplateColumns: "1.2fr .8fr", gap: 14 }}>

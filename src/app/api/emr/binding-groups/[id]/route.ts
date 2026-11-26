@@ -12,7 +12,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!auth.ok) return auth.response;
   const { id } = await params;
   const admin = createAdminClient();
-  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(auth.supabase, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
@@ -53,6 +53,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (!data) return NextResponse.json({ error: "Không tìm thấy nhóm gáy." }, { status: 404 });
 
+  {
+    const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_binding_groups", row_id: id, action_type: "EMR_BINDING_GROUP_UPDATE", old_value: { name: current.name }, new_value: update, request_meta: { source: "qlcl-ui" } });
+    if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
+  }
+
   if (newName && newName !== current.name) {
     const { data: affected } = await admin
       .from("emr_rollout_items")
@@ -79,7 +84,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (!auth.ok) return auth.response;
   const { id } = await params;
   const admin = createAdminClient();
-  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(auth.supabase, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
@@ -98,5 +103,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   const { error } = await admin.from("emr_binding_groups").delete().eq("id", id).eq("organization_id", organizationId);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_binding_groups", row_id: id, action_type: "EMR_BINDING_GROUP_DELETE", old_value: { name: current.name }, request_meta: { source: "qlcl-ui" } });
+  if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

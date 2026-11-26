@@ -23,6 +23,7 @@ export function TqmDonut({value,label,segments}:{value:number;label:string;segme
 }
 
 export function TqmHorizontalBars({rows,max}:{rows:{label:string;value:number;tone?:Tone;caption?:string}[];max?:number}){
+  if(!rows.length) return <div className="empty-state compact">Chưa có dữ liệu.</div>;
   const ceiling=Math.max(1,max??Math.max(1,...rows.map(r=>r.value)));
   return <div className="tqm-hbars">{rows.map((r,i)=><div className="tqm-hbar-row" key={`${r.label}-${i}`}><div className="tqm-hbar-label"><strong>{r.label}</strong>{r.caption?<span>{r.caption}</span>:null}</div><div className="tqm-hbar-track"><span className="tqm-hbar-fill" style={{width:`${Math.max(0,Math.min(100,r.value/ceiling*100))}%`,background:COLORS[r.tone||"brand"]}}/></div><b>{r.value}</b></div>)}</div>
 }
@@ -135,6 +136,205 @@ export function TqmGantt({year,rows}:{year:number;rows:{label:string;start:strin
   return <div className="tqm-gantt"><div className="tqm-gantt-head"><div>Công việc / đề án</div>{months.map((m,i)=><span key={`${m.year}-${m.month}`}>{m.month===1&&i>0?`T1/${String(m.year).slice(-2)}`:`T${m.month}`}</span>)}</div>{rows.map((r,i)=>{const s=monthPos(r.start),e=monthPos(r.end);return <div className="tqm-gantt-row" key={`${r.label}-${i}`}><div className="tqm-gantt-name"><strong>{r.label}</strong><small>{r.start||"—"} → {r.end||"—"}</small></div><div className="tqm-gantt-grid">{months.map((m,i)=><i key={`${m.year}-${m.month}-${i}`}/>)}{s!==null&&e!==null?<span className="tqm-gantt-bar" title={`${r.label}: ${r.progress??0}% · ${r.start} → ${r.end}`} style={{left:`${s/15*100}%`,width:`${(Math.max(s,e)-s+1)/15*100}%`,background:COLORS[r.tone||"brand"]}}><em style={{width:`${Math.max(0,Math.min(100,r.progress??0))}%`}}/></span>:null}</div></div>})}</div>
 }
 
+/**
+ * Gauge hình cung 270° (không phải donut tròn đủ 360° như TqmDonut) — dùng
+ * cho KPI dạng % đạt mục tiêu/công suất, có thể kèm 1 vạch mốc mục tiêu.
+ * Kỹ thuật: 2 vòng <circle> chồng nhau, dùng pathLength=100 để stroke-
+ * dasharray tính trực tiếp theo %, xoay cả nhóm 135° để khoảng hở (90°,
+ * 25% chưa vẽ) nằm đúng dưới đáy — cách dựng gauge kiểu đồng hồ tốc độ
+ * chuẩn, không cần tính chu vi hình tròn thủ công.
+ */
+export function TqmGauge({ value, max = 100, label, tone = "brand", target }: {
+  value: number; max?: number; label: string; tone?: Tone; target?: number | null;
+}) {
+  const pct = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
+  const trackLen = 75; // 270° / 360° của vòng tròn, biểu diễn bằng % của pathLength=100
+  const fillLen = pct * trackLen;
+  const hasTarget = target !== null && target !== undefined && Number.isFinite(target) && max > 0;
+  const targetFrac = hasTarget ? Math.max(0, Math.min(1, (target as number) / max)) : 0;
+  const cx = 60, cy = 60, rInner = 42, rOuter = 51;
+  const targetAngleRad = ((135 + targetFrac * 270) * Math.PI) / 180;
+  const tickX1 = cx + rInner * Math.cos(targetAngleRad), tickY1 = cy + rInner * Math.sin(targetAngleRad);
+  const tickX2 = cx + rOuter * Math.cos(targetAngleRad), tickY2 = cy + rOuter * Math.sin(targetAngleRad);
+  return <div className="tqm-gauge">
+    <svg viewBox="0 0 120 120" role="img" aria-label={`${label}: ${Math.round(pct * 100)}%${hasTarget ? `, mục tiêu ${target}%` : ""}`}>
+      <g transform="rotate(135 60 60)">
+        <circle cx={cx} cy={cy} r="50" pathLength={100} fill="none" stroke="#edf2f3" strokeWidth="12" strokeLinecap="round" strokeDasharray={`${trackLen} ${100 - trackLen}`} />
+        <circle cx={cx} cy={cy} r="50" pathLength={100} fill="none" stroke={COLORS[tone]} strokeWidth="12" strokeLinecap="round" strokeDasharray={`${fillLen} ${100 - fillLen}`} />
+      </g>
+      {hasTarget ? <line x1={tickX1} y1={tickY1} x2={tickX2} y2={tickY2} stroke="#31515a" strokeWidth="3" strokeLinecap="round" /> : null}
+      <text x={cx} y={cy + 7} textAnchor="middle" fontSize="22" fontWeight="800" fill="#172126">{Math.round(pct * 100)}%</text>
+    </svg>
+    <div className="tqm-gauge-label">{label}</div>
+  </div>;
+}
+
+/**
+ * Bẻ nhãn dài thành tối đa `maxLines` dòng ngang (không xoay chữ) — xoay
+ * chữ ở trục dưới cho nhiều cột sát nhau (vd nhiều khoa/phòng) dễ bị chữ
+ * đè lên nhau/biến dạng khi footprint ngang của chữ xoay vượt quá khoảng
+ * cách giữa các cột (báo cáo thực tế: "Ko thấy tên đơn vị khoa phòng" —
+ * đúng lỗi này). Bẻ dòng ngang giữ chữ luôn thẳng, dễ đọc, không phụ thuộc
+ * số lượng cột.
+ */
+function wrapLabel(label: string, maxCharsPerLine: number, maxLines: number): string[] {
+  const words = label.split(/\s+/).filter(Boolean);
+  if (!words.length) return [label];
+  const lines: string[] = [];
+  let current = "";
+  let idx = 0;
+  while (idx < words.length && lines.length < maxLines - 1) {
+    const next = current ? `${current} ${words[idx]}` : words[idx];
+    if (next.length > maxCharsPerLine && current) {
+      lines.push(current);
+      current = "";
+      continue;
+    }
+    current = next;
+    idx++;
+  }
+  const rest = [current, ...words.slice(idx)].filter(Boolean).join(" ");
+  if (rest) lines.push(rest.length > maxCharsPerLine ? `${rest.slice(0, maxCharsPerLine - 1).trimEnd()}…` : rest);
+  return lines.length ? lines : [label];
+}
+
+/**
+ * Nhãn số trên đầu cột, có nền trắng đục phía sau — che đường mốc (threshold
+ * dashed line) hoặc bất kỳ nét kẻ nào đi ngang qua đúng vị trí nhãn khi giá
+ * trị cột gần bằng mốc, tránh chữ số bị nét kẻ "cắt" qua trông như số khác
+ * (báo cáo thực tế: cột 13.0 gần mốc 14 bị đường kẻ cắt qua trông như
+ * "43.0" — "rất xấu"). Độ rộng nền ước lượng theo số ký tự, không cần đo
+ * canvas thật vì chỉ cần đủ che, không cần khít tuyệt đối.
+ */
+function ValueLabel({ x, y, text, fill = "#31515a" }: { x: number; y: number; text: string; fill?: string }) {
+  const w = text.length * 7.5 + 8;
+  return (
+    <g>
+      <rect x={x - w / 2} y={y - 12} width={w} height={14} fill="#fff" />
+      <text x={x} y={y} textAnchor="middle" fontSize="12" fontWeight="800" fill={fill}>
+        {text}
+      </text>
+    </g>
+  );
+}
+
+/**
+ * Biểu đồ cột nhóm: so sánh 2 giá trị (vd trước/sau) theo từng đơn vị, mỗi
+ * đơn vị 2 cột cạnh nhau 2 màu khác nhau, kèm 1 đường ngang cắt ngang đánh
+ * dấu 1 mốc (vd mức điểm đạt) — theo yêu cầu thực tế "1 khoa gồm 2 cột
+ * trước và sau tương ứng 2 màu, thêm 1 dòng mức điểm đạt cắt ngang". Giá
+ * trị luôn in trực tiếp trên đầu mỗi cột (không bắt buộc phải hover mới
+ * xem được), cuộn ngang khi nhiều đơn vị (như TqmGantt). `width`/`height`
+ * gắn thẳng làm thuộc tính SVG (không chỉ CSS min-width) để khớp đúng 1:1
+ * với viewBox — tránh trình duyệt co giãn lệch tỷ lệ làm chữ biến dạng.
+ */
+export function TqmGroupedBars({ groups, beforeLabel, afterLabel, threshold, thresholdLabel = "Mức đạt" }: {
+  groups: { label: string; before: number | null; after: number | null }[];
+  beforeLabel: string; afterLabel: string; threshold?: number | null; thresholdLabel?: string;
+}) {
+  if (!groups.length) return <div className="empty-state compact">Chưa có dữ liệu.</div>;
+  const hasThreshold = threshold !== null && threshold !== undefined && Number.isFinite(threshold);
+  const allVals = groups.flatMap((g) => [g.before, g.after]).filter((v): v is number => v != null).concat(hasThreshold ? [threshold as number] : []);
+  const ceiling = Math.max(1, ...allVals) * 1.2;
+  const barW = 30, gapInGroup = 6, groupGap = 38, sidePad = 26, topPad = 26, bottomPad = 66, height = 280;
+  const groupW = barW * 2 + gapInGroup;
+  const width = sidePad * 2 + groups.length * groupW + Math.max(0, groups.length - 1) * groupGap;
+  const baseY = height - bottomPad;
+  const yFor = (v: number) => topPad + (1 - Math.max(0, v) / ceiling) * (baseY - topPad);
+  const thresholdY = hasThreshold ? yFor(threshold as number) : null;
+  return (
+    <div className="tqm-grouped-bars">
+      <div className="tqm-grouped-bars-legend">
+        <span><i className="tqm-swatch" style={{ background: COLORS.blue }} />{beforeLabel}</span>
+        <span><i className="tqm-swatch" style={{ background: COLORS.green }} />{afterLabel}</span>
+        {hasThreshold ? <span><i className="tqm-swatch" style={{ background: TARGET_LINE_COLOR }} />{thresholdLabel}: {threshold}</span> : null}
+      </div>
+      <div className="tqm-grouped-bars-scroll">
+        <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} role="img" aria-label={`Biểu đồ cột so sánh ${beforeLabel} và ${afterLabel} theo đơn vị${hasThreshold ? `, ${thresholdLabel} ${threshold}` : ""}`}>
+          <line x1={sidePad} y1={baseY} x2={width - sidePad} y2={baseY} stroke="#dce7ea" />
+          {/* Chỉ vẽ đường mốc, KHÔNG in nhãn số trong biểu đồ nữa — nhãn
+              "Mức đạt: X" luôn neo sát mép phải (textAnchor="end") nên đè lên
+              cột/nhãn số cuối cùng khi biểu đồ vừa đúng khít nội dung (báo
+              cáo thực tế "rất xấu" — đúng lỗi này); giá trị mốc đã có sẵn
+              trong chú giải (legend) phía trên, không mất thông tin. */}
+          {thresholdY !== null ? <line x1={sidePad} y1={thresholdY} x2={width - sidePad} y2={thresholdY} stroke={TARGET_LINE_COLOR} strokeWidth="2" strokeDasharray="6 5" /> : null}
+          {groups.map((g, i) => {
+            const gx = sidePad + i * (groupW + groupGap);
+            const labelLines = wrapLabel(g.label, 15, 4);
+            return (
+              <g key={`${g.label}-${i}`}>
+                {g.before != null ? (
+                  <g>
+                    <rect x={gx} y={yFor(g.before)} width={barW} height={Math.max(0, baseY - yFor(g.before))} rx="3" fill={COLORS.blue} />
+                    <ValueLabel x={gx + barW / 2} y={yFor(g.before) - 4} text={g.before.toFixed(1)} />
+                  </g>
+                ) : null}
+                {g.after != null ? (
+                  <g>
+                    <rect x={gx + barW + gapInGroup} y={yFor(g.after)} width={barW} height={Math.max(0, baseY - yFor(g.after))} rx="3" fill={COLORS.green} />
+                    <ValueLabel x={gx + barW + gapInGroup + barW / 2} y={yFor(g.after) - 4} text={g.after.toFixed(1)} />
+                  </g>
+                ) : null}
+                <text x={gx + groupW / 2} y={baseY + 16} textAnchor="middle" fontSize="11" fill="#5a6c73">
+                  {labelLines.map((line, li) => (
+                    <tspan key={li} x={gx + groupW / 2} dy={li === 0 ? 0 : 13}>
+                      {line}
+                    </tspan>
+                  ))}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Biểu đồ cột đơn giản (1 cột/hạng mục, dựng đứng) — bản thay thế
+ * TqmHorizontalBars khi cần so sánh trực quan kiểu "cột cao thấp" thay vì
+ * thanh ngang (báo cáo thực tế: "chuyển hết các biểu đồ hàng ngang thành
+ * biểu đồ cột để dễ so sánh", phạm vi tab Phân tích đào tạo). Dùng cùng
+ * wrapLabel với TqmGroupedBars để nhãn trục dưới không bị đè khi nhiều
+ * hạng mục.
+ */
+export function TqmColumnBars({ rows, max, unit = "" }: { rows: { label: string; value: number; tone?: Tone }[]; max?: number; unit?: string }) {
+  if (!rows.length) return <div className="empty-state compact">Chưa có dữ liệu.</div>;
+  const ceiling = Math.max(1, max ?? Math.max(1, ...rows.map((r) => r.value)));
+  const barW = 50, gap = 32, sidePad = 26, topPad = 26, bottomPad = 66, height = 260;
+  const width = sidePad * 2 + rows.length * barW + Math.max(0, rows.length - 1) * gap;
+  const baseY = height - bottomPad;
+  const yFor = (v: number) => topPad + (1 - Math.max(0, Math.min(ceiling, v)) / ceiling) * (baseY - topPad);
+  return (
+    <div className="tqm-col-bars">
+      <div className="tqm-col-bars-scroll">
+        <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} role="img" aria-label={`Biểu đồ cột: ${rows.map((r) => `${r.label} ${r.value}${unit}`).join(", ")}`}>
+          <line x1={sidePad} y1={baseY} x2={width - sidePad} y2={baseY} stroke="#dce7ea" />
+          {rows.map((r, i) => {
+            const x = sidePad + i * (barW + gap);
+            const y = yFor(r.value);
+            const labelLines = wrapLabel(r.label, 14, 4);
+            return (
+              <g key={`${r.label}-${i}`}>
+                <rect x={x} y={y} width={barW} height={Math.max(0, baseY - y)} rx="5" fill={COLORS[r.tone || "brand"]} />
+                <ValueLabel x={x + barW / 2} y={y - 6} text={`${r.value}${unit}`} fill="#172126" />
+                <text x={x + barW / 2} y={baseY + 16} textAnchor="middle" fontSize="11" fill="#46545a">
+                  {labelLines.map((line, li) => (
+                    <tspan key={li} x={x + barW / 2} dy={li === 0 ? 0 : 13}>
+                      {line}
+                    </tspan>
+                  ))}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 export const TQM_CHART_CSS = `
 .tqm-donut-wrap{display:grid;grid-template-columns:minmax(190px,.8fr) minmax(180px,1fr);gap:20px;align-items:center;padding:10px 18px 20px}.tqm-donut{width:190px;height:190px;border-radius:50%;display:grid;place-items:center;margin:auto}.tqm-donut-hole{width:122px;height:122px;border-radius:50%;background:white;display:grid;place-items:center;align-content:center;box-shadow:inset 0 0 0 1px #edf2f3;text-align:center}.tqm-donut-hole strong{font-size:34px;line-height:1}.tqm-donut-hole span{font-size:10px;color:#718187;margin-top:7px}.tqm-donut-legend{display:grid;gap:10px}.tqm-donut-legend>div{display:grid;grid-template-columns:10px 1fr auto;gap:9px;align-items:center;font-size:11px}.tqm-donut-legend i{width:9px;height:9px;border-radius:50%}.tqm-donut-legend span{color:#5d6f76}.tqm-donut-legend strong{font-size:12px}.tqm-hbars{display:grid;gap:10px;padding:8px 18px 20px}.tqm-hbar-row{display:grid;grid-template-columns:minmax(110px,180px) 1fr 42px;gap:11px;align-items:center}.tqm-hbar-label{display:grid}.tqm-hbar-label strong{font-size:11px}.tqm-hbar-label span{font-size:9px;color:#7a8b91;margin-top:2px}.tqm-hbar-track{height:10px;background:#edf2f3;border-radius:999px;overflow:hidden}.tqm-hbar-fill{display:block;height:100%;border-radius:999px;transition:filter .15s ease}.tqm-hbar-row:hover .tqm-hbar-fill{filter:brightness(.92)}.tqm-hbar-row>b{font-size:11px;text-align:right}
 .tqm-trend{padding:6px 12px 12px;overflow-x:auto;position:relative}.tqm-trend svg{min-width:520px;width:100%;height:auto;cursor:crosshair}.tqm-trend svg:focus{outline:2px solid #0b8a7f;outline-offset:2px}
@@ -144,4 +344,6 @@ export const TQM_CHART_CSS = `
 .tqm-trend-table{margin-top:10px;border-collapse:collapse;font-size:11px;width:100%;max-width:420px}.tqm-trend-table th,.tqm-trend-table td{text-align:left;padding:5px 10px;border-bottom:1px solid #edf2f3}.tqm-trend-table th{color:#718187;font-weight:800;text-transform:uppercase;font-size:10px}
 .tqm-gantt{overflow-x:auto;padding:0 16px 18px}.tqm-gantt-head,.tqm-gantt-row{min-width:860px;display:grid;grid-template-columns:240px 1fr}.tqm-gantt-head>div{font-size:10px;font-weight:900;color:#607279;padding:9px}.tqm-gantt-head{grid-template-columns:240px repeat(15,1fr);border-bottom:1px solid #e3eaec}.tqm-gantt-head span{font-size:9px;text-align:center;padding:9px 2px;color:#71838a}.tqm-gantt-row{min-height:54px;border-bottom:1px solid #edf2f3}.tqm-gantt-name{padding:9px;display:grid;align-content:center}.tqm-gantt-name strong{font-size:11px}.tqm-gantt-name small{font-size:9px;color:#7a8b91;margin-top:3px}.tqm-gantt-grid{position:relative;display:grid;grid-template-columns:repeat(15,1fr)}.tqm-gantt-grid>i{border-left:1px solid #edf2f3}.tqm-gantt-bar{position:absolute;top:15px;height:24px;border-radius:7px;overflow:hidden;box-shadow:0 4px 10px rgba(20,50,58,.12)}.tqm-gantt-bar em{display:block;height:100%;background:rgba(255,255,255,.28)}
 @media(max-width:700px){.tqm-gantt-head,.tqm-gantt-row{grid-template-columns:170px 1fr;min-width:980px}.tqm-gantt-head{grid-template-columns:170px repeat(15,1fr)}.tqm-gantt-name{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid #e3eaec}.tqm-gantt-head>div{position:sticky;left:0;z-index:3;background:#fff;border-right:1px solid #e3eaec}.tqm-donut-wrap{grid-template-columns:1fr}.tqm-donut{width:170px;height:170px}.tqm-donut-hole{width:110px;height:110px}.tqm-hbar-row{grid-template-columns:100px 1fr 34px}.tqm-gantt{padding-inline:8px}}
+.tqm-gauge{display:flex;flex-direction:column;align-items:center;gap:2px;width:100px;max-width:100px;flex:0 0 100px}.tqm-gauge svg{width:100px;height:100px}.tqm-gauge-label{font-size:10px;color:#718187;text-align:center;width:100%}
+.tqm-grouped-bars{padding:8px 18px 20px}.tqm-grouped-bars-legend{display:flex;flex-wrap:wrap;gap:14px;padding-bottom:10px;font-size:11px;font-weight:700;color:#5d6f76}.tqm-grouped-bars-legend span{display:inline-flex;align-items:center;gap:6px}.tqm-swatch{width:10px;height:10px;border-radius:3px;display:inline-block}.tqm-grouped-bars-scroll{overflow-x:auto}.tqm-grouped-bars-scroll svg{display:block;margin:0 auto}.tqm-col-bars-scroll{overflow-x:auto}.tqm-col-bars-scroll svg{display:block;margin:0 auto}
 `;

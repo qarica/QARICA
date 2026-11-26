@@ -22,11 +22,13 @@ describe("EMR API routes — callerOrganizationId lookup shared, not copy-pasted
     "src/app/api/emr/options/route.ts",
     "src/app/api/emr/timeline-milestones/route.ts",
     "src/app/api/emr/timeline-milestones/[id]/route.ts",
+    "src/app/api/hsba-audit/checklist-templates/route.ts",
+    "src/app/api/hsba-audit/checklist-items/route.ts",
   ];
   const routes = routePaths.map((p) => readFileSync(p, "utf8"));
 
   it("defines exactly one shared implementation that surfaces the query's own error", () => {
-    expect(apiAuth).toContain("export async function callerOrganizationId(admin: ReturnType<typeof createAdminClient>, userId: string) {");
+    expect(apiAuth).toContain("export async function callerOrganizationId(supabase: SupabaseClient, userId: string) {");
     expect(apiAuth).toContain("return { organizationId: data?.organization_id ?? null, error };");
   });
 
@@ -37,10 +39,16 @@ describe("EMR API routes — callerOrganizationId lookup shared, not copy-pasted
     }
   });
 
+  // Audit giao diện QARICA (ưu tiên #2): callerOrganizationId chỉ tra
+  // organization_id của chính người gọi — profiles đã có RLS policy đúng
+  // phạm vi — nên đổi sang nhận auth.supabase (client thường, tôn trọng
+  // RLS) thay vì bắt buộc admin client, để route chỉ đọc không còn crash ở
+  // môi trường thiếu SUPABASE_SERVICE_ROLE_KEY chỉ vì gọi hàm dùng chung
+  // này. admin (khi route còn khai báo) vẫn dùng cho phần ghi khác.
   it("every route imports the shared helper from @/lib/api-auth and checks its error before the missing-organization check", () => {
     for (const route of routes) {
       expect(route).toMatch(/import \{ callerOrganizationId, requireApiPermission \} from "@\/lib\/api-auth";/);
-      expect(route).toMatch(/callerOrganizationId\(admin,\s*auth\.user\.id\)/);
+      expect(route).toMatch(/callerOrganizationId\(auth\.supabase,\s*auth\.user\.id\)/);
     }
   });
 });

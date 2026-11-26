@@ -27,12 +27,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Danh mục không hợp lệ." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(auth.supabase, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
-  const { data, error } = await admin
+  const { data, error } = await auth.supabase
     .from("emr_rollout_items")
     .select("id,category,title,description,status,department_ids,owner_department_id,due_date,priority,is_go_live_gate,evidence_url,verified_at,verified_by,details,publish_status,published_at,published_by,created_at,updated_at")
     .eq("organization_id", organizationId)
@@ -77,7 +76,7 @@ export async function POST(request: Request) {
   if (!["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(priority)) return NextResponse.json({ error: "Mức ưu tiên không hợp lệ." }, { status: 400 });
 
   const admin = createAdminClient();
-  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(auth.supabase, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
@@ -112,6 +111,11 @@ export async function POST(request: Request) {
   // kiện với PATCH route (nguồn duy nhất quyết định "khi nào tự tạo nhiệm vụ
   // đào tạo") để không tự tạo nhiệm vụ đào tạo trước khi biểu mẫu được duyệt.
   if (category === "BIEU_MAU" && data.publish_status === "PUBLISHED") await autoCreateTrainingTaskIfNeeded(admin, organizationId, auth.user.id, data);
+
+  // Tạo mới hạng mục (đặc biệt Go-live gate) cũng phải có dấu vết, giống
+  // PATCH/DELETE/upload file đã ghi audit_logs.
+  const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_rollout_items", row_id: data.id, action_type: "EMR_ITEM_CREATE", new_value: { category: data.category, title: data.title, status: data.status, is_go_live_gate: data.is_go_live_gate }, request_meta: { source: "qlcl-ui" } });
+  if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
 
   return NextResponse.json({ ok: true, item: data });
 }

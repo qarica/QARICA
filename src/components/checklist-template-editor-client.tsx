@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { KpiCard } from "@/components/kpi-card";
 
 const ANSWER_LABELS: Record<string, string> = {
   PASS_FAIL: "Đạt / Không đạt",
@@ -163,10 +164,10 @@ export function ChecklistTemplateEditorClient({ template, version, versions, sec
   return <>
     {message ? <div className="alert error">{message}</div> : null}
     <section className="kpi-grid">
-      <article className="kpi-card"><span>Phiên bản</span><strong style={{ fontSize: 25 }}>{version ? `v${version.version_no}` : "—"}</strong><small>{version?.status === "DRAFT" ? "Nháp · đang cấu hình" : version?.status === "PUBLISHED" ? "Đã phát hành" : "Chưa có phiên bản"}</small></article>
-      <article className="kpi-card"><span>Nhóm mục</span><strong>{sections.length}</strong><small>Cấu trúc của phiên bản hiện tại</small></article>
-      <article className="kpi-card"><span>Tiêu chí</span><strong>{itemCount}</strong><small>Tổng tiêu chí trong bảng kiểm</small></article>
-      <article className="kpi-card"><span>Cách tổng hợp</span><strong style={{ fontSize: 17, lineHeight: 1.3 }}>{scoringLabel(version?.scoring_method)}</strong><small>{template.owner_department_name || "—"}</small></article>
+      <KpiCard icon="file-text" tone="blue" label="Phiên bản" value={version ? `v${version.version_no}` : "—"} caption={version?.status === "DRAFT" ? "Nháp · đang cấu hình" : version?.status === "PUBLISHED" ? "Đã phát hành" : "Chưa có phiên bản"} />
+      <KpiCard icon="list-tree" tone="blue" label="Nhóm mục" value={sections.length} caption="Cấu trúc của phiên bản hiện tại" />
+      <KpiCard icon="list-checks" tone="blue" label="Tiêu chí" value={itemCount} caption="Tổng tiêu chí trong bảng kiểm" />
+      <KpiCard icon="chart-no-axes-column-increasing" tone="purple" label="Cách tổng hợp" value={scoringLabel(version?.scoring_method)} caption={template.owner_department_name || "—"} />
     </section>
 
     <section className="panel">

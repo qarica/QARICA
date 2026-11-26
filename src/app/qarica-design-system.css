@@ -39,13 +39,10 @@ body{font-feature-settings:"kern" 1,"liga" 1}
 
 /* ===== Product shell ===== */
 .workspace-app{
-  --bg:var(--qarica-bg)!important;
-  --surface:var(--qarica-surface)!important;
-  --text:var(--qarica-text)!important;
-  --muted:var(--qarica-muted)!important;
-  --line:var(--qarica-line)!important;
-  /* --brand/--brand-dark/--brand-soft now live only in globals.css. */
-  background:var(--qarica-bg)!important;
+  /* --bg/--surface/--text/--muted/--line/background removed (2026-11-13) —
+     globals.css is the sole source of truth for these; --qarica-* tokens
+     stay (different namespace, still used elsewhere in this file).
+     --brand/--brand-dark/--brand-soft now live only in globals.css. */
 }
 .workspace-app .sidebar{
   background:linear-gradient(180deg,var(--qarica-navy-950) 0%,var(--qarica-navy-900) 58%,#11335b 100%)!important;

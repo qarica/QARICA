@@ -5,12 +5,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export async function GET() {
   const auth = await requireApiPermission("emr.view");
   if (!auth.ok) return auth.response;
-  const admin = createAdminClient();
-  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(auth.supabase, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
-  const { data, error } = await admin.from("emr_binding_groups").select("id,name,code,sort_order,is_active").eq("organization_id", organizationId).order("sort_order").order("name");
+  const { data, error } = await auth.supabase.from("emr_binding_groups").select("id,name,code,sort_order,is_active").eq("organization_id", organizationId).order("sort_order").order("name");
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true, groups: data ?? [] });
 }
@@ -21,7 +20,7 @@ export async function POST(request: Request) {
   const auth = await requireApiPermission("emr.manage");
   if (!auth.ok) return auth.response;
   const admin = createAdminClient();
-  const { organizationId, error: callerError } = await callerOrganizationId(admin, auth.user.id);
+  const { organizationId, error: callerError } = await callerOrganizationId(auth.supabase, auth.user.id);
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
@@ -39,7 +38,11 @@ export async function POST(request: Request) {
     .select("id,name,code,sort_order,is_active")
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  if (data) return NextResponse.json({ ok: true, group: data });
+  if (data) {
+    const { error: auditError } = await admin.from("audit_logs").insert({ actor_user_id: auth.user.id, table_name: "emr_binding_groups", row_id: data.id, action_type: "EMR_BINDING_GROUP_CREATE", new_value: { name: data.name, code: data.code }, request_meta: { source: "qlcl-ui" } });
+    if (auditError) return NextResponse.json({ error: `Đã lưu nhưng không ghi được audit trail: ${auditError.message}` }, { status: 500 });
+    return NextResponse.json({ ok: true, group: data });
+  }
 
   // ignoreDuplicates swallows the row on a pre-existing name — look it up so
   // the caller still gets back a usable id (declaring an already-declared

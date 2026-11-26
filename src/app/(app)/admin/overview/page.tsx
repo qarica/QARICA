@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Icon } from "@/components/icon";
+import { KpiCard } from "@/components/kpi-card";
 import { PageHeader } from "@/components/page-header";
 import { requireUserContext } from "@/lib/auth";
 import { MODULE_UX_TYPE_COUNT } from "@/lib/module-ux";
@@ -49,7 +49,7 @@ export default async function AdminOverviewPage() {
 
   return <div className="page-stack admin-overview" style={{ maxWidth: 1440, margin: "0 auto" }}>
     <style>{`
-      .admin-overview .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.admin-overview .kpi-card{background:#fff;border:1px solid #e5eaf2;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.03);display:flex;gap:12px;align-items:flex-start}.admin-overview .kpi-icon{flex:0 0 auto;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center}.admin-overview .kpi-icon.blue{background:#dbeafe;color:#2563eb}.admin-overview .kpi-icon.green{background:#dcfce7;color:#16a34a}.admin-overview .kpi-icon.purple{background:#ede9fe;color:#7c3aed}.admin-overview .kpi-icon.amber{background:#fef3c7;color:#b45309}.admin-overview .kpi-body{min-width:0}.admin-overview .kpi-value{font-size:26px;font-weight:800;color:#0f172a;line-height:1.2}.admin-overview .kpi-title{font-size:13px;color:#475569;font-weight:600;margin-top:2px}
+      .admin-overview .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
       .admin-overview .panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
       @media(max-width:1100px){.admin-overview .kpis{grid-template-columns:repeat(2,1fr)}}
       @media(max-width:900px){.admin-overview .panel-grid{grid-template-columns:1fr}}
@@ -58,12 +58,12 @@ export default async function AdminOverviewPage() {
     {firstError ? <div className="alert error">Không tải được đầy đủ dữ liệu quản trị: {firstError.message}</div> : null}
 
     <section className="kpis">
-      {canUsers ? <article className="kpi-card"><span className="kpi-icon blue"><Icon name="users" size={19} /></span><div className="kpi-body"><div className="kpi-value">{profiles.length}</div><div className="kpi-title">Tổng người dùng · {activeUsers} đang hoạt động</div></div></article> : null}
-      {canPermissions ? <article className="kpi-card"><span className="kpi-icon purple"><Icon name="shield-check" size={19} /></span><div className="kpi-body"><div className="kpi-value">{roles.length}</div><div className="kpi-title">Vai trò · {activeRoles} đã cấu hình</div></div></article> : null}
-      {(canDepartments || canUsers) ? <article className="kpi-card"><span className="kpi-icon green"><Icon name="building-2" size={19} /></span><div className="kpi-body"><div className="kpi-value">{departments.length}</div><div className="kpi-title">Khoa/Phòng · {activeDepartments} đang sử dụng</div></div></article> : null}
-      {canSystem ? <article className="kpi-card"><span className="kpi-icon amber"><Icon name="list-tree" size={19} /></span><div className="kpi-body"><div className="kpi-value">{recordTypes.length}</div><div className="kpi-title">Danh mục chính</div></div></article> : null}
-      {canSystem ? <article className="kpi-card"><span className="kpi-icon blue"><Icon name="workflow" size={19} /></span><div className="kpi-body"><div className="kpi-value">{MODULE_UX_TYPE_COUNT}</div><div className="kpi-title">Quy trình nghiệp vụ đã cấu hình</div></div></article> : null}
-      {canSystem ? <article className="kpi-card"><span className="kpi-icon purple"><Icon name="bell" size={19} /></span><div className="kpi-body"><div className="kpi-value">{notificationTypeCount}</div><div className="kpi-title">Loại thông báo đã ghi nhận</div></div></article> : null}
+      {canUsers ? <KpiCard icon="users" tone="blue" label={`Tổng người dùng · ${activeUsers} đang hoạt động`} value={profiles.length} /> : null}
+      {canPermissions ? <KpiCard icon="shield-check" tone="purple" label={`Vai trò · ${activeRoles} đã cấu hình`} value={roles.length} /> : null}
+      {(canDepartments || canUsers) ? <KpiCard icon="building-2" tone="green" label={`Khoa/Phòng · ${activeDepartments} đang sử dụng`} value={departments.length} /> : null}
+      {canSystem ? <KpiCard icon="list-tree" tone="amber" label="Danh mục chính" value={recordTypes.length} /> : null}
+      {canSystem ? <KpiCard icon="workflow" tone="blue" label="Quy trình nghiệp vụ đã cấu hình" value={MODULE_UX_TYPE_COUNT} /> : null}
+      {canSystem ? <KpiCard icon="bell" tone="purple" label="Loại thông báo đã ghi nhận" value={notificationTypeCount} /> : null}
     </section>
 
     <section className="panel-grid">
