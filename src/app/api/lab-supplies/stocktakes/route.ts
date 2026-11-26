@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { STOCKTAKE_LARGE_DIFF_NOTE_MIN, STOCKTAKE_LARGE_DIFF_PCT, isLargeStocktakeDiff } from "@/lib/lab-supplies";
 import { clean, cleanOrNull, labSuppliesContext, writeAudit } from "@/lib/lab-supplies-api";
 
 const QUANTITY_RE = /^\d+(\.\d{1,3})?$/;
@@ -37,6 +38,19 @@ export async function POST(request: Request) {
     if (seen.has(lotId)) return NextResponse.json({ error: "Một lô không được xuất hiện 2 lần trong phiếu kiểm kê." }, { status: 400 });
     seen.add(lotId);
     lines.push({ lot_id: lotId, counted_quantity: Number(counted) });
+  }
+
+  // Chênh lệch lớn (vượt ngưỡng so với tồn sổ) bắt buộc có ghi chú giải thích — cùng quy tắc với giao diện.
+  const { data: balances, error: balError } = await ctx.admin
+    .from("lab_supply_lot_balances")
+    .select("lot_id,balance")
+    .eq("organization_id", ctx.organizationId)
+    .in("lot_id", lines.map((l) => l.lot_id));
+  if (balError) return NextResponse.json({ error: balError.message }, { status: 400 });
+  const balanceByLot = new Map((balances ?? []).map((b) => [b.lot_id as string, Number(b.balance)]));
+  const largeCount = lines.filter((l) => balanceByLot.has(l.lot_id) && isLargeStocktakeDiff(balanceByLot.get(l.lot_id) ?? 0, l.counted_quantity)).length;
+  if (largeCount > 0 && clean(body.note).length < STOCKTAKE_LARGE_DIFF_NOTE_MIN) {
+    return NextResponse.json({ error: `Có ${largeCount} lô chênh lệch lớn (trên ${STOCKTAKE_LARGE_DIFF_PCT}% so với tồn sổ): cần ghi chú giải thích (ít nhất ${STOCKTAKE_LARGE_DIFF_NOTE_MIN} ký tự) trước khi ghi kiểm kê.` }, { status: 400 });
   }
 
   const { data, error } = await ctx.admin.rpc("qlcl_lab_supply_stocktake_v1", {

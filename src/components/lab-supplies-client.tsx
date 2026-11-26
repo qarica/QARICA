@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { LabCatalog } from "@/components/lab-supplies-catalog";
@@ -43,6 +43,13 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
   const tabs: Tab[] = canManage ? ["stock", "receipt", "issue", "stocktake", "ledger", "catalog"] : ["stock", "ledger", "catalog"];
   const detailItem = detailId ? itemById.get(detailId) : undefined;
   const voucherTab = tab === "receipt" || tab === "issue";
+  // Giữ nháp: các tab nhập liệu (phiếu nhập, phiếu xuất, kiểm kê) đã mở một lần thì giữ nguyên trạng thái khi chuyển tab, chỉ ẩn đi.
+  const [visited, setVisited] = useState<Set<Tab>>(() => new Set<Tab>());
+  useEffect(() => {
+    setVisited((v) => (v.has(tab) ? v : new Set(v).add(tab)));
+  }, [tab]);
+  const keep = (key: Tab) => tab === key || visited.has(key);
+  const hiddenStyle = (key: Tab) => (tab === key ? undefined : { display: "none" as const });
 
   function changeTab(next: Tab) {
     setTab(next);
@@ -111,9 +118,9 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
       {toast ? <div className={`alert ${toast.tone}`} role="status">{toast.text}</div> : null}
 
       {tab === "stock" ? <LabStock items={items} lots={lots} today={today} canManage={canManage} search={search} onOpen={setDetailId} onReceive={(i) => toVoucher("RECEIPT", i)} onIssue={(i) => toVoucher("ISSUE", i)} /> : null}
-      {tab === "receipt" && canManage ? <LabVoucher kind="RECEIPT" items={items} lots={lots} movements={movements} today={today} incoming={incoming} onConsumed={clearIncoming} onDone={done} /> : null}
-      {tab === "issue" && canManage ? <LabVoucher kind="ISSUE" items={items} lots={lots} movements={movements} today={today} incoming={incoming} onConsumed={clearIncoming} onDone={done} /> : null}
-      {tab === "stocktake" && canManage ? <LabStocktake lots={lots} itemById={itemById} today={today} lastClosing={lastClosing} canManage={canManage} onDone={done} onError={fail} /> : null}
+      {keep("receipt") && canManage ? <div style={hiddenStyle("receipt")}><LabVoucher kind="RECEIPT" items={items} lots={lots} movements={movements} today={today} incoming={incoming} onConsumed={clearIncoming} onDone={done} /></div> : null}
+      {keep("issue") && canManage ? <div style={hiddenStyle("issue")}><LabVoucher kind="ISSUE" items={items} lots={lots} movements={movements} today={today} incoming={incoming} onConsumed={clearIncoming} onDone={done} /></div> : null}
+      {keep("stocktake") && canManage ? <div style={hiddenStyle("stocktake")}><LabStocktake lots={lots} itemById={itemById} today={today} lastClosing={lastClosing} canManage={canManage} onDone={done} onError={fail} /></div> : null}
       {tab === "ledger" ? <LabLedger movements={movements} items={items} today={today} search={search} cardItemId={cardReq.id} cardKey={cardReq.key} /> : null}
       {tab === "catalog" ? <LabCatalog items={items} canManage={canManage} search={search} seed={catalogSeed} onOpen={setDetailId} onChanged={done} /> : null}
 
@@ -162,6 +169,8 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
         .lab-supplies .ls-note{padding:0 19px 8px;margin:0}
         .lab-supplies .ls-form-pad{padding:0 19px 19px;display:flex;flex-direction:column;gap:14px}
         .lab-supplies .ls-num{text-align:right;font-variant-numeric:tabular-nums}
+        .lab-supplies .ls-diff-large{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:11px;font-weight:700}
+        .lab-supplies .ls-need-note{border-color:#dc2626!important;background:#fef2f2}
         .lab-supplies .ls-guide{border:1px solid #dbe4f0;background:#f8fafc;border-radius:10px;padding:10px 14px;margin:0 0 4px}
         .lab-supplies .ls-guide>summary{cursor:pointer;font-weight:700;font-size:13px;color:#1e3a5f}
         .lab-supplies .ls-guide ol{margin:8px 0 0;padding-left:20px;font-size:13px;line-height:1.55;color:#334155}
