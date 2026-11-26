@@ -91,11 +91,12 @@ function last12Weeks(todayStr: string) {
   return Array.from(new Set(out));
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ asOf?: string; from?: string; dept?: string; range?: string; forbidden?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ asOf?: string; from?: string; dept?: string; range?: string }> }) {
   const { user } = await requireUserContext();
-  // Trang đích sau đăng nhập. Người dùng không có quyền xem Tổng quan (vd. thủ kho chỉ có menu Kho) được đưa thẳng tới
-  // menu đầu tiên họ được phép, thay vì thấy số liệu của các module khác. `forbidden` giữ nguyên để tránh vòng chuyển hướng.
-  if (!hasPermission(user, "dashboard.view") && !(await searchParams).forbidden) {
+  // Trang đích sau đăng nhập, cũng là nơi mọi trang bị từ chối quyền chuyển về (/dashboard?forbidden=1). Người dùng không có
+  // quyền xem Tổng quan (vd. thủ kho chỉ có menu Kho) luôn được đưa tới menu đầu tiên họ được phép, không bao giờ thấy số liệu
+  // của các module khác. Menu và trang dùng chung một quyền nên trang đích luôn truy cập được (không tạo vòng lặp).
+  if (!hasPermission(user, "dashboard.view")) {
     const landing = visibleNavGroups(user).flatMap((g) => g.children)[0]?.href;
     if (landing && landing !== "/dashboard") redirect(landing);
   }
