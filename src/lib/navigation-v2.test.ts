@@ -23,6 +23,7 @@ const GROUP_IDS = [
   "document-publications",
   "procurement",
   "medical-equipment",
+  "lab-supplies",
   "infection-control",
   "system-config",
 ];
@@ -41,10 +42,10 @@ function groupBlock(source: string, id: string) {
 }
 
 describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
-  it("defines exactly 11 primary groups (Việc của tôi is intentionally not a sidebar group — see the topbar test below; Kế hoạch công việc removed from the sidebar by explicit request, 2026-11-13)", () => {
+  it("defines exactly 12 primary groups (Việc của tôi is intentionally not a sidebar group — see the topbar test below; Kế hoạch công việc removed from the sidebar by explicit request, 2026-11-13)", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
-    // no additional group ids besides these eleven
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(11);
+    // no additional group ids besides these twelve
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(12);
     expect(navigation).not.toContain('id: "work-plans"');
     expect(navigation).toContain('label: "Điều hành chất lượng"');
     expect(navigation).toContain('label: "Quản lý chất lượng"');
@@ -54,7 +55,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
     expect(navigation).toContain('label: "Cấu hình hệ thống"');
     // top-level labels read as normal Title Case, not ALL CAPS (explicit
     // request, 2026-11-13) — none of the old all-caps group labels survive.
-    for (const old of ["ĐIỀU HÀNH CHẤT LƯỢNG", "QUẢN LÝ CHẤT LƯỢNG", "QUẢN LÝ HSBA", "BỆNH ÁN ĐIỆN TỬ", "QUẢN LÝ HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "QUẢN LÝ VĂN BẢN", "MUA SẮM & SỬA CHỮA", "QUẢN LÝ TTBYT", "KIỂM SOÁT NHIỄM KHUẨN", "CẤU HÌNH HỆ THỐNG"]) {
+    for (const old of ["ĐIỀU HÀNH CHẤT LƯỢNG", "QUẢN LÝ CHẤT LƯỢNG", "QUẢN LÝ HSBA", "BỆNH ÁN ĐIỆN TỬ", "QUẢN LÝ HÀNH NGHỀ", "QUẢN LÝ CÔNG VĂN", "QUẢN LÝ VĂN BẢN", "MUA SẮM & SỬA CHỮA", "QUẢN LÝ TTBYT", "KIỂM SOÁT NHIỄM KHUẨN", "KHO HÓA CHẤT XÉT NGHIỆM", "CẤU HÌNH HỆ THỐNG"]) {
       expect(navigation).not.toContain(`label: "${old}"`);
     }
   });
