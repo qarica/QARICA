@@ -149,6 +149,17 @@ const NAV_GROUPS: NavGroupDef[] = [
       { label: "QUẢN LÝ TTBYT", href: "/medical-equipment", icon: "cog", permission: "medical_equipment.view" },
     ],
   },
+  // Yêu cầu tường minh: menu độc lập, không liên kết các menu khác (không gắn
+  // khoa/phòng TTBYT, không gắn bệnh nhân hay mua sắm) — chỉ quản lý kho hóa
+  // chất/VTYT khoa Xét nghiệm (nhập–xuất–tồn theo lô/hạn dùng).
+  {
+    id: "lab-supplies",
+    label: "KHO HÓA CHẤT XÉT NGHIỆM",
+    icon: "droplets",
+    children: [
+      { label: "Kho hóa chất & VTYT XN", href: "/lab-supplies", icon: "droplets", permission: "lab_supplies.view" },
+    ],
+  },
   {
     id: "infection-control",
     label: "KIỂM SOÁT NHIỄM KHUẨN",

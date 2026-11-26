@@ -23,6 +23,7 @@ const GROUP_IDS = [
   "document-publications",
   "procurement",
   "medical-equipment",
+  "lab-supplies",
   "infection-control",
   "work-plans",
   "system-config",
@@ -45,7 +46,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   it("defines exactly 11 primary groups (Việc của tôi/Sổ tay cá nhân are intentionally not sidebar groups — see the topbar and floating-capture tests below)", () => {
     for (const id of GROUP_IDS) expect(navigation.match(new RegExp(`id: "${id}"`, "g"))?.length).toBe(1);
     // no additional group ids besides these eleven
-    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(12);
+    expect(navigation.match(/id: "[a-z-]+"/g)?.length).toBe(13);
     expect(navigation).toContain('label: "ĐIỀU HÀNH CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ CHẤT LƯỢNG"');
     expect(navigation).toContain('label: "QUẢN LÝ HSBA"');
