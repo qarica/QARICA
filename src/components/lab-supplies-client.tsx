@@ -491,6 +491,8 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
 
       <style>{`
         .lab-supplies .ls-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+        /* Dòng trống nằm trong bảng rộng hơn màn hình (cuộn ngang) bị cắt chữ ở điện thoại: ghim về mép trái, rộng tối đa bằng khung nhìn. */
+        .lab-supplies td>.empty-state{position:sticky;left:0;box-sizing:border-box;width:min(100%,calc(100vw - 72px))}
         .lab-supplies .ls-tabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer}
         .lab-supplies .ls-tabs button.active{background:var(--brand,#0f766e);color:#fff;border-color:var(--brand,#0f766e)}
         .lab-supplies .ls-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:16px 19px 4px}
