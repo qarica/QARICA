@@ -6,7 +6,9 @@ import { TQM_CHART_CSS, TqmDonut, TqmGantt, TqmHorizontalBars, TqmTrend } from "
 import { TqmSmartCommandCenter } from "@/components/tqm-smart-command-center";
 import { TqmInterventionLoop } from "@/components/tqm-intervention-loop";
 import { TqmPriorityBoard } from "@/components/tqm-priority-board";
-import { requireUserContext } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { hasPermission, requireUserContext } from "@/lib/auth";
+import { visibleNavGroups } from "@/lib/navigation";
 import { buildIndicatorKpi, buildProjectActionKpi, isDueOnOrBeforeToday } from "@/lib/dashboard-kpi";
 import { buildQualityAlertItems } from "@/lib/quality-alert-strip";
 import { createClient } from "@/lib/supabase/server";
@@ -89,8 +91,14 @@ function last12Weeks(todayStr: string) {
   return Array.from(new Set(out));
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ asOf?: string; from?: string; dept?: string; range?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ asOf?: string; from?: string; dept?: string; range?: string; forbidden?: string }> }) {
   const { user } = await requireUserContext();
+  // Trang đích sau đăng nhập. Người dùng không có quyền xem Tổng quan (vd. thủ kho chỉ có menu Kho) được đưa thẳng tới
+  // menu đầu tiên họ được phép, thay vì thấy số liệu của các module khác. `forbidden` giữ nguyên để tránh vòng chuyển hướng.
+  if (!hasPermission(user, "dashboard.view") && !(await searchParams).forbidden) {
+    const landing = visibleNavGroups(user).flatMap((g) => g.children)[0]?.href;
+    if (landing && landing !== "/dashboard") redirect(landing);
+  }
   const greeting = greetingParts(user.fullName);
   const year = await getWorkYear();
   const supabase = await createClient();

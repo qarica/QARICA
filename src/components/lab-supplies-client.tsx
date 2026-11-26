@@ -172,15 +172,16 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
         .lab-supplies .ls-note{padding:0 19px 8px;margin:0}
         .lab-supplies .ls-form-pad{padding:0 19px 19px;display:flex;flex-direction:column;gap:14px}
         .lab-supplies .ls-num{text-align:right;font-variant-numeric:tabular-nums}
-        .lab-supplies .ls-alert-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;border:1px solid #fcd34d;background:#fffbeb;border-radius:10px;padding:8px 12px}
-        .lab-supplies .ls-alert-title{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#92400e}
+        .lab-supplies .ls-alert-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;padding:8px 12px}
+        .lab-supplies .ls-alert-title{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#475569}
         .lab-supplies .ls-alert-items{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 auto;min-width:0}
-        .lab-supplies .ls-alert-item{border:1px solid transparent;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer;text-align:left;line-height:1.4}
-        .lab-supplies .ls-alert-item.danger{background:#fee2e2;color:#b91c1c;border-color:#fecaca}
-        .lab-supplies .ls-alert-item.warning{background:#fef3c7;color:#92400e;border-color:#fde68a}
-        .lab-supplies .ls-alert-item.info{background:#dbeafe;color:#1e40af;border-color:#bfdbfe}
-        .lab-supplies .ls-alert-item:hover{filter:brightness(.96)}
-        .lab-supplies .ls-alert-link{font-size:12px;font-weight:600;color:#1e3a5f;text-decoration:underline;white-space:nowrap}
+        .lab-supplies .ls-alert-item{display:inline-flex;align-items:center;gap:7px;border:1px solid #e2e8f0;background:#fff;color:#334155;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:500;cursor:pointer;text-align:left;line-height:1.4}
+        .lab-supplies .ls-alert-item::before{content:"";flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:#94a3b8}
+        .lab-supplies .ls-alert-item.danger::before{background:#dc2626}
+        .lab-supplies .ls-alert-item.warning::before{background:#f59e0b}
+        .lab-supplies .ls-alert-item.info::before{background:#3b82f6}
+        .lab-supplies .ls-alert-item:hover{background:#f1f5f9;border-color:#cbd5e1}
+        .lab-supplies .ls-alert-link{font-size:12px;font-weight:500;color:#475569;text-decoration:underline;white-space:nowrap}
         .lab-supplies .ls-adjust-form .ls-head-grid{padding:4px 20px 12px}
         .lab-supplies .ls-date{position:relative;display:flex;align-items:center;min-width:0}
         .lab-supplies .ls-date>input[type=text]{width:100%;padding-right:36px}
