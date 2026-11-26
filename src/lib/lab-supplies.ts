@@ -210,3 +210,20 @@ export function suggestedOrderQuantity(total: number, minStock: number): number 
   return Math.max(0, round3(minStock * 2 - total));
 }
 
+
+/** Thứ tự xếp mặc định của bảng Tồn kho: việc cần xử lý trước (hết hạn → hết hàng → dưới định mức → sắp hết hạn → đủ). */
+const URGENCY_ORDER: KanbanColumnKey[] = ["EXPIRED", "OUT", "LOW", "EXPIRING", "OK"];
+export function compareStockUrgency(
+  a: { item: { code: string }; column: KanbanColumnKey; nextExpiry: string | null },
+  b: { item: { code: string }; column: KanbanColumnKey; nextExpiry: string | null },
+): number {
+  const byColumn = URGENCY_ORDER.indexOf(a.column) - URGENCY_ORDER.indexOf(b.column);
+  if (byColumn !== 0) return byColumn;
+  // Cùng mức: lô hết hạn sớm nhất lên trên; vật tư không có hạn dùng xuống cuối.
+  if (a.nextExpiry !== b.nextExpiry) {
+    if (!a.nextExpiry) return 1;
+    if (!b.nextExpiry) return -1;
+    return a.nextExpiry < b.nextExpiry ? -1 : 1;
+  }
+  return a.item.code.localeCompare(b.item.code, "vi");
+}

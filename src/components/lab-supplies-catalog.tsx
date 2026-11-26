@@ -65,10 +65,11 @@ export function LabCatalog({ items, canManage, search, seed, onOpen, onChanged }
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Mã</th><th>Tên vật tư</th><th>Nhóm</th><th>ĐVT</th><th>Hãng SX</th><th className="ls-num">Định mức</th><th className="ls-num">Báo hết hạn trước</th>{canManage ? <th /> : null}</tr></thead>
+          <thead><tr><th className="ls-stt">STT</th><th>Mã</th><th>Tên vật tư</th><th>Nhóm</th><th>ĐVT</th><th>Hãng SX</th><th className="ls-num">Định mức</th><th className="ls-num">Báo hết hạn trước</th>{canManage ? <th /> : null}</tr></thead>
           <tbody>
-            {rows.map((i) => (
+            {rows.map((i, idx) => (
               <tr key={i.id}>
+                <td className="ls-stt">{idx + 1}</td>
                 <td><code className="code-pill">{i.code}</code>{i.barcode ? <span className="subline">▮ {i.barcode}</span> : null}</td>
                 <td><button type="button" className="table-link ls-name-btn" onClick={() => onOpen(i.id)}><strong>{i.name}</strong></button>{!i.is_active ? <span className="status-badge muted">Ngưng dùng</span> : null}{i.storage_condition ? <span className="subline">{i.storage_condition}</span> : null}</td>
                 <td>{CATEGORY_LABEL[i.category]}</td>
@@ -81,7 +82,7 @@ export function LabCatalog({ items, canManage, search, seed, onOpen, onChanged }
                 ) : null}
               </tr>
             ))}
-            {!rows.length ? <tr><td colSpan={canManage ? 8 : 7}><div className="empty-state">Chưa có vật tư nào. Thêm vật tư hoặc nhập từ Excel, rồi qua tab Nhập kho.</div></td></tr> : null}
+            {!rows.length ? <tr><td colSpan={canManage ? 9 : 8}><div className="empty-state">Chưa có vật tư nào. Thêm vật tư hoặc nhập từ Excel, rồi qua tab Nhập kho.</div></td></tr> : null}
           </tbody>
         </table>
       </div>

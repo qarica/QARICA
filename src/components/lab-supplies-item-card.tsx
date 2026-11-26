@@ -41,12 +41,13 @@ export function LabItemCard({ item }: { item: { id: string; code: string; name: 
       {rows ? (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Ngày</th><th>Loại</th><th>Lô</th><th>Nhập</th><th>Xuất</th><th>Tồn</th><th>Số phiếu / người nhận</th></tr></thead>
+            <thead><tr><th className="ls-stt">STT</th><th>Ngày</th><th>Loại</th><th>Lô</th><th>Nhập</th><th>Xuất</th><th>Tồn</th><th>Số phiếu / người nhận</th></tr></thead>
             <tbody>
-              {rows.map((r) => {
+              {rows.map((r, idx) => {
                 const d = Number(r.quantity_delta);
                 return (
                   <tr key={r.id}>
+                    <td className="ls-stt">{idx + 1}</td>
                     <td>{r.movement_date}</td>
                     <td>{MOVEMENT_LABEL[r.movement_type]}{r.reason_code ? <span className="subline">{REASON_LABEL[r.reason_code] || r.reason_code}</span> : null}</td>
                     <td>{r.lot?.lot_number || "—"}</td>
@@ -57,7 +58,7 @@ export function LabItemCard({ item }: { item: { id: string; code: string; name: 
                   </tr>
                 );
               })}
-              {!rows.length ? <tr><td colSpan={7}><div className="empty-state">Vật tư chưa có phiếu nào.</div></td></tr> : null}
+              {!rows.length ? <tr><td colSpan={8}><div className="empty-state">Vật tư chưa có phiếu nào.</div></td></tr> : null}
             </tbody>
           </table>
         </div>

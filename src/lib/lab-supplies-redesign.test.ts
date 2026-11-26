@@ -65,7 +65,7 @@ describe("đề nghị đặt hàng", () => {
     expect(codes).toEqual(["HC1"]);
     expect(need.rows[0][6]).toBe(0); // tồn
     expect(need.rows[0][8]).toBe(8); // đề nghị đặt 2×4−0
-    expect(attention.rows.map((r) => [r[0], r[2], r[7]])).toEqual([["HC4", "L4", "Đã hết hạn — lập phiếu hủy"], ["HC4", "L4B", "Sắp hết hạn — ưu tiên xuất trước"]]);
+    expect(attention.rows.map((r) => [r[1], r[3], r[8]])).toEqual([["HC4", "L4", "Đã hết hạn — lập phiếu hủy"], ["HC4", "L4B", "Sắp hết hạn — ưu tiên xuất trước"]]);
   });
 });
 

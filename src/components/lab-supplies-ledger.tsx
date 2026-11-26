@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { LabItemCard } from "@/components/lab-supplies-item-card";
 import { MOVEMENT_LABEL, REASON_LABEL, formatQuantity, type MovementType, type SupplyCategory } from "../lib/lab-supplies";
+import { LEDGER_GUIDE, LabGuide } from "./lab-supplies-guide";
 import { callApi, itemLabel, num, resolveItem, type Item, type Movement } from "./lab-supplies-types";
 
 type ReportRow = { item_id: string; code: string; name: string; unit: string; category: SupplyCategory; is_active: boolean; min_stock: number; opening: number; receipts: number; issues: number; disposals: number; adjustments: number; closing: number };
@@ -36,6 +37,7 @@ export function LabLedger({ movements, items, today, search, cardItemId, cardKey
 
   return (
     <section className="panel">
+      <LabGuide {...LEDGER_GUIDE} defaultOpen />
       <div className="ls-bar">
         <div className="ls-seg" role="group" aria-label="Góc nhìn sổ kho">
           <button type="button" className={sub === "ledger" ? "active" : ""} aria-pressed={sub === "ledger"} onClick={() => setSub("ledger")}>Phiếu</button>
@@ -59,12 +61,13 @@ export function LabLedger({ movements, items, today, search, cardItemId, cardKey
           <p className="muted tiny ls-note">Hiển thị 300 phiếu gần nhất (Xuất Excel lấy đủ theo khoảng ngày). Sổ không sửa/xóa được — sai sót sửa bằng phiếu điều chỉnh ở chi tiết vật tư.</p>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Ngày</th><th>Loại</th><th>Vật tư</th><th>Lô</th><th className="ls-num">Số lượng</th><th>Số phiếu / người nhận</th><th>Lý do / ghi chú</th><th>Người ghi</th></tr></thead>
+              <thead><tr><th className="ls-stt">STT</th><th>Ngày</th><th>Loại</th><th>Vật tư</th><th>Lô</th><th className="ls-num">Số lượng</th><th>Số phiếu / người nhận</th><th>Lý do / ghi chú</th><th>Người ghi</th></tr></thead>
               <tbody>
-                {rows.map((m) => {
+                {rows.map((m, idx) => {
                   const d = num(m.quantity_delta);
                   return (
                     <tr key={m.id}>
+                      <td className="ls-stt">{idx + 1}</td>
                       <td>{m.movement_date}</td>
                       <td>{MOVEMENT_LABEL[m.movement_type]}</td>
                       <td><strong>{m.item?.name}</strong><span className="subline">{m.item?.code}</span></td>
@@ -76,7 +79,7 @@ export function LabLedger({ movements, items, today, search, cardItemId, cardKey
                     </tr>
                   );
                 })}
-                {!rows.length ? <tr><td colSpan={8}><div className="empty-state">Chưa có phiếu nào.</div></td></tr> : null}
+                {!rows.length ? <tr><td colSpan={9}><div className="empty-state">Chưa có phiếu nào.</div></td></tr> : null}
               </tbody>
             </table>
           </div>
@@ -131,17 +134,18 @@ function ReportView({ today }: { today: string }) {
       {error ? <div className="alert error">{error}</div> : null}
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Mã</th><th>Vật tư</th><th>ĐVT</th><th className="ls-num">Tồn đầu kỳ</th><th className="ls-num">Nhập</th><th className="ls-num">Xuất dùng</th><th className="ls-num">Hủy</th><th className="ls-num">Điều chỉnh</th><th className="ls-num">Tồn cuối kỳ</th></tr></thead>
+          <thead><tr><th className="ls-stt">STT</th><th>Mã</th><th>Vật tư</th><th>ĐVT</th><th className="ls-num">Tồn đầu kỳ</th><th className="ls-num">Nhập</th><th className="ls-num">Xuất dùng</th><th className="ls-num">Hủy</th><th className="ls-num">Điều chỉnh</th><th className="ls-num">Tồn cuối kỳ</th></tr></thead>
           <tbody>
-            {visible.map((r) => (
+            {visible.map((r, idx) => (
               <tr key={r.item_id}>
+                <td className="ls-stt">{idx + 1}</td>
                 <td><code className="code-pill">{r.code}</code></td><td><strong>{r.name}</strong></td><td>{r.unit}</td>
                 <td className="ls-num">{formatQuantity(r.opening)}</td><td className="ls-num">{formatQuantity(r.receipts)}</td><td className="ls-num">{formatQuantity(r.issues)}</td>
                 <td className="ls-num">{formatQuantity(r.disposals)}</td><td className="ls-num">{formatQuantity(r.adjustments)}</td><td className="ls-num"><strong>{formatQuantity(r.closing)}</strong></td>
               </tr>
             ))}
-            {rows === null ? <tr><td colSpan={9}><div className="empty-state">Chọn khoảng ngày rồi bấm “Xem báo cáo”.</div></td></tr> : null}
-            {rows !== null && !visible.length ? <tr><td colSpan={9}><div className="empty-state">Không có số liệu trong kỳ.</div></td></tr> : null}
+            {rows === null ? <tr><td colSpan={10}><div className="empty-state">Chọn khoảng ngày rồi bấm “Xem báo cáo”.</div></td></tr> : null}
+            {rows !== null && !visible.length ? <tr><td colSpan={10}><div className="empty-state">Không có số liệu trong kỳ.</div></td></tr> : null}
           </tbody>
         </table>
       </div>

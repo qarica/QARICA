@@ -70,7 +70,8 @@ describe("xuất Excel kho: file .xlsx thật, số là ô số", () => {
     expect(sheets[0].rows).toHaveLength(1);
     expect(sheets[0].rows[0].slice(0, 9)).toEqual([1, "HC001", "893", "Thuốc <A>", "Hóa chất / thuốc thử", "Hộp", 3, 5, "Sắp hết"]);
     expect(sheets[1].rows).toHaveLength(1);
-    expect(sheets[1].rows[0]).toEqual(["HC001", "Thuốc <A>", "L1", "2026-12-30", 34, "Còn hạn", 3, "Hộp"]);
+    expect(sheets[1].headers[0]).toBe("STT");
+    expect(sheets[1].rows[0]).toEqual([1, "HC001", "Thuốc <A>", "L1", "2026-12-30", 34, "Còn hạn", 3, "Hộp"]);
     for (const sh of sheets) for (const r of sh.rows) expect(r.length).toBe(sh.headers.length);
   });
   it("thẻ kho: cột Nhập/Xuất tách theo dấu, tồn lũy kế khớp", () => {
@@ -79,15 +80,15 @@ describe("xuất Excel kho: file .xlsx thật, số là ô số", () => {
       { movement_date: "2026-11-05", created_at: "", movement_type: "ISSUE" as const, quantity_delta: -4, reference_no: null, counterparty: "Khoa Nội", reason_code: null, note: null, lot: { lot_number: "L1", expiry_date: "2027-01-01" } },
     ];
     const [card] = buildCardSheets(item, rows);
-    expect(card.rows[0]).toEqual(["2026-11-01", "Nhập kho", "L1", "2027-01-01", 10, "", 10, "PN1", "NCC", "", ""]);
-    expect(card.rows[1]).toEqual(["2026-11-05", "Xuất dùng", "L1", "2027-01-01", "", 4, 6, "", "Khoa Nội", "", ""]);
+    expect(card.rows[0]).toEqual([1, "2026-11-01", "Nhập kho", "L1", "2027-01-01", 10, "", 10, "PN1", "NCC", "", ""]);
+    expect(card.rows[1]).toEqual([2, "2026-11-05", "Xuất dùng", "L1", "2027-01-01", "", 4, 6, "", "Khoa Nội", "", ""]);
     const print = buildCardPrintHtml(item, rows.map((r, i) => ({ ...r, balance: [10, 6][i] })), (t) => t);
     expect(print).toContain("THẺ KHO");
     expect(print).toContain("Thuốc &lt;A&gt;");
   });
   it("sổ, báo cáo, mẫu nhập: tiêu đề cột đủ; rỗng vẫn hợp lệ", () => {
     expect(buildLedgerSheets([], "2026-01-01", "2026-11-26")[0].emptyText).toContain("Không có phiếu nào");
-    expect(buildReportSheets([], "2026-11-01", "2026-11-26")[0].headers).toHaveLength(10);
+    expect(buildReportSheets([], "2026-11-01", "2026-11-26")[0].headers).toHaveLength(11);
     expect(buildImportTemplateSheets(["Mã vật tư *"])[0].headers).toEqual(["Mã vật tư *"]);
   });
   it("ghi ra .xlsx thật và đọc lại được: nhiều trang tính, số vẫn là số, chữ tiếng Việt nguyên vẹn, tiêu đề ở dòng 1", async () => {
@@ -101,8 +102,9 @@ describe("xuất Excel kho: file .xlsx thật, số là ô số", () => {
     expect(first[2].slice(0, 9)).toEqual([1, "HC001", "893", "Thuốc <A>", "Hóa chất / thuốc thử", "Hộp", 3.5, 5, "Sắp hết"]);
     expect(typeof first[2][6]).toBe("number");
     const second = await readSheet(buf, "Tồn theo lô");
-    expect(second[2][2]).toBe("L1");
-    expect(second[2][6]).toBe(3.5);
+    expect(second[1][0]).toBe("STT");
+    expect(second[2][3]).toBe("L1");
+    expect(second[2][7]).toBe(3.5);
   });
   it("trang tính rỗng vẫn ra file hợp lệ có dòng thông báo", async () => {
     const buf = await sheetsToXlsx(buildLedgerSheets([], "2026-01-01", "2026-11-26"));

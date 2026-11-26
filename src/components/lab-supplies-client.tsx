@@ -162,6 +162,13 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
         .lab-supplies .ls-note{padding:0 19px 8px;margin:0}
         .lab-supplies .ls-form-pad{padding:0 19px 19px;display:flex;flex-direction:column;gap:14px}
         .lab-supplies .ls-num{text-align:right;font-variant-numeric:tabular-nums}
+        .lab-supplies .ls-guide{border:1px solid #dbe4f0;background:#f8fafc;border-radius:10px;padding:10px 14px;margin:0 0 4px}
+        .lab-supplies .ls-guide>summary{cursor:pointer;font-weight:700;font-size:13px;color:#1e3a5f}
+        .lab-supplies .ls-guide ol{margin:8px 0 0;padding-left:20px;font-size:13px;line-height:1.55;color:#334155}
+        .lab-supplies .ls-guide li{margin:2px 0}
+        .lab-supplies .ls-guide-note{margin:8px 0 0;font-size:12px;color:#92400e}
+        .lab-supplies .ls-fefo-warn{flex-basis:100%;font-size:12px;line-height:1.4;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:6px 10px}
+        .lab-supplies .ls-stt{width:48px;text-align:center;color:#64748b;font-variant-numeric:tabular-nums}
         .lab-supplies .ls-name-btn{background:none;border:0;padding:0;text-align:left;cursor:pointer;color:inherit}
         .lab-supplies .ls-row-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
         .lab-supplies .status-badge+.status-badge{margin-left:6px}
@@ -195,8 +202,8 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
         .lab-supplies .ls-span-2{grid-column:span 2}.lab-supplies .ls-span-3{grid-column:span 3}
         .lab-supplies .ls-lines{display:flex;flex-direction:column;gap:8px}
         .lab-supplies .ls-lines-head,.lab-supplies .ls-line{display:grid;gap:8px;align-items:start}
-        .lab-supplies .ls-lines.receipt .ls-lines-head,.lab-supplies .ls-lines.receipt .ls-line{grid-template-columns:26px minmax(200px,2.4fr) minmax(110px,1fr) 150px 140px 80px}
-        .lab-supplies .ls-lines.issue .ls-lines-head,.lab-supplies .ls-lines.issue .ls-line{grid-template-columns:26px minmax(200px,2fr) 150px minmax(260px,3fr) 44px}
+        .lab-supplies .ls-lines.receipt .ls-lines-head,.lab-supplies .ls-lines.receipt .ls-line{grid-template-columns:40px minmax(200px,2.4fr) minmax(110px,1fr) 150px 140px 80px}
+        .lab-supplies .ls-lines.issue .ls-lines-head,.lab-supplies .ls-lines.issue .ls-line{grid-template-columns:40px minmax(200px,2fr) 150px minmax(260px,3fr) 44px}
         .lab-supplies .ls-lines-head{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:0 2px}
         .lab-supplies .ls-line{padding:6px 2px;border-top:1px solid #eef2f7}
         .lab-supplies .ls-line-no{font-size:12px;font-weight:800;color:var(--muted);text-align:center;padding-top:12px}
