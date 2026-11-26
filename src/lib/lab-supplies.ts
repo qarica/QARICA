@@ -227,3 +227,13 @@ export function compareStockUrgency(
   }
   return a.item.code.localeCompare(b.item.code, "vi");
 }
+
+/** Chênh lệch kiểm kê "lớn": vượt ngưỡng % so với tồn sổ (hoặc tồn sổ = 0 mà đếm được hàng) — phải ghi chú giải thích. */
+export const STOCKTAKE_LARGE_DIFF_PCT = 10;
+export const STOCKTAKE_LARGE_DIFF_NOTE_MIN = 5;
+export function isLargeStocktakeDiff(systemQty: number, countedQty: number): boolean {
+  const diff = Math.abs(countedQty - systemQty);
+  if (diff < 0.0005) return false;
+  if (systemQty <= 0) return true;
+  return (diff / systemQty) * 100 > STOCKTAKE_LARGE_DIFF_PCT;
+}

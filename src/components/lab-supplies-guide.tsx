@@ -21,7 +21,7 @@ export const STOCKTAKE_GUIDE = {
     <>Xem lại các dòng điều chỉnh ở tab <b>“Sổ kho &amp; báo cáo”</b> để chắc số liệu đúng.</>,
     <><b>Chốt kỳ:</b> chọn ngày cuối kỳ rồi bấm “Chốt kỳ”. Từ đó không ghi thêm phiếu nào có ngày trong kỳ đã chốt, nên số báo cáo kỳ không đổi nữa.</>,
   ],
-  note: "Chốt kỳ không hoàn tác được. Chỉ chốt sau khi đã kiểm kê và nhập đủ phiếu của kỳ.",
+  note: "Chốt nhầm thì bấm “Mở lại kỳ” (chỉ kỳ gần nhất, bắt buộc ghi lý do, hệ thống lưu vết ai mở và vì sao). Kiểm kê lệch trên 10% so với tồn sổ phải ghi chú giải thích.",
 };
 
 export const LEDGER_GUIDE = {
