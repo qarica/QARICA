@@ -17,9 +17,10 @@ describe("vai trò thủ kho: chỉ thấy menu Kho", () => {
   it("mục Kho trong menu chỉ cần lab_supplies.view", () => {
     expect(read("src/lib/navigation.ts")).toContain('href: "/lab-supplies", icon: "droplets", permission: "lab_supplies.view"');
   });
-  it("trang đích sau đăng nhập: người không có dashboard.view được chuyển tới menu đầu tiên của họ, có chốt chống vòng lặp", () => {
+  it("trang đích sau đăng nhập và nơi trang bị từ chối chuyển về: người không có dashboard.view luôn được chuyển tới menu đầu tiên của họ, không bao giờ thấy Tổng quan", () => {
     const d = read("src/app/(app)/dashboard/page.tsx");
-    expect(d).toContain('!hasPermission(user, "dashboard.view") && !(await searchParams).forbidden');
+    expect(d).toContain('if (!hasPermission(user, "dashboard.view")) {');
+    expect(d).not.toContain(".forbidden)");
     expect(d).toContain("visibleNavGroups(user)");
     expect(d).toContain('landing !== "/dashboard"');
   });
