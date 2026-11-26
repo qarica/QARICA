@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { buildCardExcel, runningBalances, type ExportMovement } from "@/lib/lab-supplies-export";
+import { buildCardSheets, runningBalances, type ExportMovement } from "@/lib/lab-supplies-export";
+import { XLSX_CONTENT_TYPE, sheetsToXlsx, xlsxFileName } from "@/lib/lab-supplies-xlsx";
 import { ITEM_SELECT, MOVEMENT_SELECT, labSuppliesContext } from "@/lib/lab-supplies-api";
 
 const MAX_ROWS = 5000;
 
 // Thẻ kho của 1 vật tư: toàn bộ phiếu theo thời gian TĂNG dần kèm tồn lũy kế (tính từ sổ, không lưu).
-// Chỉ đọc => lab_supplies.view. ?format=xls tải về Excel.
+// Chỉ đọc => lab_supplies.view. ?format=xlsx tải về file Excel (.xlsx).
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await labSuppliesContext("lab_supplies.view");
   if (!ctx.ok) return ctx.response;
@@ -26,10 +27,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const truncated = (data ?? []).length > MAX_ROWS;
   const movements = ((data ?? []).slice(0, MAX_ROWS) as unknown as ExportMovement[]);
 
-  if (new URL(request.url).searchParams.get("format") === "xls") {
-    const safe = String(item.code).replace(/[^A-Za-z0-9._-]+/g, "_");
-    return new NextResponse(buildCardExcel(item, movements), {
-      headers: { "Content-Type": "application/vnd.ms-excel; charset=utf-8", "Content-Disposition": `attachment; filename="the-kho_${safe}.xls"`, "Cache-Control": "no-store" },
+  if (new URL(request.url).searchParams.get("format") === "xlsx") {
+    return new NextResponse(new Uint8Array(await sheetsToXlsx(buildCardSheets(item, movements))), {
+      headers: { "Content-Type": XLSX_CONTENT_TYPE, "Content-Disposition": `attachment; filename="${xlsxFileName(`the-kho_${item.code}`)}"`, "Cache-Control": "no-store" },
     });
   }
   const balances = runningBalances(movements.map((m) => m.quantity_delta));

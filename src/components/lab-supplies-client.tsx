@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type KeyboardEvent } from "react";
+import { useCallback, useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { LabCatalog } from "@/components/lab-supplies-catalog";
@@ -53,11 +53,12 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
     router.refresh();
   }
   const fail = (text: string) => setToast({ tone: "error", text });
+  const clearIncoming = useCallback(() => setIncoming(null), []);
 
   function toVoucher(kind: "RECEIPT" | "ISSUE", item: Item, mode?: "ISSUE" | "DISPOSAL", quantity?: number) {
     setDetailId(null);
     setToast(null);
-    setIncoming({ itemId: item.id, mode, quantity, key: Date.now() });
+    setIncoming({ itemId: item.id, mode, quantity, key: Date.now(), target: kind });
     setTab(kind === "RECEIPT" ? "receipt" : "issue");
   }
 
@@ -76,7 +77,7 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
         setScanNotFound(`${found.code} (hết hàng, không xuất được)`);
         return false;
       }
-      setIncoming({ itemId: found.id, key: Date.now() });
+      setIncoming({ itemId: found.id, key: Date.now(), target: tab === "issue" ? "ISSUE" : "RECEIPT" });
       setScanFeedback(`Đã thêm vào phiếu: ${found.code} — ${found.name}`);
       return true;
     }
@@ -110,8 +111,8 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
       {toast ? <div className={`alert ${toast.tone}`} role="status">{toast.text}</div> : null}
 
       {tab === "stock" ? <LabStock items={items} lots={lots} today={today} canManage={canManage} search={search} onOpen={setDetailId} onReceive={(i) => toVoucher("RECEIPT", i)} onIssue={(i) => toVoucher("ISSUE", i)} /> : null}
-      {tab === "receipt" && canManage ? <LabVoucher kind="RECEIPT" items={items} lots={lots} movements={movements} today={today} incoming={incoming} onDone={done} /> : null}
-      {tab === "issue" && canManage ? <LabVoucher kind="ISSUE" items={items} lots={lots} movements={movements} today={today} incoming={incoming} onDone={done} /> : null}
+      {tab === "receipt" && canManage ? <LabVoucher kind="RECEIPT" items={items} lots={lots} movements={movements} today={today} incoming={incoming} onConsumed={clearIncoming} onDone={done} /> : null}
+      {tab === "issue" && canManage ? <LabVoucher kind="ISSUE" items={items} lots={lots} movements={movements} today={today} incoming={incoming} onConsumed={clearIncoming} onDone={done} /> : null}
       {tab === "stocktake" && canManage ? <LabStocktake lots={lots} itemById={itemById} today={today} lastClosing={lastClosing} canManage={canManage} onDone={done} onError={fail} /> : null}
       {tab === "ledger" ? <LabLedger movements={movements} items={items} today={today} search={search} cardItemId={cardReq.id} cardKey={cardReq.key} /> : null}
       {tab === "catalog" ? <LabCatalog items={items} canManage={canManage} search={search} seed={catalogSeed} onOpen={setDetailId} onChanged={done} /> : null}

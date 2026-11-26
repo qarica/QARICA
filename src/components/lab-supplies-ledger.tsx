@@ -126,7 +126,7 @@ function ReportView({ today }: { today: string }) {
         <label className="inline-check">Đến ngày <input type="date" value={to} min={from} max={today} onChange={(e) => setTo(e.target.value)} /></label>
         <button className="button primary" onClick={load} disabled={busy}><Icon name="refresh-cw" size={16} /> Xem báo cáo</button>
         <span className="ls-grow" />
-        <Link className="button secondary" href={`/api/lab-supplies/report?from=${from}&to=${to}&format=csv`}><Icon name="download" size={16} /> Xuất Excel</Link>
+        <Link className="button secondary" href={`/api/lab-supplies/report?from=${from}&to=${to}&format=xlsx`}><Icon name="download" size={16} /> Xuất Excel</Link>
       </div>
       {error ? <div className="alert error">{error}</div> : null}
       <div className="table-wrap">
