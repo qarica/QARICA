@@ -1,10 +1,11 @@
 import { PageHeader } from "@/components/page-header";
 import { ProcurementRequestsClient } from "@/components/procurement-requests-client";
-import { hasPermission, requireUserContext } from "@/lib/auth";
+import { hasPermission, requireUserContext, requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ProcurementPage() {
   const { user } = await requireUserContext();
+  requirePermission(user, "procurement.view");
   const canManage = hasPermission(user, "procurement.manage");
   const canApproveBgd = hasPermission(user, "procurement.approve_bgd");
   const canApproveTgd = hasPermission(user, "procurement.approve_tgd");

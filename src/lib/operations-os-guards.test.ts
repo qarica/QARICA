@@ -9,7 +9,7 @@ describe("Work OS API safeguards", () => {
     expect(route).toContain('status: 400');
   });
   it("uses authenticated context and bounds returned work items", () => {
-    expect(route).toContain("requireApiContext()");
+    expect(route).toContain(`requireApiContext("tasks.view")`);
     expect(route).toContain(".limit(500)");
     expect(route).toContain('sourceIds.length && (state==="OPEN" || state==="WAITING")');
   });

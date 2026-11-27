@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { requireApiContext } from "@/lib/api-auth";
 
 export async function GET(request: Request) {
-  const auth = await requireApiContext();
+  // Đầu việc tổng hợp (EMR, Action...) chỉ dành cho người có quyền xem nhiệm vụ — cùng quyền với trang /tasks.
+  const auth = await requireApiContext("tasks.view");
   if (!auth.ok) return auth.response;
   const { searchParams } = new URL(request.url);
   const state = String(searchParams.get("state") || "OPEN").toUpperCase();
