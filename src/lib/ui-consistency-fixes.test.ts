@@ -40,8 +40,11 @@ describe("UI consistency fixes (checkbox class, modal-head wrapper)", () => {
   // view. Only "Mở lại" (reopen) is a coherent action once isDone is true.
   it("UnifiedPersonalTaskActions hides Cập nhật tiến độ / Xin gia hạn once a task is done — only Mở lại remains", () => {
     const source = read("src/components/unified-personal-task-actions.tsx");
-    expect(source).toContain('{!isDone?<button type="button" className="button tertiary small" disabled={busy||isPending} onClick={()=>{setError("");setEditing(true)}}>Cập nhật tiến độ</button>:null}');
-    expect(source).toContain('{!isDone?<button type="button" className="button tertiary small" disabled={busy||isPending} onClick={()=>{setError("");setExtending(true)}}>Xin gia hạn</button>:null}');
+    // Các thao tác phụ nằm trong menu "⋯" và chỉ tồn tại khi việc CHƯA xong; việc đã xong chỉ còn nút Mở lại.
+    expect(source).toContain('{!isDone?<details className="upta-more">');
+    expect(source).toContain('<button type="button" className="button tertiary small" disabled={busy||isPending} onClick={()=>{setError("");setEditing(true)}}>Cập nhật tiến độ</button>');
+    expect(source).toContain('<button type="button" className="button tertiary small" disabled={busy||isPending} onClick={()=>{setError("");setExtending(true)}}>Xin gia hạn</button>');
+    expect(source.indexOf('{!isDone?<details className="upta-more">')).toBeLessThan(source.indexOf('>Cập nhật tiến độ</button>'));
     expect(source).toContain('onClick={()=>void toggle()}>{busy||isPending?"Đang cập nhật...":isDone?"Mở lại":"Hoàn tất"}</button>');
   });
 
