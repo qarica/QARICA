@@ -81,3 +81,12 @@ describe("trang Việc của tôi: nút chuyển Danh sách / Kanban", () => {
     expect(page).toContain('className="work-pagination"');
   });
 });
+
+describe("bố cục Kanban: mọi cột đều thấy được, không phải cuộn ngang", () => {
+  it("lưới tự xuống dòng (auto-fit) thay vì 6 cột cố định tràn khung; điện thoại 1 cột", () => {
+    const page = readFileSync("src/app/(app)/tasks/page.tsx", "utf8");
+    expect(page).toContain(".kb-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(172px,1fr))");
+    expect(page).not.toMatch(/\.kb-board\{[^}]*overflow-x:auto/);
+    expect(page).toContain("@media(max-width:640px){.tqm-my-work .kb-board{grid-template-columns:1fr}}");
+  });
+});
