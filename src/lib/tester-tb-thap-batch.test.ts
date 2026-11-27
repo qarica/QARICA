@@ -17,8 +17,8 @@ describe("Tester TB/Thấp batch", () => {
   });
 
   it("deleting a personal note requires confirmation", () => {
-    const source = read("src/components/personal-reminders.tsx");
-    expect(source).toContain('if(!window.confirm("Xóa note này? Không thể hoàn tác."))return;');
+    const source = read("src/components/reminder-row-delete.tsx");
+    expect(source).toContain('if (!window.confirm(`Xóa note cá nhân "${title}"? Không thể hoàn tác.`)) return;');
   });
 
   it("closing an incident requires confirmation before the irreversible CLOSE call", () => {

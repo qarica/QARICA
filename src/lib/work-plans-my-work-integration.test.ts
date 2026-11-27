@@ -23,14 +23,14 @@ describe("Việc của tôi: gộp đầu việc Kế hoạch công việc đư�
     expect(page).toContain('function eisenhowerToPriority(quadrant?:string|null){if(quadrant==="P1")return"CRITICAL";if(quadrant==="P2")return"HIGH";if(quadrant==="P3")return"URGENT";return"LOW"}');
   });
 
-  it("status DONE quy về COMPLETED trong cả KPI và danh sách (open-KPI loại trừ đúng chữ COMPLETED, không loại DONE)", () => {
-    expect(page).toContain('workflow_status:isDone?"COMPLETED":item.status');
+  it("status DONE quy về COMPLETED trong danh sách thống nhất (các bộ lọc cùng nhận diện việc đã xong bằng isDone)", () => {
     expect(page).toContain('statusLabel:isDone?"COMPLETED":(isOverdue?"OVERDUE":item.status)');
   });
 
-  it("tính vào đủ cả 5 KPI đầu trang (kpiRows) và số đếm Hoàn thành", () => {
-    expect(page).toContain("const kpiRows=[...rows,...emrKpiRows,...personalReminderKpiRows,...workPlanItemKpiRows];");
-    expect(page).toContain('completed=rows.filter(r=>r.workflow_status==="COMPLETED").length+personalReminders.filter((p:any)=>p.status==="COMPLETED").length+myWorkPlanItems.filter((i:any)=>i.status==="DONE").length');
+  it("tính vào đủ các nút lọc nhanh (Quá hạn/Hôm nay/7 ngày tới/Đã xong) vì cùng nằm trong allWorkRows", () => {
+    expect(page).toContain("const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows,...unifiedWorkPlanRows];");
+    expect(page).toContain("const allWorkRows=[...unifiedAssignedRows,...unifiedReminderRows]");
+    expect(page).toContain("DONE:allWorkRows.filter(r=>r.isDone).length");
   });
 
   it("gộp vào unifiedAssignedRows (tab 'Việc được giao'), không lẫn với note cá nhân tự tạo", () => {

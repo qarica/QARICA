@@ -40,10 +40,10 @@ describe("Việc cá nhân: Eisenhower + SMART/5W1H (Part 1 — không có RACI 
     expect(client).toContain("why_text:whyText.trim()||null,where_text:whereText.trim()||null,how_text:howText.trim()||null,smart_target:smartTarget.trim()||null");
   });
 
-  it("có Ma trận Eisenhower hiện 4 ô P1-P4 tính từ personalReminderQuadrant() trên các việc đang mở (status OPEN)", () => {
+  it("Ma trận Eisenhower đã bỏ khỏi form thêm việc (trùng với danh sách); thứ tự ưu tiên vẫn hiện ở nhãn Ưu tiên của từng việc, hàm tính vẫn còn cho nơi khác", () => {
     const client = read("src/components/personal-reminders.tsx");
-    expect(client).toContain('const openQuadrants=rows.filter(r=>r.status==="OPEN").map(r=>({...r,quadrant:personalReminderQuadrant(r.priority,r.due_at?hcmDateKey(r.due_at):null,today)}));');
-    expect(client).toContain("Ma trận Eisenhower");
-    expect(client).toContain("{EISENHOWER_QUADRANTS.map(q=>");
+    expect(client).not.toContain("Ma trận Eisenhower");
+    expect(client).not.toContain("openQuadrants");
+    expect(read("src/lib/eisenhower.ts")).toContain("export function personalReminderQuadrant(");
   });
 });

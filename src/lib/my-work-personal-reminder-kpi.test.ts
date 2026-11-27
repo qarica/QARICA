@@ -1,43 +1,43 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { workKanbanColumn } from "./my-work-kanban";
 
-// Báo cáo thực tế (ảnh chụp "Việc của tôi" trên mobile): note cá nhân "Soạn
-// QT phối hợp giữa HDIII & UBSG" hạn 7/10/26 — đã quá hạn so với hôm nay
-// 10/10/26 — nhưng KPI "Quá hạn" vẫn hiện 0. Nguyên nhân: kpiRows (nguồn
-// tính overdue/dueToday/dueSoon/open) trước đây chỉ gộp Action
-// (vw_actions_dashboard) + EMR, hoàn toàn bỏ qua personalReminders — dù
-// chính secretaryHeadline bên dưới vẫn nói "Không có việc cá nhân quá hạn"
-// khi overdue=0, tức trang tự coi note cá nhân là một phần của "quá hạn".
-describe("Việc của tôi (/tasks) — KPI quá hạn/đến hạn/đang mở/hoàn thành phải tính cả note cá nhân", () => {
+// Lỗi gốc (báo cáo thực tế): note cá nhân hạn 7/10 đã quá hạn nhưng số "Quá hạn" vẫn hiện 0 vì bộ đếm chỉ gộp Action.
+// Thiết kế mới bỏ 5 thẻ số: các nút lọc nhanh (Quá hạn/Hôm nay/7 ngày tới/Chờ phản hồi/Đã xong) đếm từ CÙNG danh sách thống nhất
+// allWorkRows (Action + EMR + kế hoạch + việc cá nhân) và dùng đúng hàm phân cột của Kanban, nên mọi nguồn đều được tính.
+describe("Việc của tôi (/tasks) — số đếm lọc nhanh phải tính cả việc cá nhân", () => {
   const source = readFileSync("src/app/(app)/tasks/page.tsx", "utf8");
 
-  it("dựng personalReminderKpiRows từ personalReminders (dùng dateOnly, không cắt chuỗi trực tiếp) và gộp vào kpiRows", () => {
-    expect(source).toContain("const personalReminderKpiRows=personalReminders.map((p:any)=>{const dueDate=p.due_at?dateOnly(p.due_at):null;const isOverdue=p.status===\"OPEN\"&&!!dueDate&&dueDate<today;");
-    expect(source).toContain("const kpiRows=[...rows,...emrKpiRows,...personalReminderKpiRows,...workPlanItemKpiRows];");
+  it("việc cá nhân vào danh sách thống nhất với ngày hạn quy đổi bằng dateOnly (không cắt chuỗi trực tiếp)", () => {
+    expect(source).toContain("dueDate:p.due_at?dateOnly(p.due_at):null");
+    expect(source).toContain("const allWorkRows=[...unifiedAssignedRows,...unifiedReminderRows]");
   });
 
-  it("KPI Hoàn thành cũng tính note cá nhân đã COMPLETED, không chỉ Action", () => {
-    expect(source).toContain('completed=rows.filter(r=>r.workflow_status==="COMPLETED").length+personalReminders.filter((p:any)=>p.status==="COMPLETED").length+myWorkPlanItems.filter((i:any)=>i.status==="DONE").length;');
+  it("số đếm các nút lọc nhanh tính từ allWorkRows bằng workKanbanColumn (cùng cách xếp cột với Kanban)", () => {
+    for (const key of ["OVERDUE", "TODAY", "NEXT7"]) expect(source).toContain(`${key}:allWorkRows.filter(r=>workKanbanColumn(r,today)==="${key}").length`);
+    expect(source).toContain('DONE:allWorkRows.filter(r=>r.isDone).length');
   });
 
-  // Tự rà lại sau phản hồi "rà chưa sát": overdue7 (mức cảnh báo cao nhất
-  // trong secretaryHeadline) cũng dính đúng lỗi y hệt — chỉ đếm từ rows,
-  // bỏ sót EMR/note cá nhân quá hạn ≥7 ngày.
-  it("overdue7 (mức cảnh báo cao nhất) dùng kpiRows đã gộp đủ 3 nguồn, không chỉ rows", () => {
-    expect(source).toContain("const overdue7=kpiRows.filter(r=>r.is_overdue&&Math.abs(Number(r.days_to_due||0))>=7).length;");
+  it("note cá nhân quá hạn 7/10 so với hôm nay 10/10 được tính vào Quá hạn; đã COMPLETED tính vào Đã xong", () => {
+    const today = "2026-10-10";
+    expect(workKanbanColumn({ dueDate: "2026-10-07", completedAt: null, isDone: false, isOverdue: true }, today)).toBe("OVERDUE");
+    expect(workKanbanColumn({ dueDate: "2026-10-07", completedAt: "2026-10-08", isDone: true, isOverdue: false }, today)).toBe("DONE");
   });
 
-  it("personalReminderKpiRows khai báo SAU personalReminders/today/dateOnly (không rơi vào temporal dead zone như lỗi đã sửa trước đó)", () => {
-    const prDeclIndex = source.indexOf("const rows=sourceRows.filter");
-    const todayDeclIndex = source.indexOf("const today=hcmToday()");
-    const dateOnlyDeclIndex = source.indexOf("function dateOnly");
-    const useIndex = source.indexOf("personalReminderKpiRows=personalReminders.map");
-    expect(prDeclIndex).toBeGreaterThan(-1);
-    expect(todayDeclIndex).toBeGreaterThan(-1);
-    expect(dateOnlyDeclIndex).toBeGreaterThan(-1);
-    expect(useIndex).toBeGreaterThan(-1);
-    expect(prDeclIndex).toBeLessThan(useIndex);
-    expect(todayDeclIndex).toBeLessThan(useIndex);
-    expect(dateOnlyDeclIndex).toBeLessThan(useIndex);
+  it("colCounts khai báo SAU allWorkRows và today (không rơi vào temporal dead zone)", () => {
+    const todayDecl = source.indexOf("const today=hcmToday()");
+    const allRowsDecl = source.indexOf("const allWorkRows=[...unifiedAssignedRows,...unifiedReminderRows]");
+    const use = source.indexOf("const colCounts=");
+    expect(todayDecl).toBeGreaterThan(-1);
+    expect(allRowsDecl).toBeGreaterThan(-1);
+    expect(use).toBeGreaterThan(allRowsDecl);
+    expect(use).toBeGreaterThan(todayDecl);
+  });
+
+  it("5 thẻ số, khối Việc cần làm trước và khối thông báo trùng đã được bỏ", () => {
+    expect(source).not.toContain('<section className="kpis">');
+    expect(source).not.toContain("secretaryQueue");
+    expect(source).not.toContain("attentionTitle");
+    expect(source).not.toContain("my-work-quote");
   });
 });
