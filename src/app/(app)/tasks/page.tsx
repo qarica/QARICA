@@ -1,4 +1,3 @@
-import { TaskExtensionReviewQueue } from "@/components/task-extension-review-queue";
 import { PersonalTaskProgressTitle } from "@/components/personal-task-progress-title";
 import { UnifiedPersonalTaskActions } from "@/components/unified-personal-task-actions";
 import Link from "next/link";
@@ -335,7 +334,6 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
 }
 @media(max-width:900px){.tqm-my-work .work-columns{grid-template-columns:1fr}}`}</style>
   <PageHeader eyebrow={`CÔNG VIỆC HÔM NAY · ${year}`} title="Việc của tôi" description="Việc được giao, việc cá nhân, việc EMR và kế hoạch của bạn ở một nơi. Việc khẩn và đến hạn được đưa lên trước." icon="inbox"/>
-  <TaskExtensionReviewQueue userId={user.id}/>
   <PersonalReminders organizationId={user.organizationId!} userId={user.id}/>
     <section id="all-work" className="work-section">
      <nav className="work-tabs mw-chips" aria-label="Lọc việc nhanh">
