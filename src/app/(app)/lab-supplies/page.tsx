@@ -3,6 +3,7 @@ import { LabSuppliesClient } from "@/components/lab-supplies-client";
 import { hasPermission, requirePermission, requireUserContext } from "@/lib/auth";
 import { todayInVietnam } from "@/lib/lab-supplies";
 import { ITEM_SELECT, LOT_BALANCE_SELECT, MOVEMENT_SELECT } from "@/lib/lab-supplies-api";
+import { fetchAllPages } from "@/lib/lab-supplies-paging";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function LabSuppliesPage() {
@@ -12,9 +13,10 @@ export default async function LabSuppliesPage() {
   const supabase = await createClient();
 
   const [itemsRes, lotsRes, movementsRes, closingsRes] = await Promise.all([
-    supabase.from("lab_supply_items").select(ITEM_SELECT).eq("organization_id", user.organizationId).order("code", { ascending: true }),
+    // Phân trang để không bị cắt âm thầm ở 1.000 dòng (xem lab-supplies-paging.ts).
+    fetchAllPages((from, to) => supabase.from("lab_supply_items").select(ITEM_SELECT).eq("organization_id", user.organizationId).order("code", { ascending: true }).order("id", { ascending: true }).range(from, to)),
     // Chỉ lô còn tồn: số tồn luôn là tổng sổ xuất nhập (view), không lưu cột tồn.
-    supabase.from("lab_supply_lot_balances").select(LOT_BALANCE_SELECT).eq("organization_id", user.organizationId).gt("balance", 0).limit(2000),
+    fetchAllPages((from, to) => supabase.from("lab_supply_lot_balances").select(LOT_BALANCE_SELECT).eq("organization_id", user.organizationId).gt("balance", 0).order("lot_id", { ascending: true }).range(from, to)),
     supabase
       .from("lab_supply_movements")
       .select(MOVEMENT_SELECT)

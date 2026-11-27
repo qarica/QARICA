@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { buildCardSheets, runningBalances, type ExportMovement } from "@/lib/lab-supplies-export";
 import { XLSX_CONTENT_TYPE, sheetsToXlsx, xlsxFileName } from "@/lib/lab-supplies-xlsx";
 import { ITEM_SELECT, MOVEMENT_SELECT, labSuppliesContext } from "@/lib/lab-supplies-api";
+import { fetchAllPages } from "@/lib/lab-supplies-paging";
 
 const MAX_ROWS = 5000;
 
@@ -15,14 +16,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: item } = await ctx.admin.from("lab_supply_items").select(ITEM_SELECT).eq("id", id).eq("organization_id", ctx.organizationId).maybeSingle();
   if (!item) return NextResponse.json({ error: "Không tìm thấy vật tư hoặc ngoài phạm vi truy cập." }, { status: 404 });
 
-  const { data, error } = await ctx.admin
+  const { data, error } = await fetchAllPages((from, to) => ctx.admin
     .from("lab_supply_movements")
     .select(MOVEMENT_SELECT)
     .eq("organization_id", ctx.organizationId)
     .eq("item_id", id)
     .order("movement_date", { ascending: true })
     .order("created_at", { ascending: true })
-    .limit(MAX_ROWS + 1);
+    .order("id", { ascending: true })
+    .range(from, to), MAX_ROWS + 1);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   const truncated = (data ?? []).length > MAX_ROWS;
   const movements = ((data ?? []).slice(0, MAX_ROWS) as unknown as ExportMovement[]);
