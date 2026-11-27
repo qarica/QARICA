@@ -343,7 +343,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <div className="page-header-row dashboard-hero-row">
       <div className="dashboard-hero-copy">
         <h1>{greeting.heading}</h1>
-        <p>{greeting.dateLabel} · {alertItems.length > 0 ? `${alertItems.length} cảnh báo cần xử lý hôm nay` : "Không có cảnh báo cần xử lý"}</p>
+        <p>{greeting.dateLabel} · Tình hình chất lượng toàn bệnh viện</p>
       </div>
       <form className="scope-controls" method="get">
         <VnDateInput name="from" defaultValue={from} max={today} className="button secondary" title="Từ ngày" />
@@ -355,7 +355,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
 
-    <div className="alert-strip-head"><h2>Cảnh báo &amp; công việc cần chú ý</h2><Link className="button tertiary small" href="/tasks">Xem tất cả →</Link></div>
+    <div className="alert-strip-head"><h2>Cảnh báo chất lượng toàn bệnh viện</h2></div>
     <AlertStrip items={alertItems} />
 
     <section className="kpis">
