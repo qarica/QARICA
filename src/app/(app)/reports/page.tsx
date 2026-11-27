@@ -6,6 +6,7 @@ export default function ReportsPage() {
     <RegistryModulePage
       config={{
         eyebrow: "KẾ HOẠCH & ĐIỀU HÀNH",
+        icon: "trending-up",
         title: "Báo cáo phải nộp",
         description: "Theo dõi nghĩa vụ báo cáo, đơn vị lập báo cáo, hạn nộp và bằng chứng đã gửi.",
         permissions: ["reports.view", "reports.manage"],

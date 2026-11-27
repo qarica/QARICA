@@ -5,6 +5,7 @@ export default function FindingsPage() {
     <RegistryModulePage
       config={{
         eyebrow: "KHẮC PHỤC & CAPA",
+        icon: "search-check",
         title: "Phát hiện (Findings)",
         description: "Theo dõi điểm không phù hợp từ giám sát, audit, phản ánh hoặc kiểm tra ngoài đến khi được xác minh đóng.",
         permissions: ["findings.view", "findings.manage"],

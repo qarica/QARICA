@@ -5,6 +5,7 @@ export default function FmeaPage() {
     <RegistryModulePage
       config={{
         eyebrow: "QUẢN LÝ RỦI RO",
+        icon: "workflow",
         title: "FMEA / HFMEA",
         description: "Phân tích quy trình, failure mode, nguyên nhân, hậu quả và mức ưu tiên để chủ động kiểm soát rủi ro trước khi xảy ra sự cố.",
         permissions: ["risk.view", "risk.manage"],
