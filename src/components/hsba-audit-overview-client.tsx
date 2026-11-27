@@ -362,11 +362,13 @@ export function HsbaAuditOverviewClient({
               </tbody>
             </table>
           </div>
-          {error ? <div className="alert error">{error}</div> : null}
-          {message ? <div className="alert success">{message}</div> : null}
-          <button className="button primary" disabled={busy || !checklistItems.length || !departmentId || !selectedTemplate} onClick={() => void submitAudit()}>
-            Lưu lượt kiểm tra
-          </button>
+          <div className="hsba-save-row">
+            {error ? <div className="alert error">{error}</div> : null}
+            {message ? <div className="alert success">{message}</div> : null}
+            <button className="button primary" disabled={busy || !checklistItems.length || !departmentId || !selectedTemplate} onClick={() => void submitAudit()}>
+              Lưu lượt kiểm tra
+            </button>
+          </div>
         </section>
       ) : null}
 
@@ -481,6 +483,17 @@ export function HsbaAuditOverviewClient({
           grid-template-columns: 1fr 1fr 1fr 160px;
           gap: 8px;
           padding: 0 12px 12px;
+        }
+        .hsba-save-row {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+          gap: 10px;
+          padding: 12px;
+        }
+        .hsba-save-row .alert {
+          margin-right: auto;
         }
         .hsba-result-toggle {
           display: flex;
