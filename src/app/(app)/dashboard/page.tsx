@@ -333,7 +333,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .stacked-bar-seg{width:100%}
       .qcc-dashboard .stacked-bar-label{font-size:10px;color:#94a3b8}
       @media(max-width:1100px){.qcc-dashboard .kpis{grid-template-columns:repeat(2,1fr)}.qcc-dashboard .grid2{grid-template-columns:1fr}}
-      .qcc-dashboard .qcc-legacy-divider{display:flex;align-items:center;gap:14px;margin:8px 0 2px;color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+        .qcc-dashboard .dash-more{display:flex;flex-direction:column;gap:14px}.qcc-dashboard .dash-more>summary{cursor:pointer;list-style:none;padding:12px 16px;background:#fff;border:1px solid var(--line);border-radius:12px;font-weight:800;font-size:13px}.qcc-dashboard .dash-more>summary::-webkit-details-marker{display:none}.qcc-dashboard .dash-more>summary span{font-weight:500;color:var(--muted);font-size:12px}.qcc-dashboard .dash-more>summary:before{content:"▸ ";color:var(--brand)}.qcc-dashboard .dash-more[open]>summary:before{content:"▾ "}
+    .qcc-dashboard .qcc-legacy-divider{display:flex;align-items:center;gap:14px;margin:8px 0 2px;color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
       .qcc-dashboard .qcc-legacy-divider:before,.qcc-dashboard .qcc-legacy-divider:after{content:"";flex:1;height:1px;background:#e5eaf2}
       .qcc-dashboard .legacy-grid3{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}
       @media(max-width:920px){.qcc-dashboard .legacy-grid3{grid-template-columns:1fr}}
@@ -342,7 +343,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <div className="page-header-row dashboard-hero-row">
       <div className="dashboard-hero-copy">
         <h1>{greeting.heading}</h1>
-        <p>{greeting.dateLabel} · Trung tâm Điều hành Chất lượng — theo dõi, phân tích và quản lý tổng thể các hoạt động chất lượng, an toàn người bệnh</p>
+        <p>{greeting.dateLabel} · {alertItems.length > 0 ? `${alertItems.length} cảnh báo cần xử lý hôm nay` : "Không có cảnh báo cần xử lý"}</p>
       </div>
       <form className="scope-controls" method="get">
         <VnDateInput name="from" defaultValue={from} max={today} className="button secondary" title="Từ ngày" />
@@ -365,6 +366,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <KpiCard icon="check-square" tone="purple" label="Audit đang thực hiện" value={auditInProgress} trend={trendBadge(auditInProgress, auditInProgressLastMonth)} />
     </section>
 
+    <details className="dash-more">
+      <summary>Phân tích &amp; xu hướng <span>(bấm để mở — biểu đồ sự cố, CAPA, audit, chỉ số, kế hoạch)</span></summary>
     <section className="grid2">
       <article className="panel"><div className="head"><div><h2>Xu hướng sự cố y khoa</h2><p>Số lượng sự cố theo {RANGE_LABEL[range].toLowerCase()} và theo mức độ tổn hại (taxonomy thật của hệ thống).</p></div>
         <div className="chart-toolbar"><div className="range-toggle">{(["week","month","quarter"] as const).map((r) => <Link key={r} href={`?${new URLSearchParams({ ...(from?{from}:{}) , asOf: today, ...(selectedDept?{dept:selectedDept}:{}), range: r }).toString()}`} className={range === r ? "active" : ""}>{RANGE_LABEL[r]}</Link>)}</div></div>
@@ -404,6 +407,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <section className="grid2"><article className="panel"><div className="head"><h2>Xu hướng chỉ số đạt mục tiêu 12 tháng</h2><p>Tỷ lệ MEETS_TARGET trong các kỳ VERIFIED/LOCKED đã có kết luận mục tiêu.</p></div><TqmTrend points={indicatorTrend} /></article><article className="panel"><div className="head"><h2>Giám sát theo khoa/phòng</h2><p>Đơn vị có tỷ lệ mục đạt thấp được đưa lên trước.</p></div>{deptBars.length ? <TqmHorizontalBars rows={deptBars} max={100} /> : <div className="empty-state">Chưa có dữ liệu giám sát đủ để so sánh.</div>}</article></section>
 
     <section className="legacy-grid3" style={{gridTemplateColumns:".7fr 1.3fr"}}><article className="panel"><div className="head"><h2>Tiến độ kế hoạch chất lượng năm</h2><p>Từ Action thực tế của các kế hoạch.</p></div><TqmDonut value={planPct} label="Hoàn thành" segments={[{ label: "Đã hoàn thành", value: planDone, tone: "brand" }, { label: "Còn lại", value: Math.max(0, planReq - planDone), tone: "blue" }, { label: "Quá hạn", value: planOverdue, tone: "red" }]} /></article><article className="panel"><div className="head"><h2>Gantt đề án cải tiến trọng tâm</h2><p>Thời gian và tiến độ lấy từ dữ liệu đề án/Action thật.</p></div>{ganttRows.length ? <TqmGantt year={year} rows={ganttRows} /> : <div className="empty-state">Chưa đủ mốc thời gian đề án để dựng Gantt.</div>}</article></section>
+
+    </details>
 
     <section className="legacy-grid3"><article className="panel"><div className="head"><h2>Điểm nóng cần chú ý</h2><p>Chỉ giữ các vấn đề quản trị cấp bệnh viện.</p></div><div className="table-wrap"><table><thead><tr><th>#</th><th>Nội dung</th><th>Số lượng</th><th>Trạng thái</th></tr></thead><tbody>{legacyHotspots.map((x,i) => <tr key={x.label}><td>{i+1}</td><td><Link className="table-link" href={x.href}>{x.label}</Link></td><td><b>{x.value}</b></td><td><span className={`status-badge ${x.tone==="red"?"danger":"warning"}`}>{x.tone==="red"?"Quá hạn":"Cần theo dõi"}</span></td></tr>)}</tbody></table></div></article><article className="panel"><div className="head"><h2>Truy cập nhanh</h2></div><div className="quick-links">
       <Link className="quick-link" href="/incidents"><span className="quick-link-icon" style={{background:"#fee2e2",color:"#dc2626"}}><Icon name="shield-alert" size={18}/></span>Sự cố</Link>
