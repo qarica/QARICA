@@ -1247,7 +1247,7 @@ export function DocumentPublicationsClient({
           gap: 16px;
         }
         .dp-kpi-icon {
-          display: flex;
+          display: none;
           align-items: center;
           justify-content: center;
           width: 32px;
