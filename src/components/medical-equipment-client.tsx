@@ -383,9 +383,9 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
       ) : null}
       <style>{TQM_CHART_CSS + `
         .ttbyt-dashboard .ttbyt-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:0 19px 16px}.ttbyt-dashboard .ttbyt-kpis>*{min-width:0}
-        .ttbyt-dashboard .kpi-tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px}
+        .ttbyt-dashboard .kpi-tile{background:#fff;border:1px solid var(--line);border-left:3px solid var(--tone-blue,#1d4ed8);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}
         .ttbyt-dashboard .kpi-tile span{font-size:11px;color:var(--muted);font-weight:700}
-        .ttbyt-dashboard .kpi-tile strong{font-size:22px}
+        .ttbyt-dashboard .kpi-tile strong{font-size:26px;line-height:1}
         .ttbyt-dashboard .ttbyt-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 19px 19px}
         .ttbyt-dashboard .ttbyt-charts h3{margin:0 0 6px;font-size:13px}
         .ttbyt-dashboard .ttbyt-charts h3 .status-badge{font-size:9px;padding:2px 7px;vertical-align:middle}

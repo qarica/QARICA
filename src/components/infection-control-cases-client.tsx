@@ -213,9 +213,9 @@ export function InfectionControlCasesClient({ departments, initialCases, canMana
       ) : null}
       <style>{`
         .ttbyt-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:19px}.ttbyt-kpis>*{min-width:0}
-        .ttbyt-kpis .kpi-tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px}
+        .ttbyt-kpis .kpi-tile{background:#fff;border:1px solid var(--line);border-left:3px solid var(--tone-blue,#1d4ed8);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}
         .ttbyt-kpis .kpi-tile span{font-size:11px;color:var(--muted);font-weight:700}
-        .ttbyt-kpis .kpi-tile strong{font-size:22px}
+        .ttbyt-kpis .kpi-tile strong{font-size:26px;line-height:1}
         @media(max-width:760px){.ttbyt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
       `}</style>
     </>
