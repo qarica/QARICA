@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { KpiCard } from "@/components/kpi-card";
+import { VnDateInput } from "@/components/vn-date-input";
 import {
   AssignmentTargetSelect,
   assignmentTargetToken,
@@ -548,8 +549,8 @@ export function RecurringWorkClient({
             {form.cadence === "WEEKLY" || form.cadence === "MONTHLY_WEEK" ? <div className="recurring-field"><label>Thứ thực hiện</label><select value={form.weekday} onChange={(e) => patch("weekday", e.target.value)}>{WEEKDAYS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div> : null}
             {form.cadence === "MONTHLY_WEEK" ? <div className="recurring-field"><label>Tuần trong tháng</label><select value={form.weekOfMonth} onChange={(e) => patch("weekOfMonth", e.target.value)}><option value="1">Tuần 1</option><option value="2">Tuần 2</option><option value="3">Tuần 3</option><option value="4">Tuần 4</option></select><small>Phù hợp lịch giám sát luân phiên tuần 1–4.</small></div> : null}
             {form.cadence === "MONTHLY_DATE" || form.cadence === "QUARTERLY" ? <div className="recurring-field"><label>Ngày trong tháng</label><input type="number" min="1" max="31" value={form.monthDay} onChange={(e) => patch("monthDay", e.target.value)} /><small>Nếu tháng không có ngày này, engine dùng ngày cuối tháng.</small></div> : null}
-            <div className="recurring-field"><label>Ngày bắt đầu hiệu lực *</label><input type="date" value={form.start_date} onChange={(e) => patch("start_date", e.target.value)} /></div>
-            <div className="recurring-field"><label>Ngày kết thúc</label><input type="date" value={form.end_date} onChange={(e) => patch("end_date", e.target.value)} /></div>
+            <div className="recurring-field"><label>Ngày bắt đầu hiệu lực *</label><VnDateInput value={form.start_date} onChange={(e) => patch("start_date", e.target.value)} /></div>
+            <div className="recurring-field"><label>Ngày kết thúc</label><VnDateInput value={form.end_date} onChange={(e) => patch("end_date", e.target.value)} /></div>
             <div className="recurring-field"><label>Hạn sau ngày kế hoạch</label><input type="number" min="0" max="365" value={form.due_offset_days} onChange={(e) => patch("due_offset_days", e.target.value)} /><small>0 = đến hạn đúng ngày được sinh trên lịch.</small></div>
             <div className="recurring-field"><label>Mức ưu tiên</label><select value={form.priority} onChange={(e) => patch("priority", e.target.value)}><option value="LOW">Thấp</option><option value="NORMAL">Bình thường</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn</option><option value="CRITICAL">Rất khẩn / trọng yếu</option></select></div>
             <div className="recurring-field span-2"><label>Giao cho *</label>

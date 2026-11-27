@@ -33,7 +33,7 @@ describe("HSBA audit: period suy ra từ discharge_date (1 nguồn sự thật),
   it("UI: form HSBA hiện ô ngày ra viện thay cho ô chọn tháng tay, Phác đồ/QTKT vẫn dùng ô chọn tháng cũ", () => {
     const source = read("src/components/hsba-audit-overview-client.tsx");
     expect(source).toContain('auditType === "HSBA" ? dischargeDate.slice(0, 7) : period');
-    expect(source).toContain('<input className="input" type="date" aria-label="Ngày ra viện"');
+    expect(source).toContain('<VnDateInput className="input" aria-label="Ngày ra viện"');
     expect(source).toContain('<input className="input" type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />');
   });
 

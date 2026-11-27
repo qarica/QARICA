@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Icon } from "@/components/icon";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Mode = "NOTE" | "TASK";
 
 // Floating quick-capture button, rendered once in (app)/layout.tsx so it is
@@ -90,7 +91,7 @@ export function GlobalQuickCapture({ userId, organizationId }: { userId: string;
         <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={mode === "NOTE" ? "Tiêu đề ghi chú..." : "Việc cần làm..."} maxLength={300} required />
         {mode === "NOTE"
           ? <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Nội dung (không bắt buộc)..." rows={6} />
-          : <input type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Hạn xử lý (không bắt buộc, mặc định 7 ngày)" />}
+          : <VnDateInput value={due} onChange={(e) => setDue(e.target.value)} aria-label="Hạn xử lý (không bắt buộc, mặc định 7 ngày)" />}
         {error ? <p role="alert" className="gqc-error">{error}</p> : null}
         <button type="submit" className="gqc-submit" disabled={busy || !title.trim()}>{busy ? "Đang lưu..." : mode === "NOTE" ? "Lưu vào sổ tay" : "+ Thêm việc"}</button>
       </form>}

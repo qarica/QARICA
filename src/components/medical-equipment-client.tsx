@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars } from "@/components/tqm-charts";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Department = { id: string; name: string };
 
 export type EquipmentStatus = "IN_USE" | "MAINTENANCE" | "INACTIVE";
@@ -344,9 +345,9 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
                     </select>
                     {form.legacyDepartmentLabel ? <small>Nhãn gốc từ đợt số hóa đầu tiên: &ldquo;{form.legacyDepartmentLabel}&rdquo; — chọn khoa/phòng đúng ở trên để xác nhận.</small> : null}
                   </label>
-                  <label>Hợp đồng từ<input type="date" value={form.contract_from} onChange={(e) => setForm({ ...form, contract_from: e.target.value })} /></label>
-                  <label>Hợp đồng đến<input type="date" value={form.contract_to} onChange={(e) => setForm({ ...form, contract_to: e.target.value })} /></label>
-                  <label>Hiệu lực từ<input type="date" value={form.valid_from} onChange={(e) => setForm({ ...form, valid_from: e.target.value })} /></label>
+                  <label>Hợp đồng từ<VnDateInput value={form.contract_from} onChange={(e) => setForm({ ...form, contract_from: e.target.value })} /></label>
+                  <label>Hợp đồng đến<VnDateInput value={form.contract_to} onChange={(e) => setForm({ ...form, contract_to: e.target.value })} /></label>
+                  <label>Hiệu lực từ<VnDateInput value={form.valid_from} onChange={(e) => setForm({ ...form, valid_from: e.target.value })} /></label>
                   <label>STT (thứ tự sổ)<input type="number" value={form.sequence_no} onChange={(e) => setForm({ ...form, sequence_no: e.target.value })} /></label>
                   <label>
                     Phân loại TTBYT

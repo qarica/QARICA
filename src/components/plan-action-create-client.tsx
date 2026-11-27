@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Department = { id: string; name: string; short_name: string | null };
 type Profile = { user_id: string; full_name: string | null; email: string | null; primary_department_id: string | null };
 
@@ -189,7 +190,7 @@ export function PlanActionCreateClient({
                 </div>
                 <label>
                   <span>Hạn hoàn thành *</span>
-                  <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+                  <VnDateInput value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
                 </label>
               </div>
             </section>

@@ -3,6 +3,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { TqmGantt } from "@/components/tqm-charts";
 import { EMR_CATEGORIES, EMR_STATUS_LABELS } from "@/lib/emr-categories";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Milestone = { id: string; parent_id: string | null; title: string; start_date: string | null; end_date: string | null; status: string; category: string | null; sort_order: number; created_at: string };
 type FormState = { title: string; start_date: string; end_date: string; status: string; category: string };
 const EMPTY_FORM: FormState = { title: "", start_date: "", end_date: "", status: "TODO", category: "" };
@@ -205,8 +206,8 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
             <div className="modal-head"><h3>{modal.mode === "edit" ? "Sửa đầu việc" : modal.mode === "create-child" ? "Thêm đầu việc con" : "Thêm đầu việc lớn"}</h3></div>
             <div className="modal-body">
               <label>Tên đầu việc *<input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
-              <label>Bắt đầu<input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></label>
-              <label>Kết thúc<input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></label>
+              <label>Bắt đầu<VnDateInput value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></label>
+              <label>Kết thúc<VnDateInput value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></label>
               <label>Trạng thái
                 <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
                   {Object.entries(EMR_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -224,8 +225,8 @@ export function EmrTimelineMilestonesClient({ canManage, year }: { canManage: bo
                   {childDrafts.map((child, i) => (
                     <div key={i} className="emr-timeline-child-draft">
                       <label>Tên việc con<input value={child.title} onChange={(e) => updateChildDraft(i, { title: e.target.value })} /></label>
-                      <label>Bắt đầu<input type="date" value={child.start_date} onChange={(e) => updateChildDraft(i, { start_date: e.target.value })} /></label>
-                      <label>Kết thúc<input type="date" value={child.end_date} onChange={(e) => updateChildDraft(i, { end_date: e.target.value })} /></label>
+                      <label>Bắt đầu<VnDateInput value={child.start_date} onChange={(e) => updateChildDraft(i, { start_date: e.target.value })} /></label>
+                      <label>Kết thúc<VnDateInput value={child.end_date} onChange={(e) => updateChildDraft(i, { end_date: e.target.value })} /></label>
                       <label>Trạng thái
                         <select value={child.status} onChange={(e) => updateChildDraft(i, { status: e.target.value })}>
                           {Object.entries(EMR_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}

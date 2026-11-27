@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DictationTextarea } from "@/components/dictation-textarea";
 
+import { VnDateInput } from "@/components/vn-date-input";
 const L: Record<string, string> = {
   DRAFT: "Nháp",
   PENDING_APPROVAL: "Chờ phê duyệt",
@@ -280,7 +281,7 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
           <label>Baseline *<input value={baseline} onChange={(e) => setBaseline(e.target.value)} placeholder="18" required /></label>
           <label>Target *<input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="8" required /></label>
           <label>Đơn vị<input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="%, phút, ca..." /></label>
-          <label>Hạn đạt *<input type="date" min={projectStart || undefined} max={projectEnd || undefined} value={objectiveDue} onChange={(e) => setObjectiveDue(e.target.value)} required /></label>
+          <label>Hạn đạt *<VnDateInput min={projectStart || undefined} max={projectEnd || undefined} value={objectiveDue} onChange={(e) => setObjectiveDue(e.target.value)} required /></label>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button className="button secondary" disabled={busy || setupLoading}>{editingObjectiveId ? "Lưu mục tiêu SMART" : "Thêm mục tiêu SMART"}</button>
             {editingObjectiveId ? <button type="button" className="button tertiary" disabled={busy} onClick={resetObjectiveForm}>Hủy sửa</button> : null}
@@ -300,8 +301,8 @@ export function ImprovementProjectWorkflowClient({ recordId, status, canManage, 
           <label className="wide">Milestone / việc cần đạt *<input value={milestoneTitle} onChange={(e) => setMilestoneTitle(e.target.value)} placeholder="Ví dụ: Pilot biểu mẫu mới tại Khoa A" required /></label>
           <label>Pha PDSA *<select value={phase} onChange={(e) => setPhase(e.target.value)}><option value="PLAN">Plan</option><option value="DO">Do</option><option value="STUDY">Study</option><option value="ACT">Act</option></select></label>
           <label className="wide">Mô tả<DictationTextarea rows={2} value={milestoneDescription} onValueChange={setMilestoneDescription} disabled={busy} placeholder="Đầu ra hoặc tiêu chí hoàn thành" /></label>
-          <label>Bắt đầu<input type="date" min={projectStart || undefined} max={projectEnd || undefined} value={milestoneStart} onChange={(e) => setMilestoneStart(e.target.value)} /></label>
-          <label>Kết thúc<input type="date" min={projectStart || undefined} max={projectEnd || undefined} value={milestoneEnd} onChange={(e) => setMilestoneEnd(e.target.value)} /></label>
+          <label>Bắt đầu<VnDateInput min={projectStart || undefined} max={projectEnd || undefined} value={milestoneStart} onChange={(e) => setMilestoneStart(e.target.value)} /></label>
+          <label>Kết thúc<VnDateInput min={projectStart || undefined} max={projectEnd || undefined} value={milestoneEnd} onChange={(e) => setMilestoneEnd(e.target.value)} /></label>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button className="button secondary" disabled={busy || setupLoading}>{editingMilestoneId ? "Lưu milestone/PDSA" : "Thêm milestone/PDSA"}</button>
             {editingMilestoneId ? <button type="button" className="button tertiary" disabled={busy} onClick={resetMilestoneForm}>Hủy sửa</button> : null}

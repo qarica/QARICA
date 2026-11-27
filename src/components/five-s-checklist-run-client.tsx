@@ -10,6 +10,7 @@ import { prepareChecklistPhoto, type PreparedPhoto } from "@/lib/checklist-photo
 import { clearDraftPhotos, loadDraftPhotos, saveDraftPhotos } from "@/lib/monitoring-draft";
 import { countPendingSubmissions, enqueueSubmission, initOfflineQueueAutoFlush, isNetworkError, requestBackgroundSync } from "@/lib/offline-submission-queue";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Item = { id: string; content: string; metadata?: any };
 type Section = { id: string; title: string; items: Item[] };
 type Result = "PASS" | "FAIL" | "NA" | "";
@@ -363,7 +364,7 @@ export function FiveSChecklistRunClient({ templateId, versionId, templateCode, s
           {areas.map((area) => <label className="check-card" key={area}><input type="checkbox" checked={selectedAreas.includes(area)} onChange={() => toggleArea(area)} /><span><strong>{area}</strong></span></label>)}
           <label className="check-card"><input type="checkbox" checked={otherAreaEnabled} onChange={(e) => { setOtherAreaEnabled(e.target.checked); if (!e.target.checked) setOtherArea(""); }} /><span><strong>Khác</strong></span></label>
         </div>{otherAreaEnabled ? <label style={{ display: "block", marginTop: 10 }}><span>Vị trí khác</span><input data-validation-target="other-area" value={otherArea} onChange={(e) => setOtherArea(e.target.value)} placeholder="Nhập vị trí khác; phân cách nhiều vị trí bằng dấu ;" /></label> : null}</div>
-        <div className="form-grid two"><label><span>Nhân viên thực hiện 5S *</span><input data-validation-target="staff-name" value={staffName} onChange={(e) => setStaffName(e.target.value)} placeholder="Họ tên nhân viên thực hiện" /></label><label><span>Ngày giám sát *</span><input data-validation-target="monitoring-date" type="date" value={monitoringDate} onChange={(e) => setMonitoringDate(e.target.value)} /></label></div>
+        <div className="form-grid two"><label><span>Nhân viên thực hiện 5S *</span><input data-validation-target="staff-name" value={staffName} onChange={(e) => setStaffName(e.target.value)} placeholder="Họ tên nhân viên thực hiện" /></label><label><span>Ngày giám sát *</span><VnDateInput data-validation-target="monitoring-date" value={monitoringDate} onChange={(e) => setMonitoringDate(e.target.value)} /></label></div>
         <div className="scope-note"><strong>Người giám sát:</strong> {assessorName || "Tài khoản đang đăng nhập"}. Nếu có Không đạt, thời điểm báo được ghi tự động lúc lưu và hạn kiểm tra lại = +05 phút.</div>
       </div>
 

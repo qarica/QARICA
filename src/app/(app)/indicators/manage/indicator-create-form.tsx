@@ -2,6 +2,7 @@
 import { FormEvent,useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { VnDateInput } from "@/components/vn-date-input";
 export function IndicatorCreateForm(){
  const router=useRouter(); const [open,setOpen]=useState(false); const [busy,setBusy]=useState(false); const [error,setError]=useState("");
  async function submit(e:FormEvent<HTMLFormElement>){
@@ -22,7 +23,7 @@ export function IndicatorCreateForm(){
    <label>Cách tính<select name="calculation_type" defaultValue="RAW"><option value="RAW">Giá trị trực tiếp</option><option value="PERCENTAGE">Tỷ lệ %</option><option value="RATIO">Tỷ số</option><option value="RATE">Tỷ suất</option><option value="AVERAGE">Trung bình</option><option value="COUNT">Số lượng</option></select></label>
    <label>Chiều hướng<select name="desired_direction" defaultValue="NEUTRAL"><option value="HIGHER_IS_BETTER">Càng cao càng tốt</option><option value="LOWER_IS_BETTER">Càng thấp càng tốt</option><option value="TARGET_RANGE">Trong khoảng mục tiêu</option><option value="NEUTRAL">Theo dõi</option></select></label>
    <label>Tần suất<select name="frequency" defaultValue="MONTHLY"><option value="DAILY">Hằng ngày</option><option value="WEEKLY">Hằng tuần</option><option value="MONTHLY">Hằng tháng</option><option value="QUARTERLY">Hằng quý</option><option value="SEMIANNUAL">6 tháng</option><option value="ANNUAL">Hằng năm</option></select></label>
-   <label>Ngày hiệu lực<input type="date" name="effective_from"/></label>
+   <label>Ngày hiệu lực<VnDateInput name="effective_from"/></label>
    <label>Hệ số nhân<input type="number" step="any" name="multiplier" placeholder="Để trống nếu không cần, vd 100 cho tỷ lệ x100"/></label>
    <label style={{gridColumn:"1/-1"}}>Mục đích<textarea name="purpose" rows={2}/></label>
    {error&&<div style={{gridColumn:"1/-1"}} className="alert error">{error}</div>}

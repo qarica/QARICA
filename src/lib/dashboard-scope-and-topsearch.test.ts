@@ -20,8 +20,8 @@ describe("Dashboard scope controls — removed the non-functional 'Phạm vi đ�
   });
 
   it("still has exactly 3 scope controls left (from-date, asOf-date, Áp dụng) for the single-row layout", () => {
-    expect(dashboard).toContain('<input type="date" name="from"');
-    expect(dashboard).toContain('<input type="date" name="asOf"');
+    expect(dashboard).toContain('<VnDateInput name="from"');
+    expect(dashboard).toContain('<VnDateInput name="asOf"');
     expect(dashboard).toContain('<button type="submit" className="button primary">Áp dụng</button>');
   });
 });

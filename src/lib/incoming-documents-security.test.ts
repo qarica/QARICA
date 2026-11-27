@@ -59,11 +59,11 @@ describe("Form Tiếp nhận công văn mới — 2 ô ngày có nhãn hiển th
   const client = read("src/components/incoming-documents-client.tsx");
 
   it("ô Ngày đến (receivedAt) có nhãn hiển thị 'Ngày đến', không chỉ còn là input date trần", () => {
-    expect(client).toContain('<label className="doc-task-field">\n                <span>Ngày đến</span>\n                <input className="input" type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />\n              </label>');
+    expect(client).toContain('<label className="doc-task-field">\n                <span>Ngày đến</span>\n                <VnDateInput className="input" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />\n              </label>');
   });
 
   it("ô Hạn xử lý (dueDate) có nhãn hiển thị, không chỉ dựa vào title (tooltip hover, vô dụng trên di động)", () => {
-    expect(client).toContain('<label className="doc-task-field">\n                <span>Hạn xử lý (tùy chọn)</span>\n                <input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />\n              </label>');
+    expect(client).toContain('<label className="doc-task-field">\n                <span>Hạn xử lý (tùy chọn)</span>\n                <VnDateInput className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />\n              </label>');
     expect(client).not.toContain('type="date" title="Hạn xử lý (tùy chọn)"');
   });
 });

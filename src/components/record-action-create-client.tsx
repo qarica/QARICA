@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { VnDateInput } from "@/components/vn-date-input";
 import {
   AssignmentTargetSelect,
   parseAssignmentTargetToken,
@@ -142,7 +143,7 @@ export function RecordActionCreateClient({
             <summary className="subline" style={{ cursor: "pointer", fontWeight: 700 }}>Điều chỉnh đơn vị phụ trách</summary>
             <label style={{ marginTop: 8 }}>Khoa/Phòng phụ trách<select name="lead_department_id" required value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}><option value="">Chọn khoa/phòng</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select></label>
           </details>
-          <label>Ngày bắt đầu<input name="start_date" type="date" /></label><label>Hạn hoàn thành<input name="due_date" type="date" required /></label>
+          <label>Ngày bắt đầu<VnDateInput name="start_date" /></label><label>Hạn hoàn thành<VnDateInput name="due_date" required /></label>
           <label>Mức ưu tiên<select name="priority" defaultValue="NORMAL"><option value="LOW">Thấp</option><option value="NORMAL">Bình thường</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn</option><option value="CRITICAL">Rất khẩn / trọng yếu</option></select></label>
           {recordType === "CAPA" ? <label>Loại hành động CAPA<select name="capa_action_type" value={capaActionType} onChange={(e) => setCapaActionType(e.target.value)}><option value="CORRECTION">Khắc phục tức thời</option><option value="CORRECTIVE">Khắc phục nguyên nhân</option><option value="PREVENTIVE">Phòng ngừa tái diễn</option><option value="VERIFICATION">Xác minh</option></select></label> : null}
           {recordType === "RISK" ? <label>Biện pháp xử lý rủi ro<select name="risk_treatment_type" defaultValue="REDUCE"><option value="AVOID">Tránh</option><option value="REDUCE">Giảm thiểu</option><option value="TRANSFER">Chuyển giao</option><option value="ACCEPT">Chấp nhận</option><option value="CONTINGENCY">Dự phòng</option></select></label> : null}

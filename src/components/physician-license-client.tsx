@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Department = { id: string; name: string };
 type Credential = { id: string; full_name: string };
 type Registration = {
@@ -217,7 +218,7 @@ export function PhysicianLicenseClient({
                 <option value="NEW_HIRE">Nhân sự mới</option>
                 <option value="INTERNAL_TRANSFER">Luân chuyển nội bộ</option>
               </select>
-              <input className="input" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+              <VnDateInput className="input" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
             </div>
             {credentials.length ? (
               <select className="input" value={credentialId} onChange={(e) => setCredentialId(e.target.value)} aria-label="Hồ sơ năng lực hành nghề liên kết">
@@ -294,7 +295,7 @@ export function PhysicianLicenseClient({
                         </select>
                       </td>
                       <td data-label="Hạn đăng ký">
-                        <input className="input" type="date" value={editDraft.effective_date} onChange={(e) => setEditDraft({ ...editDraft, effective_date: e.target.value })} />
+                        <VnDateInput className="input" value={editDraft.effective_date} onChange={(e) => setEditDraft({ ...editDraft, effective_date: e.target.value })} />
                       </td>
                       <td data-label="Trạng thái">—</td>
                       <td data-label="Thao tác" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>

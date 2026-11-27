@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { INTERNAL_AUDIT_TYPE_LABEL, type InternalAuditType } from "@/lib/internal-audit-types";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Department = { id: string; name: string };
 type ChecklistItem = { id: string; content: string; category: string | null; is_active: boolean; group_id: string | null; create_finding_on_partial: boolean };
 type ChecklistGroup = { id: string; name: string; sort_order: number; is_active: boolean };
@@ -278,7 +279,7 @@ export function HsbaAuditOverviewClient({
             </select>
             <input className="input" placeholder="Mã/số hồ sơ (PID)" value={recordReference} onChange={(e) => setRecordReference(e.target.value)} />
             {auditType === "HSBA" ? (
-              <input className="input" type="date" aria-label="Ngày ra viện" max={today()} value={dischargeDate} onChange={(e) => setDischargeDate(e.target.value)} />
+              <VnDateInput className="input" aria-label="Ngày ra viện" max={today()} value={dischargeDate} onChange={(e) => setDischargeDate(e.target.value)} />
             ) : (
               <input className="input" type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />
             )}

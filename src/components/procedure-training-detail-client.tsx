@@ -11,6 +11,7 @@ import { computePassStatus } from "@/lib/procedure-training-pass-status";
 import { stepOfTab, stepsFor, type DetailTab } from "@/lib/procedure-training-detail-nav";
 import { normalizeEmployeeCode } from "@/lib/training-self-test";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Training = {
   id: string;
   procedure_code: string | null;
@@ -1144,7 +1145,7 @@ function RosterTab({
         {canManage && rounds.length < 2 ? (
           <div className="ptd-round-add" style={{ padding: "0 19px 19px" }}>
             <input className="input" placeholder="Tên đợt kiểm tra (Pre-test hoặc Post-test)..." value={newRoundLabel} onChange={(e) => setNewRoundLabel(e.target.value)} />
-            <input className="input" type="date" value={newRoundDate} onChange={(e) => setNewRoundDate(e.target.value)} />
+            <VnDateInput className="input" value={newRoundDate} onChange={(e) => setNewRoundDate(e.target.value)} />
             <button className="button primary small" disabled={!newRoundLabel.trim() || roundBusy} onClick={() => void addRound()}>
               + Thêm đợt
             </button>

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { MultiCheckSelect } from "@/components/multi-check-select";
+import { VnDateInput } from "@/components/vn-date-input";
 import {
   AssignmentTargetSelect,
   AssignmentTargetsMultiSelect,
@@ -595,10 +596,10 @@ export function PlanComposerClient({
             <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Phạm vi áp dụng hoặc ghi chú triển khai" />
           </label>
           <label>Ngày bắt đầu
-            <input type="date" value={planStartDate} onChange={(e) => setPlanStartDate(e.target.value)} />
+            <VnDateInput value={planStartDate} onChange={(e) => setPlanStartDate(e.target.value)} />
           </label>
           <label>Ngày kết thúc
-            <input type="date" min={planStartDate || undefined} value={planEndDate} onChange={(e) => setPlanEndDate(e.target.value)} />
+            <VnDateInput min={planStartDate || undefined} value={planEndDate} onChange={(e) => setPlanEndDate(e.target.value)} />
           </label>
         </div>
       </section>
@@ -727,8 +728,8 @@ export function PlanComposerClient({
                     </select>
                   </label>
                 </details>
-                <label>Ngày bắt đầu<input type="date" value={task.start_date} onChange={(e) => updateTask(i, { start_date: e.target.value })} /></label>
-                <label>Hạn hoàn thành *<input type="date" value={task.due_date} onChange={(e) => updateTask(i, { due_date: e.target.value })} /></label>
+                <label>Ngày bắt đầu<VnDateInput value={task.start_date} onChange={(e) => updateTask(i, { start_date: e.target.value })} /></label>
+                <label>Hạn hoàn thành *<VnDateInput value={task.due_date} onChange={(e) => updateTask(i, { due_date: e.target.value })} /></label>
                 <label>Mức ưu tiên<select value={task.priority} onChange={(e) => updateTask(i, { priority: e.target.value as DraftTask["priority"] })}><option value="LOW">Thấp</option><option value="NORMAL">Bình thường</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn</option><option value="CRITICAL">Rất khẩn</option></select></label>
                 <label className="span-2">Kết quả kỳ vọng *<textarea rows={2} value={task.expected_result} onChange={(e) => updateTask(i, { expected_result: e.target.value })} /></label>
                 <label className="span-2">Yêu cầu minh chứng (không bắt buộc)<textarea rows={2} value={task.verification_requirement} onChange={(e) => updateTask(i, { verification_requirement: e.target.value })} /></label>
@@ -830,7 +831,7 @@ export function PlanComposerClient({
                               </select>
                             </label>
                             {output.monitoring_recurrence !== "ONCE" ? <label>Kết thúc lịch
-                              <input type="date" min={task.due_date || undefined} value={output.monitoring_recurrence_end_date} onChange={(e) => updateAutomationOutput(i, output.kind, { monitoring_recurrence_end_date: e.target.value })} />
+                              <VnDateInput min={task.due_date || undefined} value={output.monitoring_recurrence_end_date} onChange={(e) => updateAutomationOutput(i, output.kind, { monitoring_recurrence_end_date: e.target.value })} />
                               <span className="tiny muted">{output.monitoring_recurrence_end_date ? "Dùng ngày kết thúc riêng của lịch này." : planEndDate ? `Để trống = kết thúc cùng kế hoạch (${planEndDate}).` : "Kế hoạch chưa có ngày kết thúc — cần nhập ngày kết thúc lịch."}</span>
                             </label> : null}
                             {output.monitoring_recurrence !== "ONCE" && !task.verification_requirement.trim() ? <div className="qa-note">Giám sát lặp lại cần nhập <strong>Yêu cầu minh chứng</strong> của nhiệm vụ để mỗi kỳ sinh ra có điều kiện hoàn thành rõ ràng.</div> : null}
@@ -870,7 +871,7 @@ export function PlanComposerClient({
                               </select>
                             </label>
                             {output.report_recurrence_rule ? <label className="span-2">Kết thúc chu kỳ
-                              <input type="date" value={output.report_recurrence_end_date} onChange={(e) => updateAutomationOutput(i, output.kind, { report_recurrence_end_date: e.target.value })} />
+                              <VnDateInput value={output.report_recurrence_end_date} onChange={(e) => updateAutomationOutput(i, output.kind, { report_recurrence_end_date: e.target.value })} />
                             </label> : null}
                           </>
                         ) : output.kind === "AUDIT" ? (
