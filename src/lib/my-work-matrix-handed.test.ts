@@ -87,3 +87,14 @@ describe("Việc của tôi đồng bộ việc giao từ module Công văn đ�
     expect(page).toContain('href:canOpenIncoming?"/incoming-documents":"/tasks"');
   });
 });
+
+describe("Nút Chờ phản hồi rõ chức năng: hộp thoại có giải thích, ngày hỏi lại có tác dụng", () => {
+  const c = read("src/components/work-followup-control.tsx");
+  it("không dùng hộp nhập của trình duyệt; có giải thích, ô ngày dd/mm/yyyy, nhãn Cần hỏi lại, nút Đã có phản hồi", () => {
+    expect(c).not.toContain("window.prompt");
+    expect(c).toContain("chờ người khác trả lời");
+    expect(c).toContain("VnDateInput");
+    expect(c).toContain("Cần hỏi lại");
+    expect(c).toContain("Đã có phản hồi");
+  });
+});
