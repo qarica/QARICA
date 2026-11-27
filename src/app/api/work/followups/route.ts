@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireApiContext } from "@/lib/api-auth";
-const SOURCE_TYPES=new Set(["ACTION","EMR","RECORD","OTHER"]);
+const SOURCE_TYPES=new Set(["ACTION","EMR","RECORD","OTHER","REMINDER"]);
 const WAIT_TYPES=new Set(["USER","DEPARTMENT","EXTERNAL_PARTY","DOCUMENT","APPROVAL"]);
 
 export async function POST(request:Request){
@@ -16,8 +16,10 @@ export async function POST(request:Request){
   const followUpAt=body.follow_up_at?String(body.follow_up_at):null;
   if(!SOURCE_TYPES.has(sourceType)||!sourceId)return NextResponse.json({error:"Nguồn công việc không hợp lệ."},{status:400});
   if(waitingForType&&!WAIT_TYPES.has(waitingForType))return NextResponse.json({error:"Loại đối tượng đang chờ không hợp lệ."},{status:400});
-  const {data:sourceRows,error:sourceError}=await auth.supabase.from("vw_work_items").select("source_id")
-    .eq("source_type",sourceType).eq("source_id",sourceId).limit(1);
+  // Việc cá nhân (REMINDER) không nằm trong vw_work_items: chỉ chủ việc, việc đang mở mới đánh dấu chờ phản hồi được.
+  const {data:sourceRows,error:sourceError}=sourceType==="REMINDER"
+    ? await auth.supabase.from("personal_reminders").select("id").eq("id",sourceId).eq("owner_user_id",auth.user.id).eq("status","OPEN").limit(1)
+    : await auth.supabase.from("vw_work_items").select("source_id").eq("source_type",sourceType).eq("source_id",sourceId).limit(1);
   if(sourceError)return NextResponse.json({error:sourceError.message},{status:400});
   if(!sourceRows?.length)return NextResponse.json({error:"Không tìm thấy công việc hoặc bạn không có quyền xem."},{status:404});
   const {data:existing,error:existingError}=await auth.supabase.from("work_followups").select("id")
