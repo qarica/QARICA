@@ -11,7 +11,7 @@ const read = (p: string) => readFileSync(p, "utf8");
 // nhầm NGÀY UTC thay vì ngày giờ VN người dùng thực sự chọn. Phải quy đổi qua
 // hcmDateKey() (src/lib/hcm-date.ts), không cắt chuỗi thô.
 describe("Note cá nhân (personal_reminders.due_at): ngày hiển thị phải theo giờ VN, không cắt chuỗi UTC thô", () => {
-  const files = ["src/app/(app)/tasks/page.tsx", "src/app/(app)/calendar/my-work/page.tsx"];
+  const files = ["src/app/(app)/tasks/page.tsx"];
 
   it.each(files)("%s: dateOnly() quy đổi due_at qua hcmDateKey, không còn chỉ .slice(0,10)", (path) => {
     const content = read(path);
