@@ -8,6 +8,7 @@ import {
   syncPhysicianLicenseRemindersForUser,
   syncPractitionerCredentialExpiryRemindersForUser,
   syncQualityAttentionForUser,
+  syncWorkFollowupDueForUser,
 } from "@/lib/notification-sync";
 
 type AdminClient = SupabaseClient;
@@ -24,6 +25,7 @@ export async function syncAllNotificationsForUser(admin: AdminClient, userId: st
     ["practitioner_credentials", () => syncPractitionerCredentialExpiryRemindersForUser(admin, userId)],
     ["document_publication_review", () => syncDocumentPublicationReviewRemindersForUser(admin, userId)],
     ["personal_reminders", () => syncPersonalRemindersForUser(admin, userId)],
+    ["work_followup_due", () => syncWorkFollowupDueForUser(admin, userId)],
   ];
 
   const settled = await Promise.allSettled(jobs.map(([, run]) => run()));

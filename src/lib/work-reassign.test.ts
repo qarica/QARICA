@@ -65,7 +65,7 @@ describe("chuyển việc — API và giao diện", () => {
     expect(page).toContain('canReassign:r.assignment_target_type==="USER"&&r.assignee_user_id===user.id&&["NOT_STARTED","IN_PROGRESS","RETURNED"]');
     expect(page).toContain('canReassign:p.status==="OPEN",reassignSource:"REMINDER"');
     // Việc cá nhân: nút Chuyển nằm trong menu "⋯" của UnifiedPersonalTaskActions; việc khác (Action): nút ngoài, ở cả bảng và thẻ điện thoại.
-    expect((page.match(/>\{reassignBtn\(r\)\}<\/UnifiedPersonalTaskActions>/g) || []).length).toBe(2);
+    expect((page.match(/>\{reassignBtn\(r\)\}\{waitCtl\(r\)\}<\/UnifiedPersonalTaskActions>/g) || []).length).toBe(2);
     expect((page.match(/:reassignBtn\(r\)\}/g) || []).length).toBe(2);
   });
 });

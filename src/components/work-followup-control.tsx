@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { VnDateInput } from "@/components/vn-date-input";
 
 type Initial = { id: string; waiting_for_label?: string | null; follow_up_at?: string | null; note?: string | null } | null;
-type Props = { sourceType: "ACTION" | "EMR" | "RECORD" | "OTHER"; sourceId: string; initial?: Initial };
+type Props = { sourceType: "ACTION" | "EMR" | "RECORD" | "OTHER" | "REMINDER"; sourceId: string; initial?: Initial };
 
 const hcmToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
 const dateOf = (iso?: string | null) => (iso ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(iso)) : "");

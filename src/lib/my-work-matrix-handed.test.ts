@@ -98,3 +98,26 @@ describe("Nút Chờ phản hồi rõ chức năng: hộp thoại có giải th�
     expect(c).toContain("Đã có phản hồi");
   });
 });
+
+describe("Chờ phản hồi cho việc cá nhân + nhắc đến hạn hỏi lại", () => {
+  it("migration thêm nguồn REMINDER vào work_followups; API chỉ cho chủ việc đang mở", () => {
+    const m = read("supabase/migrations/20261202000011_work_followup_reminder_source_v1.sql");
+    expect(m).toContain("check (source_type in ('ACTION','EMR','RECORD','OTHER','REMINDER'))");
+    const api = read("src/app/api/work/followups/route.ts");
+    expect(api).toContain('"REMINDER"]');
+    expect(api).toContain('.eq("owner_user_id",auth.user.id).eq("status","OPEN")');
+  });
+  it("việc cá nhân có nút Chờ phản hồi trong menu ⋯ và nhãn Đang chờ ở cột trạng thái; ghi chú tách khỏi trạng thái chờ", () => {
+    const page = read("src/app/(app)/tasks/page.tsx");
+    expect(page).toContain('sourceType:"REMINDER",followup:followupBySource.get("REMINDER:"+p.id)??null,noteText:p.note??null');
+    expect(page).toContain("{reassignBtn(r)}{waitCtl(r)}</UnifiedPersonalTaskActions>");
+    expect(page).toContain("{waitBadge(r)}");
+  });
+  it("nhắc 'Đến hạn hỏi lại' đăng ký ở bộ điều phối và cron, mỗi hẹn một lần", () => {
+    const sync = read("src/lib/notification-sync.ts");
+    expect(sync).toContain("export async function syncWorkFollowupDueForUser(");
+    expect(sync).toContain("`work_followup_due:${f.id}:${String(f.follow_up_at)}`");
+    expect(read("src/lib/notification-orchestrator.ts")).toContain("syncWorkFollowupDueForUser(admin, userId)");
+    expect(read("src/app/api/cron/sync-notifications/route.ts")).toContain("syncWorkFollowupDueForUser(admin, userId)");
+  });
+});

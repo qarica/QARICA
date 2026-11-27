@@ -720,3 +720,36 @@ export async function syncPersonalRemindersForUser(admin: AdminClient, userId: s
   await pushHighPriorityToZalo(admin, userId, inserted);
   return { created: inserted?.length || 0, candidates: payload.length };
 }
+
+/**
+ * Nhắc "Đến hạn hỏi lại": việc đang ở trạng thái Chờ phản hồi (work_followups) có ngày hỏi lại đã đến/qua.
+ * Mỗi lần hẹn chỉ nhắc một lần (khóa theo id + ngày hẹn); đổi ngày hẹn thì nhắc lại cho ngày mới.
+ */
+export async function syncWorkFollowupDueForUser(admin: AdminClient, userId: string) {
+  const nowIso = new Date().toISOString();
+  const { data: rows, error } = await admin
+    .from("work_followups")
+    .select("id,waiting_for_label,follow_up_at,note")
+    .eq("owner_user_id", userId)
+    .eq("state", "WAITING")
+    .not("follow_up_at", "is", null)
+    .lte("follow_up_at", nowIso);
+  if (error) return { error: error.message };
+  if (!rows?.length) return { created: 0, candidates: 0 };
+
+  const payload = rows.map((f: any) => ({
+    recipient_user_id: userId,
+    notification_type: "WORK_FOLLOWUP_DUE",
+    priority: "NORMAL",
+    title: "Đến hạn hỏi lại",
+    message: `Đến hạn hỏi lại${f.waiting_for_label ? `: ${f.waiting_for_label}` : ""}${f.note ? ` — ${String(f.note).slice(0, 120)}` : ""}`,
+    target_record_id: null,
+    target_route: "/tasks?tab=WAITING#all-work",
+    notification_event_key: `work_followup_due:${f.id}:${String(f.follow_up_at)}`,
+    is_read: false,
+  }));
+  const { data: inserted, error: insertError } = await admin.from("notifications").upsert(payload, { onConflict: "recipient_user_id,notification_event_key", ignoreDuplicates: true }).select("id,priority");
+  if (insertError) return { error: insertError.message };
+  await pushHighPriorityToZalo(admin, userId, inserted);
+  return { created: inserted?.length || 0, candidates: payload.length };
+}
