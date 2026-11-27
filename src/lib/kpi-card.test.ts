@@ -25,11 +25,11 @@ describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng 
   });
 
   it("urgent (tuỳ chọn) thêm class 'urgent' lên kpi-tile — thay cho quy ước <article className={`kpi ${overdue?\"danger\":\"\"}`}> ở các trang cũ (capa/page.tsx...), gộp 2 biến thể danger/warning cũ thành 1 tông nhấn chung", () => {
-    expect(source).toContain('const className = `kpi-tile${urgent ? " urgent" : ""}`;');
+    expect(source).toContain('const className = `kpi-tile tone-${tone}${urgent ? " urgent" : ""}`;');
   });
 
   it("render class gốc 'kpi-tile' (KHÔNG tái dùng kpi-card/kpi của 23 file cũ, tránh đụng CSS trang khác)", () => {
-    expect(source).toContain('`kpi-tile${urgent');
+    expect(source).toContain('`kpi-tile tone-${tone}${urgent');
     expect(source).not.toContain('className="kpi-card"');
   });
 
@@ -69,6 +69,6 @@ describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng 
     expect(css.split(".kpi-tile-label{").length - 1).toBe(2);
     expect(css).toContain(".kpi-tile-label{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25}");
     expect(css).toContain("@media(max-width:620px)");
-    expect(css).toContain(".kpi-tile{min-height:104px;padding:14px}");
+    expect(css).toContain(".kpi-tile{padding:8px 12px}");
   });
 });

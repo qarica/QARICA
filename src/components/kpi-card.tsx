@@ -24,7 +24,7 @@ export function KpiCard({
   footer?: KpiFooter;
   href?: string;
 }) {
-  const className = `kpi-tile${urgent ? " urgent" : ""}`;
+  const className = `kpi-tile tone-${tone}${urgent ? " urgent" : ""}`;
   const showArrow = trend?.arrow !== false;
   const body = <>
     <div className="kpi-tile-top">
