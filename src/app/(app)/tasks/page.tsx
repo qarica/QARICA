@@ -289,7 +289,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   .tqm-my-work .kb-toggle{display:inline-flex;gap:2px;margin:10px 16px 0;padding:3px;border:1px solid #d7e1e5;border-radius:10px;background:#f3f6f8}
   .tqm-my-work .kb-toggle-btn{padding:5px 14px;border-radius:8px;font-size:12px;font-weight:700;color:#52656d;text-decoration:none}
   .tqm-my-work .kb-toggle-btn.active{background:#fff;color:#0f172a;box-shadow:0 1px 2px rgba(15,23,42,.12)}
-  .tqm-my-work .kb-board{display:grid;grid-template-columns:repeat(6,minmax(168px,1fr));gap:12px;padding:12px 16px 16px;overflow-x:auto;align-items:start}
+  .tqm-my-work .kb-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(172px,1fr));gap:12px;padding:12px 16px 16px;align-items:start}
   .tqm-my-work .kb-col{background:#f6f8fa;border:1px solid #e1e8ed;border-top:3px solid #94a3b8;border-radius:10px;min-width:0}
   .tqm-my-work .kb-col.danger{border-top-color:#dc2626}.tqm-my-work .kb-col.warning{border-top-color:#f59e0b}.tqm-my-work .kb-col.info{border-top-color:#3b82f6}.tqm-my-work .kb-col.wait{border-top-color:#8b5cf6}.tqm-my-work .kb-col.success{border-top-color:#16a34a}
   .tqm-my-work .kb-col-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px 6px;font-size:13px;color:#1e293b}
@@ -306,7 +306,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   .tqm-my-work .kb-col.danger .kb-due{color:#b91c1c;font-weight:700}
   .tqm-my-work .kb-wait{font-size:11px;font-weight:700;color:#6d28d9}
   .tqm-my-work .kb-empty,.tqm-my-work .kb-more{padding:10px;text-align:center;font-size:12px;color:#94a3b8}
-  @media(max-width:900px){.tqm-my-work .kb-board{grid-template-columns:1fr;overflow-x:visible}}
+  @media(max-width:640px){.tqm-my-work .kb-board{grid-template-columns:1fr}}
   .tqm-my-work .work-columns{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
   .tqm-my-work .work-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}.tqm-my-work .work-tab{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#52656d;border:1px solid #d7e1e5;background:#fff}.tqm-my-work .work-tab.active{background:#1D4ED8;border-color:#1D4ED8;color:#fff}
   .tqm-my-work .work-search-row{display:flex;gap:8px;align-items:center;padding:10px 16px}.tqm-my-work .work-search-row .search-box{flex:1;max-width:280px}
