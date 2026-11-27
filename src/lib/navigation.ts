@@ -168,7 +168,7 @@ const NAV_GROUPS: NavGroupDef[] = [
     ],
   },
   // Yêu cầu tường minh: xoá menu "Kế hoạch công việc" khỏi sidebar
-  // (2026-11-12) — các trang/API/bảng dữ liệu RACI/5W1H/SMART/Eisenhower vẫn
+  // (2026-11-12) — các trang/API/bảng dữ liệu 5W1H/SMART/Eisenhower vẫn
   // giữ nguyên, chỉ không còn điểm vào từ menu chính nữa.
   {
     id: "system-config",

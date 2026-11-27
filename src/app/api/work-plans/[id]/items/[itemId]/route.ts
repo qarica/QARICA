@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { callerOrganizationId, requireApiPermission } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const ITEM_SELECT = "id,work_plan_id,title,why_text,where_text,how_text,due_date,eisenhower_quadrant,status,created_at,updated_at";
-const EDITABLE_FIELDS = ["title", "why_text", "where_text", "how_text", "due_date", "eisenhower_quadrant", "status"];
+const ITEM_SELECT = "id,work_plan_id,title,why_text,where_text,how_text,due_date,eisenhower_quadrant,status,assignee_user_id,created_at,updated_at";
+const EDITABLE_FIELDS = ["title", "why_text", "where_text", "how_text", "due_date", "eisenhower_quadrant", "status", "assignee_user_id"];
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; itemId: string }> }) {
   const auth = await requireApiPermission("work_plans.manage");
@@ -29,6 +29,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const title = String(body.title || "").trim();
       if (!title) return NextResponse.json({ error: "Chưa nhập nội dung đầu việc." }, { status: 400 });
       update.title = title;
+    } else if (field === "assignee_user_id") {
+      const assigneeId = String(body.assignee_user_id || "").trim();
+      if (!assigneeId) return NextResponse.json({ error: "Chưa chọn người phụ trách." }, { status: 400 });
+      const { data: assignee } = await admin.from("profiles").select("user_id").eq("organization_id", organizationId).eq("user_id", assigneeId).eq("is_active", true).maybeSingle();
+      if (!assignee) return NextResponse.json({ error: "Người phụ trách không thuộc tổ chức của bạn." }, { status: 400 });
+      update.assignee_user_id = assigneeId;
     } else if (field === "due_date") {
       update.due_date = body.due_date || null;
     } else {
@@ -60,7 +66,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
-  // on delete cascade đã xoá kèm work_plan_item_raci (xem migration).
   const { error, count } = await admin
     .from("work_plan_items")
     .delete({ count: "exact" })

@@ -828,11 +828,18 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                         rows={3}
                       />
                     ) : (
-                      <input
-                        type={f.type === "date" ? "date" : f.type === "number" ? "number" : "text"}
-                        value={form.details[f.key] || ""}
-                        onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.value } })}
-                      />
+                      f.type === "date" ? (
+                        <VnDateInput
+                          value={form.details[f.key] || ""}
+                          onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.value } })}
+                        />
+                      ) : (
+                        <input
+                          type={f.type === "number" ? "number" : "text"}
+                          value={form.details[f.key] || ""}
+                          onChange={(e) => setForm({ ...form, details: { ...form.details, [f.key]: e.target.value } })}
+                        />
+                      )
                     )}
                   </label>
                 )

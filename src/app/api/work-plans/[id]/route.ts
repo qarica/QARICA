@@ -55,7 +55,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (callerError) return NextResponse.json({ error: callerError.message }, { status: 400 });
   if (!organizationId) return NextResponse.json({ error: "Tài khoản chưa gắn tổ chức." }, { status: 400 });
 
-  // on delete cascade đã xoá kèm work_plan_items/work_plan_item_raci (xem migration).
+  // on delete cascade đã xoá kèm work_plan_items (xem migration).
   const { error, count } = await admin
     .from("work_plans")
     .delete({ count: "exact" })
