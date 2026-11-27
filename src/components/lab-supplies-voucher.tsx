@@ -154,7 +154,8 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
       setLines([emptyLine()]);
       setReferenceNo("");
       setNote("");
-      onDone(`Đã ghi phiếu ${MOVEMENT_LABEL[type].toLowerCase()} — ${json.result?.lines ?? payloadLines.length} dòng.`);
+      const written = json.result?.lines ?? payloadLines.length;
+      onDone(`Đã ghi phiếu ${MOVEMENT_LABEL[type].toLowerCase()} — ${filled.length} dòng${written !== filled.length ? ` (${written} lô ghi sổ)` : ""}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Có lỗi xảy ra.");
     } finally {
@@ -229,7 +230,7 @@ export function LabVoucher({ kind, items, lots, movements, today, incoming, onCo
                           {v.shortage > 0 ? <span className="ls-chip danger">Thiếu {formatQuantity(v.shortage)} {item.unit}</span> : null}
                           <select aria-label={`Dòng ${idx + 1}: đổi lô`} value={l.manualLot} onChange={(e) => update(l.key, { manualLot: e.target.value })}>
                             <option value="">Tự động (hạn gần nhất trước)</option>
-                            {(lotsByItem.get(item.id) || []).filter((x) => num(x.balance) > 0 && (mode === "DISPOSAL" || lotExpiryStatus(x.expiry_date, item.expiry_warning_days, today) !== "EXPIRED")).map((x) => <option key={x.lot_id} value={x.lot_id}>Lô {x.lot_number} · tồn {formatQuantity(x.balance)}{x.expiry_date ? ` · HSD ${fmtDate(x.expiry_date)}` : ""}</option>)}
+                            {sortLotsFefo(lotsByItem.get(item.id) || []).filter((x) => num(x.balance) > 0 && (mode === "DISPOSAL" || lotExpiryStatus(x.expiry_date, item.expiry_warning_days, today) !== "EXPIRED")).map((x) => <option key={x.lot_id} value={x.lot_id}>Lô {x.lot_number} · tồn {formatQuantity(x.balance)}{x.expiry_date ? ` · HSD ${fmtDate(x.expiry_date)}` : ""}</option>)}
                           </select>
                         </>
                       )}

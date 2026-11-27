@@ -84,3 +84,19 @@ describe("hồi quy QC: ô ngày không bị CSS ẩn nhãn nuốt mất", () =>
     expect(css).toContain(".lab-supplies .code-pill{white-space:nowrap}");
   });
 });
+
+describe("sửa theo kết quả QC", () => {
+  it("điều chỉnh tồn: luôn nêu lý do khóa nút, kể cả khi đang có dòng xem trước tồn", () => {
+    const a = read("src/components/lab-supplies-adjust.tsx");
+    expect(a).toContain('.filter(Boolean).join(" — ")');
+    expect(a).toContain("problem && (lotId || quantity) ? problem");
+  });
+  it('ô "Đổi lô" của phiếu xuất xếp lô theo FEFO (hạn gần nhất trước)', () => {
+    expect(read("src/components/lab-supplies-voucher.tsx")).toContain("sortLotsFefo(lotsByItem.get(item.id) || []).filter(");
+  });
+  it("thông báo ghi phiếu nói số dòng người dùng nhập, kèm số lô ghi sổ khi khác nhau", () => {
+    const v = read("src/components/lab-supplies-voucher.tsx");
+    expect(v).toContain("${filled.length} dòng${written !== filled.length ?");
+    expect(v).toContain("lô ghi sổ");
+  });
+});
