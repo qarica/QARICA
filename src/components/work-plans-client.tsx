@@ -5,7 +5,6 @@ import { EISENHOWER_ACTION, EISENHOWER_LABEL, EISENHOWER_QUADRANTS, EISENHOWER_T
 
 import { VnDateInput } from "@/components/vn-date-input";
 type Staff = { id: string; name: string };
-type Raci = { id: string; work_plan_item_id: string; user_id: string; raci_role: "R" | "A" | "C" | "I" };
 type Item = {
   id: string;
   work_plan_id: string;
@@ -16,7 +15,7 @@ type Item = {
   due_date: string | null;
   eisenhower_quadrant: EisenhowerQuadrant;
   status: "OPEN" | "DONE" | "CANCELLED";
-  raci: Raci[];
+  assignee_user_id: string | null;
 };
 type Plan = {
   id: string;
@@ -27,9 +26,6 @@ type Plan = {
   items: Item[];
 };
 
-const RACI_ROLES = ["R", "A", "C", "I"] as const;
-const RACI_ROLE_LABEL: Record<string, string> = { R: "Thực hiện (R)", A: "Chịu trách nhiệm chính (A)", C: "Tham vấn (C)", I: "Nhận thông tin (I)" };
-const RACI_ROLE_TONE: Record<string, string> = { R: "info", A: "danger", C: "warning", I: "muted" };
 const STATUS_LABEL: Record<string, string> = { OPEN: "Đang mở", DONE: "Hoàn thành", CANCELLED: "Đã huỷ" };
 const STATUS_TONE: Record<string, string> = { OPEN: "info", DONE: "success", CANCELLED: "muted" };
 
@@ -98,7 +94,7 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
     setPlans((v) => v.map((p) => (p.id === plan.id ? { ...p, status: body.plan.status } : p)));
   }
 
-  // Đầu việc mới (5W1H + Eisenhower + RACI) — form mở theo từng kế hoạch
+  // Đầu việc mới (5W1H + Eisenhower + người phụ trách) — form mở theo từng kế hoạch
   const [itemFormPlanId, setItemFormPlanId] = useState<string | null>(null);
   const [itemTitle, setItemTitle] = useState("");
   const [itemWhy, setItemWhy] = useState("");
@@ -106,9 +102,7 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
   const [itemHow, setItemHow] = useState("");
   const [itemDue, setItemDue] = useState("");
   const [itemQuadrant, setItemQuadrant] = useState<EisenhowerQuadrant>("P2");
-  const [raciDraft, setRaciDraft] = useState<{ user_id: string; raci_role: string }[]>([]);
-  const [raciPerson, setRaciPerson] = useState("");
-  const [raciRole, setRaciRole] = useState<string>("R");
+  const [itemAssignee, setItemAssignee] = useState("");
   const [itemBusy, setItemBusy] = useState(false);
 
   function resetItemForm() {
@@ -119,28 +113,12 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
     setItemHow("");
     setItemDue("");
     setItemQuadrant("P2");
-    setRaciDraft([]);
-    setRaciPerson("");
-    setRaciRole("R");
+    setItemAssignee("");
   }
-
-  function addRaciDraftRow() {
-    if (!raciPerson) return;
-    if (raciDraft.some((r) => r.user_id === raciPerson && r.raci_role === raciRole)) return;
-    if (raciRole === "A" && raciDraft.some((r) => r.raci_role === "A")) {
-      setError("Mỗi đầu việc chỉ được đúng 1 người chữ A — xoá người A hiện tại trước nếu muốn đổi.");
-      return;
-    }
-    setError("");
-    setRaciDraft((v) => [...v, { user_id: raciPerson, raci_role: raciRole }]);
-    setRaciPerson("");
-  }
-
-  const raciDraftValid = raciDraft.filter((r) => r.raci_role === "A").length === 1 && raciDraft.some((r) => r.raci_role === "R");
 
   async function createItem(planId: string) {
     const clean = itemTitle.trim();
-    if (!clean || !raciDraftValid) return;
+    if (!clean || !itemAssignee) return;
     setItemBusy(true);
     setError("");
     const res = await fetch(`/api/work-plans/${planId}/items`, {
@@ -153,7 +131,7 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
         how_text: itemHow.trim() || null,
         due_date: itemDue || null,
         eisenhower_quadrant: itemQuadrant,
-        raci: raciDraft,
+        assignee_user_id: itemAssignee,
       }),
     });
     const body = await res.json().catch(() => ({}));
@@ -190,44 +168,24 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
     setPlans((v) => v.map((p) => (p.id === planId ? { ...p, items: p.items.map((i) => (i.id === item.id ? { ...i, status: body.item.status } : i)) } : p)));
   }
 
-  async function removeRaci(planId: string, item: Item, raci: Raci) {
-    if (!window.confirm(`Bỏ vai trò ${RACI_ROLE_LABEL[raci.raci_role]} của ${staffName(raci.user_id)}?`)) return;
-    setError("");
-    const res = await fetch(`/api/work-plans/${planId}/items/${item.id}/raci/${raci.id}`, { method: "DELETE" });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(body.error || "Không xoá được vai trò RACI.");
-      return;
-    }
-    setPlans((v) => v.map((p) => (p.id === planId ? { ...p, items: p.items.map((i) => (i.id === item.id ? { ...i, raci: i.raci.filter((r) => r.id !== raci.id) } : i)) } : p)));
-  }
-
-  // Đề xuất báo cáo kiểm thử menu: "chưa có thao tác đổi người A mà không
-  // xoá/tạo lại" — chuyển giao trực tiếp trong 1 lần gọi API
-  // (replace_existing: true), thay vì phải tự xoá rồi gán lại thủ công.
+  // Đổi người phụ trách trực tiếp trong 1 lần gọi API (PATCH assignee_user_id).
   const [transferItemId, setTransferItemId] = useState<string | null>(null);
   const [transferPerson, setTransferPerson] = useState("");
 
-  async function transferAccountable(planId: string, item: Item) {
+  async function transferAssignee(planId: string, item: Item) {
     if (!transferPerson) return;
     setError("");
-    const res = await fetch(`/api/work-plans/${planId}/items/${item.id}/raci`, {
-      method: "POST",
+    const res = await fetch(`/api/work-plans/${planId}/items/${item.id}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: transferPerson, raci_role: "A", replace_existing: true }),
+      body: JSON.stringify({ assignee_user_id: transferPerson }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(body.error || "Không chuyển giao được.");
+      setError(body.error || "Không đổi được người phụ trách.");
       return;
     }
-    setPlans((v) =>
-      v.map((p) =>
-        p.id === planId
-          ? { ...p, items: p.items.map((i) => (i.id === item.id ? { ...i, raci: [...i.raci.filter((r) => r.raci_role !== "A"), body.raci as Raci] } : i)) }
-          : p,
-      ),
-    );
+    setPlans((v) => v.map((p) => (p.id === planId ? { ...p, items: p.items.map((i) => (i.id === item.id ? { ...i, assignee_user_id: body.item.assignee_user_id } : i)) } : p)));
     setTransferItemId(null);
     setTransferPerson("");
   }
@@ -353,33 +311,20 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
                         {item.how_text ? `How: ${item.how_text} · ` : ""}
                         When: {formatDate(item.due_date)}
                       </div>
-                      <div className="wp-raci-chips">
-                        {RACI_ROLES.map((role) =>
-                          item.raci
-                            .filter((r) => r.raci_role === role)
-                            .map((r) => (
-                              <span key={r.id} className={`chip wp-raci-chip tone-${RACI_ROLE_TONE[role]}`}>
-                                {role} · {staffName(r.user_id)}
-                                {canManage ? (
-                                  <button type="button" aria-label="Bỏ vai trò" onClick={() => void removeRaci(plan.id, item, r)}>
-                                    ×
-                                  </button>
-                                ) : null}
-                              </span>
-                            )),
-                        )}
+                      <div className="wp-assignee-chips">
+                        <span className="chip wp-assignee-chip">Phụ trách: {item.assignee_user_id ? staffName(item.assignee_user_id) : "chưa giao"}</span>
                       </div>
                       {canManage && transferItemId === item.id ? (
                         <div className="wp-transfer-row">
                           <select className="input" value={transferPerson} onChange={(e) => setTransferPerson(e.target.value)}>
-                            <option value="">— Chọn người A mới —</option>
-                            {staffRoster.filter((s) => !item.raci.some((r) => r.raci_role === "A" && r.user_id === s.id)).map((s) => (
+                            <option value="">— Chọn người phụ trách mới —</option>
+                            {staffRoster.filter((s) => s.id !== item.assignee_user_id).map((s) => (
                               <option key={s.id} value={s.id}>
                                 {s.name}
                               </option>
                             ))}
                           </select>
-                          <button type="button" className="button secondary small" disabled={!transferPerson} onClick={() => void transferAccountable(plan.id, item)}>
+                          <button type="button" className="button secondary small" disabled={!transferPerson} onClick={() => void transferAssignee(plan.id, item)}>
                             Xác nhận
                           </button>
                           <button type="button" className="button tertiary small" onClick={() => (setTransferItemId(null), setTransferPerson(""))}>
@@ -390,11 +335,9 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
                     </div>
                     {canManage ? (
                       <div className="wp-item-actions">
-                        {item.raci.some((r) => r.raci_role === "A") ? (
-                          <button type="button" className="button tertiary small" onClick={() => setTransferItemId(transferItemId === item.id ? null : item.id)}>
-                            Chuyển giao A
-                          </button>
-                        ) : null}
+                        <button type="button" className="button tertiary small" onClick={() => setTransferItemId(transferItemId === item.id ? null : item.id)}>
+                          Đổi người phụ trách
+                        </button>
                         <button type="button" className="button tertiary small" onClick={() => void toggleItemStatus(plan.id, item)}>
                           {item.status === "DONE" ? "Mở lại" : "Hoàn thành"}
                         </button>
@@ -416,7 +359,7 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
                     aria-expanded={itemFormPlanId === plan.id}
                     onClick={() => (itemFormPlanId === plan.id ? resetItemForm() : (resetItemForm(), setItemFormPlanId(plan.id)))}
                   >
-                    {itemFormPlanId === plan.id ? "Thu gọn" : "+ Thêm đầu việc (5W1H + RACI)"}
+                    {itemFormPlanId === plan.id ? "Thu gọn" : "+ Thêm đầu việc (5W1H)"}
                   </button>
                   {itemFormPlanId === plan.id ? (
                     <div className="wp-item-form">
@@ -443,42 +386,19 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
                         </select>
                       </label>
 
-                      <div className="wp-raci-builder">
-                        <span className="wp-raci-builder-label">RACI — đúng 1 người A, ít nhất 1 người R</span>
-                        <div className="wp-raci-builder-row">
-                          <select className="input" value={raciPerson} onChange={(e) => setRaciPerson(e.target.value)}>
-                            <option value="">— Chọn người —</option>
-                            {staffRoster.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.name}
-                              </option>
-                            ))}
-                          </select>
-                          <select className="input" value={raciRole} onChange={(e) => setRaciRole(e.target.value)}>
-                            {RACI_ROLES.map((r) => (
-                              <option key={r} value={r}>
-                                {RACI_ROLE_LABEL[r]}
-                              </option>
-                            ))}
-                          </select>
-                          <button type="button" className="button secondary small" disabled={!raciPerson} onClick={addRaciDraftRow}>
-                            + Thêm người
-                          </button>
-                        </div>
-                        <div className="wp-raci-chips">
-                          {raciDraft.map((r, idx) => (
-                            <span key={`${r.user_id}-${r.raci_role}`} className={`chip wp-raci-chip tone-${RACI_ROLE_TONE[r.raci_role]}`}>
-                              {r.raci_role} · {staffName(r.user_id)}
-                              <button type="button" aria-label="Bỏ" onClick={() => setRaciDraft((v) => v.filter((_, i) => i !== idx))}>
-                                ×
-                              </button>
-                            </span>
+                      <label>
+                        Người phụ trách *
+                        <select className="input" value={itemAssignee} onChange={(e) => setItemAssignee(e.target.value)}>
+                          <option value="">— Chọn người phụ trách —</option>
+                          {staffRoster.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
                           ))}
-                        </div>
-                        {!raciDraftValid ? <small className="muted">Cần đúng 1 người chữ A và ít nhất 1 người chữ R trước khi tạo.</small> : null}
-                      </div>
+                        </select>
+                      </label>
 
-                      <button className="button primary small" disabled={itemBusy || !itemTitle.trim() || !raciDraftValid} onClick={() => void createItem(plan.id)}>
+                      <button className="button primary small" disabled={itemBusy || !itemTitle.trim() || !itemAssignee} onClick={() => void createItem(plan.id)}>
                         Tạo đầu việc
                       </button>
                     </div>
@@ -642,7 +562,7 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
           gap: 6px;
           flex-wrap: wrap;
         }
-        .wp-raci-chips {
+        .wp-assignee-chips {
           display: flex;
           flex-wrap: wrap;
           gap: 5px;
@@ -662,58 +582,20 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
           min-width: 160px;
           width: auto;
         }
-        .wp-raci-chip {
+        .wp-assignee-chip {
           display: inline-flex;
           align-items: center;
-          gap: 5px;
-        }
-        .wp-raci-chip button {
-          border: 0;
-          background: transparent;
-          color: inherit;
-          cursor: pointer;
-          font-weight: 800;
-          padding: 0;
-        }
-        .wp-raci-chip.tone-info {
           background: var(--info-soft);
           color: #075985;
-        }
-        .wp-raci-chip.tone-danger {
-          background: var(--danger-soft);
-          color: #9f2727;
-        }
-        .wp-raci-chip.tone-warning {
-          background: var(--warning-soft);
-          color: #92590c;
-        }
-        .wp-raci-chip.tone-muted {
-          background: #eef1f2;
-          color: #68757b;
         }
         .wp-add-item {
           margin-top: 12px;
           padding-top: 12px;
           border-top: 1px solid #edf1f2;
         }
-        .wp-raci-builder {
-          display: grid;
-          gap: 6px;
-        }
-        .wp-raci-builder-label {
-          font-size: 11px;
-          font-weight: 700;
-          color: #46545a;
-        }
-        .wp-raci-builder-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr auto;
-          gap: 8px;
-        }
         @media (max-width: 760px) {
           .wp-form-row,
-          .wp-matrix,
-          .wp-raci-builder-row {
+          .wp-matrix {
             grid-template-columns: 1fr;
           }
         }

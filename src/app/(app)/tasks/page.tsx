@@ -34,7 +34,7 @@ function addDays(dateStr:string,days:number){const [y,m,d]=dateStr.split("-").ma
 function priorityLabel(value?:string|null){if(value==="CRITICAL")return"Rất khẩn";if(value==="URGENT")return"Khẩn";if(value==="HIGH")return"Cao";if(value==="LOW")return"Thấp";return"Bình thường"}
 function priorityTone(value?:string|null){if(["CRITICAL","URGENT"].includes(String(value)))return"danger";if(value==="HIGH")return"warning";if(value==="LOW")return"muted";return"info"}
 function workScore(row:any){const days=Number(row.days_to_due||0);let score=0;if(row.is_overdue)score+=200+Math.abs(days)*5;if(row.workflow_status==="RETURNED")score+=150;if(["EVIDENCE_SUBMITTED","VERIFYING"].includes(String(row.workflow_status)))score+=135;if(days===0)score+=160;if(days>0&&days<=3)score+=100;if(row.priority==="CRITICAL")score+=90;else if(row.priority==="URGENT")score+=70;else if(row.priority==="HIGH")score+=40;return score}
-// Đề xuất báo cáo kiểm thử menu: "gắn đầu việc RACI (Kế hoạch công việc)
+// Đề xuất báo cáo kiểm thử menu: "gắn đầu việc Kế hoạch công việc
 // vào Việc của tôi" — work_plan_items không có priority riêng, chỉ có
 // eisenhower_quadrant (2 trục quan trọng x khẩn cấp). Quy đổi gần đúng sang
 // thang priority 1 trục sẵn có để tái dùng đúng priorityLabel/priorityTone,
@@ -117,18 +117,12 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  // A (chịu trách nhiệm chính) trên 1 đầu việc Kế hoạch công việc trước đây
  // không thấy việc đó ở "Việc của tôi" trừ khi tự vào module riêng kiểm
  // tra — dễ bỏ sót việc được giao. work_plan_items vẫn là nguồn dữ liệu
- // duy nhất (không copy sang bảng khác). C/I không kéo vào đây vì đó là
- // vai trò "tham vấn/nhận thông tin", không phải người phải tự hoàn thành.
- const workPlanRaciRes=await supabase.from("work_plan_item_raci").select("work_plan_item_id,raci_role").eq("user_id",user.id).in("raci_role",["R","A"]);
- const myWorkPlanItemIds=Array.from(new Set((workPlanRaciRes.data??[]).map((r:any)=>r.work_plan_item_id)));
- const workPlanItemsRes=myWorkPlanItemIds.length
-  ?await supabase.from("work_plan_items").select("id,work_plan_id,title,due_date,eisenhower_quadrant,status,created_at,updated_at").in("id",myWorkPlanItemIds).neq("status","CANCELLED")
-  :{data:[] as any[],error:null};
+ // duy nhất (không copy sang bảng khác); chỉ lấy đầu việc có mình là người phụ trách.
+ const workPlanItemsRes=await supabase.from("work_plan_items").select("id,work_plan_id,title,due_date,eisenhower_quadrant,status,created_at,updated_at").eq("assignee_user_id",user.id).neq("status","CANCELLED");
  const myWorkPlanItems=(workPlanItemsRes.data??[]) as any[];
  const workPlanIds=Array.from(new Set(myWorkPlanItems.map((i:any)=>i.work_plan_id)));
  const workPlansRes=workPlanIds.length?await supabase.from("work_plans").select("id,title").in("id",workPlanIds):{data:[] as any[],error:null};
  const workPlanTitleMap=new Map((workPlansRes.data??[]).map((p:any)=>[p.id,p.title]));
- const raciRoleByItem=new Map((workPlanRaciRes.data??[]).map((r:any)=>[r.work_plan_item_id,r.raci_role]));
  const actionRowsById=new Map<string,any>();
  for(const row of [...(directActionsRes.data??[]),...(groupActionsRes.data??[]),...(departmentActionsRes.data??[])])actionRowsById.set((row as any).action_id,row);
  const actionsRes={data:Array.from(actionRowsById.values()),error:directActionsRes.error||groupActionsRes.error||departmentActionsRes.error||groupAssignmentRes.error||departmentRoleRes.error||departmentExecutionRes.error};
@@ -150,7 +144,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   : {data:[],error:null};
  const workFollowups=(workFollowupsRes.data??[]) as any[];
  const followupBySource=new Map(workFollowups.map((f:any)=>[f.source_type+":"+f.source_id,f]));
- const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=legacyPersonalError||actionsRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||creatorsRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error||workPlanRaciRes.error||workPlanItemsRes.error||workPlansRes.error;
+ const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=legacyPersonalError||actionsRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||creatorsRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error||workPlanItemsRes.error||workPlansRes.error;
  const roleQueue=[...scopedRows].filter(r=>r.is_overdue||Number(r.days_to_due)===0||(Number(r.days_to_due)>0&&Number(r.days_to_due)<=3)||["RETURNED","EVIDENCE_SUBMITTED","VERIFYING"].includes(String(r.workflow_status))||["CRITICAL","URGENT"].includes(String(r.priority))).sort((a,b)=>workScore(b)-workScore(a)).slice(0,8);
  const roleQueueTitle=isQlcl?"Hàng đợi điều phối QLCL":isDepartmentHead?"Hàng đợi của khoa/phòng":"";
 
@@ -195,17 +189,16 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
    isWatch:!overdueItem,assignedBy:"—",href:category?`/emr/${category.slug}`:"/emr",source:"emr",sourceId:item.id,sourceType:"EMR",followup:followupBySource.get("EMR:"+item.id)??null,
   };
  });
- // Đề xuất báo cáo kiểm thử menu: đầu việc Kế hoạch công việc gán R/A cho
+ // Đề xuất báo cáo kiểm thử menu: đầu việc Kế hoạch công việc giao cho
  // mình — chưa có trang chi tiết theo id (giống Cần đào tạo/Tự đọc hiểu ở
  // module khác) nên chỉ liên kết về trang danh sách /work-plans, không có
  // WorkFollowupControl (chưa có cơ chế "đang chờ" cho nguồn này).
  const unifiedWorkPlanRows:UnifiedRow[]=myWorkPlanItems.map((item:any):UnifiedRow=>{
   const isDone=item.status==="DONE";
   const isOverdue=!isDone&&!!item.due_date&&item.due_date<today;
-  const role=raciRoleByItem.get(item.id);
   return{
    key:`wp-${item.id}`,title:item.title,
-   typeLabel:`Kế hoạch công việc${role==="A"?" · Chịu trách nhiệm chính":role==="R"?" · Thực hiện":""}`,
+   typeLabel:"Kế hoạch công việc · Phụ trách",
    relatedTo:workPlanTitleMap.get(item.work_plan_id)||"—",priority:eisenhowerToPriority(item.eisenhower_quadrant),
    dueDate:item.due_date,completedAt:isDone&&item.updated_at?dateOnly(item.updated_at):null,
    createdAt:item.created_at?dateOnly(item.created_at):null,
