@@ -90,7 +90,7 @@ export function WorkReassignButton({ source, id, title }: { source: "REMINDER" |
                     <small className="muted">{[p.job_title, p.department_name].filter(Boolean).join(" · ") || "—"}</small>
                   </button>
                 ))}
-                {source !== "WORK_PLAN" && q.trim().length >= 2 ? (
+                {source !== "WORK_PLAN" && list !== null && q.trim().length >= 2 ? (
                   <button type="button" role="option" aria-selected={extName === q.trim()} onClick={() => { setTo(null); setExtName(q.trim()); }}
                     style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2, width: "100%", padding: "8px 12px", border: 0, borderBottom: "1px solid var(--line, #e5ecef)", background: extName === q.trim() ? "#e8f0fe" : "transparent", textAlign: "left", cursor: "pointer" }}>
                     <strong>Giao cho “{q.trim()}” (chưa có tài khoản)</strong>
