@@ -12,12 +12,12 @@ import { describe, expect, it } from "vitest";
 // được lỗi này (chỉ cảnh báo use-before-declare ở cấp top-level, không
 // theo dõi qua closure) — xác nhận bằng cách biên dịch trực tiếp, 0
 // diagnostic — nên phải chặn bằng test đọc thứ tự dòng thực tế.
-describe("Việc của tôi (/tasks) — `today` phải được khai báo TRƯỚC khi dùng trong emrKpiRows", () => {
+describe("Việc của tôi (/tasks) — `today` phải được khai báo TRƯỚC khi dùng trong unifiedEmrRows", () => {
   const source = readFileSync("src/app/(app)/tasks/page.tsx", "utf8");
 
-  it("const today=hcmToday() xuất hiện trước lần dùng đầu tiên trong emrKpiRows (bên trong .map())", () => {
+  it("const today=hcmToday() xuất hiện trước lần dùng đầu tiên trong unifiedEmrRows (bên trong .map())", () => {
     const declIndex = source.indexOf("const today=hcmToday()");
-    const useIndex = source.indexOf("emrKpiRows=myEmrItems.map");
+    const useIndex = source.indexOf("unifiedEmrRows:UnifiedRow[]=myEmrItems.map");
     expect(declIndex).toBeGreaterThan(-1);
     expect(useIndex).toBeGreaterThan(-1);
     expect(declIndex).toBeLessThan(useIndex);

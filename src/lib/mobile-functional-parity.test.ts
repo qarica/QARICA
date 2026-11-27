@@ -21,8 +21,8 @@ describe("mobile functional parity — Việc của tôi (tasks page)", () => {
     expect(page).toContain('className="table-wrap all-table desktop-only"');
   });
 
-  it("renders the tab filter (ALL/REMINDER/ASSIGNED/WATCH/DONE) outside any desktop-only wrapper", () => {
-    const tabsIndex = page.indexOf('<nav className="work-tabs"');
+  it("renders the quick-filter chips (Đang mở/Quá hạn/Hôm nay/7 ngày tới/Chờ phản hồi/Đã xong/Tất cả) outside any desktop-only wrapper", () => {
+    const tabsIndex = page.indexOf('<nav className="work-tabs mw-chips"');
     const allWorkSectionIndex = page.indexOf('id="all-work" className="work-section"');
     expect(tabsIndex).toBeGreaterThan(-1);
     expect(allWorkSectionIndex).toBeGreaterThan(-1);

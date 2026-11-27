@@ -63,7 +63,7 @@ export default async function CalendarMyWorkPage({ searchParams }: { searchParam
     <PageHeader eyebrow={`LỊCH QLCL · ${year}`} title="Việc của tôi (trong Lịch QLCL)" description="Danh sách việc được giao và nhắc việc cá nhân có hạn đến hạn. Cùng dữ liệu với Việc của tôi; đây chỉ là một góc nhìn khác gắn với Lịch." icon="inbox" actions={<Link className="button secondary" href="/tasks">Mở Việc của tôi đầy đủ →</Link>} />
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError}</div> : null}
 
-    <PersonalReminders initialRows={personalReminders} organizationId={user.organizationId!} userId={user.id} />
+    <PersonalReminders organizationId={user.organizationId!} userId={user.id} />
 
     <section className="panel">
       <nav className="work-tabs" aria-label="Lọc việc">

@@ -148,9 +148,11 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
 
   // Báo cáo tiếp theo (ảnh chụp): "Việc cần làm trước" (secretaryQueue) rỗng
   // vẫn hiện khung trống — yêu cầu "ẩn".
-  it("ẩn hẳn mục Việc cần làm trước khi secretaryQueue rỗng, thay vì hiện khung trống", () => {
-    expect(source).toContain("{secretaryQueue.length?<section className=\"work-section primary\">");
+  it("không còn khối Việc cần làm trước (lặp lại các việc đầu danh sách); thay bằng nút lọc nhanh Quá hạn/Hôm nay", () => {
+    expect(source).not.toContain("secretaryQueue");
     expect(source).not.toContain('Không có việc khẩn hoặc sát hạn cần xử lý.');
+    expect(source).toContain('["OVERDUE","Quá hạn"');
+    expect(source).toContain('["TODAY","Hôm nay"');
   });
 
   // Báo cáo tiếp theo (ảnh chụp): "bỏ chữ qlcl" khỏi dòng eyebrow của trang.
@@ -161,10 +163,10 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
 
   // Báo cáo tiếp theo (ảnh chụp): "3 loại này là gì, nếu ko có thì bỏ" — 3 tab
   // Việc được giao/Chờ phản hồi/Cần theo dõi chỉ hiện khi có ít nhất 1 việc.
-  it("ẩn tab Việc được giao/Chờ phản hồi/Cần theo dõi khi rỗng (0 việc)", () => {
-    expect(source).toContain('{unifiedAssignedRows.length?<Link href={tabHref("ASSIGNED")}');
-    expect(source).toContain('{waitingCount?<Link href={tabHref("WAITING")}');
-    expect(source).toContain('{watchCount?<Link href={tabHref("WATCH")}');
+  it("7 nút lọc nhanh thay cho 7 tab; liên kết cũ ?tab=REMINDER/ASSIGNED/WATCH vẫn được nhận", () => {
+    expect(source).toContain('type WorkTab="ALL"|"OPEN"|"OVERDUE"|"TODAY"|"NEXT7"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE"');
+    expect(source).toContain('[["OPEN","Đang mở"');
+    expect(source).toContain('tab==="REMINDER"?unifiedReminderRows:tab==="ASSIGNED"?unifiedAssignedRows');
   });
 
   // Báo cáo thực tế (ảnh chụp): sau khi bỏ 3 cột (chọn dòng/Liên quan đến/
