@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
-import { fmtDate, maskVnDate, parseVnDate } from "../lib/lab-supplies";
+import { fmtDate, maskVnDate, parseVnDate } from "../lib/vn-date";
 
 type DateEvt = { target: { value: string; name?: string }; currentTarget: { value: string; name?: string } };
 
@@ -72,7 +72,7 @@ export function VnDateInput(props: VnDateInputProps) {
   }
 
   return (
-    <span className="ls-date vn-date" style={style}>
+    <span className="vn-date" style={style}>
       <input
         ref={field}
         id={id}
@@ -94,10 +94,10 @@ export function VnDateInput(props: VnDateInputProps) {
         onBlur={() => onBlur?.(evt(iso))}
       />
       {name ? <input type="hidden" name={name} value={iso} /> : null}
-      <button type="button" className="ls-date-btn" aria-label="Chọn từ lịch" tabIndex={-1} disabled={disabled} onClick={() => { try { picker.current?.showPicker(); } catch { picker.current?.focus(); } }}>
+      <button type="button" className="vn-date-btn" aria-label="Chọn từ lịch" tabIndex={-1} disabled={disabled} onClick={() => { try { picker.current?.showPicker(); } catch { picker.current?.focus(); } }}>
         <Icon name="calendar-days" size={16} />
       </button>
-      <input ref={picker} className="ls-date-native" type="date" tabIndex={-1} aria-hidden="true" min={min} max={max} value={iso} onChange={(e) => { if (e.target.value) { setText(fmtDate(e.target.value)); setInvalid(false); commit(e.target.value); } }} />
+      <input ref={picker} className="vn-date-native" type="date" tabIndex={-1} aria-hidden="true" min={min} max={max} value={iso} onChange={(e) => { if (e.target.value) { setText(fmtDate(e.target.value)); setInvalid(false); commit(e.target.value); } }} />
     </span>
   );
 }

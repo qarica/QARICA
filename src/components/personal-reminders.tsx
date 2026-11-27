@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { LabDateInput } from "@/components/lab-supplies-date-input";
+import { VnDateInput } from "@/components/vn-date-input";
 
 
 const CATEGORY_LABEL:Record<string,string>={HOP_NOI_BO:"Họp nội bộ",THEO_DOI_CAPA:"Theo dõi CAPA",KIEM_TRA_HO_SO:"Kiểm tra hồ sơ",NHAC_NHO:"Nhắc nhở",KHAC:"Khác"};
@@ -39,7 +39,7 @@ export function PersonalReminders({organizationId,userId}:{organizationId:string
  return <section className="pr-quick" aria-label="Thêm việc cá nhân">
   <div className="pr-quick-row">
    <input className="input pr-title" placeholder="Thêm việc cá nhân… (Enter để thêm)" aria-label="Nội dung việc cá nhân" value={title} maxLength={300} onChange={e=>setTitle(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();void add();}}}/>
-   <LabDateInput className="pr-date" label="Hạn xử lý" value={due} onChange={setDue}/>
+   <VnDateInput className="pr-date input" aria-label="Hạn xử lý" value={due} onChange={(e)=>setDue(e.target.value)}/>
    <select className="input pr-prio" aria-label="Mức ưu tiên" value={priority} onChange={e=>setPriority(e.target.value)}>{Object.entries(PRIORITY_LABEL).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
    <button className="button primary small" disabled={busy||!title.trim()} onClick={()=>void add()}>+ Thêm</button>
   </div>
