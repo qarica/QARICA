@@ -756,7 +756,7 @@ export function DocumentPublicationsClient({
             </div>
           </div>
           <button type="button" className="button secondary mobile-form-toggle" aria-expanded={directPublishOpen} onClick={() => setDirectPublishOpen((v) => !v)}>{directPublishOpen ? "Thu gọn" : "+ Nhập văn bản đã có"}</button>
-          <div className={directPublishOpen ? "dp-form mobile-collapsible-form is-open" : "dp-form mobile-collapsible-form"}>
+          <div className={directPublishOpen ? "dp-form dp-form-direct mobile-collapsible-form is-open" : "dp-form dp-form-direct mobile-collapsible-form"}>
             <input className="input" aria-label="Mã văn bản" placeholder="Mã văn bản..." value={directDocumentCode} onChange={(e) => setDirectDocumentCode(e.target.value)} />
             <input className="input" aria-label="Tên văn bản" placeholder="Tên văn bản..." value={directTitle} maxLength={300} onChange={(e) => setDirectTitle(e.target.value)} />
             <div className="dp-form-row">
@@ -1301,6 +1301,40 @@ export function DocumentPublicationsClient({
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 8px;
+        }
+        @media (min-width: 761px) {
+          .dp-form-direct {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            align-items: start;
+          }
+          .dp-form-direct .dp-form-row,
+          .dp-request-form .dp-form-row {
+            display: contents;
+          }
+          .dp-form-direct > [aria-label="Tên văn bản"] {
+            grid-column: span 3;
+          }
+          .dp-form-direct > .alert,
+          .dp-request-form > .alert {
+            grid-column: 1 / -1;
+          }
+          .dp-form-direct > .button,
+          .dp-request-form > .button {
+            grid-column: -2 / -1;
+            justify-self: end;
+            width: auto;
+            min-width: 180px;
+          }
+          .dp-request-form {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-auto-flow: row dense;
+            align-items: start;
+          }
+          .dp-request-form > [aria-label="Tên văn bản"],
+          .dp-request-form > .dp-target-picker,
+          .dp-request-form > textarea {
+            grid-column: 1 / -1;
+          }
         }
         .dp-target-picker {
           position: relative;
