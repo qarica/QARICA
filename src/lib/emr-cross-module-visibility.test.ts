@@ -68,7 +68,7 @@ describe("EMR items surface in Việc của tôi (My Work), scoped to the viewer
 
   it("folds EMR rows into the unified work list, the Đã giao filter, and the quick-filter chip counts", () => {
     expect(tasks).toContain("const unifiedEmrRows:UnifiedRow[]=myEmrItems.map");
-    expect(tasks).toContain("const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows,...unifiedWorkPlanRows];");
+    expect(tasks).toContain("const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows,...unifiedWorkPlanRows,...unifiedIncomingRows];");
     // Số đếm các nút lọc nhanh (Quá hạn/Hôm nay/7 ngày tới...) tính từ CÙNG danh sách thống nhất nên gồm cả việc EMR.
     expect(tasks).toContain("const allWorkRows=[...unifiedAssignedRows,...unifiedReminderRows]");
     expect(tasks).toContain("const colCounts={ALL:allWorkRows.length");

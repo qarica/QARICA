@@ -141,6 +141,13 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const workPlanIds=Array.from(new Set(myWorkPlanItems.map((i:any)=>i.work_plan_id)));
  const workPlansRes=workPlanIds.length?await supabase.from("work_plans").select("id,title").in("id",workPlanIds):{data:[] as any[],error:null};
  const workPlanTitleMap=new Map((workPlansRes.data??[]).map((p:any)=>[p.id,p.title]));
+ // Việc giao từ module Công văn đến (incoming_document_tasks): mình là Chủ trì hoặc Phối hợp. Đọc trực tiếp từ bảng
+ // của module công văn (một nguồn sự thật, không sao chép) nên hoàn thành ở công văn là Việc của tôi tự cập nhật.
+ const incomingTasksRes=await supabase.from("incoming_document_tasks").select("id,incoming_document_id,title,description,lead_user_id,collaborating_user_ids,due_date,completed_at,created_at").or(`lead_user_id.eq.${user.id},collaborating_user_ids.cs.{${user.id}}`).order("due_date",{ascending:true,nullsFirst:false});
+ const myIncomingTasks=(incomingTasksRes.data??[]) as any[];
+ const incomingDocIds=Array.from(new Set(myIncomingTasks.map((t:any)=>t.incoming_document_id)));
+ const incomingDocsRes=incomingDocIds.length?await supabase.from("incoming_documents").select("id,summary,document_no,received_no,issuing_authority,due_date").in("id",incomingDocIds):{data:[] as any[],error:null};
+ const incomingDocMap=new Map(((incomingDocsRes.data??[]) as any[]).map((d:any)=>[d.id,d]));
  const actionRowsById=new Map<string,any>();
  for(const row of [...(directActionsRes.data??[]),...(groupActionsRes.data??[]),...(departmentActionsRes.data??[])])actionRowsById.set((row as any).action_id,row);
  const actionsRes={data:Array.from(actionRowsById.values()),error:directActionsRes.error||groupActionsRes.error||departmentActionsRes.error||groupAssignmentRes.error||departmentRoleRes.error||departmentExecutionRes.error};
@@ -162,11 +169,11 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   : {data:[],error:null};
  const workFollowups=(workFollowupsRes.data??[]) as any[];
  const followupBySource=new Map(workFollowups.map((f:any)=>[f.source_type+":"+f.source_id,f]));
- const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=legacyPersonalError||actionsRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||creatorsRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error||workPlanItemsRes.error||workPlansRes.error;
+ const scopedRows=scopeSourceRows.filter(r=>!["COMPLETED","CANCELLED","CLOSED","NOT_APPLICABLE"].includes(String(r.workflow_status))&&!hidden.has(r.record_id)&&!legacyReminderActionIds.has(r.action_id));const firstError=legacyPersonalError||actionsRes.error||personalRemindersRes.error||scopeActionsRes.error||recordRes.error||creatorsRes.error||roleDepartmentsRes.error||assignedGroupsRes.error||recurringLegacyRes.error||emrItemsRes.error||workFollowupsRes.error||workPlanItemsRes.error||workPlansRes.error||incomingTasksRes.error||incomingDocsRes.error;
  const roleQueue=[...scopedRows].filter(r=>r.is_overdue||Number(r.days_to_due)===0||(Number(r.days_to_due)>0&&Number(r.days_to_due)<=3)||["RETURNED","EVIDENCE_SUBMITTED","VERIFYING"].includes(String(r.workflow_status))||["CRITICAL","URGENT"].includes(String(r.priority))).sort((a,b)=>workScore(b)-workScore(a)).slice(0,8);
  const roleQueueTitle=isQlcl?"Hàng đợi điều phối QLCL":isDepartmentHead?"Hàng đợi của khoa/phòng":"";
 
- type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;completedAt:string|null;createdAt:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"|"legacy"|"work_plan";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null;canReassign?:boolean;reassignSource?:"REMINDER"|"ACTION"|"WORK_PLAN"};
+ type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;completedAt:string|null;createdAt:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"|"legacy"|"work_plan"|"incoming_task";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null;canReassign?:boolean;reassignSource?:"REMINDER"|"ACTION"|"WORK_PLAN"};
  const unifiedActionRows:UnifiedRow[]=rows.map(r=>({
   key:`a-${r.action_id}`,title:r.title,typeLabel:RECORD_TYPE_LABEL[recordTypeMap.get(r.record_id)||""]||"—",
   relatedTo:recordCodeMap.get(r.record_id)||"—",priority:r.priority,dueDate:r.due_date,
@@ -225,7 +232,25 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
    assignedBy:"—",href:"/work-plans",source:"work_plan",sourceId:item.id,sourceType:null,followup:null,canReassign:item.status==="OPEN",reassignSource:"WORK_PLAN",
   };
  });
- const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows,...unifiedWorkPlanRows];
+ const canOpenIncoming=hasPermission(user,"incoming_documents.view");
+ const unifiedIncomingRows:UnifiedRow[]=myIncomingTasks.map((t:any):UnifiedRow=>{
+  const doc=incomingDocMap.get(t.incoming_document_id);
+  const dueDate=t.due_date||doc?.due_date||null;
+  const isDone=!!t.completed_at;
+  const isOverdue=!isDone&&!!dueDate&&dueDate<today;
+  const docLabel=doc?[doc.document_no?`Số ${doc.document_no}`:doc.received_no?`Đến số ${doc.received_no}`:"",doc.summary].filter(Boolean).join(" — ").slice(0,140):"Công văn đến";
+  return{
+   key:`idt-${t.id}`,title:t.title,
+   typeLabel:`Công văn đến · ${t.lead_user_id===user.id?"Chủ trì":"Phối hợp"}`,
+   relatedTo:docLabel||"Công văn đến",priority:null,
+   dueDate,completedAt:isDone?dateOnly(t.completed_at):null,
+   createdAt:t.created_at?dateOnly(t.created_at):null,
+   statusLabel:isDone?"COMPLETED":(isOverdue?"OVERDUE":"OPEN"),isOverdue,isDone,
+   isWatch:!isDone&&(!dueDate||dueDate>=today),
+   assignedBy:"—",href:canOpenIncoming?"/incoming-documents":"/tasks",source:"incoming_task",sourceId:t.id,sourceType:null,followup:null,
+  };
+ });
+ const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows,...unifiedWorkPlanRows,...unifiedIncomingRows];
  const allWorkRows=[...unifiedAssignedRows,...unifiedReminderRows].sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999"));
  // Báo cáo thực tế: tab trống (0 việc) vẫn luôn hiện trong thanh tab, gây
  // thắc mắc "3 loại này là gì" — ẩn hẳn pill của tab khi không có việc nào

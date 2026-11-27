@@ -28,13 +28,13 @@ describe("Việc của tôi: gộp đầu việc Kế hoạch công việc giao 
   });
 
   it("tính vào đủ các nút lọc nhanh (Quá hạn/Hôm nay/7 ngày tới/Đã xong) vì cùng nằm trong allWorkRows", () => {
-    expect(page).toContain("const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows,...unifiedWorkPlanRows];");
+    expect(page).toContain("const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows,...unifiedWorkPlanRows,...unifiedIncomingRows];");
     expect(page).toContain("const allWorkRows=[...unifiedAssignedRows,...unifiedReminderRows]");
     expect(page).toContain("DONE:allWorkRows.filter(r=>r.isDone).length");
   });
 
   it("gộp vào unifiedAssignedRows (tab 'Việc được giao'), không lẫn với note cá nhân tự tạo", () => {
-    expect(page).toContain("const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows,...unifiedWorkPlanRows];");
+    expect(page).toContain("const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows,...unifiedWorkPlanRows,...unifiedIncomingRows];");
   });
 
   it("nhãn ghi rõ 'Phụ trách', liên kết về /work-plans", () => {
