@@ -53,3 +53,14 @@ describe("hộp chuyển việc: người trong hệ thống xếp TRƯỚC, l�
     expect(c.indexOf("(chưa có tài khoản)</strong>")).toBeGreaterThan(c.indexOf("(list || []).map((p)"));
   });
 });
+
+describe("Danh sách Việc của tôi có cột P1–P4 để nhìn nhanh", () => {
+  const page = read("src/app/(app)/tasks/page.tsx");
+  it("bảng có cột P (badge P1–P4 kèm tooltip), việc đã xong hiện gạch ngang; thẻ điện thoại cũng có badge", () => {
+    expect(page).toContain('<th>Ưu tiên</th><th title="Ma trận Eisenhower');
+    expect(page).toContain("<td>{pBadge(r)}</td>");
+    expect(page).toContain("const q=workRowQuadrant(r.priority,r.dueDate,today)");
+    expect(page).toContain("if(r.isDone)return <span");
+    expect(page).toContain("{!r.isDone?<>{pBadge(r)}{\" \"}</>:null}");
+  });
+});
