@@ -100,7 +100,7 @@ describe("chuyển việc — mở rộng cho đầu việc Kế hoạch công v
   it("API và giao diện nhận nguồn WORK_PLAN; không cho gõ tên tự do với đầu việc kế hoạch", () => {
     expect(readFileSync("src/app/api/work/reassign/route.ts", "utf8")).toContain('new Set(["REMINDER", "ACTION", "WORK_PLAN"])');
     expect(readFileSync("src/app/api/work/reassign/route.ts", "utf8")).toContain('source === "WORK_PLAN") return NextResponse.json({ error: "Đầu việc kế hoạch chỉ chuyển được');
-    expect(readFileSync("src/components/work-reassign-button.tsx", "utf8")).toContain('source !== "WORK_PLAN" && q.trim().length >= 2');
+    expect(readFileSync("src/components/work-reassign-button.tsx", "utf8")).toContain('source !== "WORK_PLAN" && list !== null && q.trim().length >= 2');
     expect(readFileSync("src/app/api/work/assignees/route.ts", "utf8")).toContain('"work_plans.view"');
   });
   it("hàng đầu việc kế hoạch trong Việc của tôi có nút Chuyển khi đang mở; mục Đã chuyển đi hiển thị được", () => {

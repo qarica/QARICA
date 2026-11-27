@@ -64,3 +64,9 @@ describe("Danh sách Việc của tôi có cột P1–P4 để nhìn nhanh", () 
     expect(page).toContain("{!r.isDone?<>{pBadge(r)}{\" \"}</>:null}");
   });
 });
+
+describe("hộp chuyển việc: lựa chọn gõ tên tự do chỉ hiện sau khi danh sách người đã tải xong", () => {
+  it("điều kiện list !== null", () => {
+    expect(read("src/components/work-reassign-button.tsx")).toContain('source !== "WORK_PLAN" && list !== null && q.trim().length >= 2');
+  });
+});

@@ -97,9 +97,6 @@ begin
                   || case when r.note is null or btrim(r.note) = '' then '' else E'\n' || r.note end,
            updated_at = now()
      where id = p_source_id;
-    -- Từ chối đề nghị gia hạn đang chờ (chủ việc đã đổi). Dòng người duyệt cũ ở personal_task_approvers được giữ lại:
-    -- trigger của bảng đó không cho xóa, và mọi chỗ kiểm tra đều so khớp cả owner_user_id nên dòng cũ không còn hiệu lực
-    -- với chủ mới; chủ mới đặt người duyệt mới sẽ ghi đè dòng này.
     v_title := r.title; v_route := '/tasks?tab=OPEN#all-work'; v_record := null; v_table := 'personal_reminders';
   elsif p_source = 'WORK_PLAN' then
     -- Đầu việc Kế hoạch công việc: chỉ người đang phụ trách chuyển được khi đầu việc còn mở; người nhận phải xem được kế hoạch.
