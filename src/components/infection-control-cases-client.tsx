@@ -3,6 +3,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Department = { id: string; name: string };
 type CaseStatus = "NGHI_NGO" | "XAC_NHAN" | "DA_XU_LY";
 
@@ -181,7 +182,7 @@ export function InfectionControlCasesClient({ departments, initialCases, canMana
               {message ? <div className={`alert ${message.tone}`}>{message.text}</div> : null}
               <div className="form-stack">
                 <div className="form-grid two">
-                  <label>Ngày phát hiện *<input type="date" value={form.detected_date} onChange={(e) => setForm({ ...form, detected_date: e.target.value })} /></label>
+                  <label>Ngày phát hiện *<VnDateInput value={form.detected_date} onChange={(e) => setForm({ ...form, detected_date: e.target.value })} /></label>
                   <label>
                     Khoa/phòng
                     <select value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })}>

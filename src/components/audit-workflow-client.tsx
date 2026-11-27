@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DictationTextarea } from "@/components/dictation-textarea";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Option = { id: string; label: string };
 type ProfileOption = { id: string; label: string; departmentId: string };
 type FindingRow = { id: string; recordId: string; code: string; title: string; sourceRef: string; severity: string; dueDate: string; status: string; department: string; href: string };
@@ -162,7 +163,7 @@ export function AuditWorkflowClient({ recordId, status, canManage, scopes, sessi
           <label><span>Mức độ *</span><select value={finding.severity} onChange={(e) => setFinding({ ...finding, severity: e.target.value })}><option value="MINOR">Nhẹ</option><option value="MAJOR">Nghiêm trọng</option><option value="CRITICAL">Tới hạn</option></select></label>
           <label><span>Khoa/phòng chịu khắc phục *</span><select value={finding.lead_department_id} onChange={(e) => setFinding({ ...finding, lead_department_id: e.target.value, owner_user_id: "" })}><option value="">— Chọn khoa/phòng —</option>{departments.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
           <label><span>Người phụ trách *</span><select value={finding.owner_user_id} disabled={!finding.lead_department_id} onChange={(e) => setFinding({ ...finding, owner_user_id: e.target.value })}><option value="">— Chọn người —</option>{filteredFindingOwners.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
-          <label><span>Hạn khắc phục *</span><input type="date" value={finding.due_date} onChange={(e) => setFinding({ ...finding, due_date: e.target.value })} /></label>
+          <label><span>Hạn khắc phục *</span><VnDateInput value={finding.due_date} onChange={(e) => setFinding({ ...finding, due_date: e.target.value })} /></label>
           <label className="wide"><span>Mô tả phát hiện / điểm không phù hợp *</span><DictationTextarea rows={3} value={finding.description} onValueChange={(value) => setFinding({ ...finding, description: value })} disabled={busy} /></label>
         </div>
         {finding.lead_department_id && !filteredFindingOwners.length ? <div className="alert info">Khoa/phòng này chưa có người dùng hoạt động được gán làm đơn vị chính. Cần cập nhật người phụ trách trước khi tạo Finding.</div> : null}

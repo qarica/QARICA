@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type EditValues = Record<string, string | boolean | null | undefined>;
 
 type Props = {
@@ -60,13 +61,13 @@ export function QualityRecordEditClient({ recordId, recordType, workflowStatus, 
           <label>Nguồn / loại phát hiện<input value={String(values.finding_type || "")} onChange={e => set("finding_type", e.target.value)} /></label>
           <label>Mức độ<input value={String(values.severity || "")} onChange={e => set("severity", e.target.value)} /></label>
           <label>Thời điểm phát hiện<input type="datetime-local" value={String(values.identified_at || "")} onChange={e => set("identified_at", e.target.value)} /></label>
-          <label>Hạn khắc phục<input type="date" value={String(values.due_date || "")} onChange={e => set("due_date", e.target.value)} /></label>
+          <label>Hạn khắc phục<VnDateInput value={String(values.due_date || "")} onChange={e => set("due_date", e.target.value)} /></label>
           <label className="wide">Mô tả phát hiện *<textarea rows={4} value={String(values.description || "")} onChange={e => set("description", e.target.value)} required /></label>
           <label className="wide">Khắc phục tức thời<textarea rows={3} value={String(values.immediate_action || "")} onChange={e => set("immediate_action", e.target.value)} /></label>
         </> : null}
         {recordType === "CAPA" ? <>
           <label>Ưu tiên<select value={String(values.priority || "NORMAL")} onChange={e => set("priority", e.target.value)}><option value="LOW">Thấp</option><option value="NORMAL">Bình thường</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn</option><option value="CRITICAL">Rất khẩn</option></select></label>
-          <label>Hạn đánh giá hiệu lực<input type="date" value={String(values.effectiveness_due_date || "")} onChange={e => set("effectiveness_due_date", e.target.value)} /></label>
+          <label>Hạn đánh giá hiệu lực<VnDateInput value={String(values.effectiveness_due_date || "")} onChange={e => set("effectiveness_due_date", e.target.value)} /></label>
           <label className="wide inline-check"><input type="checkbox" checked={Boolean(values.approval_required)} onChange={e => set("approval_required", e.target.checked)} /> Yêu cầu phê duyệt trước triển khai</label>
           <label className="wide">Vấn đề cần CAPA *<textarea rows={4} value={String(values.problem_statement || "")} onChange={e => set("problem_statement", e.target.value)} required /></label>
           <label className="wide">Khắc phục tức thời<textarea rows={3} value={String(values.immediate_correction || "")} onChange={e => set("immediate_correction", e.target.value)} /></label>
@@ -76,7 +77,7 @@ export function QualityRecordEditClient({ recordId, recordType, workflowStatus, 
           <label className="wide">Nguyên nhân<textarea rows={3} value={String(values.cause_summary || "")} onChange={e => set("cause_summary", e.target.value)} /></label>
           <label className="wide">Hậu quả tiềm tàng<textarea rows={3} value={String(values.potential_consequence || "")} onChange={e => set("potential_consequence", e.target.value)} /></label>
           <label>Quy trình liên quan<input value={String(values.process_name || "")} onChange={e => set("process_name", e.target.value)} /></label>
-          <label>Ngày rà soát tiếp<input type="date" value={String(values.next_review_date || "")} onChange={e => set("next_review_date", e.target.value)} /></label>
+          <label>Ngày rà soát tiếp<VnDateInput value={String(values.next_review_date || "")} onChange={e => set("next_review_date", e.target.value)} /></label>
           <label>Tần suất rà soát<input value={String(values.review_frequency || "")} onChange={e => set("review_frequency", e.target.value)} /></label>
         </> : null}
         <label className="wide">Lý do chỉnh sửa<textarea rows={2} value={reason} onChange={e => setReason(e.target.value)} placeholder="Khuyến nghị ghi ngắn gọn lý do thay đổi để dễ truy vết." /></label>

@@ -7,6 +7,7 @@ import QRCode from "qrcode";
 import { Icon } from "@/components/icon";
 import { RISK_CLASSIFICATION_LABEL, type EquipmentStatus, type RiskClassification } from "@/components/medical-equipment-client";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Department = { id: string; name: string };
 type Profile = { user_id: string; full_name: string | null; email: string | null };
 
@@ -226,7 +227,7 @@ export function MedicalEquipmentDetailClient({
                       ))}
                     </select>
                   </label>
-                  <label>Ngày<input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} /></label>
+                  <label>Ngày<VnDateInput value={eventDate} onChange={(e) => setEventDate(e.target.value)} /></label>
                   <label className="span-2">Ghi chú<textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></label>
                 </div>
               </div>

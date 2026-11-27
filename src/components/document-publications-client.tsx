@@ -6,6 +6,7 @@ import { Icon } from "@/components/icon";
 import { DOCUMENT_FILE_BUCKET, DOCUMENT_FILE_MAX_SIZE, DOCUMENT_FILE_MAX_SIZE_LABEL } from "@/lib/document-publication-file-limits";
 import { EVIDENCE_ALLOWED_EXTENSIONS, evidenceFilePolicy } from "@/lib/evidence-file-policy";
 import { createClient } from "@/lib/supabase/client";
+import { VnDateInput } from "@/components/vn-date-input";
 import {
   DISSEMINATION_TYPE_LABEL,
   DISSEMINATION_TYPES,
@@ -759,7 +760,7 @@ export function DocumentPublicationsClient({
             <input className="input" aria-label="Mã văn bản" placeholder="Mã văn bản..." value={directDocumentCode} onChange={(e) => setDirectDocumentCode(e.target.value)} />
             <input className="input" aria-label="Tên văn bản" placeholder="Tên văn bản..." value={directTitle} maxLength={300} onChange={(e) => setDirectTitle(e.target.value)} />
             <div className="dp-form-row">
-              <input className="input" type="date" value={directEffectiveDate} onChange={(e) => setDirectEffectiveDate(e.target.value)} />
+              <VnDateInput className="input" value={directEffectiveDate} onChange={(e) => setDirectEffectiveDate(e.target.value)} />
               <input className="input" placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={directVersionLabel} onChange={(e) => setDirectVersionLabel(e.target.value)} />
             </div>
             <div className="dp-form-row">
@@ -818,7 +819,7 @@ export function DocumentPublicationsClient({
                   {publishingId === d.id ? (
                     <div className="dp-publish-form">
                       <input className="input" aria-label="Mã văn bản" placeholder="Mã văn bản..." value={documentCode} onChange={(e) => setDocumentCode(e.target.value)} />
-                      <input className="input" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+                      <VnDateInput className="input" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
                       <input className="input" placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={versionLabel} onChange={(e) => setVersionLabel(e.target.value)} />
                       <select className="input dp-publish-dissemination" value={disseminationType} onChange={(e) => setDisseminationType(e.target.value as DisseminationType)}>
                         {DISSEMINATION_TYPES.map((t) => (

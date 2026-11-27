@@ -9,6 +9,7 @@ import { KpiCard } from "@/components/kpi-card";
 import { baseClassCode } from "@/lib/procedure-training-class-code";
 import { groupRowsByTopic } from "@/lib/procedure-training-topic-rollup";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Training = {
   id: string;
   procedure_code: string | null;
@@ -214,7 +215,7 @@ export function ProcedureTrainingsClient({
             <div className="pt-form-row">
               <input className="input" placeholder="Mã số (tùy chọn)" value={procedureCode} onChange={(e) => setProcedureCode(e.target.value)} />
               <input className="input" placeholder="Đơn vị soạn thảo (tùy chọn)" value={draftingUnit} onChange={(e) => setDraftingUnit(e.target.value)} />
-              <input className="input" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+              <VnDateInput className="input" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
             </div>
             {error ? <div className="alert error">{error}</div> : null}
             <button className="button primary" disabled={busy || !procedureName.trim()} onClick={() => void submit()}>

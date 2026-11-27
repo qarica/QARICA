@@ -116,7 +116,7 @@ describe("Document publications — thứ tự trường nhập + không mặc �
   it("form Nhập văn bản đã phát hành có thứ tự mã -> tên -> ngày -> lần phát hành", () => {
     const codeIdx = client.indexOf('placeholder="Mã văn bản..." value={directDocumentCode}');
     const titleIdx = client.indexOf('placeholder="Tên văn bản..." value={directTitle}');
-    const dateIdx = client.indexOf("type=\"date\" value={directEffectiveDate}");
+    const dateIdx = client.indexOf("<VnDateInput className=\"input\" value={directEffectiveDate}");
     const versionIdx = client.indexOf('placeholder="Lần phát hành (vd: Lần ban hành 01)..." value={directVersionLabel}');
     expect(codeIdx).toBeGreaterThan(-1);
     expect(titleIdx).toBeGreaterThan(codeIdx);

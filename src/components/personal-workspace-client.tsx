@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { activeItems, deletedItems, mergeWorkspaceItems, vietnamDateToIso } from "@/lib/personal-workspace";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type ItemType = "TASK" | "NOTE";
 type Item = {
   id: string;
@@ -395,7 +396,7 @@ export function PersonalWorkspaceClient({ initialRows, userId, highlightedItemId
         ) : null}
         <div className="pw-form-row">
           <input className="input" placeholder="Phân loại (vd: QLCL, Vận hành, Chiến lược...)" value={category} maxLength={60} onChange={(e) => setCategory(e.target.value)} />
-          {tab === "TASK" ? <input className="input" type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /> : null}
+          {tab === "TASK" ? <VnDateInput className="input" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /> : null}
         </div>
         <button className="button primary small" disabled={busy || mutationBusy || !title.trim()} onClick={() => void add()}>
           + Thêm {tab === "TASK" ? "việc" : "ghi chú"}
@@ -444,7 +445,7 @@ export function PersonalWorkspaceClient({ initialRows, userId, highlightedItemId
               <span className={`status-badge ${r.status === "DONE" ? "success" : "info"}`}>{r.status === "DONE" ? "✓ Hoàn thành" : "● Chưa xong"}</span>
             </div>
             {showTrash ? null : r.item_type === "TASK" ? (
-              <><label className="pw-completed-date">Ngày hoàn thành <input className="input" type="date" aria-label={`Ngày hoàn thành ${r.title}`} value={completionDates[r.id] ?? (r.completed_at ? new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(r.completed_at)) : new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()))} onChange={e=>setCompletionDates(v=>({...v,[r.id]:e.target.value}))} disabled={mutationBusy}/></label><button className="button secondary small" disabled={mutationBusy} onClick={() => void toggleDone(r)}>
+              <><label className="pw-completed-date">Ngày hoàn thành <VnDateInput className="input" aria-label={`Ngày hoàn thành ${r.title}`} value={completionDates[r.id] ?? (r.completed_at ? new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(r.completed_at)) : new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()))} onChange={e=>setCompletionDates(v=>({...v,[r.id]:e.target.value}))} disabled={mutationBusy}/></label><button className="button secondary small" disabled={mutationBusy} onClick={() => void toggleDone(r)}>
                 {r.status === "DONE" ? "Mở lại" : "Hoàn tất"}
               </button></>
             ) : editingId === r.id ? null : (

@@ -5,6 +5,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DictationTextarea } from "@/components/dictation-textarea";
 
+import { VnDateInput } from "@/components/vn-date-input";
 const LABEL: Record<string, string> = {
   RECEIVED: "Đã tiếp nhận",
   TRIAGED: "Đã phân loại",
@@ -161,7 +162,7 @@ export function FeedbackWorkflowClient({
             {draftAction === "CREATE_FINDING" ? (
               <label>
                 Hạn khắc phục *
-                <input type="date" value={dueDate} disabled={busy} onChange={(event) => setDueDate(event.target.value)} />
+                <VnDateInput value={dueDate} disabled={busy} onChange={(event) => setDueDate(event.target.value)} />
               </label>
             ) : null}
 

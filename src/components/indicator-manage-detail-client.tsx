@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Definition = { id: string; code: string; name: string; purpose: string | null; quality_dimension: string | null; is_active: boolean };
 type Version = { id: string; version_no: number; status: string; calculation_type: string | null; desired_direction: string | null; frequency: string | null; unit: string | null; multiplier: number | null; effective_from: string | null; effective_to: string | null };
 
@@ -97,7 +98,7 @@ export function IndicatorManageDetailClient({ definition, versions, canManage }:
                 <td>{editable ? <select value={v.frequency || ""} disabled={busy} onChange={(e) => patchVersion(v, { frequency: e.target.value })}><option value="">— Chọn —</option>{frequencyOptions.map(([val, label]) => <option key={val} value={val}>{label}</option>)}</select> : (frequencyOptions.find(([val]) => val === v.frequency)?.[1] || "—")}</td>
                 <td>{editable ? <input defaultValue={v.unit || ""} disabled={busy} onBlur={(e) => e.target.value !== (v.unit || "") && patchVersion(v, { unit: e.target.value })} style={{ width: 80 }} /> : (v.unit || "—")}</td>
                 <td>{editable ? <input type="number" step="any" defaultValue={v.multiplier ?? ""} disabled={busy} onBlur={(e) => Number(e.target.value || 0) !== (v.multiplier ?? 0) && patchVersion(v, { multiplier: e.target.value === "" ? null : Number(e.target.value) })} style={{ width: 80 }} /> : (v.multiplier ?? "—")}</td>
-                <td>{editable ? <input type="date" defaultValue={v.effective_from || ""} disabled={busy} onBlur={(e) => e.target.value !== (v.effective_from || "") && patchVersion(v, { effective_from: e.target.value })} /> : (v.effective_from || "—")}</td>
+                <td>{editable ? <VnDateInput defaultValue={v.effective_from || ""} disabled={busy} onBlur={(e) => e.target.value !== (v.effective_from || "") && patchVersion(v, { effective_from: e.target.value })} /> : (v.effective_from || "—")}</td>
                 <td>{editable ? <button className="button primary small" onClick={() => publish(v)} disabled={busy}>Phát hành</button> : null}</td>
               </tr>;
             })}

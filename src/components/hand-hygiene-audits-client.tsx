@@ -3,6 +3,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Department = { id: string; name: string };
 type Profile = { user_id: string; full_name: string | null; email: string | null };
 
@@ -191,7 +192,7 @@ export function HandHygieneAuditsClient({ departments, profiles, initialAudits, 
               {message ? <div className={`alert ${message.tone}`}>{message.text}</div> : null}
               <div className="form-stack">
                 <div className="form-grid two">
-                  <label>Ngày giám sát *<input type="date" value={form.audit_date} onChange={(e) => setForm({ ...form, audit_date: e.target.value })} /></label>
+                  <label>Ngày giám sát *<VnDateInput value={form.audit_date} onChange={(e) => setForm({ ...form, audit_date: e.target.value })} /></label>
                   <label>
                     Khoa/phòng
                     <select value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })}>

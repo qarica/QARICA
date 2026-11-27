@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { KpiCard } from "@/components/kpi-card";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Item = { id: string; content: string; metadata?: any };
 type Section = { id: string; title: string; items: Item[] };
 type Result = "PASS" | "FAIL" | "NA" | "";
@@ -142,7 +143,7 @@ export function FiveSChecklistPreviewClient({
 
       <div className="form-grid two">
         <label><span>Nhân viên thực hiện (ký xác nhận)</span><input value={staffName} onChange={(e) => setStaffName(e.target.value)} placeholder="Nhập họ tên nhân viên thực hiện" /></label>
-        <label><span>Ngày giám sát</span><input type="date" value={monitoringDate} onChange={(e) => setMonitoringDate(e.target.value)} /></label>
+        <label><span>Ngày giám sát</span><VnDateInput value={monitoringDate} onChange={(e) => setMonitoringDate(e.target.value)} /></label>
       </div>
     </div>
 

@@ -21,3 +21,13 @@ describe("Việc của tôi: một trang duy nhất + ngày dd/mm/yyyy", () => {
     expect(read("src/app/globals.css")).toContain(".ls-date>input[type=text]");
   });
 });
+
+import { readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+function walk(d: string): string[] { return readdirSync(d).flatMap((n) => { const p = join(d, n); return statSync(p).isDirectory() ? walk(p) : p.endsWith(".tsx") ? [p] : []; }); }
+describe("Toàn hệ thống nhập ngày dd/mm/yyyy", () => {
+  it("không còn <input type=\"date\"> trần ngoài 2 component ô ngày dùng chung", () => {
+    const offenders = walk("src").filter((f) => !/vn-date-input|lab-supplies-date-input/.test(f) && /<input[^>]*\stype="date"/.test(readFileSync(f, "utf8")));
+    expect(offenders).toEqual([]);
+  });
+});

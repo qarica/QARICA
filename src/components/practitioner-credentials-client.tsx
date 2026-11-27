@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { buildAssignmentDecisionDraft } from "@/lib/practitioner-credentials";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Department = { id: string; name: string };
 type DocumentType = "DEGREE" | "SPECIALIST_DEGREE" | "CERTIFICATE" | "SCOPE_ADJUSTMENT";
 type LicenseType = "GPHN" | "CCHN" | "CCHN_DUOC";
@@ -435,7 +436,7 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
               <div className="form-stack">
                 <div className="form-grid two">
                   <label className="span-2">Họ và tên *<input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></label>
-                  <label>Ngày sinh<input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} /></label>
+                  <label>Ngày sinh<VnDateInput value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} /></label>
                   <label>Giới tính<input value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} /></label>
                   <label>CCCD<input value={form.national_id} onChange={(e) => setForm({ ...form, national_id: e.target.value })} /></label>
                   <label>SĐT<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></label>
@@ -458,9 +459,9 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
                     </select>
                   </label>
                   <label>Số GPHN/CCHN<input value={form.license_number} onChange={(e) => setForm({ ...form, license_number: e.target.value })} /></label>
-                  <label>Ngày cấp GPHN/CCHN<input type="date" value={form.license_issued_at} onChange={(e) => setForm({ ...form, license_issued_at: e.target.value })} /></label>
+                  <label>Ngày cấp GPHN/CCHN<VnDateInput value={form.license_issued_at} onChange={(e) => setForm({ ...form, license_issued_at: e.target.value })} /></label>
                   <label>Nơi cấp GPHN/CCHN<input value={form.license_issued_by} onChange={(e) => setForm({ ...form, license_issued_by: e.target.value })} /></label>
-                  <label>Ngày hết hạn GPHN/CME<input type="date" value={form.license_expiry_date} onChange={(e) => setForm({ ...form, license_expiry_date: e.target.value })} /></label>
+                  <label>Ngày hết hạn GPHN/CME<VnDateInput value={form.license_expiry_date} onChange={(e) => setForm({ ...form, license_expiry_date: e.target.value })} /></label>
 
                   <label className="span-2">Phạm vi hành nghề / HĐCM<textarea rows={2} value={form.scope_of_practice} onChange={(e) => setForm({ ...form, scope_of_practice: e.target.value })} /></label>
                   <label className="span-2">Kỹ thuật chuyên môn đề xuất<textarea rows={2} value={form.proposed_technique} onChange={(e) => setForm({ ...form, proposed_technique: e.target.value })} /></label>
@@ -471,9 +472,9 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
                 <fieldset>
                   <legend>Quyết định phân công</legend>
                   <div className="form-grid two">
-                    <label>Ngày đăng ký hành nghề<input type="date" value={form.registration_date} onChange={(e) => setForm({ ...form, registration_date: e.target.value })} /></label>
+                    <label>Ngày đăng ký hành nghề<VnDateInput value={form.registration_date} onChange={(e) => setForm({ ...form, registration_date: e.target.value })} /></label>
                     <label>Số quyết định phân công<input value={form.decision_no} onChange={(e) => setForm({ ...form, decision_no: e.target.value })} /></label>
-                    <label>Ngày ký quyết định<input type="date" value={form.decision_signed_at} onChange={(e) => setForm({ ...form, decision_signed_at: e.target.value })} /></label>
+                    <label>Ngày ký quyết định<VnDateInput value={form.decision_signed_at} onChange={(e) => setForm({ ...form, decision_signed_at: e.target.value })} /></label>
                     <label>Người ký<input value={form.decision_signed_by} onChange={(e) => setForm({ ...form, decision_signed_by: e.target.value })} /></label>
                     <label>
                       Trạng thái quyết định
@@ -549,7 +550,7 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
                       <label>Tên<input value={docDraft.title} onChange={(e) => setDocDraft({ ...docDraft, title: e.target.value })} /></label>
                       <label>Chuyên ngành (nếu có)<input value={docDraft.specialization} onChange={(e) => setDocDraft({ ...docDraft, specialization: e.target.value })} /></label>
                       <label>Số hiệu/Số QĐ<input value={docDraft.document_no} onChange={(e) => setDocDraft({ ...docDraft, document_no: e.target.value })} /></label>
-                      <label>Ngày cấp<input type="date" value={docDraft.issued_at} onChange={(e) => setDocDraft({ ...docDraft, issued_at: e.target.value })} /></label>
+                      <label>Ngày cấp<VnDateInput value={docDraft.issued_at} onChange={(e) => setDocDraft({ ...docDraft, issued_at: e.target.value })} /></label>
                       <label>Nơi cấp<input value={docDraft.issued_by} onChange={(e) => setDocDraft({ ...docDraft, issued_by: e.target.value })} /></label>
                       <label className="span-2">Ghi chú<input value={docDraft.note} onChange={(e) => setDocDraft({ ...docDraft, note: e.target.value })} /></label>
                     </div>

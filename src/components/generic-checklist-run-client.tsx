@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type ItemOption = { id: string; option_code: string; option_label: string; option_value: string };
 type Item = { id: string; content: string; answer_type: string | null; allow_na: boolean; options: ItemOption[] };
 type Section = { id: string; title: string; items: Item[] };
@@ -110,7 +111,7 @@ export function GenericChecklistRunClient({
         <h2 style={{ margin: "5px 0 6px" }}>Nhập kết quả chấm điểm</h2>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 10 }}>
-        <label><span>Ngày giám sát</span><input type="date" value={monitoringDate} onChange={(e) => setMonitoringDate(e.target.value)} /></label>
+        <label><span>Ngày giám sát</span><VnDateInput value={monitoringDate} onChange={(e) => setMonitoringDate(e.target.value)} /></label>
         <label><span>Người thực hiện</span><input value={staffName} onChange={(e) => setStaffName(e.target.value)} placeholder="Họ và tên" /></label>
         <label><span>Khoa/phòng hoặc đối tượng được đánh giá</span><input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Ví dụ: Khoa Nội tổng hợp" /></label>
       </div>

@@ -10,6 +10,7 @@ import { MultiCheckSelect } from "@/components/multi-check-select";
 import { useCreateModalSignal } from "@/components/create-modal-signal";
 import { formatDate } from "@/lib/format";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type PlanRow = {
   id: string; record_id: string; record_code: string; title: string; program_type: string; objective: string | null;
   start_date: string | null; end_date: string | null; lead_department_id: string | null; owner_user_id: string | null;
@@ -104,8 +105,8 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
             </div>
             <div className="form-grid two" style={{ gap: 16 }}>
               <label className="span-2"><span>Tên kế hoạch *</span><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={`Ví dụ: Kế hoạch hoạt động quản lý chất lượng bệnh viện năm ${year}`} /></label>
-              <label><span>Ngày bắt đầu</span><input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></label>
-              <label><span>Ngày kết thúc</span><input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></label>
+              <label><span>Ngày bắt đầu</span><VnDateInput value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></label>
+              <label><span>Ngày kết thúc</span><VnDateInput value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></label>
             </div>
           </section>
 

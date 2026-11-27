@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 import { incidentHarmClassification, incidentDomainDistribution } from "@/lib/incident-dashboard";
 
+import { VnDateInput } from "@/components/vn-date-input";
 const CLOSED = new Set(["CANCELLED", "ARCHIVED", "INACTIVE", "RETIRED"]);
 
 function todayHcm() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()); }
@@ -344,8 +345,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <p>{greeting.dateLabel} · Trung tâm Điều hành Chất lượng — theo dõi, phân tích và quản lý tổng thể các hoạt động chất lượng, an toàn người bệnh</p>
       </div>
       <form className="scope-controls" method="get">
-        <input type="date" name="from" defaultValue={from} max={today} className="button secondary" title="Từ ngày" />
-        <input type="date" name="asOf" defaultValue={today} max={todayHcm()} className="button secondary" title="Đến ngày" />
+        <VnDateInput name="from" defaultValue={from} max={today} className="button secondary" title="Từ ngày" />
+        <VnDateInput name="asOf" defaultValue={today} max={todayHcm()} className="button secondary" title="Đến ngày" />
         {isHospitalScope ? <select name="dept" defaultValue={selectedDept} className="button secondary"><option value="">Toàn bệnh viện</option>{((departmentsRes.data ?? []) as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.short_name || d.name}</option>)}</select> : null}
         <button type="submit" className="button primary">Áp dụng</button>
       </form>

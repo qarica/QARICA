@@ -6,6 +6,7 @@ import { Icon } from "@/components/icon";
 import { KpiCard, type KpiTone } from "@/components/kpi-card";
 import { categoriesReferencing, EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, formatBooleanValue, formatSequenceStep, formatSequenceValue, parseSequenceStep, sequenceSteps, SEQUENCE_SEPARATOR, SEQUENCE_STEP_METHOD_SEPARATOR, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Item = { id: string; category: string; title: string; description: string | null; status: string; department_ids:string[]; owner_department_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; publish_status: string; published_at: string | null; published_by: string | null; created_at: string; updated_at: string };
 
 function toggleId(ids: string[], id: string) { return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]; }
@@ -901,7 +902,7 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
                 <small className="muted">Phạm vi áp dụng theo khoa/phòng cho biểu mẫu này được quản lý ở màn hình &quot;Phạm vi áp dụng&quot; (nút trên thanh công cụ), không chỉnh ở đây.</small>
               )}
               <label>Đơn vị phụ trách<select value={form.owner_department_id} onChange={(e)=>setForm({...form,owner_department_id:e.target.value})}><option value="">— Chưa gán —</option>{departments.map(d=><option key={d.id} value={d.id}>{d.short_name||d.name}</option>)}</select></label>
-              <label>Hạn hoàn thành<input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></label>
+              <label>Hạn hoàn thành<VnDateInput value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></label>
               <label className="inline-check"><input type="checkbox" checked={form.is_go_live_gate} onChange={(e) => setForm({ ...form, is_go_live_gate: e.target.checked })} /> Điều kiện bắt buộc trước Go-live</label>
               <label>Minh chứng / liên kết xác minh<input value={form.evidence_url} onChange={(e) => setForm({ ...form, evidence_url: e.target.value, verify_completed:false })} placeholder="URL hoặc tham chiếu minh chứng" /></label>
               {editing&&form.status==="DONE"&&form.evidence_url?<label className="inline-check"><input type="checkbox" checked={form.verify_completed} onChange={(e)=>setForm({...form,verify_completed:e.target.checked})}/> Xác minh hoàn thành dựa trên minh chứng</label>:null}

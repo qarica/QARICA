@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DictationTextarea } from "@/components/dictation-textarea";
 
+import { VnDateInput } from "@/components/vn-date-input";
 export function FindingWorkflowClient({ recordId, status, canOperate, canManage, actionCount, incompleteActionCount, evidenceCount }: { recordId: string; status: string; canOperate: boolean; canManage: boolean; actionCount: number; incompleteActionCount: number; evidenceCount: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -42,7 +43,7 @@ export function FindingWorkflowClient({ recordId, status, canOperate, canManage,
     {error ? <div className="alert error fw-error">{error}</div> : null}
     {mode ? <form className="fw-modal" onSubmit={submitReview}><strong>{mode === "ACCEPT" ? "Xác nhận kết quả khắc phục" : mode === "RETURN" ? "Trả lại để bổ sung" : "Chuyển Finding thành CAPA"}</strong><div className="form-grid two">
       <label className="span-2">Nhận xét *<DictationTextarea rows={3} value={comment} onValueChange={setComment} disabled={busy} placeholder="Ghi rõ căn cứ xác minh/quyết định" /></label>
-      {mode === "RETURN" ? <label>Hạn bổ sung tiếp theo<input name="next_due_date" type="date" required /></label> : null}
+      {mode === "RETURN" ? <label>Hạn bổ sung tiếp theo<VnDateInput name="next_due_date" required /></label> : null}
       {mode === "ESCALATE_CAPA" ? <label>Mức ưu tiên CAPA<select name="capa_priority" defaultValue="HIGH"><option value="NORMAL">Bình thường</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn</option><option value="CRITICAL">Rất khẩn / trọng yếu</option></select></label> : null}
     </div><div className="fw-modal-buttons"><button className="button tertiary" type="button" onClick={() => { setMode(null); setComment(""); }}>Đóng</button><button className="button" disabled={busy || !comment.trim()} type="submit">{busy?"Đang lưu…":"Xác nhận"}</button></div></form> : null}
   </section>;

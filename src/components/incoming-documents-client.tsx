@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
+import { VnDateInput } from "@/components/vn-date-input";
 import {
   AssignmentTargetSelect,
   AssignmentTargetsMultiSelect,
@@ -352,7 +353,7 @@ export function IncomingDocumentsClient({
             <div className="doc-form-row">
               <label className="doc-task-field">
                 <span>Ngày đến</span>
-                <input className="input" type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />
+                <VnDateInput className="input" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} />
               </label>
               <label className="doc-task-field">
                 <span>Cơ quan ban hành</span>
@@ -377,7 +378,7 @@ export function IncomingDocumentsClient({
               </label>
               <label className="doc-task-field">
                 <span>Hạn xử lý (tùy chọn)</span>
-                <input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                <VnDateInput className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               </label>
             </div>
             {error ? <div className="alert error">{error}</div> : null}
@@ -487,9 +488,9 @@ export function IncomingDocumentsClient({
                     </td>
                     <td data-label="Hạn xử lý">
                       {editing ? (
-                        <input
+                        <VnDateInput
                           className="input"
-                          type="date"
+                         
                           value={String(editDraft.due_date ?? "")}
                           onChange={(e) => setEditDraft((v) => ({ ...v, due_date: e.target.value }))}
                         />
@@ -509,9 +510,9 @@ export function IncomingDocumentsClient({
                       <td data-label="Thao tác">
                         {editing ? (
                           <div className="doc-edit-actions">
-                            <input
+                            <VnDateInput
                               className="input"
-                              type="date"
+                             
                               placeholder="Ngày hoàn thành"
                               value={String(editDraft.completed_at ?? "")}
                               onChange={(e) => setEditDraft((v) => ({ ...v, completed_at: e.target.value }))}
@@ -589,7 +590,7 @@ export function IncomingDocumentsClient({
                                   placeholder="Thêm người phối hợp..."
                                 />
                               </label>
-                              <input className="input" type="date" title="Hạn hoàn thành" value={taskForm.dueDate} onChange={(e) => setTaskForm((f) => ({ ...f, dueDate: e.target.value }))} />
+                              <VnDateInput className="input" title="Hạn hoàn thành" value={taskForm.dueDate} onChange={(e) => setTaskForm((f) => ({ ...f, dueDate: e.target.value }))} />
                               <textarea className="input" placeholder="Mô tả thêm (không bắt buộc)" value={taskForm.description} onChange={(e) => setTaskForm((f) => ({ ...f, description: e.target.value }))} />
                               <button type="button" className="button primary small" disabled={taskBusy || !taskForm.title.trim() || !taskForm.leadUserId} onClick={() => void createTask(doc)}>
                                 {taskBusy ? "Đang giao..." : "Giao công việc"}

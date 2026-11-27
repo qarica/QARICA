@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 
+import { VnDateInput } from "@/components/vn-date-input";
 export function MonitoringScheduleClient({ versionId, canPerform }: { versionId: string | null; canPerform: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -74,7 +75,7 @@ export function MonitoringScheduleClient({ versionId, canPerform }: { versionId:
           {message ? <div className="alert error" style={{ marginBottom: 12 }}>{message}</div> : null}
           <label style={{ display: "grid", gap: 8 }}>
             <span style={{ fontWeight: 700 }}>Ngày giám sát *</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ minHeight: 52, fontSize: 16 }} />
+            <VnDateInput value={date} onChange={(e) => setDate(e.target.value)} style={{ minHeight: 52, fontSize: 16 }} />
           </label>
         </div>
 

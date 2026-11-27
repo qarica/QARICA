@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { MultiCheckSelect } from "@/components/multi-check-select";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Group={id:string;code:string|null;name:string;group_type:string;description:string|null;lead_department_id:string|null;leader_user_id:string|null;valid_from:string|null;valid_to:string|null;is_active:boolean};
 type Member={id:string;group_id:string;user_id:string;member_role:string;is_active:boolean};
 type Department={id:string;name:string;short_name:string|null};
@@ -97,8 +98,8 @@ export function WorkGroupsClient({canManage,groups,members,departments,profiles}
       <div className="form-grid two" style={{marginTop:10}}>
        <label>Mã nhóm<input value={form.code} onChange={e=>setForm({...form,code:e.target.value})} placeholder="Tự chọn nếu cần"/></label>
        <label>Loại nhóm<select value={form.group_type} onChange={e=>setForm({...form,group_type:e.target.value})}>{Object.entries(TYPE_LABELS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
-       <label>Hiệu lực từ<input type="date" value={form.valid_from} onChange={e=>setForm({...form,valid_from:e.target.value})}/></label>
-       <label>Đến<input type="date" value={form.valid_to} onChange={e=>setForm({...form,valid_to:e.target.value})}/></label>
+       <label>Hiệu lực từ<VnDateInput value={form.valid_from} onChange={e=>setForm({...form,valid_from:e.target.value})}/></label>
+       <label>Đến<VnDateInput value={form.valid_to} onChange={e=>setForm({...form,valid_to:e.target.value})}/></label>
        <label className="span-2">Mô tả<textarea rows={3} value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></label>
       </div>
      </details>

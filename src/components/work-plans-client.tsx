@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { EISENHOWER_ACTION, EISENHOWER_LABEL, EISENHOWER_QUADRANTS, EISENHOWER_TONE, type EisenhowerQuadrant } from "@/lib/eisenhower";
 
+import { VnDateInput } from "@/components/vn-date-input";
 type Staff = { id: string; name: string };
 type Raci = { id: string; work_plan_item_id: string; user_id: string; raci_role: "R" | "A" | "C" | "I" };
 type Item = {
@@ -258,7 +259,7 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
                 <input className="input" placeholder="Chỉ tiêu đo lường được (Measurable)..." value={smartMeasurable} onChange={(e) => setSmartMeasurable(e.target.value)} />
                 <label>
                   <span>Hạn chót (Time-bound)</span>
-                  <input className="input" type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
+                  <VnDateInput className="input" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
                 </label>
               </div>
               <button className="button primary small" disabled={busy || !title.trim()} onClick={() => void createPlan()}>
@@ -428,7 +429,7 @@ export function WorkPlansClient({ initialPlans, staffRoster, canManage }: { init
                         <input className="input" placeholder="Như thế nào (How)..." value={itemHow} onChange={(e) => setItemHow(e.target.value)} />
                         <label>
                           <span>Khi nào (When)</span>
-                          <input className="input" type="date" value={itemDue} onChange={(e) => setItemDue(e.target.value)} />
+                          <VnDateInput className="input" value={itemDue} onChange={(e) => setItemDue(e.target.value)} />
                         </label>
                       </div>
                       <label>
