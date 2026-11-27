@@ -70,3 +70,20 @@ describe("hộp chuyển việc: lựa chọn gõ tên tự do chỉ hiện sau 
     expect(read("src/components/work-reassign-button.tsx")).toContain('source !== "WORK_PLAN" && list !== null && q.trim().length >= 2');
   });
 });
+
+describe("Việc của tôi đồng bộ việc giao từ module Công văn đến", () => {
+  const page = read("src/app/(app)/tasks/page.tsx");
+  it("đọc trực tiếp incoming_document_tasks theo Chủ trì hoặc Phối hợp, không sao chép sang bảng khác", () => {
+    expect(page).toContain('from("incoming_document_tasks")');
+    expect(page).toContain("lead_user_id.eq.${user.id},collaborating_user_ids.cs.{${user.id}}");
+    expect(page).not.toMatch(/insert\(.*incoming_document/);
+  });
+  it("hàng có nhãn Chủ trì/Phối hợp, hạn lấy từ việc (dự phòng hạn công văn), gộp vào danh sách việc được giao", () => {
+    expect(page).toContain('`Công văn đến · ${t.lead_user_id===user.id?"Chủ trì":"Phối hợp"}`');
+    expect(page).toContain("const dueDate=t.due_date||doc?.due_date||null;");
+    expect(page).toContain("...unifiedWorkPlanRows,...unifiedIncomingRows]");
+  });
+  it("liên kết về /incoming-documents khi có quyền xem công văn", () => {
+    expect(page).toContain('href:canOpenIncoming?"/incoming-documents":"/tasks"');
+  });
+});
