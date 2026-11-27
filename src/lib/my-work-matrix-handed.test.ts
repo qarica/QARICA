@@ -121,3 +121,19 @@ describe("Chờ phản hồi cho việc cá nhân + nhắc đến hạn hỏi l�
     expect(read("src/app/api/cron/sync-notifications/route.ts")).toContain("syncWorkFollowupDueForUser(admin, userId)");
   });
 });
+
+describe("Hoàn tất việc công văn ngay trong Việc của tôi", () => {
+  it("API chỉ cho Chủ trì/Phối hợp của chính việc đó, ghi vào incoming_document_tasks và nhật ký", () => {
+    const api = read("src/app/api/work/incoming-task/route.ts");
+    expect(api).toContain('requireApiContext("tasks.view")');
+    expect(api).toContain("task.lead_user_id === auth.user.id || (task.collaborating_user_ids ?? []).includes(auth.user.id)");
+    expect(api).toContain('from("incoming_document_tasks")');
+    expect(api).toContain("INCOMING_TASK_COMPLETE_FROM_MY_WORK");
+    expect(api).toContain("task.organization_id === organizationId");
+  });
+  it("hàng công văn có nút Hoàn tất/Mở lại ở cả bảng và thẻ điện thoại", () => {
+    const page = read("src/app/(app)/tasks/page.tsx");
+    expect(page).toContain('r.source==="incoming_task"&&r.sourceId?<IncomingTaskCompleteButton');
+    expect((page.match(/<>\{incomingBtn\(r\)\}\{reassignBtn\(r\)\}<\/>/g) || []).length).toBe(2);
+  });
+});
