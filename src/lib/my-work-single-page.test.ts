@@ -12,13 +12,14 @@ describe("Việc của tôi: một trang duy nhất + ngày dd/mm/yyyy", () => {
   it("thanh điều hướng Lịch không còn tab Việc của tôi", () => {
     expect(read("src/app/(app)/calendar/layout.tsx")).not.toContain("/calendar/my-work");
   });
-  it.each(["src/components/personal-reminders.tsx", "src/components/unified-personal-task-actions.tsx"])("%s dùng LabDateInput, không dùng input type=date", (p) => {
+  it.each(["src/components/personal-reminders.tsx", "src/components/unified-personal-task-actions.tsx"])("%s dùng VnDateInput (không dùng ô ngày của Kho), không dùng input type=date", (p) => {
     const c = read(p);
-    expect(c).toContain("LabDateInput");
+    expect(c).toContain("VnDateInput");
+    expect(c).not.toContain("LabDateInput");
     expect(c).not.toContain('type="date"');
   });
   it("CSS ô ngày dùng chung có trong globals.css", () => {
-    expect(read("src/app/globals.css")).toContain(".ls-date>input[type=text]");
+    expect(read("src/app/globals.css")).toContain(".vn-date>input[type=text]");
   });
 });
 
