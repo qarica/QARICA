@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/icon";
+import type { SupplyKind } from "../lib/lab-supplies";
 
 type PreviewRow = { rowNumber: number; code: string; name: string; errors: string[] };
 type Summary = { total: number; valid: number; invalid: number };
 
 // Nhập danh mục vật tư từ Excel/CSV: chọn file → "Xem trước" (KHÔNG ghi) → xác nhận mới ghi các dòng hợp lệ.
-export function LabImportDialog({ onClose, onImported }: { onClose: () => void; onImported: (message: string) => void }) {
+export function LabImportDialog({ supplyKind, onClose, onImported }: { supplyKind: SupplyKind; onClose: () => void; onImported: (message: string) => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [rows, setRows] = useState<PreviewRow[] | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -22,6 +23,7 @@ export function LabImportDialog({ onClose, onImported }: { onClose: () => void; 
       const form = new FormData();
       form.set("file", file);
       form.set("mode", mode);
+      form.set("kind", supplyKind);
       const res = await fetch("/api/lab-supplies/items/import", { method: "POST", body: form });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {

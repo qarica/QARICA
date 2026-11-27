@@ -45,3 +45,13 @@ export function personalReminderQuadrant(priority: string, dueDateOnly: string |
   const urgent = !!dueDateOnly && dueDateOnly <= todayDateOnly;
   return eisenhowerQuadrant({ important, urgent });
 }
+
+// Việc trong "Việc của tôi" (mọi nguồn: Action, EMR, kế hoạch, việc cá nhân): quan trọng = ưu tiên
+// Cao/Khẩn/Rất khẩn; khẩn cấp = đã quá hạn hoặc hạn trong 2 ngày tới (dateStr dạng YYYY-MM-DD).
+export function workRowQuadrant(priority: string | null, dueDateOnly: string | null, todayDateOnly: string): EisenhowerQuadrant {
+  const important = priority === "HIGH" || priority === "URGENT" || priority === "CRITICAL";
+  const [y, m, d] = todayDateOnly.split("-").map(Number);
+  const limit = new Date(Date.UTC(y, m - 1, d + 2)).toISOString().slice(0, 10);
+  const urgent = !!dueDateOnly && dueDateOnly <= limit;
+  return eisenhowerQuadrant({ important, urgent });
+}

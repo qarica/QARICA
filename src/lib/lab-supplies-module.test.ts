@@ -118,7 +118,7 @@ describe("API /api/lab-supplies — ranh giới view/manage nhất quán, lọc 
 
 describe("Trang /lab-supplies, điều hướng độc lập và UI", () => {
   it("page.tsx chặn truy cập bằng lab_supplies.view trước khi tải dữ liệu, đọc tồn từ view", () => {
-    const page = read("src/app/(app)/lab-supplies/page.tsx");
+    const page = read("src/components/lab-supplies-kind-page.tsx");
     expect(page).toContain('requirePermission(user, "lab_supplies.view")');
     expect(page).toContain("lab_supply_lot_balances");
     expect(page).toContain('.eq("organization_id", user.organizationId)');
@@ -127,9 +127,10 @@ describe("Trang /lab-supplies, điều hướng độc lập và UI", () => {
   it("navigation.ts có nhóm menu riêng, gắn đúng quyền xem, không trộn vào menu khác", () => {
     const nav = read("src/lib/navigation.ts");
     expect(nav).toContain('id: "lab-supplies"');
-    expect(nav).toContain('href: "/lab-supplies"');
+    expect(nav).toContain('href: "/lab-supplies/hoa-chat"');
+    expect(nav).toContain('href: "/lab-supplies/vat-tu"');
     expect(nav).toContain('permission: "lab_supplies.view"');
-    expect(nav.match(/href: "\/lab-supplies"/g)?.length).toBe(1);
+    expect(nav.match(/href: "\/lab-supplies\//g)?.length).toBe(2);
   });
 
   const client = read("src/components/lab-supplies-client.tsx");
@@ -170,5 +171,30 @@ describe("Trang /lab-supplies, điều hướng độc lập và UI", () => {
     const sql = readFileSync("supabase/migrations/20261202000003_lab_supplies_reason_required_v1.sql", "utf8");
     expect(sql).toContain("lab_supply_movements_reason_required_check");
     expect(sql).toContain("movement_type in ('RECEIPT', 'ISSUE') or reason_code is not null");
+  });
+});
+
+describe("Tách Kho thành 2 menu: Kho hóa chất và Kho vật tư (cùng dữ liệu, lọc theo nhóm hàng)", () => {
+  const lib = read("src/lib/lab-supplies.ts");
+  it("mỗi nhóm hàng thuộc đúng 1 kho, không sót, không trùng", () => {
+    expect(lib).toContain('chemical: ["REAGENT", "CONTROL_CALIBRATOR"]');
+    expect(lib).toContain('supply: ["CONSUMABLE", "OTHER"]');
+  });
+  it("2 route con dùng chung 1 trang server; /lab-supplies chỉ chuyển hướng", () => {
+    expect(read("src/app/(app)/lab-supplies/hoa-chat/page.tsx")).toContain('kind="chemical"');
+    expect(read("src/app/(app)/lab-supplies/vat-tu/page.tsx")).toContain('kind="supply"');
+    expect(read("src/app/(app)/lab-supplies/page.tsx")).toContain('redirect("/lab-supplies/hoa-chat")');
+    const page = read("src/components/lab-supplies-kind-page.tsx");
+    expect(page).toContain('.in("category", KIND_CATEGORIES[kind])');
+    expect(page).toContain("itemIds.has(l.item_id)");
+    expect(page).toContain("itemIds.has(m.item_id)");
+  });
+  it("xuất Excel/báo cáo/nhập danh mục đều nhận ?kind= và chỉ xử lý đúng nhóm hàng của kho đó", () => {
+    expect(read("src/app/api/lab-supplies/export/route.ts")).toContain('parseSupplyKind(params.get("kind"))');
+    expect(read("src/app/api/lab-supplies/report/route.ts")).toContain("categoryInKind(r.category, kind)");
+    expect(read("src/app/api/lab-supplies/items/import/route.ts")).toContain("categoryInKind(r.item.category, kind)");
+  });
+  it("form danh mục chỉ cho chọn nhóm thuộc kho đang mở", () => {
+    expect(read("src/components/lab-supplies-catalog.tsx")).toContain("KIND_CATEGORIES[supplyKind].map((c) =>");
   });
 });

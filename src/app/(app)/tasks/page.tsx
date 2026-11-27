@@ -6,6 +6,10 @@ import { Icon } from "@/components/icon";
 import { MyWorkSyncClient } from "@/components/my-work-sync-client";
 import { MyWorkExportButton } from "@/components/my-work-export-button";
 import { MyWorkKanban, type MyWorkKanbanRow } from "@/components/my-work-kanban";
+import { MyWorkMatrix } from "@/components/my-work-matrix";
+import { MyWorkHanded } from "@/components/my-work-handed";
+import { loadHandedWork } from "@/lib/my-work-handed";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { WorkReassignButton } from "@/components/work-reassign-button";
 import { workKanbanColumn } from "@/lib/my-work-kanban";
 import { WorkFollowupControl } from "@/components/work-followup-control";
@@ -52,16 +56,16 @@ function workCue(row:any){const days=Number(row.days_to_due||0);if(row.is_overdu
 function dueOrCompletedLabel(row:{isDone:boolean;completedAt:string|null;dueDate:string|null}){if(row.isDone)return row.completedAt?`Hoàn thành: ${formatDate(row.completedAt)}`:"Đã hoàn thành";return row.dueDate?formatDate(row.dueDate):"Không có hạn"}
 const ACTION_SELECT="action_id,record_id,record_code,title,work_year,workflow_status,priority,due_date,is_overdue,days_to_due,lead_department_id,assignee_user_id,assignment_target_type,assignee_group_id,updated_at,created_at";
 
-export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string;q?:string;page?:string;week?:string;view?:string}>}){
+export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string;q?:string;page?:string;week?:string;month?:string;view?:string}>}){
  const {user}=await requireUserContext();requirePermission(user,"tasks.view");const year=await getWorkYear();const supabase=await createClient();const today=hcmToday();
- const {tab:rawTab,q:rawQ,page:rawPage,week:rawWeek,view:rawView}=await searchParams;
+ const {tab:rawTab,q:rawQ,page:rawPage,week:rawWeek,month:rawMonth,view:rawView}=await searchParams;
  // Cách xem: danh sách (mặc định) hoặc Kanban theo hạn — cùng dữ liệu, cùng bộ lọc tab/tìm kiếm/tuần.
- const view:"list"|"kanban"=String(rawView).toLowerCase()==="kanban"?"kanban":"list";
- const viewParam=view==="kanban"?"&view=kanban":"";
+ const rawViewKey=String(rawView).toLowerCase();const view:"list"|"kanban"|"matrix"=rawViewKey==="kanban"?"kanban":rawViewKey==="matrix"?"matrix":"list";
+ const viewParam=view!=="list"?`&view=${view}`:"";
  // Bộ lọc nhanh hiện trên màn hình: Tất cả / Đang mở / Quá hạn / Hôm nay / 7 ngày tới / Chờ phản hồi / Đã xong (cùng cách xếp cột với Kanban).
  // REMINDER/ASSIGNED/WATCH không còn là nút nhưng vẫn được nhận để các liên kết cũ không hỏng.
- type WorkTab="ALL"|"OPEN"|"OVERDUE"|"TODAY"|"NEXT7"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE";
- const tab=(["ALL","OPEN","OVERDUE","TODAY","NEXT7","REMINDER","ASSIGNED","WAITING","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():(String(rawView).toLowerCase()==="kanban"?"ALL":"OPEN")) as WorkTab;
+ type WorkTab="HANDED"|"ALL"|"OPEN"|"OVERDUE"|"TODAY"|"NEXT7"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE";
+ const tab=(["HANDED","ALL","OPEN","OVERDUE","TODAY","NEXT7","REMINDER","ASSIGNED","WAITING","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():(String(rawView).toLowerCase()==="kanban"?"ALL":"OPEN")) as WorkTab;
  const searchQuery=String(rawQ||"").trim();
  const requestedPage=Number(rawPage ?? 1);
  const page=Number.isSafeInteger(requestedPage)&&requestedPage>0?requestedPage:1;
@@ -74,8 +78,22 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const weekStart=/^\d{4}-\d{2}-\d{2}$/.test(rawWeekValue)&&!Number.isNaN(Date.parse(rawWeekValue))?mondayOfWeek(rawWeekValue):null;
  const weekEnd=weekStart?addDays(weekStart,6):null;
  const thisWeekMonday=mondayOfWeek(today);
+ // Lọc theo THÁNG (?month=YYYY-MM): cùng ngữ nghĩa với lọc tuần (xong = hoàn thành trong tháng;
+ // chưa xong = còn mở, hạn đến hết tháng, gồm cả việc quá hạn từ trước). Tuần và tháng loại trừ nhau, tuần ưu tiên.
+ const rawMonthValue=String(rawMonth||"").trim();
+ const monthKey=!weekStart&&/^\d{4}-(0[1-9]|1[0-2])$/.test(rawMonthValue)?rawMonthValue:null;
+ const monthStart=monthKey?`${monthKey}-01`:null;
+ const monthEnd=monthKey?(()=>{const [y,m]=monthKey.split("-").map(Number);return `${monthKey}-${String(new Date(Date.UTC(y,m,0)).getUTCDate()).padStart(2,"0")}`})():null;
+ const thisMonthKey=today.slice(0,7);
+ const shiftMonth=(k:string,d:number)=>{const [y,m]=k.split("-").map(Number);const dt=new Date(Date.UTC(y,m-1+d,1));return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,"0")}`};
+ const monthNavBase=monthKey||thisMonthKey;
+ const monthLabel=(k:string)=>`${k.slice(5,7)}/${k.slice(0,4)}`;
+ const pStart=weekStart||monthStart;const pEnd=weekEnd||monthEnd;
+ const periodParam=weekStart?`&week=${weekStart}`:monthKey?`&month=${monthKey}`:"";
+ const periodLabel=weekStart&&weekEnd?`tuần ${formatDate(weekStart)} – ${formatDate(weekEnd)}`:monthKey?`tháng ${monthLabel(monthKey)}`:"";
+ const monthHref=(k:string|null)=>{const params=new URLSearchParams();params.set("tab",tab);if(searchQuery)params.set("q",searchQuery);if(k)params.set("month",k);if(view!=="list")params.set("view",view);return `?${params.toString()}#all-work`};
  const weekNavBase=weekStart||thisWeekMonday;
- const weekHref=(w:string|null)=>{const params=new URLSearchParams();params.set("tab",tab);if(searchQuery)params.set("q",searchQuery);if(w)params.set("week",w);if(view==="kanban")params.set("view","kanban");return `?${params.toString()}#all-work`};
+ const weekHref=(w:string|null)=>{const params=new URLSearchParams();params.set("tab",tab);if(searchQuery)params.set("q",searchQuery);if(w)params.set("week",w);if(view!=="list")params.set("view",view);return `?${params.toString()}#all-work`};
  const isQlcl=user.roleCodes.includes("QLCL_MANAGER")||user.roleCodes.includes("HOI_DONG_QLCL");const isDepartmentHead=user.roleCodes.includes("DEPARTMENT_HEAD");
  const groupAssignmentRes=await supabase
   .from("work_group_assignment_snapshots")
@@ -227,16 +245,16 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  // chỉ việc mới phát sinh hạn đúng trong tuần đó. Báo cáo thực tế: lọc tuần
  // trước đây chỉ bắt hạn nằm trong [weekStart,weekEnd] nên các việc quá hạn
  // từ trước bị rớt khỏi danh sách "chưa xong".
- const weekScoped=weekStart&&weekEnd?searched.filter(r=>r.isDone?(!!r.completedAt&&r.completedAt>=weekStart&&r.completedAt<=weekEnd):(!!r.dueDate&&r.dueDate<=weekEnd)):searched;
+ const weekScoped=pStart&&pEnd?searched.filter(r=>r.isDone?(!!r.completedAt&&r.completedAt>=pStart&&r.completedAt<=pEnd):(!!r.dueDate&&r.dueDate<=pEnd)):searched;
  const totalPages=Math.max(1,Math.ceil(weekScoped.length/PAGE_SIZE));
  const currentPage=Math.min(page,totalPages);
  const tableRowsPage=weekScoped.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
  // Xuất Excel: TOÀN BỘ danh sách đang lọc (weekScoped — cùng nguồn với bảng, không cắt theo trang).
  const TAB_LABEL:Record<string,string>={ALL:"Tất cả",OPEN:"Chưa hoàn thành",DONE:"Đã hoàn thành",REMINDER:"Việc cá nhân",ASSIGNED:"Việc được giao",WAITING:"Chờ phản hồi",WATCH:"Cần theo dõi"};
  const exportRows=weekScoped.map(r=>{const f=r.followup;const note=typeof f==="string"?f:f&&typeof f==="object"?[f.state==="WAITING"?`Đang chờ${f.waiting_for_label?`: ${f.waiting_for_label}`:""}`:"",f.note||""].filter(Boolean).join(" — "):"";return{title:r.title,type:r.typeLabel,relatedTo:r.relatedTo,createdAt:r.createdAt?formatDate(r.createdAt):"—",priority:priorityLabel(r.priority),dueDate:r.dueDate?formatDate(r.dueDate):"—",completedAt:r.completedAt?formatDate(r.completedAt):"—",status:humanStatus(r.statusLabel),note}});
- const exportCaption=`Việc của tôi — ${TAB_LABEL[tab]}${weekStart&&weekEnd?` — tuần ${formatDate(weekStart)} – ${formatDate(weekEnd)}`:""}${searchQuery?` — tìm "${searchQuery}"`:""} (xuất ngày ${formatDate(today)})`;
- const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}${viewParam}#all-work`;
- const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}${viewParam}&page=${p}#all-work`;
+ const exportCaption=`Việc của tôi — ${TAB_LABEL[tab]}${periodLabel?` — ${periodLabel}`:""}${searchQuery?` — tìm "${searchQuery}"`:""} (xuất ngày ${formatDate(today)})`;
+ const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${periodParam}${viewParam}#all-work`;
+ const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${periodParam}${viewParam}&page=${p}#all-work`;
  // Báo cáo "việc nào đã xong, việc nào chưa xong" trong tuần: tính từ TOÀN BỘ
  // allWorkRows (không phụ thuộc tab đang mở) để luôn ra đúng 2 số này dù đang
  // xem tab nào — đã xong = hoàn thành trong tuần (completedAt, đúng khoảng
@@ -244,13 +262,14 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  // gồm cả việc đã quá hạn từ trước — không chỉ việc mới phát sinh hạn trong
  // tuần, nếu không sẽ bỏ sót đúng loại việc cần đôn đốc nhất). Không lọc theo
  // searchQuery vì đây là báo cáo tổng, không phải danh sách đang xem.
- const weekDoneRows=weekStart&&weekEnd?allWorkRows.filter(r=>r.isDone&&r.completedAt&&r.completedAt>=weekStart&&r.completedAt<=weekEnd):[];
- const weekPendingRows=weekStart&&weekEnd?allWorkRows.filter(r=>!r.isDone&&r.dueDate&&r.dueDate<=weekEnd):[];
+ const weekDoneRows=pStart&&pEnd?allWorkRows.filter(r=>r.isDone&&r.completedAt&&r.completedAt>=pStart&&r.completedAt<=pEnd):[];
+ const weekPendingRows=pStart&&pEnd?allWorkRows.filter(r=>!r.isDone&&r.dueDate&&r.dueDate<=pEnd):[];
+ const handed=await loadHandedWork(createAdminClient(),user.id);
  const colCounts={ALL:allWorkRows.length,OPEN:allWorkRows.filter(r=>!r.isDone).length,OVERDUE:allWorkRows.filter(r=>workKanbanColumn(r,today)==="OVERDUE").length,TODAY:allWorkRows.filter(r=>workKanbanColumn(r,today)==="TODAY").length,NEXT7:allWorkRows.filter(r=>workKanbanColumn(r,today)==="NEXT7").length,WAITING:waitingCount,DONE:allWorkRows.filter(r=>r.isDone).length};
  const reassignBtn=(r:UnifiedRow)=>r.canReassign&&r.reassignSource&&r.sourceId?<WorkReassignButton source={r.reassignSource} id={r.sourceId} title={r.title}/>:null;
- const viewHref=(v:"list"|"kanban")=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}${v==="kanban"?"&view=kanban":""}#all-work`;
+ const viewHref=(v:"list"|"kanban"|"matrix")=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${periodParam}${v!=="list"?`&view=${v}`:""}#all-work`;
  const kanbanRows:MyWorkKanbanRow[]=weekScoped.map(r=>({key:r.key,title:r.title,typeLabel:r.typeLabel,relatedTo:r.relatedTo,priority:r.priority,priorityLabel:priorityLabel(r.priority),priorityTone:priorityTone(r.priority),dueDate:r.dueDate,completedAt:r.completedAt,isDone:r.isDone,isOverdue:r.isOverdue,followup:r.followup,href:r.href}));
- const reportTabHref=(t:string)=>{const params=new URLSearchParams();params.set("tab",t);if(weekStart)params.set("week",weekStart);if(view==="kanban")params.set("view","kanban");return `?${params.toString()}#all-work`};
+ const reportTabHref=(t:string)=>{const params=new URLSearchParams();params.set("tab",t);if(weekStart)params.set("week",weekStart);if(monthKey)params.set("month",monthKey);if(view!=="list")params.set("view",view);return `?${params.toString()}#all-work`};
 
  return <div className="page-stack my-work-page tqm-my-work">
   <MyWorkSyncClient/>
@@ -266,6 +285,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   .tqm-my-work .kb-toggle-btn{padding:5px 14px;border-radius:8px;font-size:12px;font-weight:700;color:#52656d;text-decoration:none}
   .tqm-my-work .kb-toggle-btn.active{background:#fff;color:#0f172a;box-shadow:0 1px 2px rgba(15,23,42,.12)}
   .tqm-my-work .kb-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(172px,1fr));gap:12px;padding:12px 16px 16px;align-items:start}
+  .tqm-my-work .mx-note{margin:8px 16px 0;font-size:11px;color:#687a80}.tqm-my-work .mx-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:10px 16px 16px;align-items:start}.tqm-my-work .mx-col.tone-danger{border-top-color:#dc2626}.tqm-my-work .mx-col.tone-info{border-top-color:#3b82f6}.tqm-my-work .mx-col.tone-warning{border-top-color:#f59e0b}.tqm-my-work .mx-col.tone-muted{border-top-color:#94a3b8}.tqm-my-work .mx-action{padding:0 12px 4px;font-size:11px;font-weight:700;color:#52656d}@media(max-width:700px){.tqm-my-work .mx-board{grid-template-columns:1fr}}
   .tqm-my-work .kb-col{background:#f6f8fa;border:1px solid #e1e8ed;border-top:3px solid #94a3b8;border-radius:10px;min-width:0}
   .tqm-my-work .kb-col.danger{border-top-color:#dc2626}.tqm-my-work .kb-col.warning{border-top-color:#f59e0b}.tqm-my-work .kb-col.info{border-top-color:#3b82f6}.tqm-my-work .kb-col.wait{border-top-color:#8b5cf6}.tqm-my-work .kb-col.success{border-top-color:#16a34a}
   .tqm-my-work .kb-col-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px 6px;font-size:13px;color:#1e293b}
@@ -316,22 +336,23 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
   <PersonalReminders organizationId={user.organizationId!} userId={user.id}/>
     <section id="all-work" className="work-section">
      <nav className="work-tabs mw-chips" aria-label="Lọc việc nhanh">
-      {([["OPEN","Đang mở","",colCounts.OPEN],["OVERDUE","Quá hạn","danger",colCounts.OVERDUE],["TODAY","Hôm nay","warning",colCounts.TODAY],["NEXT7","7 ngày tới","",colCounts.NEXT7],["WAITING","Chờ phản hồi","",colCounts.WAITING],["DONE","Đã xong","",colCounts.DONE],["ALL","Tất cả","",colCounts.ALL]] as [string,string,string,number][]).map(([key,label,tone,count])=><Link key={key} href={tabHref(key)} className={`work-tab mw-chip ${tone} ${tab===key?"active":""}`} aria-current={tab===key?"true":undefined}>{label} <b>{count}</b></Link>)}
+      {([["OPEN","Đang mở","",colCounts.OPEN],["OVERDUE","Quá hạn","danger",colCounts.OVERDUE],["TODAY","Hôm nay","warning",colCounts.TODAY],["NEXT7","7 ngày tới","",colCounts.NEXT7],["WAITING","Chờ phản hồi","",colCounts.WAITING],["DONE","Đã xong","",colCounts.DONE],["ALL","Tất cả","",colCounts.ALL],["HANDED","Đã chuyển đi","",handed.rows.length]] as [string,string,string,number][]).map(([key,label,tone,count])=><Link key={key} href={tabHref(key)} className={`work-tab mw-chip ${tone} ${tab===key?"active":""}`} aria-current={tab===key?"true":undefined}>{label} <b>{count}</b></Link>)}
      </nav>
      <div className="kb-toggle" role="group" aria-label="Cách xem danh sách việc">
       <Link href={viewHref("list")} className={`kb-toggle-btn ${view==="list"?"active":""}`} aria-current={view==="list"?"true":undefined}>Danh sách</Link>
       <Link href={viewHref("kanban")} className={`kb-toggle-btn ${view==="kanban"?"active":""}`} aria-current={view==="kanban"?"true":undefined}>Kanban theo hạn</Link>
+      <Link href={viewHref("matrix")} className={`kb-toggle-btn ${view==="matrix"?"active":""}`} aria-current={view==="matrix"?"true":undefined}>Ma trận Eisenhower</Link>
      </div>
      <form method="get" className="work-search-row">
       <input type="hidden" name="tab" value={tab}/>
-      {view==="kanban"?<input type="hidden" name="view" value="kanban"/>:null}
-      {weekStart?<input type="hidden" name="week" value={weekStart}/>:null}
+      {view!=="list"?<input type="hidden" name="view" value={view}/>:null}
+      {weekStart?<input type="hidden" name="week" value={weekStart}/>:null}{monthKey?<input type="hidden" name="month" value={monthKey}/>:null}
       <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm theo tên công việc / hồ sơ..."/></div>
       <button type="submit" className="button secondary small">Tìm kiếm</button>
       <MyWorkExportButton rows={exportRows} caption={exportCaption} todayKey={today} weekStart={weekStart}/>
      </form>
-     <details className="mw-week" open={!!weekStart}>
-      <summary>{weekStart&&weekEnd?`Đang lọc tuần ${formatDate(weekStart)} – ${formatDate(weekEnd)}`:"Lọc / báo cáo theo tuần"}</summary>
+     <details className="mw-week" open={!!pStart}>
+      <summary>{periodLabel?`Đang lọc ${periodLabel}`:"Lọc / báo cáo theo tuần hoặc tháng"}</summary>
      <div className="week-filter-row">
       <div className="week-nav-controls">
        <Link href={weekHref(addDays(weekNavBase,-7))} className="week-nav-arrow" aria-label="Tuần trước" title="Tuần trước"><Icon name="arrow-left" size={16}/></Link>
@@ -343,8 +364,19 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
        {weekStart?<Link href={weekHref(null)} className="week-nav-link clear">Bỏ lọc tuần</Link>:null}
       </div>
      </div>
-     {weekStart&&weekEnd?<p className="week-filter-report" role="status">
-      Báo cáo tuần {formatDate(weekStart)} – {formatDate(weekEnd)}: <Link href={reportTabHref("DONE")} className="week-report-link done"><strong>{weekDoneRows.length} đã xong</strong></Link> · <Link href={reportTabHref("OPEN")} className="week-report-link pending"><strong>{weekPendingRows.length} chưa xong</strong></Link> <span className="muted">(đã xong = hoàn thành trong tuần; chưa xong = còn mở, có hạn trong tuần).</span>
+     <div className="week-filter-row">
+      <div className="week-nav-controls">
+       <Link href={monthHref(shiftMonth(monthNavBase,-1))} className="week-nav-arrow" aria-label="Tháng trước" title="Tháng trước"><Icon name="arrow-left" size={16}/></Link>
+       <span className="week-filter-label">{monthKey?`Tháng ${monthLabel(monthKey)}`:"Xem theo tháng"}</span>
+       <Link href={monthHref(shiftMonth(monthNavBase,1))} className="week-nav-arrow" aria-label="Tháng sau" title="Tháng sau"><Icon name="arrow-right" size={16}/></Link>
+      </div>
+      <div className="week-nav-links">
+       {monthKey!==thisMonthKey?<Link href={monthHref(thisMonthKey)} className="week-nav-link">Tháng này</Link>:null}
+       {monthKey?<Link href={monthHref(null)} className="week-nav-link clear">Bỏ lọc tháng</Link>:null}
+      </div>
+     </div>
+     {pStart&&pEnd?<p className="week-filter-report" role="status">
+      Báo cáo {periodLabel}: <Link href={reportTabHref("DONE")} className="week-report-link done"><strong>{weekDoneRows.length} đã xong</strong></Link> · <Link href={reportTabHref("OPEN")} className="week-report-link pending"><strong>{weekPendingRows.length} chưa xong</strong></Link> <span className="muted">(đã xong = hoàn thành trong {weekStart?"tuần":"tháng"}; chưa xong = còn mở, có hạn đến hết {weekStart?"tuần":"tháng"}).</span>
      </p>:null}
      </details>
      {/* Bỏ 3 cột theo phản hồi thực tế: ô chọn dòng (chưa từng gắn bulk action
@@ -352,7 +384,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
          (luôn "—" với note/việc cá nhân, không có chỗ nhập nên không có
          nghĩa gì để hiển thị). Thêm "Ngày giao việc" (createdAt) thay vào
          chỗ trống đó — cột này luôn có giá trị thật cho mọi dòng. */}
-     {view==="kanban"?<MyWorkKanban rows={kanbanRows} today={today}/>:<>
+     {tab==="HANDED"?<MyWorkHanded rows={handed.rows} error={handed.error}/>:view==="kanban"?<MyWorkKanban rows={kanbanRows} today={today}/>:view==="matrix"?<MyWorkMatrix rows={kanbanRows} today={today}/>:<>
      <div className="table-wrap all-table desktop-only"><table><thead><tr><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Ngày giao việc</th><th>Ưu tiên</th><th>Hạn xử lý / Hoàn thành</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td>{r.source==="reminder"||r.source==="legacy"?<PersonalTaskProgressTitle title={r.title} note={r.followup} taskId={r.sourceId!} source={r.source} ownerId={user.id}/>:<Link className="table-link" href={r.href}>{r.title}</Link>}</td><td>{r.typeLabel}</td><td>{r.createdAt?formatDate(r.createdAt):"—"}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":r.isDone?"text-success":""}>{dueOrCompletedLabel(r)}</td><td><StatusBadge status={r.statusLabel}/></td><td>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}>{reassignBtn(r)}</UnifiedPersonalTaskActions>:r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}{r.source==="reminder"||r.source==="legacy"?null:reassignBtn(r)}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={8}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
      <div className="mobile-only work-card-list">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.source==="reminder"||r.source==="legacy"?<PersonalTaskProgressTitle title={r.title} note={r.followup} taskId={r.sourceId!} source={r.source} ownerId={user.id}/>:r.title}</strong><small>{r.typeLabel} · Giao: {r.createdAt?formatDate(r.createdAt):"—"} · {dueOrCompletedLabel(r)}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}>{reassignBtn(r)}</UnifiedPersonalTaskActions>:<><Link className="button primary small" href={r.href}>Mở</Link>{r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</>}{r.source==="reminder"||r.source==="legacy"?null:reassignBtn(r)}</div></article>)}{!tableRowsPage.length?<div className="empty-state">Không có việc phù hợp.</div>:null}</div>
      {weekScoped.length?<div className="work-pagination"><span>Hiển thị {(currentPage-1)*PAGE_SIZE+1}-{Math.min(currentPage*PAGE_SIZE,weekScoped.length)} của {weekScoped.length} bản ghi</span><div className="work-pagination-pages">{Array.from({length:totalPages},(_,i)=>i+1).map(p=><Link key={p} href={pageHref(p)} className={`button small ${p===currentPage?"primary":"secondary"}`}>{p}</Link>)}</div></div>:null}

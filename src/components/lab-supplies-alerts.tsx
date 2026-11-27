@@ -2,14 +2,14 @@
 
 import { useMemo } from "react";
 import { Icon } from "@/components/icon";
-import { summarizeStockAlerts, type KanbanColumnKey } from "../lib/lab-supplies";
+import { summarizeStockAlerts, type KanbanColumnKey, type SupplyKind } from "../lib/lab-supplies";
 import type { Item, Lot } from "./lab-supplies-types";
 
 /**
  * Banner nhắc việc ở đầu Kho: tính trực tiếp từ tồn và hạn dùng hiện có nên luôn đúng tại thời điểm mở màn hình
  * (không cần lịch chạy nền). Bấm vào từng mục để nhảy tới danh sách vật tư đã lọc sẵn ở tab Tồn kho.
  */
-export function LabAlertBanner({ items, lots, today, onPick }: { items: Item[]; lots: Lot[]; today: string; onPick: (key: KanbanColumnKey) => void }) {
+export function LabAlertBanner({ supplyKind, items, lots, today, onPick }: { supplyKind: SupplyKind; items: Item[]; lots: Lot[]; today: string; onPick: (key: KanbanColumnKey) => void }) {
   const s = useMemo(() => summarizeStockAlerts(items, lots, today), [items, lots, today]);
   if (s.total === 0) return null;
   const rows: { key: "EXPIRED" | "OUT" | "LOW" | "EXPIRING"; tone: string; text: string }[] = [
@@ -26,7 +26,7 @@ export function LabAlertBanner({ items, lots, today, onPick }: { items: Item[]; 
           <button key={r.key} type="button" className={`ls-alert-item ${r.tone}`} onClick={() => onPick(r.key)} title="Xem danh sách vật tư này ở tab Tồn kho">{r.text}</button>
         ))}
       </div>
-      {s.items.OUT + s.items.LOW > 0 ? <a className="ls-alert-link" href="/api/lab-supplies/export?type=replenish" download>Tải danh sách cần đặt hàng (.xlsx)</a> : null}
+      {s.items.OUT + s.items.LOW > 0 ? <a className="ls-alert-link" href={`/api/lab-supplies/export?type=replenish&kind=${supplyKind}`} download>Tải danh sách cần đặt hàng (.xlsx)</a> : null}
     </section>
   );
 }

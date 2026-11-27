@@ -1,6 +1,7 @@
 import { readSheet } from "read-excel-file/node";
 import { NextResponse } from "next/server";
 import { IMPORT_TEMPLATE_HEADERS, MAX_IMPORT_ROWS, parseItemRows } from "@/lib/lab-supplies-import";
+import { KIND_CATEGORIES, KIND_LABEL, categoryInKind, parseSupplyKind } from "@/lib/lab-supplies";
 import { buildImportTemplateSheets } from "@/lib/lab-supplies-export";
 import { XLSX_CONTENT_TYPE, sheetsToXlsx } from "@/lib/lab-supplies-xlsx";
 import { ITEM_SELECT, labSuppliesContext, writeAudit } from "@/lib/lab-supplies-api";
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
   const formData = await request.formData().catch(() => null);
   const file = formData?.get("file");
   const mode = String(formData?.get("mode") || "preview");
+  const kind = parseSupplyKind(formData?.get("kind"));
   if (!(file instanceof File)) return NextResponse.json({ error: "Vui lòng chọn file." }, { status: 400 });
   if (file.size <= 0) return NextResponse.json({ error: "File đang trống." }, { status: 400 });
   if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "Dung lượng file tối đa 5 MB." }, { status: 400 });
@@ -72,7 +74,10 @@ export async function POST(request: Request) {
   const existingCodes = new Set((itemsRes.data ?? []).map((i) => String(i.code).trim().toLowerCase()));
   const existingBarcodes = new Set((itemsRes.data ?? []).map((i) => String(i.barcode ?? "").trim().toLowerCase()).filter(Boolean));
 
-  const { results, missing } = parseItemRows(sheet, existingCodes, existingBarcodes);
+  const parsed = parseItemRows(sheet, existingCodes, existingBarcodes);
+  const missing = parsed.missing;
+  // Mỗi kho chỉ nhận đúng nhóm hàng của mình: dòng thuộc nhóm của kho kia bị báo lỗi, không ghi nhầm kho.
+  const results = parsed.results.map((r) => (r.item && !categoryInKind(r.item.category, kind) ? { ...r, item: null, errors: [...r.errors, `Nhóm không thuộc ${KIND_LABEL[kind!]} (kho này chỉ nhận: ${KIND_CATEGORIES[kind!].join(", ")})`] } : r));
   if (missing.length) return NextResponse.json({ error: `Không tìm thấy dòng tiêu đề có các cột bắt buộc: ${missing.join(", ")}. Hãy dùng file mẫu.` }, { status: 400 });
   if (!results.length) return NextResponse.json({ error: "File không có dòng dữ liệu nào." }, { status: 400 });
 

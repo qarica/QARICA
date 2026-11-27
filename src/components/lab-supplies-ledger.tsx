@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { LabItemCard } from "@/components/lab-supplies-item-card";
-import { MOVEMENT_LABEL, REASON_LABEL, formatQuantity, type MovementType, type SupplyCategory, fmtDate } from "../lib/lab-supplies";
+import { MOVEMENT_LABEL, REASON_LABEL, formatQuantity, type MovementType, type SupplyCategory, type SupplyKind, fmtDate } from "../lib/lab-supplies";
 import { LabDateInput } from "./lab-supplies-date-input";
 import { LEDGER_GUIDE, LabGuide } from "./lab-supplies-guide";
 import { callApi, itemLabel, num, resolveItem, type Item, type Movement } from "./lab-supplies-types";
@@ -14,7 +14,7 @@ type Sub = "ledger" | "card" | "report";
 
 // SỔ KHO & BÁO CÁO = mọi thứ "xem lại lịch sử" ở MỘT chỗ, 3 góc nhìn trên cùng một sổ:
 //   Phiếu (toàn bộ nhập/xuất theo thời gian) · Thẻ kho (lọc theo 1 vật tư, có tồn lũy kế) · Nhập–Xuất–Tồn theo kỳ.
-export function LabLedger({ movements, items, today, search, cardItemId, cardKey }: { movements: Movement[]; items: Item[]; today: string; search: string; cardItemId: string | null; cardKey: number }) {
+export function LabLedger({ supplyKind, movements, items, today, search, cardItemId, cardKey }: { supplyKind: SupplyKind; movements: Movement[]; items: Item[]; today: string; search: string; cardItemId: string | null; cardKey: number }) {
   const [sub, setSub] = useState<Sub>("ledger");
   const [type, setType] = useState<"" | MovementType>("");
   const [from, setFrom] = useState(`${today.slice(0, 4)}-01-01`);
@@ -57,7 +57,7 @@ export function LabLedger({ movements, items, today, search, cardItemId, cardKey
             <span className="ls-grow" />
             <label className="inline-check">Từ <LabDateInput label="Xuất từ ngày" max={today} value={from} onChange={setFrom} /></label>
             <label className="inline-check">đến <LabDateInput label="Xuất đến ngày" max={today} value={to} onChange={setTo} /></label>
-            <a className="button secondary" href={`/api/lab-supplies/export?type=ledger&from=${from}&to=${to}`} download><Icon name="download" size={16} /> Xuất Excel</a>
+            <a className="button secondary" href={`/api/lab-supplies/export?type=ledger&from=${from}&to=${to}&kind=${supplyKind}`} download><Icon name="download" size={16} /> Xuất Excel</a>
           </div>
           <p className="muted tiny ls-note">Hiển thị 300 phiếu gần nhất (Xuất Excel lấy đủ theo khoảng ngày). Sổ không sửa/xóa được — sai sót sửa bằng phiếu điều chỉnh ở chi tiết vật tư.</p>
           <div className="table-wrap">
@@ -97,12 +97,12 @@ export function LabLedger({ movements, items, today, search, cardItemId, cardKey
         </div>
       ) : null}
 
-      {sub === "report" ? <ReportView today={today} /> : null}
+      {sub === "report" ? <ReportView today={today} supplyKind={supplyKind} /> : null}
     </section>
   );
 }
 
-function ReportView({ today }: { today: string }) {
+function ReportView({ today, supplyKind }: { today: string; supplyKind: SupplyKind }) {
   const [from, setFrom] = useState(`${today.slice(0, 8)}01`);
   const [to, setTo] = useState(today);
   const [rows, setRows] = useState<ReportRow[] | null>(null);
@@ -113,7 +113,7 @@ function ReportView({ today }: { today: string }) {
     setBusy(true);
     setError("");
     try {
-      const json = await callApi(`/api/lab-supplies/report?from=${from}&to=${to}`, "GET");
+      const json = await callApi(`/api/lab-supplies/report?from=${from}&to=${to}&kind=${supplyKind}`, "GET");
       setRows(json.rows as ReportRow[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tải được báo cáo.");
@@ -130,7 +130,7 @@ function ReportView({ today }: { today: string }) {
         <label className="inline-check">Đến ngày <LabDateInput label="Báo cáo đến ngày" value={to} min={from} max={today} onChange={setTo} /></label>
         <button className="button primary" onClick={load} disabled={busy}><Icon name="refresh-cw" size={16} /> Xem báo cáo</button>
         <span className="ls-grow" />
-        <Link className="button secondary" href={`/api/lab-supplies/report?from=${from}&to=${to}&format=xlsx`}><Icon name="download" size={16} /> Xuất Excel</Link>
+        <Link className="button secondary" href={`/api/lab-supplies/report?from=${from}&to=${to}&format=xlsx&kind=${supplyKind}`}><Icon name="download" size={16} /> Xuất Excel</Link>
       </div>
       {error ? <div className="alert error">{error}</div> : null}
       <div className="table-wrap">

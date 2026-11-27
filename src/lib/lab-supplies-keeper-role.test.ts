@@ -15,7 +15,9 @@ describe("vai trò thủ kho: chỉ thấy menu Kho", () => {
     expect((sql.match(/'[a-z_]+\.[a-z_]+'/g) || []).filter((c) => !c.includes("lab_supplies"))).toEqual([]);
   });
   it("mục Kho trong menu chỉ cần lab_supplies.view", () => {
-    expect(read("src/lib/navigation.ts")).toContain('href: "/lab-supplies", icon: "droplets", permission: "lab_supplies.view"');
+    const nav = read("src/lib/navigation.ts");
+    expect(nav).toContain('href: "/lab-supplies/hoa-chat", icon: "droplets", permission: "lab_supplies.view"');
+    expect(nav).toContain('href: "/lab-supplies/vat-tu", icon: "archive", permission: "lab_supplies.view"');
   });
   it("trang đích sau đăng nhập và nơi trang bị từ chối chuyển về: người không có dashboard.view luôn được chuyển tới menu đầu tiên của họ, không bao giờ thấy Tổng quan", () => {
     const d = read("src/app/(app)/dashboard/page.tsx");

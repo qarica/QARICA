@@ -41,7 +41,7 @@ describe("fetchAllPages: đọc đủ mọi dòng dù máy chủ cắt ở 1.000
 
 describe("không còn truy vấn Kho nào bị cắt âm thầm ở 1.000 dòng", () => {
   const walk = (d: string): string[] => readdirSync(d).flatMap((f) => { const p = join(d, f); return statSync(p).isDirectory() ? walk(p) : p.endsWith(".ts") || p.endsWith(".tsx") ? [p] : []; });
-  const files = [...walk("src/app/api/lab-supplies"), "src/app/(app)/lab-supplies/page.tsx"];
+  const files = [...walk("src/app/api/lab-supplies"), "src/components/lab-supplies-kind-page.tsx"];
   it(".limit(n) với n > 1000 chỉ được dùng cùng fetchAllPages", () => {
     for (const f of files) {
       const src = readFileSync(f, "utf8");
@@ -49,11 +49,11 @@ describe("không còn truy vấn Kho nào bị cắt âm thầm ở 1.000 dòng"
     }
   });
   it("mọi nơi đọc vật tư / lô còn tồn / phiếu đầy đủ đều dùng fetchAllPages", () => {
-    const need: [string, number][] = [["src/app/(app)/lab-supplies/page.tsx", 2], ["src/app/api/lab-supplies/export/route.ts", 3], ["src/app/api/lab-supplies/items/route.ts", 1], ["src/app/api/lab-supplies/items/[id]/card/route.ts", 1], ["src/app/api/lab-supplies/items/import/route.ts", 1], ["src/app/api/lab-supplies/report/route.ts", 1]];
+    const need: [string, number][] = [["src/components/lab-supplies-kind-page.tsx", 2], ["src/app/api/lab-supplies/export/route.ts", 3], ["src/app/api/lab-supplies/items/route.ts", 1], ["src/app/api/lab-supplies/items/[id]/card/route.ts", 1], ["src/app/api/lab-supplies/items/import/route.ts", 1], ["src/app/api/lab-supplies/report/route.ts", 1]];
     for (const [f, n] of need) expect((readFileSync(f, "utf8").match(/fetchAllPages\(/g) || []).length, f).toBeGreaterThanOrEqual(n);
   });
   it("các truy vấn phân trang có sắp xếp ổn định bằng khóa duy nhất", () => {
-    expect(readFileSync("src/app/(app)/lab-supplies/page.tsx", "utf8")).toContain('.order("lot_id", { ascending: true })');
+    expect(readFileSync("src/components/lab-supplies-kind-page.tsx", "utf8")).toContain('.order("lot_id", { ascending: true })');
     expect(readFileSync("src/app/api/lab-supplies/export/route.ts", "utf8")).toContain('.order("id", { ascending: false })');
   });
 });
