@@ -36,3 +36,9 @@ describe("Kho tách biệt: mã của Kho chỉ dựa vào hạ tầng chung, kh
     expect(bad).toEqual([]);
   });
 });
+
+describe("Ô ngày chung: viền đỏ khi ngày sai luôn thắng màu ô đang chọn", () => {
+  it("quy tắc .invalid có cả :focus và !important", () => {
+    expect(readFileSync("src/app/globals.css", "utf8")).toContain(".vn-date>input.invalid,.vn-date>input.invalid:focus{border-color:#dc2626!important;background:#fef2f2!important}");
+  });
+});
