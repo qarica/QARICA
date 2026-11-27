@@ -24,16 +24,17 @@ describe("Dashboard — thêm cảnh báo 'văn bản cần xem xét lại' (doc
   // (src/lib/quality-alert-strip.ts, test riêng ở quality-alert-strip.test.ts
   // đã khẳng định đúng tone đỏ/title/href cho văn bản quá hạn) — ở đây chỉ
   // cần xác nhận Dashboard truyền đúng docReviewOverdue vào hàm đó.
-  it("truyền docReviewOverdue vào buildQualityAlertItems (Cảnh báo & công việc cần chú ý) — tone/title/href đúng cho văn bản quá hạn đã test ở quality-alert-strip.test.ts", () => {
-    expect(dashboard).toContain('import { buildQualityAlertItems } from "@/lib/quality-alert-strip";');
-    expect(dashboard).toContain("docReviewOverdueCount: docReviewOverdue,");
+  it("văn bản quá hạn rà soát nằm trong khối gộp 'Ưu tiên điều hành hôm nay' (thẻ cảnh báo cũ đã gộp vào Priority Board)", () => {
+    expect(dashboard).toContain('{ label: "Văn bản quá hạn rà soát", value: docReviewOverdue, href: "/document-publications"');
+    expect(dashboard).toContain("extraItems={priorityExtra}");
   });
 
   it("docPublicationsRes được gộp vào firstError để không nuốt lỗi truy vấn", () => {
     expect(dashboard).toContain("const firstError = [recordsRes, docPublicationsRes, incidentsAllRes,");
   });
 
-  it("Dashboard không còn khối 'Truy cập nhanh' (trùng sidebar) — Kiểm soát tài liệu vào bằng menu bên trái", () => {
-    expect(dashboard).not.toContain("quick-link");
+  it("'Truy cập nhanh' gộp vào sidebar (không còn lưới lối tắt lặp trên Dashboard); Kiểm soát tài liệu vẫn có lối vào từ khối ưu tiên", () => {
+    expect(dashboard).not.toContain('className="quick-link"');
+    expect(dashboard).toContain('href: "/document-publications"');
   });
 });

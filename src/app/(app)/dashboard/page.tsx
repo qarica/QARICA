@@ -1,12 +1,17 @@
+import Link from "next/link";
+import { Icon } from "@/components/icon";
 import { KpiCard, type KpiTrend } from "@/components/kpi-card";
-import { AlertStrip } from "@/components/alert-strip";
-import { TQM_CHART_CSS } from "@/components/tqm-charts";
+import { TQM_CHART_CSS, TqmDonut, TqmGantt, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
+import { TqmSmartCommandCenter } from "@/components/tqm-smart-command-center";
+import { TqmInterventionLoop } from "@/components/tqm-intervention-loop";
+import { TqmPriorityBoard, type PriorityItem } from "@/components/tqm-priority-board";
 import { redirect } from "next/navigation";
 import { hasPermission, requireUserContext } from "@/lib/auth";
 import { visibleNavGroups } from "@/lib/navigation";
-import { buildQualityAlertItems } from "@/lib/quality-alert-strip";
+import { buildIndicatorKpi, buildProjectActionKpi, isDueOnOrBeforeToday } from "@/lib/dashboard-kpi";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
+import { incidentHarmClassification, incidentDomainDistribution } from "@/lib/incident-dashboard";
 
 import { VnDateInput } from "@/components/vn-date-input";
 const CLOSED = new Set(["CANCELLED", "ARCHIVED", "INACTIVE", "RETIRED"]);
@@ -47,6 +52,7 @@ function monthsBetween(from: string, to: string) {
   }
   return out;
 }
+function monthLabel(key: string) { return `T${key.slice(5, 7)}`; }
 function pctChange(current: number, previous: number): { text: string; tone: "up" | "down" | "flat" } {
   if (!previous) { if (current > 0) return { text: `+${current} so với tháng trước`, tone: "up" }; return { text: "Không thay đổi", tone: "flat" }; }
   const pct = Math.round(((current - previous) / previous) * 100);
@@ -65,6 +71,25 @@ const RISK_MED = new Set(["MEDIUM", "MODERATE"]);
 const RISK_LOW = new Set(["LOW"]);
 function riskTier(level: string | null | undefined) { const v = String(level || "").toUpperCase(); if (["VERY_HIGH", "CRITICAL", "EXTREME"].includes(v)) return "RAT_CAO"; if (v === "HIGH") return "CAO"; if (RISK_MED.has(v)) return "TRUNG_BINH"; if (RISK_LOW.has(v)) return "THAP"; return null; }
 
+const RANGE_LABEL: Record<string, string> = { week: "Tuần", month: "Tháng", quarter: "Quý" };
+function quarterKey(monthKey_: string) { const [y, m] = monthKey_.split("-").map(Number); return `${y}-Q${Math.ceil(m / 3)}`; }
+function quarterLabel(key: string) { return key.split("-")[1]; }
+function isoWeekKey(dateStr: string) {
+  const d = new Date(`${dateStr.slice(0, 10)}T00:00:00Z`);
+  const day = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - day + 3);
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const week = 1 + Math.round(((d.getTime() - firstThursday.getTime()) / 86400000 - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+function weekLabel(key: string) { return `T${key.split("-W")[1]}`; }
+function last12Weeks(todayStr: string) {
+  const base = new Date(`${todayStr}T00:00:00Z`);
+  const out: string[] = [];
+  for (let i = 11; i >= 0; i--) { const d = new Date(base.getTime() - i * 7 * 86400000); out.push(isoWeekKey(d.toISOString().slice(0, 10))); }
+  return Array.from(new Set(out));
+}
+
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ asOf?: string; from?: string; dept?: string; range?: string }> }) {
   const { user } = await requireUserContext();
   // Trang đích sau đăng nhập, cũng là nơi mọi trang bị từ chối quyền chuyển về (/dashboard?forbidden=1). Người dùng không có
@@ -78,6 +103,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const year = await getWorkYear();
   const supabase = await createClient();
   const query = await searchParams;
+  const range = ["week", "month", "quarter"].includes(String(query.range || "")) ? String(query.range) : "month";
   const requestedAsOf = String(query.asOf || "").trim();
   const today = /^\d{4}-\d{2}-\d{2}$/.test(requestedAsOf) && requestedAsOf <= todayHcm() ? requestedAsOf : todayHcm();
   const defaultFrom = addMonths(today.slice(0, 7), -8) + "-01";
@@ -133,6 +159,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const capas = (capasRes.data ?? []) as any[];
   const capaOverdue = capas.filter((x: any) => !["CLOSED", "CANCELLED", "EFFECTIVE"].includes(String(x.workflow_status)) && x.effectiveness_due_date && x.effectiveness_due_date < today);
   const capaOverdueLastMonth = capas.filter((x: any) => x.effectiveness_due_date && x.effectiveness_due_date < prevMonth + "-28").length;
+  const capaByStatus = { DONE: capas.filter((x: any) => x.workflow_status === "EFFECTIVE").length, IN_PROGRESS: capas.filter((x: any) => ["IN_PROGRESS", "EFFECTIVENESS_REVIEW"].includes(String(x.workflow_status))).length, OVERDUE: capaOverdue.length, NOT_STARTED: capas.filter((x: any) => x.workflow_status === "DRAFT").length };
 
   const risks = (risksRes.data ?? []) as any[];
   const riskIds = risks.map((x: any) => x.id);
@@ -148,24 +175,114 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const auditInProgress = audits.filter((x: any) => ["IN_PROGRESS", "DRAFT_REPORT", "REPORT_REVIEW", "FOLLOW_UP"].includes(String(x.workflow_status))).length;
   const auditInProgressLastMonth = audits.filter((x: any) => ["IN_PROGRESS", "DRAFT_REPORT", "REPORT_REVIEW", "FOLLOW_UP"].includes(String(x.workflow_status)) && monthKey(x.start_date) === prevMonth).length;
   const auditNearDue = audits.filter((x: any) => !["CLOSED", "CANCELLED"].includes(String(x.workflow_status)) && x.end_date && x.end_date >= today && x.end_date <= new Date(new Date(today).getTime() + 7 * 86400000).toISOString().slice(0, 10));
+  const auditActive = audits.filter((x: any) => x.workflow_status !== "CANCELLED");
+  const auditDone = auditActive.filter((x: any) => x.workflow_status === "CLOSED").length;
+  const auditNotStarted = auditActive.length - auditDone - auditInProgress;
+
+  const ownerCoveragePct = records.length ? Math.round((records.filter((r: any) => r.owner_user_id).length / records.length) * 100) : 0;
+  const deptCoveragePct = records.length ? Math.round((records.filter((r: any) => r.owner_department_id).length / records.length) * 100) : 0;
 
 
-  const outTargetIndicators = ((indicatorsRes.data ?? []) as any[]).filter((x: any) => x.result_level === "OUT_OF_TARGET");
+  const domainLinksRes = incidentRecordIds.size ? await supabase.from("record_quality_domain_links").select("record_id,domain_id").in("record_id", Array.from(incidentRecordIds)) : { data: [], error: null };
+  const domainIds = Array.from(new Set(((domainLinksRes.data ?? []) as any[]).map((x: any) => String(x.domain_id || "")).filter(Boolean)));
+  const domainsRes = domainIds.length ? await supabase.from("quality_domains").select("id,name,sort_order,is_active").in("id", domainIds).eq("is_active", true) : { data: [], error: null };
+  const domainDistribution = incidentDomainDistribution(Array.from(incidentRecordIds) as string[], (domainLinksRes.data ?? []) as any[], (domainsRes.data ?? []) as any[]);
+  const domainSegments = domainDistribution.rows.slice(0, 6).map((r: any, i: number) => ({ label: r.label as string, value: r.value as number, tone: (["brand", "green", "amber", "red", "blue", "slate"] as const)[i % 6] }));
 
-
-  const alertItems = buildQualityAlertItems({
-    capaOverdueCount: capaOverdue.length,
-    outTargetIndicatorCount: outTargetIndicators.length,
-    auditNearDueCount: auditNearDue.length,
-    auditNearDueFirstEndDate: auditNearDue[0]?.end_date ?? null,
-    investigatingCount: investigating,
-    docReviewOverdueCount: docReviewOverdue,
-    today,
+  const trendBuckets = range === "quarter"
+    ? Array.from(new Set(months.map((m) => quarterKey(m))))
+    : range === "week"
+    ? last12Weeks(today)
+    : months;
+  const bucketOf = (reportedAt: string | null | undefined): string | null => {
+    if (!reportedAt) return null;
+    if (range === "quarter") { const mk = monthKey(reportedAt); return mk ? quarterKey(mk) : null; }
+    if (range === "week") return isoWeekKey(String(reportedAt).slice(0, 10));
+    return monthKey(reportedAt);
+  };
+  const bucketLabel = range === "quarter" ? quarterLabel : range === "week" ? weekLabel : monthLabel;
+  const trendRows = trendBuckets.map((bucket) => {
+    const inBucket = incidentsAll.filter((x: any) => bucketOf(x.reported_at) === bucket);
+    let low = 0, high = 0, veryHigh = 0;
+    for (const inc of inBucket) { const h = incidentHarmClassification(inc.harm_status); if (h?.classLabel?.includes("Tử vong")) veryHigh++; else if (h?.serious) high++; else low++; }
+    return { month: bucket, low, high, veryHigh, total: inBucket.length };
   });
+  const trendMax = Math.max(1, ...trendRows.map((r) => r.total));
 
-  const departmentsRes = await supabase.from("departments").select("id,name,short_name").eq("is_active", true).order("name");
+  const incidentStatusTotal = incidentsAll.length;
+  const incidentStatusDone = incidentsAll.filter((x: any) => x.workflow_status === "CLOSED").length;
+  const incidentStatusInProgress = incidentsAll.filter((x: any) => ["TRIAGED", "INVESTIGATION_REQUIRED", "INVESTIGATING", "ACTION_FOLLOW_UP", "AWAITING_CLOSURE"].includes(String(x.workflow_status))).length;
+  const incidentStatusNew = incidentsAll.filter((x: any) => ["REPORTED", "RETURNED"].includes(String(x.workflow_status))).length;
+  const incidentStatusOverdue = openIncidents.filter((x: any) => { const days = Math.floor((Date.parse(today) - Date.parse(String(x.reported_at).slice(0, 10))) / 86400000); return days > 7; }).length;
 
-  const firstError = [recordsRes, docPublicationsRes, incidentsAllRes, capasRes, risksRes, auditsRes, indicatorsRes, departmentsRes].find((x: any) => x.error)?.error;
+
+
+  // Legacy TQM operational sections (Plan/Indicator/Monitoring/Finding/Improvement) - kept
+  // fully intact per "existing functionality must survive": this is a visual migration for
+  // the new command-center sections above, not a rewrite of these modules' business logic.
+  const [programProgressRes, departmentsRes, monitoringRes] = await Promise.all([
+    supabase.from("vw_program_progress").select("program_id,record_id,record_code,title,work_year,required_actions,completed_actions,progress_pct,overdue_actions").eq("work_year", year),
+    supabase.from("departments").select("id,name,short_name").eq("is_active", true).order("name"),
+    supabase.from("monitoring_rounds").select("id,record_id,scheduled_date,target_department_id,workflow_status").eq("work_year", year).neq("workflow_status", "CANCELLED"),
+  ]);
+  const recordMap = new Map(records.map((r: any) => [r.id, r]));
+  const activeRecordIds = new Set(recordIdList);
+  const depMap = new Map(((departmentsRes.data ?? []) as any[]).map((d: any) => [d.id, d.short_name || d.name]));
+
+  const plans = ((programProgressRes.data ?? []) as any[]).filter((x: any) => activeRecordIds.has(x.record_id));
+  const planReq = plans.reduce((s: any, x: any) => s + Number(x.required_actions || 0), 0);
+  const planDone = plans.reduce((s: any, x: any) => s + Number(x.completed_actions || 0), 0);
+  const planOverdue = plans.reduce((s: any, x: any) => s + Number(x.overdue_actions || 0), 0);
+  const planPct = planReq ? Math.round((planDone / planReq) * 100) : (plans.length ? Math.round(plans.reduce((s: any, x: any) => s + Number(x.progress_pct || 0), 0) / plans.length) : 0);
+
+  const [legacyIndicatorsRes, projectsRes, legacyFindingsRes, evidenceLinksRes] = recordIdList.length ? await Promise.all([
+    supabase.from("indicator_measurements").select("id,record_id,workflow_status,result_level,period_end").in("record_id",recordIdList),
+    supabase.from("improvement_projects").select("id,record_id,workflow_status,start_date,target_end_date,actual_end_date,problem_statement").in("record_id",recordIdList),
+    supabase.from("findings").select("id,record_id,workflow_status,due_date,severity").in("record_id",recordIdList),
+    supabase.from("record_links").select("source_record_id,target_record_id").eq("relation_type", "HAS_ACTION"),
+  ]) : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
+  const indicatorKpi = buildIndicatorKpi((legacyIndicatorsRes.data ?? []) as any[]);
+  const legacyOutTarget = indicatorKpi.outTarget; const indicatorTrend = indicatorKpi.trend;
+
+  const monitoring = ((monitoringRes.data ?? []) as any[]).filter((x: any) => activeRecordIds.has(x.record_id));
+  const roundIds = monitoring.map((x: any) => x.id);
+  const responsesRes = roundIds.length ? await supabase.from("checklist_responses").select("monitoring_round_id,result_status").in("monitoring_round_id", roundIds) : { data: [] as any[], error: null };
+  const responseMap = new Map<string, { pass: number; fail: number }>();
+  for (const x of (responsesRes.data ?? []) as any[]) { const a = responseMap.get(x.monitoring_round_id) ?? { pass: 0, fail: 0 }; if (String(x.result_status).toUpperCase() === "PASS") a.pass++; if (String(x.result_status).toUpperCase() === "FAIL") a.fail++; responseMap.set(x.monitoring_round_id, a); }
+  const deptAgg = new Map<string, { pass: number; fail: number }>();
+  for (const r of monitoring) { const a = responseMap.get(r.id) ?? { pass: 0, fail: 0 }; const key = r.target_department_id || "none"; const d = deptAgg.get(key) ?? { pass: 0, fail: 0 }; d.pass += a.pass; d.fail += a.fail; deptAgg.set(key, d); }
+  const deptBars = Array.from(deptAgg.entries()).map(([id, a]) => { const n = a.pass + a.fail; const pct = n ? Math.round((a.pass / n) * 100) : 0; return { label: String(depMap.get(id) || "Chưa xác định"), value: pct, tone: (pct >= 90 ? "green" : pct >= 75 ? "blue" : pct >= 60 ? "amber" : "red") as any, caption: `${n} mục đã chấm` }; }).filter((x) => x.caption !== "0 mục đã chấm").sort((a, b) => a.value - b.value).slice(0, 10);
+
+  const legacyProjects = (projectsRes.data ?? []) as any[];
+  const projectRecordIds = legacyProjects.map((x: any) => x.record_id);
+  const links = ((evidenceLinksRes.data ?? []) as any[]).filter((l: any) => projectRecordIds.includes(l.source_record_id));
+  const projectActionIds = Array.from(new Set(links.map((x: any) => x.target_record_id).filter(Boolean)));
+  const projectActionsRes = projectActionIds.length ? await supabase.from("actions").select("record_id,workflow_status,due_date").in("record_id", projectActionIds) : { data: [] as any[], error: null };
+  const projectActionMap = new Map(((projectActionsRes.data ?? []) as any[]).map((x: any) => [x.record_id, x]));
+  const projectActionsByProject = new Map<string, any[]>();
+  for (const l of links) { const a = projectActionMap.get(l.target_record_id); if (!a) continue; const arr = projectActionsByProject.get(l.source_record_id) ?? []; arr.push(a); projectActionsByProject.set(l.source_record_id, arr); }
+  const projectRows = legacyProjects.map((p: any) => { const r: any = recordMap.get(p.record_id); const acts = (projectActionsByProject.get(p.record_id) ?? []).filter((a: any) => !["CANCELLED", "NOT_APPLICABLE"].includes(String(a.workflow_status))); const done = acts.filter((a: any) => a.workflow_status === "COMPLETED").length; const progress = acts.length ? Math.round((done / acts.length) * 100) : 0; const overdue = acts.filter((a: any) => a.workflow_status !== "COMPLETED" && a.due_date && a.due_date < today).length; return { ...p, title: r?.title || "Đề án cải tiến", record_code: r?.record_code || "—", actions: acts.length, completed: done, progress, overdue }; });
+  const projectKpi = buildProjectActionKpi(projectRows); const projectPct = projectKpi.percentage;
+  const ganttRows = projectRows.filter((x: any) => x.start_date && x.target_end_date).map((x: any) => ({ label: x.title, start: x.start_date, end: x.target_end_date, progress: x.progress, tone: (x.overdue ? "red" : x.progress >= 75 ? "green" : "blue") as any }));
+
+  const legacyFindings = ((legacyFindingsRes.data ?? []) as any[]).filter((x: any) => !["CLOSED", "CANCELLED"].includes(String(x.workflow_status)));
+  const legacyOverdueFindings = legacyFindings.filter((x: any) => x.due_date && x.due_date < today).length;
+  const legacyCapaDue = capas.filter((x: any) => activeRecordIds.has(x.record_id) && (String(x.workflow_status) === "EFFECTIVENESS_REVIEW" || isDueOnOrBeforeToday(x.effectiveness_due_date, today))).length;
+  const legacySeriousOpen = incidentsAll.filter((x: any) => activeRecordIds.has(x.record_id) && x.serious_event_flag && !["CLOSED", "CANCELLED", "REJECTED"].includes(String(x.workflow_status))).length;
+
+  // Một khối "Ưu tiên điều hành hôm nay" duy nhất: gộp thẻ cảnh báo cũ + bảng điểm nóng cũ (vốn trùng 4/5 mục của
+  // Priority Board) + việc chờ Giám đốc phê duyệt. Mục nào đã có ô chỉ số riêng phía trên (CAPA quá hạn, sự cố đang RCA) thì
+  // không lặp lại ở đây. Phê duyệt CAPA/đề án dùng đúng quyền của nút Phê duyệt ở trang chi tiết (capa.manage/projects.manage).
+  const capaPendingApproval = capas.filter((x: any) => String(x.workflow_status) === "PENDING_APPROVAL").length;
+  const projectPendingApproval = legacyProjects.filter((x: any) => String(x.workflow_status) === "PENDING_APPROVAL").length;
+  const priorityExtra: PriorityItem[] = [
+    ...(hasPermission(user, "capa.manage") ? [{ label: "CAPA chờ phê duyệt", value: capaPendingApproval, href: "/capa", tone: "risk" as const, statusText: "Chờ duyệt", action: "Phê duyệt CAPA" }] : []),
+    ...(hasPermission(user, "projects.manage") ? [{ label: "Đề án chờ phê duyệt", value: projectPendingApproval, href: "/improvement/projects", tone: "risk" as const, statusText: "Chờ duyệt", action: "Phê duyệt đề án" }] : []),
+    { label: "Văn bản quá hạn rà soát", value: docReviewOverdue, href: "/document-publications", tone: "watch", statusText: "Cần theo dõi", action: "Rà soát văn bản" },
+    { label: "Audit sắp đến hạn (7 ngày)", value: auditNearDue.length, href: "/audits", tone: "watch", statusText: "Cần theo dõi", action: "Chuẩn bị đóng audit" },
+  ];
+
+  const firstError = [recordsRes, docPublicationsRes, incidentsAllRes, capasRes, risksRes, auditsRes, indicatorsRes, domainLinksRes, domainsRes, programProgressRes, departmentsRes, monitoringRes].find((x: any) => x.error)?.error;
 
   return <div className="page-stack qcc-dashboard dashboard-page">
     <style>{TQM_CHART_CSS + `
@@ -177,8 +294,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .dashboard-hero-copy h1{margin:0;font-size:32px;font-weight:800;line-height:1.15;color:var(--text)}
       .qcc-dashboard .dashboard-hero-copy p{margin:8px 0 0;color:var(--muted);font-size:13px;line-height:1.5;max-width:760px}
       .qcc-dashboard .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
-      .qcc-dashboard .alert-strip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-      .qcc-dashboard .alert-strip-head h2{margin:0;font-size:15px}
+      .qcc-dashboard .quick-links{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:16px}
+      .qcc-dashboard .quick-link{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:12px 6px;border-radius:12px;color:#334155;font-size:11px;font-weight:700}
+      .qcc-dashboard .quick-link:hover{background:#f8fafc}
+      .qcc-dashboard .quick-link-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center}
+      @media(max-width:1100px){.qcc-dashboard .quick-links{grid-template-columns:repeat(4,1fr)}}
+      @media(max-width:640px){.qcc-dashboard .quick-links{grid-template-columns:repeat(2,1fr)}}
+      .qcc-dashboard .grid2b{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+      .qcc-dashboard .grid3b{display:grid;grid-template-columns:1fr 1fr;gap:14px}
       .qcc-dashboard .capa-stat-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px 18px 18px}
       .qcc-dashboard .capa-stat{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
       .qcc-dashboard .capa-stat-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center}
@@ -188,6 +311,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .compliance-row{display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:8px;font-size:12px;color:#334155}
       .qcc-dashboard .compliance-row .bar-track{grid-column:1/-1;height:6px;background:#eef2f6;border-radius:99px;overflow:hidden}
       .qcc-dashboard .compliance-row .bar-track i{display:block;height:100%;background:#1D4ED8;border-radius:99px}
+      @media(max-width:1100px){.qcc-dashboard .grid2b,.qcc-dashboard .grid3b{grid-template-columns:1fr}}
       .qcc-dashboard .chart-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
       .qcc-dashboard .range-toggle{display:flex;gap:2px;background:#f1f5f9;border-radius:9px;padding:2px}
       .qcc-dashboard .range-toggle a{padding:6px 12px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b}
@@ -206,6 +330,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .stacked-bar-seg{width:100%}
       .qcc-dashboard .stacked-bar-label{font-size:10px;color:#94a3b8}
       @media(max-width:1100px){.qcc-dashboard .kpis{grid-template-columns:repeat(2,1fr)}.qcc-dashboard .grid2{grid-template-columns:1fr}}
+    .qcc-dashboard .qcc-legacy-divider{display:flex;align-items:center;gap:14px;margin:8px 0 2px;color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+      .qcc-dashboard .qcc-legacy-divider:before,.qcc-dashboard .qcc-legacy-divider:after{content:"";flex:1;height:1px;background:#e5eaf2}
+      .qcc-dashboard .legacy-grid3{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}
+      @media(max-width:920px){.qcc-dashboard .legacy-grid3{grid-template-columns:1fr}}
     `}</style>
 
     <div className="page-header-row dashboard-hero-row">
@@ -224,8 +352,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
 
-    <div className="alert-strip-head"><h2>Cảnh báo chất lượng toàn bệnh viện</h2></div>
-    <AlertStrip items={alertItems} />
 
     <section className="kpis">
       <KpiCard icon="file-text" tone="blue" label="Sự cố mới" value={thisMonthNew} trend={trendBadge(thisMonthNew, lastMonthNew)} />
@@ -234,6 +360,48 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <KpiCard icon="triangle-alert" tone="red" label="Rủi ro mức cao" value={highRiskCount} trend={{ tone: "flat", text: "0%" }} />
       <KpiCard icon="check-square" tone="purple" label="Audit đang thực hiện" value={auditInProgress} trend={trendBadge(auditInProgress, auditInProgressLastMonth)} />
     </section>
+
+    <TqmPriorityBoard serious={legacySeriousOpen} overdueFindings={legacyOverdueFindings} capaDue={legacyCapaDue} outTarget={legacyOutTarget} planOverdue={planOverdue} extraItems={priorityExtra} />
+
+    <section className="grid2">
+      <article className="panel"><div className="head"><div><h2>Xu hướng sự cố y khoa</h2><p>Số lượng sự cố theo {RANGE_LABEL[range].toLowerCase()} và theo mức độ tổn hại (taxonomy thật của hệ thống).</p></div>
+        <div className="chart-toolbar"><div className="range-toggle">{(["week","month","quarter"] as const).map((r) => <Link key={r} href={`?${new URLSearchParams({ ...(from?{from}:{}) , asOf: today, ...(selectedDept?{dept:selectedDept}:{}), range: r }).toString()}`} className={range === r ? "active" : ""}>{RANGE_LABEL[r]}</Link>)}</div></div>
+        </div>
+        <div className="stacked-trend-legend"><span><i style={{ background: "#3b82f6" }} />Không nghiêm trọng</span><span><i style={{ background: "#f59e0b" }} />Nghiêm trọng</span><span><i style={{ background: "#ef4444" }} />Rất nghiêm trọng</span></div>
+        <div className="stacked-trend"><div className="stacked-bars">{trendRows.map((r) => <div className="stacked-bar-col" key={r.month}><div className="stacked-bar" style={{ height: `${Math.max(4, (r.total / trendMax) * 160)}px` }}>{r.veryHigh ? <span className="stacked-bar-seg" style={{ background: "#ef4444", height: `${(r.veryHigh / Math.max(1, r.total)) * 100}%` }} /> : null}{r.high ? <span className="stacked-bar-seg" style={{ background: "#f59e0b", height: `${(r.high / Math.max(1, r.total)) * 100}%` }} /> : null}{r.low ? <span className="stacked-bar-seg" style={{ background: "#3b82f6", height: `${(r.low / Math.max(1, r.total)) * 100}%` }} /> : null}</div><span className="stacked-bar-label">{bucketLabel(r.month)}</span></div>)}</div></div>
+      </article>
+      <article className="panel"><div className="head"><h2>Tình trạng sự cố</h2><p>Phân bố theo trạng thái xử lý hiện tại.</p></div>{incidentStatusTotal ? <TqmDonut value={incidentStatusTotal} label="Tổng số" segments={[{ label: "Đã xử lý", value: incidentStatusDone, tone: "green" as const }, { label: "Đang xử lý", value: incidentStatusInProgress, tone: "blue" as const }, { label: "Mới ghi nhận", value: incidentStatusNew, tone: "amber" as const }, { label: "Quá hạn", value: incidentStatusOverdue, tone: "red" as const }].filter((s) => s.value > 0)} /> : <div className="empty-state">Chưa có sự cố được ghi nhận.</div>}</article>
+    </section>
+    <section className="grid2b">
+      <article className="panel"><div className="head"><h2>Tình trạng CAPA</h2><Link className="button tertiary small" href="/capa">Xem chi tiết →</Link></div>
+        <div className="capa-stat-row">
+          <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#dbeafe",color:"#1d4ed8"}}><Icon name="folder-check" size={16}/></span><strong>{capaByStatus.NOT_STARTED}</strong><span>Chưa bắt đầu</span></div>
+          <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#fef3c7",color:"#b45309"}}><Icon name="workflow" size={16}/></span><strong>{capaByStatus.IN_PROGRESS}</strong><span>Đang triển khai</span></div>
+          <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#dcfce7",color:"#16a34a"}}><Icon name="badge-check" size={16}/></span><strong>{capaByStatus.DONE}</strong><span>Đã hiệu lực</span></div>
+          <div className="capa-stat"><span className="capa-stat-icon" style={{background:"#fee2e2",color:"#dc2626"}}><Icon name="triangle-alert" size={16}/></span><strong>{capaByStatus.OVERDUE}</strong><span>Quá hạn</span></div>
+        </div>
+      </article>
+      <article className="panel"><div className="head"><h2>Hoạt động Audit</h2><Link className="button tertiary small" href="/audits">Xem chi tiết →</Link></div>{auditActive.length ? <TqmDonut value={auditActive.length ? Math.round((auditDone/auditActive.length)*100) : 0} label={`${auditDone}/${auditActive.length}`} segments={[{ label: "Đã hoàn thành", value: auditDone, tone: "green" as const }, { label: "Đang thực hiện", value: auditInProgress, tone: "blue" as const }, { label: "Chưa bắt đầu", value: auditNotStarted, tone: "slate" as const }].filter((s) => s.value > 0)} /> : <div className="empty-state">Chưa có Audit trong năm.</div>}</article>
+    </section>
+
+    <section className="grid3b">
+      <article className="panel"><div className="head"><h2>Tình trạng theo lĩnh vực</h2><p>Theo taxonomy Lĩnh vực chất lượng &amp; an toàn dùng chung.</p></div>{domainSegments.length ? <TqmHorizontalBars rows={domainSegments.map((s) => ({ label: s.label, value: s.value, tone: s.tone }))} /> : <div className="empty-state">Chưa có hồ sơ được gắn lĩnh vực.</div>}</article>
+      <article className="panel"><div className="head"><h2>Chỉ số tuân thủ &amp; dữ liệu điều hành</h2><p>Độ phủ metadata phục vụ kiểm soát.</p></div>
+        <div className="compliance-rows">
+          <div className="compliance-row"><Icon name="users" size={14}/><span>Có người phụ trách</span><b>{ownerCoveragePct}%</b><div className="bar-track"><i style={{width:`${ownerCoveragePct}%`}}/></div></div>
+          <div className="compliance-row"><Icon name="building-2" size={14}/><span>Có khoa/phòng</span><b>{deptCoveragePct}%</b><div className="bar-track"><i style={{width:`${deptCoveragePct}%`}}/></div></div>
+        </div>
+      </article>
+    </section>
+
+
+    <div className="qcc-legacy-divider"><span>Kế hoạch, giám sát &amp; cải tiến chất lượng</span></div>
+    <TqmSmartCommandCenter year={year} />
+    <TqmInterventionLoop openFindings={legacyFindings.length} overdueFindings={legacyOverdueFindings} capaDue={legacyCapaDue} projectPct={projectPct} />
+    <section className="grid2"><article className="panel"><div className="head"><h2>Xu hướng chỉ số đạt mục tiêu 12 tháng</h2><p>Tỷ lệ MEETS_TARGET trong các kỳ VERIFIED/LOCKED đã có kết luận mục tiêu.</p></div><TqmTrend points={indicatorTrend} /></article><article className="panel"><div className="head"><h2>Giám sát theo khoa/phòng</h2><p>Đơn vị có tỷ lệ mục đạt thấp được đưa lên trước.</p></div>{deptBars.length ? <TqmHorizontalBars rows={deptBars} max={100} /> : <div className="empty-state">Chưa có dữ liệu giám sát đủ để so sánh.</div>}</article></section>
+
+    <section className="legacy-grid3" style={{gridTemplateColumns:".7fr 1.3fr"}}><article className="panel"><div className="head"><h2>Tiến độ kế hoạch chất lượng năm</h2><p>Từ Action thực tế của các kế hoạch.</p></div><TqmDonut value={planPct} label="Hoàn thành" segments={[{ label: "Đã hoàn thành", value: planDone, tone: "brand" }, { label: "Còn lại", value: Math.max(0, planReq - planDone), tone: "blue" }, { label: "Quá hạn", value: planOverdue, tone: "red" }]} /></article><article className="panel"><div className="head"><h2>Gantt đề án cải tiến trọng tâm</h2><p>Thời gian và tiến độ lấy từ dữ liệu đề án/Action thật.</p></div>{ganttRows.length ? <TqmGantt year={year} rows={ganttRows} /> : <div className="empty-state">Chưa đủ mốc thời gian đề án để dựng Gantt.</div>}</article></section>
+
 
   </div>;
 }
