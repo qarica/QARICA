@@ -11,7 +11,9 @@ describe("Mobile responsive fixes — dashboard/report grids reflow to one colum
     expect(css).toContain("flex-direction: column !important;");
   });
 
-  it("the grid override carries !important so it beats any hard-coded inline grid style", () => {
+  it("the .legacy-grid3 override carries !important so it can beat the section's hard-coded inline 0.7fr/1.3fr style", () => {
+    const dashboard = readFileSync("src/app/(app)/dashboard/page.tsx", "utf8");
+    expect(dashboard).toContain('style={{gridTemplateColumns:".7fr 1.3fr"}}');
     const ruleStart = css.indexOf(".workspace-app .kpi-grid,");
     const ruleBlock = css.slice(ruleStart, css.indexOf("}", ruleStart));
     expect(ruleBlock).toContain("grid-template-columns: 1fr !important");
