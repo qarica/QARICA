@@ -5,6 +5,7 @@ export default function InspectionsPage() {
     <RegistryModulePage
       config={{
         eyebrow: "KẾ HOẠCH & ĐIỀU HÀNH",
+        icon: "clipboard-check",
         title: "Tiếp đoàn / Kiểm tra ngoài",
         description: "Quản lý đợt kiểm tra ngoài, mốc chuẩn bị trước - sau đoàn và liên kết Finding phát sinh.",
         permissions: ["inspections.view", "inspections.manage"],
