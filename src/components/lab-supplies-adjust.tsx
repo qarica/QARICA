@@ -64,7 +64,7 @@ export function LabAdjust({ lots, itemById, today, onDone, onError }: { lots: Lo
           <label className="ls-span-2">Ghi chú *<input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Giải thích chi tiết (ít nhất 3 ký tự)" aria-label="Ghi chú điều chỉnh" /></label>
         </div>
         <div className="ls-bar ls-bar-end">
-          <span className="muted tiny ls-grow" role="status">{chosen && after !== null && after >= 0 ? `Tồn lô sau điều chỉnh: ${formatQuantity(after)} ${chosen.item.unit} (hiện ${formatQuantity(chosen.lot.balance)})` : problem && (lotId || quantity) ? problem : ""}</span>
+          <span className="muted tiny ls-grow" role="status">{[chosen && after !== null && after >= 0 ? `Tồn lô sau điều chỉnh: ${formatQuantity(after)} ${chosen.item.unit} (hiện ${formatQuantity(chosen.lot.balance)})` : "", problem && (lotId || quantity) ? problem : ""].filter(Boolean).join(" — ")}</span>
           <button className="button primary" disabled={busy || !!problem}><Icon name="save" size={17} />{busy ? "Đang ghi..." : "Ghi điều chỉnh"}</button>
         </div>
       </form>
