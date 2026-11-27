@@ -46,11 +46,11 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
   it("?week= mặc định KHÔNG lọc gì cả (weekStart/weekEnd null khi không truyền) — không đổi hành vi cũ", () => {
     expect(source).toContain("const rawWeekValue=String(rawWeek||\"\").trim();");
     expect(source).toContain('const weekStart=/^\\d{4}-\\d{2}-\\d{2}$/.test(rawWeekValue)&&!Number.isNaN(Date.parse(rawWeekValue))?mondayOfWeek(rawWeekValue):null;');
-    expect(source).toContain("const weekScoped=weekStart&&weekEnd?searched.filter(");
+    expect(source).toContain("const weekScoped=pStart&&pEnd?searched.filter(");
   });
 
   it("việc đã xong lọc theo completedAt (ngày hoàn thành thật) để ra đúng báo cáo \"đã làm gì trong tuần\", việc chưa xong lọc theo dueDate", () => {
-    expect(source).toContain('const weekScoped=weekStart&&weekEnd?searched.filter(r=>r.isDone?(!!r.completedAt&&r.completedAt>=weekStart&&r.completedAt<=weekEnd):(!!r.dueDate&&r.dueDate<=weekEnd)):searched;');
+    expect(source).toContain('const weekScoped=pStart&&pEnd?searched.filter(r=>r.isDone?(!!r.completedAt&&r.completedAt>=pStart&&r.completedAt<=pEnd):(!!r.dueDate&&r.dueDate<=pEnd)):searched;');
   });
 
   it("action hoàn thành dùng updated_at làm completedAt xấp xỉ (actions không có cột completed_at riêng)", () => {
@@ -64,8 +64,8 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
   });
 
   it("chuyển tab / chuyển trang vẫn giữ nguyên tuần đang lọc (không bị reset khi bấm tab hay trang khác)", () => {
-    expect(source).toContain('const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}${viewParam}#all-work`;');
-    expect(source).toContain('const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}${viewParam}&page=${p}#all-work`;');
+    expect(source).toContain('const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${periodParam}${viewParam}#all-work`;');
+    expect(source).toContain('const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${periodParam}${viewParam}&page=${p}#all-work`;');
   });
 
   it("có điều hướng Tuần trước / Tuần này / Tuần sau / Bỏ lọc tuần", () => {
@@ -80,14 +80,14 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
   // (tab chỉ quyết định danh sách CHI TIẾT hiển thị bên dưới, không quyết
   // định 2 con số tổng này).
   it("tính weekDoneRows/weekPendingRows từ TOÀN BỘ allWorkRows, không phụ thuộc tab đang mở", () => {
-    expect(source).toContain("const weekDoneRows=weekStart&&weekEnd?allWorkRows.filter(r=>r.isDone&&r.completedAt&&r.completedAt>=weekStart&&r.completedAt<=weekEnd):[];");
+    expect(source).toContain("const weekDoneRows=pStart&&pEnd?allWorkRows.filter(r=>r.isDone&&r.completedAt&&r.completedAt>=pStart&&r.completedAt<=pEnd):[];");
     // Không chặn cận dưới weekStart cho việc CHƯA xong — xem test "việc CHƯA
     // xong..." bên dưới (việc quá hạn từ trước vẫn phải tính vào tuần đang xem).
-    expect(source).toContain("const weekPendingRows=weekStart&&weekEnd?allWorkRows.filter(r=>!r.isDone&&r.dueDate&&r.dueDate<=weekEnd):[];");
+    expect(source).toContain("const weekPendingRows=pStart&&pEnd?allWorkRows.filter(r=>!r.isDone&&r.dueDate&&r.dueDate<=pEnd):[];");
   });
 
   it("dòng báo cáo tuần hiện cả 2 số đã xong/chưa xong, mỗi số bấm vào mở đúng tab tương ứng (DONE/OPEN) kèm tuần đang chọn", () => {
-    expect(source).toContain('const reportTabHref=(t:string)=>{const params=new URLSearchParams();params.set("tab",t);if(weekStart)params.set("week",weekStart);if(view==="kanban")params.set("view","kanban");return `?${params.toString()}#all-work`};');
+    expect(source).toContain('const reportTabHref=(t:string)=>{const params=new URLSearchParams();params.set("tab",t);if(weekStart)params.set("week",weekStart);if(monthKey)params.set("month",monthKey);if(view!=="list")params.set("view",view);return `?${params.toString()}#all-work`};');
     expect(source).toContain('<Link href={reportTabHref("DONE")} className="week-report-link done"><strong>{weekDoneRows.length} đã xong</strong></Link>');
     expect(source).toContain('<Link href={reportTabHref("OPEN")} className="week-report-link pending"><strong>{weekPendingRows.length} chưa xong</strong></Link>');
   });
@@ -113,9 +113,9 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
   // đây bị chặn bởi cận dưới weekStart, nên việc quá hạn từ tuần trước biến
   // mất khỏi báo cáo tuần này. Bỏ cận dưới: chỉ cần dueDate<=weekEnd.
   it("việc CHƯA xong trong báo cáo tuần không bị chặn cận dưới — việc quá hạn từ trước vẫn tính vào tuần đang xem", () => {
-    expect(source).toContain("const weekPendingRows=weekStart&&weekEnd?allWorkRows.filter(r=>!r.isDone&&r.dueDate&&r.dueDate<=weekEnd):[];");
+    expect(source).toContain("const weekPendingRows=pStart&&pEnd?allWorkRows.filter(r=>!r.isDone&&r.dueDate&&r.dueDate<=pEnd):[];");
     expect(source).not.toContain("r.dueDate>=weekStart&&r.dueDate<=weekEnd):[];");
-    expect(source).toContain('const weekScoped=weekStart&&weekEnd?searched.filter(r=>r.isDone?(!!r.completedAt&&r.completedAt>=weekStart&&r.completedAt<=weekEnd):(!!r.dueDate&&r.dueDate<=weekEnd)):searched;');
+    expect(source).toContain('const weekScoped=pStart&&pEnd?searched.filter(r=>r.isDone?(!!r.completedAt&&r.completedAt>=pStart&&r.completedAt<=pEnd):(!!r.dueDate&&r.dueDate<=pEnd)):searched;');
   });
 
   // Báo cáo tiếp theo: "Bổ sung ngày giao việc, sắp xếp các việc hoàn thành
@@ -164,7 +164,7 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
   // Báo cáo tiếp theo (ảnh chụp): "3 loại này là gì, nếu ko có thì bỏ" — 3 tab
   // Việc được giao/Chờ phản hồi/Cần theo dõi chỉ hiện khi có ít nhất 1 việc.
   it("7 nút lọc nhanh thay cho 7 tab; liên kết cũ ?tab=REMINDER/ASSIGNED/WATCH vẫn được nhận", () => {
-    expect(source).toContain('type WorkTab="ALL"|"OPEN"|"OVERDUE"|"TODAY"|"NEXT7"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE"');
+    expect(source).toContain('type WorkTab="HANDED"|"ALL"|"OPEN"|"OVERDUE"|"TODAY"|"NEXT7"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE"');
     expect(source).toContain('[["OPEN","Đang mở"');
     expect(source).toContain('tab==="REMINDER"?unifiedReminderRows:tab==="ASSIGNED"?unifiedAssignedRows');
   });
@@ -180,5 +180,21 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
   it("rule width:26% nhắm đúng cột Tiêu đề công việc (cột 2) sau khi bỏ cột chọn dòng, không còn ép nhầm cột Loại (cột 3)", () => {
     expect(source).toContain(".tqm-my-work .all-table th:nth-child(2),.tqm-my-work .all-table td:nth-child(2){min-width:180px;width:26%}");
     expect(source).not.toMatch(/\.tqm-my-work \.all-table th:nth-child\(3\),\.tqm-my-work \.all-table td:nth-child\(3\)/);
+  });
+});
+
+describe("Việc của tôi — lọc theo THÁNG (?month=YYYY-MM)", () => {
+  const source = readFileSync("src/app/(app)/tasks/page.tsx", "utf8");
+  it("nhận ?month=, tuần ưu tiên hơn tháng, khoảng tháng = ngày đầu → ngày cuối tháng", () => {
+    expect(source).toContain("month?:string");
+    expect(source).toContain("const monthKey=!weekStart&&");
+    expect(source).toContain("const pStart=weekStart||monthStart;const pEnd=weekEnd||monthEnd;");
+    expect(source).toContain("new Date(Date.UTC(y,m,0)).getUTCDate()");
+  });
+  it("có nút tháng trước/sau, Tháng này, Bỏ lọc tháng; chuyển tab/trang giữ nguyên tháng", () => {
+    expect(source).toContain('aria-label="Tháng trước"');
+    expect(source).toContain('aria-label="Tháng sau"');
+    expect(source).toContain("Bỏ lọc tháng");
+    expect(source).toContain('const periodParam=weekStart?`&week=${weekStart}`:monthKey?`&month=${monthKey}`:"";');
   });
 });

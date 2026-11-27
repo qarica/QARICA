@@ -152,10 +152,11 @@ const NAV_GROUPS: NavGroupDef[] = [
   // chất/VTYT khoa Xét nghiệm (nhập–xuất–tồn theo lô/hạn dùng).
   {
     id: "lab-supplies",
-    label: "Kho hóa chất xét nghiệm",
+    label: "Kho xét nghiệm",
     icon: "droplets",
     children: [
-      { label: "Kho hóa chất & VTYT XN", href: "/lab-supplies", icon: "droplets", permission: "lab_supplies.view" },
+      { label: "Kho hóa chất", href: "/lab-supplies/hoa-chat", icon: "droplets", permission: "lab_supplies.view" },
+      { label: "Kho vật tư", href: "/lab-supplies/vat-tu", icon: "archive", permission: "lab_supplies.view" },
     ],
   },
   {

@@ -35,7 +35,7 @@ const EXPIRY_LABEL = { NO_EXPIRY: "Không có hạn", EXPIRED: "Đã hết hạn
 const reasonText = (m: ExportMovement) => (m.reason_code ? REASON_LABEL[m.reason_code] || m.reason_code : "");
 
 /** Tồn hiện tại: 2 trang tính — theo vật tư và chi tiết theo lô (hạn dùng gần nhất trước). */
-export function buildStockSheets(items: ExportItem[], lots: ExportLot[], today: string): SheetSpec[] {
+export function buildStockSheets(items: ExportItem[], lots: ExportLot[], today: string, noun = "hóa chất & VTYT xét nghiệm"): SheetSpec[] {
   const lotsByItem = new Map<string, ExportLot[]>();
   for (const l of lots) lotsByItem.set(l.item_id, [...(lotsByItem.get(l.item_id) || []), l]);
   const itemRows: Cell[][] = [];
@@ -56,15 +56,15 @@ export function buildStockSheets(items: ExportItem[], lots: ExportLot[], today: 
     }
   }
   return [
-    { name: "Tồn theo vật tư", title: `Tồn kho hóa chất & VTYT xét nghiệm — tại ngày ${vn(today)}`, headers: ["STT", "Mã VT", "Mã vạch", "Tên vật tư", "Nhóm", "ĐVT", "Tồn", "Định mức tối thiểu", "Tình trạng tồn", "Số lô còn tồn", "Hạn dùng gần nhất", "Trạng thái"], rows: itemRows, emptyText: "Chưa có vật tư.", widths: [6, 12, 16, 34, 22, 8, 10, 12, 14, 10, 14, 12] },
+    { name: "Tồn theo vật tư", title: `Tồn kho ${noun} — tại ngày ${vn(today)}`, headers: ["STT", "Mã VT", "Mã vạch", "Tên vật tư", "Nhóm", "ĐVT", "Tồn", "Định mức tối thiểu", "Tình trạng tồn", "Số lô còn tồn", "Hạn dùng gần nhất", "Trạng thái"], rows: itemRows, emptyText: "Chưa có vật tư.", widths: [6, 12, 16, 34, 22, 8, 10, 12, 14, 10, 14, 12] },
     { name: "Tồn theo lô", title: "Chi tiết tồn theo lô (hạn dùng gần nhất trước)", headers: ["Mã VT", "Tên vật tư", "Số lô", "Hạn dùng", "Số ngày còn lại", "Tình trạng hạn", "Tồn", "ĐVT"], rows: lotRows, emptyText: "Chưa có lô nào còn tồn.", widths: [12, 34, 16, 13, 12, 16, 10, 8] },
   ].map(withStt);
 }
 
 /** Sổ xuất nhập trong khoảng ngày (mới nhất trước). Số lượng: + nhập / − xuất. */
-export function buildLedgerSheets(rows: ExportMovement[], from: string, to: string): SheetSpec[] {
+export function buildLedgerSheets(rows: ExportMovement[], from: string, to: string, noun = "hóa chất & VTYT xét nghiệm"): SheetSpec[] {
   const data: Cell[][] = rows.map((m, i) => [i + 1, vn(m.movement_date), MOVEMENT_LABEL[m.movement_type], m.item?.code || "", m.item?.name || "", m.lot?.lot_number || "", vn(m.lot?.expiry_date), num(m.quantity_delta), m.item?.unit || "", m.reference_no || "", m.counterparty || "", reasonText(m), m.note || ""]);
-  return [{ name: "Sổ xuất nhập", title: `Sổ xuất nhập kho hóa chất & VTYT xét nghiệm — từ ${vn(from)} đến ${vn(to)}`, headers: ["STT", "Ngày", "Loại phiếu", "Mã VT", "Tên vật tư", "Số lô", "Hạn dùng", "Số lượng (+nhập / −xuất)", "ĐVT", "Số phiếu", "Người nhận / NCC", "Lý do", "Ghi chú"], rows: data, emptyText: "Không có phiếu nào trong khoảng ngày này.", widths: [6, 12, 12, 12, 32, 14, 13, 14, 8, 14, 22, 18, 28] }];
+  return [{ name: "Sổ xuất nhập", title: `Sổ xuất nhập kho ${noun} — từ ${vn(from)} đến ${vn(to)}`, headers: ["STT", "Ngày", "Loại phiếu", "Mã VT", "Tên vật tư", "Số lô", "Hạn dùng", "Số lượng (+nhập / −xuất)", "ĐVT", "Số phiếu", "Người nhận / NCC", "Lý do", "Ghi chú"], rows: data, emptyText: "Không có phiếu nào trong khoảng ngày này.", widths: [6, 12, 12, 12, 32, 14, 13, 14, 8, 14, 22, 18, 28] }];
 }
 
 /** Tồn lũy kế sau từng dòng (sổ sắp theo thời gian tăng dần), làm tròn 3 chữ số. */
@@ -120,9 +120,9 @@ export function buildReplenishmentSheets(items: ExportItem[], lots: ExportLot[],
 export type ReportRow = { code: string; name: string; unit: string; category: SupplyCategory; opening: number; receipts: number; issues: number; disposals: number; adjustments: number; closing: number };
 
 /** Báo cáo Nhập–Xuất–Tồn theo kỳ. */
-export function buildReportSheets(rows: ReportRow[], from: string, to: string): SheetSpec[] {
+export function buildReportSheets(rows: ReportRow[], from: string, to: string, noun = "hóa chất & VTYT xét nghiệm"): SheetSpec[] {
   const data: Cell[][] = rows.map((r) => [r.code, r.name, CATEGORY_LABEL[r.category], r.unit, num(r.opening), num(r.receipts), num(r.issues), num(r.disposals), num(r.adjustments), num(r.closing)]);
-  return [{ name: "Nhập-Xuất-Tồn", title: `Báo cáo Nhập – Xuất – Tồn kho hóa chất & VTYT xét nghiệm — từ ${vn(from)} đến ${vn(to)}`, headers: ["Mã VT", "Tên vật tư", "Nhóm", "ĐVT", "Tồn đầu kỳ", "Nhập trong kỳ", "Xuất dùng", "Hủy hàng", "Điều chỉnh (kiểm kê/hao hụt)", "Tồn cuối kỳ"], rows: data, emptyText: "Không có số liệu trong kỳ.", widths: [12, 34, 22, 8, 12, 12, 12, 12, 16, 12] }].map(withStt);
+  return [{ name: "Nhập-Xuất-Tồn", title: `Báo cáo Nhập – Xuất – Tồn kho ${noun} — từ ${vn(from)} đến ${vn(to)}`, headers: ["Mã VT", "Tên vật tư", "Nhóm", "ĐVT", "Tồn đầu kỳ", "Nhập trong kỳ", "Xuất dùng", "Hủy hàng", "Điều chỉnh (kiểm kê/hao hụt)", "Tồn cuối kỳ"], rows: data, emptyText: "Không có số liệu trong kỳ.", widths: [12, 34, 22, 8, 12, 12, 12, 12, 16, 12] }].map(withStt);
 }
 
 export function buildImportTemplateSheets(headers: string[]): SheetSpec[] {

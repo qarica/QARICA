@@ -55,17 +55,17 @@ describe("trang Việc của tôi: nút chuyển Danh sách / Kanban", () => {
   const page = readFileSync("src/app/(app)/tasks/page.tsx", "utf8");
   const comp = readFileSync("src/components/my-work-kanban.tsx", "utf8");
   it("tham số view, nút chuyển, và Kanban dùng cùng danh sách đã lọc (weekScoped) với bảng", () => {
-    expect(page).toContain('const view:"list"|"kanban"=String(rawView).toLowerCase()==="kanban"?"kanban":"list"');
+    expect(page).toContain('const view:"list"|"kanban"|"matrix"=rawViewKey==="kanban"?"kanban":rawViewKey==="matrix"?"matrix":"list"');
     expect(page).toContain("Kanban theo hạn");
     expect(page).toContain("const kanbanRows:MyWorkKanbanRow[]=weekScoped.map(");
-    expect(page).toContain('{view==="kanban"?<MyWorkKanban rows={kanbanRows} today={today}/>:<>');
+    expect(page).toContain('view==="kanban"?<MyWorkKanban rows={kanbanRows} today={today}/>');
   });
   it("giữ view khi đổi tab, trang, tuần, báo cáo tuần và khi tìm kiếm", () => {
     for (const fn of ["const tabHref", "const pageHref", "const weekHref", "const reportTabHref"]) {
       const line = page.slice(page.indexOf(fn), page.indexOf("\n", page.indexOf(fn)));
       expect(line, fn).toMatch(/view/i);
     }
-    expect(page).toContain('<input type="hidden" name="view" value="kanban"/>');
+    expect(page).toContain('<input type="hidden" name="view" value={view}/>');
   });
   it("chỉ xem: không có kéo-thả hay hành động đổi trạng thái trong Kanban", () => {
     expect(comp).not.toMatch(/draggable|onDrop|onDragStart|onClick|"use client"/);

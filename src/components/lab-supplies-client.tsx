@@ -12,7 +12,7 @@ import { LabStock } from "@/components/lab-supplies-stock";
 import { LabStocktake } from "@/components/lab-supplies-stocktake";
 import { num, type Closing, type Item, type Lot, type Movement, type Toast } from "@/components/lab-supplies-types";
 import { LabVoucher, type VoucherIncoming } from "@/components/lab-supplies-voucher";
-import { findItemByScan, type KanbanColumnKey } from "@/lib/lab-supplies";
+import { findItemByScan, type KanbanColumnKey, type SupplyKind } from "@/lib/lab-supplies";
 
 // KHO HÓA CHẤT & VTYT XN — bố cục theo ĐÚNG LUỒNG VIỆC của thủ kho:
 //   Tồn kho (xem còn gì, cần làm gì) → Nhập kho (hàng về) → Xuất kho (cấp phát/hủy) → Kiểm kê & chốt kỳ → Sổ kho & báo cáo → Danh mục (thiết lập).
@@ -21,7 +21,7 @@ import { findItemByScan, type KanbanColumnKey } from "@/lib/lab-supplies";
 type Tab = "stock" | "receipt" | "issue" | "stocktake" | "ledger" | "catalog";
 const TAB_LABEL: Record<Tab, string> = { stock: "Tồn kho", receipt: "Nhập kho", issue: "Xuất kho", stocktake: "Kiểm kê & chốt kỳ", ledger: "Sổ kho & báo cáo", catalog: "Danh mục" };
 
-export function LabSuppliesClient({ items, lots, movements, lastClosing, today, canManage }: { items: Item[]; lots: Lot[]; movements: Movement[]; lastClosing: Closing; today: string; canManage: boolean }) {
+export function LabSuppliesClient({ supplyKind, items, lots, movements, lastClosing, today, canManage }: { supplyKind: SupplyKind; items: Item[]; lots: Lot[]; movements: Movement[]; lastClosing: Closing; today: string; canManage: boolean }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("stock");
   const [search, setSearch] = useState("");
@@ -118,14 +118,14 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
       </nav>
 
       {toast ? <div className={`alert ${toast.tone}`} role="status">{toast.text}</div> : null}
-      <LabAlertBanner items={items} lots={lots} today={today} onPick={(value) => { setStockFilter({ key: Date.now(), value }); changeTab("stock"); }} />
+      <LabAlertBanner supplyKind={supplyKind} items={items} lots={lots} today={today} onPick={(value) => { setStockFilter({ key: Date.now(), value }); changeTab("stock"); }} />
 
-      {tab === "stock" ? <LabStock items={items} lots={lots} today={today} canManage={canManage} search={search} filterReq={stockFilter} onOpen={setDetailId} onReceive={(i) => toVoucher("RECEIPT", i)} onIssue={(i) => toVoucher("ISSUE", i)} /> : null}
+      {tab === "stock" ? <LabStock supplyKind={supplyKind} items={items} lots={lots} today={today} canManage={canManage} search={search} filterReq={stockFilter} onOpen={setDetailId} onReceive={(i) => toVoucher("RECEIPT", i)} onIssue={(i) => toVoucher("ISSUE", i)} /> : null}
       {keep("receipt") && canManage ? <div style={hiddenStyle("receipt")}><LabVoucher kind="RECEIPT" items={items} lots={lots} movements={movements} today={today} incoming={incoming} onConsumed={clearIncoming} onDone={done} /></div> : null}
       {keep("issue") && canManage ? <div style={hiddenStyle("issue")}><LabVoucher kind="ISSUE" items={items} lots={lots} movements={movements} today={today} incoming={incoming} onConsumed={clearIncoming} onDone={done} /></div> : null}
       {keep("stocktake") && canManage ? <div style={hiddenStyle("stocktake")}><LabStocktake lots={lots} itemById={itemById} today={today} lastClosing={lastClosing} canManage={canManage} onDone={done} onError={fail} /></div> : null}
-      {tab === "ledger" ? <LabLedger movements={movements} items={items} today={today} search={search} cardItemId={cardReq.id} cardKey={cardReq.key} /> : null}
-      {tab === "catalog" ? <LabCatalog items={items} canManage={canManage} search={search} seed={catalogSeed} onOpen={setDetailId} onChanged={done} /> : null}
+      {tab === "ledger" ? <LabLedger supplyKind={supplyKind} movements={movements} items={items} today={today} search={search} cardItemId={cardReq.id} cardKey={cardReq.key} /> : null}
+      {tab === "catalog" ? <LabCatalog supplyKind={supplyKind} items={items} canManage={canManage} search={search} seed={catalogSeed} onOpen={setDetailId} onChanged={done} /> : null}
 
       {detailItem ? (
         <LabItemDetail

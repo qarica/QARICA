@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LabImportDialog } from "@/components/lab-supplies-import-dialog";
-import { CATEGORIES, CATEGORY_LABEL, formatQuantity, type SupplyCategory } from "../lib/lab-supplies";
+import { CATEGORY_LABEL, KIND_CATEGORIES, formatQuantity, type SupplyCategory, type SupplyKind } from "../lib/lab-supplies";
 import { callApi, num, type Item } from "./lab-supplies-types";
 
 type ItemForm = {
@@ -13,7 +13,7 @@ type ItemForm = {
 const EMPTY_ITEM: ItemForm = { code: "", barcode: "", name: "", category: "REAGENT", unit: "", manufacturer: "", storage_condition: "", min_stock: "0", expiry_warning_days: "30", is_active: true, notes: "" };
 
 // DANH MỤC = thiết lập vật tư (làm một lần, thỉnh thoảng sửa) nên đặt cuối cùng. Thêm từng cái hoặc nhập hàng loạt từ Excel.
-export function LabCatalog({ items, canManage, search, seed, onOpen, onChanged }: { items: Item[]; canManage: boolean; search: string; seed: { barcode: string; key: number } | null; onOpen: (id: string) => void; onChanged: (text: string) => void }) {
+export function LabCatalog({ supplyKind, items, canManage, search, seed, onOpen, onChanged }: { supplyKind: SupplyKind; items: Item[]; canManage: boolean; search: string; seed: { barcode: string; key: number } | null; onOpen: (id: string) => void; onChanged: (text: string) => void }) {
   const [form, setForm] = useState<ItemForm | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
@@ -21,8 +21,8 @@ export function LabCatalog({ items, canManage, search, seed, onOpen, onChanged }
   const [formError, setFormError] = useState("");
 
   useEffect(() => {
-    if (seed) { setFormError(""); setForm({ ...EMPTY_ITEM, barcode: seed.barcode }); }
-  }, [seed]);
+    if (seed) { setFormError(""); setForm({ ...EMPTY_ITEM, category: KIND_CATEGORIES[supplyKind][0], barcode: seed.barcode }); }
+  }, [seed, supplyKind]);
 
   const q = search.trim().toLowerCase();
   const rows = items.filter((i) => (showInactive || i.is_active) && (!q || [i.code, i.barcode, i.name, i.manufacturer].some((v) => (v || "").toLowerCase().includes(q))));
@@ -59,7 +59,7 @@ export function LabCatalog({ items, canManage, search, seed, onOpen, onChanged }
         {canManage ? (
           <>
             <button type="button" className="button secondary" onClick={() => setImportOpen(true)}><Icon name="upload" size={16} /> Nhập từ Excel</button>
-            <button type="button" className="button primary" onClick={() => { setFormError(""); setForm({ ...EMPTY_ITEM }); }}><Icon name="plus" size={16} /> Thêm vật tư</button>
+            <button type="button" className="button primary" onClick={() => { setFormError(""); setForm({ ...EMPTY_ITEM, category: KIND_CATEGORIES[supplyKind][0] }); }}><Icon name="plus" size={16} /> Thêm vật tư</button>
           </>
         ) : null}
       </div>
@@ -87,7 +87,7 @@ export function LabCatalog({ items, canManage, search, seed, onOpen, onChanged }
         </table>
       </div>
 
-      {importOpen ? <LabImportDialog onClose={() => setImportOpen(false)} onImported={(text) => { setImportOpen(false); onChanged(text); }} /> : null}
+      {importOpen ? <LabImportDialog supplyKind={supplyKind} onClose={() => setImportOpen(false)} onImported={(text) => { setImportOpen(false); onChanged(text); }} /> : null}
 
       {form ? (
         <div className="modal-backdrop">
@@ -100,7 +100,7 @@ export function LabCatalog({ items, canManage, search, seed, onOpen, onChanged }
               {formError ? <div className="alert error">{formError}</div> : null}
               <div className="form-grid two">
                 <label>Mã vật tư *<input value={form.code} disabled={!!form.id} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="VD: HC001" /></label>
-                <label>Nhóm *<select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as SupplyCategory })}>{CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}</select></label>
+                <label>Nhóm *<select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as SupplyCategory })}>{KIND_CATEGORIES[supplyKind].map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}</select></label>
                 <label className="span-2">Mã vạch / mã QR trên hộp<input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="Quét hoặc gõ mã in trên hộp (tuỳ chọn)" autoComplete="off" /><small>Quét mã này ở thanh “Tìm hoặc quét mã” để mở nhanh vật tư. Mỗi mã chỉ gắn cho 1 vật tư; để trống thì quét bằng mã vật tư.</small></label>
                 <label className="span-2">Tên vật tư *<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="VD: Thuốc thử Glucose" /></label>
                 <label>Đơn vị tính *<input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="Hộp, Chai, Test..." /></label>

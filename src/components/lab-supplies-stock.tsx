@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icon";
-import { KANBAN_COLUMNS, daysUntilExpiry, formatQuantity, itemStockStatus, compareStockUrgency, kanbanColumnFor, lotExpiryStatus, sortLotsFefo, type KanbanColumnKey, fmtDate } from "../lib/lab-supplies";
+import { KANBAN_COLUMNS, daysUntilExpiry, formatQuantity, itemStockStatus, compareStockUrgency, kanbanColumnFor, lotExpiryStatus, sortLotsFefo, type KanbanColumnKey, type SupplyKind, fmtDate } from "../lib/lab-supplies";
 import { num, type Item, type Lot } from "./lab-supplies-types";
 
 // TỒN KHO = màn hình mở đầu, trả lời "còn gì, cần làm gì". Một khái niệm duy nhất: mỗi vật tư thuộc đúng MỘT trạng thái
 // (Hết hàng / Có lô hết hạn / Dưới định mức / Lô sắp hết hạn / Đủ hàng). Các ô đếm phía trên chính là bộ lọc; cùng dữ
 // liệu hiển thị dạng Danh sách hoặc Kanban (không có 2 nơi làm cùng một việc).
-export function LabStock({ items, lots, today, canManage, search, filterReq, onOpen, onReceive, onIssue }: { items: Item[]; lots: Lot[]; today: string; canManage: boolean; search: string; filterReq?: { key: number; value: KanbanColumnKey } | null; onOpen: (id: string) => void; onReceive: (item: Item) => void; onIssue: (item: Item) => void }) {
+export function LabStock({ supplyKind, items, lots, today, canManage, search, filterReq, onOpen, onReceive, onIssue }: { supplyKind: SupplyKind; items: Item[]; lots: Lot[]; today: string; canManage: boolean; search: string; filterReq?: { key: number; value: KanbanColumnKey } | null; onOpen: (id: string) => void; onReceive: (item: Item) => void; onIssue: (item: Item) => void }) {
   const [view, setView] = useState<"list" | "kanban">("list");
   const [filter, setFilter] = useState<"ALL" | KanbanColumnKey>(filterReq?.value ?? "ALL");
   // Bấm một mục trên banner nhắc việc → lọc sẵn danh sách theo mục đó (kể cả khi tab Tồn kho đang mở).
@@ -57,8 +57,8 @@ export function LabStock({ items, lots, today, canManage, search, filterReq, onO
         <details className="ls-menu">
           <summary className="button secondary"><Icon name="download" size={16} /> Xuất Excel</summary>
           <div className="ls-menu-list">
-            <a href="/api/lab-supplies/export?type=stock" download>Tồn kho hiện tại (theo vật tư và theo lô)</a>
-            <a href="/api/lab-supplies/export?type=replenish" download>Danh sách cần bổ sung / đặt hàng</a>
+            <a href={`/api/lab-supplies/export?type=stock&kind=${supplyKind}`} download>Tồn kho hiện tại (theo vật tư và theo lô)</a>
+            <a href={`/api/lab-supplies/export?type=replenish&kind=${supplyKind}`} download>Danh sách cần bổ sung / đặt hàng</a>
           </div>
         </details>
       </div>

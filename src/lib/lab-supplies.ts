@@ -42,6 +42,27 @@ export const EXPIRY_REQUIRED_CATEGORIES: SupplyCategory[] = ["REAGENT", "CONTROL
 
 export const CATEGORIES = Object.keys(CATEGORY_LABEL) as SupplyCategory[];
 
+// Hai kho tách riêng theo loại hàng (cùng một nguồn dữ liệu lab_supply_*, KHÔNG có bảng song song):
+//  - chemical = Kho hóa chất: hóa chất/thuốc thử + chất chuẩn/chất kiểm soát
+//  - supply   = Kho vật tư: vật tư tiêu hao + khác
+export type SupplyKind = "chemical" | "supply";
+export const SUPPLY_KINDS: SupplyKind[] = ["chemical", "supply"];
+export const KIND_CATEGORIES: Record<SupplyKind, SupplyCategory[]> = {
+  chemical: ["REAGENT", "CONTROL_CALIBRATOR"],
+  supply: ["CONSUMABLE", "OTHER"],
+};
+export const KIND_LABEL: Record<SupplyKind, string> = { chemical: "Kho hóa chất xét nghiệm", supply: "Kho vật tư xét nghiệm" };
+export const KIND_DESCRIPTION: Record<SupplyKind, string> = {
+  chemical: "Hóa chất, thuốc thử, chất chuẩn/chất kiểm soát: nhập – xuất – tồn theo lô và hạn dùng, cảnh báo sắp hết/sắp hết hạn, kiểm kê, hao hụt, hủy hàng hết hạn và chốt kỳ.",
+  supply: "Vật tư tiêu hao xét nghiệm (bơm tiêm, găng tay, lame kính, đầu côn...): nhập – xuất – tồn, cảnh báo sắp hết, kiểm kê, hao hụt và chốt kỳ.",
+};
+export function parseSupplyKind(value: unknown): SupplyKind | null {
+  return value === "chemical" || value === "supply" ? value : null;
+}
+export function categoryInKind(category: string, kind: SupplyKind | null): boolean {
+  return !kind || (KIND_CATEGORIES[kind] as string[]).includes(category);
+}
+
 export type LotExpiryStatus = "NO_EXPIRY" | "EXPIRED" | "EXPIRING" | "OK";
 
 const DAY_MS = 24 * 60 * 60 * 1000;

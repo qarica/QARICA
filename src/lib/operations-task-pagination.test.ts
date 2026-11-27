@@ -24,6 +24,6 @@ describe("Operations /tasks pagination", () => {
     // (defaults to searched unchanged when no week is selected) — see
     // tasks-week-filter.test.ts for that filter's own coverage.
     expect(source).toContain("weekScoped.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE)");
-    expect(source).toContain("const weekScoped=weekStart&&weekEnd?searched.filter(");
+    expect(source).toContain("const weekScoped=pStart&&pEnd?searched.filter(");
   });
 });

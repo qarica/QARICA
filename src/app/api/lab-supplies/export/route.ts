@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fmtDateFile, isIsoDate, todayInVietnam } from "@/lib/lab-supplies";
+import { CATEGORY_LABEL, KIND_CATEGORIES, fmtDateFile, isIsoDate, parseSupplyKind, todayInVietnam } from "@/lib/lab-supplies";
 import { buildLedgerSheets, buildReplenishmentSheets, buildStockSheets, type ExportItem, type ExportLot, type ExportMovement } from "@/lib/lab-supplies-export";
 import { XLSX_CONTENT_TYPE, sheetsToXlsx, xlsxFileName } from "@/lib/lab-supplies-xlsx";
 import { ITEM_SELECT, LOT_BALANCE_SELECT, MOVEMENT_SELECT, labSuppliesContext } from "@/lib/lab-supplies-api";
@@ -14,19 +14,27 @@ export async function GET(request: Request) {
   if (!ctx.ok) return ctx.response;
   const params = new URL(request.url).searchParams;
   const type = params.get("type");
+  const kind = parseSupplyKind(params.get("kind"));
+  const kindSuffix = kind === "chemical" ? "-hoa-chat" : kind === "supply" ? "-vat-tu" : "";
+  const noun = kind === "supply" ? "vật tư xét nghiệm" : kind === "chemical" ? "hóa chất xét nghiệm" : "hóa chất & VTYT xét nghiệm";
   const today = todayInVietnam();
   const send = async (sheets: Parameters<typeof sheetsToXlsx>[0], base: string) =>
     new NextResponse(new Uint8Array(await sheetsToXlsx(sheets)), { headers: { "Content-Type": XLSX_CONTENT_TYPE, "Content-Disposition": `attachment; filename="${xlsxFileName(base)}"`, "Cache-Control": "no-store" } });
 
   if (type === "stock" || type === "replenish") {
     const [itemsRes, lotsRes] = await Promise.all([
-      fetchAllPages((from, to) => ctx.admin.from("lab_supply_items").select(ITEM_SELECT).eq("organization_id", ctx.organizationId).order("code", { ascending: true }).order("id", { ascending: true }).range(from, to)),
+      fetchAllPages((from, to) => ctx.admin.from("lab_supply_items").select(ITEM_SELECT).eq("organization_id", ctx.organizationId).in("category", kind ? KIND_CATEGORIES[kind] : Object.keys(CATEGORY_LABEL)).order("code", { ascending: true }).order("id", { ascending: true }).range(from, to)),
       fetchAllPages((from, to) => ctx.admin.from("lab_supply_lot_balances").select(LOT_BALANCE_SELECT).eq("organization_id", ctx.organizationId).gt("balance", 0).order("lot_id", { ascending: true }).range(from, to)),
     ]);
     const err = itemsRes.error || lotsRes.error;
     if (err) return NextResponse.json({ error: err.message }, { status: 400 });
-    const build = type === "stock" ? buildStockSheets : buildReplenishmentSheets;
-    return send(build((itemsRes.data ?? []) as unknown as ExportItem[], (lotsRes.data ?? []) as unknown as ExportLot[], today), `${type === "stock" ? "ton-kho-hoa-chat" : "can-bo-sung-hoa-chat"}_${fmtDateFile(today)}`);
+    const exportItems = (itemsRes.data ?? []) as unknown as ExportItem[];
+    const itemIds = new Set(exportItems.map((i) => i.id));
+    const exportLots = ((lotsRes.data ?? []) as unknown as ExportLot[]).filter((l) => itemIds.has(l.item_id));
+    const sheets = type === "stock" ? buildStockSheets(exportItems, exportLots, today, noun) : buildReplenishmentSheets(exportItems, exportLots, today);
+    const stockBase = kind === "supply" ? "ton-kho-vat-tu" : "ton-kho-hoa-chat";
+    const replenishBase = kind === "supply" ? "can-bo-sung-vat-tu" : "can-bo-sung-hoa-chat";
+    return send(sheets, `${type === "stock" ? stockBase : replenishBase}_${fmtDateFile(today)}`);
   }
 
   if (type === "ledger") {
@@ -45,7 +53,14 @@ export async function GET(request: Request) {
       .order("id", { ascending: false })
       .range(a, b), MAX_LEDGER_ROWS);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    return send(buildLedgerSheets((data ?? []) as unknown as ExportMovement[], from, to), `so-xuat-nhap_${fmtDateFile(from)}_${fmtDateFile(to)}`);
+    let ledgerRows = (data ?? []) as unknown as ExportMovement[];
+    if (kind) {
+      const kindItems = await fetchAllPages((a, b) => ctx.admin.from("lab_supply_items").select("id").eq("organization_id", ctx.organizationId).in("category", KIND_CATEGORIES[kind]).order("id", { ascending: true }).range(a, b));
+      if (kindItems.error) return NextResponse.json({ error: kindItems.error.message }, { status: 400 });
+      const ids = new Set((kindItems.data ?? []).map((i: any) => i.id));
+      ledgerRows = ledgerRows.filter((m: any) => ids.has(m.item_id));
+    }
+    return send(buildLedgerSheets(ledgerRows, from, to, noun), `so-xuat-nhap${kindSuffix}_${fmtDateFile(from)}_${fmtDateFile(to)}`);
   }
 
   return NextResponse.json({ error: "Loại xuất không hợp lệ (stock, replenish hoặc ledger)." }, { status: 400 });

@@ -48,7 +48,8 @@ describe("chuyển việc — API và giao diện", () => {
     expect(assignees).toContain("qlcl_list_work_assignees_v1");
     expect(reassign).toContain('requireApiContext("tasks.view")');
     expect(reassign).toContain("qlcl_reassign_work_v1");
-    expect(reassign).not.toMatch(/\.from\("(actions|personal_reminders|notifications)"\)/);
+    // Nhánh người nhận CHƯA có tài khoản (handoverToExternal) là ghi nhận tại chỗ; nhánh chuyển thật chỉ qua hàm DB.
+    expect(reassign.split("async function handoverToExternal")[0]).not.toMatch(/\.from\("(actions|personal_reminders|notifications)"\)/);
   });
   it("API kiểm tra loại việc, UUID và lý do trước khi gọi DB", () => {
     expect(reassign).toContain('new Set(["REMINDER", "ACTION"])');
@@ -78,7 +79,7 @@ describe("giao diện Việc của tôi đã gộp gọn", () => {
     for (const gone of ["my-work-illustration", "my-work-quote", '<section className="kpis">', "Việc cần làm trước", "thông báo chưa đọc"]) expect(page, gone).not.toContain(gone);
   });
   it("lọc theo tuần nằm trong mục gập; mặc định chỉ mở khi đang lọc", () => {
-    expect(page).toContain('<details className="mw-week" open={!!weekStart}>');
+    expect(page).toContain('<details className="mw-week" open={!!pStart}>');
   });
   it("thêm việc cá nhân gọn một dòng, chi tiết gập; không hỏi 'đặt nhắc nhở?' mỗi lần thêm", () => {
     expect(quick).toContain('className="pr-quick"');
