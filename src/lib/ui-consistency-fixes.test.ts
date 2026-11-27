@@ -38,12 +38,13 @@ describe("UI consistency fixes (checkbox class, modal-head wrapper)", () => {
   // requesting a deadline extension (or logging progress) on a task that is
   // already done is nonsensical and reads as confusing on a weekly report
   // view. Only "Mở lại" (reopen) is a coherent action once isDone is true.
-  it("UnifiedPersonalTaskActions hides Cập nhật tiến độ / Xin gia hạn once a task is done — only Mở lại remains", () => {
+  it("UnifiedPersonalTaskActions hides Cập nhật tiến độ once a task is done (Xin gia hạn đã bỏ) — only Mở lại remains", () => {
     const source = read("src/components/unified-personal-task-actions.tsx");
     // Các thao tác phụ nằm trong menu "⋯" và chỉ tồn tại khi việc CHƯA xong; việc đã xong chỉ còn nút Mở lại.
     expect(source).toContain('{!isDone?<details className="upta-more">');
     expect(source).toContain('<button type="button" className="button tertiary small" disabled={busy||isPending} onClick={()=>{setError("");setEditing(true)}}>Cập nhật tiến độ</button>');
-    expect(source).toContain('<button type="button" className="button tertiary small" disabled={busy||isPending} onClick={()=>{setError("");setExtending(true)}}>Xin gia hạn</button>');
+    expect(source).not.toContain("Xin gia hạn");
+    expect(source).not.toContain("personal_task_extension_requests");
     expect(source.indexOf('{!isDone?<details className="upta-more">')).toBeLessThan(source.indexOf('>Cập nhật tiến độ</button>'));
     expect(source).toContain('onClick={()=>void toggle()}>{busy||isPending?"Đang cập nhật...":isDone?"Mở lại":"Hoàn tất"}</button>');
   });
@@ -59,7 +60,7 @@ describe("UI consistency fixes (checkbox class, modal-head wrapper)", () => {
     const source = read("src/components/unified-personal-task-actions.tsx");
     expect(source).toContain('import {useState,useTransition} from "react";');
     expect(source).toContain("const [isPending,startTransition]=useTransition();");
-    expect(source.match(/startTransition\(\(\)=>\{router\.refresh\(\);\}\);/g)?.length).toBe(3);
+    expect(source.match(/startTransition\(\(\)=>\{router\.refresh\(\);\}\);/g)?.length).toBe(2);
     expect(source).not.toContain("setBusy(false);router.refresh();");
   });
 

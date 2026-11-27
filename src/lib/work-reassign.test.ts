@@ -24,11 +24,9 @@ describe("Việc của tôi: chuyển việc cho người khác — hàm DB", ()
     expect(sql).toContain("v_to.organization_id is distinct from p_organization_id");
     expect(sql).toContain("qlcl_user_has_permission_v1(p_to_user_id, 'tasks.view')");
   });
-  it("việc cá nhân: chỉ chủ việc, chỉ việc đang mở; từ chối đề nghị gia hạn chờ (không xóa người duyệt vì trigger không cho)", () => {
+  it("việc cá nhân: chỉ chủ việc, chỉ việc đang mở", () => {
     expect(sql).toContain("r.owner_user_id <> p_actor_user_id");
     expect(sql).toContain("r.status <> 'OPEN'");
-    expect(sql).toContain("set status = 'REJECTED'");
-    expect(sql).not.toMatch(/delete from public\.personal_task_approvers/);
   });
   it("Action: chỉ giao trực tiếp cho cá nhân (USER) và chính người chuyển; chỉ NOT_STARTED/IN_PROGRESS/RETURNED; giữ nguyên hạn/minh chứng", () => {
     expect(sql).toContain("a.assignment_target_type <> 'USER' or a.assignee_user_id is distinct from p_actor_user_id");
@@ -86,9 +84,6 @@ describe("giao diện Việc của tôi đã gộp gọn", () => {
     expect(quick).toContain('<details className="pr-more"');
     expect(quick).not.toContain("Bạn có muốn đặt nhắc nhở");
     expect(quick).not.toContain("Ma trận Eisenhower");
-  });
-  it("khối đề nghị gia hạn chỉ hiện khi có đề nghị chờ duyệt", () => {
-    expect(read("src/components/task-extension-review-queue.tsx")).toContain("if(!loading&&items.length===0&&!error)return null;");
   });
 });
 

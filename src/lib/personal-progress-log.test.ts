@@ -40,3 +40,21 @@ describe("hộp Nhật ký tiến độ gọn: mới nhất ở trên, không l�
     expect(h).toContain('e.event_type!=="PROGRESS"');
   });
 });
+
+describe("Đã bỏ Xin gia hạn và Chọn người phê duyệt (việc cá nhân)", () => {
+  const mig = readFileSync("supabase/migrations/20261202000010_remove_task_extension_v1.sql", "utf8");
+  it("migration gỡ bảng/hàm gia hạn + người duyệt; hàm kiểm toán chỉ còn quy tắc chủ việc; hàm chuyển việc không còn đụng bảng gia hạn", () => {
+    expect(mig).toContain("drop table if exists public.personal_task_extension_requests;");
+    expect(mig).toContain("drop table if exists public.personal_task_approvers;");
+    expect(mig).toContain("drop function if exists public.review_personal_task_extension(uuid, boolean, text);");
+    expect(mig).toContain("raise exception 'Task update actor must be the owner'");
+    const fnPart = mig.slice(mig.indexOf("create or replace function public.qlcl_reassign_work_v1("), mig.indexOf("drop function if exists public.review_personal_task_extension"));
+    expect(fnPart).not.toContain("personal_task_extension_requests");
+  });
+  it("mã nguồn không còn tham chiếu bảng/giao diện gia hạn", () => {
+    for (const f of ["src/components/unified-personal-task-actions.tsx", "src/components/personal-task-progress-title.tsx", "src/app/(app)/tasks/page.tsx"]) {
+      const c = readFileSync(f, "utf8");
+      expect(c, f).not.toMatch(/personal_task_extension|personal_task_approvers|TaskExtension|Xin gia hạn|người phê duyệt/);
+    }
+  });
+});
