@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { KpiCard, type KpiTrend } from "@/components/kpi-card";
 import { AlertStrip } from "@/components/alert-strip";
 import { TQM_CHART_CSS } from "@/components/tqm-charts";
@@ -79,20 +78,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const year = await getWorkYear();
   const supabase = await createClient();
   const query = await searchParams;
-  // Dải "Công văn của tôi": đếm đúng nguồn incoming_document_tasks như trang Việc của tôi (mình là Chủ trì hoặc Phối hợp,
-  // chưa hoàn tất). Chỉ hiện khi có quyền xem công văn đến. Việc giao khác (Action, kế hoạch...) vẫn xem ở Việc của tôi.
-  const canSeeIncoming = hasPermission(user, "incoming_documents.view");
-  let incomingMine: { open: number; overdue: number; fresh: number } | null = null;
-  if (canSeeIncoming) {
-    const todayKey = todayHcm();
-    const since = new Date(Date.now() - 7 * 86400000).toISOString();
-    const [tasksRes, freshRes] = await Promise.all([
-      supabase.from("incoming_document_tasks").select("id,due_date,completed_at").or(`lead_user_id.eq.${user.id},collaborating_user_ids.cs.{${user.id}}`),
-      supabase.from("incoming_documents").select("id", { count: "exact", head: true }).gte("created_at", since),
-    ]);
-    const open = ((tasksRes.data ?? []) as any[]).filter((t) => !t.completed_at);
-    incomingMine = { open: open.length, overdue: open.filter((t) => t.due_date && String(t.due_date) < todayKey).length, fresh: freshRes.count ?? 0 };
-  }
   const requestedAsOf = String(query.asOf || "").trim();
   const today = /^\d{4}-\d{2}-\d{2}$/.test(requestedAsOf) && requestedAsOf <= todayHcm() ? requestedAsOf : todayHcm();
   const defaultFrom = addMonths(today.slice(0, 7), -8) + "-01";
@@ -221,7 +206,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .qcc-dashboard .stacked-bar-seg{width:100%}
       .qcc-dashboard .stacked-bar-label{font-size:10px;color:#94a3b8}
       @media(max-width:1100px){.qcc-dashboard .kpis{grid-template-columns:repeat(2,1fr)}.qcc-dashboard .grid2{grid-template-columns:1fr}}
-        .qcc-dashboard .dash-incoming{display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-left:3px solid var(--tone-blue,#1d4ed8);border-radius:12px;padding:10px 14px;font-size:12px;color:var(--muted)}.qcc-dashboard .dash-incoming strong{color:var(--text);font-size:13px}.qcc-dashboard .dash-incoming b{color:var(--text);font-size:18px;margin-right:4px}.qcc-dashboard .dash-incoming .late b{color:#dc2626}.qcc-dashboard .dash-incoming .button{margin-left:auto}
     `}</style>
 
     <div className="page-header-row dashboard-hero-row">
@@ -237,7 +221,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </form>
     </div>
 
-    {incomingMine ? <div className="dash-incoming"><strong>Công văn của tôi</strong><span><b>{incomingMine.open}</b> việc đang chờ xử lý</span><span className={incomingMine.overdue ? "late" : ""}><b>{incomingMine.overdue}</b> quá hạn</span><span><b>{incomingMine.fresh}</b> công văn mới trong 7 ngày</span><Link className="button tertiary small" href="/incoming-documents">Mở công văn →</Link></div> : null}
 
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
 
