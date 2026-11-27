@@ -103,7 +103,7 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
 
   it("cả bảng desktop lẫn thẻ mobile đều dùng dueOrCompletedLabel thay vì chỉ hiện dueDate thô", () => {
     expect(source).toContain('<td className={r.isOverdue?"text-danger":r.isDone?"text-success":""}>{dueOrCompletedLabel(r)}</td>');
-    expect(source).toContain('<small>{r.typeLabel} · Giao: {r.createdAt?formatDate(r.createdAt):"—"} · {dueOrCompletedLabel(r)}</small>');
+    expect(source).toContain('<small>{!r.isDone?<>{pBadge(r)}{" "}</>:null}{r.typeLabel} · Giao: {r.createdAt?formatDate(r.createdAt):"—"} · {dueOrCompletedLabel(r)}</small>');
     expect(source).not.toContain('{r.dueDate?formatDate(r.dueDate):"Không có hạn"}');
     expect(source).not.toContain('{r.dueDate?formatDate(r.dueDate):"—"}');
   });
@@ -135,8 +135,8 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
   it("bỏ cột chọn dòng, Liên quan đến, Người giao khỏi bảng desktop (không còn ý nghĩa với note cá nhân)", () => {
     expect(source).not.toContain("<th>Liên quan đến</th>");
     expect(source).not.toContain("<th>Người giao</th>");
-    expect(source).toContain("<th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Ngày giao việc</th><th>Ưu tiên</th><th>Hạn xử lý / Hoàn thành</th><th>Trạng thái</th><th>Thao tác</th>");
-    expect(source).toContain("colSpan={8}");
+    expect(source).toContain('<th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Ngày giao việc</th><th>Ưu tiên</th><th title="Ma trận Eisenhower: P1 làm ngay · P2 lên lịch · P3 giao/ủy thác · P4 bỏ qua">P</th><th>Hạn xử lý / Hoàn thành</th><th>Trạng thái</th><th>Thao tác</th>');
+    expect(source).toContain("colSpan={9}");
   });
 
   // Báo cáo tiếp theo (ảnh chụp): khối "Lịch cá nhân" + "Việc cần chú ý theo
