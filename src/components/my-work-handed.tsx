@@ -15,7 +15,7 @@ export function MyWorkHanded({ rows, error }: { rows: HandedRow[]; error: string
             {rows.map((r, i) => (
               <tr key={r.key}>
                 <td>{i + 1}</td>
-                <td>{r.recordId ? <Link href={`/tasks/${r.recordId}`}>{r.title}</Link> : r.title}<br /><small className="muted">{r.source === "ACTION" ? "Action được giao" : "Việc cá nhân"}</small></td>
+                <td>{r.recordId ? <Link href={`/tasks/${r.recordId}`}>{r.title}</Link> : r.title}<br /><small className="muted">{r.source === "ACTION" ? "Action được giao" : r.source === "WORK_PLAN" ? "Đầu việc kế hoạch" : "Việc cá nhân"}</small></td>
                 <td>{r.toName}{r.external ? <><br /><small className="muted">chưa có tài khoản</small></> : null}</td>
                 <td>{formatDate(r.at)}</td>
                 <td>{r.reason}</td>

@@ -52,7 +52,7 @@ describe("chuyển việc — API và giao diện", () => {
     expect(reassign.split("async function handoverToExternal")[0]).not.toMatch(/\.from\("(actions|personal_reminders|notifications)"\)/);
   });
   it("API kiểm tra loại việc, UUID và lý do trước khi gọi DB", () => {
-    expect(reassign).toContain('new Set(["REMINDER", "ACTION"])');
+    expect(reassign).toContain('new Set(["REMINDER", "ACTION", "WORK_PLAN"])');
     expect(reassign).toContain("UUID_RE.test(sourceId)");
     expect(reassign).toContain("reason.length < 5");
   });
@@ -89,5 +89,27 @@ describe("giao diện Việc của tôi đã gộp gọn", () => {
   });
   it("khối đề nghị gia hạn chỉ hiện khi có đề nghị chờ duyệt", () => {
     expect(read("src/components/task-extension-review-queue.tsx")).toContain("if(!loading&&items.length===0&&!error)return null;");
+  });
+});
+
+describe("chuyển việc — mở rộng cho đầu việc Kế hoạch công việc (WORK_PLAN)", () => {
+  const sql = readFileSync("supabase/migrations/20261202000009_work_reassign_work_plan_v1.sql", "utf8");
+  it("hàm DB có nhánh WORK_PLAN: chỉ người đang phụ trách + đang mở, người nhận phải có work_plans.view", () => {
+    expect(sql).toContain("p_source not in ('REMINDER', 'ACTION', 'WORK_PLAN')");
+    expect(sql).toContain("w.assignee_user_id is distinct from p_actor_user_id");
+    expect(sql).toContain("w.status <> 'OPEN'");
+    expect(sql).toContain("'work_plans.view'");
+    expect(sql).toContain("update public.work_plan_items set assignee_user_id = p_to_user_id");
+    expect(sql).toContain("revoke all on function public.qlcl_reassign_work_v1(uuid, uuid, text, uuid, uuid, text) from public, anon, authenticated;");
+  });
+  it("API và giao diện nhận nguồn WORK_PLAN; không cho gõ tên tự do với đầu việc kế hoạch", () => {
+    expect(readFileSync("src/app/api/work/reassign/route.ts", "utf8")).toContain('new Set(["REMINDER", "ACTION", "WORK_PLAN"])');
+    expect(readFileSync("src/app/api/work/reassign/route.ts", "utf8")).toContain('source === "WORK_PLAN") return NextResponse.json({ error: "Đầu việc kế hoạch chỉ chuyển được');
+    expect(readFileSync("src/components/work-reassign-button.tsx", "utf8")).toContain('source !== "WORK_PLAN" && q.trim().length >= 2');
+    expect(readFileSync("src/app/api/work/assignees/route.ts", "utf8")).toContain('"work_plans.view"');
+  });
+  it("hàng đầu việc kế hoạch trong Việc của tôi có nút Chuyển khi đang mở; mục Đã chuyển đi hiển thị được", () => {
+    expect(readFileSync("src/app/(app)/tasks/page.tsx", "utf8")).toContain('canReassign:item.status==="OPEN",reassignSource:"WORK_PLAN"');
+    expect(readFileSync("src/lib/my-work-handed.ts", "utf8")).toContain('table_name === "work_plan_items"');
   });
 });

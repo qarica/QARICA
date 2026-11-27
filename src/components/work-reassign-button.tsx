@@ -10,7 +10,7 @@ type Assignee = { user_id: string; full_name: string; job_title: string | null; 
  * Có tài khoản: việc chuyển hẳn sang người nhận (họ được thông báo). Chưa có tài khoản: ghi nhận "đã giao cho <tên>".
  * Lịch sử ghi trong nhật ký và xem lại ở mục "Đã chuyển đi". Chỉ hiện cho việc đủ điều kiện (do máy chủ quyết định trong hàm DB).
  */
-export function WorkReassignButton({ source, id, title }: { source: "REMINDER" | "ACTION"; id: string; title: string }) {
+export function WorkReassignButton({ source, id, title }: { source: "REMINDER" | "ACTION" | "WORK_PLAN"; id: string; title: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -29,7 +29,7 @@ export function WorkReassignButton({ source, id, title }: { source: "REMINDER" |
     const mine = ++seq.current;
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/work/assignees?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`/api/work/assignees?q=${encodeURIComponent(q)}${source === "WORK_PLAN" ? "&source=WORK_PLAN" : ""}`);
         const json = await res.json();
         if (mine !== seq.current) return;
         if (!res.ok) throw new Error(json.error || "Không tải được danh sách người nhận.");
@@ -39,7 +39,7 @@ export function WorkReassignButton({ source, id, title }: { source: "REMINDER" |
       }
     }, 250);
     return () => clearTimeout(t);
-  }, [q, open]);
+  }, [q, open, source]);
 
   function close() {
     if (busy) return;
@@ -76,7 +76,7 @@ export function WorkReassignButton({ source, id, title }: { source: "REMINDER" |
               <button type="button" className="icon-button" onClick={close} aria-label="Đóng">×</button>
             </div>
             <form className="modal-body" onSubmit={submit} style={{ display: "grid", gap: 12 }}>
-              <p className="muted" style={{ margin: 0 }}>Việc: <strong>{title}</strong>. Chuyển cho người có tài khoản: việc thuộc về họ, bạn xem lại ở mục “Đã chuyển đi”. Người chưa có tài khoản: gõ tên, việc vẫn ở danh sách của bạn và được ghi nhận “đã giao cho …”.</p>
+              <p className="muted" style={{ margin: 0 }}>Việc: <strong>{title}</strong>. Chuyển cho người có tài khoản: việc thuộc về họ, bạn xem lại ở mục “Đã chuyển đi”.{source === "WORK_PLAN" ? " Đầu việc kế hoạch chỉ chuyển được cho người có tài khoản." : " Người chưa có tài khoản: gõ tên, việc vẫn ở danh sách của bạn và được ghi nhận “đã giao cho …”."}</p>
               <label>Tìm người nhận (tên, email hoặc khoa/phòng)
                 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Gõ để tìm…" autoComplete="off" aria-label="Tìm người nhận" />
               </label>
@@ -90,7 +90,7 @@ export function WorkReassignButton({ source, id, title }: { source: "REMINDER" |
                     <small className="muted">{[p.job_title, p.department_name].filter(Boolean).join(" · ") || "—"}</small>
                   </button>
                 ))}
-                {q.trim().length >= 2 ? (
+                {source !== "WORK_PLAN" && q.trim().length >= 2 ? (
                   <button type="button" role="option" aria-selected={extName === q.trim()} onClick={() => { setTo(null); setExtName(q.trim()); }}
                     style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2, width: "100%", padding: "8px 12px", border: 0, borderBottom: "1px solid var(--line, #e5ecef)", background: extName === q.trim() ? "#e8f0fe" : "transparent", textAlign: "left", cursor: "pointer" }}>
                     <strong>Giao cho “{q.trim()}” (chưa có tài khoản)</strong>
