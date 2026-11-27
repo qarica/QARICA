@@ -20,7 +20,7 @@ describe("Trang /modules — danh mục module dạng lưới (không đụng /d
 
   it("không đụng tới /dashboard/page.tsx (KPI QLCL thật, không phải danh mục module)", () => {
     const dashboard = read("src/app/(app)/dashboard/page.tsx");
-    expect(dashboard).toContain("buildIndicatorKpi");
+    expect(dashboard).toContain("buildQualityAlertItems");
     expect(dashboard).not.toContain("ModuleCatalogClient");
   });
 

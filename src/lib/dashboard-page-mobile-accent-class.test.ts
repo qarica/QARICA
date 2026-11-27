@@ -16,10 +16,9 @@ describe("Dashboard page carries the 'dashboard-page' class an existing mobile C
     expect(page).toContain('<div className="page-stack qcc-dashboard dashboard-page">');
   });
 
-  it("the mobile rule this unblocks actually targets a real table with status badges (Điểm nóng cần chú ý)", () => {
+  it("Bảng 'Điểm nóng cần chú ý' đã bỏ khỏi Dashboard (trùng khối cảnh báo + 5 ô chỉ số)", () => {
     const page = readFileSync("src/app/(app)/dashboard/page.tsx", "utf8");
-    expect(page).toContain("Điểm nóng cần chú ý");
-    expect(page).toContain('<span className={`status-badge ${x.tone==="red"?"danger":"warning"}`}>');
+    expect(page).not.toContain("Điểm nóng cần chú ý");
   });
 
   it("qlvb-theme.css's dashboard-page rule is still there to receive it (not removed/renamed since)", () => {
