@@ -171,6 +171,7 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
         .lab-supplies .ls-grow{flex:1 1 140px}
         .lab-supplies .ls-note{padding:0 19px 8px;margin:0}
         .lab-supplies .ls-form-pad{padding:0 19px 19px;display:flex;flex-direction:column;gap:14px}
+        .lab-supplies .code-pill{white-space:nowrap}
         .lab-supplies .ls-num{text-align:right;font-variant-numeric:tabular-nums}
         .lab-supplies .ls-alert-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;padding:8px 12px}
         .lab-supplies .ls-alert-title{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#475569}
@@ -236,7 +237,7 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
         .lab-supplies .ls-lines-head{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:0 2px}
         .lab-supplies .ls-line{padding:6px 2px;border-top:1px solid #eef2f7}
         .lab-supplies .ls-line-no{font-size:12px;font-weight:800;color:var(--muted);text-align:center;padding-top:12px}
-        .lab-supplies .ls-f>span{display:none}
+        .lab-supplies .ls-f>span:not(.ls-date){display:none}
         .lab-supplies .ls-qty{position:relative}
         .lab-supplies .ls-qty input{padding-right:46px;text-align:right}
         .lab-supplies .ls-qty em{position:absolute;right:10px;bottom:11px;font-style:normal;font-size:12px;color:var(--muted);pointer-events:none}
@@ -281,7 +282,7 @@ export function LabSuppliesClient({ items, lots, movements, lastClosing, today, 
           .lab-supplies .ls-lines.receipt .ls-line,.lab-supplies .ls-lines.issue .ls-line{grid-template-columns:24px minmax(0,1fr) 44px}
           .lab-supplies .ls-line>*:not(.ls-line-no):not(.ls-line-actions){grid-column:2}
           .lab-supplies .ls-line-actions{grid-column:3;grid-row:1}
-          .lab-supplies .ls-f>span{display:block;font-weight:700}
+          .lab-supplies .ls-f>span:not(.ls-date){display:block;font-weight:700}
           .lab-supplies .ls-qty em{bottom:11px}
           .lab-supplies .ls-detail-kpis{grid-template-columns:1fr}
           .lab-supplies .ls-scan-btn{width:100%}

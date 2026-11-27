@@ -72,3 +72,15 @@ describe("điều chỉnh tồn có chỗ làm việc rõ ràng", () => {
     expect(g).toContain("Điều chỉnh tồn");
   });
 });
+
+describe("hồi quy QC: ô ngày không bị CSS ẩn nhãn nuốt mất", () => {
+  const css = read("src/components/lab-supplies-client.tsx");
+  it("quy tắc ẩn nhãn chữ của .ls-f không áp lên vỏ ô ngày (.ls-date là <span> con trực tiếp của label)", () => {
+    expect(css).toContain(".lab-supplies .ls-f>span:not(.ls-date){display:none}");
+    expect(css).toContain(".lab-supplies .ls-f>span:not(.ls-date){display:block;font-weight:700}");
+    expect(css).not.toMatch(/\.ls-f>span\{display:none\}/);
+  });
+  it("mã vật tư không xuống dòng", () => {
+    expect(css).toContain(".lab-supplies .code-pill{white-space:nowrap}");
+  });
+});
