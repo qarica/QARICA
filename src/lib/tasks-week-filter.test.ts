@@ -64,8 +64,8 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
   });
 
   it("chuyển tab / chuyển trang vẫn giữ nguyên tuần đang lọc (không bị reset khi bấm tab hay trang khác)", () => {
-    expect(source).toContain('const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}#all-work`;');
-    expect(source).toContain('const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}&page=${p}#all-work`;');
+    expect(source).toContain('const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}${viewParam}#all-work`;');
+    expect(source).toContain('const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}${viewParam}&page=${p}#all-work`;');
   });
 
   it("có điều hướng Tuần trước / Tuần này / Tuần sau / Bỏ lọc tuần", () => {
@@ -87,7 +87,7 @@ describe("Việc của tôi (/tasks) — lọc theo tuần để báo cáo công
   });
 
   it("dòng báo cáo tuần hiện cả 2 số đã xong/chưa xong, mỗi số bấm vào mở đúng tab tương ứng (DONE/OPEN) kèm tuần đang chọn", () => {
-    expect(source).toContain('const reportTabHref=(t:string)=>{const params=new URLSearchParams();params.set("tab",t);if(weekStart)params.set("week",weekStart);return `?${params.toString()}#all-work`};');
+    expect(source).toContain('const reportTabHref=(t:string)=>{const params=new URLSearchParams();params.set("tab",t);if(weekStart)params.set("week",weekStart);if(view==="kanban")params.set("view","kanban");return `?${params.toString()}#all-work`};');
     expect(source).toContain('<Link href={reportTabHref("DONE")} className="week-report-link done"><strong>{weekDoneRows.length} đã xong</strong></Link>');
     expect(source).toContain('<Link href={reportTabHref("OPEN")} className="week-report-link pending"><strong>{weekPendingRows.length} chưa xong</strong></Link>');
   });

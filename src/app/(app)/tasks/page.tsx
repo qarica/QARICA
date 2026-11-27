@@ -6,6 +6,7 @@ import { Icon } from "@/components/icon";
 import { KpiCard } from "@/components/kpi-card";
 import { MyWorkSyncClient } from "@/components/my-work-sync-client";
 import { MyWorkExportButton } from "@/components/my-work-export-button";
+import { MyWorkKanban, type MyWorkKanbanRow } from "@/components/my-work-kanban";
 import { WorkFollowupControl } from "@/components/work-followup-control";
 import { PageHeader } from "@/components/page-header";
 import { PersonalReminders } from "@/components/personal-reminders";
@@ -51,9 +52,12 @@ function dueOrCompletedLabel(row:{isDone:boolean;completedAt:string|null;dueDate
 function workScore(row:any){const days=Number(row.days_to_due||0);let score=0;if(row.is_overdue)score+=200+Math.abs(days)*5;if(row.workflow_status==="RETURNED")score+=150;if(["EVIDENCE_SUBMITTED","VERIFYING"].includes(String(row.workflow_status)))score+=135;if(days===0)score+=160;if(days>0&&days<=3)score+=100;if(row.priority==="CRITICAL")score+=90;else if(row.priority==="URGENT")score+=70;else if(row.priority==="HIGH")score+=40;return score}
 const ACTION_SELECT="action_id,record_id,record_code,title,work_year,workflow_status,priority,due_date,is_overdue,days_to_due,lead_department_id,assignee_user_id,assignment_target_type,assignee_group_id,updated_at,created_at";
 
-export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string;q?:string;page?:string;week?:string}>}){
+export default async function TasksPage({searchParams}:{searchParams:Promise<{tab?:string;q?:string;page?:string;week?:string;view?:string}>}){
  const {user}=await requireUserContext();requirePermission(user,"tasks.view");const year=await getWorkYear();const supabase=await createClient();const today=hcmToday();
- const {tab:rawTab,q:rawQ,page:rawPage,week:rawWeek}=await searchParams;
+ const {tab:rawTab,q:rawQ,page:rawPage,week:rawWeek,view:rawView}=await searchParams;
+ // Cách xem: danh sách (mặc định) hoặc Kanban theo hạn — cùng dữ liệu, cùng bộ lọc tab/tìm kiếm/tuần.
+ const view:"list"|"kanban"=String(rawView).toLowerCase()==="kanban"?"kanban":"list";
+ const viewParam=view==="kanban"?"&view=kanban":"";
  const tab=(["ALL","OPEN","REMINDER","ASSIGNED","WAITING","WATCH","DONE"].includes(String(rawTab).toUpperCase())?String(rawTab).toUpperCase():"OPEN") as "ALL"|"OPEN"|"REMINDER"|"ASSIGNED"|"WAITING"|"WATCH"|"DONE";
  const searchQuery=String(rawQ||"").trim();
  const requestedPage=Number(rawPage ?? 1);
@@ -68,7 +72,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const weekEnd=weekStart?addDays(weekStart,6):null;
  const thisWeekMonday=mondayOfWeek(today);
  const weekNavBase=weekStart||thisWeekMonday;
- const weekHref=(w:string|null)=>{const params=new URLSearchParams();params.set("tab",tab);if(searchQuery)params.set("q",searchQuery);if(w)params.set("week",w);return `?${params.toString()}#all-work`};
+ const weekHref=(w:string|null)=>{const params=new URLSearchParams();params.set("tab",tab);if(searchQuery)params.set("q",searchQuery);if(w)params.set("week",w);if(view==="kanban")params.set("view","kanban");return `?${params.toString()}#all-work`};
  const isQlcl=user.roleCodes.includes("QLCL_MANAGER")||user.roleCodes.includes("HOI_DONG_QLCL");const isDepartmentHead=user.roleCodes.includes("DEPARTMENT_HEAD");const isBoard=user.roleCodes.includes("BAN_GIAM_DOC");
  const groupAssignmentRes=await supabase
   .from("work_group_assignment_snapshots")
@@ -264,8 +268,8 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const TAB_LABEL:Record<string,string>={ALL:"Tất cả",OPEN:"Chưa hoàn thành",DONE:"Đã hoàn thành",REMINDER:"Việc cá nhân",ASSIGNED:"Việc được giao",WAITING:"Chờ phản hồi",WATCH:"Cần theo dõi"};
  const exportRows=weekScoped.map(r=>{const f=r.followup;const note=typeof f==="string"?f:f&&typeof f==="object"?[f.state==="WAITING"?`Đang chờ${f.waiting_for_label?`: ${f.waiting_for_label}`:""}`:"",f.note||""].filter(Boolean).join(" — "):"";return{title:r.title,type:r.typeLabel,relatedTo:r.relatedTo,createdAt:r.createdAt?formatDate(r.createdAt):"—",priority:priorityLabel(r.priority),dueDate:r.dueDate?formatDate(r.dueDate):"—",completedAt:r.completedAt?formatDate(r.completedAt):"—",status:humanStatus(r.statusLabel),note}});
  const exportCaption=`Việc của tôi — ${TAB_LABEL[tab]}${weekStart&&weekEnd?` — tuần ${formatDate(weekStart)} – ${formatDate(weekEnd)}`:""}${searchQuery?` — tìm "${searchQuery}"`:""} (xuất ngày ${formatDate(today)})`;
- const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}#all-work`;
- const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}&page=${p}#all-work`;
+ const tabHref=(t:string)=>`?tab=${t}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}${viewParam}#all-work`;
+ const pageHref=(p:number)=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}${viewParam}&page=${p}#all-work`;
  // Báo cáo "việc nào đã xong, việc nào chưa xong" trong tuần: tính từ TOÀN BỘ
  // allWorkRows (không phụ thuộc tab đang mở) để luôn ra đúng 2 số này dù đang
  // xem tab nào — đã xong = hoàn thành trong tuần (completedAt, đúng khoảng
@@ -275,11 +279,34 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  // searchQuery vì đây là báo cáo tổng, không phải danh sách đang xem.
  const weekDoneRows=weekStart&&weekEnd?allWorkRows.filter(r=>r.isDone&&r.completedAt&&r.completedAt>=weekStart&&r.completedAt<=weekEnd):[];
  const weekPendingRows=weekStart&&weekEnd?allWorkRows.filter(r=>!r.isDone&&r.dueDate&&r.dueDate<=weekEnd):[];
- const reportTabHref=(t:string)=>{const params=new URLSearchParams();params.set("tab",t);if(weekStart)params.set("week",weekStart);return `?${params.toString()}#all-work`};
+ const viewHref=(v:"list"|"kanban")=>`?tab=${tab}${searchQuery?`&q=${encodeURIComponent(searchQuery)}`:""}${weekStart?`&week=${weekStart}`:""}${v==="kanban"?"&view=kanban":""}#all-work`;
+ const kanbanRows:MyWorkKanbanRow[]=weekScoped.map(r=>({key:r.key,title:r.title,typeLabel:r.typeLabel,relatedTo:r.relatedTo,priority:r.priority,priorityLabel:priorityLabel(r.priority),priorityTone:priorityTone(r.priority),dueDate:r.dueDate,completedAt:r.completedAt,isDone:r.isDone,isOverdue:r.isOverdue,followup:r.followup,href:r.href}));
+ const reportTabHref=(t:string)=>{const params=new URLSearchParams();params.set("tab",t);if(weekStart)params.set("week",weekStart);if(view==="kanban")params.set("view","kanban");return `?${params.toString()}#all-work`};
 
  return <div className="page-stack my-work-page tqm-my-work">
   <MyWorkSyncClient/>
   <style>{`.tqm-my-work{max-width:1180px;margin:0 auto}.tqm-my-work .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}@media(max-width:1100px){.tqm-my-work .kpis{grid-template-columns:repeat(2,1fr)}}.tqm-my-work .work-section{background:#fff;border:1px solid #d3dee3;border-radius:16px;overflow:hidden}.tqm-my-work .work-section.primary{border:2px solid #9fb8c5}.tqm-my-work .section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:15px 17px;border-bottom:1px solid #e2e9ec;background:#f8fbfc}.tqm-my-work .section-head h2{margin:0;font-size:16px}.tqm-my-work .section-head p{margin:4px 0 0;color:#687a80;font-size:11px}.tqm-my-work .work-list{display:grid}.tqm-my-work .work-row{display:grid;grid-template-columns:minmax(0,1fr) 115px 110px auto;gap:12px;align-items:center;padding:13px 16px;border-bottom:1px solid #e7edef}.tqm-my-work .work-row:last-child{border-bottom:0}.tqm-my-work .work-row.danger{background:#fffafa}.tqm-my-work .work-main strong{font-size:12px}.tqm-my-work .work-main small{display:block;margin-top:4px;color:#718187;font-size:10px}.tqm-my-work .role-badge{display:inline-flex;border-radius:999px;background:#eaf2fb;color:#1d4f7a;padding:5px 8px;font-size:9px;font-weight:900}.tqm-my-work details{border-top:1px solid #dbe5e9}.tqm-my-work summary{cursor:pointer;padding:13px 16px;font-weight:800;font-size:12px;background:#fafcfd}.tqm-my-work .all-table{padding:0;max-width:100%;overflow-x:auto}.tqm-my-work .all-table table{width:100%;min-width:920px;table-layout:auto;border-collapse:collapse}.tqm-my-work .all-table th,.tqm-my-work .all-table td{padding:10px 8px;vertical-align:middle;white-space:normal;overflow-wrap:anywhere}.tqm-my-work .all-table th:nth-child(2),.tqm-my-work .all-table td:nth-child(2){min-width:180px;width:26%}.tqm-my-work .all-table th:last-child,.tqm-my-work .all-table td:last-child{min-width:175px;width:190px}.tqm-my-work .work-columns>div{min-width:0}.tqm-my-work .attention-list{display:grid;gap:8px;padding:12px 16px 16px}.tqm-my-work .attention-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid #e4eaec;border-radius:12px;padding:11px}.tqm-my-work .attention-item strong{font-size:11px}.tqm-my-work .attention-item small{display:block;margin-top:3px;color:#7b898f}.tqm-my-work .mobile-only{display:none}@media(max-width:760px){.tqm-my-work .work-row{grid-template-columns:1fr auto}.tqm-my-work .work-row>div:nth-child(2),.tqm-my-work .work-row>div:nth-child(3){display:none}.tqm-my-work .desktop-only{display:none}.tqm-my-work .mobile-only{display:grid;gap:10px}.tqm-my-work .my-work-card{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title action" "cue action";column-gap:12px;row-gap:5px;align-items:center;padding:14px 14px;background:#fff;border:1px solid #d7e1e5;border-radius:14px;overflow:hidden}.tqm-my-work .my-work-card.overdue{border-color:#efc6c6;background:#fffafa}.tqm-my-work .my-work-card strong{grid-area:title;display:block;min-width:0;font-size:14px;line-height:1.35;overflow-wrap:anywhere}.tqm-my-work .my-work-card small{grid-area:cue;display:block;color:#687a80;font-size:11px;line-height:1.35}.tqm-my-work .my-work-card .button{grid-area:action;align-self:center;white-space:nowrap;padding:8px 10px;font-size:11px;min-height:auto}}
+  .tqm-my-work .kb-toggle{display:inline-flex;gap:2px;margin:10px 16px 0;padding:3px;border:1px solid #d7e1e5;border-radius:10px;background:#f3f6f8}
+  .tqm-my-work .kb-toggle-btn{padding:5px 14px;border-radius:8px;font-size:12px;font-weight:700;color:#52656d;text-decoration:none}
+  .tqm-my-work .kb-toggle-btn.active{background:#fff;color:#0f172a;box-shadow:0 1px 2px rgba(15,23,42,.12)}
+  .tqm-my-work .kb-board{display:grid;grid-template-columns:repeat(6,minmax(168px,1fr));gap:12px;padding:12px 16px 16px;overflow-x:auto;align-items:start}
+  .tqm-my-work .kb-col{background:#f6f8fa;border:1px solid #e1e8ed;border-top:3px solid #94a3b8;border-radius:10px;min-width:0}
+  .tqm-my-work .kb-col.danger{border-top-color:#dc2626}.tqm-my-work .kb-col.warning{border-top-color:#f59e0b}.tqm-my-work .kb-col.info{border-top-color:#3b82f6}.tqm-my-work .kb-col.wait{border-top-color:#8b5cf6}.tqm-my-work .kb-col.success{border-top-color:#16a34a}
+  .tqm-my-work .kb-col-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px 6px;font-size:13px;color:#1e293b}
+  .tqm-my-work .kb-count{min-width:24px;padding:1px 8px;border-radius:999px;background:#fff;border:1px solid #d7e1e5;font-size:11px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
+  .tqm-my-work .kb-cards{display:flex;flex-direction:column;gap:8px;padding:6px 10px 12px}
+  .tqm-my-work .kb-card{display:flex;flex-direction:column;gap:6px;padding:10px 11px;background:#fff;border:1px solid #e1e8ed;border-radius:8px;color:inherit;text-decoration:none;min-width:0}
+  .tqm-my-work .kb-card:hover{border-color:#93b4c4;box-shadow:0 1px 4px rgba(15,23,42,.1)}
+  .tqm-my-work .kb-card:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px}
+  .tqm-my-work .kb-card.late{border-left:3px solid #dc2626}
+  .tqm-my-work .kb-title{font-size:13px;font-weight:700;line-height:1.35;color:#0f172a;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+  .tqm-my-work .kb-meta{font-size:11px;color:#64748b;overflow-wrap:anywhere}
+  .tqm-my-work .kb-foot{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
+  .tqm-my-work .kb-due{font-size:11px;color:#475569;font-variant-numeric:tabular-nums}
+  .tqm-my-work .kb-col.danger .kb-due{color:#b91c1c;font-weight:700}
+  .tqm-my-work .kb-wait{font-size:11px;font-weight:700;color:#6d28d9}
+  .tqm-my-work .kb-empty,.tqm-my-work .kb-more{padding:10px;text-align:center;font-size:12px;color:#94a3b8}
+  @media(max-width:900px){.tqm-my-work .kb-board{grid-template-columns:1fr;overflow-x:visible}}
   .tqm-my-work .work-columns{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
   .tqm-my-work .work-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}.tqm-my-work .work-tab{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:800;color:#52656d;border:1px solid #d7e1e5;background:#fff}.tqm-my-work .work-tab.active{background:#1D4ED8;border-color:#1D4ED8;color:#fff}
   .tqm-my-work .work-search-row{display:flex;gap:8px;align-items:center;padding:10px 16px}.tqm-my-work .work-search-row .search-box{flex:1;max-width:280px}
@@ -360,8 +387,13 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
       {waitingCount?<Link href={tabHref("WAITING")} className={tab==="WAITING"?"work-tab active":"work-tab"} title="Việc đang đợi người khác phản hồi hoặc hoàn thành phần việc liên quan">Chờ phản hồi · {waitingCount}</Link>:null}
       {watchCount?<Link href={tabHref("WATCH")} className={`work-tab ${tab==="WATCH"?"active":""}`} title="Việc còn mở có hạn trong tương lai, cần tiếp tục theo dõi tiến độ">Cần theo dõi · {watchCount}</Link>:null}
      </nav>
+     <div className="kb-toggle" role="group" aria-label="Cách xem danh sách việc">
+      <Link href={viewHref("list")} className={`kb-toggle-btn ${view==="list"?"active":""}`} aria-current={view==="list"?"true":undefined}>Danh sách</Link>
+      <Link href={viewHref("kanban")} className={`kb-toggle-btn ${view==="kanban"?"active":""}`} aria-current={view==="kanban"?"true":undefined}>Kanban theo hạn</Link>
+     </div>
      <form method="get" className="work-search-row">
       <input type="hidden" name="tab" value={tab}/>
+      {view==="kanban"?<input type="hidden" name="view" value="kanban"/>:null}
       {weekStart?<input type="hidden" name="week" value={weekStart}/>:null}
       <div className="search-box"><Icon name="search" size={16}/><input name="q" defaultValue={searchQuery} placeholder="Tìm theo tên công việc / hồ sơ..."/></div>
       <button type="submit" className="button secondary small">Tìm kiếm</button>
@@ -386,9 +418,11 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
          (luôn "—" với note/việc cá nhân, không có chỗ nhập nên không có
          nghĩa gì để hiển thị). Thêm "Ngày giao việc" (createdAt) thay vào
          chỗ trống đó — cột này luôn có giá trị thật cho mọi dòng. */}
+     {view==="kanban"?<MyWorkKanban rows={kanbanRows} today={today}/>:<>
      <div className="table-wrap all-table desktop-only"><table><thead><tr><th>#</th><th>Tiêu đề công việc</th><th>Loại</th><th>Ngày giao việc</th><th>Ưu tiên</th><th>Hạn xử lý / Hoàn thành</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{tableRowsPage.map((r,idx)=><tr key={r.key}><td>{(currentPage-1)*PAGE_SIZE+idx+1}</td><td>{r.source==="reminder"||r.source==="legacy"?<PersonalTaskProgressTitle title={r.title} note={r.followup} taskId={r.sourceId!} source={r.source} ownerId={user.id}/>:<Link className="table-link" href={r.href}>{r.title}</Link>}</td><td>{r.typeLabel}</td><td>{r.createdAt?formatDate(r.createdAt):"—"}</td><td><span className={`status-badge ${priorityTone(r.priority)}`}>{priorityLabel(r.priority)}</span></td><td className={r.isOverdue?"text-danger":r.isDone?"text-success":""}>{dueOrCompletedLabel(r)}</td><td><StatusBadge status={r.statusLabel}/></td><td>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}/>:r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</td></tr>)}{!tableRowsPage.length?<tr><td colSpan={8}><div className="empty-state">Không có việc phù hợp.</div></td></tr>:null}</tbody></table></div>
      <div className="mobile-only work-card-list">{tableRowsPage.map(r=><article className={`my-work-card ${r.isOverdue?"overdue":""}`} key={r.key}><strong>{r.source==="reminder"||r.source==="legacy"?<PersonalTaskProgressTitle title={r.title} note={r.followup} taskId={r.sourceId!} source={r.source} ownerId={user.id}/>:r.title}</strong><small>{r.typeLabel} · Giao: {r.createdAt?formatDate(r.createdAt):"—"} · {dueOrCompletedLabel(r)}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{(r.source==="reminder"||r.source==="legacy")&&r.sourceId?<UnifiedPersonalTaskActions id={r.sourceId} source={r.source} ownerId={user.id} initialNote={r.followup} isDone={r.isDone} title={r.title}/>:<><Link className="button primary small" href={r.href}>Mở</Link>{r.sourceType&&r.sourceId?<WorkFollowupControl sourceType={r.sourceType} sourceId={r.sourceId} initial={r.followup}/>:null}</>}</div></article>)}{!tableRowsPage.length?<div className="empty-state">Không có việc phù hợp.</div>:null}</div>
      {weekScoped.length?<div className="work-pagination"><span>Hiển thị {(currentPage-1)*PAGE_SIZE+1}-{Math.min(currentPage*PAGE_SIZE,weekScoped.length)} của {weekScoped.length} bản ghi</span><div className="work-pagination-pages">{Array.from({length:totalPages},(_,i)=>i+1).map(p=><Link key={p} href={pageHref(p)} className={`button small ${p===currentPage?"primary":"secondary"}`}>{p}</Link>)}</div></div>:null}
+     </>}
     </section>
    </div>
   </div>
