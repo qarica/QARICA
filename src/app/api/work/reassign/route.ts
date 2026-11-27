@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireApiContext } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SOURCES = new Set(["REMINDER", "ACTION"]);
+const SOURCES = new Set(["REMINDER", "ACTION", "WORK_PLAN"]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Chuyển việc cho người khác thực hiện. Mọi kiểm tra (chủ việc, trạng thái, người nhận, lý do), cập nhật, nhật ký
@@ -23,6 +23,7 @@ export async function POST(request: Request) {
   // Người nhận CHƯA có tài khoản trong hệ thống: nhập tên tự do. Việc vẫn thuộc người giao (chưa có ai khác để sở hữu),
   // được ghi nhận "đã giao cho <tên>" kèm lý do để theo dõi, và lưu nhật ký.
   if (!toUserId && toName) {
+    if (source === "WORK_PLAN") return NextResponse.json({ error: "Đầu việc kế hoạch chỉ chuyển được cho người có tài khoản trong hệ thống." }, { status: 400 });
     if (!UUID_RE.test(sourceId)) return NextResponse.json({ error: "Thiếu công việc." }, { status: 400 });
     if (toName.length < 2 || toName.length > 120) return NextResponse.json({ error: "Tên người nhận từ 2 đến 120 ký tự." }, { status: 400 });
     if (reason.length < 5) return NextResponse.json({ error: "Chuyển việc phải ghi lý do (ít nhất 5 ký tự)." }, { status: 400 });

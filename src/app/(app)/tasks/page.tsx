@@ -167,7 +167,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
  const roleQueue=[...scopedRows].filter(r=>r.is_overdue||Number(r.days_to_due)===0||(Number(r.days_to_due)>0&&Number(r.days_to_due)<=3)||["RETURNED","EVIDENCE_SUBMITTED","VERIFYING"].includes(String(r.workflow_status))||["CRITICAL","URGENT"].includes(String(r.priority))).sort((a,b)=>workScore(b)-workScore(a)).slice(0,8);
  const roleQueueTitle=isQlcl?"Hàng đợi điều phối QLCL":isDepartmentHead?"Hàng đợi của khoa/phòng":"";
 
- type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;completedAt:string|null;createdAt:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"|"legacy"|"work_plan";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null;canReassign?:boolean;reassignSource?:"REMINDER"|"ACTION"};
+ type UnifiedRow={key:string;title:string;typeLabel:string;relatedTo:string;priority:string|null;dueDate:string|null;completedAt:string|null;createdAt:string|null;statusLabel:string;isOverdue:boolean;isDone:boolean;isWatch:boolean;assignedBy:string;href:string;source:"action"|"reminder"|"emr"|"legacy"|"work_plan";sourceId:string|null;sourceType:"ACTION"|"EMR"|null;followup:any|null;canReassign?:boolean;reassignSource?:"REMINDER"|"ACTION"|"WORK_PLAN"};
  const unifiedActionRows:UnifiedRow[]=rows.map(r=>({
   key:`a-${r.action_id}`,title:r.title,typeLabel:RECORD_TYPE_LABEL[recordTypeMap.get(r.record_id)||""]||"—",
   relatedTo:recordCodeMap.get(r.record_id)||"—",priority:r.priority,dueDate:r.due_date,
@@ -223,7 +223,7 @@ export default async function TasksPage({searchParams}:{searchParams:Promise<{ta
    createdAt:item.created_at?dateOnly(item.created_at):null,
    statusLabel:isDone?"COMPLETED":(isOverdue?"OVERDUE":item.status),isOverdue,isDone,
    isWatch:!isDone&&(!item.due_date||item.due_date>=today),
-   assignedBy:"—",href:"/work-plans",source:"work_plan",sourceId:item.id,sourceType:null,followup:null,
+   assignedBy:"—",href:"/work-plans",source:"work_plan",sourceId:item.id,sourceType:null,followup:null,canReassign:item.status==="OPEN",reassignSource:"WORK_PLAN",
   };
  });
  const unifiedAssignedRows=[...unifiedActionRows,...unifiedEmrRows,...unifiedWorkPlanRows];
