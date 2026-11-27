@@ -83,13 +83,6 @@ export function WorkReassignButton({ source, id, title }: { source: "REMINDER" |
               <div role="listbox" aria-label="Người nhận" style={{ maxHeight: 200, overflowY: "auto", border: "1px solid var(--line, #d7e1e5)", borderRadius: 8 }}>
                 {list === null ? <div className="muted" style={{ padding: 10 }}>Đang tải…</div> : null}
                 {list && !list.length ? <div className="muted" style={{ padding: 10 }}>Không có người phù hợp trong hệ thống.</div> : null}
-                {q.trim().length >= 2 ? (
-                  <button type="button" role="option" aria-selected={extName === q.trim()} onClick={() => { setTo(null); setExtName(q.trim()); }}
-                    style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2, width: "100%", padding: "8px 12px", border: 0, borderBottom: "1px solid var(--line, #e5ecef)", background: extName === q.trim() ? "#e8f0fe" : "transparent", textAlign: "left", cursor: "pointer" }}>
-                    <strong>Giao cho “{q.trim()}” (chưa có tài khoản)</strong>
-                    <small className="muted">Dùng tên vừa gõ làm người nhận</small>
-                  </button>
-                ) : null}
                 {(list || []).map((p) => (
                   <button type="button" key={p.user_id} role="option" aria-selected={to?.user_id === p.user_id} onClick={() => { setTo(p); setExtName(null); }}
                     style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2, width: "100%", padding: "8px 12px", border: 0, borderBottom: "1px solid var(--line, #e5ecef)", background: to?.user_id === p.user_id ? "#e8f0fe" : "transparent", textAlign: "left", cursor: "pointer" }}>
@@ -97,6 +90,13 @@ export function WorkReassignButton({ source, id, title }: { source: "REMINDER" |
                     <small className="muted">{[p.job_title, p.department_name].filter(Boolean).join(" · ") || "—"}</small>
                   </button>
                 ))}
+                {q.trim().length >= 2 ? (
+                  <button type="button" role="option" aria-selected={extName === q.trim()} onClick={() => { setTo(null); setExtName(q.trim()); }}
+                    style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2, width: "100%", padding: "8px 12px", border: 0, borderBottom: "1px solid var(--line, #e5ecef)", background: extName === q.trim() ? "#e8f0fe" : "transparent", textAlign: "left", cursor: "pointer" }}>
+                    <strong>Giao cho “{q.trim()}” (chưa có tài khoản)</strong>
+                    <small className="muted">Dùng tên vừa gõ làm người nhận</small>
+                  </button>
+                ) : null}
               </div>
               <label>Lý do chuyển *
                 <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="VD: Tôi đi công tác tuần sau, nhờ anh/chị tiếp nhận" />

@@ -45,3 +45,11 @@ describe("Chuyển việc cho người chưa có tài khoản + xem lại việc
     expect(page).toContain('tab==="HANDED"?<MyWorkHanded');
   });
 });
+
+describe("hộp chuyển việc: người trong hệ thống xếp TRƯỚC, lựa chọn gõ tên tự do nằm cuối danh sách", () => {
+  it("nút 'chưa có tài khoản' nằm sau phần liệt kê người nhận", () => {
+    const c = read("src/components/work-reassign-button.tsx");
+    expect(c.indexOf("(list || []).map((p)")).toBeGreaterThan(-1);
+    expect(c.indexOf("(chưa có tài khoản)</strong>")).toBeGreaterThan(c.indexOf("(list || []).map((p)"));
+  });
+});
