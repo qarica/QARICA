@@ -1,6 +1,6 @@
 import type { NavGroup, NavItem, UserContext } from "@/lib/types";
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
-import { workspaceLandingHref } from "@/lib/workspace-navigation";
+import { visibleWorkspaceForPath, workspaceLandingHref } from "@/lib/workspace-navigation";
 
 type WorkspaceChildDef = { label: string; icon: string; workspaceRoot: string };
 type DirectChildDef = { label: string; icon: string; href: string; permission?: string; anyPermissions?: string[] };
@@ -193,12 +193,29 @@ function resolveChild(child: ChildDef, user: UserContext): NavItem | null {
   return { label: child.label, href: child.href, icon: child.icon };
 }
 
+// Thanh tab ngang của workspace đã bỏ (yêu cầu tường minh: "giữ sidebar, bỏ thanh ngang"): mọi trang con trước đây chỉ vào được
+// bằng tab giờ là từng dòng trong sidebar, giống cách EMR đã làm. Workspace có từ 2 tab hiển thị được trở lên thì mở ra thành
+// từng tab (mỗi dòng tự nhận active theo href của nó, không mang workspaceRoot để không sáng cả nhóm); chỉ còn 1 tab thì giữ
+// nguyên 1 dòng như cũ. Quyền xem từng tab vẫn lấy từ workspace-navigation.ts — một nguồn sự thật.
+function expandWorkspaceChild(child: ChildDef, user: UserContext): NavItem[] {
+  if (!isWorkspaceChild(child)) {
+    const one = resolveChild(child, user);
+    return one ? [one] : [];
+  }
+  const workspace = visibleWorkspaceForPath(child.workspaceRoot, user);
+  if (workspace && workspace.tabs.length > 1) {
+    return workspace.tabs.map((tab) => ({ label: tab.label, href: tab.href, icon: tab.icon }));
+  }
+  const one = resolveChild(child, user);
+  return one ? [one] : [];
+}
+
 export function visibleNavGroups(user: UserContext): NavGroup[] {
   return NAV_GROUPS.map((group) => ({
     id: group.id,
     label: group.label,
     icon: group.icon,
     footer: group.footer,
-    children: group.children.map((child) => resolveChild(child, user)).filter((item): item is NavItem => item !== null),
+    children: group.children.flatMap((child) => expandWorkspaceChild(child, user)),
   })).filter((group) => group.children.length > 0);
 }

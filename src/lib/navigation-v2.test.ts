@@ -231,7 +231,7 @@ describe("Navigation V3 — data model (src/lib/navigation.ts)", () => {
   });
 
   it("resolves workspace-backed children via the existing workspaceLandingHref (no re-declared route/href for them)", () => {
-    expect(navigation).toContain('import { workspaceLandingHref } from "@/lib/workspace-navigation";');
+    expect(navigation).toContain('import { visibleWorkspaceForPath, workspaceLandingHref } from "@/lib/workspace-navigation";');
     expect(navigation).toContain("const landing = workspaceLandingHref(child.workspaceRoot, user);");
     for (const root of ["/plans", "/indicators", "/assessments", "/incidents", "/risks", "/findings", "/improvement/projects", "/evidence", "/admin"]) {
       expect(navigation).toContain(`workspaceRoot: "${root}"`);
@@ -354,10 +354,11 @@ describe("Navigation V3 — accordion behavior (src/components/app-shell.tsx)", 
     expect(shell).toContain("function resolveActiveGroupId(pathname: string, navGroups: NavGroup[], currentWorkspaceRoot: string | null)");
   });
 
-  it("preserves the existing workspace-strip for internal EMR/Admin sub-navigation (not duplicated into the sidebar)", () => {
-    expect(shell).toContain("workspace-strip");
-    expect(shell).toContain("workspace.tabs.length > 1");
-    expect(shell).toContain("isWorkspaceTabActive(pathname, tab.href)");
+  it("thanh tab ngang của workspace đã bỏ; các trang con vào bằng sidebar (mỗi tab thành một dòng)", () => {
+    expect(shell).not.toContain('className="workspace-strip"');
+    expect(shell).not.toContain("isWorkspaceTabActive");
+    expect(navigation).toContain("function expandWorkspaceChild(");
+    expect(navigation).toContain("workspace.tabs.map((tab) => ({ label: tab.label, href: tab.href, icon: tab.icon }))");
   });
 
   it("provides a collapsed-rail flyout so authorized children stay reachable without expanding the whole sidebar", () => {
