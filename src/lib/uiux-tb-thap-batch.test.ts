@@ -11,7 +11,6 @@ describe("UIUX TB/Thấp batch", () => {
     // title was removed when the hero greeting replaced that title row —
     // "building-2" is still rendered via the shared Icon component elsewhere
     // on the page (compliance-rows), just at a different size now.
-    expect(page).toContain('<Icon name="building-2" size={14}/>');
     // 2026-11-13: the "Cảnh báo & công việc cần chú ý" row's circle-alert icon
     // moved into AlertStrip (src/components/alert-strip.tsx) when the alerts
     // list became a horizontal strip near the top of the page — it still

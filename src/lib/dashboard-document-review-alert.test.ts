@@ -33,7 +33,7 @@ describe("Dashboard — thêm cảnh báo 'văn bản cần xem xét lại' (doc
     expect(dashboard).toContain("const firstError = [recordsRes, docPublicationsRes, incidentsAllRes,");
   });
 
-  it("'Kiểm soát tài liệu' có mặt trong Truy cập nhanh (trước đây thiếu hẳn, không có đường vào nhanh từ Dashboard)", () => {
-    expect(dashboard).toContain('<Link className="quick-link" href="/document-publications">');
+  it("Dashboard không còn khối 'Truy cập nhanh' (trùng sidebar) — Kiểm soát tài liệu vào bằng menu bên trái", () => {
+    expect(dashboard).not.toContain("quick-link");
   });
 });
