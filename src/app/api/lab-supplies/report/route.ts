@@ -3,6 +3,7 @@ import { fmtDateFile, isIsoDate, todayInVietnam, type SupplyCategory } from "@/l
 import { buildReportSheets } from "@/lib/lab-supplies-export";
 import { XLSX_CONTENT_TYPE, sheetsToXlsx, xlsxFileName } from "@/lib/lab-supplies-xlsx";
 import { labSuppliesContext } from "@/lib/lab-supplies-api";
+import { fetchAllPages } from "@/lib/lab-supplies-paging";
 
 type ReportRow = {
   item_id: string;
@@ -34,11 +35,11 @@ export async function GET(request: Request) {
   if (!isIsoDate(from) || !isIsoDate(to)) return NextResponse.json({ error: "Khoảng ngày không hợp lệ." }, { status: 400 });
   if (from > to) return NextResponse.json({ error: "Từ ngày phải trước hoặc bằng đến ngày." }, { status: 400 });
 
-  const { data, error } = await ctx.admin.rpc("qlcl_lab_supply_period_report_v1", {
+  const { data, error } = await fetchAllPages((a, b) => ctx.admin.rpc("qlcl_lab_supply_period_report_v1", {
     p_organization_id: ctx.organizationId,
     p_from: from,
     p_to: to,
-  });
+  }).order("code", { ascending: true }).order("item_id", { ascending: true }).range(a, b));
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   const rows = ((data ?? []) as ReportRow[]).map((r) => ({

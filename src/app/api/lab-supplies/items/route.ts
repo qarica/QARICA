@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { CATEGORIES, type SupplyCategory } from "@/lib/lab-supplies";
+import { fetchAllPages } from "@/lib/lab-supplies-paging";
 import { ITEM_SELECT, clean, cleanOrNull, labSuppliesContext, parseBarcode, writeAudit } from "@/lib/lab-supplies-api";
 
 const CATEGORY_SET = new Set<string>(CATEGORIES);
@@ -18,9 +19,11 @@ export async function GET(request: Request) {
   const ctx = await labSuppliesContext("lab_supplies.view");
   if (!ctx.ok) return ctx.response;
   const showInactive = new URL(request.url).searchParams.get("inactive") === "1";
-  let query = ctx.admin.from("lab_supply_items").select(ITEM_SELECT).eq("organization_id", ctx.organizationId).order("code", { ascending: true });
-  if (!showInactive) query = query.eq("is_active", true);
-  const { data, error } = await query;
+  const { data, error } = await fetchAllPages((from, to) => {
+    let query = ctx.admin.from("lab_supply_items").select(ITEM_SELECT).eq("organization_id", ctx.organizationId).order("code", { ascending: true }).order("id", { ascending: true });
+    if (!showInactive) query = query.eq("is_active", true);
+    return query.range(from, to);
+  });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true, items: data ?? [] });
 }

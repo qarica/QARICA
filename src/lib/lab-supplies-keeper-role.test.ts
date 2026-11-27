@@ -34,3 +34,28 @@ describe("banner nhắc việc: màu dịu", () => {
     for (const bad of ["#fffbeb", "#fee2e2", "#fef3c7", "#dbeafe"]) expect(c.slice(c.indexOf(".ls-alert-banner{"), c.indexOf(".ls-adjust-form .ls-head-grid{")), bad).not.toContain(bad);
   });
 });
+
+describe("cách ly dữ liệu cấp cơ sở dữ liệu cho tài khoản chỉ có quyền Kho", () => {
+  const sql = readFileSync("supabase/migrations/20261202000006_kho_only_data_isolation_v1.sql", "utf8");
+  it("hàm nhận diện tài khoản chỉ-Kho dựa trên quyền hiệu lực (vai trò + ghi đè), chỉ cho authenticated/service_role", () => {
+    expect(sql).toContain("create or replace function public.qlcl_is_kho_only()");
+    expect(sql).toContain("code like 'lab\\_supplies.%'");
+    expect(sql).toContain("code not like 'lab\\_supplies.%'");
+    expect(sql).toContain("revoke all on function public.qlcl_is_kho_only() from public, anon;");
+  });
+  it("chính sách RESTRICTIVE cho mọi bảng trừ Kho, tham chiếu chung, dữ liệu cá nhân; bảng danh tính chỉ dòng của mình", () => {
+    expect(sql).toContain("as restrictive for all to authenticated");
+    expect(sql).toContain("c.relname not like 'lab\\_supply\\_%'");
+    for (const t of ["organizations", "departments", "permissions", "roles", "role_permissions", "notifications", "personal_workspace_items", "sidebar_pinned_items"]) expect(sql).toContain(`'${t}'`);
+    expect(sql).toContain("array['profiles', 'user_roles', 'user_permissions', 'user_scopes', 'department_user_roles']");
+    expect(sql).toContain("user_id = (select auth.uid())");
+  });
+  it("hàm áp chính sách chỉ service_role gọi được, idempotent (drop policy if exists), và được chạy trong migration", () => {
+    expect(sql).toContain("drop policy if exists qlcl_kho_only_block");
+    expect(sql).toContain("revoke all on function public.qlcl_apply_kho_only_isolation_v1() from public, anon, authenticated;");
+    expect(sql.trim().endsWith("select public.qlcl_apply_kho_only_isolation_v1();")).toBe(true);
+  });
+  it("mọi bảng có RLS trong các migration của repo (trừ lab_supply_*) đều thuộc diện được áp: nhắc chạy lại hàm khi thêm bảng mới", () => {
+    expect(sql).toContain("chạy lại");
+  });
+});

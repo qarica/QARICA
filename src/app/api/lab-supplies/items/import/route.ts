@@ -4,6 +4,7 @@ import { IMPORT_TEMPLATE_HEADERS, MAX_IMPORT_ROWS, parseItemRows } from "@/lib/l
 import { buildImportTemplateSheets } from "@/lib/lab-supplies-export";
 import { XLSX_CONTENT_TYPE, sheetsToXlsx } from "@/lib/lab-supplies-xlsx";
 import { ITEM_SELECT, labSuppliesContext, writeAudit } from "@/lib/lab-supplies-api";
+import { fetchAllPages } from "@/lib/lab-supplies-paging";
 
 export const runtime = "nodejs";
 
@@ -65,7 +66,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Không đọc được file. Hãy dùng file Excel (.xlsx) hoặc CSV theo mẫu." }, { status: 400 });
   }
 
-  const [itemsRes] = await Promise.all([ctx.admin.from("lab_supply_items").select("code,barcode").eq("organization_id", ctx.organizationId)]);
+  // Phải đọc ĐỦ mọi vật tư (không bị cắt ở 1.000 dòng) để phát hiện trùng mã/mã vạch chính xác.
+  const itemsRes = await fetchAllPages((from, to) => ctx.admin.from("lab_supply_items").select("code,barcode").eq("organization_id", ctx.organizationId).order("id", { ascending: true }).range(from, to));
   if (itemsRes.error) return NextResponse.json({ error: itemsRes.error.message }, { status: 400 });
   const existingCodes = new Set((itemsRes.data ?? []).map((i) => String(i.code).trim().toLowerCase()));
   const existingBarcodes = new Set((itemsRes.data ?? []).map((i) => String(i.barcode ?? "").trim().toLowerCase()).filter(Boolean));
