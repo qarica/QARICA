@@ -1,10 +1,11 @@
 import { PageHeader } from "@/components/page-header";
 import { WorkPlansClient } from "@/components/work-plans-client";
-import { hasPermission, requireUserContext } from "@/lib/auth";
+import { hasPermission, requireUserContext, requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function WorkPlansPage() {
   const { user } = await requireUserContext();
+  requirePermission(user, "work_plans.view");
   const canManage = hasPermission(user, "work_plans.manage");
   const supabase = await createClient();
 

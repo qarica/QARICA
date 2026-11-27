@@ -1,10 +1,11 @@
 import { PageHeader } from "@/components/page-header";
 import { PhysicianLicenseClient } from "@/components/physician-license-client";
-import { hasPermission, requireUserContext } from "@/lib/auth";
+import { hasPermission, requireUserContext, requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function PhysicianLicensePage() {
   const { user } = await requireUserContext();
+  requirePermission(user, "physician_license.view");
   const canManage = hasPermission(user, "physician_license.manage");
   const supabase = await createClient();
 

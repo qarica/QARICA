@@ -1,10 +1,11 @@
 import { PageHeader } from "@/components/page-header";
 import { IncomingDocumentsClient } from "@/components/incoming-documents-client";
-import { hasPermission, requireUserContext } from "@/lib/auth";
+import { hasPermission, requireUserContext, requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function IncomingDocumentsPage() {
   const { user } = await requireUserContext();
+  requirePermission(user, "incoming_documents.view");
   const canManage = hasPermission(user, "incoming_documents.manage");
   const supabase = await createClient();
 

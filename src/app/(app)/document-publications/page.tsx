@@ -1,10 +1,11 @@
 import { PageHeader } from "@/components/page-header";
 import { DocumentPublicationsClient } from "@/components/document-publications-client";
-import { hasPermission, requireUserContext } from "@/lib/auth";
+import { hasPermission, requireUserContext, requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function DocumentPublicationsPage() {
   const { user } = await requireUserContext();
+  requirePermission(user, "document_publication.view");
   const canManage = hasPermission(user, "document_publication.manage");
   const supabase = await createClient();
 
