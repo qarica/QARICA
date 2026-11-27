@@ -137,3 +137,11 @@ describe("Hoàn tất việc công văn ngay trong Việc của tôi", () => {
     expect((page.match(/<>\{incomingBtn\(r\)\}\{reassignBtn\(r\)\}<\/>/g) || []).length).toBe(2);
   });
 });
+
+describe("Form tạo hồ sơ dùng chung: danh sách người phụ trách phải có id (mã người), không chỉ tên", () => {
+  it("API options trả id = user_id và department_id để ô chọn gửi đúng mã người", () => {
+    const api = read("src/app/api/domain-records/route.ts");
+    expect(api).toContain("profiles:(profiles??[]).map((p:any)=>({id:p.user_id,full_name:p.full_name,email:p.email,department_id:p.primary_department_id}))");
+    expect(read("src/components/domain-create-client.tsx")).toContain("<option value={x.id} key={x.id}>{x.full_name||x.email}</option>");
+  });
+});
