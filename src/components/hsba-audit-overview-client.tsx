@@ -1,9 +1,11 @@
 "use client";
+import Link from "next/link";
 
 import { Fragment, useEffect, useState } from "react";
 import { INTERNAL_AUDIT_TYPE_LABEL, type InternalAuditType } from "@/lib/internal-audit-types";
 
 import { VnDateInput } from "@/components/vn-date-input";
+import { WorkspaceFlowBar } from "@/components/workspace-flow-bar";
 type Department = { id: string; name: string };
 type ChecklistItem = { id: string; content: string; category: string | null; is_active: boolean; group_id: string | null; create_finding_on_partial: boolean };
 type ChecklistGroup = { id: string; name: string; sort_order: number; is_active: boolean };
@@ -43,12 +45,15 @@ export function HsbaAuditOverviewClient({
   templates,
   initialFindings,
   canManage,
+  attention,
 }: {
   auditType: InternalAuditType;
   departments: Department[];
   templates: ChecklistTemplateOption[];
   initialFindings: Finding[];
   canManage: boolean;
+  // Bộ lọc từ thanh "Cần xử lý" (khuôn Kho hóa chất): chỉ lọc danh sách "Lỗi cần xử lý", không đổi dữ liệu.
+  attention?: "open" | "sent" | "disputed" | "confirm";
 }) {
   const [departmentId, setDepartmentId] = useState(departments[0]?.id || "");
   const [templateId, setTemplateId] = useState(templates[0]?.id || "");
@@ -250,8 +255,20 @@ export function HsbaAuditOverviewClient({
     setResponseText("");
   }
 
+  const ATTENTION_STATUSES: Record<string, Finding["status"][]> = { open: ["OPEN"], sent: ["SENT_TO_DEPT"], disputed: ["DEPT_DISPUTED"], confirm: ["DEPT_ACKNOWLEDGED", "HEAD_APPROVED"] };
+  const ATTENTION_LABEL: Record<string, string> = { open: "Lỗi chưa gửi khoa", sent: "Lỗi chờ khoa phản hồi", disputed: "Lỗi khoa phản đối — chờ quyết định", confirm: "Lỗi chờ xác nhận khắc phục xong" };
+  const countOf = (key: string) => findings.filter((f) => ATTENTION_STATUSES[key].includes(f.status)).length;
+  const attentionHref = (key: string) => `/hsba-audit?type=${auditType}&attention=${key}`;
+  const shownFindings = attention ? findings.filter((f) => ATTENTION_STATUSES[attention].includes(f.status)) : findings;
   return (
     <div className="hsba-audit-overview">
+      {auditType === "HSBA" ? <WorkspaceFlowBar ariaLabel="Cần xử lý · Quản lý HSBA" tabs={[]} active="" emptyText="Không có lỗi hồ sơ nào cần xử lý." chips={[
+        { n: countOf("disputed"), tone: "danger", text: `${countOf("disputed")} lỗi khoa phản đối — chờ quyết định`, href: attentionHref("disputed") },
+        { n: countOf("sent"), tone: "warning", text: `${countOf("sent")} lỗi chờ khoa phản hồi`, href: attentionHref("sent") },
+        { n: countOf("open"), tone: "warning", text: `${countOf("open")} lỗi chưa gửi khoa`, href: attentionHref("open") },
+        { n: countOf("confirm"), tone: "info", text: `${countOf("confirm")} lỗi chờ xác nhận khắc phục xong`, href: attentionHref("confirm") },
+      ]} /> : null}
+      {auditType === "HSBA" && attention ? <div className="scope-note">Đang lọc: <strong>{ATTENTION_LABEL[attention]}</strong> · <Link className="table-link" href={`/hsba-audit?type=${auditType}`}>Bỏ lọc</Link></div> : null}
       {canManage ? (
         <section className="panel hsba-form-panel">
           <div className="panel-title">
@@ -381,7 +398,7 @@ export function HsbaAuditOverviewClient({
           </div>
         </div>
         <div className="work-list">
-          {findings.map((f) => (
+          {shownFindings.map((f) => (
             <div className="work-row" key={f.id}>
               <div className="work-main">
                 <strong>{f.description}</strong>
