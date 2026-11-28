@@ -1,6 +1,9 @@
+import { ImprovementWorkspaceBar } from "@/components/improvement-workspace-bar";
 import { RegistryModulePage } from "@/components/registry-module-page";
+import { getWorkYear } from "@/lib/work-year";
 
-export default function ImprovementProposalsPage() {
+export default async function ImprovementProposalsPage() {
+  const year = await getWorkYear();
   return <RegistryModulePage config={{
     eyebrow: "CẢI TIẾN CHẤT LƯỢNG",
     title: "Đề xuất cải tiến",
@@ -8,5 +11,5 @@ export default function ImprovementProposalsPage() {
     permissions: ["projects.view", "projects.propose", "projects.manage"],
     recordTypes: ["IMPROVEMENT_PROPOSAL"],
     icon: "file-input",
-  }} />;
+  }} topSlot={<ImprovementWorkspaceBar active="proposals" year={year} />} />;
 }
