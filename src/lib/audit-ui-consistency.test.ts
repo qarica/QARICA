@@ -10,7 +10,10 @@ describe("audit UI consistency fixes", () => {
     expect(fiveS).not.toContain('tone: (total === 0 ? "muted"');
     expect(risk).toContain("<StatusBadge status={status}");
     expect(fmea).toContain("<StatusBadge status={status}");
-    expect(incidents).toContain("Sự cố nghiêm trọng</span>");
-    expect(incidents).toContain("Hiện chưa có hồ sơ sự cố cần ưu tiên xử lý.");
+    // Danh sách "Hồ sơ cần chú ý" đã gộp vào bảng sự cố (khuôn Kho hóa chất): cờ nghiêm trọng và trạng thái rỗng nằm ở bảng/Kanban.
+    const table=readFileSync("src/components/incident-registry-table.tsx","utf8");
+    expect(table).toContain('<span className="incident-serious-flag">⚠ Nghiêm trọng</span>');
+    expect(table).toContain("Không có hồ sơ phù hợp.");
+    expect(incidents).toContain("<em>⚠ Sự cố nghiêm trọng</em>");
   });
 });

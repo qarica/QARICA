@@ -2,6 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DomainCreateClient } from "@/components/domain-create-client";
 import { PageHeader } from "@/components/page-header";
+import { KpiCard } from "@/components/kpi-card";
+import { SafetyWorkspaceBar } from "@/components/safety-workspace-bar";
+import { TqmPrincipleLine } from "@/components/tqm-principle-line";
+import { getModuleUx } from "@/lib/module-ux";
 import { StatusBadge } from "@/components/status-badge";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -36,6 +40,7 @@ export default async function SafetyAlertsPage() {
   }
 
   const year = await getWorkYear();
+  const lessonUx = getModuleUx(["SAFETY_ALERT"]);
   const supabase = await createClient();
   const canManage =
     user.permissions.includes("safety_alert.edit") ||
@@ -148,9 +153,6 @@ export default async function SafetyAlertsPage() {
     <div className="page-stack learning-hub">
       <style>{`
         .learning-hub .learning-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-        .learning-hub .learning-kpi{background:#fff;border:1px solid #dfe7ef;border-radius:15px;padding:14px}
-        .learning-hub .learning-kpi span{display:block;color:#687a90;font-size:10px;font-weight:800;text-transform:uppercase}
-        .learning-hub .learning-kpi strong{display:block;margin-top:6px;color:#173b64;font-size:26px}
         .learning-hub .learning-head{display:flex;align-items:end;justify-content:space-between;gap:12px;padding:16px 17px 8px}
         .learning-hub .learning-head h2{margin:0;font-size:16px}.learning-hub .learning-head p{margin:4px 0 0;color:#6d7d8b;font-size:11px}
         .learning-hub .learning-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;padding:8px 16px 16px}
@@ -179,6 +181,8 @@ export default async function SafetyAlertsPage() {
         actions={canManage ? <DomainCreateClient recordType="SAFETY_ALERT" workYear={year} /> : null}
         icon="megaphone"
       />
+      <TqmPrincipleLine purpose="Biến sự cố và phản ánh thành bài học dùng chung: bài học đã duyệt từ sự cố tự xuất hiện tại đây; cảnh báo an toàn đi qua soạn → rà soát → phát hành." workflow={lessonUx.workflow} principle={lessonUx.principle} related={lessonUx.related} showSteps />
+      <SafetyWorkspaceBar active="lessons" year={year} />
 
       {recordsRes.error || incidentsRes.error || alertsRes.error || lessonsRes.error ? (
         <div className="alert error">
@@ -187,10 +191,10 @@ export default async function SafetyAlertsPage() {
       ) : null}
 
       <section className="learning-kpis" aria-label="Tổng quan kho học tập">
-        <article className="learning-kpi"><span>Đã phát hành</span><strong>{published.length}</strong></article>
-        <article className="learning-kpi"><span>Bài học từ sự cố</span><strong>{lessonCount}</strong></article>
-        <article className="learning-kpi"><span>Cảnh báo an toàn</span><strong>{alertCount}</strong></article>
-        <article className="learning-kpi"><span>Chờ QLCL xử lý</span><strong>{pending.length}</strong></article>
+        <KpiCard icon="megaphone" tone="green" label="Đã phát hành" value={published.length} />
+        <KpiCard icon="book-open" tone="blue" label="Bài học từ sự cố" value={lessonCount} />
+        <KpiCard icon="triangle-alert" tone="amber" label="Cảnh báo an toàn" value={alertCount} />
+        <KpiCard icon="calendar-days" tone="purple" label="Chờ QLCL xử lý" value={pending.length} urgent={pending.length > 0} />
       </section>
 
       <section className="panel">

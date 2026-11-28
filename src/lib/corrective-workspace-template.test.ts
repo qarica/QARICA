@@ -10,7 +10,8 @@ describe("Khắc phục & CAPA theo khuôn Kho hóa chất", () => {
 
   it("thanh dùng chung có đủ 5 bước của luồng việc và thanh Cần xử lý", () => {
     for (const label of ["Phát hiện", "CAPA đang xử lý", "Đánh giá hiệu lực", "Đã đóng", "Phân tích"]) expect(bar).toContain(`label: "${label}"`);
-    expect(bar).toContain("<strong>Cần xử lý</strong>");
+    expect(readFileSync("src/components/workspace-flow-bar.tsx", "utf8")).toContain("<strong>Cần xử lý</strong>");
+    expect(bar).toContain("<WorkspaceFlowBar ");
     expect(findings).toContain('topSlot={<CorrectiveWorkspaceBar active="findings" year={year} />}');
     expect(capa).toContain("<CorrectiveWorkspaceBar active={tab} year={year}/>");
   });
