@@ -3,10 +3,11 @@ import { normalizeInternalAuditType } from "@/lib/internal-audit-types";
 import { hasPermission, requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function HsbaAuditOverviewPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
+export default async function HsbaAuditOverviewPage({ searchParams }: { searchParams: Promise<{ type?: string; attention?: string }> }) {
   const { user } = await requireUserContext();
   const canManage = hasPermission(user, "hsba_audit.manage");
-  const { type } = await searchParams;
+  const { type, attention: rawAttention } = await searchParams;
+  const attention = ["open", "sent", "disputed", "confirm"].includes(String(rawAttention)) ? (rawAttention as "open" | "sent" | "disputed" | "confirm") : undefined;
   const auditType = normalizeInternalAuditType(type);
   const supabase = await createClient();
 
@@ -52,6 +53,7 @@ export default async function HsbaAuditOverviewPage({ searchParams }: { searchPa
 
   return (
     <HsbaAuditOverviewClient
+      attention={attention}
       auditType={auditType}
       departments={(departmentsRes.data ?? []) as any}
       templates={templates}

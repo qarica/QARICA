@@ -16,10 +16,13 @@ describe("EMR Biểu mẫu 'Đã số hóa' KPI also counts details.digitized, n
   });
 
   it("DONE/IN_PROGRESS/TODO/OVERDUE buckets all route through the same done() helper so a digitized row never double-counts into a not-done bucket", () => {
-    expect(source).toContain('case "DONE": return items.filter(done).length;');
-    expect(source).toContain('case "IN_PROGRESS": return items.filter((i) => !done(i) && i.status === "IN_PROGRESS").length;');
-    expect(source).toContain('case "TODO": return items.filter((i) => !done(i) && (i.status === "TODO" || (!hasBlockedBucket && i.status === "BLOCKED"))).length;');
-    expect(source).toContain('case "OVERDUE": return items.filter((i) => !done(i) && i.due_date && i.due_date < today).length;');
+    // 2026-11-28: điều kiện từng nhóm gom về bucketMatcher() (dùng chung cho ô chỉ số, thanh Cần xử lý và bộ lọc danh sách);
+    // vẫn đi qua CÙNG helper done() nên dòng đã số hóa không bị đếm vào nhóm chưa xong.
+    expect(source).toContain('case "DONE": return done;');
+    expect(source).toContain("return items.filter(bucketMatcher(bucket, hasBlockedBucket, categoryCode)).length;");
+    expect(source).toContain('case "IN_PROGRESS": return (i) => !done(i) && i.status === "IN_PROGRESS";');
+    expect(source).toContain('case "TODO": return (i) => !done(i) && (i.status === "TODO" || (!hasBlockedBucket && i.status === "BLOCKED"));');
+    expect(source).toContain('case "OVERDUE": return (i) => !done(i) && !!i.due_date && i.due_date < today;');
   });
 
   it("does not change what DONE means outside the KPI card — go-live gate verification keeps reading the real status field", () => {

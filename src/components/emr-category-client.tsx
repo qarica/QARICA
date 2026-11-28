@@ -7,6 +7,7 @@ import { KpiCard, type KpiTone } from "@/components/kpi-card";
 import { categoriesReferencing, EMR_CATEGORIES, EMR_CATEGORY_FIELDS, EMR_CATEGORY_KPIS, EMR_STATUS_LABELS, formatBooleanValue, formatSequenceStep, formatSequenceValue, parseSequenceStep, sequenceSteps, SEQUENCE_SEPARATOR, SEQUENCE_STEP_METHOD_SEPARATOR, type EmrCategoryCode, type EmrKpiBucket } from "@/lib/emr-categories";
 
 import { VnDateInput } from "@/components/vn-date-input";
+import { WorkspaceFlowBar } from "@/components/workspace-flow-bar";
 type Item = { id: string; category: string; title: string; description: string | null; status: string; department_ids:string[]; owner_department_id:string|null; due_date: string | null; priority: string; is_go_live_gate: boolean; evidence_url: string | null; verified_at: string | null; verified_by: string | null; details: Record<string, unknown>; publish_status: string; published_at: string | null; published_by: string | null; created_at: string; updated_at: string };
 
 function toggleId(ids: string[], id: string) { return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]; }
@@ -39,24 +40,30 @@ function addDays(date: string, days: number) { const d = new Date(`${date}T00:00
 // luôn đọc status thật, không đổi).
 function isBieuMauDigitized(item: Item): boolean { return item.details?.digitized === "Đã số hóa"; }
 
-function bucketCount(bucket: EmrKpiBucket, items: Item[], hasBlockedBucket: boolean, categoryCode: string): number {
+// Một điều kiện cho mỗi nhóm (bucket) — dùng chung cho số trên ô chỉ số, thanh "Cần xử lý" và bộ lọc danh sách,
+// để ba nơi không bao giờ lệch nhau. Chỉ là phân nhóm HIỂN THỊ; không liên quan logic Go-live gate (isGatePassed ở API dashboard).
+function bucketMatcher(bucket: EmrKpiBucket, hasBlockedBucket: boolean, categoryCode: string): (i: Item) => boolean {
   const today = todayHcm();
   const done = (i: Item) => i.status === "DONE" || (categoryCode === "BIEU_MAU" && isBieuMauDigitized(i));
   switch (bucket) {
-    case "TOTAL": return items.length;
-    case "DONE": return items.filter(done).length;
-    case "IN_PROGRESS": return items.filter((i) => !done(i) && i.status === "IN_PROGRESS").length;
-    case "TODO": return items.filter((i) => !done(i) && (i.status === "TODO" || (!hasBlockedBucket && i.status === "BLOCKED"))).length;
-    case "BLOCKED": return items.filter((i) => i.status === "BLOCKED").length;
-    case "OVERDUE": return items.filter((i) => !done(i) && i.due_date && i.due_date < today).length;
-    case "CERT_VALID": return items.filter((i) => { const exp = i.details?.certificate_expiry; return exp && String(exp) >= today; }).length;
-    case "CERT_EXPIRING": return items.filter((i) => { const exp = i.details?.certificate_expiry; if (!exp) return false; const value = String(exp); return value >= today && value <= addDays(today, 30); }).length;
-    case "CERT_EXPIRED": return items.filter((i) => { const exp = i.details?.certificate_expiry; return exp && String(exp) < today; }).length;
-    default: return 0;
+    case "TOTAL": return () => true;
+    case "DONE": return done;
+    case "IN_PROGRESS": return (i) => !done(i) && i.status === "IN_PROGRESS";
+    case "TODO": return (i) => !done(i) && (i.status === "TODO" || (!hasBlockedBucket && i.status === "BLOCKED"));
+    case "BLOCKED": return (i) => i.status === "BLOCKED";
+    case "OVERDUE": return (i) => !done(i) && !!i.due_date && i.due_date < today;
+    case "CERT_VALID": return (i) => { const exp = i.details?.certificate_expiry; return !!exp && String(exp) >= today; };
+    case "CERT_EXPIRING": return (i) => { const exp = i.details?.certificate_expiry; if (!exp) return false; const value = String(exp); return value >= today && value <= addDays(today, 30); };
+    case "CERT_EXPIRED": return (i) => { const exp = i.details?.certificate_expiry; return !!exp && String(exp) < today; };
+    default: return () => false;
   }
 }
 
-export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, descriptionLabel }: { categoryCode: string; categoryLabel: string; canManage: boolean; descriptionLabel?: string }) {
+function bucketCount(bucket: EmrKpiBucket, items: Item[], hasBlockedBucket: boolean, categoryCode: string): number {
+  return items.filter(bucketMatcher(bucket, hasBlockedBucket, categoryCode)).length;
+}
+
+export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, descriptionLabel, attention }: { categoryCode: string; categoryLabel: string; canManage: boolean; descriptionLabel?: string; attention?: EmrKpiBucket }) {
   const descLabel = descriptionLabel || "Mô tả";
   const extraFields = EMR_CATEGORY_FIELDS[categoryCode as keyof typeof EMR_CATEGORY_FIELDS] || [];
   // Lấy đúng danh sách lựa chọn đã khai báo cho record_types thay vì liệt kê
@@ -424,10 +431,11 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   const filtered = useMemo(() => {
     const text = search.trim().toLowerCase();
     let rows = text ? items.filter((i) => `${i.title} ${i.description || ""}`.toLowerCase().includes(text)) : items;
+    if (attention && attention !== "TOTAL") rows = rows.filter(bucketMatcher(attention, hasBlockedBucket, categoryCode));
     if (categoryCode === "BIEU_MAU" && publishFilter !== "ALL") rows = rows.filter((i) => i.publish_status === publishFilter);
     if (titleSort === "default") return rows;
     return [...rows].sort((a, b) => titleSort === "asc" ? a.title.localeCompare(b.title, "vi") : b.title.localeCompare(a.title, "vi"));
-  }, [items, search, titleSort, categoryCode, publishFilter]);
+  }, [items, search, titleSort, categoryCode, publishFilter, attention, hasBlockedBucket]);
 
   // Shared by both the regular table columns and the compact-fields detail
   // panel, so the two never render a field differently.
@@ -468,8 +476,15 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
 
   return (
     <div className="page-stack">
+      {/* Khuôn Kho hóa chất: thanh "Cần xử lý" + ô chỉ số bấm để lọc danh sách — cùng bucketMatcher nên số luôn khớp danh sách. */}
+      <WorkspaceFlowBar ariaLabel={`Cần xử lý · ${categoryLabel}`} tabs={[]} active="" emptyText="Không có hạng mục nào quá hạn hay bị chặn." chips={[
+        { n: bucketCount("OVERDUE", kpiItems, hasBlockedBucket, categoryCode), tone: "danger", text: `${bucketCount("OVERDUE", kpiItems, hasBlockedBucket, categoryCode)} hạng mục quá hạn`, href: `/emr/${slugForCode(categoryCode)}?filter=OVERDUE` },
+        { n: bucketCount("BLOCKED", kpiItems, hasBlockedBucket, categoryCode), tone: "warning", text: `${bucketCount("BLOCKED", kpiItems, hasBlockedBucket, categoryCode)} hạng mục đang bị chặn`, href: `/emr/${slugForCode(categoryCode)}?filter=BLOCKED` },
+        ...(kpis.some((k) => k.bucket === "CERT_EXPIRING") ? [{ n: bucketCount("CERT_EXPIRING", kpiItems, hasBlockedBucket, categoryCode), tone: "warning" as const, text: `${bucketCount("CERT_EXPIRING", kpiItems, hasBlockedBucket, categoryCode)} chứng thư số sắp hết hạn (30 ngày)`, href: `/emr/${slugForCode(categoryCode)}?filter=CERT_EXPIRING` }] : []),
+      ]} />
+      {attention && attention !== "TOTAL" ? <div className="scope-note">Đang lọc: <strong>{kpis.find((k) => k.bucket === attention)?.label || (attention === "OVERDUE" ? "Quá hạn" : attention === "BLOCKED" ? "Bị chặn" : attention)}</strong> · <Link className="table-link" href={`/emr/${slugForCode(categoryCode)}`}>Bỏ lọc</Link></div> : null}
       {kpis.length ? <section className="kpi-grid" style={{ gridTemplateColumns: `repeat(${kpis.length},minmax(0,1fr))` }}>
-        {kpis.map((k) => <KpiCard key={k.bucket} icon={KPI_ICON[k.bucket]} tone={KPI_TONE[k.bucket]} label={k.label} value={bucketCount(k.bucket, kpiItems, hasBlockedBucket, categoryCode)} />)}
+        {kpis.map((k) => <KpiCard key={k.bucket} icon={KPI_ICON[k.bucket]} tone={KPI_TONE[k.bucket]} label={k.label} value={bucketCount(k.bucket, kpiItems, hasBlockedBucket, categoryCode)} href={k.bucket === "TOTAL" ? `/emr/${slugForCode(categoryCode)}` : `/emr/${slugForCode(categoryCode)}?filter=${k.bucket}`} active={k.bucket === "TOTAL" ? !attention || attention === "TOTAL" : attention === k.bucket} />)}
       </section> : null}
       <div className="toolbar" style={{ padding: "0 0 4px" }}>
         <div className="toolbar-left"><div className="search-box"><Icon name="search" size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Tìm trong ${categoryLabel.toLowerCase()}...`} /></div>
