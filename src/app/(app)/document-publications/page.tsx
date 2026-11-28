@@ -1,10 +1,15 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { DocumentPublicationsClient } from "@/components/document-publications-client";
 import { hasPermission, requireUserContext, requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { NavGroupBar } from "@/components/nav-group-bar";
 
-export default async function DocumentPublicationsPage() {
+export default async function DocumentPublicationsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  // Bộ lọc từ thanh "Cần xử lý" (?filter=...): chỉ lọc danh sách hiển thị, ô chỉ số tổng giữ nguyên.
+  const filterRaw = String((await searchParams).filter || "");
+  const FILTER_LABEL: Record<string, string> = { stage_overdue: "Văn bản đang xử lý quá hạn bước", review_overdue: "Văn bản quá hạn rà soát định kỳ" };
+  const filter = FILTER_LABEL[filterRaw] ? filterRaw : "";
   const { user } = await requireUserContext();
   requirePermission(user, "document_publication.view");
   const canManage = hasPermission(user, "document_publication.manage");
@@ -37,7 +42,8 @@ export default async function DocumentPublicationsPage() {
         icon="file-text"
       />
       <NavGroupBar group="document-publications" active="/document-publications" ariaLabel="Luồng việc Quản lý văn bản" emptyText="Không có văn bản hay đào tạo nào cần xử lý gấp." />
-      <DocumentPublicationsClient
+      {filter ? <div className="scope-note">Đang lọc: <strong>{FILTER_LABEL[filter]}</strong> · <Link className="table-link" href="/document-publications">Bỏ lọc</Link></div> : null}
+      <DocumentPublicationsClient attention={(filter || undefined) as "stage_overdue" | "review_overdue" | undefined}
         departments={(departmentsRes.data ?? []) as any}
         initialDocuments={(documentsRes.data ?? []) as any}
         staffRoster={((staffRes.data ?? []) as any[]).map((p) => ({ id: p.user_id, name: p.full_name || p.email || p.user_id }))}

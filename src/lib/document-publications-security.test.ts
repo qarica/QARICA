@@ -683,7 +683,9 @@ describe("Document publications: sửa văn bản + tìm kiếm thư viện + ba
   it("UI: ô tìm kiếm trong Thư viện văn bản lọc theo tên/mã, không gộp phẳng các thư mục khoa/phòng lại với nhau", () => {
     const client = read("src/components/document-publications-client.tsx");
     expect(client).toContain('placeholder="Tìm theo tên hoặc mã văn bản..."');
-    expect(client).toContain("const matchingDocs = q ? group.docs.filter((d) => d.title.toLocaleLowerCase(\"vi\").includes(q) || (d.document_code || \"\").toLocaleLowerCase(\"vi\").includes(q)) : group.docs;");
+    // reviewDocs = group.docs khi không có bộ lọc "quá hạn rà soát" từ thanh Cần xử lý; tìm kiếm vẫn lọc trong từng thư mục.
+    expect(client).toContain('const reviewDocs = attention === "review_overdue" ? group.docs.filter((d) => !!d.review_date && d.review_date.slice(0, 10) < today) : group.docs;');
+    expect(client).toContain("const matchingDocs = q ? reviewDocs.filter((d) => d.title.toLocaleLowerCase(\"vi\").includes(q) || (d.document_code || \"\").toLocaleLowerCase(\"vi\").includes(q)) : reviewDocs;");
     expect(client).toContain("if (!matchingDocs.length) return null;");
   });
 

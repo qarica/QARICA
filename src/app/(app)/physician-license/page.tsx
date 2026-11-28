@@ -1,10 +1,15 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { PhysicianLicenseClient } from "@/components/physician-license-client";
 import { hasPermission, requireUserContext, requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { NavGroupBar } from "@/components/nav-group-bar";
 
-export default async function PhysicianLicensePage() {
+export default async function PhysicianLicensePage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  // Bộ lọc từ thanh "Cần xử lý" (?filter=...): chỉ lọc danh sách hiển thị, ô chỉ số tổng giữ nguyên.
+  const filterRaw = String((await searchParams).filter || "");
+  const FILTER_LABEL: Record<string, string> = { overdue: "Hồ sơ quá hạn đăng ký", soon: "Hồ sơ đến hạn đăng ký trong 7 ngày" };
+  const filter = FILTER_LABEL[filterRaw] ? filterRaw : "";
   const { user } = await requireUserContext();
   requirePermission(user, "physician_license.view");
   const canManage = hasPermission(user, "physician_license.manage");
@@ -41,7 +46,8 @@ export default async function PhysicianLicensePage() {
         icon="list-checks"
       />
       <NavGroupBar group="physician-license" active="/physician-license" ariaLabel="Luồng việc Quản lý hành nghề" emptyText="Không có hồ sơ hành nghề nào cần xử lý gấp." />
-      <PhysicianLicenseClient
+      {filter ? <div className="scope-note">Đang lọc: <strong>{FILTER_LABEL[filter]}</strong> · <Link className="table-link" href="/physician-license">Bỏ lọc</Link></div> : null}
+      <PhysicianLicenseClient attention={(filter || undefined) as "overdue" | "soon" | undefined}
         departments={(departmentsRes.data ?? []) as any}
         initialRegistrations={(registrationsRes.data ?? []) as any}
         credentials={(credentialsRes.data ?? []) as any}

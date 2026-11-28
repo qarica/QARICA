@@ -28,11 +28,11 @@ export function WorkspaceFlowBar({ ariaLabel, tabs, active, chips, emptyText }: 
       .cw-bar .cw-attn-item:hover{background:#f1f5f9}
       .cw-bar .cw-attn-none{font-size:12px;color:var(--muted)}
     `}</style>
-    <nav className="cw-tabs" aria-label={ariaLabel}>
+    {tabs.length > 1 ? <nav className="cw-tabs" aria-label={ariaLabel}>
       {tabs.map((t, i) => <Link key={t.key} href={t.href} className={t.key === active ? "active" : ""} aria-current={t.key === active ? "page" : undefined}>
         <span className="cw-step">{i + 1}</span>{t.label}{t.count !== null ? <span className="cw-count">{t.count}</span> : null}
       </Link>)}
-    </nav>
+    </nav> : null}
     <div className="cw-attn">
       <span className="cw-attn-title"><Icon name="bell" size={16} /><strong>Cần xử lý</strong></span>
       {visible.length ? <div className="cw-attn-items">{visible.map((c) => <Link key={c.text} className={`cw-attn-item ${c.tone}`} href={c.href}>{c.text}</Link>)}</div> : <span className="cw-attn-none">{emptyText}</span>}

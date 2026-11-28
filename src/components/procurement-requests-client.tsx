@@ -36,12 +36,15 @@ export function ProcurementRequestsClient({
   canManage,
   canApproveBgd,
   canApproveTgd,
+  attention,
 }: {
   departments: Department[];
   initialRequests: Req[];
   canManage: boolean;
   canApproveBgd: boolean;
   canApproveTgd: boolean;
+  // Bộ lọc từ thanh "Cần xử lý": chờ BGĐ duyệt (SUBMITTED) / BGĐ đã duyệt — chờ TGĐ (BGD_APPROVED).
+  attention?: "bgd" | "tgd";
 }) {
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [requests, setRequests] = useState(initialRequests);
@@ -173,7 +176,7 @@ export function ProcurementRequestsClient({
         </div>
         <div className="mobile-workflow-filters"><input className="input" aria-label="Tìm đề xuất" placeholder="Tìm tên đề xuất, khoa/phòng..." value={listQuery} onChange={(e) => setListQuery(e.target.value)} /><label className="inline-check"><input type="checkbox" checked={urgentOnly} onChange={(e) => setUrgentOnly(e.target.checked)} /> Chỉ đề xuất khẩn</label></div>
         <div className="work-list">
-          {requests.filter((r) => (!urgentOnly || r.urgency === "URGENT") && (!listQuery.trim() || [r.title, departmentName(r.department_id)].some((v) => v.toLocaleLowerCase("vi").includes(listQuery.trim().toLocaleLowerCase("vi"))))).map((r) => (
+          {requests.filter((r) => (!attention || r.status === (attention === "bgd" ? "SUBMITTED" : "BGD_APPROVED")) && (!urgentOnly || r.urgency === "URGENT") && (!listQuery.trim() || [r.title, departmentName(r.department_id)].some((v) => v.toLocaleLowerCase("vi").includes(listQuery.trim().toLocaleLowerCase("vi"))))).map((r) => (
             <div className="work-row" key={r.id}>
               <div className="work-main">
                 <strong>{r.title}</strong>

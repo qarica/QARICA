@@ -42,7 +42,7 @@ type MonitoringRow = {
   scored: number;
   pass_pct: number | null;
 };
-type RoundFilter = "ALL" | MonitoringPhase | "HAS_FAIL";
+type RoundFilter = "ALL" | MonitoringPhase | "HAS_FAIL" | "OVERDUE";
 type FormState = { id: string; name: string; sourceCode: string; description: string; ownerDepartmentId: string; scoringMethod: string };
 
 const initialForm: FormState = { id: "", name: "", sourceCode: "", description: "", ownerDepartmentId: "", scoringMethod: "COMPLIANCE_PERCENTAGE" };
@@ -57,7 +57,7 @@ function compareRoundNewestFirst(a: MonitoringRow, b: MonitoringRow) {
   return b.record_code.localeCompare(a.record_code, "vi", { numeric: true, sensitivity: "base" });
 }
 
-export function MonitoringClient({ year, canManageTemplates, canCreateRounds, templateRows, monitoringRows, departments }: {
+export function MonitoringClient({ year, canManageTemplates, canCreateRounds, templateRows, monitoringRows, departments, initialRoundFilter }: { initialRoundFilter?: RoundFilter; 
   year: number;
   canManageTemplates: boolean;
   canCreateRounds: boolean;
@@ -67,7 +67,7 @@ export function MonitoringClient({ year, canManageTemplates, canCreateRounds, te
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"rounds" | "templates">("rounds");
-  const [roundFilter, setRoundFilter] = useState<RoundFilter>("ALL");
+  const [roundFilter, setRoundFilter] = useState<RoundFilter>(initialRoundFilter ?? "ALL");
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -95,7 +95,7 @@ export function MonitoringClient({ year, canManageTemplates, canCreateRounds, te
   const filteredTemplates = templateRows.filter((row) => `${row.code || ""} ${row.name} ${row.description || ""} ${deptMap.get(row.owner_department_id || "") || ""}`.toLowerCase().includes(q));
   const filteredRounds = monitoringRows.filter((row) => {
     const matchesSearch = `${row.record_code} ${row.title} ${row.checklist_name} ${row.target_area || ""} ${deptMap.get(row.target_department_id || "") || ""}`.toLowerCase().includes(q);
-    const matchesPhase = roundFilter === "ALL" || (roundFilter === "HAS_FAIL" ? row.fail > 0 : row.phase === roundFilter);
+    const matchesPhase = roundFilter === "ALL" || (roundFilter === "HAS_FAIL" ? row.fail > 0 : roundFilter === "OVERDUE" ? row.phase === "NEEDS_CHECK" && !!row.scheduled_date && String(row.scheduled_date).slice(0, 10) < new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()) : row.phase === roundFilter);
     return matchesSearch && matchesPhase;
   }).sort((a, b) => roundFilter === "HAS_FAIL" ? (b.fail - a.fail || compareRoundNewestFirst(a, b)) : compareRoundNewestFirst(a, b));
 

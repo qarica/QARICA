@@ -1,9 +1,15 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { ProcurementRequestsClient } from "@/components/procurement-requests-client";
 import { hasPermission, requireUserContext, requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { NavGroupBar } from "@/components/nav-group-bar";
 
-export default async function ProcurementPage() {
+export default async function ProcurementPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  // Bộ lọc từ thanh "Cần xử lý" (?filter=...): chỉ lọc danh sách hiển thị, ô chỉ số tổng giữ nguyên.
+  const filterRaw = String((await searchParams).filter || "");
+  const FILTER_LABEL: Record<string, string> = { bgd: "Đề xuất chờ BGĐ duyệt", tgd: "Đề xuất BGĐ đã duyệt — chờ TGĐ" };
+  const filter = FILTER_LABEL[filterRaw] ? filterRaw : "";
   const { user } = await requireUserContext();
   requirePermission(user, "procurement.view");
   const canManage = hasPermission(user, "procurement.manage");
@@ -30,7 +36,9 @@ export default async function ProcurementPage() {
         description="Tiếp nhận đề xuất từ khoa/phòng, duyệt 2 cấp (BGĐ → TGĐ) và thông báo kết quả."
         icon="list-checks"
       />
-      <ProcurementRequestsClient
+      <NavGroupBar group="procurement" active="/procurement" ariaLabel="Đề xuất cần xử lý" emptyText="Không có đề xuất nào chờ duyệt." />
+      {filter ? <div className="scope-note">Đang lọc: <strong>{FILTER_LABEL[filter]}</strong> · <Link className="table-link" href="/procurement">Bỏ lọc</Link></div> : null}
+      <ProcurementRequestsClient attention={(filter || undefined) as "bgd" | "tgd" | undefined}
         departments={(departmentsRes.data ?? []) as any}
         initialRequests={(requestsRes.data ?? []) as any}
         canManage={canManage}

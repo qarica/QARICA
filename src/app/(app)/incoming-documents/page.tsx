@@ -1,9 +1,15 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { IncomingDocumentsClient } from "@/components/incoming-documents-client";
 import { hasPermission, requireUserContext, requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { NavGroupBar } from "@/components/nav-group-bar";
 
-export default async function IncomingDocumentsPage() {
+export default async function IncomingDocumentsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  // Bộ lọc từ thanh "Cần xử lý" (?filter=...): chỉ lọc danh sách hiển thị, ô chỉ số tổng giữ nguyên.
+  const filterRaw = String((await searchParams).filter || "");
+  const FILTER_LABEL: Record<string, string> = { overdue: "Công văn trễ hạn xử lý", unassigned: "Công văn chưa giao khoa/phòng" };
+  const filter = FILTER_LABEL[filterRaw] ? filterRaw : "";
   const { user } = await requireUserContext();
   requirePermission(user, "incoming_documents.view");
   const canManage = hasPermission(user, "incoming_documents.manage");
@@ -70,7 +76,9 @@ export default async function IncomingDocumentsPage() {
         description="Tiếp nhận công văn, ghi bút phê chỉ đạo, triển khai xuống đơn vị và theo dõi tiến độ hoàn thành theo hạn xử lý."
         icon="list-checks"
       />
-      <IncomingDocumentsClient
+      <NavGroupBar group="incoming-documents" active="/incoming-documents" ariaLabel="Công văn cần xử lý" emptyText="Không có công văn nào trễ hạn hay chưa giao khoa/phòng." />
+      {filter ? <div className="scope-note">Đang lọc: <strong>{FILTER_LABEL[filter]}</strong> · <Link className="table-link" href="/incoming-documents">Bỏ lọc</Link></div> : null}
+      <IncomingDocumentsClient attention={(filter || undefined) as "overdue" | "unassigned" | undefined}
         departments={(departmentsRes.data ?? []) as any}
         initialDocuments={documents as any}
         profiles={(profilesRes.data ?? []) as any}
