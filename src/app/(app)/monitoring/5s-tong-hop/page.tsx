@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { KpiCard } from "@/components/kpi-card";
+import { MeasureWorkspaceBar } from "@/components/measure-workspace-bar";
+import { PageHeader } from "@/components/page-header";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend, type Tone } from "@/components/tqm-charts";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -119,14 +121,9 @@ export default async function FiveSSummaryPage() {
   return (
     <div className="page-stack">
       <style>{TQM_CHART_CSS}</style>
-      <div className="page-header">
-        <div className="eyebrow">GIÁM SÁT · 5S · {year}</div>
-        <h1>Tổng hợp 5S toàn viện</h1>
-        <p className="muted">
-          Gộp kết quả 6 bảng kiểm 5S (BK01, BK02, BK03, BK05, BK07, BK09) theo khu vực, chỉ ở tầng báo cáo — mỗi bảng kiểm vẫn giữ nguyên là văn bản kiểm soát riêng, không gộp dữ liệu gốc.
-        </p>
-        <Link className="table-link" href="/monitoring">← Quay lại Giám sát &amp; Bảng kiểm</Link>
-      </div>
+      <PageHeader title="Tổng hợp 5S toàn viện" description="Gộp kết quả 6 bảng kiểm 5S (BK01, BK02, BK03, BK05, BK07, BK09) theo khu vực, chỉ ở tầng báo cáo — mỗi bảng kiểm vẫn giữ nguyên là văn bản kiểm soát riêng, không gộp dữ liệu gốc." icon="layers" />
+      {/* Link "Quay lại Giám sát & Bảng kiểm" cũ gộp vào thanh luồng việc (tab Giám sát & Bảng kiểm). */}
+      <MeasureWorkspaceBar active="fives" year={year} />
 
       <section className="kpi-grid">
         <KpiCard icon="chart-no-axes-column-increasing" tone="blue" label="Tỷ lệ đạt toàn 5S" value={`${overallPct}%`} caption={`${totalPass}/${totalScored || 0} mục được chấm đạt`} />

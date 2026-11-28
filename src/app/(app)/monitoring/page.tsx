@@ -1,6 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { KpiCard } from "@/components/kpi-card";
+import { MeasureWorkspaceBar } from "@/components/measure-workspace-bar";
 import { MonitoringClient } from "@/components/monitoring-client";
+import { PageHeader } from "@/components/page-header";
+import { TqmPrincipleLine } from "@/components/tqm-principle-line";
 import { Preset5SCreateClient } from "@/components/preset-5s-create-client";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
@@ -8,10 +11,12 @@ import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 
-export default async function MonitoringPage() {
+export default async function MonitoringPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { user } = await requireUserContext();
   if (!hasAnyPermission(user, ["monitoring.view", "monitoring.perform", "checklists.view", "checklists.manage"])) redirect("/dashboard?forbidden=1");
   const year = await getWorkYear();
+  // Khuôn Kho hóa chất: biểu đồ (xu hướng, kết quả bảng kiểm, theo khoa/phòng) chuyển sang tab "Phân tích giám sát", hiện sẵn.
+  const tab = (await searchParams).tab === "analytics" ? "analytics" : "monitoring";
   const supabase = await createClient();
   const [templatesRes, versionsRes, roundsRes, departmentsRes] = await Promise.all([
     supabase.from("checklist_templates").select("id,code,source_code,name,description,owner_department_id,is_active,created_at,updated_at").order("updated_at", { ascending: false }),
@@ -80,13 +85,22 @@ export default async function MonitoringPage() {
     .monitoring-workspace .monitoring-flow .flow-line{height:4px;border-radius:4px;margin-top:10px;background:linear-gradient(90deg,#1D4ED8 0 35%,#93c5fd 35% 68%,#dbeafe 68%)}
     @media(max-width:700px){.monitoring-workspace .monitoring-hero{flex-direction:column}.monitoring-workspace .monitoring-hero{gap:10px;padding:13px 12px;min-height:0;height:auto}.monitoring-workspace .monitoring-hero>div:first-child{min-width:0;flex:0 1 auto;width:100%}.monitoring-workspace .monitoring-hero h1{font-size:20px}.monitoring-workspace .monitoring-hero p{margin-top:5px}.monitoring-workspace .monitoring-hero-meta{gap:5px;margin-top:9px}.monitoring-workspace .monitoring-hero-meta span{padding:4px 8px;font-size:10px}.monitoring-workspace .monitoring-flow{min-width:0;max-width:none;width:100%;padding:9px 11px}.monitoring-workspace .monitoring-flow strong{margin-top:3px;line-height:1.4}.monitoring-workspace .monitoring-flow .flow-line{margin-top:6px}}
     @media(max-width:900px){.monitoring-workspace .tqm-grid{grid-template-columns:1fr}.monitoring-workspace .tqm-kpis{grid-template-columns:1fr 1fr}}`}</style>
-    <section className="monitoring-hero"><div><div className="eyebrow">ĐO LƯỜNG & GIÁM SÁT · {year}</div><h1>Giám sát & Bảng kiểm</h1><p>Nhìn tình hình giám sát toàn viện trước, sau đó mới drill-down vào từng bảng kiểm và từng đợt. <Link className="table-link" href="/monitoring/5s-tong-hop">Xem tổng hợp 5S toàn viện →</Link></p><div className="monitoring-hero-meta"><span>{templateRows.length} mẫu bảng kiểm</span><span>{publishedTemplates} mẫu đã phát hành</span><span>{monitoringRows.length} đợt trong năm</span><span>{needAttention} việc cần xử lý</span></div></div><div className="monitoring-flow"><small>Luồng TQM</small><strong>Chuẩn → Giám sát → Phát hiện → Khắc phục → Recheck → Chuẩn hóa</strong><div className="flow-line" /></div></section>
+    <PageHeader title="Giám sát & Bảng kiểm" description={`Nhìn tình hình giám sát toàn viện trước, sau đó drill-down vào từng bảng kiểm và từng đợt · ${templateRows.length} mẫu bảng kiểm (${publishedTemplates} đã phát hành).`} icon="list-checks"/>
+    {/* Gộp từ hero cũ: "Luồng TQM" thành dòng Quản lý theo quá trình; link Tổng hợp 5S thành tab của thanh luồng việc;
+        số đợt / việc cần xử lý đã có ở ô chỉ số bên dưới nên không lặp lại. */}
+    <TqmPrincipleLine purpose="Giám sát theo bảng kiểm chuẩn để phát hiện điểm chưa đạt, khắc phục, kiểm tra lại và chuẩn hóa." workflow={["Chuẩn", "Giám sát", "Phát hiện", "Khắc phục", "Recheck", "Chuẩn hóa"]} related={[{ label: "Findings", href: "/findings" }, { label: "Chỉ số chất lượng", href: "/indicators" }]} showSteps/>
+    <MeasureWorkspaceBar active={tab} year={year}/>
     {firstError ? <div className="alert error">Một phần dữ liệu chưa tải được: {firstError.message}</div> : null}
-    <section className="tqm-kpis"><article className="tqm-kpi"><span>Tỷ lệ mục đạt</span><strong>{passPct}%</strong><small>{allPass}/{allScored || 0} mục được chấm đạt</small></article><article className="tqm-kpi"><span>Hoàn thành đợt giám sát</span><strong>{completionPct}%</strong><small>{done}/{monitoringRows.length} đợt đã xác nhận/đóng</small></article><article className="tqm-kpi"><span>Lượt giám sát năm</span><strong>{monitoringRows.length}</strong><small>Tổng đợt không bị hủy</small></article><article className="tqm-kpi"><span>Cần xử lý</span><strong>{needAttention}</strong><small>Chờ kiểm, recheck hoặc xác nhận QLCL</small></article></section>
-    <section className="tqm-grid"><article className="panel"><div className="tqm-head"><h2>Xu hướng lượt giám sát 12 tháng</h2><p>Cho biết nhịp triển khai giám sát trong năm.</p></div><TqmTrend points={months} unit=""/></article><article className="panel"><div className="tqm-head"><h2>Kết quả bảng kiểm</h2><p>Tổng hợp PASS/FAIL từ các mục đã chấm.</p></div><TqmDonut value={passPct} label="Mục đạt" segments={[{label:"Đạt",value:allPass,tone:"brand"},{label:"Chưa đạt",value:allFail,tone:"red"}]} /></article></section>
-    <section className="panel"><div className="tqm-head"><h2>Giám sát theo khoa/phòng</h2><p>Xếp đơn vị có tỷ lệ mục đạt thấp lên trước để QLCL ưu tiên hỗ trợ và giám sát lại.</p></div>{depBars.length?<TqmHorizontalBars rows={depBars} max={100}/>:<div className="empty-state">Chưa có dữ liệu chấm điểm theo khoa/phòng.</div>}</section>
-    <div className="detail-label">BẢNG KIỂM & ĐỢT GIÁM SÁT CHI TIẾT</div>
+    <section className="tqm-kpis">
+      <KpiCard icon="badge-check" tone="green" label="Tỷ lệ mục đạt" value={`${passPct}%`} caption={`${allPass}/${allScored || 0} mục được chấm đạt`} href="/monitoring?tab=analytics" active={tab==="analytics"} />
+      <KpiCard icon="check-square" tone="blue" label="Hoàn thành đợt giám sát" value={`${completionPct}%`} caption={`${done}/${monitoringRows.length} đợt đã xác nhận/đóng`} />
+      <KpiCard icon="calendar-days" tone="purple" label="Lượt giám sát năm" value={monitoringRows.length} caption="Tổng đợt không bị hủy" />
+      <KpiCard icon="circle-alert" tone="amber" label="Cần xử lý" value={needAttention} caption="Chờ kiểm, recheck hoặc xác nhận QLCL" urgent={needAttention > 0} href="/monitoring" active={tab==="monitoring"} />
+    </section>
+    {tab==="analytics"?<><section className="tqm-grid"><article className="panel"><div className="tqm-head"><h2>Xu hướng lượt giám sát 12 tháng</h2><p>Cho biết nhịp triển khai giám sát trong năm.</p></div><TqmTrend points={months} unit=""/></article><article className="panel"><div className="tqm-head"><h2>Kết quả bảng kiểm</h2><p>Tổng hợp PASS/FAIL từ các mục đã chấm.</p></div><TqmDonut value={passPct} label="Mục đạt" segments={[{label:"Đạt",value:allPass,tone:"brand"},{label:"Chưa đạt",value:allFail,tone:"red"}]} /></article></section>
+    <section className="panel"><div className="tqm-head"><h2>Giám sát theo khoa/phòng</h2><p>Xếp đơn vị có tỷ lệ mục đạt thấp lên trước để QLCL ưu tiên hỗ trợ và giám sát lại.</p></div>{depBars.length?<TqmHorizontalBars rows={depBars} max={100}/>:<div className="empty-state">Chưa có dữ liệu chấm điểm theo khoa/phòng.</div>}</section></>:null}
+    {tab==="monitoring"?<><div className="detail-label">BẢNG KIỂM & ĐỢT GIÁM SÁT CHI TIẾT</div>
     {!templateRows.some((t: any) => t.source_code === "BK01.V1_QLCL.QĐ.06" || t.code === "BK01.V1_QLCL.QĐ.06") ? <Preset5SCreateClient departments={departments} canManage={canManageTemplates} /> : null}
-    <MonitoringClient year={year} canManageTemplates={canManageTemplates} canCreateRounds={canCreateRounds} templateRows={templateRows as any[]} monitoringRows={monitoringRows as any[]} departments={departments} />
+    <MonitoringClient year={year} canManageTemplates={canManageTemplates} canCreateRounds={canCreateRounds} templateRows={templateRows as any[]} monitoringRows={monitoringRows as any[]} departments={departments} /></>:null}
   </div>;
 }
