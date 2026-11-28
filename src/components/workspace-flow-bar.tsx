@@ -11,8 +11,9 @@ export function WorkspaceFlowBar({ ariaLabel, tabs, active, chips, emptyText }: 
   return <div className="cw-bar">
     <style>{`
       .cw-bar{display:flex;flex-direction:column;gap:10px}
-      .cw-bar .cw-tabs{display:flex;gap:4px;overflow-x:auto;padding:4px;background:#eef2f7;border-radius:12px;-webkit-overflow-scrolling:touch}
-      .cw-bar .cw-tabs a{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:9px 16px;font-weight:700;font-size:13px;color:#475569;white-space:nowrap}
+      .cw-bar .cw-tabs{display:flex;flex-wrap:wrap;gap:2px;padding:4px;background:#eef2f7;border-radius:12px}
+      @media(max-width:760px){.cw-bar .cw-tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}}
+      .cw-bar .cw-tabs a{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:9px 10px;font-weight:700;font-size:13px;color:#475569;white-space:nowrap}
       .cw-bar .cw-tabs a:hover{background:#f8fafc}
       .cw-bar .cw-tabs a.active{background:#fff;color:var(--brand-dark,#172554);box-shadow:0 1px 4px rgba(15,31,54,.14)}
       .cw-bar .cw-tabs .cw-step{font-size:10px;font-weight:800;color:#94a3b8}

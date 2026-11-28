@@ -28,10 +28,19 @@ const NAV_ICON_TONE: Record<string, string> = {
 // Single source of truth for "is this child the active route" — shared by the
 // per-link active class and by the accordion group's auto-expand resolution,
 // so the two never drift apart.
+function hrefMatches(pathname: string, href: string) {
+  const baseHref = href.split("?")[0];
+  return pathname === baseHref || (baseHref !== "/dashboard" && pathname.startsWith(`${baseHref}/`));
+}
+
+// Khi các trang con của workspace là từng dòng riêng trong sidebar (vd /risks và /risks/score-tool), chỉ dòng có đường dẫn
+// khớp DÀI NHẤT được sáng — không để /risks/score-tool làm sáng luôn dòng Risk Register (/risks).
+let ALL_NAV_HREFS: string[] = [];
 function isChildActive(pathname: string, child: NavItem, currentWorkspaceRoot: string | null) {
   if (child.workspaceRoot) return currentWorkspaceRoot === child.workspaceRoot;
-  const baseHref = child.href.split("?")[0];
-  return pathname === baseHref || (baseHref !== "/dashboard" && pathname.startsWith(`${baseHref}/`));
+  if (!hrefMatches(pathname, child.href)) return false;
+  const own = child.href.split("?")[0].length;
+  return !ALL_NAV_HREFS.some((href) => href.split("?")[0].length > own && hrefMatches(pathname, href));
 }
 
 function resolveActiveGroupId(pathname: string, navGroups: NavGroup[], currentWorkspaceRoot: string | null) {
@@ -40,6 +49,7 @@ function resolveActiveGroupId(pathname: string, navGroups: NavGroup[], currentWo
 
 export function AppShell({ children, user, organization, navGroups, year }: { children: React.ReactNode; user: UserContext; organization: OrganizationInfo | null; navGroups: NavGroup[]; year: number; }) {
   const pathname = usePathname(); const router = useRouter(); const supabase = useMemo(() => createClient(), []);
+  ALL_NAV_HREFS = navGroups.flatMap((group) => group.children.filter((child) => !child.workspaceRoot).map((child) => child.href));
   const [mobileOpen, setMobileOpen] = useState(false); const [profileOpen, setProfileOpen] = useState(false); const [navigating, setNavigating] = useState(false); const [sidebarCollapsed, setSidebarCollapsed] = useState(false); const [attention, setAttention] = useState<AttentionState>({});
   const workspace = visibleWorkspaceForPath(pathname, user); const currentWorkspaceRoot = workspaceRootForPath(pathname); const adminHref = adminLandingHref(user);
   // "Việc của tôi" is intentionally not a sidebar nav group (see navigation.ts)
