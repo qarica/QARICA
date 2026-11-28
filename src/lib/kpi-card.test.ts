@@ -25,7 +25,7 @@ describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng 
   });
 
   it("urgent (tuỳ chọn) thêm class 'urgent' lên kpi-tile — thay cho quy ước <article className={`kpi ${overdue?\"danger\":\"\"}`}> ở các trang cũ (capa/page.tsx...), gộp 2 biến thể danger/warning cũ thành 1 tông nhấn chung", () => {
-    expect(source).toContain('const className = `kpi-tile tone-${tone}${urgent ? " urgent" : ""}`;');
+    expect(source).toContain('const className = `kpi-tile tone-${tone}${urgent ? " urgent" : ""}${active ? " is-active" : ""}`;');
   });
 
   it("render class gốc 'kpi-tile' (KHÔNG tái dùng kpi-card/kpi của 23 file cũ, tránh đụng CSS trang khác)", () => {
@@ -53,7 +53,7 @@ describe("KpiCard (src/components/kpi-card.tsx): component chung cho KPI, dùng 
 
   it("có href thì bọc trong Link (card bấm được), không có thì render <article> tĩnh", () => {
     expect(source).toContain("import Link from \"next/link\";");
-    expect(source).toContain("href\n    ? <Link href={href} className={`${className} kpi-tile-link`}>{body}</Link>\n    : <article className={className}>{body}</article>;");
+    expect(source).toContain("href\n    ? <Link href={href} className={`${className} kpi-tile-link`} aria-current={active ? \"true\" : undefined}>{body}</Link>\n    : <article className={className}>{body}</article>;");
   });
 
   it("globals.css định nghĩa .kpi-tile-top/.kpi-tile-value/.kpi-tile-visual/.kpi-tile-caption/.kpi-tile.urgent 1 lần duy nhất", () => {

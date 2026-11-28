@@ -14,7 +14,7 @@ function SpecColumn({title,items,tone}:{title:string;items:string[];tone:string}
  return <article className={`operating-spec-card ${tone}`}><div className="operating-spec-title">{title}</div><ul>{items.map((x,i)=><li key={`${title}-${i}`}>{x}</li>)}</ul></article>;
 }
 
-export function RegistryModuleWorkspace(p:{year:number;rows:Row[];recordType:string;workflow:string[];principle:string;related:{label:string;href:string}[];operatingSpec?:ModuleOperatingSpec|null}){
+export function RegistryModuleWorkspace(p:{year:number;rows:Row[];recordType:string;workflow:string[];principle:string;related:{label:string;href:string}[];operatingSpec?:ModuleOperatingSpec|null;hideProcessCard?:boolean}){
  const searchParams=useSearchParams();const router=useRouter();const pathname=usePathname();
  const initialStatus=searchParams.get("status")||"ALL";const initialQuery=searchParams.get("q")||"";
  const [q,setQ]=useState(initialQuery);const [status,setStatus]=useState(initialStatus);
@@ -32,7 +32,7 @@ export function RegistryModuleWorkspace(p:{year:number;rows:Row[];recordType:str
   const url=URL.createObjectURL(blob);const anchor=document.createElement("a");anchor.href=url;anchor.download=registryExportFileName(p.recordType,p.year);document.body.appendChild(anchor);anchor.click();anchor.remove();URL.revokeObjectURL(url);
  }
  return <>
-  <section className="module-process-card"><div className="module-process-flow">{p.workflow.map((s,i)=><div className="module-process-step" key={s}><span>{i+1}</span><strong>{s}</strong></div>)}</div><p className="module-principle">{p.principle}</p></section>
+  {p.hideProcessCard?null:<section className="module-process-card"><div className="module-process-flow">{p.workflow.map((s,i)=><div className="module-process-step" key={s}><span>{i+1}</span><strong>{s}</strong></div>)}</div><p className="module-principle">{p.principle}</p></section>}
   {p.operatingSpec?<details className="operating-spec-panel"><summary><strong>Điều kiện chốt đợt</strong><span> · mở xem quy tắc và minh chứng</span></summary><section>
     <div className="operating-spec-head"><div><span className="module-overline">CHUẨN VẬN HÀNH TỪ TÀI LIỆU NGUỒN</span><h3>Hồ sơ phải đủ trước khi được đóng</h3></div>{p.operatingSpec.cadence?.length?<div className="cadence-chip">Có nhịp công việc</div>:null}</div>
     <div className="operating-spec-grid"><SpecColumn title="Dữ liệu bắt buộc" items={p.operatingSpec.required} tone="info"/><SpecColumn title="Minh chứng phải giữ" items={p.operatingSpec.evidence} tone="success"/><SpecColumn title="Điều kiện đóng" items={p.operatingSpec.closeGate} tone="warning"/></div>
