@@ -8,6 +8,7 @@ import { OperationsObligationsOverview } from "@/components/operations-obligatio
 import { PageHeader } from "@/components/page-header";
 import { RegistryModuleWorkspace } from "@/components/registry-module-workspace";
 import { RiskProactiveOverview } from "@/components/risk-proactive-overview";
+import { TqmPrincipleLine } from "@/components/tqm-principle-line";
 import { TqmRegistryOverview } from "@/components/tqm-registry-overview";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { canCreateDomainRecord } from "@/lib/domain-create-spec";
@@ -48,13 +49,13 @@ export async function RegistryModulePage({config,topSlot,recordFilter}:{config:R
   <PageHeader eyebrow={`${config.eyebrow} · NĂM ${year}`} title={config.title} description={config.description} icon={config.icon} actions={canCreate&&createType?<DomainCreateClient recordType={createType} workYear={year}/>:null}/>
   {/* Nguyên tắc TQM của module: gộp banner "Quản lý theo quá trình" cũ (khối riêng + 2 ô số) thành 1 dòng ngay dưới tiêu đề.
       Giữ đủ nội dung: mục đích, số bước quy trình và các nghiệp vụ liên kết (bấm được). */}
-  <p className="tqm-principle-line"><b>Quản lý theo quá trình</b><span>{spec?.purpose||config.foundationNote||ux.principle}</span><span className="tqm-principle-meta">{ux.workflow.length} bước quy trình{ux.related.length?<> · Liên kết: {ux.related.map((x,i)=><span key={x.href+x.label}>{i?", ":""}<Link href={x.href}>{x.label}</Link></span>)}</>:null}</span></p>
+  <TqmPrincipleLine purpose={spec?.purpose||config.foundationNote||ux.principle} workflow={ux.workflow} principle={ux.principle} related={ux.related} showSteps={!!topSlot}/>
   {topSlot}
-  {recordFilter?<div className="scope-note registry-filter-note">Đang lọc: <strong>{recordFilter.label}</strong> ({raw.length} hồ sơ) · <Link href={recordFilter.clearHref}>Bỏ lọc</Link></div>:null}
+  {recordFilter?<div className="scope-note registry-filter-note">Đang lọc: <strong>{recordFilter.label}</strong> ({raw.length} hồ sơ) · <Link className="table-link" href={recordFilter.clearHref}>Bỏ lọc</Link></div>:null}
   {config.tabs?.length?<nav className="module-tabs" aria-label="Chức năng liên quan">{config.tabs.map(tab=><a href={tab.href} key={tab.href}>{tab.label}</a>)}</nav>:null}
   {error?<div className="alert error">Không tải được dữ liệu: {error.message}</div>:null}
   {registryTruncated?<div className="alert warning">Danh sách đang hiển thị {REGISTRY_PAGE_SIZE} hồ sơ cập nhật gần nhất. Hãy dùng bộ lọc hoặc phân trang trước khi xem đây là toàn bộ dữ liệu.</div>:null}
   {indicatorType?<IndicatorQualityOverview rows={rows} year={year} canSync={user.permissions.includes("indicators.enter")||user.permissions.includes("indicators.manage")}/>:assessmentType?<AssessmentInspectionOverviewV2 rows={rows} recordType={assessmentType}/>:correctiveType?<CorrectiveSafetyOverview rows={rows} recordType={correctiveType}/>:operationsType?<OperationsObligationsOverview rows={rows} recordType={operationsType}/>:proactiveRiskType?<RiskProactiveOverview rows={rows} recordType={proactiveRiskType}/>:<TqmRegistryOverview rows={rows} recordType={createType||config.recordTypes[0]||"RECORD"}/>} 
-  {createType!=="ASSESSMENT"?<RegistryModuleWorkspace year={year} rows={rows} recordType={createType||config.recordTypes[0]||"RECORD"} workflow={ux.workflow} principle={ux.principle} related={ux.related} operatingSpec={spec}/>:null}
+  {createType!=="ASSESSMENT"?<RegistryModuleWorkspace year={year} rows={rows} recordType={createType||config.recordTypes[0]||"RECORD"} workflow={ux.workflow} principle={ux.principle} related={ux.related} operatingSpec={spec} hideProcessCard={!!topSlot}/>:null}
  </div>;
 }

@@ -37,4 +37,13 @@ describe("Khắc phục & CAPA theo khuôn Kho hóa chất", () => {
     expect(bar).toContain('href: "/findings?overdue=1"');
     expect(findings).toContain("countOverdueFindings([x], today) === 1");
   });
+
+  it("không còn 2 dãy bước chồng nhau: các bước của hồ sơ gộp vào dòng 'Quản lý theo quá trình' khi trang có thanh luồng việc", () => {
+    const page = readFileSync("src/components/registry-module-page.tsx", "utf8");
+    const ws = readFileSync("src/components/registry-module-workspace.tsx", "utf8");
+    expect(page).toContain("showSteps={!!topSlot}");
+    expect(page).toContain("hideProcessCard={!!topSlot}");
+    expect(ws).toContain("{p.hideProcessCard?null:");
+    expect(capa).toContain("<TqmPrincipleLine ");
+  });
 });
