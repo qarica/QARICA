@@ -30,7 +30,7 @@ function initialForm(year: number): FormState {
   return { title: "", programType: "ANNUAL_PLAN", generalObjective: "", specificObjectives: [], requirements: "", description: "", startDate: `${year}-01-01`, endDate: `${year}-12-31`, referenceIds: [] };
 }
 
-export function PlansClient({ year, canManage, rows, departments, profiles, referenceOptions }: { year: number; canManage: boolean; rows: PlanRow[]; departments: Department[]; profiles: Profile[]; referenceOptions: ReferenceOption[] }) {
+export function PlansClient({ year, canManage, rows, departments, profiles, referenceOptions, overdueOnly = false }: { overdueOnly?: boolean;  year: number; canManage: boolean; rows: PlanRow[]; departments: Department[]; profiles: Profile[]; referenceOptions: ReferenceOption[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -46,7 +46,7 @@ export function PlansClient({ year, canManage, rows, departments, profiles, refe
   useEffect(() => { if (!formOpen) return; const previous = document.body.style.overflow; document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = previous; }; }, [formOpen]);
   const deptMap = useMemo(() => new Map(departments.map((d) => [d.id, d.short_name || d.name])), [departments]);
   const userMap = useMemo(() => new Map(profiles.map((p) => [p.user_id, p.full_name || p.email || "Người dùng"])), [profiles]);
-  const filtered = rows.filter((row) => { const text = `${row.record_code} ${row.title} ${deptMap.get(row.lead_department_id || "") || ""}`.toLowerCase(); return text.includes(search.trim().toLowerCase()) && (status === "ALL" || row.workflow_status === status) && (programType === "ALL" || row.program_type === programType) && (department === "ALL" || row.lead_department_id === department); });
+  const filtered = rows.filter((row) => { const text = `${row.record_code} ${row.title} ${deptMap.get(row.lead_department_id || "") || ""}`.toLowerCase(); return (!overdueOnly || (row.workflow_status !== "COMPLETED" && Number((row as { overdue_actions?: number }).overdue_actions ?? 0) > 0)) && text.includes(search.trim().toLowerCase()) && (status === "ALL" || row.workflow_status === status) && (programType === "ALL" || row.program_type === programType) && (department === "ALL" || row.lead_department_id === department); });
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);

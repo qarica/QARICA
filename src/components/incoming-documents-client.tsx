@@ -110,12 +110,15 @@ export function IncomingDocumentsClient({
   profiles,
   initialTasks,
   canManage,
+  attention,
 }: {
   departments: Department[];
   initialDocuments: Doc[];
   profiles: Profile[];
   initialTasks: Task[];
   canManage: boolean;
+  // Bộ lọc từ thanh "Cần xử lý": công văn trễ hạn / chưa giao khoa-phòng (chỉ lọc danh sách, số tổng giữ nguyên).
+  attention?: "overdue" | "unassigned";
 }) {
   const [documents, setDocuments] = useState(initialDocuments);
   const [showIntake, setShowIntake] = useState(false);
@@ -158,7 +161,10 @@ export function IncomingDocumentsClient({
   const overdueCount = documents.filter((d) => !d.completed_at && !!d.due_date && d.due_date < now).length;
   const activeCount = documents.filter((d) => !d.completed_at).length;
   const completedCount = documents.length - activeCount;
+  const attentionToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
   const filteredDocuments = documents.filter((d) => {
+    if (attention === "overdue" && (!!d.completed_at || !d.due_date || d.due_date.slice(0, 10) >= attentionToday)) return false;
+    if (attention === "unassigned" && (!!d.completed_at || !!d.department_id)) return false;
     if (view === "assign" && (!!d.department_id || !!d.completed_at)) return false;
     if (view === "tracking" && trackingStatus === "active" && !!d.completed_at) return false;
     if (view === "tracking" && trackingStatus === "done" && !d.completed_at) return false;

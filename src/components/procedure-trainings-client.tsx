@@ -75,6 +75,7 @@ export function ProcedureTrainingsClient({
   departments,
   canManageDocuments,
   topicGroups,
+  initialStatusFilter,
 }: {
   /** "training" = menu Đào tạo (Cần đào tạo + Theo chủ đề); "self_read" = menu Tự đọc hiểu. */
   mode?: "training" | "self_read";
@@ -85,12 +86,14 @@ export function ProcedureTrainingsClient({
   departments: DepartmentStaffCount[];
   canManageDocuments: boolean;
   topicGroups: TopicGroup[];
+  // Bộ lọc từ thanh "Cần xử lý" (vd NOT_PLANNED = quy trình chưa có kế hoạch đào tạo).
+  initialStatusFilter?: string;
 }) {
   const [view, setView] = useState<"training" | "self_read" | "topic">(mode);
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [trainings, setTrainings] = useState(initialTrainings);
   const [listQuery, setListQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter || "ALL");
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [deptBreakdownOpen, setDeptBreakdownOpen] = useState(false);
 

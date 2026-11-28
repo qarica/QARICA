@@ -89,7 +89,7 @@ function toForm(e: Equipment): Form {
   };
 }
 
-export function MedicalEquipmentClient({ initialEquipment, departments, canManage }: { initialEquipment: Equipment[]; departments: Department[]; canManage: boolean }) {
+export function MedicalEquipmentClient({ initialEquipment, departments, canManage, onlyStatus }: { initialEquipment: Equipment[]; departments: Department[]; canManage: boolean; onlyStatus?: EquipmentStatus }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -106,10 +106,11 @@ export function MedicalEquipmentClient({ initialEquipment, departments, canManag
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return initialEquipment
+      .filter((e) => !onlyStatus || e.status === onlyStatus)
       .filter((e) => showInactive || e.status !== "INACTIVE")
       .filter((e) => !onlyUnmapped || (!e.department_id && e.department_label))
       .filter((e) => !q || [e.equipment_name, e.model_code, e.manufacturer, e.machine_code, e.registration_number, departments.find((d) => d.id === e.department_id)?.name, e.department_label].some((v) => (v || "").toLowerCase().includes(q)));
-  }, [initialEquipment, search, showInactive, onlyUnmapped, departments]);
+  }, [initialEquipment, search, showInactive, onlyUnmapped, departments, onlyStatus]);
 
   // Dashboard tổng quan: luôn tính trên TOÀN BỘ sổ (initialEquipment), không
   // phụ thuộc bộ lọc/tìm kiếm của bảng bên dưới — tham khảo mẫu "Quản trị hệ

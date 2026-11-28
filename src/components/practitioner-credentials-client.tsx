@@ -140,7 +140,7 @@ function expiryTone(dateStr: string | null): "muted" | "warning" | "danger" | "s
 
 const DOC_DRAFT_EMPTY = { document_type: "CERTIFICATE" as DocumentType, title: "", specialization: "", document_no: "", issued_at: "", issued_by: "", note: "" };
 
-export function PractitionerCredentialsClient({ departments, initialCredentials, canManage }: { departments: Department[]; initialCredentials: Credential[]; canManage: boolean }) {
+export function PractitionerCredentialsClient({ departments, initialCredentials, canManage, expiringWithinDays }: { departments: Department[]; initialCredentials: Credential[]; canManage: boolean; expiringWithinDays?: number }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [form, setForm] = useState<Form | null>(null);
@@ -156,11 +156,13 @@ export function PractitionerCredentialsClient({ departments, initialCredentials,
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return initialCredentials;
-    return initialCredentials.filter((c) =>
+    const limit = expiringWithinDays ? new Date(Date.now() + expiringWithinDays * 86400000).toISOString().slice(0, 10) : null;
+    const base = limit ? initialCredentials.filter((c) => !!c.license_expiry_date && c.license_expiry_date.slice(0, 10) <= limit) : initialCredentials;
+    if (!q) return base;
+    return base.filter((c) =>
       [c.full_name, c.professional_title, c.license_number, c.national_id, departments.find((d) => d.id === c.department_id)?.name].some((v) => (v || "").toLowerCase().includes(q))
     );
-  }, [initialCredentials, search, departments]);
+  }, [initialCredentials, search, departments, expiringWithinDays]);
 
   const editingCredential = useMemo(() => initialCredentials.find((c) => c.id === form?.id) ?? null, [form?.id, initialCredentials]);
   const editingDocs = editingCredential?.practitioner_credential_documents ?? [];

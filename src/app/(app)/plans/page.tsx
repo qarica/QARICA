@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { CreateModalButton, CreateModalProvider } from "@/components/create-modal-signal";
@@ -12,7 +13,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 import { NavGroupBar } from "@/components/nav-group-bar";
 
-export default async function PlansPage() {
+export default async function PlansPage({ searchParams }: { searchParams: Promise<{ filter?: string; tab?: string }> }) {
+  // Bộ lọc từ thanh "Cần xử lý" (?filter=...): chỉ lọc danh sách hiển thị, ô chỉ số tổng giữ nguyên.
+  // Khuôn Kho hóa chất: biểu đồ tình trạng/Gantt chuyển sang tab "Phân tích kế hoạch" (?tab=analytics), hiện sẵn.
+  const sp = await searchParams;
+  const isAnalytics = sp.tab === "analytics";
+  const filterRaw = String(sp.filter || "");
+  const FILTER_LABEL: Record<string, string> = { overdue: "Kế hoạch có Action quá hạn" };
+  const filter = FILTER_LABEL[filterRaw] ? filterRaw : "";
   const { user } = await requireUserContext();
   if (!hasAnyPermission(user, ["plans.view", "plans.manage"])) redirect("/dashboard?forbidden=1");
 
@@ -62,28 +70,32 @@ export default async function PlansPage() {
   return <CreateModalProvider><div className="page-stack plans-page tqm-workspace">
     <style>{TQM_CHART_CSS + `
       .tqm-workspace .tqm-overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+      .plans-page .page-actions .button{white-space:nowrap}
       .tqm-workspace .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
       .tqm-workspace .tqm-section-head{padding:17px 18px 6px}.tqm-workspace .tqm-section-head h2{margin:0;font-size:15px}.tqm-workspace .tqm-section-head p{margin:4px 0 0;color:#74838a;font-size:11px;line-height:1.45}.tqm-workspace .plans-detail-label{font-size:10px;font-weight:900;letter-spacing:.1em;color:#6c7d84;text-transform:uppercase;margin:4px 2px -4px}
       @media(max-width:1100px){.tqm-workspace .kpis{grid-template-columns:repeat(2,1fr)}}
       @media(max-width:900px){.tqm-workspace .tqm-overview-grid{grid-template-columns:1fr}}
     `}</style>
     <PageHeader eyebrow={`ĐIỀU HÀNH QLCL · ${year}`} title="Kế hoạch & Điều hành" description="Theo dõi mức hoàn thành kế hoạch, tiến độ Action, các đầu việc quá hạn và lộ trình triển khai trong năm. Danh sách chi tiết chỉ là lớp drill-down phía dưới." icon="calendar-range" actions={canManage ? <CreateModalButton><Icon name="plus" size={18}/> Tạo kế hoạch mới</CreateModalButton> : null} />
-    <NavGroupBar group="operations" active="/plans" ariaLabel="Luồng việc Điều hành chất lượng" emptyText="Không có nghĩa vụ báo cáo hay Action kế hoạch nào quá hạn." />
+    <NavGroupBar group="operations" active={isAnalytics ? "/plans?tab=analytics" : "/plans"} extraTabs={[{ key: "/plans?tab=analytics", label: "Phân tích kế hoạch", href: "/plans?tab=analytics", count: null }]} ariaLabel="Luồng việc Điều hành chất lượng" emptyText="Không có nghĩa vụ báo cáo hay Action kế hoạch nào quá hạn." />
     {firstError ? <div className="alert error">Không tải được dữ liệu kế hoạch: {firstError.message}</div> : null}
 
     <section className="kpis">
-      <KpiCard icon="calendar-range" tone="blue" label="Tổng kế hoạch" value={rows.length} caption={`Trong năm ${year}`} />
+      <KpiCard icon="calendar-range" tone="blue" label="Tổng kế hoạch" value={rows.length} href="/plans" active={!isAnalytics && !filter} caption={`Trong năm ${year}`} />
       <KpiCard icon="refresh-cw" tone="green" label="Đang triển khai" value={inProgressCount} caption={`${rows.length?Math.round(inProgressCount/rows.length*100):0}%`} />
       <KpiCard icon="badge-check" tone="green" label="Hoàn thành" value={completedCount} caption={`${donutValue}%`} />
-      <KpiCard icon="triangle-alert" tone="red" label="Quá hạn" value={overdueCount} caption={`${rows.length?Math.round(overdueCount/rows.length*100):0}%`} urgent={!!overdueCount} />
+      <KpiCard icon="triangle-alert" tone="red" label="Quá hạn" value={overdueCount} href="/plans?filter=overdue" active={filter === "overdue"} caption={`${rows.length?Math.round(overdueCount/rows.length*100):0}%`} urgent={!!overdueCount} />
     </section>
 
-    <section className="tqm-overview-grid">
+    {isAnalytics ? <section className="tqm-overview-grid">
       <article className="panel"><div className="tqm-section-head"><h2>Tình trạng thực hiện kế hoạch</h2><p>Mỗi kế hoạch được xếp vào đúng 1 nhóm theo trạng thái và Action quá hạn.</p></div><TqmDonut value={donutValue} label="Hoàn thành" segments={[{label:"Hoàn thành",value:completedCount,tone:"green"},{label:"Đang triển khai",value:inProgressCount,tone:"blue"},{label:"Chưa bắt đầu",value:notStartedCount,tone:"slate"},{label:"Quá hạn",value:overdueCount,tone:"red"}]} /></article>
       <article className="panel"><div className="tqm-section-head"><h2>Tiến độ kế hoạch theo thời gian</h2><p>Mỗi dòng là một kế hoạch trong năm công tác; thời gian lấy trực tiếp từ ngày bắt đầu – kết thúc của kế hoạch.</p></div>{ganttRows.length?<TqmGantt year={year} rows={ganttRows}/>:<div className="empty-state">Chưa đủ ngày bắt đầu/kết thúc để dựng Gantt.</div>}</article>
-    </section>
+    </section> : null}
 
+    {!isAnalytics ? <>
     <div className="plans-detail-label">CHI TIẾT KẾ HOẠCH & THAO TÁC NGHIỆP VỤ</div>
-    <PlansClient year={year} canManage={canManage} rows={rows} departments={(departmentsRes.data ?? []) as any[]} profiles={(profilesRes.data ?? []) as any[]} referenceOptions={referenceOptions} />
+    {filter ? <div className="scope-note">Đang lọc: <strong>{FILTER_LABEL[filter]}</strong> · <Link className="table-link" href="/plans">Bỏ lọc</Link></div> : null}
+      <PlansClient overdueOnly={filter === "overdue"} year={year} canManage={canManage} rows={rows} departments={(departmentsRes.data ?? []) as any[]} profiles={(profilesRes.data ?? []) as any[]} referenceOptions={referenceOptions} />
+    </> : null}
   </div></CreateModalProvider>;
 }

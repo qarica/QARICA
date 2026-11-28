@@ -10,7 +10,7 @@ import { getWorkYear } from "@/lib/work-year";
 // tab = đúng các dòng của nhóm đó trong sidebar (lấy từ navigation.ts — cùng một nguồn, cùng quyền xem), cộng thanh "Cần xử lý".
 // Không thêm hay bớt trang nào; tab chỉ là lối đi nhanh giữa các trang cùng nhóm.
 
-export type NavGroupKey = "operations" | "document-publications" | "physician-license" | "infection-control";
+export type NavGroupKey = "operations" | "document-publications" | "physician-license" | "infection-control" | "incoming-documents" | "procurement" | "medical-equipment";
 
 function addDays(day: string, n: number) {
   return new Date(new Date(`${day}T00:00:00Z`).getTime() + n * 86400000).toISOString().slice(0, 10);
@@ -32,7 +32,7 @@ async function groupChips(group: NavGroupKey, year: number, hrefs: Set<string>):
     if (hrefs.has("/plans")) {
       const pp = await supabase.from("vw_program_progress").select("overdue_actions").eq("work_year", year);
       const n = ((pp.data ?? []) as any[]).reduce((s, x) => s + Number(x.overdue_actions || 0), 0);
-      chips.push({ n, tone: "warning", text: `${n} Action kế hoạch quá hạn`, href: "/plans" });
+      chips.push({ n, tone: "warning", text: `${n} Action kế hoạch quá hạn`, href: "/plans?filter=overdue" });
     }
     return chips;
   }
@@ -43,13 +43,13 @@ async function groupChips(group: NavGroupKey, year: number, hrefs: Set<string>):
       const rows = (dp.data ?? []) as any[];
       const reviewOverdue = rows.filter((x) => String(x.stage) === "PUBLISHED" && isPastDue(x.review_date, today)).length;
       const stageOverdue = rows.filter((x) => !["PUBLISHED", "RETRACTED", "CANCELLED"].includes(String(x.stage)) && isPastDue(x.stage_due_date, today)).length;
-      chips.push({ n: stageOverdue, tone: "danger", text: `${stageOverdue} văn bản đang xử lý quá hạn bước`, href: "/document-publications" });
-      chips.push({ n: reviewOverdue, tone: "warning", text: `${reviewOverdue} văn bản quá hạn rà soát định kỳ`, href: "/document-publications" });
+      chips.push({ n: stageOverdue, tone: "danger", text: `${stageOverdue} văn bản đang xử lý quá hạn bước`, href: "/document-publications?filter=stage_overdue" });
+      chips.push({ n: reviewOverdue, tone: "warning", text: `${reviewOverdue} văn bản quá hạn rà soát định kỳ`, href: "/document-publications?filter=review_overdue" });
     }
     if (hrefs.has("/procedure-trainings")) {
       const pt = await supabase.from("procedure_trainings").select("status");
       const n = ((pt.data ?? []) as any[]).filter((x) => st(x) === "NOT_PLANNED").length;
-      chips.push({ n, tone: "info", text: `${n} quy trình chưa có kế hoạch đào tạo`, href: "/procedure-trainings" });
+      chips.push({ n, tone: "info", text: `${n} quy trình chưa có kế hoạch đào tạo`, href: "/procedure-trainings?status=NOT_PLANNED" });
     }
     return chips;
   }
@@ -60,13 +60,13 @@ async function groupChips(group: NavGroupKey, year: number, hrefs: Set<string>):
       const pending = ((reg.data ?? []) as any[]).filter((x) => st(x) === "PENDING");
       const overdue = pending.filter((x) => isPastDue(x.deadline, today)).length;
       const soon = pending.filter((x) => x.deadline && String(x.deadline) >= today && String(x.deadline) <= addDays(today, 7)).length;
-      chips.push({ n: overdue, tone: "danger", text: `${overdue} hồ sơ quá hạn đăng ký hành nghề`, href: "/physician-license" });
-      chips.push({ n: soon, tone: "warning", text: `${soon} hồ sơ đến hạn đăng ký trong 7 ngày`, href: "/physician-license" });
+      chips.push({ n: overdue, tone: "danger", text: `${overdue} hồ sơ quá hạn đăng ký hành nghề`, href: "/physician-license?filter=overdue" });
+      chips.push({ n: soon, tone: "warning", text: `${soon} hồ sơ đến hạn đăng ký trong 7 ngày`, href: "/physician-license?filter=soon" });
     }
     if (hrefs.has("/practitioner-credentials")) {
       const cr = await supabase.from("practitioner_credentials").select("license_expiry_date");
       const n = ((cr.data ?? []) as any[]).filter((x) => x.license_expiry_date && String(x.license_expiry_date) <= addDays(today, 60)).length;
-      chips.push({ n, tone: "warning", text: `${n} chứng chỉ hành nghề hết hạn hoặc sắp hết hạn (60 ngày)`, href: "/practitioner-credentials" });
+      chips.push({ n, tone: "warning", text: `${n} chứng chỉ hành nghề hết hạn hoặc sắp hết hạn (60 ngày)`, href: "/practitioner-credentials?filter=expiring" });
     }
     return chips;
   }
@@ -75,19 +75,45 @@ async function groupChips(group: NavGroupKey, year: number, hrefs: Set<string>):
     if (hrefs.has("/infection-control")) {
       const cs = await supabase.from("infection_control_cases").select("status");
       const n = ((cs.data ?? []) as any[]).filter((x) => st(x) === "NGHI_NGO").length;
-      chips.push({ n, tone: "warning", text: `${n} ca nghi ngờ nhiễm khuẩn chờ xác nhận`, href: "/infection-control" });
+      chips.push({ n, tone: "warning", text: `${n} ca nghi ngờ nhiễm khuẩn chờ xác nhận`, href: "/infection-control?status=NGHI_NGO" });
     }
     return chips;
+  }
+  if (group === "incoming-documents" && hrefs.has("/incoming-documents")) {
+    const docs = await supabase.from("incoming_documents").select("department_id,due_date,completed_at");
+    const open = ((docs.data ?? []) as any[]).filter((x) => !x.completed_at);
+    const overdue = open.filter((x) => isPastDue(x.due_date, today)).length;
+    const unassigned = open.filter((x) => !x.department_id).length;
+    return [
+      { n: overdue, tone: "danger", text: `${overdue} công văn trễ hạn xử lý`, href: "/incoming-documents?filter=overdue" },
+      { n: unassigned, tone: "warning", text: `${unassigned} công văn chưa giao khoa/phòng`, href: "/incoming-documents?filter=unassigned" },
+    ];
+  }
+  if (group === "procurement" && hrefs.has("/procurement")) {
+    const req = await supabase.from("procurement_requests").select("status");
+    const rows = (req.data ?? []) as any[];
+    const bgd = rows.filter((x) => st(x) === "SUBMITTED").length;
+    const tgd = rows.filter((x) => st(x) === "BGD_APPROVED").length;
+    return [
+      { n: bgd, tone: "warning", text: `${bgd} đề xuất chờ BGĐ duyệt`, href: "/procurement?filter=bgd" },
+      { n: tgd, tone: "info", text: `${tgd} đề xuất BGĐ đã duyệt — chờ TGĐ`, href: "/procurement?filter=tgd" },
+    ];
+  }
+  if (group === "medical-equipment" && hrefs.has("/medical-equipment")) {
+    const eq = await supabase.from("medical_equipment").select("status");
+    const n = ((eq.data ?? []) as any[]).filter((x) => st(x) === "MAINTENANCE").length;
+    return [{ n, tone: "warning", text: `${n} thiết bị đang bảo trì / sửa chữa`, href: "/medical-equipment?filter=maintenance" }];
   }
   return [];
 }
 
-export async function NavGroupBar({ group, active, year, ariaLabel, emptyText }: { group: NavGroupKey; active: string; year?: number; ariaLabel: string; emptyText: string }) {
+// extraTabs: tab không có trong sidebar nhưng thuộc cùng nhóm (vd "Phân tích kế hoạch" = /plans?tab=analytics).
+export async function NavGroupBar({ group, active, year, ariaLabel, emptyText, extraTabs = [] }: { group: NavGroupKey; active: string; year?: number; ariaLabel: string; emptyText: string; extraTabs?: FlowTab[] }) {
   const { user } = await requireUserContext();
   const workYear = year ?? await getWorkYear();
   const items = visibleNavGroups(user).find((g) => g.id === group)?.children ?? [];
   // Nhóm Điều hành trong sidebar có thêm "Tổng quan QLCL" (Dashboard) — đó là trang tổng, không phải một bước của nhóm.
   const tabs: FlowTab[] = items.filter((c) => c.href.split("?")[0] !== "/dashboard").map((c) => ({ key: c.href.split("?")[0], label: c.label, href: c.href, count: null }));
   const chips = await groupChips(group, workYear, new Set(tabs.map((t) => t.key)));
-  return <WorkspaceFlowBar ariaLabel={ariaLabel} tabs={tabs} active={active} chips={chips} emptyText={emptyText} />;
+  return <WorkspaceFlowBar ariaLabel={ariaLabel} tabs={tabs.some((t) => t.key === "/plans") ? [...tabs, ...extraTabs] : tabs} active={active} chips={chips} emptyText={emptyText} />;
 }

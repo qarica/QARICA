@@ -72,12 +72,15 @@ export function DocumentPublicationsClient({
   staffRoster,
   initialStatsRows,
   canManage,
+  attention,
 }: {
   departments: Department[];
   initialDocuments: DocumentPublication[];
   staffRoster: Staff[];
   initialStatsRows: StatsRow[];
   canManage: boolean;
+  // Bộ lọc từ thanh "Cần xử lý": văn bản đang xử lý quá hạn bước / văn bản đã phát hành quá hạn rà soát.
+  attention?: "stage_overdue" | "review_overdue";
 }) {
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [documents, setDocuments] = useState(initialDocuments);
@@ -801,7 +804,7 @@ export function DocumentPublicationsClient({
         </div>
         <div className="mobile-workflow-filters"><input className="input" aria-label="Tìm văn bản" placeholder="Tìm tên văn bản đang xử lý..." value={listQuery} onChange={(e) => setListQuery(e.target.value)} /></div>
         <div className="work-list">
-          {inProgress.filter((d) => !listQuery.trim() || d.title.toLocaleLowerCase("vi").includes(listQuery.trim().toLocaleLowerCase("vi"))).map((d) => {
+          {inProgress.filter((d) => attention !== "stage_overdue" || (!!d.stage_due_date && d.stage_due_date.slice(0, 10) < today)).filter((d) => !listQuery.trim() || d.title.toLocaleLowerCase("vi").includes(listQuery.trim().toLocaleLowerCase("vi"))).map((d) => {
             const overdue = !!d.stage_due_date && d.stage_due_date < today;
             return (
               <div className="work-row" key={d.id}>
@@ -955,9 +958,10 @@ export function DocumentPublicationsClient({
         ) : null}
         {publishedGroups.map((group) => {
           const q = libraryQuery.trim().toLocaleLowerCase("vi");
-          const matchingDocs = q ? group.docs.filter((d) => d.title.toLocaleLowerCase("vi").includes(q) || (d.document_code || "").toLocaleLowerCase("vi").includes(q)) : group.docs;
+          const reviewDocs = attention === "review_overdue" ? group.docs.filter((d) => !!d.review_date && d.review_date.slice(0, 10) < today) : group.docs;
+          const matchingDocs = q ? reviewDocs.filter((d) => d.title.toLocaleLowerCase("vi").includes(q) || (d.document_code || "").toLocaleLowerCase("vi").includes(q)) : reviewDocs;
           if (!matchingDocs.length) return null;
-          const isOpen = openFolders.has(group.key) || !!q;
+          const isOpen = openFolders.has(group.key) || !!q || attention === "review_overdue";
           return (
             <div className="dp-folder" key={group.key}>
               <button type="button" className="dp-folder-head" onClick={() => toggleFolder(group.key)}>

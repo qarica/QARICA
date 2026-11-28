@@ -65,7 +65,7 @@ export function EmrCommandCenter(){
  return <div className="emr-command emr-mobile-redesign">
   <div className="emr-title"><div className="title-with-icon"><span className="icon-badge"><Icon name="building-2" size={20}/></span><div><div className="crumb">EMR <b>›</b> Tổng quan</div><h2>Trung tâm Điều hành Bệnh án điện tử (EMR)</h2><p>Theo dõi tiến độ triển khai, vận hành và tuân thủ bệnh án điện tử</p></div></div>
    <form className="emr-filters" onSubmit={applyFilter}>
-    <span><Icon name="calendar-days" size={15}/> Cập nhật {new Date(data.generatedAt).toLocaleString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
+    <span><Icon name="calendar-days" size={15}/> Cập nhật {new Date(data.generatedAt).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
     <label className="emr-filter-field">Từ ngày<VnDateInput value={from} max={to||undefined} onChange={(e)=>setFrom(e.target.value)}/></label>
     <label className="emr-filter-field">Đến ngày<VnDateInput value={to} min={from||undefined} onChange={(e)=>setTo(e.target.value)}/></label>
     <button type="submit" className="button primary small">Áp dụng</button>

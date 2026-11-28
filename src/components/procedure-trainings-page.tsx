@@ -11,7 +11,7 @@ import { NavGroupBar } from "@/components/nav-group-bar";
 // nạp phần mình dùng (truy vấn không dùng giới hạn về 0 dòng).
 export type ProcedureTrainingsPageMode = "training" | "self_read";
 
-export async function ProcedureTrainingsPageContent({ mode }: { mode: ProcedureTrainingsPageMode }) {
+export async function ProcedureTrainingsPageContent({ mode, initialStatusFilter }: { mode: ProcedureTrainingsPageMode; initialStatusFilter?: string }) {
   const { user } = await requireUserContext();
   const canManage = hasPermission(user, "procedure_training.manage");
   const canManageDocuments = hasPermission(user, "document_publication.manage");
@@ -143,6 +143,7 @@ export async function ProcedureTrainingsPageContent({ mode }: { mode: ProcedureT
         departments={(departmentsData ?? []) as any}
         canManageDocuments={canManageDocuments}
         topicGroups={topicGroups as any}
+        initialStatusFilter={initialStatusFilter}
       />
     </div>
   );

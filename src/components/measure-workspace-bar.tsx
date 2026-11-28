@@ -42,7 +42,7 @@ export async function MeasureWorkspaceBar({ active, year }: { active: MeasureTab
       { n: submitted, tone: "warning" as const, text: `${submitted} kỳ đo chờ xác minh`, href: "/indicators?attention=submitted" },
       { n: returned, tone: "info" as const, text: `${returned} kỳ đo bị trả lại cần bổ sung`, href: "/indicators?attention=returned" },
     ] : []),
-    ...(can.monitoring ? [{ n: roundsOverdue, tone: "danger" as const, text: `${roundsOverdue} đợt giám sát quá ngày dự kiến chưa thực hiện`, href: "/monitoring" }] : []),
+    ...(can.monitoring ? [{ n: roundsOverdue, tone: "danger" as const, text: `${roundsOverdue} đợt giám sát quá ngày dự kiến chưa thực hiện`, href: "/monitoring?filter=overdue" }] : []),
   ];
 
   const tabs: FlowTab[] = [

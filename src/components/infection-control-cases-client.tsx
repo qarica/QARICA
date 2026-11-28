@@ -44,7 +44,7 @@ function toForm(c: Case): Form {
   };
 }
 
-export function InfectionControlCasesClient({ departments, initialCases, canManage }: { departments: Department[]; initialCases: Case[]; canManage: boolean }) {
+export function InfectionControlCasesClient({ departments, initialCases, canManage, onlyStatus }: { departments: Department[]; initialCases: Case[]; canManage: boolean; onlyStatus?: string }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [form, setForm] = useState<Form | null>(null);
@@ -62,11 +62,12 @@ export function InfectionControlCasesClient({ departments, initialCases, canMana
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return initialCases;
-    return initialCases.filter((c) =>
+    const base = onlyStatus ? initialCases.filter((c) => c.status === onlyStatus) : initialCases;
+    if (!q) return base;
+    return base.filter((c) =>
       [c.infection_site, c.pathogen, c.patient_code, departments.find((d) => d.id === c.department_id)?.name].some((v) => (v || "").toLowerCase().includes(q))
     );
-  }, [initialCases, search, departments]);
+  }, [initialCases, search, departments, onlyStatus]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();

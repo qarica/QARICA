@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { KpiCard } from "@/components/kpi-card";
 import { MeasureWorkspaceBar } from "@/components/measure-workspace-bar";
@@ -11,12 +12,14 @@ import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
 
-export default async function MonitoringPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+export default async function MonitoringPage({ searchParams }: { searchParams: Promise<{ tab?: string; filter?: string }> }) {
   const { user } = await requireUserContext();
   if (!hasAnyPermission(user, ["monitoring.view", "monitoring.perform", "checklists.view", "checklists.manage"])) redirect("/dashboard?forbidden=1");
   const year = await getWorkYear();
   // Khuôn Kho hóa chất: biểu đồ (xu hướng, kết quả bảng kiểm, theo khoa/phòng) chuyển sang tab "Phân tích giám sát", hiện sẵn.
-  const tab = (await searchParams).tab === "analytics" ? "analytics" : "monitoring";
+  const sp = await searchParams;
+  const tab = sp.tab === "analytics" ? "analytics" : "monitoring";
+  const overdueOnly = sp.filter === "overdue";
   const supabase = await createClient();
   const [templatesRes, versionsRes, roundsRes, departmentsRes] = await Promise.all([
     supabase.from("checklist_templates").select("id,code,source_code,name,description,owner_department_id,is_active,created_at,updated_at").order("updated_at", { ascending: false }),
@@ -61,14 +64,14 @@ export default async function MonitoringPage({ searchParams }: { searchParams: P
     return { ...round, record_code: record?.record_code || "—", title: record?.title || "Đợt giám sát", checklist_name: templateNameMap.get(version?.checklist_template_id) || "Bảng kiểm", phase, pass, fail, scored, pass_pct: scored?Math.round(pass/scored*100):null };
   });
   const departments = (departmentsRes.data ?? []) as any[]; const depMap=new Map(departments.map((d:any)=>[d.id,d.short_name||d.name]));
-  const canManageTemplates = user.permissions.includes("checklists.manage"); const canCreateRounds = user.permissions.includes("monitoring.perform"); const needAttention = monitoringRows.filter((x: any) => ["NEEDS_CHECK", "IN_PROGRESS", "WAITING_RECHECK", "AWAITING_CONFIRMATION"].includes(x.phase)).length; const publishedTemplates = templateRows.filter((x: any) => x.latest_version_status === "PUBLISHED").length;
+  const canManageTemplates = user.permissions.includes("checklists.manage"); const canCreateRounds = user.permissions.includes("monitoring.perform"); const publishedTemplates = templateRows.filter((x: any) => x.latest_version_status === "PUBLISHED").length;
   const allPass=monitoringRows.reduce((s,x)=>s+x.pass,0),allFail=monitoringRows.reduce((s,x)=>s+x.fail,0),allScored=allPass+allFail; const passPct=allScored?Math.round(allPass/allScored*100):0; const done=monitoringRows.filter((x:any)=>x.phase==="DONE").length; const completionPct=monitoringRows.length?Math.round(done/monitoringRows.length*100):0;
   const months=Array.from({length:12},(_,i)=>({label:`T${i+1}`,value:0})); for(const x of monitoringRows){const m=Number(String(x.scheduled_date||"").slice(5,7));if(m>=1&&m<=12)months[m-1].value+=1}
   const depAgg=new Map<string,{pass:number;fail:number}>(); for(const x of monitoringRows){const key=x.target_department_id||"none";const a=depAgg.get(key)||{pass:0,fail:0};a.pass+=x.pass;a.fail+=x.fail;depAgg.set(key,a)}
   const depBars=Array.from(depAgg.entries()).map(([id,a])=>{const total=a.pass+a.fail;const pct=total?Math.round(a.pass/total*100):0;return{label:String(depMap.get(id)||"Chưa xác định"),value:pct,tone:pct>=90?"green" as const:pct>=75?"blue" as const:pct>=60?"amber" as const:"red" as const,caption:`${total} mục đã chấm`}}).sort((a,b)=>a.value-b.value).slice(0,10);
 
   return <div className="page-stack monitoring-workspace tqm-workspace">
-    <style>{TQM_CHART_CSS + `.monitoring-workspace .tqm-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.monitoring-workspace .tqm-kpi{background:#fff;border:1px solid #e1e9ec;border-left:3px solid #1d4ed8;border-radius:12px;padding:10px 14px}.monitoring-workspace .tqm-kpi span{font-size:10px;color:#718187;font-weight:800;text-transform:uppercase}.monitoring-workspace .tqm-kpi strong{display:block;font-size:26px;line-height:1;margin-top:4px}.monitoring-workspace .tqm-kpi small{font-size:10px;color:#7d8c92}.monitoring-workspace .tqm-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}.monitoring-workspace .tqm-head{padding:17px 18px 6px}.monitoring-workspace .tqm-head h2{margin:0;font-size:15px}.monitoring-workspace .tqm-head p{margin:4px 0 0;color:#74838a;font-size:11px}.monitoring-workspace{overflow-x:clip}.monitoring-workspace .detail-label{font-size:10px;font-weight:900;letter-spacing:.1em;color:#6c7d84;margin:2px;text-transform:uppercase}
+    <style>{TQM_CHART_CSS + `.monitoring-workspace .tqm-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.monitoring-workspace .tqm-kpi{background:#fff;border:1px solid #e1e9ec;border-left:3px solid #1d4ed8;border-radius:12px;padding:10px 14px}.monitoring-workspace .tqm-kpi span{font-size:10px;color:#718187;font-weight:800;text-transform:uppercase}.monitoring-workspace .tqm-kpi strong{display:block;font-size:26px;line-height:1;margin-top:4px}.monitoring-workspace .tqm-kpi small{font-size:10px;color:#7d8c92}.monitoring-workspace .tqm-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}.monitoring-workspace .tqm-head{padding:17px 18px 6px}.monitoring-workspace .tqm-head h2{margin:0;font-size:15px}.monitoring-workspace .tqm-head p{margin:4px 0 0;color:#74838a;font-size:11px}.monitoring-workspace{overflow-x:clip}.monitoring-workspace .detail-label{font-size:10px;font-weight:900;letter-spacing:.1em;color:#6c7d84;margin:2px;text-transform:uppercase}
     /* Yêu cầu thực tế: "Rà soát vỡ giao diện" — .monitoring-hero/.monitoring-hero-meta/.monitoring-flow
        chưa từng có CSS cơ bản ở đâu (chỉ có qlvb-theme.css ghi đè MÀU giả định đã có style nền), nên 4
        span trong .monitoring-hero-meta và dòng "Luồng TQM..." render dính liền nhau không cách dòng/khung. */
@@ -95,12 +98,13 @@ export default async function MonitoringPage({ searchParams }: { searchParams: P
       <KpiCard icon="badge-check" tone="green" label="Tỷ lệ mục đạt" value={`${passPct}%`} caption={`${allPass}/${allScored || 0} mục được chấm đạt`} href="/monitoring?tab=analytics" active={tab==="analytics"} />
       <KpiCard icon="check-square" tone="blue" label="Hoàn thành đợt giám sát" value={`${completionPct}%`} caption={`${done}/${monitoringRows.length} đợt đã xác nhận/đóng`} />
       <KpiCard icon="calendar-days" tone="purple" label="Lượt giám sát năm" value={monitoringRows.length} caption="Tổng đợt không bị hủy" />
-      <KpiCard icon="circle-alert" tone="amber" label="Cần xử lý" value={needAttention} caption="Chờ kiểm, recheck hoặc xác nhận QLCL" urgent={needAttention > 0} href="/monitoring" active={tab==="monitoring"} />
+      {/* Ô "Cần xử lý" (tổng) đã gộp: đúng bằng tổng 4 ô giai đoạn Cần kiểm / Đang kiểm / Chờ kiểm lại / Chờ QLCL ngay bên dưới. */}
     </section>
     {tab==="analytics"?<><section className="tqm-grid"><article className="panel"><div className="tqm-head"><h2>Xu hướng lượt giám sát 12 tháng</h2><p>Cho biết nhịp triển khai giám sát trong năm.</p></div><TqmTrend points={months} unit=""/></article><article className="panel"><div className="tqm-head"><h2>Kết quả bảng kiểm</h2><p>Tổng hợp PASS/FAIL từ các mục đã chấm.</p></div><TqmDonut value={passPct} label="Mục đạt" segments={[{label:"Đạt",value:allPass,tone:"brand"},{label:"Chưa đạt",value:allFail,tone:"red"}]} /></article></section>
     <section className="panel"><div className="tqm-head"><h2>Giám sát theo khoa/phòng</h2><p>Xếp đơn vị có tỷ lệ mục đạt thấp lên trước để QLCL ưu tiên hỗ trợ và giám sát lại.</p></div>{depBars.length?<TqmHorizontalBars rows={depBars} max={100}/>:<div className="empty-state">Chưa có dữ liệu chấm điểm theo khoa/phòng.</div>}</section></>:null}
     {tab==="monitoring"?<><div className="detail-label">BẢNG KIỂM & ĐỢT GIÁM SÁT CHI TIẾT</div>
     {!templateRows.some((t: any) => t.source_code === "BK01.V1_QLCL.QĐ.06" || t.code === "BK01.V1_QLCL.QĐ.06") ? <Preset5SCreateClient departments={departments} canManage={canManageTemplates} /> : null}
-    <MonitoringClient year={year} canManageTemplates={canManageTemplates} canCreateRounds={canCreateRounds} templateRows={templateRows as any[]} monitoringRows={monitoringRows as any[]} departments={departments} /></>:null}
+    {overdueOnly ? <div className="scope-note">Đang lọc: <strong>Đợt giám sát quá ngày dự kiến chưa thực hiện</strong> · <Link className="table-link" href="/monitoring">Bỏ lọc</Link></div> : null}
+    <MonitoringClient initialRoundFilter={overdueOnly ? "OVERDUE" : undefined} year={year} canManageTemplates={canManageTemplates} canCreateRounds={canCreateRounds} templateRows={templateRows as any[]} monitoringRows={monitoringRows as any[]} departments={departments} /></>:null}
   </div>;
 }

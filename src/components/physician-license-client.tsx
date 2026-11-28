@@ -39,11 +39,14 @@ export function PhysicianLicenseClient({
   initialRegistrations,
   credentials,
   canManage,
+  attention,
 }: {
   departments: Department[];
   initialRegistrations: Registration[];
   credentials: Credential[];
   canManage: boolean;
+  // Bộ lọc từ thanh "Cần xử lý": hồ sơ chờ đăng ký đã quá hạn, hoặc đến hạn trong 7 ngày.
+  attention?: "overdue" | "soon";
 }) {
   const [registrations, setRegistrations] = useState(initialRegistrations);
   const [showCreate, setShowCreate] = useState(false);
@@ -181,7 +184,10 @@ export function PhysicianLicenseClient({
     setRegistrations((v) => v.map((r) => (r.id === reg.id ? { ...r, ...body.registration } : r)));
   }
 
-  const visible = (onlyPending ? registrations.filter((r) => r.status === "PENDING") : registrations).filter((r) => !search.trim() || [r.physician_name, r.physician_code, departmentName(r.department_id)].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(search.trim().toLocaleLowerCase("vi"))));
+  const attentionDay = today();
+  const attentionLimit = new Date(Date.parse(`${attentionDay}T00:00:00Z`) + 7 * 86400000).toISOString().slice(0, 10);
+  const byAttention = (r: Registration) => !attention || (r.status === "PENDING" && (attention === "overdue" ? r.deadline < attentionDay : r.deadline >= attentionDay && r.deadline <= attentionLimit));
+  const visible = (onlyPending ? registrations.filter((r) => r.status === "PENDING") : registrations).filter(byAttention).filter((r) => !search.trim() || [r.physician_name, r.physician_code, departmentName(r.department_id)].some((v) => String(v ?? "").toLocaleLowerCase("vi").includes(search.trim().toLocaleLowerCase("vi"))));
   const now = today();
 
   return (
