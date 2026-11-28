@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { PhysicianLicenseClient } from "@/components/physician-license-client";
 import { hasPermission, requireUserContext, requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { NavGroupBar } from "@/components/nav-group-bar";
 
 export default async function PhysicianLicensePage() {
   const { user } = await requireUserContext();
@@ -39,6 +40,7 @@ export default async function PhysicianLicensePage() {
         description="Theo dõi hạn đăng ký hành nghề trên cổng SYT/BHYT cho từng bác sĩ — tránh xuất toán BHYT do sai/thiếu chứng chỉ hành nghề."
         icon="list-checks"
       />
+      <NavGroupBar group="physician-license" active="/physician-license" ariaLabel="Luồng việc Quản lý hành nghề" emptyText="Không có hồ sơ hành nghề nào cần xử lý gấp." />
       <PhysicianLicenseClient
         departments={(departmentsRes.data ?? []) as any}
         initialRegistrations={(registrationsRes.data ?? []) as any}

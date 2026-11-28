@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { HandHygieneAuditsClient } from "@/components/hand-hygiene-audits-client";
 import { hasPermission, requirePermission, requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { NavGroupBar } from "@/components/nav-group-bar";
 
 const SELECT = "id,department_id,audit_date,observer_user_id,staff_role,opportunities_observed,opportunities_compliant,notes,created_at,updated_at";
 
@@ -24,6 +25,7 @@ export default async function HandHygieneAuditsPage() {
         description="Ghi nhận đợt quan sát tuân thủ vệ sinh tay (5 thời điểm) theo khoa/phòng — một trong các chỉ số kiểm soát nhiễm khuẩn bắt buộc của Bộ tiêu chí chất lượng bệnh viện."
         icon="droplets"
       />
+      <NavGroupBar group="infection-control" active="/infection-control/hand-hygiene" ariaLabel="Luồng việc Kiểm soát nhiễm khuẩn" emptyText="Không có ca nhiễm khuẩn nào chờ xác nhận." />
       <HandHygieneAuditsClient
         departments={(departmentsRes.data ?? []) as any}
         profiles={(profilesRes.data ?? []) as any}
