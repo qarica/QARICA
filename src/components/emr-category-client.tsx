@@ -431,7 +431,8 @@ export function EmrCategoryClient({ categoryCode, categoryLabel, canManage, desc
   const filtered = useMemo(() => {
     const text = search.trim().toLowerCase();
     let rows = text ? items.filter((i) => `${i.title} ${i.description || ""}`.toLowerCase().includes(text)) : items;
-    if (attention && attention !== "TOTAL") rows = rows.filter(bucketMatcher(attention, hasBlockedBucket, categoryCode));
+    // Lọc theo ô chỉ số: cùng tập với ô (Biểu mẫu không đếm bản nháp chưa duyệt phát hành) — số trên ô = số dòng.
+    if (attention && attention !== "TOTAL") rows = rows.filter((i) => !(categoryCode === "BIEU_MAU" && i.publish_status === "DRAFT")).filter(bucketMatcher(attention, hasBlockedBucket, categoryCode));
     if (categoryCode === "BIEU_MAU" && publishFilter !== "ALL") rows = rows.filter((i) => i.publish_status === publishFilter);
     if (titleSort === "default") return rows;
     return [...rows].sort((a, b) => titleSort === "asc" ? a.title.localeCompare(b.title, "vi") : b.title.localeCompare(a.title, "vi"));
