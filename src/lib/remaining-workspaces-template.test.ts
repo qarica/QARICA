@@ -49,3 +49,11 @@ describe("Kho minh chứng", () => {
     expect(ev).toContain('href="/evidence?filter=pending" active={filter==="pending"}');
   });
 });
+
+describe("Báo cáo & Phân tích QLCL", () => {
+  it("lưới lối tắt gộp vào dòng Quản lý theo quá trình, vẫn giữ lối vào Hồ sơ đã hủy", () => {
+    const an = read("src/app/(app)/analytics/page.tsx");
+    expect(an).not.toContain('<section className="module-shortcuts-grid">');
+    expect(an).toContain('href: "/cancelled-records"');
+  });
+});

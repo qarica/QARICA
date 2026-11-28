@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { KpiCard } from "@/components/kpi-card";
 import { PageHeader } from "@/components/page-header";
+import { TqmPrincipleLine } from "@/components/tqm-principle-line";
 import { TQM_CHART_CSS, TqmDonut, TqmHorizontalBars, TqmTrend } from "@/components/tqm-charts";
 import { requireUserContext } from "@/lib/auth";
 import { humanStatus } from "@/lib/format";
@@ -62,6 +62,8 @@ export default async function AnalyticsPage({searchParams}:{searchParams:Promise
  return <div className="page-stack tqm-analytics">
   <style>{TQM_CHART_CSS+`.tqm-analytics .filters{display:grid;grid-template-columns:150px minmax(220px,1fr) 190px auto auto;gap:9px;align-items:end;padding:14px 16px}.tqm-analytics .filters label{display:grid;gap:5px;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase}.tqm-analytics .filters select{min-height:40px}.tqm-analytics .filter-note{padding:0 16px 14px;font-size:11px;color:#64748b}.tqm-analytics .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.tqm-analytics .exec-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.tqm-analytics .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.tqm-analytics .head{padding:16px 18px 4px}.tqm-analytics .head h2{margin:0;font-size:15px}.tqm-analytics .head p{margin:4px 0 0;color:#74838a;font-size:11px}@media(max-width:900px){.tqm-analytics .filters{grid-template-columns:1fr 1fr}.tqm-analytics .grid{grid-template-columns:1fr}.tqm-analytics .kpis{grid-template-columns:1fr 1fr}.tqm-analytics .exec-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:560px){.tqm-analytics .filters{grid-template-columns:1fr}.tqm-analytics .filters .button{width:100%;justify-content:center}.tqm-analytics .kpis,.tqm-analytics .exec-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.tqm-analytics .grid{min-width:0}.tqm-analytics .grid>.panel{min-width:0;overflow:hidden}}`}</style>
   <PageHeader eyebrow={`PHÂN TÍCH QLCL · ${year}`} title="Báo cáo & Phân tích QLCL" description="Bức tranh TQM toàn viện từ cùng Registry nghiệp vụ. KPI, biểu đồ và file Excel dùng chung một logic lọc." icon="trending-up"/>
+  {/* Lưới lối tắt cũ (Dashboard / Việc của tôi / Hồ sơ đã hủy) gộp vào phần Liên kết — giữ lối vào duy nhất tới Hồ sơ đã hủy. */}
+  <TqmPrincipleLine purpose="Phân tích dựa trên dữ liệu đã xác minh, cùng một logic lọc cho KPI, biểu đồ và file Excel; không suy diễn khi thiếu dữ liệu." workflow={[]} related={[{ label: "Dashboard điều hành", href: "/dashboard" }, { label: "Việc của tôi", href: "/tasks" }, { label: "Hồ sơ đã hủy (ngoài vận hành)", href: "/cancelled-records" }]} showSteps/>
   {error?<div className="alert error">Không tải được dữ liệu: {error.message}</div>:null}
   <section className="exec-kpis">
    <KpiCard icon="shield-alert" tone="blue" label="Tổng số sự cố" value={incidentIds.length} caption={`Trong năm ${year}`} />
@@ -80,6 +82,5 @@ export default async function AnalyticsPage({searchParams}:{searchParams:Promise
   </section>
   <section className="grid"><article className="panel"><div className="head"><h2>Cơ cấu module chất lượng</h2><p>Phân bố hồ sơ trong đúng tập dữ liệu đang lọc.</p></div><TqmHorizontalBars rows={typeData}/></article><article className="panel"><div className="head"><h2>Trạng thái Registry</h2><p>Tỷ trọng vòng đời của tập hồ sơ đang lọc.</p></div><TqmDonut value={closure} label="Đã đóng" segments={statusSegments.length?statusSegments:[{label:"Chưa có dữ liệu",value:1,tone:"slate"}]}/></article></section>
   <section className="grid"><article className="panel"><div className="head"><h2>Khối lượng theo khoa/phòng</h2><p>Phân bố trách nhiệm theo đơn vị trong tập lọc.</p></div><TqmHorizontalBars rows={deptData}/></article><article className="panel"><div className="head"><h2>Nhịp phát sinh/tiếp nhận 12 tháng</h2><p>Số hồ sơ được tạo trong từng tháng theo created_at; không diễn giải đây là xu hướng kết quả chất lượng.</p></div><TqmTrend points={months} unit=""/></article></section>
-  <section className="module-shortcuts-grid"><Link className="module-shortcut" href="/dashboard"><strong>Dashboard điều hành</strong><span>Quay về bức tranh TQM tổng hợp →</span></Link><Link className="module-shortcut" href="/tasks"><strong>Việc của tôi</strong><span>Đi tới công việc đang phụ trách →</span></Link><Link className="module-shortcut" href="/cancelled-records"><strong>Hồ sơ đã hủy</strong><span>Tra cứu dữ liệu ngoài vận hành →</span></Link></section>
  </div>
 }
