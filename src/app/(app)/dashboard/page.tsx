@@ -8,9 +8,10 @@ import { TqmPriorityBoard, type PriorityItem } from "@/components/tqm-priority-b
 import { redirect } from "next/navigation";
 import { hasPermission, requireUserContext } from "@/lib/auth";
 import { visibleNavGroups } from "@/lib/navigation";
-import { buildIndicatorKpi, buildProjectActionKpi, isDueOnOrBeforeToday } from "@/lib/dashboard-kpi";
+import { buildIndicatorKpi, buildProjectActionKpi } from "@/lib/dashboard-kpi";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
+import { countCapaEffectivenessDue, countOutOfTargetIndicators, countOverdueFindings, countSeriousOpenIncidents, sumOverduePlanActions } from "@/lib/quality-priority-signals";
 import { incidentHarmClassification, incidentDomainDistribution } from "@/lib/incident-dashboard";
 
 import { VnDateInput } from "@/components/vn-date-input";
@@ -232,7 +233,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const plans = ((programProgressRes.data ?? []) as any[]).filter((x: any) => activeRecordIds.has(x.record_id));
   const planReq = plans.reduce((s: any, x: any) => s + Number(x.required_actions || 0), 0);
   const planDone = plans.reduce((s: any, x: any) => s + Number(x.completed_actions || 0), 0);
-  const planOverdue = plans.reduce((s: any, x: any) => s + Number(x.overdue_actions || 0), 0);
+  const planOverdue = sumOverduePlanActions(plans);
   const planPct = planReq ? Math.round((planDone / planReq) * 100) : (plans.length ? Math.round(plans.reduce((s: any, x: any) => s + Number(x.progress_pct || 0), 0) / plans.length) : 0);
 
   const [legacyIndicatorsRes, projectsRes, legacyFindingsRes, evidenceLinksRes] = recordIdList.length ? await Promise.all([
@@ -242,7 +243,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     supabase.from("record_links").select("source_record_id,target_record_id").eq("relation_type", "HAS_ACTION"),
   ]) : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
   const indicatorKpi = buildIndicatorKpi((legacyIndicatorsRes.data ?? []) as any[]);
-  const legacyOutTarget = indicatorKpi.outTarget; const indicatorTrend = indicatorKpi.trend;
+  const legacyOutTarget = countOutOfTargetIndicators((legacyIndicatorsRes.data ?? []) as any[]); const indicatorTrend = indicatorKpi.trend;
 
   const monitoring = ((monitoringRes.data ?? []) as any[]).filter((x: any) => activeRecordIds.has(x.record_id));
   const roundIds = monitoring.map((x: any) => x.id);
@@ -266,9 +267,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const ganttRows = projectRows.filter((x: any) => x.start_date && x.target_end_date).map((x: any) => ({ label: x.title, start: x.start_date, end: x.target_end_date, progress: x.progress, tone: (x.overdue ? "red" : x.progress >= 75 ? "green" : "blue") as any }));
 
   const legacyFindings = ((legacyFindingsRes.data ?? []) as any[]).filter((x: any) => !["CLOSED", "CANCELLED"].includes(String(x.workflow_status)));
-  const legacyOverdueFindings = legacyFindings.filter((x: any) => x.due_date && x.due_date < today).length;
-  const legacyCapaDue = capas.filter((x: any) => activeRecordIds.has(x.record_id) && (String(x.workflow_status) === "EFFECTIVENESS_REVIEW" || isDueOnOrBeforeToday(x.effectiveness_due_date, today))).length;
-  const legacySeriousOpen = incidentsAll.filter((x: any) => activeRecordIds.has(x.record_id) && x.serious_event_flag && !["CLOSED", "CANCELLED", "REJECTED"].includes(String(x.workflow_status))).length;
+  const legacyOverdueFindings = countOverdueFindings(legacyFindings, today);
+  const legacyCapaDue = countCapaEffectivenessDue(capas.filter((x: any) => activeRecordIds.has(x.record_id)), today);
+  const legacySeriousOpen = countSeriousOpenIncidents(incidentsAll.filter((x: any) => activeRecordIds.has(x.record_id)));
 
   // Một khối "Ưu tiên điều hành hôm nay" duy nhất: gộp thẻ cảnh báo cũ + bảng điểm nóng cũ (vốn trùng 4/5 mục của
   // Priority Board) + việc chờ Giám đốc phê duyệt. Mục nào đã có ô chỉ số riêng phía trên (CAPA quá hạn, sự cố đang RCA) thì
@@ -396,7 +397,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
 
     <div className="qcc-legacy-divider"><span>Kế hoạch, giám sát &amp; cải tiến chất lượng</span></div>
-    <TqmSmartCommandCenter year={year} />
+    <TqmSmartCommandCenter year={year} departmentId={selectedDept || null} />
     <TqmInterventionLoop openFindings={legacyFindings.length} overdueFindings={legacyOverdueFindings} capaDue={legacyCapaDue} projectPct={projectPct} />
     <section className="grid2"><article className="panel"><div className="head"><h2>Xu hướng chỉ số đạt mục tiêu 12 tháng</h2><p>Tỷ lệ MEETS_TARGET trong các kỳ VERIFIED/LOCKED đã có kết luận mục tiêu.</p></div><TqmTrend points={indicatorTrend} /></article><article className="panel"><div className="head"><h2>Giám sát theo khoa/phòng</h2><p>Đơn vị có tỷ lệ mục đạt thấp được đưa lên trước.</p></div>{deptBars.length ? <TqmHorizontalBars rows={deptBars} max={100} /> : <div className="empty-state">Chưa có dữ liệu giám sát đủ để so sánh.</div>}</article></section>
 

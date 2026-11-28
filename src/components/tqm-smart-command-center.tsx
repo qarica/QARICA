@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { createClient } from "@/lib/supabase/server";
+import { countCapaEffectivenessDue, countOutOfTargetIndicators, countOverdueActions, countOverdueFindings, countSeriousOpenIncidents } from "@/lib/quality-priority-signals";
 
 type Pillar = {
   key: string;
@@ -69,7 +70,8 @@ function scoreLabel(score: number | null) {
   return "Ưu tiên cao";
 }
 
-export async function TqmSmartCommandCenter({ year }: { year: number }) {
+// departmentId: cùng bộ lọc khoa/phòng đang chọn trên Dashboard (null = toàn viện), để số ở đây khớp các ô phía trên.
+export async function TqmSmartCommandCenter({ year, departmentId = null }: { year: number; departmentId?: string | null }) {
   const supabase = await createClient();
   const today = hcmToday();
 
@@ -133,7 +135,7 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
     .filter(Boolean);
 
   const records = ((recordsRes.data ?? []) as any[]).filter(
-    (row) => !CLOSED_RECORD.has(String(row.lifecycle_status)),
+    (row) => !CLOSED_RECORD.has(String(row.lifecycle_status)) && (!departmentId || row.owner_department_id === departmentId),
   );
   const recordIds = new Set(records.map((row) => row.id));
 
@@ -146,9 +148,7 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
   const actions = ((actionsRes.data ?? []) as any[]).filter(
     (row) => recordIds.has(row.record_id) && !DONE_ACTION.has(String(row.workflow_status)),
   );
-  const overdueActions = actions.filter(
-    (row) => Boolean(row.is_overdue) || dueBeforeToday(row.due_date, today),
-  ).length;
+  const overdueActions = countOverdueActions(actions, today);
 
   const indicators = ((indicatorsRes.data ?? []) as any[]).filter(
     (row) =>
@@ -161,7 +161,7 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
   const indicatorsOnTarget = evaluableIndicators.filter(
     (row) => String(row.result_level) === "MEETS_TARGET",
   ).length;
-  const outOfTarget = evaluableIndicators.length - indicatorsOnTarget;
+  const outOfTarget = countOutOfTargetIndicators(indicators);
   const dataScore = pct(indicatorsOnTarget, evaluableIndicators.length);
 
   const monitoring = ((monitoringRes.data ?? []) as any[]).filter((row) =>
@@ -189,18 +189,14 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
       recordIds.has(row.record_id) &&
       !["CLOSED", "CANCELLED"].includes(String(row.workflow_status)),
   );
-  const overdueFindings = findings.filter((row) => dueBeforeToday(row.due_date, today)).length;
+  const overdueFindings = countOverdueFindings(findings, today);
 
   const capas = ((capasRes.data ?? []) as any[]).filter(
     (row) =>
       recordIds.has(row.record_id) &&
       !["CLOSED", "CANCELLED", "EFFECTIVE"].includes(String(row.workflow_status)),
   );
-  const capaEffectivenessDue = capas.filter(
-    (row) =>
-      String(row.workflow_status) === "EFFECTIVENESS_REVIEW" ||
-      dueBeforeToday(row.effectiveness_due_date, today),
-  ).length;
+  const capaEffectivenessDue = countCapaEffectivenessDue(capas, today);
   const improvementScore =
     findings.length + capas.length > 0
       ? clamp(
@@ -216,7 +212,7 @@ export async function TqmSmartCommandCenter({ year }: { year: number }) {
       recordIds.has(row.record_id) &&
       !["CLOSED", "CANCELLED"].includes(String(row.workflow_status)),
   );
-  const seriousIncidents = incidents.filter((row) => Boolean(row.serious_event_flag)).length;
+  const seriousIncidents = countSeriousOpenIncidents(incidents);
 
   const feedback = ((feedbackRes.data ?? []) as any[]).filter(
     (row) =>
