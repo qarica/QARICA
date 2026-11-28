@@ -1,6 +1,9 @@
+import { AssessmentWorkspaceBar } from "@/components/assessment-workspace-bar";
 import { RegistryModulePage } from "@/components/registry-module-page";
+import { getWorkYear } from "@/lib/work-year";
 
-export default function ExternalAssessmentsPage() {
+export default async function ExternalAssessmentsPage() {
+  const year = await getWorkYear();
   return <RegistryModulePage config={{
     eyebrow: "ĐÁNH GIÁ & TIẾP ĐOÀN",
     title: "Đánh giá ngoài",
@@ -8,5 +11,5 @@ export default function ExternalAssessmentsPage() {
     permissions: ["criteria.view", "criteria.review", "criteria.manage"],
     recordTypes: ["EXTERNAL_ASSESSMENT"],
     icon: "search-check",
-  }} />;
+  }} topSlot={<AssessmentWorkspaceBar active="external" year={year} />} />;
 }
