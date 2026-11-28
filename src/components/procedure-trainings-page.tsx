@@ -3,6 +3,7 @@ import { ProcedureTrainingsClient } from "@/components/procedure-trainings-clien
 import { hasPermission, requireUserContext } from "@/lib/auth";
 import { buildTopicCompletion, groupTrainingsByTopic } from "@/lib/procedure-training-topic-rollup";
 import { createClient } from "@/lib/supabase/server";
+import { NavGroupBar } from "@/components/nav-group-bar";
 
 // Nội dung dùng chung cho 2 mục menu: "Đào tạo" (/procedure-trainings: danh sách lớp + theo chủ đề) và
 // "Tự đọc hiểu" (/tu-doc-hieu). Báo cáo thực tế: "menu hơi bị rối" — trước đây 1 mục "Phổ biến &
@@ -132,6 +133,7 @@ export async function ProcedureTrainingsPageContent({ mode }: { mode: ProcedureT
         }
         icon={mode === "self_read" ? "clipboard-check" : "book-open"}
       />
+      <NavGroupBar group="document-publications" active={mode === "self_read" ? "/tu-doc-hieu" : "/procedure-trainings"} ariaLabel="Luồng việc Quản lý văn bản" emptyText="Không có văn bản hay đào tạo nào cần xử lý gấp." />
       <ProcedureTrainingsClient
         mode={mode}
         initialTrainings={trainings as any}

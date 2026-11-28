@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { InfectionControlCasesClient } from "@/components/infection-control-cases-client";
 import { hasPermission, requirePermission, requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { NavGroupBar } from "@/components/nav-group-bar";
 
 const SELECT = "id,department_id,patient_code,detected_date,infection_site,pathogen,related_procedure,status,notes,created_at,updated_at";
 
@@ -23,6 +24,7 @@ export default async function InfectionControlCasesPage() {
         description="Ghi nhận và theo dõi ca nhiễm khuẩn liên quan chăm sóc y tế (HAI) theo khoa/phòng. Phơi nhiễm nghề nghiệp/kim đâm ghi nhận ở module Sự cố & Phản ánh."
         icon="shield-alert"
       />
+      <NavGroupBar group="infection-control" active="/infection-control" ariaLabel="Luồng việc Kiểm soát nhiễm khuẩn" emptyText="Không có ca nhiễm khuẩn nào chờ xác nhận." />
       <InfectionControlCasesClient
         departments={(departmentsRes.data ?? []) as any}
         initialCases={(casesRes.data ?? []) as any}

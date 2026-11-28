@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { DocumentPublicationsClient } from "@/components/document-publications-client";
 import { hasPermission, requireUserContext, requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { NavGroupBar } from "@/components/nav-group-bar";
 
 export default async function DocumentPublicationsPage() {
   const { user } = await requireUserContext();
@@ -35,6 +36,7 @@ export default async function DocumentPublicationsPage() {
         description="Theo dõi vòng đời văn bản từ đề nghị, soạn thảo, góp ý, rà soát, phê duyệt đến phát hành chính thức."
         icon="file-text"
       />
+      <NavGroupBar group="document-publications" active="/document-publications" ariaLabel="Luồng việc Quản lý văn bản" emptyText="Không có văn bản hay đào tạo nào cần xử lý gấp." />
       <DocumentPublicationsClient
         departments={(departmentsRes.data ?? []) as any}
         initialDocuments={(documentsRes.data ?? []) as any}

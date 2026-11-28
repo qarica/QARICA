@@ -10,6 +10,7 @@ import { isOperationallyHiddenStatus } from "@/lib/operational-record";
 import { loadPlanReferenceOptions } from "@/lib/plan-reference-options";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
+import { NavGroupBar } from "@/components/nav-group-bar";
 
 export default async function PlansPage() {
   const { user } = await requireUserContext();
@@ -67,6 +68,7 @@ export default async function PlansPage() {
       @media(max-width:900px){.tqm-workspace .tqm-overview-grid{grid-template-columns:1fr}}
     `}</style>
     <PageHeader eyebrow={`ĐIỀU HÀNH QLCL · ${year}`} title="Kế hoạch & Điều hành" description="Theo dõi mức hoàn thành kế hoạch, tiến độ Action, các đầu việc quá hạn và lộ trình triển khai trong năm. Danh sách chi tiết chỉ là lớp drill-down phía dưới." icon="calendar-range" actions={canManage ? <CreateModalButton><Icon name="plus" size={18}/> Tạo kế hoạch mới</CreateModalButton> : null} />
+    <NavGroupBar group="operations" active="/plans" ariaLabel="Luồng việc Điều hành chất lượng" emptyText="Không có nghĩa vụ báo cáo hay Action kế hoạch nào quá hạn." />
     {firstError ? <div className="alert error">Không tải được dữ liệu kế hoạch: {firstError.message}</div> : null}
 
     <section className="kpis">

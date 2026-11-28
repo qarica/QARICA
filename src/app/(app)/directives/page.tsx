@@ -1,4 +1,5 @@
 import { RegistryModulePage } from "@/components/registry-module-page";
+import { NavGroupBar } from "@/components/nav-group-bar";
 
 export default function DirectivesPage() {
   return (
@@ -11,6 +12,7 @@ export default function DirectivesPage() {
         permissions: ["directives.view", "directives.manage"],
         recordTypes: ["DIRECTIVE"],
       }}
+      topSlot={<NavGroupBar group="operations" active="/directives" ariaLabel="Luồng việc Điều hành chất lượng" emptyText="Không có nghĩa vụ báo cáo hay Action kế hoạch nào quá hạn." />}
     />
   );
 }

@@ -6,6 +6,7 @@ import { hasAnyPermission, hasPermission, requireUserContext } from "@/lib/auth"
 import { EMR_CATEGORIES } from "@/lib/emr-categories";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkYear } from "@/lib/work-year";
+import { NavGroupBar } from "@/components/nav-group-bar";
 
 type EventKind = "ACTION" | "PROGRAM" | "MONITORING" | "ASSESSMENT" | "REPORT" | "INSPECTION" | "RECURRING" | "REMINDER" | "EMR";
 type EventTone = "danger" | "warning" | "info" | "success" | "neutral";
@@ -536,6 +537,7 @@ export default async function QualityCalendarPage({ searchParams }: { searchPara
       icon="calendar-days"
       actions={<Link className="button secondary" href="/calendar/gantt">Gantt tiến độ →</Link>}
     />
+    <NavGroupBar group="operations" active="/calendar" ariaLabel="Luồng việc Điều hành chất lượng" emptyText="Không có nghĩa vụ báo cáo hay Action kế hoạch nào quá hạn." />
 
     {firstError ? <div className="alert error">Một phần dữ liệu lịch chưa tải được: {firstError.message}</div> : null}
 
