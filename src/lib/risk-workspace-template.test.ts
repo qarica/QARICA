@@ -26,4 +26,10 @@ describe("Rủi ro & FMEA theo khuôn Kho hóa chất", () => {
     expect(bar).toContain('href: "/fmea?stage=PENDING_APPROVAL"');
     expect(readFileSync("src/app/(app)/fmea/page.tsx", "utf8")).toContain('.eq("workflow_status", stage)');
   });
+
+  it("sidebar chỉ sáng dòng khớp đường dẫn dài nhất (Thang điểm không làm sáng luôn Risk Register); thanh tab xuống dòng thay vì bị khuất", () => {
+    const shell = readFileSync("src/components/app-shell.tsx", "utf8");
+    expect(shell).toContain("return !ALL_NAV_HREFS.some((href) => href.split(\"?\")[0].length > own && hrefMatches(pathname, href));");
+    expect(readFileSync("src/components/workspace-flow-bar.tsx", "utf8")).toContain(".cw-bar .cw-tabs{display:flex;flex-wrap:wrap;");
+  });
 });
