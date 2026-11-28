@@ -17,6 +17,9 @@ export type IncidentRegistryRow = {
   harmLabel: string;
   harmTone: "red" | "amber" | "blue" | "slate";
   reporterLabel: string;
+  // Gộp từ danh sách "Hồ sơ cần chú ý" cũ: bước cần làm tiếp và cờ sự cố nghiêm trọng (bảng đã xếp theo mức cần chú ý).
+  nextStep?: string;
+  serious?: boolean;
 };
 
 const PAGE_SIZE = 10;
@@ -25,7 +28,7 @@ function HarmBadge({ label, tone }: { label: string; tone: IncidentRegistryRow["
   return <span className={`incident-registry-harm ${tone}`}>{label}</span>;
 }
 
-export function IncidentRegistryTable({ rows }: { rows: IncidentRegistryRow[] }) {
+export function IncidentRegistryTable({ rows, title = "Danh sách sự cố & phản ánh", headerExtra }: { rows: IncidentRegistryRow[]; title?: string; headerExtra?: React.ReactNode }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("ALL");
   const [domain, setDomain] = useState("ALL");
@@ -55,7 +58,7 @@ export function IncidentRegistryTable({ rows }: { rows: IncidentRegistryRow[] })
   }
 
   return <section className="panel module-list-panel incident-registry-panel" id="incident-registry">
-    <div className="head"><h2>Danh sách sự cố & phản ánh</h2><p>Toàn bộ hồ sơ trong năm, lọc theo trạng thái/lĩnh vực/khoa-phòng và tìm theo mã, tiêu đề hoặc khoa/phòng.</p></div>
+    <div className="head incident-registry-head"><div><h2>{title}</h2><p>Xếp theo mức cần chú ý: sự cố nghiêm trọng và đang điều tra lên trước; lọc thêm theo trạng thái/lĩnh vực/khoa-phòng hoặc tìm theo mã, tiêu đề.</p></div>{headerExtra}</div>
     <div className="incident-registry-toolbar">
       <input value={q} onChange={(e) => { setQ(e.target.value); updateFilter(); }} placeholder="Tìm mã, tiêu đề, khoa/phòng..." />
       <select value={status} onChange={(e) => { setStatus(e.target.value); updateFilter(); }}>
@@ -74,12 +77,13 @@ export function IncidentRegistryTable({ rows }: { rows: IncidentRegistryRow[] })
     <div className="module-list-summary"><strong>{filtered.length}</strong> / {rows.length} hồ sơ</div>
     <div className="table-wrap">
       <table>
-        <thead><tr><th>Mã sự cố</th><th>Lĩnh vực</th><th>Tiêu đề</th><th>Khoa/phòng</th><th>Ngày xảy ra</th><th>Trạng thái</th><th>Mức tổn hại</th><th>Người báo cáo</th><th>Thao tác</th></tr></thead>
+        <thead><tr><th>Mã sự cố</th><th>Lĩnh vực</th><th>Tiêu đề</th><th>Việc tiếp theo</th><th>Khoa/phòng</th><th>Ngày xảy ra</th><th>Trạng thái</th><th>Mức tổn hại</th><th>Người báo cáo</th><th>Thao tác</th></tr></thead>
         <tbody>
           {pageRows.map((r) => <tr key={r.id}>
             <td><span className="record-code-pill">{r.code}</span></td>
             <td>{r.domainLabel || "—"}</td>
-            <td><Link className="record-title-link" href={r.route}>{r.title}</Link></td>
+            <td><Link className="record-title-link" href={r.route}>{r.title}</Link>{r.serious ? <span className="incident-serious-flag">⚠ Nghiêm trọng</span> : null}</td>
+            <td>{r.nextStep ? <span className="incident-next">{r.nextStep}</span> : <span className="empty-inline">—</span>}</td>
             <td>{r.department}</td>
             <td>{r.occurredAt ? formatDate(r.occurredAt) : "—"}</td>
             <td><StatusBadge status={r.status} /></td>
@@ -87,7 +91,7 @@ export function IncidentRegistryTable({ rows }: { rows: IncidentRegistryRow[] })
             <td>{r.reporterLabel}</td>
             <td><Link className="incident-registry-view" href={r.route} title="Xem chi tiết"><Icon name="eye" size={16} /></Link></td>
           </tr>)}
-          {!pageRows.length ? <tr><td colSpan={9}><div className="empty-state">Không có hồ sơ phù hợp.</div></td></tr> : null}
+          {!pageRows.length ? <tr><td colSpan={10}><div className="empty-state">Không có hồ sơ phù hợp.</div></td></tr> : null}
         </tbody>
       </table>
     </div>

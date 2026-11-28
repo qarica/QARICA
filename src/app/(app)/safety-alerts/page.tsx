@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DomainCreateClient } from "@/components/domain-create-client";
 import { PageHeader } from "@/components/page-header";
+import { SafetyWorkspaceBar } from "@/components/safety-workspace-bar";
 import { StatusBadge } from "@/components/status-badge";
 import { hasAnyPermission, requireUserContext } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -179,6 +180,7 @@ export default async function SafetyAlertsPage() {
         actions={canManage ? <DomainCreateClient recordType="SAFETY_ALERT" workYear={year} /> : null}
         icon="megaphone"
       />
+      <SafetyWorkspaceBar active="lessons" year={year} />
 
       {recordsRes.error || incidentsRes.error || alertsRes.error || lessonsRes.error ? (
         <div className="alert error">
