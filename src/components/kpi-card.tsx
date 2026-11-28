@@ -11,7 +11,7 @@ export type KpiTrend = { tone: "up" | "down" | "flat"; text: string; arrow?: boo
 export type KpiFooter = { text: string; href: string };
 
 export function KpiCard({
-  icon, tone = "blue", label, value, trend, visual, caption, urgent, footer, href,
+  icon, tone = "blue", label, value, trend, visual, caption, urgent, footer, href, active,
 }: {
   icon: string;
   tone?: KpiTone;
@@ -23,8 +23,10 @@ export function KpiCard({
   urgent?: boolean;
   footer?: KpiFooter;
   href?: string;
+  // active: ô đang được dùng làm bộ lọc (khuôn Kho hóa chất — bấm ô chỉ số để lọc danh sách bên dưới).
+  active?: boolean;
 }) {
-  const className = `kpi-tile tone-${tone}${urgent ? " urgent" : ""}`;
+  const className = `kpi-tile tone-${tone}${urgent ? " urgent" : ""}${active ? " is-active" : ""}`;
   const showArrow = trend?.arrow !== false;
   const body = <>
     <div className="kpi-tile-top">
@@ -40,6 +42,6 @@ export function KpiCard({
     {trend ? <span className={`kpi-trend ${trend.tone}`}>{showArrow ? (trend.tone === "up" ? "▲ " : trend.tone === "down" ? "▼ " : "") : ""}{trend.text}</span> : null}
   </>;
   return href
-    ? <Link href={href} className={`${className} kpi-tile-link`}>{body}</Link>
+    ? <Link href={href} className={`${className} kpi-tile-link`} aria-current={active ? "true" : undefined}>{body}</Link>
     : <article className={className}>{body}</article>;
 }
